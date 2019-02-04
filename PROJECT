@@ -1,0 +1,3 @@
+version: "1"
+domain: foundationdb.org
+repo: github.com/brownleej/fdb-kubernetes-operator
