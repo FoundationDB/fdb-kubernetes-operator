@@ -5,25 +5,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - apps
+  - ""
   resources:
-  - deployments
+  - pods
   verbs:
   - get
-  - list
   - watch
+  - list
   - create
   - update
-  - patch
   - delete
-- apiGroups:
-  - apps
-  resources:
-  - deployments/status
-  verbs:
-  - get
-  - update
-  - patch
 - apiGroups:
   - apps.foundationdb.org
   resources:

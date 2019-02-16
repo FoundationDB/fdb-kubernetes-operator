@@ -27,6 +27,9 @@ import (
 type FoundationDBClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Version        string         `json:"version"`
+	ProcessCounts  map[string]int `json:"processCounts,omitempty"`
+	NextInstanceID int            `json:"nextInstanceID,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -55,6 +58,16 @@ type FoundationDBClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []FoundationDBCluster `json:"items"`
+}
+
+// DesiredProcessCount returns the number of processes to configure with a given
+// class
+func (cluster *FoundationDBCluster) DesiredProcessCount(processClass string) int {
+	count := cluster.Spec.ProcessCounts[processClass]
+	if processClass == "storage" && count == 0 {
+		count = 1
+	}
+	return count
 }
 
 func init() {

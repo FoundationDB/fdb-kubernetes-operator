@@ -19,11 +19,37 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/onsi/gomega"
-	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
+
+func TestClusterDesiredProcessCounts(t *testing.T) {
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: FoundationDBClusterSpec{
+			ProcessCounts: map[string]int{"storage": 5},
+		},
+	}
+	count := cluster.DesiredProcessCount("storage")
+	if count != 5 {
+		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 5, count)
+	}
+
+	delete(cluster.Spec.ProcessCounts, "storage")
+	count = cluster.DesiredProcessCount("storage")
+	if count != 1 {
+		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 1, count)
+	}
+
+	count = cluster.DesiredProcessCount("log")
+	if count != 0 {
+		t.Errorf("Incorrect process count for log. Expected=%d, actual=%d", 0, count)
+	}
+}
+
+/*
 
 func TestStorageFoundationDBCluster(t *testing.T) {
 	key := types.NamespacedName{
@@ -56,3 +82,4 @@ func TestStorageFoundationDBCluster(t *testing.T) {
 	g.Expect(c.Delete(context.TODO(), fetched)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Get(context.TODO(), key, fetched)).To(gomega.HaveOccurred())
 }
+*/

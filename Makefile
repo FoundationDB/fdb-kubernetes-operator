@@ -4,17 +4,28 @@ IMG ?= controller:latest
 
 all: test manager
 
+PKG_PATH = github.com/brownleej/fdb-kubernetes-operator
+
+ifneq "$(DOCKER_IMAGE_ROOT)" ""
+	go_subs := $(go_subs) -X ${PKG_PATH}/pkg/controller/foundationdbcluster.DockerImageRoot=$(DOCKER_IMAGE_ROOT)
+endif
+
+ifneq "$(go_subs)" ""
+	go_subs := -ldflags "$(go_subs)"
+endif
+
+
 # Run tests
 test: generate fmt vet manifests
 	go test ./pkg/... ./cmd/... -coverprofile cover.out
 
 # Build manager binary
 manager: generate fmt vet
-	go build -o bin/manager github.com/brownleej/fdb-kubernetes-operator/cmd/manager
+	go build $(go_subs) -o bin/manager ${PKG_PATH}/cmd/manager
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
-	go run ./cmd/manager/main.go
+	go run $(go_subs) ./cmd/manager/main.go
 
 # Install CRDs into a cluster
 install: manifests

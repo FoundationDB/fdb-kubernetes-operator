@@ -27,6 +27,18 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            nextInstanceID:
+              format: int64
+              type: integer
+            processCounts:
+              type: object
+            version:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "make" to regenerate code after modifying this file'
+              type: string
+          required:
+          - version
           type: object
         status:
           type: object

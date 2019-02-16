@@ -6,4 +6,6 @@ metadata:
   name: foundationdbcluster-sample
 spec:
   # Add fields here
-  foo: bar
+  version: 6.0.18
+  processCounts:
+    storage: 3
