@@ -28,6 +28,8 @@ spec:
           type: object
         spec:
           properties:
+            connectionString:
+              type: string
             nextInstanceID:
               format: int64
               type: integer

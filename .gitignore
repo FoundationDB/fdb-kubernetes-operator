@@ -23,3 +23,6 @@ bin
 *.swp
 *.swo
 *~
+
+# binaries for sideloading
+foundationdb-kubernetes-sidecar/website
