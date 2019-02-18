@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= fdb-kubernetes-operator:latest
 
 all: test manager
 
@@ -11,7 +11,7 @@ ifneq "$(DOCKER_IMAGE_ROOT)" ""
 endif
 
 ifneq "$(go_subs)" ""
-	go_subs := -ldflags "$(go_subs)"
+	go_ld_flags := -ldflags "$(go_subs)"
 endif
 
 
@@ -21,11 +21,11 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build $(go_subs) -o bin/manager ${PKG_PATH}/cmd/manager
+	go build $(go_ld_flags) -o bin/manager ${PKG_PATH}/cmd/manager
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
-	go run $(go_subs) ./cmd/manager/main.go
+	go run $(go_ld_flags) ./cmd/manager/main.go
 
 # Install CRDs into a cluster
 install: manifests
@@ -57,10 +57,14 @@ endif
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker build --build-arg "GO_BUILD_SUBS=${go_subs}" . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+# Bounces the operator
+bounce-operator:
+	kubectl delete pod fdb-kubernetes-operator-controller-manager-0

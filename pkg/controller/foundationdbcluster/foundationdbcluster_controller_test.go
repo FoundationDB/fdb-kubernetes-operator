@@ -46,13 +46,15 @@ const timeout = time.Second * 5
 var defaultCluster = &appsv1beta1.FoundationDBCluster{
 	ObjectMeta: metav1.ObjectMeta{Name: "operator-test", Namespace: "default"},
 	Spec: appsv1beta1.FoundationDBClusterSpec{
-		Version: "6.0.18",
+		Version:          "6.0.18",
+		ConnectionString: "operator-test:asdfasf@127.0.0.1:4500",
 	},
 }
 
 func TestReconcileWithNewCluster(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := defaultCluster.DeepCopy()
+	cluster.Spec.ConnectionString = ""
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -60,7 +62,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
 
-	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	recFn, requests := SetupTestReconcile(t, newTestReconciler(mgr))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -74,13 +76,6 @@ func TestReconcileWithNewCluster(t *testing.T) {
 	err = c.Create(context.TODO(), cluster)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), cluster)
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-
-	configMap := &corev1.ConfigMap{}
-	configMapName := types.NamespacedName{Namespace: "default", Name: "operator-test-config"}
-	g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
-	expectedConfigMap, _ := GetConfigMap(cluster)
-	g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 
 	pods := &corev1.PodList{}
 	g.Eventually(func() (int, error) {
@@ -88,11 +83,20 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		return len(pods.Items), err
 	}, timeout).Should(gomega.Equal(1))
 
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
 	g.Eventually(func() error {
 		return c.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "operator-test"}, cluster)
 	}, timeout).Should(gomega.Succeed())
 
 	g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(2))
+	g.Expect(cluster.Spec.ConnectionString).To(gomega.Equal("operator_test:init@1.1.1.1:4500"))
+
+	configMap := &corev1.ConfigMap{}
+	configMapName := types.NamespacedName{Namespace: "default", Name: "operator-test-config"}
+	g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
+	expectedConfigMap, _ := GetConfigMap(cluster)
+	g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 }
 
 func TestGetConfigMap(t *testing.T) {
@@ -106,7 +110,7 @@ func TestGetConfigMap(t *testing.T) {
 	}))
 
 	g.Expect(len(configMap.Data)).To(gomega.Equal(3))
-	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal("init:init@127.0.0.1:4500"))
+	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal("operator-test:asdfasf@127.0.0.1:4500"))
 	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(GetMonitorConf(defaultCluster, "storage")))
 	sidecarConf := make(map[string]interface{})
 	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
@@ -116,6 +120,16 @@ func TestGetConfigMap(t *testing.T) {
 	g.Expect(sidecarConf["COPY_BINARIES"]).To(gomega.Equal([]interface{}{"fdbserver", "fdbcli"}))
 	g.Expect(sidecarConf["COPY_LIBRARIES"]).To(gomega.Equal([]interface{}{}))
 	g.Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(gomega.Equal("fdbmonitor.conf"))
+}
+
+func TestGetConfigMapWithEmptyConnectionString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := defaultCluster.DeepCopy()
+	cluster.Spec.ConnectionString = ""
+	configMap, err := GetConfigMap(cluster)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal(""))
+	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(""))
 }
 
 func TestGetMonitorConfForStorageInstance(t *testing.T) {

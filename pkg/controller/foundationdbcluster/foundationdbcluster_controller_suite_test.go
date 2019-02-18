@@ -52,11 +52,14 @@ func TestMain(m *testing.M) {
 
 // SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
 // writes the request to requests after Reconcile is finished.
-func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
+func SetupTestReconcile(t *testing.T, inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
 	requests := make(chan reconcile.Request)
 	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
 		result, err := inner.Reconcile(req)
 		requests <- req
+		if err != nil {
+			t.Errorf("Reconcile function returned error %s", err.Error())
+		}
 		return result, err
 	})
 	return fn, requests
@@ -72,4 +75,13 @@ func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}
 		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
 	}()
 	return stop, wg
+}
+
+// newReconciler returns a new reconcile.Reconciler
+func newTestReconciler(mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcileFoundationDBCluster{
+		Client:            mgr.GetClient(),
+		scheme:            mgr.GetScheme(),
+		podClientProvider: NewMockFdbPodClient,
+	}
 }

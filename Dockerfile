@@ -1,6 +1,8 @@
 # Build the manager binary
 FROM golang:1.10.3 as builder
 
+ARG GO_BUILD_SUBS=""
+
 # Copy in the go src
 WORKDIR /go/src/github.com/brownleej/fdb-kubernetes-operator
 COPY pkg/    pkg/
@@ -8,7 +10,8 @@ COPY cmd/    cmd/
 COPY vendor/ vendor/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager github.com/brownleej/fdb-kubernetes-operator/cmd/manager
+RUN echo CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$GO_BUILD_SUBS" -a -o manager github.com/brownleej/fdb-kubernetes-operator/cmd/manager
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$GO_BUILD_SUBS" -a -o manager github.com/brownleej/fdb-kubernetes-operator/cmd/manager
 
 # Copy the controller-manager into a thin image
 FROM ubuntu:latest
