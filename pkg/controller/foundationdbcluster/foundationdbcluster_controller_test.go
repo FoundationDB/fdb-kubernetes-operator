@@ -97,6 +97,12 @@ func TestReconcileWithNewCluster(t *testing.T) {
 	g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
 	expectedConfigMap, _ := GetConfigMap(cluster)
 	g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
+
+	adminClient, err := newMockAdminClientUncast(cluster)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(adminClient).NotTo(gomega.BeNil())
+	g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("single"))
+	g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd"))
 }
 
 func TestGetConfigMap(t *testing.T) {

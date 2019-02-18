@@ -31,6 +31,7 @@ type FoundationDBClusterSpec struct {
 	ProcessCounts    map[string]int `json:"processCounts,omitempty"`
 	ConnectionString string         `json:"connectionString,omitempty"`
 	NextInstanceID   int            `json:"nextInstanceID,omitempty"`
+	Configured       bool           `json:"configured,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

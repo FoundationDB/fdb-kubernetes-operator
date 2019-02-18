@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
+
 	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 
@@ -47,20 +49,17 @@ var log = logf.Log.WithName("controller")
 
 var processClasses = []string{"storage"}
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new FoundationDBCluster Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
+	fdb.MustAPIVersion(510)
 	return add(mgr, newReconciler(mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileFoundationDBCluster{Client: mgr.GetClient(), scheme: mgr.GetScheme(), podClientProvider: NewFdbPodClient}
+	return &ReconcileFoundationDBCluster{Client: mgr.GetClient(), scheme: mgr.GetScheme(),
+		podClientProvider: NewFdbPodClient, adminClientProvider: NewAdminClient}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -95,8 +94,9 @@ var _ reconcile.Reconciler = &ReconcileFoundationDBCluster{}
 // ReconcileFoundationDBCluster reconciles a FoundationDBCluster object
 type ReconcileFoundationDBCluster struct {
 	client.Client
-	scheme            *runtime.Scheme
-	podClientProvider func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
+	scheme              *runtime.Scheme
+	podClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
+	adminClientProvider func(*fdbtypes.FoundationDBCluster) (AdminClient, error)
 }
 
 // Reconcile reads that state of the cluster for a FoundationDBCluster object and makes changes based on the state read
@@ -133,6 +133,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	}
 
 	err = r.generateInitialClusterFile(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.updateDatabaseConfiguration(cluster)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -301,6 +306,27 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 		return r.updateConfigMap(cluster)
 	}
 
+	return nil
+}
+
+func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbtypes.FoundationDBCluster) error {
+	if !cluster.Spec.Configured {
+		log.Info("Configuring new database", "cluster", cluster.Name)
+		adminClient, err := r.adminClientProvider(cluster)
+		if err != nil {
+			return err
+		}
+		err = adminClient.ConfigureDatabase(DatabaseConfiguration{ReplicationMode: "single", StorageEngine: "ssd"}, true)
+		if err != nil {
+			return err
+		}
+		cluster.Spec.Configured = true
+		err = r.Update(context.TODO(), cluster)
+		if err != nil {
+			return err
+		}
+		log.Info("Configured database", cluster, cluster.Name)
+	}
 	return nil
 }
 
