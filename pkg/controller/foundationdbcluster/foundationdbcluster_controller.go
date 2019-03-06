@@ -325,7 +325,7 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbt
 		if err != nil {
 			return err
 		}
-		log.Info("Configured database", cluster, cluster.Name)
+		log.Info("Configured database", "cluster", cluster.Name)
 	}
 	return nil
 }
