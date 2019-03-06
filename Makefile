@@ -65,6 +65,6 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
-# Bounces the operator
-bounce-operator:
+# Rebuilds, deploys, and bounces the operator
+rebuild-operator: docker-build deploy
 	kubectl delete pod fdb-kubernetes-operator-controller-manager-0

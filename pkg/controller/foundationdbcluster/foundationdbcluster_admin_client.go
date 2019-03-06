@@ -1,6 +1,8 @@
 package foundationdbcluster
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 )
+
+var configurationProtocolVersion = []byte("\x01\x00\x04Q\xa5\x00\xdb\x0f")
 
 // AdminClient describes an interface for running administrative commands on a
 // cluster
@@ -25,44 +29,55 @@ type DatabaseConfiguration struct {
 
 func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValue, error) {
 	keys := make([]fdb.KeyValue, 0)
+	var policy localityPolicy
+	var replicas []byte
 
 	switch configuration.ReplicationMode {
 	case "single":
-		keys = append(keys,
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: []byte("1")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: []byte("1")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
-		)
+		policy = &singletonPolicy{}
+		replicas = []byte("1")
 	case "double":
-		keys = append(keys,
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: []byte("2")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: []byte("2")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
-		)
+		policy = &acrossPolicy{
+			Count:     2,
+			Field:     "zoneid",
+			Subpolicy: &singletonPolicy{},
+		}
+		replicas = []byte("2")
 	case "triple":
-		keys = append(keys,
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: []byte("3")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: []byte("3")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
-		)
+		policy = &acrossPolicy{
+			Count:     3,
+			Field:     "zoneid",
+			Subpolicy: &singletonPolicy{},
+		}
+		replicas = []byte("3")
 	default:
 		return nil, fmt.Errorf("Unknown replication mode %s", configuration.ReplicationMode)
 	}
 
+	policyBytes := bytes.Join([][]byte{configurationProtocolVersion, policy.BinaryRepresentation()}, nil)
+	fmt.Printf("JPB got policyBytes %s\n", policyBytes)
+	keys = append(keys,
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: replicas},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: replicas},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replication_policy"), Value: policyBytes},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replication_policy"), Value: policyBytes},
+	)
+
+	var engine []byte
 	switch configuration.StorageEngine {
 	case "ssd":
-		keys = append(keys,
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_engine"), Value: []byte("2")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_engine"), Value: []byte("2")},
-		)
+		engine = []byte("1")
 	case "memory":
-		keys = append(keys,
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_engine"), Value: []byte("1")},
-			fdb.KeyValue{Key: fdb.Key("\xff/conf/log_engine"), Value: []byte("1")},
-		)
+		engine = []byte("2")
 	default:
 		return nil, fmt.Errorf("Unknown storage engine %s", configuration.StorageEngine)
 	}
+
+	keys = append(keys,
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_engine"), Value: engine},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_engine"), Value: engine},
+	)
 	return keys, nil
 }
 
@@ -120,6 +135,8 @@ func (client *RealAdminClient) ConfigureDatabase(configuration DatabaseConfigura
 		if err == nil {
 			return err
 		}
+
+		fmt.Printf("JPB got configuration error %s\n", err)
 
 		fdbErr, isFdb := err.(fdb.Error)
 		if !isFdb {
@@ -267,4 +284,45 @@ func (client *MockAdminClient) ConfigureDatabase(configuration DatabaseConfigura
 	}
 	client.DatabaseConfiguration = configuration
 	return nil
+}
+
+// localityPolicy describes a policy for how data is replicated.
+type localityPolicy interface {
+	// BinaryRepresentation gets the encoded policy for use in database
+	// configuration
+	BinaryRepresentation() []byte
+}
+
+// singletonPolicy provides a policy that keeps a single replica of data
+type singletonPolicy struct {
+}
+
+// BinaryRepresentation gets the encoded policy for use in database
+// configuration
+func (policy *singletonPolicy) BinaryRepresentation() []byte {
+	return []byte("\x03\x00\x00\x00One")
+}
+
+// acrossPolicy provides a policy that replicates across fault domains
+type acrossPolicy struct {
+	Count     uint32
+	Field     string
+	Subpolicy localityPolicy
+}
+
+// BinaryRepresentation gets the encoded policy for use in database
+// configuration
+func (policy *acrossPolicy) BinaryRepresentation() []byte {
+	intBuffer := [4]byte{}
+	buffer := bytes.NewBuffer(nil)
+	binary.LittleEndian.PutUint32(intBuffer[:], 6)
+	buffer.Write(intBuffer[:])
+	buffer.WriteString("Across")
+	binary.LittleEndian.PutUint32(intBuffer[:], uint32(len(policy.Field)))
+	buffer.Write(intBuffer[:])
+	buffer.WriteString(policy.Field)
+	binary.LittleEndian.PutUint32(intBuffer[:], policy.Count)
+	buffer.Write(intBuffer[:])
+	buffer.Write(policy.Subpolicy.BinaryRepresentation())
+	return buffer.Bytes()
 }

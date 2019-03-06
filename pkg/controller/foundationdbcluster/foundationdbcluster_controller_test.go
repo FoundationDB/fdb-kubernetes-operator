@@ -243,5 +243,4 @@ func TestGetPodSpecForStorageInstances(t *testing.T) {
 		Name:         "fdb-trace-logs",
 		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 	}))
-
 }
