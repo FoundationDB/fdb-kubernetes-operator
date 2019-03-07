@@ -29,7 +29,8 @@ func TestClusterDesiredProcessCounts(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ProcessCounts: map[string]int{"storage": 5},
+			ProcessCounts:   map[string]int{"storage": 5},
+			ReplicationMode: "double",
 		},
 	}
 	count := cluster.DesiredProcessCount("storage")
@@ -39,47 +40,42 @@ func TestClusterDesiredProcessCounts(t *testing.T) {
 
 	delete(cluster.Spec.ProcessCounts, "storage")
 	count = cluster.DesiredProcessCount("storage")
+	if count != 3 {
+		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 3, count)
+	}
+
+	cluster.Spec.ReplicationMode = "single"
+	count = cluster.DesiredProcessCount("storage")
 	if count != 1 {
 		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 1, count)
 	}
 
+	cluster.Spec.ReplicationMode = "double"
 	count = cluster.DesiredProcessCount("log")
 	if count != 0 {
 		t.Errorf("Incorrect process count for log. Expected=%d, actual=%d", 0, count)
 	}
 }
 
-/*
-
-func TestStorageFoundationDBCluster(t *testing.T) {
-	key := types.NamespacedName{
-		Name:      "foo",
-		Namespace: "default",
-	}
-	created := &FoundationDBCluster{
+func TestClusterDesiredCoordinatorCounts(t *testing.T) {
+	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
-		}}
-	g := gomega.NewGomegaWithT(t)
+		},
+		Spec: FoundationDBClusterSpec{
+			ReplicationMode: "double",
+		},
+	}
 
-	// Test Create
-	fetched := &FoundationDBCluster{}
-	g.Expect(c.Create(context.TODO(), created)).NotTo(gomega.HaveOccurred())
+	count := cluster.DesiredCoordinatorCount()
+	if count != 3 {
+		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 3, count)
+	}
 
-	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())
-	g.Expect(fetched).To(gomega.Equal(created))
-
-	// Test Updating the Labels
-	updated := fetched.DeepCopy()
-	updated.Labels = map[string]string{"hello": "world"}
-	g.Expect(c.Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
-
-	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())
-	g.Expect(fetched).To(gomega.Equal(updated))
-
-	// Test Delete
-	g.Expect(c.Delete(context.TODO(), fetched)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Get(context.TODO(), key, fetched)).To(gomega.HaveOccurred())
+	cluster.Spec.ReplicationMode = "single"
+	count = cluster.DesiredCoordinatorCount()
+	if count != 1 {
+		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 1, count)
+	}
 }
-*/

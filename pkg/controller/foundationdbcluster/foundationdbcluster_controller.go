@@ -122,6 +122,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.setDefaultValues(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.updateConfigMap(cluster)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -143,6 +148,29 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.FoundationDBCluster) error {
+	changed := false
+	if cluster.Spec.ReplicationMode == "" {
+		cluster.Spec.ReplicationMode = "double"
+		changed = true
+	}
+	if cluster.Spec.StorageEngine == "" {
+		cluster.Spec.StorageEngine = "ssd"
+		changed = true
+	}
+	if changed {
+		err := r.Update(context.TODO(), cluster)
+		if err != nil {
+			return err
+		}
+		err = r.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.FoundationDBCluster) error {
@@ -282,21 +310,33 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 		if err != nil {
 			return err
 		}
-		if len(pods.Items) < 1 {
+		count := cluster.DesiredCoordinatorCount()
+		if len(pods.Items) < count {
 			return errors.New("Cannot find enough pods to recruit coordinators")
 		}
 
-		clientChan := make(chan FdbPodClient)
+		clientChan := make(chan FdbPodClient, count)
 		errChan := make(chan error)
 
-		go r.getPodClient(cluster, &pods.Items[0], clientChan, errChan)
-		select {
-		case client := <-clientChan:
-			clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
-			cluster.Spec.ConnectionString = fmt.Sprintf("%s:init@%s:4500", clusterName, client.GetPodIP())
-		case err := <-errChan:
-			return err
+		for i := 0; i < count; i++ {
+			go r.getPodClient(cluster, &pods.Items[i], clientChan, errChan)
 		}
+		clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
+		connectionString := fmt.Sprintf("%s:init", clusterName)
+		for i := 0; i < count; i++ {
+			select {
+			case client := <-clientChan:
+				if i == 0 {
+					connectionString = connectionString + "@"
+				} else {
+					connectionString = connectionString + ","
+				}
+				connectionString = connectionString + client.GetPodIP() + ":4500"
+			case err := <-errChan:
+				return err
+			}
+		}
+		cluster.Spec.ConnectionString = connectionString
 
 		err = r.Update(context.TODO(), cluster)
 		if err != nil {
@@ -316,7 +356,10 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbt
 		if err != nil {
 			return err
 		}
-		err = adminClient.ConfigureDatabase(DatabaseConfiguration{ReplicationMode: "single", StorageEngine: "ssd"}, true)
+		err = adminClient.ConfigureDatabase(DatabaseConfiguration{
+			ReplicationMode: cluster.Spec.ReplicationMode,
+			StorageEngine:   cluster.Spec.StorageEngine,
+		}, true)
 		if err != nil {
 			return err
 		}

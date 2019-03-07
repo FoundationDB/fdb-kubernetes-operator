@@ -55,7 +55,6 @@ func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValu
 	}
 
 	policyBytes := bytes.Join([][]byte{configurationProtocolVersion, policy.BinaryRepresentation()}, nil)
-	fmt.Printf("JPB got policyBytes %s\n", policyBytes)
 	keys = append(keys,
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: replicas},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: replicas},
@@ -135,8 +134,6 @@ func (client *RealAdminClient) ConfigureDatabase(configuration DatabaseConfigura
 		if err == nil {
 			return err
 		}
-
-		fmt.Printf("JPB got configuration error %s\n", err)
 
 		fdbErr, isFdb := err.(fdb.Error)
 		if !isFdb {

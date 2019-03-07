@@ -56,10 +56,10 @@ func SetupTestReconcile(t *testing.T, inner reconcile.Reconciler) (reconcile.Rec
 	requests := make(chan reconcile.Request)
 	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
 		result, err := inner.Reconcile(req)
-		requests <- req
 		if err != nil {
 			t.Errorf("Reconcile function returned error %s", err.Error())
 		}
+		requests <- req
 		return result, err
 	})
 	return fn, requests

@@ -31,6 +31,8 @@ type FoundationDBClusterSpec struct {
 	ProcessCounts    map[string]int `json:"processCounts,omitempty"`
 	ConnectionString string         `json:"connectionString,omitempty"`
 	NextInstanceID   int            `json:"nextInstanceID,omitempty"`
+	ReplicationMode  string         `json:"replicationMode,omitempty"`
+	StorageEngine    string         `json:"storageEngine,omitempty"`
 	Configured       bool           `json:"configured,omitempty"`
 }
 
@@ -66,10 +68,35 @@ type FoundationDBClusterList struct {
 // class
 func (cluster *FoundationDBCluster) DesiredProcessCount(processClass string) int {
 	count := cluster.Spec.ProcessCounts[processClass]
-	if processClass == "storage" && count == 0 {
-		count = 1
+	var minimum int
+	if processClass == "storage" {
+		switch cluster.Spec.ReplicationMode {
+		case "single":
+			minimum = 1
+		case "double":
+			minimum = 3
+		default:
+			minimum = 1
+		}
+	}
+
+	if minimum > count {
+		return minimum
 	}
 	return count
+}
+
+// DesiredCoordinatorCount returns the number of coordinators to recruit for
+// a cluster
+func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+	switch cluster.Spec.ReplicationMode {
+	case "single":
+		return 1
+	case "double":
+		return 3
+	default:
+		return 1
+	}
 }
 
 func init() {

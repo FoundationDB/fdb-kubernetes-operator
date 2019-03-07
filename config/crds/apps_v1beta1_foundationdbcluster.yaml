@@ -37,6 +37,10 @@ spec:
               type: integer
             processCounts:
               type: object
+            replicationMode:
+              type: string
+            storageEngine:
+              type: string
             version:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "make" to regenerate code after modifying this file'

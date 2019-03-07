@@ -53,8 +53,13 @@ var defaultCluster = &appsv1beta1.FoundationDBCluster{
 
 func TestReconcileWithNewCluster(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	cluster := defaultCluster.DeepCopy()
-	cluster.Spec.ConnectionString = ""
+	ClearMockAdminClients()
+	cluster := &appsv1beta1.FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "operator-test", Namespace: "default"},
+		Spec: appsv1beta1.FoundationDBClusterSpec{
+			Version: "6.0.18",
+		},
+	}
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -81,7 +86,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 	g.Eventually(func() (int, error) {
 		err := c.List(context.TODO(), podListOptions, pods)
 		return len(pods.Items), err
-	}, timeout).Should(gomega.Equal(1))
+	}, timeout).Should(gomega.Equal(3))
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
@@ -89,8 +94,10 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		return c.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "operator-test"}, cluster)
 	}, timeout).Should(gomega.Succeed())
 
-	g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(2))
-	g.Expect(cluster.Spec.ConnectionString).To(gomega.Equal("operator_test:init@1.1.1.1:4500"))
+	g.Expect(cluster.Spec.ReplicationMode).To(gomega.Equal("double"))
+	g.Expect(cluster.Spec.StorageEngine).To(gomega.Equal("ssd"))
+	g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(4))
+	g.Expect(cluster.Spec.ConnectionString).NotTo(gomega.Equal(""))
 
 	configMap := &corev1.ConfigMap{}
 	configMapName := types.NamespacedName{Namespace: "default", Name: "operator-test-config"}
@@ -101,7 +108,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 	adminClient, err := newMockAdminClientUncast(cluster)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(adminClient).NotTo(gomega.BeNil())
-	g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("single"))
+	g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("double"))
 	g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd"))
 }
 

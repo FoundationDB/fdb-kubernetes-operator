@@ -6,5 +6,3 @@ metadata:
   name: foundationdbcluster-sample
 spec:
   version: 6.0.18
-  processCounts:
-    storage: 3
