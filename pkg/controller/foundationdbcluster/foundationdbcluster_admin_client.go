@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/google/uuid"
@@ -353,7 +354,96 @@ func (client *RealAdminClient) IncludeInstances(addresses []string) error {
 // CanSafelyRemove checks whether it is safe to remove processes from the
 // cluster
 func (client *RealAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
-	return nil, nil
+	allServers, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		tr.Options().SetReadSystemKeys()
+		tr.Options().SetLockAware()
+		storageRange, err := fdb.PrefixRange([]byte("\xff/serverList/"))
+		if err != nil {
+			return nil, err
+		}
+		storageServers, err := tr.GetRange(storageRange, fdb.RangeOptions{}).GetSliceWithError()
+		if err != nil {
+			return nil, err
+		}
+
+		results := make([]string, 0, len(storageServers))
+		for _, server := range storageServers {
+			address, err := decodeStorageServerAddress(server.Value)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, address)
+		}
+
+		logServers, err := tr.Get(fdb.Key("\xff/logs")).Get()
+		currentLogs, offset := decodeLogList(logServers[8:])
+		oldLogs, _ := decodeLogList(logServers[offset+8:])
+
+		results = append(results, currentLogs...)
+		results = append(results, oldLogs...)
+
+		return results, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	remainingServers := make([]string, 0, len(addresses))
+	for _, address := range addresses {
+		prefix := address + ":"
+		for _, activeAddress := range allServers.([]string) {
+			if activeAddress == address || strings.HasPrefix(activeAddress, prefix) {
+				remainingServers = append(remainingServers, address)
+				break
+			}
+		}
+	}
+
+	return remainingServers, nil
+}
+
+func decodeStorageServerAddress(encoded []byte) (string, error) {
+	localityStart := uint32(24)
+	localityCount := binary.LittleEndian.Uint64(encoded[localityStart : localityStart+8])
+	currentIndex := localityStart + 8
+	for indexOfLocality := uint64(0); indexOfLocality < localityCount; indexOfLocality++ {
+		nameLength := binary.LittleEndian.Uint32(encoded[currentIndex : currentIndex+4])
+		currentIndex += nameLength + 4
+		if encoded[currentIndex] > 0 {
+			valueLength := binary.LittleEndian.Uint32(encoded[currentIndex+1 : currentIndex+5])
+			currentIndex += valueLength + 5
+		} else {
+			currentIndex++
+		}
+	}
+
+	address := decodeAddress(encoded[currentIndex:])
+
+	return address, nil
+}
+
+func decodeLogList(encoded []byte) ([]string, int) {
+	addressCount := binary.LittleEndian.Uint32(encoded)
+	offset := 4
+	addresses := make([]string, 0, addressCount)
+	for indexOfAddress := uint32(0); indexOfAddress < addressCount; indexOfAddress++ {
+		offset += 16
+		addresses = append(addresses, decodeAddress(encoded[offset:]))
+		offset += 8
+	}
+	return addresses, offset
+}
+
+func decodeAddress(encoded []byte) string {
+	return fmt.Sprintf(
+		"%d.%d.%d.%d:%d",
+		encoded[3],
+		encoded[2],
+		encoded[1],
+		encoded[0],
+		binary.LittleEndian.Uint16(encoded[4:]),
+	)
 }
 
 // MockAdminClient provides a mock implementation of the cluster admin interface

@@ -172,11 +172,6 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateConfigMap(cluster)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	return reconcile.Result{}, nil
 }
 
@@ -458,9 +453,23 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 		addresses = append(addresses, address)
 	}
 
-	err = adminClient.ExcludeInstances(addresses)
-	if err != nil {
-		return err
+	if len(addresses) > 0 {
+		err = adminClient.ExcludeInstances(addresses)
+		if err != nil {
+			return err
+		}
+	}
+
+	remaining := addresses
+	for len(remaining) > 0 {
+		remaining, err = adminClient.CanSafelyRemove(addresses)
+		if err != nil {
+			return err
+		}
+		if len(remaining) > 0 {
+			log.Info("Waiting for exclusions to complete", "remainingServers", remaining)
+			time.Sleep(time.Second)
+		}
 	}
 
 	return nil
