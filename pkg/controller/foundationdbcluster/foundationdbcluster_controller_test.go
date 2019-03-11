@@ -230,6 +230,49 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 		g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 	})
 }
+
+func TestReconcileWithExplicitRemoval(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalPods := &corev1.PodList{}
+
+		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), listOptions, originalPods)
+			return len(originalPods.Items), err
+		}, timeout).Should(gomega.Equal(4))
+
+		cluster.Spec.PendingRemovals = map[string]string{
+			originalPods.Items[0].Name: "",
+		}
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 7))
+
+		pods := &corev1.PodList{}
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), listOptions, pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(4))
+
+		g.Expect(pods.Items[0].Name).To(gomega.Equal(originalPods.Items[1].Name))
+		g.Expect(pods.Items[1].Name).To(gomega.Equal(originalPods.Items[2].Name))
+
+		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
+
+		adminClient, err := newMockAdminClientUncast(cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(adminClient).NotTo(gomega.BeNil())
+		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
+
+		podClient, err := NewMockFdbPodClient(cluster, &originalPods.Items[0])
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{podClient.GetPodIP()}))
+	})
+}
 func TestGetConfigMap(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

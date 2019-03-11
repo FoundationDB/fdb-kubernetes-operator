@@ -399,6 +399,11 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbt
 
 func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.FoundationDBCluster) error {
 	hasNewRemovals := false
+
+	var removals = cluster.Spec.PendingRemovals
+	if removals == nil {
+		removals = make(map[string]string)
+	}
 	for _, processClass := range processClasses {
 		existingPods := &corev1.PodList{}
 		err := r.List(
@@ -412,28 +417,49 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 		desiredCount := cluster.DesiredProcessCount(processClass)
 		existingCount := 0
 		for _, pod := range existingPods.Items {
-			_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
+			_, pendingRemoval := removals[pod.Name]
 			if !pendingRemoval {
 				existingCount++
 			}
 		}
 		removedCount := existingCount - desiredCount
 		if removedCount > 0 {
-			if cluster.Spec.PendingRemovals == nil {
-				cluster.Spec.PendingRemovals = make(map[string]string)
-			}
 			for indexOfPod := 0; indexOfPod < removedCount; indexOfPod++ {
 				pod := existingPods.Items[len(existingPods.Items)-1-indexOfPod]
 				podClient, err := r.getPodClient(cluster, &pod)
 				if err != nil {
 					return err
 				}
-				cluster.Spec.PendingRemovals[pod.Name] = podClient.GetPodIP()
+				removals[pod.Name] = podClient.GetPodIP()
 			}
 			hasNewRemovals = true
 		}
 	}
+
+	if cluster.Spec.PendingRemovals != nil {
+		for podName := range cluster.Spec.PendingRemovals {
+			if removals[podName] == "" {
+				podList := &corev1.PodList{}
+				err := r.List(context.TODO(), client.InNamespace(cluster.Namespace).MatchingField("metadata.name", podName), podList)
+				if err != nil {
+					return err
+				}
+				if len(podList.Items) == 0 {
+					delete(removals, podName)
+				} else {
+					podClient, err := r.getPodClient(cluster, &podList.Items[0])
+					if err != nil {
+						return err
+					}
+					removals[podName] = podClient.GetPodIP()
+				}
+				hasNewRemovals = true
+			}
+		}
+	}
+
 	if hasNewRemovals {
+		cluster.Spec.PendingRemovals = removals
 		err := r.Update(context.TODO(), cluster)
 		if err != nil {
 			return err
