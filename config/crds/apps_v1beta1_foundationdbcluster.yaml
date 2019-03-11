@@ -35,6 +35,8 @@ spec:
             nextInstanceID:
               format: int64
               type: integer
+            pendingRemovals:
+              type: object
             processCounts:
               type: object
             replicationMode:
@@ -42,8 +44,6 @@ spec:
             storageEngine:
               type: string
             version:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "make" to regenerate code after modifying this file'
               type: string
           required:
           - version

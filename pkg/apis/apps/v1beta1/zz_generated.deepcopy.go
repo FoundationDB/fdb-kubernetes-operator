@@ -94,6 +94,13 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.PendingRemovals != nil {
+		in, out := &in.PendingRemovals, &out.PendingRemovals
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

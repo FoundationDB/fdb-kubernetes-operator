@@ -25,15 +25,14 @@ import (
 
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Version          string         `json:"version"`
-	ProcessCounts    map[string]int `json:"processCounts,omitempty"`
-	ConnectionString string         `json:"connectionString,omitempty"`
-	NextInstanceID   int            `json:"nextInstanceID,omitempty"`
-	ReplicationMode  string         `json:"replicationMode,omitempty"`
-	StorageEngine    string         `json:"storageEngine,omitempty"`
-	Configured       bool           `json:"configured,omitempty"`
+	Version          string            `json:"version"`
+	ProcessCounts    map[string]int    `json:"processCounts,omitempty"`
+	ConnectionString string            `json:"connectionString,omitempty"`
+	NextInstanceID   int               `json:"nextInstanceID,omitempty"`
+	ReplicationMode  string            `json:"replicationMode,omitempty"`
+	StorageEngine    string            `json:"storageEngine,omitempty"`
+	Configured       bool              `json:"configured,omitempty"`
+	PendingRemovals  map[string]string `json:"pendingRemovals,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

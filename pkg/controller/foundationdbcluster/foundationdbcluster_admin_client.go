@@ -18,7 +18,20 @@ var configurationProtocolVersion = []byte("\x01\x00\x04Q\xa5\x00\xdb\x0f")
 // AdminClient describes an interface for running administrative commands on a
 // cluster
 type AdminClient interface {
+	// ConfigureDatabase sets the database configuration
 	ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error
+
+	// ExcludeInstances starts evacuating processes so that they can be removed
+	// from the database.
+	ExcludeInstances(addresses []string) error
+
+	// IncludeInstances removes processes from the exclusion list and allows
+	// them to take on roles again.
+	IncludeInstances(addresses []string) error
+
+	// CanSafelyRemove checks whether it is safe to remove processes from the
+	// cluster
+	CanSafelyRemove(addresses []string) ([]string, error)
 }
 
 // DatabaseConfiguration represents the desired
@@ -203,14 +216,20 @@ func configureDatabaseInTransaction(configuration DatabaseConfiguration, newData
 		if err != nil {
 			return err
 		}
-		err = tr.AddReadConflictKey(keys[0].Key)
-		if err != nil {
-			return err
-		}
 	}
 
 	for _, keyValue := range keys {
-		tr.Set(keyValue.Key, keyValue.Value)
+		var match bool
+		if !newDatabase {
+			currentValue, err := tr.Get(keyValue.Key).Get()
+			if err != nil {
+				return err
+			}
+			match = reflect.DeepEqual(currentValue, keyValue.Value)
+		}
+		if !match {
+			tr.Set(keyValue.Key, keyValue.Value)
+		}
 	}
 
 	return tr.Commit().Get()
@@ -245,10 +264,104 @@ func checkConfigurationInitID(tr fdb.Transaction, initID uuid.UUID) error {
 	return nil
 }
 
+// ExcludeInstances starts evacuating processes so that they can be removed
+// from the database.
+func (client *RealAdminClient) ExcludeInstances(addresses []string) error {
+	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		exclusionID, err := uuid.NewRandom()
+		if err != nil {
+			return nil, err
+		}
+		err = tr.Options().SetPrioritySystemImmediate()
+		if err != nil {
+			return nil, err
+		}
+
+		err = tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		err = tr.Options().SetLockAware()
+		if err != nil {
+			return nil, err
+		}
+
+		tr.AddReadConflictKey(fdb.Key("\xff/conf/excluded"))
+		tr.Set(fdb.Key("\xff/conf/excluded"), exclusionID[:])
+		for _, address := range addresses {
+			tr.Set(
+				fdb.Key(bytes.Join([][]byte{
+					[]byte("\xff/conf/excluded/"),
+					[]byte(address),
+				}, nil)),
+				nil,
+			)
+		}
+		return nil, nil
+	})
+	return err
+}
+
+// IncludeInstances removes processes from the exclusion list and allows
+// them to take on roles again.
+func (client *RealAdminClient) IncludeInstances(addresses []string) error {
+	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		exclusionID, err := uuid.NewRandom()
+		if err != nil {
+			return nil, err
+		}
+		err = tr.Options().SetPrioritySystemImmediate()
+		if err != nil {
+			return nil, err
+		}
+
+		err = tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		err = tr.Options().SetLockAware()
+		if err != nil {
+			return nil, err
+		}
+
+		tr.AddReadConflictKey(fdb.Key("\xff/conf/excluded"))
+		tr.Set(fdb.Key("\xff/conf/excluded"), exclusionID[:])
+		for _, address := range addresses {
+			// Clear an exclusion on this address
+			key := bytes.Join([][]byte{
+				[]byte("\xff/conf/excluded/"),
+				[]byte(address),
+			}, nil)
+			tr.Clear(fdb.Key(key))
+
+			// Clear an exclusion on any address that starts with this address,
+			// followed by a colon
+			key = append(key, 58)
+			keyRange, err := fdb.PrefixRange(key)
+			if err != nil {
+				return nil, err
+			}
+			tr.ClearRange(keyRange)
+		}
+		return nil, nil
+	})
+	return err
+}
+
+// CanSafelyRemove checks whether it is safe to remove processes from the
+// cluster
+func (client *RealAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
+	return nil, nil
+}
+
 // MockAdminClient provides a mock implementation of the cluster admin interface
 type MockAdminClient struct {
 	Cluster *fdbtypes.FoundationDBCluster
 	DatabaseConfiguration
+	ExcludedAddresses   []string
+	ReincludedAddresses []string
 }
 
 var adminClientCache = make(map[string]*MockAdminClient)
@@ -274,13 +387,42 @@ func ClearMockAdminClients() {
 
 // ConfigureDatabase changes the database configuration
 func (client *MockAdminClient) ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error {
-	if client.DatabaseConfiguration.ReplicationMode == "" && !newDatabase {
-		return errors.New("Database not configured yet")
-	} else if client.DatabaseConfiguration.ReplicationMode != "" {
-		return errors.New("Database already configured")
-	}
 	client.DatabaseConfiguration = configuration
 	return nil
+}
+
+// ExcludeInstances starts evacuating processes so that they can be removed
+// from the database.
+func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
+	client.ExcludedAddresses = append(client.ExcludedAddresses, addresses...)
+	return nil
+}
+
+// IncludeInstances removes processes from the exclusion list and allows
+// them to take on roles again.
+func (client *MockAdminClient) IncludeInstances(addresses []string) error {
+	newExclusions := make([]string, 0, len(client.ExcludedAddresses))
+	for _, excludedAddress := range client.ExcludedAddresses {
+		included := false
+		for _, address := range addresses {
+			if address == excludedAddress {
+				included = true
+				client.ReincludedAddresses = append(client.ReincludedAddresses, address)
+				break
+			}
+		}
+		if !included {
+			newExclusions = append(newExclusions, excludedAddress)
+		}
+	}
+	client.ExcludedAddresses = newExclusions
+	return nil
+}
+
+// CanSafelyRemove checks whether it is safe to remove processes from the
+// cluster
+func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
+	return nil, nil
 }
 
 // localityPolicy describes a policy for how data is replicated.
