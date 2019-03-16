@@ -94,12 +94,22 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.StorageClass != nil {
+		in, out := &in.StorageClass, &out.StorageClass
+		*out = new(string)
+		**out = **in
+	}
 	if in.PendingRemovals != nil {
 		in, out := &in.PendingRemovals, &out.PendingRemovals
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.CustomParameters != nil {
+		in, out := &in.CustomParameters, &out.CustomParameters
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

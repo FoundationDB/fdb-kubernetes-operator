@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/onsi/gomega"
 	appsv1beta1 "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	"golang.org/x/net/context"
@@ -53,6 +55,7 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 			ProcessCounts: map[string]int{
 				"storage": 4,
 			},
+			VolumeSize: "16G",
 		},
 	}
 }
@@ -90,6 +93,13 @@ func cleanupCluster(cluster *appsv1beta1.FoundationDBCluster, g *gomega.GomegaWi
 }
 
 func runReconciliation(t *testing.T, testFunction func(*gomega.GomegaWithT, *appsv1beta1.FoundationDBCluster, client.Client, chan reconcile.Request)) {
+	cluster := createDefaultCluster()
+	cluster.Spec.ConnectionString = ""
+	cluster.Spec.VolumeSize = "0"
+	runReconciliationOnCluster(t, cluster, testFunction)
+}
+
+func runReconciliationOnCluster(t *testing.T, cluster *appsv1beta1.FoundationDBCluster, testFunction func(*gomega.GomegaWithT, *appsv1beta1.FoundationDBCluster, client.Client, chan reconcile.Request)) {
 	g := gomega.NewGomegaWithT(t)
 	ClearMockAdminClients()
 
@@ -101,9 +111,6 @@ func runReconciliation(t *testing.T, testFunction func(*gomega.GomegaWithT, *app
 
 	recFn, requests := SetupTestReconcile(t, newTestReconciler(mgr))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
-
-	cluster := createDefaultCluster()
-	cluster.Spec.ConnectionString = ""
 
 	defer cleanupCluster(cluster, g)
 
@@ -196,6 +203,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		podClient, err := NewMockFdbPodClient(cluster, &originalPods.Items[3])
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{podClient.GetPodIP()}))
+
 	})
 }
 
@@ -339,6 +347,32 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	}, "\n")))
 }
 
+func TestGetMonitorConfWithCustomParameters(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.CustomParameters = []string{
+		"knob_disable_posix_kernel_aio = 1",
+	}
+	conf := GetMonitorConf(cluster, "storage")
+	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
+		"[general]",
+		"kill_on_configuration_change = false",
+		"restart_delay = 60",
+		"[fdbserver.1]",
+		"command = /var/dynamic-conf/bin/6.0.18/fdbserver",
+		"cluster_file = /var/fdb/data/fdb.cluster",
+		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+		"public_address = $FDB_PUBLIC_IP:4500",
+		"class = storage",
+		"datadir = /var/fdb/data",
+		"logdir = /var/log/fdb-trace-logs",
+		"loggroup = operator-test",
+		"locality_machineid = $HOSTNAME",
+		"locality_zoneid = $HOSTNAME",
+		"knob_disable_posix_kernel_aio = 1",
+	}, "\n")))
+}
+
 func TestGetPodForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -357,13 +391,13 @@ func TestGetPodForStorageInstance(t *testing.T) {
 		"fdb-process-class": "storage",
 		"fdb-instance-id":   "1",
 	}))
-	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "storage")))
+	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "storage", "operator-test-1")))
 }
 
-func TestGetPodSpecForStorageInstances(t *testing.T) {
+func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
-	spec := GetPodSpec(cluster, "storage")
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -410,8 +444,10 @@ func TestGetPodSpecForStorageInstances(t *testing.T) {
 
 	g.Expect(len(spec.Volumes)).To(gomega.Equal(4))
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
-		Name:         "data",
-		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		Name: "data",
+		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: "operator-test-1-data",
+		}},
 	}))
 	g.Expect(spec.Volumes[1]).To(gomega.Equal(corev1.Volume{
 		Name:         "dynamic-conf",
@@ -432,4 +468,86 @@ func TestGetPodSpecForStorageInstances(t *testing.T) {
 		Name:         "fdb-trace-logs",
 		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 	}))
+}
+
+func TestGetPodSpecForStorageInstanceWithNoVolume(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.VolumeSize = "0"
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
+
+	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
+		Name:         "data",
+		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+	}))
+}
+
+func TestGetPvcForStorageInstance(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pvc.Namespace).To(gomega.Equal("default"))
+	g.Expect(pvc.Name).To(gomega.Equal("operator-test-1-data"))
+	g.Expect(pvc.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name":  "operator-test",
+		"fdb-process-class": "storage",
+		"fdb-instance-id":   "1",
+	}))
+	g.Expect(pvc.Spec).To(gomega.Equal(corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				"storage": resource.MustParse("16G"),
+			},
+		},
+	}))
+}
+
+func TestGetPvcWithNoVolume(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.VolumeSize = "0"
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(pvc).To(gomega.BeNil())
+}
+
+func TestGetPvcWithStorageClass(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	class := "local"
+	cluster.Spec.StorageClass = &class
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(pvc.Spec.StorageClassName).To(gomega.Equal(&class))
+}
+
+func TestGetPvcForStatelessInstance(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	pvc, err := GetPvc(cluster, "stateless", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(pvc).To(gomega.BeNil())
 }

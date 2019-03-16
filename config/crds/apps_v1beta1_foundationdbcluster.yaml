@@ -32,6 +32,10 @@ spec:
               type: boolean
             connectionString:
               type: string
+            customParameters:
+              items:
+                type: string
+              type: array
             nextInstanceID:
               format: int64
               type: integer
@@ -41,12 +45,17 @@ spec:
               type: object
             replicationMode:
               type: string
+            storageClass:
+              type: string
             storageEngine:
               type: string
             version:
               type: string
+            volumeSize:
+              type: string
           required:
           - version
+          - volumeSize
           type: object
         status:
           type: object

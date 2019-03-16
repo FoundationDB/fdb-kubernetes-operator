@@ -9,3 +9,4 @@ spec:
   processCounts:
     storage: 4
   replicationMode: double
+  volumeSize: 16G
