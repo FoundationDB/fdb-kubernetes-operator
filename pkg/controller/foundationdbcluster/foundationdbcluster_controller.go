@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/record"
+
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 
 	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -60,8 +62,13 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileFoundationDBCluster{Client: mgr.GetClient(), scheme: mgr.GetScheme(),
-		podClientProvider: NewFdbPodClient, adminClientProvider: NewAdminClient}
+	return &ReconcileFoundationDBCluster{
+		Client:              mgr.GetClient(),
+		recorder:            mgr.GetRecorder("foundationdbcluster-controller"),
+		scheme:              mgr.GetScheme(),
+		podClientProvider:   NewFdbPodClient,
+		adminClientProvider: NewAdminClient,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -101,6 +108,7 @@ var _ reconcile.Reconciler = &ReconcileFoundationDBCluster{}
 // ReconcileFoundationDBCluster reconciles a FoundationDBCluster object
 type ReconcileFoundationDBCluster struct {
 	client.Client
+	recorder            record.EventRecorder
 	scheme              *runtime.Scheme
 	podClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
 	adminClientProvider func(*fdbtypes.FoundationDBCluster) (AdminClient, error)
@@ -130,6 +138,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	}
 
 	err = r.setDefaultValues(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.updateStatus(cluster)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -174,6 +187,15 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.updateStatus(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if !cluster.Status.FullyReconciled {
+		return reconcile.Result{}, errors.New("Cluster was not fully reconciled by reconciliation process")
+	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -196,6 +218,36 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.Founda
 	return nil
 }
 
+func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.FoundationDBCluster) error {
+	cluster.Status.DesiredProcessCounts = make(map[string]int, len(processClasses))
+	cluster.Status.ProcessCounts = make(map[string]int, len(processClasses))
+	for _, processClass := range processClasses {
+		existingPods := &corev1.PodList{}
+		err := r.List(
+			context.TODO(),
+			getPodListOptions(cluster, processClass),
+			existingPods)
+		if err != nil {
+			return err
+		}
+
+		cluster.Status.DesiredProcessCounts[processClass] = cluster.DesiredProcessCount(processClass)
+		existingCount := 0
+		for _, pod := range existingPods.Items {
+			_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
+			if !pendingRemoval {
+				existingCount++
+			}
+		}
+		cluster.Status.ProcessCounts[processClass] = existingCount
+	}
+	cluster.Status.FullyReconciled = cluster.Spec.Configured &&
+		len(cluster.Spec.PendingRemovals) == 0 &&
+		reflect.DeepEqual(cluster.Status.DesiredProcessCounts, cluster.Status.ProcessCounts)
+	r.Status().Update(context.TODO(), cluster)
+	return nil
+}
+
 func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.FoundationDBCluster) error {
 	configMap, err := GetConfigMap(cluster, r)
 	if err != nil {
@@ -213,6 +265,7 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.Foundat
 
 	if !reflect.DeepEqual(existing.Data, configMap.Data) || !reflect.DeepEqual(existing.Labels, configMap.Labels) {
 		log.Info("Updating config map", "namespace", configMap.Namespace, "name", configMap.Name)
+		r.recorder.Event(cluster, "Normal", "UpdatingConfigMap", "")
 		existing.ObjectMeta.Labels = configMap.ObjectMeta.Labels
 		existing.Data = configMap.Data
 		err = r.Update(context.TODO(), existing)
@@ -283,25 +336,9 @@ func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass strin
 func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBCluster) error {
 	hasNewPods := false
 	for _, processClass := range processClasses {
-		existingPods := &corev1.PodList{}
-		err := r.List(
-			context.TODO(),
-			getPodListOptions(cluster, processClass),
-			existingPods)
-		if err != nil {
-			return err
-		}
-
-		desiredCount := cluster.DesiredProcessCount(processClass)
-		existingCount := 0
-		for _, pod := range existingPods.Items {
-			_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
-			if !pendingRemoval {
-				existingCount++
-			}
-		}
-		newCount := desiredCount - existingCount
+		newCount := cluster.Status.DesiredProcessCounts[processClass] - cluster.Status.ProcessCounts[processClass]
 		if newCount > 0 {
+			r.recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 			id := cluster.Spec.NextInstanceID
 			if id < 1 {
 				id = 1
@@ -330,7 +367,7 @@ func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBClu
 				id++
 			}
 			cluster.Spec.NextInstanceID = id
-
+			cluster.Status.DesiredProcessCounts[processClass] += newCount
 			hasNewPods = true
 		}
 	}
@@ -346,6 +383,7 @@ func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBClu
 func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbtypes.FoundationDBCluster) error {
 	if cluster.Spec.ConnectionString == "" {
 		log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "name", cluster.Name)
+		r.recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
 		pods := &corev1.PodList{}
 		err := r.List(context.TODO(), getPodListOptions(cluster, "storage"), pods)
 		if err != nil {
@@ -393,6 +431,10 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbtypes.FoundationDBCluster) error {
 	log.Info("Configuring database", "cluster", cluster.Name)
 	adminClient, err := r.adminClientProvider(cluster)
+
+	if !cluster.Spec.Configured {
+		r.recorder.Event(cluster, "Normal", "ChangingConfiguration", "Setting initial database configuration")
+	}
 	if err != nil {
 		return err
 	}
@@ -432,16 +474,9 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 			return err
 		}
 
-		desiredCount := cluster.DesiredProcessCount(processClass)
-		existingCount := 0
-		for _, pod := range existingPods.Items {
-			_, pendingRemoval := removals[pod.Name]
-			if !pendingRemoval {
-				existingCount++
-			}
-		}
-		removedCount := existingCount - desiredCount
+		removedCount := cluster.Status.ProcessCounts[processClass] - cluster.Status.DesiredProcessCounts[processClass]
 		if removedCount > 0 {
+			r.recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 			for indexOfPod := 0; indexOfPod < removedCount; indexOfPod++ {
 				pod := existingPods.Items[len(existingPods.Items)-1-indexOfPod]
 				podClient, err := r.getPodClient(cluster, &pod)
@@ -451,6 +486,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 				removals[pod.Name] = podClient.GetPodIP()
 			}
 			hasNewRemovals = true
+			cluster.Status.ProcessCounts[processClass] -= removedCount
 		}
 	}
 
@@ -499,6 +535,7 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 
 	if len(addresses) > 0 {
 		err = adminClient.ExcludeInstances(addresses)
+		r.recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
 		if err != nil {
 			return err
 		}
@@ -520,6 +557,10 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 }
 
 func (r *ReconcileFoundationDBCluster) removePods(cluster *fdbtypes.FoundationDBCluster) error {
+	if len(cluster.Spec.PendingRemovals) == 0 {
+		return nil
+	}
+	r.recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", cluster.Spec.PendingRemovals))
 	updateSignals := make(chan error, len(cluster.Spec.PendingRemovals))
 	for id := range cluster.Spec.PendingRemovals {
 		go r.removePod(cluster, id, updateSignals)
@@ -577,6 +618,10 @@ func (r *ReconcileFoundationDBCluster) includeInstances(cluster *fdbtypes.Founda
 	addresses := make([]string, 0, len(cluster.Spec.PendingRemovals))
 	for _, address := range cluster.Spec.PendingRemovals {
 		addresses = append(addresses, address)
+	}
+
+	if len(addresses) > 0 {
+		r.recorder.Event(cluster, "Normal", "IncludingInstances", fmt.Sprintf("Including removed processes: %v", addresses))
 	}
 
 	err = adminClient.IncludeInstances(addresses)

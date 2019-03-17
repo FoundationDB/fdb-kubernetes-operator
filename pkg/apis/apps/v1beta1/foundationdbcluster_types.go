@@ -40,8 +40,9 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	FullyReconciled      bool           `json:"fullyReconciled"`
+	ProcessCounts        map[string]int `json:"processCounts,omitempty"`
+	DesiredProcessCounts map[string]int `json:"desiredProcessCounts,omitempty"`
 }
 
 // +genclient
@@ -49,6 +50,7 @@ type FoundationDBClusterStatus struct {
 
 // FoundationDBCluster is the Schema for the foundationdbclusters API
 // +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
 type FoundationDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

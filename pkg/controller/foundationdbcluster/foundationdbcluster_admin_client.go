@@ -33,6 +33,10 @@ type AdminClient interface {
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster
 	CanSafelyRemove(addresses []string) ([]string, error)
+
+	// Close shuts down any resources for the client once it is no longer
+	// needed.
+	Close() error
 }
 
 // DatabaseConfiguration represents the desired
@@ -110,6 +114,7 @@ func NewAdminClient(cluster *fdbtypes.FoundationDBCluster) (AdminClient, error) 
 	clusterFilePath := fmt.Sprintf("/tmp/fdb/%s.cluster", cluster.Name)
 
 	clusterFile, err := os.OpenFile(clusterFilePath, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	defer clusterFile.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -403,6 +408,12 @@ func (client *RealAdminClient) CanSafelyRemove(addresses []string) ([]string, er
 	return remainingServers, nil
 }
 
+// Close shuts down any resources for the client once it is no longer
+// needed.
+func (client *RealAdminClient) Close() error {
+	return nil
+}
+
 func decodeStorageServerAddress(encoded []byte) (string, error) {
 	localityStart := uint32(24)
 	localityCount := binary.LittleEndian.Uint64(encoded[localityStart : localityStart+8])
@@ -513,6 +524,12 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 // cluster
 func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
 	return nil, nil
+}
+
+// Close shuts down any resources for the client once it is no longer
+// needed.
+func (client *MockAdminClient) Close() error {
+	return nil
 }
 
 // localityPolicy describes a policy for how data is replicated.

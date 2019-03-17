@@ -30,4 +30,5 @@ COPY --from=builder /go/src/github.com/brownleej/fdb-kubernetes-operator/manager
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/libfdb_c.so
 ENV FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY=/usr/lib/fdb/multiversion
+ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENTRYPOINT ["/manager"]

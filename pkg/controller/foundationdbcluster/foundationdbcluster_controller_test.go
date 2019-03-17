@@ -161,6 +161,12 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("double"))
 		g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd"))
+
+		g.Expect(cluster.Status.FullyReconciled).To(gomega.BeTrue())
+		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(map[string]int{
+			"storage": 4,
+		}))
+		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(cluster.Status.DesiredProcessCounts))
 	})
 }
 
@@ -181,7 +187,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 5))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 11))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -217,7 +223,7 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 6))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -258,7 +264,7 @@ func TestReconcileWithExplicitRemoval(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 7))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 12))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {

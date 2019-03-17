@@ -11,6 +11,8 @@ spec:
     kind: FoundationDBCluster
     plural: foundationdbclusters
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -58,6 +60,15 @@ spec:
           - volumeSize
           type: object
         status:
+          properties:
+            desiredProcessCounts:
+              type: object
+            fullyReconciled:
+              type: boolean
+            processCounts:
+              type: object
+          required:
+          - fullyReconciled
           type: object
   version: v1beta1
 status:
