@@ -18,6 +18,7 @@ package foundationdbcluster
 
 import (
 	"encoding/json"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -156,7 +157,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		expectedConfigMap, _ := GetConfigMap(cluster, c)
 		g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 
-		adminClient, err := newMockAdminClientUncast(cluster)
+		adminClient, err := newMockAdminClientUncast(cluster, client)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("double"))
@@ -167,6 +168,8 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			"storage": 4,
 		}))
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(cluster.Status.DesiredProcessCounts))
+		g.Expect(cluster.Status.IncorrectProcesses).To(gomega.BeNil())
+		g.Expect(cluster.Status.MissingProcesses).To(gomega.BeNil())
 	})
 }
 
@@ -201,14 +204,12 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 
 		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
 
-		adminClient, err := newMockAdminClientUncast(cluster)
+		adminClient, err := newMockAdminClientUncast(cluster, client)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
-		podClient, err := NewMockFdbPodClient(cluster, &originalPods.Items[3])
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{podClient.GetPodIP()}))
+		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{mockPodIP(&originalPods.Items[3])}))
 
 	})
 }
@@ -264,7 +265,7 @@ func TestReconcileWithExplicitRemoval(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 12))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 13))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -277,16 +278,49 @@ func TestReconcileWithExplicitRemoval(t *testing.T) {
 
 		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
 
-		adminClient, err := newMockAdminClientUncast(cluster)
+		adminClient, err := newMockAdminClientUncast(cluster, client)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
-		podClient, err := NewMockFdbPodClient(cluster, &originalPods.Items[0])
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{podClient.GetPodIP()}))
+		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{mockPodIP(&originalPods.Items[0])}))
 	})
 }
+
+func TestReconcileWithKnobChange(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalPods := &corev1.PodList{}
+
+		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), listOptions, originalPods)
+			return len(originalPods.Items), err
+		}, timeout).Should(gomega.Equal(4))
+
+		adminClient, err := newMockAdminClientUncast(cluster, client)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		adminClient.FreezeStatus()
+		cluster.Spec.CustomParameters = []string{"knob_disable_posix_kernel_aio=1"}
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 6))
+
+		addresses := make([]string, 0, len(originalPods.Items))
+		for _, pod := range originalPods.Items {
+			addresses = append(addresses, mockPodIP(&pod))
+		}
+
+		sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
+			return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
+		})
+		g.Expect(adminClient.KilledAddresses).To(gomega.Equal(addresses))
+	})
+}
+
 func TestGetConfigMap(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -351,6 +385,29 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 		"locality_machineid = $HOSTNAME",
 		"locality_zoneid = $HOSTNAME",
 	}, "\n")))
+}
+
+func TestGetStartCommandForStoragePod(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		err := c.List(context.TODO(), listOptions, pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		command := GetStartCommand(cluster, &pods.Items[0])
+		g.Expect(command).To(gomega.Equal(strings.Join([]string{
+			"/var/dynamic-conf/bin/6.0.18/fdbserver",
+			"--class=storage",
+			"--cluster_file=/var/fdb/data/fdb.cluster",
+			"--datadir=/var/fdb/data",
+			"--locality_machineid=operator-test-1",
+			"--locality_zoneid=operator-test-1",
+			"--logdir=/var/log/fdb-trace-logs",
+			"--loggroup=operator-test",
+			"--public_address=:4500",
+			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+		}, " ")))
+	})
 }
 
 func TestGetMonitorConfWithCustomParameters(t *testing.T) {

@@ -65,6 +65,10 @@ spec:
               type: object
             fullyReconciled:
               type: boolean
+            incorrectProcesses:
+              type: object
+            missingProcesses:
+              type: object
             processCounts:
               type: object
           required:

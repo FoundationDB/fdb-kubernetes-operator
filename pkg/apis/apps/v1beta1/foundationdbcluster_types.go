@@ -40,9 +40,11 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	FullyReconciled      bool           `json:"fullyReconciled"`
-	ProcessCounts        map[string]int `json:"processCounts,omitempty"`
-	DesiredProcessCounts map[string]int `json:"desiredProcessCounts,omitempty"`
+	FullyReconciled      bool             `json:"fullyReconciled"`
+	ProcessCounts        map[string]int   `json:"processCounts,omitempty"`
+	DesiredProcessCounts map[string]int   `json:"desiredProcessCounts,omitempty"`
+	IncorrectProcesses   map[string]int64 `json:"incorrectProcesses,omitempty"`
+	MissingProcesses     map[string]int64 `json:"missingProcesses,omitempty"`
 }
 
 // +genclient
@@ -101,6 +103,25 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 	default:
 		return 1
 	}
+}
+
+// FoundationDBStatus describes the status of the cluster as provided by
+// FoundationDB itself
+type FoundationDBStatus struct {
+	Cluster FoundationDBStatusClusterInfo `json:"cluster,omitempty"`
+}
+
+// FoundationDBStatusClusterInfo describes the "cluster" portion of the
+// cluster status
+type FoundationDBStatusClusterInfo struct {
+	Processes map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
+}
+
+// FoundationDBStatusProcessInfo describes the "processes" portion of the
+// cluster status
+type FoundationDBStatusProcessInfo struct {
+	Address     string `json:"address,omitempty"`
+	CommandLine string `json:"command_line,omitempty"`
 }
 
 func init() {

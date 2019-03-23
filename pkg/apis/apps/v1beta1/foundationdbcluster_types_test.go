@@ -17,7 +17,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -78,4 +83,37 @@ func TestClusterDesiredCoordinatorCounts(t *testing.T) {
 	if count != 1 {
 		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 1, count)
 	}
+}
+
+func TestParsingClusterStatus(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	statusFile, err := os.OpenFile(filepath.Join("testdata", "fdb_status_6_0.json"), os.O_RDONLY, os.ModePerm)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	defer statusFile.Close()
+	statusDecoder := json.NewDecoder(statusFile)
+	status := FoundationDBStatus{}
+	err = statusDecoder.Decode(&status)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(status).To(gomega.Equal(FoundationDBStatus{
+		Cluster: FoundationDBStatusClusterInfo{
+			Processes: map[string]FoundationDBStatusProcessInfo{
+				"c9eb35e25a364910fd77fdeec5c3a1f6": {
+					Address:     "172.17.0.6:4500",
+					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-4 --locality_zoneid=foundationdbcluster-sample-4 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.6:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				},
+				"d532d8cb1c23d002c4b97742f5195fdb": {
+					Address:     "172.17.0.7:4500",
+					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-3 --locality_zoneid=foundationdbcluster-sample-3 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.7:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				},
+				"f7058e8bed0618a0533f6188e9e35cdb": {
+					Address:     "172.17.0.9:4500",
+					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-2 --locality_zoneid=foundationdbcluster-sample-2 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.9:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				},
+				"6a5d5735fc8a58add63cceba1da46421": {
+					Address:     "172.17.0.8:4500",
+					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-1 --locality_zoneid=foundationdbcluster-sample-1 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.8:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				},
+			},
+		},
+	}))
 }

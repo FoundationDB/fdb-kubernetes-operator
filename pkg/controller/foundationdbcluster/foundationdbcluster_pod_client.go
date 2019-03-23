@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -142,7 +143,7 @@ func (client *mockFdbPodClient) GetPod() *corev1.Pod {
 
 // GetPodIP gets the IP address for a pod.
 func (client *mockFdbPodClient) GetPodIP() string {
-	return fmt.Sprintf("1.1.1.%s", client.Pod.Labels["fdb-instance-id"])
+	return mockPodIP(client.Pod)
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
@@ -161,13 +162,18 @@ func (client *mockFdbPodClient) CopyFiles(err chan error) {
 	err <- nil
 }
 
+func mockPodIP(pod *corev1.Pod) string {
+	return fmt.Sprintf("1.1.1.%s", pod.Labels["fdb-instance-id"])
+}
+
 // UpdateDynamicFiles updates the files in the dynamic conf volume until they
 // match the expected contents.
 func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, signal chan error, updateFunc func(client FdbPodClient, err chan error)) {
 	clientError := make(chan error)
 	hashMatch := make(chan bool)
 
-	var match = false
+	match := false
+	firstCheck := true
 	var err error
 
 	for !match {
@@ -175,6 +181,12 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, s
 		select {
 		case match = <-hashMatch:
 			if !match {
+				log.Info("Waiting for config update", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
+				if firstCheck {
+					firstCheck = false
+				} else {
+					time.Sleep(time.Second * 10)
+				}
 				go updateFunc(client, clientError)
 				err = <-clientError
 				if err != nil {

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -111,7 +112,7 @@ type ReconcileFoundationDBCluster struct {
 	recorder            record.EventRecorder
 	scheme              *runtime.Scheme
 	podClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
-	adminClientProvider func(*fdbtypes.FoundationDBCluster) (AdminClient, error)
+	adminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
 // Reconcile reads that state of the cluster for a FoundationDBCluster object and makes changes based on the state read
@@ -187,6 +188,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.bounceProcesses(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.updateStatus(cluster)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -195,6 +201,8 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	if !cluster.Status.FullyReconciled {
 		return reconcile.Result{}, errors.New("Cluster was not fully reconciled by reconciliation process")
 	}
+
+	log.Info("Reconciliation complete", "namespace", cluster.Namespace, "name", cluster.Name)
 
 	return reconcile.Result{}, nil
 }
@@ -219,8 +227,31 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.Founda
 }
 
 func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.FoundationDBCluster) error {
-	cluster.Status.DesiredProcessCounts = make(map[string]int, len(processClasses))
-	cluster.Status.ProcessCounts = make(map[string]int, len(processClasses))
+	status := fdbtypes.FoundationDBClusterStatus{}
+	status.DesiredProcessCounts = make(map[string]int, len(processClasses))
+	status.ProcessCounts = make(map[string]int, len(processClasses))
+	status.IncorrectProcesses = make(map[string]int64)
+	status.MissingProcesses = make(map[string]int64)
+
+	var databaseStatus *fdbtypes.FoundationDBStatus
+	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
+
+	if cluster.Spec.Configured {
+		adminClient, err := r.adminClientProvider(cluster, r)
+		if err != nil {
+			return err
+		}
+		databaseStatus, err = adminClient.GetStatus()
+		if err != nil {
+			return err
+		}
+		for _, process := range databaseStatus.Cluster.Processes {
+			address := strings.Split(process.Address, ":")
+			processMap[address[0]] = append(processMap[address[0]], process)
+		}
+	} else {
+		databaseStatus = nil
+	}
 	for _, processClass := range processClasses {
 		existingPods := &corev1.PodList{}
 		err := r.List(
@@ -231,19 +262,48 @@ func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.Foundation
 			return err
 		}
 
-		cluster.Status.DesiredProcessCounts[processClass] = cluster.DesiredProcessCount(processClass)
+		status.DesiredProcessCounts[processClass] = cluster.DesiredProcessCount(processClass)
 		existingCount := 0
 		for _, pod := range existingPods.Items {
 			_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
 			if !pendingRemoval {
 				existingCount++
 			}
+
+			podClient, err := r.getPodClient(cluster, &pod)
+			if err != nil {
+				return err
+			}
+			ip := podClient.GetPodIP()
+			processStatus := processMap[ip]
+			if len(processStatus) == 0 {
+				existingTime, exists := cluster.Status.MissingProcesses[pod.Name]
+				if exists {
+					status.MissingProcesses[pod.Name] = existingTime
+				} else {
+					status.MissingProcesses[pod.Name] = time.Now().Unix()
+				}
+			} else {
+				for _, process := range processStatus {
+					commandLine := GetStartCommand(cluster, &pod)
+					if commandLine != process.CommandLine {
+						existingTime, exists := cluster.Status.IncorrectProcesses[pod.Name]
+						if exists {
+							status.IncorrectProcesses[pod.Name] = existingTime
+						} else {
+							status.IncorrectProcesses[pod.Name] = time.Now().Unix()
+						}
+					}
+				}
+			}
 		}
-		cluster.Status.ProcessCounts[processClass] = existingCount
+		status.ProcessCounts[processClass] = existingCount
 	}
-	cluster.Status.FullyReconciled = cluster.Spec.Configured &&
+	status.FullyReconciled = cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
-		reflect.DeepEqual(cluster.Status.DesiredProcessCounts, cluster.Status.ProcessCounts)
+		reflect.DeepEqual(status.DesiredProcessCounts, status.ProcessCounts) &&
+		len(status.IncorrectProcesses) == 0
+	cluster.Status = status
 	r.Status().Update(context.TODO(), cluster)
 	return nil
 }
@@ -430,7 +490,7 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 
 func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbtypes.FoundationDBCluster) error {
 	log.Info("Configuring database", "cluster", cluster.Name)
-	adminClient, err := r.adminClientProvider(cluster)
+	adminClient, err := r.adminClientProvider(cluster, r)
 
 	if !cluster.Spec.Configured {
 		r.recorder.Event(cluster, "Normal", "ChangingConfiguration", "Setting initial database configuration")
@@ -523,7 +583,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 }
 
 func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.FoundationDBCluster) error {
-	adminClient, err := r.adminClientProvider(cluster)
+	adminClient, err := r.adminClientProvider(cluster, r)
 	if err != nil {
 		return err
 	}
@@ -610,7 +670,7 @@ func (r *ReconcileFoundationDBCluster) removePod(cluster *fdbtypes.FoundationDBC
 }
 
 func (r *ReconcileFoundationDBCluster) includeInstances(cluster *fdbtypes.FoundationDBCluster) error {
-	adminClient, err := r.adminClientProvider(cluster)
+	adminClient, err := r.adminClientProvider(cluster, r)
 	if err != nil {
 		return err
 	}
@@ -631,6 +691,44 @@ func (r *ReconcileFoundationDBCluster) includeInstances(cluster *fdbtypes.Founda
 
 	cluster.Spec.PendingRemovals = nil
 	r.Update(context.TODO(), cluster)
+
+	return nil
+}
+
+func (r *ReconcileFoundationDBCluster) bounceProcesses(cluster *fdbtypes.FoundationDBCluster) error {
+	adminClient, err := r.adminClientProvider(cluster, r)
+	if err != nil {
+		return err
+	}
+
+	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
+	for podName := range cluster.Status.IncorrectProcesses {
+		pod := &corev1.Pod{}
+		err := r.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: podName}, pod)
+		if err != nil {
+			return err
+		}
+		podClient, err := r.podClientProvider(cluster, pod)
+		if err != nil {
+			return err
+		}
+		addresses = append(addresses, podClient.GetPodIP())
+
+		signal := make(chan error)
+		go r.updatePodDynamicConf(cluster, pod, signal)
+		err = <-signal
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(addresses) > 0 {
+		r.recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
+		err = adminClient.KillInstances(addresses)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -705,21 +803,56 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string) 
 		"kill_on_configuration_change = false",
 		"restart_delay = 60",
 	)
+	confLines = append(confLines, "[fdbserver.1]")
+	confLines = append(confLines, getStartCommandLines(cluster, processClass, nil)...)
+	return strings.Join(confLines, "\n")
+}
+
+// GetStartCommand builds the expected start command for a pod.
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) string {
+	lines := getStartCommandLines(cluster, pod.Labels["fdb-process-class"], pod)
+	regex := regexp.MustCompile("^(\\w+)\\s*=\\s*(.*)")
+	firstComponents := regex.FindStringSubmatch(lines[0])
+	command := firstComponents[2]
+	sort.Slice(lines, func(i, j int) bool {
+		return strings.Compare(lines[i], lines[j]) < 0
+	})
+	for _, line := range lines {
+		components := regex.FindStringSubmatch(line)
+		if components[1] == "command" {
+			continue
+		}
+		command += " --" + components[1] + "=" + components[2]
+	}
+	return command
+}
+
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) []string {
+	confLines := make([]string, 0, 20)
+	var publicIP string
+	var machineID string
+
+	if pod == nil {
+		publicIP = "$FDB_PUBLIC_IP"
+		machineID = "$HOSTNAME"
+	} else {
+		publicIP = pod.Status.PodIP
+		machineID = pod.Name
+	}
 	confLines = append(confLines,
-		"[fdbserver.1]",
 		fmt.Sprintf("command = /var/dynamic-conf/bin/%s/fdbserver", cluster.Spec.Version),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		"public_address = $FDB_PUBLIC_IP:4500",
+		fmt.Sprintf("public_address = %s:4500", publicIP),
 		fmt.Sprintf("class = %s", processClass),
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", cluster.Name),
-		"locality_machineid = $HOSTNAME",
-		"locality_zoneid = $HOSTNAME",
+		fmt.Sprintf("locality_machineid = %s", machineID),
+		fmt.Sprintf("locality_zoneid = %s", machineID),
 	)
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
-	return strings.Join(confLines, "\n")
+	return confLines
 }
 
 // GetPodMonitorConf builds the monitor conf for a specific pod

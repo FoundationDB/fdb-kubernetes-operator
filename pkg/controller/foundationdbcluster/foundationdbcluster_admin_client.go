@@ -2,7 +2,9 @@ package foundationdbcluster
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +14,8 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/google/uuid"
 	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var configurationProtocolVersion = []byte("\x01\x00\x04Q\xa5\x00\xdb\x0f")
@@ -19,6 +23,9 @@ var configurationProtocolVersion = []byte("\x01\x00\x04Q\xa5\x00\xdb\x0f")
 // AdminClient describes an interface for running administrative commands on a
 // cluster
 type AdminClient interface {
+	// GetStatus gets the database's status
+	GetStatus() (*fdbtypes.FoundationDBStatus, error)
+
 	// ConfigureDatabase sets the database configuration
 	ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error
 
@@ -33,6 +40,9 @@ type AdminClient interface {
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster
 	CanSafelyRemove(addresses []string) ([]string, error)
+
+	// KillProcesses restarts processes
+	KillInstances(addresses []string) error
 
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
@@ -106,7 +116,7 @@ type RealAdminClient struct {
 }
 
 // NewAdminClient generates an Admin client for a cluster
-func NewAdminClient(cluster *fdbtypes.FoundationDBCluster) (AdminClient, error) {
+func NewAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (AdminClient, error) {
 	err := os.MkdirAll("/tmp/fdb", os.ModePerm)
 	if err != nil {
 		return nil, err
@@ -133,6 +143,19 @@ func NewAdminClient(cluster *fdbtypes.FoundationDBCluster) (AdminClient, error) 
 	}
 
 	return &RealAdminClient{Cluster: cluster, Database: db}, nil
+}
+
+// GetStatus gets the database's status
+func (client *RealAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+	data, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		return tr.Get(fdb.Key("\xff\xff/status/json")).Get()
+	})
+	if err != nil {
+		return nil, err
+	}
+	status := &fdbtypes.FoundationDBStatus{}
+	err = json.Unmarshal(data.([]byte), &status)
+	return status, err
 }
 
 // ConfigureDatabase sets the database configuration
@@ -408,6 +431,28 @@ func (client *RealAdminClient) CanSafelyRemove(addresses []string) ([]string, er
 	return remainingServers, nil
 }
 
+// KillInstances restarts processes
+func (client *RealAdminClient) KillInstances(addresses []string) error {
+	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		workerRange := fdb.KeyRange{Begin: fdb.Key("\xff\xff/worker_interfaces"), End: fdb.Key("\xff\xff/worker_interfaces")}
+		workers, err := tr.GetRange(workerRange, fdb.RangeOptions{}).GetSliceWithError()
+		if err != nil {
+			return nil, err
+		}
+		for _, worker := range workers {
+			workerAddress := string(worker.Key)
+			for _, address := range addresses {
+				prefix := address + ":"
+				if workerAddress == address || strings.HasPrefix(workerAddress, prefix) {
+					tr.Set(fdb.Key("\xff\xff/reboot_worker"), worker.Value)
+				}
+			}
+		}
+		return nil, nil
+	})
+	return err
+}
+
 // Close shuts down any resources for the client once it is no longer
 // needed.
 func (client *RealAdminClient) Close() error {
@@ -459,24 +504,29 @@ func decodeAddress(encoded []byte) string {
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
 type MockAdminClient struct {
-	Cluster *fdbtypes.FoundationDBCluster
+	Cluster    *fdbtypes.FoundationDBCluster
+	KubeClient client.Client
 	DatabaseConfiguration
 	ExcludedAddresses   []string
 	ReincludedAddresses []string
+	KilledAddresses     []string
+	frozenStatus        *fdbtypes.FoundationDBStatus
 }
 
 var adminClientCache = make(map[string]*MockAdminClient)
 
 // NewMockAdminClient creates an admin client for a cluster.
-func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster) (AdminClient, error) {
-	return newMockAdminClientUncast(cluster)
+func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (AdminClient, error) {
+	return newMockAdminClientUncast(cluster, kubeClient)
 }
 
-func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster) (*MockAdminClient, error) {
+func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*MockAdminClient, error) {
 	client := adminClientCache[cluster.Name]
 	if client == nil {
-		client = &MockAdminClient{Cluster: cluster}
+		client = &MockAdminClient{Cluster: cluster, KubeClient: kubeClient}
 		adminClientCache[cluster.Name] = client
+	} else {
+		client.Cluster = cluster
 	}
 	return client, nil
 }
@@ -484,6 +534,31 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster) (*MockAdmin
 // ClearMockAdminClients clears the cache of mock Admin clients
 func ClearMockAdminClients() {
 	adminClientCache = map[string]*MockAdminClient{}
+}
+
+// GetStatus gets the database's status
+func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+	if client.frozenStatus != nil {
+		return client.frozenStatus, nil
+	}
+	pods := &corev1.PodList{}
+	err := client.KubeClient.List(context.TODO(), nil, pods)
+	if err != nil {
+		return nil, err
+	}
+	status := &fdbtypes.FoundationDBStatus{
+		Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+			Processes: make(map[string]fdbtypes.FoundationDBStatusProcessInfo, len(pods.Items)),
+		},
+	}
+	for _, pod := range pods.Items {
+		ip := mockPodIP(&pod)
+		status.Cluster.Processes[pod.Name] = fdbtypes.FoundationDBStatusProcessInfo{
+			Address:     fmt.Sprintf("%s:4500", ip),
+			CommandLine: GetStartCommand(client.Cluster, &pod),
+		}
+	}
+	return status, nil
 }
 
 // ConfigureDatabase changes the database configuration
@@ -526,10 +601,35 @@ func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, er
 	return nil, nil
 }
 
+// KillInstances restarts processes
+func (client *MockAdminClient) KillInstances(addresses []string) error {
+	client.KilledAddresses = append(client.KilledAddresses, addresses...)
+	client.UnfreezeStatus()
+	return nil
+}
+
 // Close shuts down any resources for the client once it is no longer
 // needed.
 func (client *MockAdminClient) Close() error {
 	return nil
+}
+
+// FreezeStatus causes the GetStatus method to return its current value until
+// UnfreezeStatus is called, or another method is called which would invalidate
+// the status.
+func (client *MockAdminClient) FreezeStatus() error {
+	status, err := client.GetStatus()
+	if err != nil {
+		return err
+	}
+	client.frozenStatus = status
+	return nil
+}
+
+// UnfreezeStatus causes the admin client to start recalculating the status
+// on every call to GetStatus
+func (client *MockAdminClient) UnfreezeStatus() {
+	client.frozenStatus = nil
 }
 
 // localityPolicy describes a policy for how data is replicated.
