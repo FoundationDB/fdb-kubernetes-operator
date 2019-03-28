@@ -22,6 +22,7 @@
 import hashlib
 import os
 import shutil
+import socket
 import stat
 from pathlib import Path
 
@@ -30,14 +31,28 @@ import flask
 app = flask.Flask(__name__)
 app.config.from_json(os.getenv('SIDECAR_CONF_DIR') + '/config.json')
 
-INPUT_DIR = os.getenv('INPUT_DIR', '/var/input-files')
-OUTPUT_DIR = os.getenv('OUTPUT_DIR', '/var/output-files')
-MONITOR_CONF_VARIABLES = ['FDB_PUBLIC_IP', 'HOSTNAME']
+input_dir = os.getenv('INPUT_DIR', '/var/input-files')
+output_dir = os.getenv('OUTPUT_DIR', '/var/output-files')
+
+substitutions = {}
+for key in ['FDB_PUBLIC_IP', 'FDB_MACHINE_ID', 'FDB_ZONE_ID']:
+    substitutions[key] = os.getenv(key, '')
+
+if substitutions['FDB_MACHINE_ID'] == '':
+    substitutions['FDB_MACHINE_ID'] = os.getenv('HOSTNAME', '')
+
+if substitutions['FDB_ZONE_ID'] == '':
+    substitutions['FDB_ZONE_ID'] = substitutions['FDB_MACHINE_ID']
+if substitutions['FDB_PUBLIC_IP'] == '':
+    address_info = socket.getaddrinfo(substitutions['FDB_MACHINE_ID'], 4500, family=socket.AddressFamily.AF_INET)
+    if len(address_info) > 0:
+        substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
+
 
 @app.route('/check_hash/<filename>')
 def check_hash(filename):
 	try:
-		with open('%s/%s' % (OUTPUT_DIR, filename)) as contents:
+		with open('%s/%s' % (output_dir, filename)) as contents:
 			m = hashlib.sha256()
 			m.update(contents.read().encode('utf-8'))
 			return m.hexdigest()
@@ -47,7 +62,7 @@ def check_hash(filename):
 @app.route('/copy_files', methods=['POST'])
 def copy_files():
 	for filename in app.config['COPY_FILES']:
-		shutil.copy('%s/%s' % (INPUT_DIR, filename), '%s/%s' % (OUTPUT_DIR, filename))
+		shutil.copy('%s/%s' % (input_dir, filename), '%s/%s' % (output_dir, filename))
 	return "OK"
 
 @app.route('/copy_binaries', methods=['POST'])
@@ -56,7 +71,7 @@ def copy_binaries():
 		primary_version = version_file.read().strip()
 	for binary in app.config['COPY_BINARIES']:
 		path = Path('/usr/bin/%s' % binary)
-		target_path = Path('%s/bin/%s/%s' % (OUTPUT_DIR, primary_version, binary))
+		target_path = Path('%s/bin/%s/%s' % (output_dir, primary_version, binary))
 		if not target_path.exists():
 			target_path.parent.mkdir(parents=True, exist_ok=True)
 			shutil.copy(path, target_path)
@@ -68,9 +83,9 @@ def copy_libraries():
 	for version in app.config['COPY_LIBRARIES']:
 		path =  Path('/var/fdb/lib/libfdb_c_%s.so' % version)
 		if version == app.config['COPY_LIBRARIES'][0]:
-			target_path = Path('%s/lib/libfdb_c.so' % (OUTPUT_DIR))
+			target_path = Path('%s/lib/libfdb_c.so' % (output_dir))
 		else:
-			target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (OUTPUT_DIR, version))
+			target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (output_dir, version))
 		if not target_path.exists():
 			target_path.parent.mkdir(parents=True, exist_ok=True)
 			shutil.copy(path, target_path)
@@ -78,12 +93,12 @@ def copy_libraries():
 
 @app.route("/copy_monitor_conf", methods=['POST'])
 def copy_monitor_conf():
-    if app.config['INPUT_MONITOR_CONF']:
-        with open('%s/%s' % (INPUT_DIR, app.config['INPUT_MONITOR_CONF'])) as monitor_conf_file:
+    if 'INPUT_MONITOR_CONF' in app.config:
+        with open('%s/%s' % (input_dir, app.config['INPUT_MONITOR_CONF'])) as monitor_conf_file:
             monitor_conf = monitor_conf_file.read()
-        for variable in MONITOR_CONF_VARIABLES:
-            monitor_conf = monitor_conf.replace('$' + variable, os.getenv(variable))
-        with open('%s/fdbmonitor.conf' % OUTPUT_DIR, 'w') as output_conf_file:
+        for variable in substitutions:
+            monitor_conf = monitor_conf.replace('$' + variable, substitutions[variable])
+        with open('%s/fdbmonitor.conf' % output_dir, 'w') as output_conf_file:
             output_conf_file.write(monitor_conf)
     return "OK"
 
