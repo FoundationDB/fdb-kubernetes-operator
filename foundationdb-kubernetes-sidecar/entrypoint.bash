@@ -1,6 +1,5 @@
 #! /bin/bash
 
-export FDB_PUBLIC_IP=$(grep `hostname` /etc/hosts | sed -e "s/\s *`hostname`.*//")
 if [[ $COPY_ONCE -eq 1 ]]; then
   python sidecar.py
 else
