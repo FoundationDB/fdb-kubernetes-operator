@@ -339,7 +339,7 @@ func TestGetConfigMap(t *testing.T) {
 
 	g.Expect(len(configMap.Data)).To(gomega.Equal(3))
 	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal("operator-test:asdfasf@127.0.0.1:4500"))
-	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(GetMonitorConf(cluster, "storage")))
+	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(GetMonitorConf(cluster, "storage", nil)))
 	sidecarConf := make(map[string]interface{})
 	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -368,7 +368,7 @@ func TestGetConfigMapWithEmptyConnectionString(t *testing.T) {
 func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
-	conf := GetMonitorConf(cluster, "storage")
+	conf := GetMonitorConf(cluster, "storage", nil)
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
 		"[general]",
 		"kill_on_configuration_change = false",
@@ -382,8 +382,8 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
 		"loggroup = operator-test",
-		"locality_machineid = $HOSTNAME",
-		"locality_zoneid = $HOSTNAME",
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $FDB_MACHINE_ID",
 	}, "\n")))
 }
 
@@ -416,7 +416,7 @@ func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 	cluster.Spec.CustomParameters = []string{
 		"knob_disable_posix_kernel_aio = 1",
 	}
-	conf := GetMonitorConf(cluster, "storage")
+	conf := GetMonitorConf(cluster, "storage", nil)
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
 		"[general]",
 		"kill_on_configuration_change = false",
@@ -430,8 +430,8 @@ func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
 		"loggroup = operator-test",
-		"locality_machineid = $HOSTNAME",
-		"locality_zoneid = $HOSTNAME",
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $FDB_MACHINE_ID",
 		"knob_disable_posix_kernel_aio = 1",
 	}, "\n")))
 }

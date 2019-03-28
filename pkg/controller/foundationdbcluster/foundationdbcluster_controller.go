@@ -360,7 +360,7 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.Fo
 	client, err := r.getPodClient(cluster, pod)
 
 	updateSignals := make(chan error, 2)
-	go UpdateDynamicFiles(client, "fdbmonitor.conf", GetPodMonitorConf(cluster, pod), updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
+	go UpdateDynamicFiles(client, "fdbmonitor.conf", GetMonitorConf(cluster, pod.ObjectMeta.Labels["fdb-process-class"], pod), updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
 	go UpdateDynamicFiles(client, "fdb.cluster", cluster.Spec.ConnectionString, updateSignals, func(client FdbPodClient, clientError chan error) { client.CopyFiles(clientError) })
 
 	for i := 0; i < cap(updateSignals); i++ {
@@ -761,7 +761,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 		if connectionString == "" {
 			data[filename] = ""
 		} else {
-			data[filename] = GetMonitorConf(cluster, processClass)
+			data[filename] = GetMonitorConf(cluster, processClass, nil)
 		}
 	}
 
@@ -796,7 +796,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string) string {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) string {
 	confLines := make([]string, 0, 20)
 	confLines = append(confLines,
 		"[general]",
@@ -804,7 +804,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string) 
 		"restart_delay = 60",
 	)
 	confLines = append(confLines, "[fdbserver.1]")
-	confLines = append(confLines, getStartCommandLines(cluster, processClass, nil)...)
+	confLines = append(confLines, getStartCommandLines(cluster, processClass, pod)...)
 	return strings.Join(confLines, "\n")
 }
 
@@ -834,7 +834,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 
 	if pod == nil {
 		publicIP = "$FDB_PUBLIC_IP"
-		machineID = "$HOSTNAME"
+		machineID = "$FDB_MACHINE_ID"
 	} else {
 		publicIP = pod.Status.PodIP
 		machineID = pod.Name
@@ -853,13 +853,6 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	)
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
 	return confLines
-}
-
-// GetPodMonitorConf builds the monitor conf for a specific pod
-func GetPodMonitorConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) string {
-	template := GetMonitorConf(cluster, pod.Labels["fdb-process-class"])
-	replacer := strings.NewReplacer("$FDB_PUBLIC_IP", pod.Status.PodIP, "$HOSTNAME", pod.Name)
-	return replacer.Replace(template)
 }
 
 // GetPod builds a pod for a new instance
