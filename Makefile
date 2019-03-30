@@ -32,13 +32,19 @@ install: manifests
 	kubectl apply -f config/crds
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+deploy: manifests templates
 	kubectl apply -f config/crds
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+
+templates: config/default/manager_image_patch.yaml
+
+config/default/manager_image_patch.yaml:
+	cp config/default/manager_image_patch.yaml.sample config/default/manager_image_patch.yaml
+
 
 # Run go fmt against code
 fmt:
@@ -56,13 +62,13 @@ endif
 	go generate ./pkg/... ./cmd/...
 
 # Build the docker image
-docker-build: test
+docker-build: test templates
 	docker build --build-arg "GO_BUILD_SUBS=${go_subs}" . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
-docker-push:
+docker-push: docker-build
 	docker push ${IMG}
 
 # Rebuilds, deploys, and bounces the operator

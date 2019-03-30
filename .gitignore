@@ -27,3 +27,8 @@ bin
 
 # binaries for sideloading
 foundationdb-kubernetes-sidecar/website
+
+# Customizable templates
+
+config/default/manager_image_patch.yaml
+config/default/manager_image_patch.yaml-e
