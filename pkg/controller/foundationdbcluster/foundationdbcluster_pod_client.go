@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 

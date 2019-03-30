@@ -13,7 +13,7 @@ import (
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/google/uuid"
-	fdbtypes "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

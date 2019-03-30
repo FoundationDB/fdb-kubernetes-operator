@@ -17,7 +17,7 @@ limitations under the License.
 package apis
 
 import (
-	"github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	"github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 )
 
 func init() {

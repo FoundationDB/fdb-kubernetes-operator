@@ -20,9 +20,9 @@ import (
 	"flag"
 	"os"
 
-	"github.com/brownleej/fdb-kubernetes-operator/pkg/apis"
-	"github.com/brownleej/fdb-kubernetes-operator/pkg/controller"
-	"github.com/brownleej/fdb-kubernetes-operator/pkg/webhook"
+	"github.com/foundationdb/fdb-kubernetes-operator/pkg/apis"
+	"github.com/foundationdb/fdb-kubernetes-operator/pkg/controller"
+	"github.com/foundationdb/fdb-kubernetes-operator/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"

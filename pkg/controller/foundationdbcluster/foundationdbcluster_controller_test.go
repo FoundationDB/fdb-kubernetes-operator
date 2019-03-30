@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/onsi/gomega"
-	appsv1beta1 "github.com/brownleej/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

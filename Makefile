@@ -4,7 +4,7 @@ IMG ?= fdb-kubernetes-operator:latest
 
 all: test manager
 
-PKG_PATH = github.com/brownleej/fdb-kubernetes-operator
+PKG_PATH = github.com/foundationdb/fdb-kubernetes-operator
 
 ifneq "$(DOCKER_IMAGE_ROOT)" ""
 	go_subs := $(go_subs) -X ${PKG_PATH}/pkg/controller/foundationdbcluster.DockerImageRoot=$(DOCKER_IMAGE_ROOT)

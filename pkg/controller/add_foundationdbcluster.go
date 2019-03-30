@@ -17,7 +17,7 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/brownleej/fdb-kubernetes-operator/pkg/controller/foundationdbcluster"
+	"github.com/foundationdb/fdb-kubernetes-operator/pkg/controller/foundationdbcluster"
 )
 
 func init() {

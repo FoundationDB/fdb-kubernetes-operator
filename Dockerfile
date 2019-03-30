@@ -13,20 +13,20 @@ RUN mkdir -p /usr/lib/fdb/multiversion && \
 
 
 # Copy in the go src
-WORKDIR /go/src/github.com/brownleej/fdb-kubernetes-operator
+WORKDIR /go/src/github.com/foundationdb/fdb-kubernetes-operator
 COPY pkg/    pkg/
 COPY cmd/    cmd/
 COPY vendor/ vendor/
 
 # Build
 ARG GO_BUILD_SUBS=""
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "$GO_BUILD_SUBS" -a -o manager github.com/brownleej/fdb-kubernetes-operator/cmd/manager
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "$GO_BUILD_SUBS" -a -o manager github.com/foundationdb/fdb-kubernetes-operator/cmd/manager
 
 
 # Copy the controller-manager into a thin image
 FROM ubuntu:latest
 WORKDIR /
-COPY --from=builder /go/src/github.com/brownleej/fdb-kubernetes-operator/manager .
+COPY --from=builder /go/src/github.com/foundationdb/fdb-kubernetes-operator/manager .
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/libfdb_c.so
 ENV FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY=/usr/lib/fdb/multiversion
