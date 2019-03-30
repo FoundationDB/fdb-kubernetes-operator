@@ -41,6 +41,7 @@ spec:
         control-plane: controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
+      serviceAccountName: default
       containers:
       - command:
         - /manager
@@ -56,11 +57,11 @@ spec:
             value: $(WEBHOOK_SECRET_NAME)
         resources:
           limits:
-            cpu: 100m
-            memory: 30Mi
+            cpu: 500m
+            memory: 256Mi
           requests:
-            cpu: 100m
-            memory: 20Mi
+            cpu: 500m
+            memory: 256Mi
         ports:
         - containerPort: 9876
           name: webhook-server

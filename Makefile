@@ -68,7 +68,7 @@ docker-build: test templates
 	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
-docker-push: docker-build
+docker-push:
 	docker push ${IMG}
 
 # Rebuilds, deploys, and bounces the operator
