@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -215,6 +216,19 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.Founda
 	}
 	if cluster.Spec.StorageEngine == "" {
 		cluster.Spec.StorageEngine = "ssd"
+		changed = true
+	}
+	if cluster.Spec.Resources == nil {
+		cluster.Spec.Resources = &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				"memory": resource.MustParse("1Gi"),
+				"cpu":    resource.MustParse("1"),
+			},
+			Requests: corev1.ResourceList{
+				"memory": resource.MustParse("1Gi"),
+				"cpu":    resource.MustParse("1"),
+			},
+		}
 		changed = true
 	}
 	if changed {
@@ -892,6 +906,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		},
+		Resources: *cluster.Spec.Resources,
 	}
 	initContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-init",
@@ -910,6 +925,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		Image:        initContainer.Image,
 		Env:          initContainer.Env[1:],
 		VolumeMounts: initContainer.VolumeMounts,
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(8080),
+			}},
+		},
 	}
 
 	var mainVolumeSource corev1.VolumeSource
@@ -982,15 +1002,17 @@ func (r *ReconcileFoundationDBCluster) getPodClient(cluster *fdbtypes.Foundation
 	for err != nil {
 		if err == fdbPodClientErrorNoIP {
 			log.Info("Waiting for pod to be assigned an IP", "pod", pod.Name)
-			time.Sleep(time.Second)
-			err = r.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, pod)
-			if err != nil {
-				return nil, err
-			}
-			client, err = r.podClientProvider(cluster, pod)
+		} else if err == fdbPodClientErrorNotReady {
+			log.Info("Waiting for pod to be ready", "pod", pod.Name)
 		} else {
 			return nil, err
 		}
+		time.Sleep(time.Second)
+		err = r.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, pod)
+		if err != nil {
+			return nil, err
+		}
+		client, err = r.podClientProvider(cluster, pod)
 	}
 	return client, nil
 }

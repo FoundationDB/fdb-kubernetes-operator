@@ -47,6 +47,8 @@ spec:
               type: object
             replicationMode:
               type: string
+            resources:
+              type: object
             storageClass:
               type: string
             storageEngine:

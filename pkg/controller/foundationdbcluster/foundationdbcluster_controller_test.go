@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/onsi/gomega"
 	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -57,6 +58,16 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 				"storage": 4,
 			},
 			VolumeSize: "16G",
+			Resources: &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"memory": resource.MustParse("1Gi"),
+					"cpu":    resource.MustParse("1"),
+				},
+				Requests: corev1.ResourceList{
+					"memory": resource.MustParse("1Gi"),
+					"cpu":    resource.MustParse("1"),
+				},
+			},
 		},
 	}
 }
@@ -488,6 +499,10 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g.Expect(mainContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 	}))
+	g.Expect(*mainContainer.Resources.Limits.Cpu()).To(gomega.Equal(resource.MustParse("1")))
+	g.Expect(*mainContainer.Resources.Limits.Memory()).To(gomega.Equal(resource.MustParse("1Gi")))
+	g.Expect(*mainContainer.Resources.Requests.Cpu()).To(gomega.Equal(resource.MustParse("1")))
+	g.Expect(*mainContainer.Resources.Requests.Memory()).To(gomega.Equal(resource.MustParse("1Gi")))
 
 	g.Expect(len(mainContainer.VolumeMounts)).To(gomega.Equal(3))
 
@@ -504,6 +519,11 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
 	}))
 	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
+	g.Expect(sidecarContainer.ReadinessProbe).To(gomega.Equal(&corev1.Probe{
+		Handler: corev1.Handler{TCPSocket: &corev1.TCPSocketAction{
+			Port: intstr.IntOrString{IntVal: 8080},
+		}},
+	}))
 
 	g.Expect(len(spec.Volumes)).To(gomega.Equal(4))
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{

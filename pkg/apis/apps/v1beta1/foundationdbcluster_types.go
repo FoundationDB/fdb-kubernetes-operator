@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,17 +26,18 @@ import (
 
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
-	Version          string            `json:"version"`
-	ProcessCounts    map[string]int    `json:"processCounts,omitempty"`
-	ConnectionString string            `json:"connectionString,omitempty"`
-	NextInstanceID   int               `json:"nextInstanceID,omitempty"`
-	ReplicationMode  string            `json:"replicationMode,omitempty"`
-	StorageEngine    string            `json:"storageEngine,omitempty"`
-	StorageClass     *string           `json:"storageClass,omitempty"`
-	Configured       bool              `json:"configured,omitempty"`
-	PendingRemovals  map[string]string `json:"pendingRemovals,omitempty"`
-	VolumeSize       string            `json:"volumeSize"`
-	CustomParameters []string          `json:"customParameters,omitempty"`
+	Version          string                       `json:"version"`
+	ProcessCounts    map[string]int               `json:"processCounts,omitempty"`
+	ConnectionString string                       `json:"connectionString,omitempty"`
+	NextInstanceID   int                          `json:"nextInstanceID,omitempty"`
+	ReplicationMode  string                       `json:"replicationMode,omitempty"`
+	StorageEngine    string                       `json:"storageEngine,omitempty"`
+	StorageClass     *string                      `json:"storageClass,omitempty"`
+	Configured       bool                         `json:"configured,omitempty"`
+	PendingRemovals  map[string]string            `json:"pendingRemovals,omitempty"`
+	VolumeSize       string                       `json:"volumeSize"`
+	CustomParameters []string                     `json:"customParameters,omitempty"`
+	Resources        *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

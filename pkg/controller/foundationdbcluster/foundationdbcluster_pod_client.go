@@ -45,6 +45,11 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 	if pod.Status.PodIP == "" {
 		return nil, fdbPodClientErrorNoIP
 	}
+	for _, container := range pod.Status.ContainerStatuses {
+		if !container.Ready {
+			return nil, fdbPodClientErrorNotReady
+		}
+	}
 	return &realFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
@@ -207,7 +212,8 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, s
 type fdbPodClientError int
 
 const (
-	fdbPodClientErrorNoIP fdbPodClientError = iota
+	fdbPodClientErrorNoIP     fdbPodClientError = iota
+	fdbPodClientErrorNotReady fdbPodClientError = iota
 )
 
 func (err fdbPodClientError) Error() string {
