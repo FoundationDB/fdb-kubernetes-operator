@@ -90,13 +90,6 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	*out = *in
 	out.RoleCounts = in.RoleCounts
 	out.ProcessCounts = in.ProcessCounts
-	if in.ProcessCountsMap != nil {
-		in, out := &in.ProcessCountsMap, &out.ProcessCountsMap
-		*out = make(map[string]int, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	if in.StorageClass != nil {
 		in, out := &in.StorageClass, &out.StorageClass
 		*out = new(string)
@@ -136,20 +129,6 @@ func (in *FoundationDBClusterSpec) DeepCopy() *FoundationDBClusterSpec {
 func (in *FoundationDBClusterStatus) DeepCopyInto(out *FoundationDBClusterStatus) {
 	*out = *in
 	out.ProcessCounts = in.ProcessCounts
-	if in.ProcessCountsMap != nil {
-		in, out := &in.ProcessCountsMap, &out.ProcessCountsMap
-		*out = make(map[string]int, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
-	if in.DesiredProcessCountsMap != nil {
-		in, out := &in.DesiredProcessCountsMap, &out.DesiredProcessCountsMap
-		*out = make(map[string]int, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	if in.IncorrectProcesses != nil {
 		in, out := &in.IncorrectProcesses, &out.IncorrectProcesses
 		*out = make(map[string]int64, len(*in))

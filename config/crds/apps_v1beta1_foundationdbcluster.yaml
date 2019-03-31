@@ -76,8 +76,6 @@ spec:
                   format: int64
                   type: integer
               type: object
-            processCountsMap:
-              type: object
             replicationMode:
               type: string
             resources:
@@ -111,8 +109,6 @@ spec:
           type: object
         status:
           properties:
-            desiredProcessCountsMap:
-              type: object
             fullyReconciled:
               type: boolean
             incorrectProcesses:
@@ -151,8 +147,6 @@ spec:
                 unset:
                   format: int64
                   type: integer
-              type: object
-            processCountsMap:
               type: object
           required:
           - fullyReconciled

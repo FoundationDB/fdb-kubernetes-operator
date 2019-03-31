@@ -251,8 +251,6 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.Founda
 
 func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.FoundationDBCluster) error {
 	status := fdbtypes.FoundationDBClusterStatus{}
-	status.DesiredProcessCountsMap = make(map[string]int, len(fdbtypes.ProcessClasses))
-	status.ProcessCountsMap = make(map[string]int, len(fdbtypes.ProcessClasses))
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
 
@@ -285,17 +283,12 @@ func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.Foundation
 		return err
 	}
 
-	for processClass := range cluster.Spec.ProcessCounts.Map() {
-		status.DesiredProcessCountsMap[processClass] = cluster.DesiredProcessCount(processClass)
-	}
-
 	for _, pod := range existingPods.Items {
 		processClass := pod.Labels["fdb-process-class"]
 
 		_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
 		if !pendingRemoval {
 			status.ProcessCounts.IncreaseCount(processClass, 1)
-			status.ProcessCountsMap[processClass]++
 		}
 
 		podClient, err := r.getPodClient(cluster, &pod)
@@ -328,9 +321,10 @@ func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.Foundation
 
 	status.FullyReconciled = cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
-		reflect.DeepEqual(status.ProcessCounts, cluster.Spec.ProcessCounts) &&
+		cluster.Spec.ProcessCounts.CountsAreSatisfied(status.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0
 	cluster.Status = status
+
 	r.Status().Update(context.TODO(), cluster)
 	return nil
 }
@@ -535,6 +529,7 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(cluster *fdbt
 	err = adminClient.ConfigureDatabase(DatabaseConfiguration{
 		ReplicationMode: cluster.Spec.ReplicationMode,
 		StorageEngine:   cluster.Spec.StorageEngine,
+		RoleCounts:      cluster.Spec.RoleCounts,
 	}, !cluster.Spec.Configured)
 	if err != nil {
 		return err
@@ -560,7 +555,9 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 	}
 
 	currentCounts := cluster.Status.ProcessCounts.Map()
-	for processClass, desiredCount := range cluster.Spec.ProcessCounts.Map() {
+	desiredCounts := cluster.Spec.ProcessCounts.Map()
+	for _, processClass := range fdbtypes.ProcessClasses {
+		desiredCount := desiredCounts[processClass]
 		existingPods := &corev1.PodList{}
 		err := r.List(
 			context.TODO(),
@@ -824,8 +821,9 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 	connectionString := cluster.Spec.ConnectionString
 	data["cluster-file"] = connectionString
 
-	for _, processClass := range fdbtypes.ProcessClasses {
-		if cluster.DesiredProcessCount(processClass) > 0 {
+	desiredCounts := cluster.Spec.ProcessCounts.Map()
+	for processClass, count := range desiredCounts {
+		if count > 0 {
 			filename := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
 			if connectionString == "" {
 				data[filename] = ""

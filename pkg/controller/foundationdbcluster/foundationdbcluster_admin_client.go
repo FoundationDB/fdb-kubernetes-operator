@@ -49,10 +49,11 @@ type AdminClient interface {
 	Close() error
 }
 
-// DatabaseConfiguration represents the desired
+// DatabaseConfiguration represents the desired configuration of the database
 type DatabaseConfiguration struct {
 	ReplicationMode string
 	StorageEngine   string
+	RoleCounts      fdbtypes.RoleCounts
 }
 
 func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValue, error) {
@@ -90,6 +91,16 @@ func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValu
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replication_policy"), Value: policyBytes},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replication_policy"), Value: policyBytes},
 	)
+
+	for role, count := range configuration.RoleCounts.Map() {
+		key := []byte("\xff/conf/")
+		key = append(key, []byte(role)...)
+
+		keys = append(keys, fdb.KeyValue{
+			Key:   fdb.Key(key),
+			Value: []byte(fmt.Sprintf("%d", count)),
+		})
+	}
 
 	var engine []byte
 	switch configuration.StorageEngine {

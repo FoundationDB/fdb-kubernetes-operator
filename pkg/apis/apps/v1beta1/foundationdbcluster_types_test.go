@@ -45,6 +45,11 @@ func TestApplyingDefaultRoleCounts(t *testing.T) {
 		Proxies:   3,
 		Resolvers: 1,
 	}))
+	g.Expect(cluster.Spec.RoleCounts.Map()).To(gomega.Equal(map[string]int{
+		"logs":      3,
+		"proxies":   3,
+		"resolvers": 1,
+	}))
 	g.Expect(changed).To(gomega.BeTrue())
 	changed = cluster.ApplyDefaultRoleCounts()
 	g.Expect(changed).To(gomega.BeFalse())
@@ -146,6 +151,17 @@ func TestApplyingDefaultProcessCounts(t *testing.T) {
 	cluster.ApplyDefaultProcessCounts()
 	g.Expect(cluster.Spec.ProcessCounts.Transaction).To(gomega.Equal(-1))
 	g.Expect(cluster.Spec.ProcessCounts.Log).To(gomega.Equal(2))
+}
+
+func TestCheckingWhetherProcessCountsAreSatisfied(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	counts := ProcessCounts{Stateless: 5}
+	g.Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 5})).To(gomega.BeTrue())
+	g.Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 6})).To(gomega.BeFalse())
+	g.Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 0})).To(gomega.BeFalse())
+	counts = ProcessCounts{Stateless: -1}
+	g.Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 0})).To(gomega.BeTrue())
+	g.Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 5})).To(gomega.BeFalse())
 }
 
 func TestSettingProcessCountByName(t *testing.T) {

@@ -32,7 +32,6 @@ type FoundationDBClusterSpec struct {
 	Version          string `json:"version"`
 	RoleCounts       `json:"roleCounts,omitempty"`
 	ProcessCounts    `json:"processCounts,omitempty"`
-	ProcessCountsMap map[string]int               `json:"processCountsMap,omitempty"`
 	ConnectionString string                       `json:"connectionString,omitempty"`
 	NextInstanceID   int                          `json:"nextInstanceID,omitempty"`
 	ReplicationMode  string                       `json:"replicationMode,omitempty"`
@@ -47,12 +46,10 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	FullyReconciled         bool `json:"fullyReconciled"`
-	ProcessCounts           `json:"processCounts,omitempty"`
-	ProcessCountsMap        map[string]int   `json:"processCountsMap,omitempty"`
-	DesiredProcessCountsMap map[string]int   `json:"desiredProcessCountsMap,omitempty"`
-	IncorrectProcesses      map[string]int64 `json:"incorrectProcesses,omitempty"`
-	MissingProcesses        map[string]int64 `json:"missingProcesses,omitempty"`
+	FullyReconciled    bool `json:"fullyReconciled"`
+	ProcessCounts      `json:"processCounts,omitempty"`
+	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
+	MissingProcesses   map[string]int64 `json:"missingProcesses,omitempty"`
 }
 
 // +genclient
@@ -86,6 +83,21 @@ type RoleCounts struct {
 	Resolvers int `json:"resolvers,omitempty"`
 }
 
+// Map returns a map from process classes to the desired count for that role
+func (counts RoleCounts) Map() map[string]int {
+	countMap := make(map[string]int, len(roleIndices))
+	countValue := reflect.ValueOf(counts)
+	for role, index := range roleIndices {
+		if role != "storage" {
+			value := int(countValue.Field(index).Int())
+			if value > 0 {
+				countMap[role] = value
+			}
+		}
+	}
+	return countMap
+}
+
 // ProcessCounts represents the number of processes we have for each valid
 // process class.
 type ProcessCounts struct {
@@ -105,7 +117,7 @@ type ProcessCounts struct {
 // Map returns a map from process classes to the number of processes with that
 // class
 func (counts ProcessCounts) Map() map[string]int {
-	countMap := make(map[string]int, 11)
+	countMap := make(map[string]int, len(processClassIndices))
 	countValue := reflect.ValueOf(counts)
 	for processClass, index := range processClassIndices {
 		value := int(countValue.Field(index).Int())
@@ -126,27 +138,31 @@ func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
 	}
 }
 
+func fieldNames(value interface{}) []string {
+	countType := reflect.TypeOf(ProcessCounts{})
+	names := make([]string, 0, countType.NumField())
+	for index := 0; index < countType.NumField(); index++ {
+		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
+		names = append(names, tag[0])
+	}
+	return names
+}
+
+func fieldIndices(value interface{}) map[string]int {
+	countType := reflect.TypeOf(value)
+	indices := make(map[string]int, countType.NumField())
+	for index := 0; index < countType.NumField(); index++ {
+		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
+		indices[tag[0]] = index
+	}
+	return indices
+}
+
 // ProcessClasses provides a consistent ordered list of the supported process
 // classes.
-var ProcessClasses = func() []string {
-	countType := reflect.TypeOf(ProcessCounts{})
-	classes := make([]string, 0, countType.NumField())
-	for index := 0; index < countType.NumField(); index++ {
-		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
-		classes = append(classes, tag[0])
-	}
-	return classes
-}()
-
-var processClassIndices = func() map[string]int {
-	countType := reflect.TypeOf(ProcessCounts{})
-	classes := make(map[string]int, countType.NumField())
-	for index := 0; index < countType.NumField(); index++ {
-		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
-		classes[tag[0]] = index
-	}
-	return classes
-}()
+var ProcessClasses = fieldNames(ProcessCounts{})
+var processClassIndices = fieldIndices(ProcessCounts{})
+var roleIndices = fieldIndices(RoleCounts{})
 
 // ApplyDefaultRoleCounts sets the default values for any role
 // counts that are currently zero.
@@ -237,26 +253,6 @@ func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
 	}
 }
 
-func (cluster *FoundationDBCluster) DesiredProcessCount(processClass string) int {
-	count := cluster.Spec.ProcessCountsMap[processClass]
-	var minimum int
-	if processClass == "storage" {
-		switch cluster.Spec.ReplicationMode {
-		case "single":
-			minimum = 1
-		case "double":
-			minimum = 3
-		default:
-			minimum = 1
-		}
-	}
-
-	if minimum > count {
-		return minimum
-	}
-	return count
-}
-
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
@@ -268,6 +264,21 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 	default:
 		return 1
 	}
+}
+
+// CountsAreSatisfied checks whether the current counts of processes satisfy
+// a desired set of counts
+func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool {
+	desiredValue := reflect.ValueOf(counts)
+	currentValue := reflect.ValueOf(currentCounts)
+	for _, index := range processClassIndices {
+		desired := desiredValue.Field(index).Int()
+		current := currentValue.Field(index).Int()
+		if (desired > 0 || current > 0) && desired != current {
+			return false
+		}
+	}
+	return true
 }
 
 // FoundationDBStatus describes the status of the cluster as provided by

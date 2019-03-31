@@ -18,7 +18,6 @@ package foundationdbcluster
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,9 +56,6 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 			ConnectionString: "operator-test:asdfasf@127.0.0.1:4500",
 			ProcessCounts: appsv1beta1.ProcessCounts{
 				Storage: 4,
-			},
-			ProcessCountsMap: map[string]int{
-				"storage": 4,
 			},
 			VolumeSize: "16G",
 			Resources: &corev1.ResourceRequirements{
@@ -177,6 +173,12 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("double"))
 		g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd"))
+		g.Expect(adminClient.DatabaseConfiguration.RoleCounts).To(gomega.Equal(appsv1beta1.RoleCounts{
+			Storage:   3,
+			Logs:      3,
+			Proxies:   3,
+			Resolvers: 1,
+		}))
 
 		g.Expect(cluster.Status.FullyReconciled).To(gomega.BeTrue())
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(appsv1beta1.ProcessCounts{
@@ -201,10 +203,8 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 			err := c.List(context.TODO(), listOptions, originalPods)
 			return len(originalPods.Items), err
 		}, timeout).Should(gomega.Equal(15))
-		fmt.Printf("JPB got pods %v\n", originalPods)
 
 		cluster.Spec.ProcessCounts.Storage = 3
-		cluster.Spec.ProcessCountsMap["storage"] = 3
 		err = client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -229,7 +229,6 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
 		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{mockPodIP(&originalPods.Items[9])}))
-
 	})
 }
 
@@ -239,7 +238,6 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.ProcessCounts.Storage = 5
-		cluster.Spec.ProcessCountsMap["storage"] = 5
 		err = client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -272,12 +270,11 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.ProcessCounts.Stateless = 10
-		cluster.Spec.ProcessCountsMap["stateless"] = 10
 		err = client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 10))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 8))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -296,6 +293,36 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 		g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
 		expectedConfigMap, _ := GetConfigMap(cluster, c)
 		g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
+	})
+}
+
+func TestReconcileWithNoStatelessProcesses(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalPods := &corev1.PodList{}
+
+		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), listOptions, originalPods)
+			return len(originalPods.Items), err
+		}, timeout).Should(gomega.Equal(15))
+
+		cluster.Spec.ProcessCounts.Stateless = -1
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 25))
+
+		pods := &corev1.PodList{}
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), listOptions, pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(8))
+
+		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
+		g.Expect(cluster.Status.FullyReconciled).To(gomega.BeTrue())
 	})
 }
 

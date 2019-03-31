@@ -3,8 +3,36 @@ package foundationdbcluster
 import (
 	"testing"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/onsi/gomega"
+	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 )
+
+func TestGettingConfigurationKeys(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configuration := DatabaseConfiguration{
+		ReplicationMode: "double",
+		StorageEngine:   "ssd",
+		RoleCounts: appsv1beta1.RoleCounts{
+			Logs: 5,
+		},
+	}
+	g.Expect(configuration.getConfigurationKeys()).To(gomega.Equal([]fdb.KeyValue{
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: []byte("2")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: []byte("2")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replication_policy"), Value: []byte(
+			"\x01\x00\x04\x51\xa5\x00\xdb\x0f\x06\x00\x00\x00Across\x06\x00\x00\x00zoneid\x02\x00\x00\x00\x03\x00\x00\x00One",
+		)},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replication_policy"), Value: []byte(
+			"\x01\x00\x04\x51\xa5\x00\xdb\x0f\x06\x00\x00\x00Across\x06\x00\x00\x00zoneid\x02\x00\x00\x00\x03\x00\x00\x00One",
+		)},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/logs"), Value: []byte("5")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_engine"), Value: []byte("2")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_engine"), Value: []byte("2")},
+	}))
+
+}
 
 func TestSerializingLocalityPolicies(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
