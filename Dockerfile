@@ -11,7 +11,6 @@ RUN mkdir -p /usr/lib/fdb/multiversion && \
 		wget https://www.foundationdb.org/downloads/$version/linux/libfdb_c_$version.so -O /usr/lib/fdb/multiversion/libfdb_c_${version%.*}.so; \
 	done
 
-
 # Copy in the go src
 WORKDIR /go/src/github.com/foundationdb/fdb-kubernetes-operator
 COPY pkg/    pkg/
@@ -31,4 +30,6 @@ COPY --from=builder /usr/lib/fdb /usr/lib/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/libfdb_c.so
 ENV FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY=/usr/lib/fdb/multiversion
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
+ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
+RUN mkdir -p /var/log/fdb
 ENTRYPOINT ["/manager"]

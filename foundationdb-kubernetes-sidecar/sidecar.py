@@ -49,12 +49,12 @@ if substitutions['FDB_PUBLIC_IP'] == '':
         substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
 
 
-@app.route('/check_hash/<filename>')
+@app.route('/check_hash/<path:filename>')
 def check_hash(filename):
 	try:
-		with open('%s/%s' % (output_dir, filename)) as contents:
+		with open('%s/%s' % (output_dir, filename), 'rb') as contents:
 			m = hashlib.sha256()
-			m.update(contents.read().encode('utf-8'))
+			m.update(contents.read())
 			return m.hexdigest()
 	except FileNotFoundError:
 		flask.abort(404)

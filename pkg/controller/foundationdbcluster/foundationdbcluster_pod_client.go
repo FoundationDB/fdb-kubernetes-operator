@@ -24,6 +24,9 @@ type FdbPodClient interface {
 	// GetPodIP gets the IP address for a pod.
 	GetPodIP() string
 
+	// IsPresent checks whether a file in the sidecar is present
+	IsPresent(filename string, result chan bool, err chan error)
+
 	// CheckHash checks whether a file in the sidecar has the expected contents.
 	CheckHash(filename string, contents string, result chan bool, err chan error)
 
@@ -94,9 +97,25 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	}
 
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("HTTP request failed. Status=%d; response=%s", resp.StatusCode, bodyText)
+		return "", failedResponse{response: resp, body: bodyText}
 	}
 	return bodyText, nil
+}
+
+// IsPresent checks whether a file in the sidecar is present.
+func (client *realFdbPodClient) IsPresent(filename string, resultChan chan bool, errorChan chan error) {
+	_, err := client.makeRequest("GET", fmt.Sprintf("/check_hash/%s", filename))
+	if err == nil {
+		resultChan <- true
+		return
+	}
+
+	response, isResponse := err.(failedResponse)
+	if isResponse && response.response.StatusCode == 404 {
+		resultChan <- false
+	} else {
+		errorChan <- err
+	}
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
@@ -149,6 +168,11 @@ func (client *mockFdbPodClient) GetPod() *corev1.Pod {
 // GetPodIP gets the IP address for a pod.
 func (client *mockFdbPodClient) GetPodIP() string {
 	return mockPodIP(client.Pod)
+}
+
+// IsPresent checks whether a file in the sidecar is prsent.
+func (client *mockFdbPodClient) IsPresent(filename string, result chan bool, err chan error) {
+	result <- true
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
@@ -209,6 +233,32 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, s
 	signal <- nil
 }
 
+// CheckDynamicFilePresent waits for a file to be present in the dynamic conf
+func CheckDynamicFilePresent(client FdbPodClient, filename string, signal chan error) {
+	clientError := make(chan error)
+	presentChan := make(chan bool)
+
+	present := false
+	var err error
+
+	for !present {
+		go client.IsPresent(filename, presentChan, clientError)
+		select {
+		case present = <-presentChan:
+			if !present {
+				log.Info("Waiting for file", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
+				time.Sleep(time.Second * 10)
+			}
+			break
+		case err = <-clientError:
+			signal <- err
+			return
+		}
+	}
+
+	signal <- nil
+}
+
 type fdbPodClientError int
 
 const (
@@ -223,4 +273,13 @@ func (err fdbPodClientError) Error() string {
 	default:
 		return fmt.Sprintf("Unknown error code %d", err)
 	}
+}
+
+type failedResponse struct {
+	response *http.Response
+	body     string
+}
+
+func (response failedResponse) Error() string {
+	return fmt.Sprintf("HTTP request failed. Status=%d; response=%s", response.response.StatusCode, response.body)
 }

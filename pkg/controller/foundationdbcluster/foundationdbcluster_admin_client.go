@@ -94,9 +94,9 @@ func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValu
 	var engine []byte
 	switch configuration.StorageEngine {
 	case "ssd":
-		engine = []byte("1")
-	case "memory":
 		engine = []byte("2")
+	case "memory":
+		engine = []byte("1")
 	default:
 		return nil, fmt.Errorf("Unknown storage engine %s", configuration.StorageEngine)
 	}
@@ -178,6 +178,7 @@ func (client *RealAdminClient) ConfigureDatabase(configuration DatabaseConfigura
 		}
 
 		fdbErr, isFdb := err.(fdb.Error)
+		log.Error(fdbErr, "Error configuring database", "newDatabase", newDatabase)
 		if !isFdb {
 			return err
 		}

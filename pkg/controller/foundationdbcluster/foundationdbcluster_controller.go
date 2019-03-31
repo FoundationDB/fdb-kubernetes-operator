@@ -149,6 +149,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.updateSidecarVersions(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.updateConfigMap(cluster)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -373,9 +378,10 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.Foundat
 func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, signal chan error) {
 	client, err := r.getPodClient(cluster, pod)
 
-	updateSignals := make(chan error, 2)
+	updateSignals := make(chan error, 3)
 	go UpdateDynamicFiles(client, "fdbmonitor.conf", GetMonitorConf(cluster, pod.ObjectMeta.Labels["fdb-process-class"], pod), updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
 	go UpdateDynamicFiles(client, "fdb.cluster", cluster.Spec.ConnectionString, updateSignals, func(client FdbPodClient, clientError chan error) { client.CopyFiles(clientError) })
+	go CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), updateSignals)
 
 	for i := 0; i < cap(updateSignals); i++ {
 		err = <-updateSignals
@@ -709,6 +715,33 @@ func (r *ReconcileFoundationDBCluster) includeInstances(cluster *fdbtypes.Founda
 	return nil
 }
 
+func (r *ReconcileFoundationDBCluster) updateSidecarVersions(cluster *fdbtypes.FoundationDBCluster) error {
+	pods := &corev1.PodList{}
+	err := r.List(context.TODO(), getPodListOptions(cluster, ""), pods)
+	if err != nil {
+		return err
+	}
+	upgraded := false
+	image := fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s", DockerImageRoot, cluster.Spec.Version)
+	for _, pod := range pods.Items {
+		for containerIndex, container := range pod.Spec.Containers {
+			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
+				log.Info("Upgrading sidecar", "namespace", cluster.Namespace, "pod", pod.Name, "oldImage", container.Image, "newImage", image)
+				pod.Spec.Containers[containerIndex].Image = image
+				err := r.Update(context.TODO(), &pod)
+				if err != nil {
+					return err
+				}
+				upgraded = true
+			}
+		}
+	}
+	if upgraded {
+		r.recorder.Event(cluster, "Normal", "SidecarUpgraded", fmt.Sprintf("New version: %s", cluster.Spec.Version))
+	}
+	return nil
+}
+
 func (r *ReconcileFoundationDBCluster) bounceProcesses(cluster *fdbtypes.FoundationDBCluster) error {
 	adminClient, err := r.adminClientProvider(cluster, r)
 	if err != nil {
@@ -737,6 +770,7 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(cluster *fdbtypes.Foundat
 	}
 
 	if len(addresses) > 0 {
+		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
 		r.recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {
