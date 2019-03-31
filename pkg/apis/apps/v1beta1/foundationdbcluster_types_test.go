@@ -27,39 +27,139 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestClusterDesiredProcessCounts(t *testing.T) {
+func TestApplyingDefaultRoleCounts(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ProcessCounts:   map[string]int{"storage": 5},
 			ReplicationMode: "double",
 		},
 	}
-	count := cluster.DesiredProcessCount("storage")
-	if count != 5 {
-		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 5, count)
-	}
+	changed := cluster.ApplyDefaultRoleCounts()
+	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{
+		Storage:   3,
+		Logs:      3,
+		Proxies:   3,
+		Resolvers: 1,
+	}))
+	g.Expect(changed).To(gomega.BeTrue())
+	changed = cluster.ApplyDefaultRoleCounts()
+	g.Expect(changed).To(gomega.BeFalse())
 
-	delete(cluster.Spec.ProcessCounts, "storage")
-	count = cluster.DesiredProcessCount("storage")
-	if count != 3 {
-		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 3, count)
+	cluster.Spec.RoleCounts = RoleCounts{
+		Storage: 5,
 	}
+	cluster.ApplyDefaultRoleCounts()
+	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{
+		Storage:   5,
+		Logs:      3,
+		Proxies:   3,
+		Resolvers: 1,
+	}))
 
-	cluster.Spec.ReplicationMode = "single"
-	count = cluster.DesiredProcessCount("storage")
-	if count != 1 {
-		t.Errorf("Incorrect process count for storage. Expected=%d, actual=%d", 1, count)
+	cluster.Spec.RoleCounts = RoleCounts{
+		Logs: 8,
 	}
+	cluster.ApplyDefaultRoleCounts()
+	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{
+		Storage:   3,
+		Logs:      8,
+		Proxies:   3,
+		Resolvers: 1,
+	}))
+}
 
-	cluster.Spec.ReplicationMode = "double"
-	count = cluster.DesiredProcessCount("log")
-	if count != 0 {
-		t.Errorf("Incorrect process count for log. Expected=%d, actual=%d", 0, count)
+func TestApplyingDefaultProcessCounts(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: FoundationDBClusterSpec{
+			ReplicationMode: "double",
+			RoleCounts: RoleCounts{
+				Storage:   5,
+				Logs:      3,
+				Proxies:   3,
+				Resolvers: 1,
+			},
+		},
 	}
+	changed := cluster.ApplyDefaultProcessCounts()
+	g.Expect(changed).To(gomega.BeTrue())
+	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+		Storage:     5,
+		Transaction: 4,
+		Stateless:   7,
+	}))
+	g.Expect(cluster.Spec.ProcessCounts.Map()).To(gomega.Equal(map[string]int{
+		"storage":     5,
+		"transaction": 4,
+		"stateless":   7,
+	}))
+
+	changed = cluster.ApplyDefaultProcessCounts()
+	g.Expect(changed).To(gomega.BeFalse())
+
+	cluster.Spec.ProcessCounts = ProcessCounts{
+		Storage: 10,
+	}
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts.Storage).To(gomega.Equal(10))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{
+		ClusterController: 3,
+	}
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts.Stateless).To(gomega.Equal(6))
+	g.Expect(cluster.Spec.ProcessCounts.ClusterController).To(gomega.Equal(3))
+	g.Expect(cluster.Spec.ProcessCounts.Map()).To(gomega.Equal(map[string]int{
+		"storage":            5,
+		"transaction":        4,
+		"stateless":          6,
+		"cluster_controller": 3,
+	}))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{
+		Resolver: 1,
+	}
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts.Stateless).To(gomega.Equal(6))
+	g.Expect(cluster.Spec.ProcessCounts.Resolver).To(gomega.Equal(1))
+	g.Expect(cluster.Spec.ProcessCounts.Resolution).To(gomega.Equal(0))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{
+		Resolution: 1,
+	}
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts.Stateless).To(gomega.Equal(6))
+	g.Expect(cluster.Spec.ProcessCounts.Resolution).To(gomega.Equal(1))
+	g.Expect(cluster.Spec.ProcessCounts.Resolver).To(gomega.Equal(0))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{
+		Log: 2,
+	}
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts.Transaction).To(gomega.Equal(-1))
+	g.Expect(cluster.Spec.ProcessCounts.Log).To(gomega.Equal(2))
+}
+
+func TestSettingProcessCountByName(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	counts := ProcessCounts{}
+	counts.IncreaseCount("storage", 2)
+	g.Expect(counts.Storage).To(gomega.Equal(2))
+	g.Expect(counts.ClusterController).To(gomega.Equal(0))
+	counts.IncreaseCount("storage", 3)
+	g.Expect(counts.Storage).To(gomega.Equal(5))
+	g.Expect(counts.ClusterController).To(gomega.Equal(0))
+	counts.IncreaseCount("cluster_controller", 1)
+	g.Expect(counts.Storage).To(gomega.Equal(5))
+	g.Expect(counts.ClusterController).To(gomega.Equal(1))
 }
 
 func TestClusterDesiredCoordinatorCounts(t *testing.T) {

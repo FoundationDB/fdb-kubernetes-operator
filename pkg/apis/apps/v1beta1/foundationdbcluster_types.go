@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,8 +29,10 @@ import (
 
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
-	Version          string                       `json:"version"`
-	ProcessCounts    map[string]int               `json:"processCounts,omitempty"`
+	Version          string `json:"version"`
+	RoleCounts       `json:"roleCounts,omitempty"`
+	ProcessCounts    `json:"processCounts,omitempty"`
+	ProcessCountsMap map[string]int               `json:"processCountsMap,omitempty"`
 	ConnectionString string                       `json:"connectionString,omitempty"`
 	NextInstanceID   int                          `json:"nextInstanceID,omitempty"`
 	ReplicationMode  string                       `json:"replicationMode,omitempty"`
@@ -42,11 +47,12 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	FullyReconciled      bool             `json:"fullyReconciled"`
-	ProcessCounts        map[string]int   `json:"processCounts,omitempty"`
-	DesiredProcessCounts map[string]int   `json:"desiredProcessCounts,omitempty"`
-	IncorrectProcesses   map[string]int64 `json:"incorrectProcesses,omitempty"`
-	MissingProcesses     map[string]int64 `json:"missingProcesses,omitempty"`
+	FullyReconciled         bool `json:"fullyReconciled"`
+	ProcessCounts           `json:"processCounts,omitempty"`
+	ProcessCountsMap        map[string]int   `json:"processCountsMap,omitempty"`
+	DesiredProcessCountsMap map[string]int   `json:"desiredProcessCountsMap,omitempty"`
+	IncorrectProcesses      map[string]int64 `json:"incorrectProcesses,omitempty"`
+	MissingProcesses        map[string]int64 `json:"missingProcesses,omitempty"`
 }
 
 // +genclient
@@ -72,10 +78,167 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-// DesiredProcessCount returns the number of processes to configure with a given
+// RoleCounts represents the roles whose counts can be customized.
+type RoleCounts struct {
+	Storage   int `json:"storage,omitempty"`
+	Logs      int `json:"logs,omitempty"`
+	Proxies   int `json:"proxies,omitempty"`
+	Resolvers int `json:"resolvers,omitempty"`
+}
+
+// ProcessCounts represents the number of processes we have for each valid
+// process class.
+type ProcessCounts struct {
+	Storage           int `json:"storage,omitempty"`
+	Transaction       int `json:"transaction,omitempty"`
+	Stateless         int `json:"stateless,omitempty"`
+	Resolution        int `json:"resolution,omitempty"`
+	Unset             int `json:"unset,omitempty"`
+	Log               int `json:"log,omitempty"`
+	Master            int `json:"master,omitempty"`
+	ClusterController int `json:"cluster_controller,omitempty"`
+	Proxy             int `json:"proxy,omitempty"`
+	Resolver          int `json:"resolver,omitempty"`
+	Router            int `json:"router,omitempty"`
+}
+
+// Map returns a map from process classes to the number of processes with that
 // class
+func (counts ProcessCounts) Map() map[string]int {
+	countMap := make(map[string]int, 11)
+	countValue := reflect.ValueOf(counts)
+	for processClass, index := range processClassIndices {
+		value := int(countValue.Field(index).Int())
+		if value > 0 {
+			countMap[processClass] = value
+		}
+	}
+	return countMap
+}
+
+// IncreaseCount adds to one of the process counts based on the name
+func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
+	index, present := processClassIndices[name]
+	if present {
+		countValue := reflect.ValueOf(counts)
+		value := countValue.Elem().Field(index)
+		value.SetInt(value.Int() + int64(amount))
+	}
+}
+
+// ProcessClasses provides a consistent ordered list of the supported process
+// classes.
+var ProcessClasses = func() []string {
+	countType := reflect.TypeOf(ProcessCounts{})
+	classes := make([]string, 0, countType.NumField())
+	for index := 0; index < countType.NumField(); index++ {
+		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
+		classes = append(classes, tag[0])
+	}
+	return classes
+}()
+
+var processClassIndices = func() map[string]int {
+	countType := reflect.TypeOf(ProcessCounts{})
+	classes := make(map[string]int, countType.NumField())
+	for index := 0; index < countType.NumField(); index++ {
+		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
+		classes[tag[0]] = index
+	}
+	return classes
+}()
+
+// ApplyDefaultRoleCounts sets the default values for any role
+// counts that are currently zero.
+func (cluster *FoundationDBCluster) ApplyDefaultRoleCounts() bool {
+	changed := false
+	if cluster.Spec.RoleCounts.Storage == 0 {
+		cluster.Spec.RoleCounts.Storage = 2*cluster.DesiredFaultTolerance() + 1
+		changed = true
+	}
+	if cluster.Spec.RoleCounts.Logs == 0 {
+		cluster.Spec.RoleCounts.Logs = 3
+		changed = true
+	}
+	if cluster.Spec.RoleCounts.Proxies == 0 {
+		cluster.Spec.RoleCounts.Proxies = 3
+		changed = true
+	}
+	if cluster.Spec.RoleCounts.Resolvers == 0 {
+		cluster.Spec.RoleCounts.Resolvers = 1
+		changed = true
+	}
+	return changed
+}
+
+func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alternatives ...int) int {
+	for _, value := range alternatives {
+		if value > 0 {
+			return 0
+		}
+	}
+	if count < 0 {
+		return 0
+	}
+	return count
+}
+
+func (cluster *FoundationDBCluster) calculateProcessCount(counts ...int) int {
+	var final = 0
+	for _, count := range counts {
+		if count > final {
+			final = count
+		}
+	}
+	if final > 0 {
+		return final + cluster.DesiredFaultTolerance()
+	}
+	return -1
+}
+
+// ApplyDefaultProcessCounts sets the default values for any process
+// counts that are currently zero.
+func (cluster *FoundationDBCluster) ApplyDefaultProcessCounts() bool {
+	changed := false
+	if cluster.Spec.ProcessCounts.Storage == 0 {
+		cluster.Spec.ProcessCounts.Storage = cluster.Spec.RoleCounts.Storage
+		changed = true
+	}
+	if cluster.Spec.ProcessCounts.Transaction == 0 {
+		cluster.Spec.ProcessCounts.Transaction = cluster.calculateProcessCount(
+			cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Logs, cluster.Spec.ProcessCounts.Log),
+		)
+		changed = true
+	}
+	if cluster.Spec.ProcessCounts.Stateless == 0 {
+		cluster.Spec.ProcessCounts.Stateless = cluster.calculateProcessCount(
+			cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.Master) +
+				cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.ClusterController) +
+				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Proxies, cluster.Spec.ProcessCounts.Proxy) +
+				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Resolvers, cluster.Spec.ProcessCounts.Resolution, cluster.Spec.ProcessCounts.Resolver),
+		)
+		changed = true
+	}
+	return changed
+}
+
+// DesiredFaultTolerance returns the number of replicas we should be able to
+// lose when the cluster is at full replication health.
+func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
+	switch cluster.Spec.ReplicationMode {
+	case "single":
+		return 0
+	case "double":
+		return 1
+	case "triple":
+		return 2
+	default:
+		return 0
+	}
+}
+
 func (cluster *FoundationDBCluster) DesiredProcessCount(processClass string) int {
-	count := cluster.Spec.ProcessCounts[processClass]
+	count := cluster.Spec.ProcessCountsMap[processClass]
 	var minimum int
 	if processClass == "storage" {
 		switch cluster.Spec.ReplicationMode {

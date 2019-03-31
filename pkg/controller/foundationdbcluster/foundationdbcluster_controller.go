@@ -53,8 +53,6 @@ import (
 
 var log = logf.Log.WithName("controller")
 
-var processClasses = []string{"storage"}
-
 // Add creates a new FoundationDBCluster Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -236,6 +234,12 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.Founda
 		}
 		changed = true
 	}
+	if cluster.ApplyDefaultRoleCounts() {
+		changed = true
+	}
+	if cluster.ApplyDefaultProcessCounts() {
+		changed = true
+	}
 	if changed {
 		err := r.Update(context.TODO(), cluster)
 		if err != nil {
@@ -247,8 +251,8 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(cluster *fdbtypes.Founda
 
 func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.FoundationDBCluster) error {
 	status := fdbtypes.FoundationDBClusterStatus{}
-	status.DesiredProcessCounts = make(map[string]int, len(processClasses))
-	status.ProcessCounts = make(map[string]int, len(processClasses))
+	status.DesiredProcessCountsMap = make(map[string]int, len(fdbtypes.ProcessClasses))
+	status.ProcessCountsMap = make(map[string]int, len(fdbtypes.ProcessClasses))
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
 
@@ -271,56 +275,60 @@ func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.Foundation
 	} else {
 		databaseStatus = nil
 	}
-	for _, processClass := range processClasses {
-		existingPods := &corev1.PodList{}
-		err := r.List(
-			context.TODO(),
-			getPodListOptions(cluster, processClass),
-			existingPods)
+
+	existingPods := &corev1.PodList{}
+	err := r.List(
+		context.TODO(),
+		getPodListOptions(cluster, ""),
+		existingPods)
+	if err != nil {
+		return err
+	}
+
+	for processClass := range cluster.Spec.ProcessCounts.Map() {
+		status.DesiredProcessCountsMap[processClass] = cluster.DesiredProcessCount(processClass)
+	}
+
+	for _, pod := range existingPods.Items {
+		processClass := pod.Labels["fdb-process-class"]
+
+		_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
+		if !pendingRemoval {
+			status.ProcessCounts.IncreaseCount(processClass, 1)
+			status.ProcessCountsMap[processClass]++
+		}
+
+		podClient, err := r.getPodClient(cluster, &pod)
 		if err != nil {
 			return err
 		}
-
-		status.DesiredProcessCounts[processClass] = cluster.DesiredProcessCount(processClass)
-		existingCount := 0
-		for _, pod := range existingPods.Items {
-			_, pendingRemoval := cluster.Spec.PendingRemovals[pod.Name]
-			if !pendingRemoval {
-				existingCount++
-			}
-
-			podClient, err := r.getPodClient(cluster, &pod)
-			if err != nil {
-				return err
-			}
-			ip := podClient.GetPodIP()
-			processStatus := processMap[ip]
-			if len(processStatus) == 0 {
-				existingTime, exists := cluster.Status.MissingProcesses[pod.Name]
-				if exists {
-					status.MissingProcesses[pod.Name] = existingTime
-				} else {
-					status.MissingProcesses[pod.Name] = time.Now().Unix()
-				}
+		ip := podClient.GetPodIP()
+		processStatus := processMap[ip]
+		if len(processStatus) == 0 {
+			existingTime, exists := cluster.Status.MissingProcesses[pod.Name]
+			if exists {
+				status.MissingProcesses[pod.Name] = existingTime
 			} else {
-				for _, process := range processStatus {
-					commandLine := GetStartCommand(cluster, &pod)
-					if commandLine != process.CommandLine {
-						existingTime, exists := cluster.Status.IncorrectProcesses[pod.Name]
-						if exists {
-							status.IncorrectProcesses[pod.Name] = existingTime
-						} else {
-							status.IncorrectProcesses[pod.Name] = time.Now().Unix()
-						}
+				status.MissingProcesses[pod.Name] = time.Now().Unix()
+			}
+		} else {
+			for _, process := range processStatus {
+				commandLine := GetStartCommand(cluster, &pod)
+				if commandLine != process.CommandLine {
+					existingTime, exists := cluster.Status.IncorrectProcesses[pod.Name]
+					if exists {
+						status.IncorrectProcesses[pod.Name] = existingTime
+					} else {
+						status.IncorrectProcesses[pod.Name] = time.Now().Unix()
 					}
 				}
 			}
 		}
-		status.ProcessCounts[processClass] = existingCount
 	}
+
 	status.FullyReconciled = cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
-		reflect.DeepEqual(status.DesiredProcessCounts, status.ProcessCounts) &&
+		reflect.DeepEqual(status.ProcessCounts, cluster.Spec.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0
 	cluster.Status = status
 	r.Status().Update(context.TODO(), cluster)
@@ -415,8 +423,14 @@ func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass strin
 
 func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBCluster) error {
 	hasNewPods := false
-	for _, processClass := range processClasses {
-		newCount := cluster.Status.DesiredProcessCounts[processClass] - cluster.Status.ProcessCounts[processClass]
+	currentCounts := cluster.Status.ProcessCounts.Map()
+	desiredCounts := cluster.Spec.ProcessCounts.Map()
+	for _, processClass := range fdbtypes.ProcessClasses {
+		desiredCount := desiredCounts[processClass]
+		if desiredCount < 0 {
+			desiredCount = 0
+		}
+		newCount := desiredCount - currentCounts[processClass]
 		if newCount > 0 {
 			r.recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 			id := cluster.Spec.NextInstanceID
@@ -447,7 +461,7 @@ func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBClu
 				id++
 			}
 			cluster.Spec.NextInstanceID = id
-			cluster.Status.DesiredProcessCounts[processClass] += newCount
+			cluster.Status.ProcessCounts.IncreaseCount(processClass, newCount)
 			hasNewPods = true
 		}
 	}
@@ -544,7 +558,9 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 	if removals == nil {
 		removals = make(map[string]string)
 	}
-	for _, processClass := range processClasses {
+
+	currentCounts := cluster.Status.ProcessCounts.Map()
+	for processClass, desiredCount := range cluster.Spec.ProcessCounts.Map() {
 		existingPods := &corev1.PodList{}
 		err := r.List(
 			context.TODO(),
@@ -554,7 +570,11 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 			return err
 		}
 
-		removedCount := cluster.Status.ProcessCounts[processClass] - cluster.Status.DesiredProcessCounts[processClass]
+		if desiredCount < 0 {
+			desiredCount = 0
+		}
+
+		removedCount := currentCounts[processClass] - desiredCount
 		if removedCount > 0 {
 			r.recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 			for indexOfPod := 0; indexOfPod < removedCount; indexOfPod++ {
@@ -566,7 +586,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 				removals[pod.Name] = podClient.GetPodIP()
 			}
 			hasNewRemovals = true
-			cluster.Status.ProcessCounts[processClass] -= removedCount
+			cluster.Status.ProcessCounts.IncreaseCount(processClass, -1*removedCount)
 		}
 	}
 
@@ -804,12 +824,14 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 	connectionString := cluster.Spec.ConnectionString
 	data["cluster-file"] = connectionString
 
-	for _, processClass := range processClasses {
-		filename := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
-		if connectionString == "" {
-			data[filename] = ""
-		} else {
-			data[filename] = GetMonitorConf(cluster, processClass, nil)
+	for _, processClass := range fdbtypes.ProcessClasses {
+		if cluster.DesiredProcessCount(processClass) > 0 {
+			filename := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
+			if connectionString == "" {
+				data[filename] = ""
+			} else {
+				data[filename] = GetMonitorConf(cluster, processClass, nil)
+			}
 		}
 	}
 

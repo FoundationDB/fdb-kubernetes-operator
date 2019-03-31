@@ -44,10 +44,58 @@ spec:
             pendingRemovals:
               type: object
             processCounts:
+              properties:
+                log:
+                  format: int64
+                  type: integer
+                master:
+                  format: int64
+                  type: integer
+                proxy:
+                  format: int64
+                  type: integer
+                resolution:
+                  format: int64
+                  type: integer
+                resolver:
+                  format: int64
+                  type: integer
+                router:
+                  format: int64
+                  type: integer
+                stateless:
+                  format: int64
+                  type: integer
+                storage:
+                  format: int64
+                  type: integer
+                transaction:
+                  format: int64
+                  type: integer
+                unset:
+                  format: int64
+                  type: integer
+              type: object
+            processCountsMap:
               type: object
             replicationMode:
               type: string
             resources:
+              type: object
+            roleCounts:
+              properties:
+                logs:
+                  format: int64
+                  type: integer
+                proxies:
+                  format: int64
+                  type: integer
+                resolvers:
+                  format: int64
+                  type: integer
+                storage:
+                  format: int64
+                  type: integer
               type: object
             storageClass:
               type: string
@@ -63,7 +111,7 @@ spec:
           type: object
         status:
           properties:
-            desiredProcessCounts:
+            desiredProcessCountsMap:
               type: object
             fullyReconciled:
               type: boolean
@@ -72,6 +120,39 @@ spec:
             missingProcesses:
               type: object
             processCounts:
+              properties:
+                log:
+                  format: int64
+                  type: integer
+                master:
+                  format: int64
+                  type: integer
+                proxy:
+                  format: int64
+                  type: integer
+                resolution:
+                  format: int64
+                  type: integer
+                resolver:
+                  format: int64
+                  type: integer
+                router:
+                  format: int64
+                  type: integer
+                stateless:
+                  format: int64
+                  type: integer
+                storage:
+                  format: int64
+                  type: integer
+                transaction:
+                  format: int64
+                  type: integer
+                unset:
+                  format: int64
+                  type: integer
+              type: object
+            processCountsMap:
               type: object
           required:
           - fullyReconciled
