@@ -30,6 +30,8 @@ import (
 	"log"
 	"os"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 type Option struct {
@@ -112,14 +114,23 @@ func translateName(old string) string {
 	return strings.Replace(strings.Title(strings.Replace(old, "_", " ", -1)), " ", "", -1)
 }
 
+func lowerFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToLower(r)) + s[n:]
+}
+
 func writeMutation(opt Option) {
+	desc := lowerFirst(opt.Description)
 	tname := translateName(opt.Name)
 	fmt.Printf(`
-// %s
+// %s %s
 func (t Transaction) %s(key KeyConvertible, param []byte) {
 	t.atomicOp(key.FDBKey(), param, %d)
 }
-`, opt.Description, tname, opt.Code)
+`, tname, desc, tname, opt.Code)
 }
 
 func writeEnum(scope Scope, opt Option, delta int) {
@@ -196,7 +207,7 @@ func int64ToBytes(i int64) ([]byte, error) {
 			receiver := scope.Name + "s"
 
 			for _, opt := range scope.Option {
-				if !opt.Hidden {
+				if opt.Description != "Deprecated" && !opt.Hidden { // Eww
 					writeOpt(receiver, opt)
 				}
 			}
@@ -205,7 +216,7 @@ func int64ToBytes(i int64) ([]byte, error) {
 
 		if scope.Name == "MutationType" {
 			for _, opt := range scope.Option {
-				if !opt.Hidden {
+				if opt.Description != "Deprecated" && !opt.Hidden { // Eww
 					writeMutation(opt)
 				}
 			}

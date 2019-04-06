@@ -102,10 +102,8 @@ func (dl directoryLayer) createOrOpen(rtr fdb.ReadTransaction, tr *fdb.Transacti
 			return nil, errors.New("the directory already exists")
 		}
 
-		if layer != nil {
-			if l, e := existingNode._layer.Get(); e != nil || bytes.Compare(l, layer) != 0 {
-				return nil, errors.New("the directory was created with an incompatible layer")
-			}
+		if layer != nil && bytes.Compare(existingNode._layer.MustGet(), layer) != 0 {
+			return nil, errors.New("the directory was created with an incompatible layer")
 		}
 
 		return existingNode.getContents(dl, nil)
@@ -327,11 +325,7 @@ func (dl directoryLayer) Move(t fdb.Transactor, oldPath []string, newPath []stri
 
 		dl.removeFromParent(tr, oldPath)
 
-		l, e := oldNode._layer.Get()
-		if e != nil {
-			return nil, e
-		}
-		return dl.contentsOfNode(oldNode.subspace, newPath, l)
+		return dl.contentsOfNode(oldNode.subspace, newPath, oldNode._layer.MustGet())
 	})
 	if e != nil {
 		return nil, e
@@ -421,10 +415,7 @@ func (dl directoryLayer) subdirNames(rtr fdb.ReadTransaction, node subspace.Subs
 	var ret []string
 
 	for ri.Advance() {
-		kv, e := ri.Get()
-		if e != nil {
-			return nil, e
-		}
+		kv := ri.MustGet()
 
 		p, e := sd.Unpack(kv.Key)
 		if e != nil {
@@ -462,10 +453,7 @@ func (dl directoryLayer) nodeContainingKey(rtr fdb.ReadTransaction, key []byte) 
 	bk, _ := dl.nodeSS.FDBRangeKeys()
 	kr := fdb.KeyRange{bk, fdb.Key(append(dl.nodeSS.Pack(tuple.Tuple{key}), 0x00))}
 
-	kvs, e := rtr.GetRange(kr, fdb.RangeOptions{Reverse: true, Limit: 1}).GetSliceWithError()
-	if e != nil {
-		return nil, e
-	}
+	kvs := rtr.GetRange(kr, fdb.RangeOptions{Reverse: true, Limit: 1}).GetSliceOrPanic()
 	if len(kvs) == 1 {
 		pp, e := dl.nodeSS.Unpack(kvs[0].Key)
 		if e != nil {
@@ -507,10 +495,7 @@ func (dl directoryLayer) isPrefixFree(rtr fdb.ReadTransaction, prefix []byte) (b
 }
 
 func (dl directoryLayer) checkVersion(rtr fdb.ReadTransaction, tr *fdb.Transaction) error {
-	version, err := rtr.Get(dl.rootNode.Sub([]byte("version"))).Get()
-	if err != nil {
-		return err
-	}
+	version := rtr.Get(dl.rootNode.Sub([]byte("version"))).MustGet()
 
 	if version == nil {
 		if tr != nil {

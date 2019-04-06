@@ -12,3 +12,6 @@ spec:
     stateless: -1
     transaction: -1
   volumeSize: "0"
+  resources:
+    cpus: 1
+    memory: 128Mi

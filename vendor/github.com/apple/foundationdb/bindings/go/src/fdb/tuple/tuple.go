@@ -29,11 +29,9 @@
 // For general guidance on tuple usage, see the Tuple section of Data Modeling
 // (https://apple.github.io/foundationdb/data-modeling.html#tuples).
 //
-// FoundationDB tuples can currently encode byte and unicode strings, integers,
-// large integers, floats, doubles, booleans, UUIDs, tuples, and NULL values.
-// In Go these are represented as []byte (or fdb.KeyConvertible), string, int64
-// (or int, uint, uint64), *big.Int (or big.Int), float32, float64, bool,
-// UUID, Tuple, and nil.
+// FoundationDB tuples can currently encode byte and unicode strings, integers
+// and NULL values. In Go these are represented as []byte, string, int64 and
+// nil.
 package tuple
 
 import (
@@ -41,7 +39,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 )
@@ -52,8 +49,7 @@ import (
 // result in a runtime panic).
 //
 // The valid types for TupleElement are []byte (or fdb.KeyConvertible), string,
-// int64 (or int, uint, uint64), *big.Int (or big.Int), float, double, bool,
-// UUID, Tuple, and nil.
+// int64 (or int), float, double, bool, UUID, Tuple, and nil.
 type TupleElement interface{}
 
 // Tuple is a slice of objects that can be encoded as FoundationDB tuples. If
@@ -62,7 +58,7 @@ type TupleElement interface{}
 //
 // Given a Tuple T containing objects only of these types, then T will be
 // identical to the Tuple returned by unpacking the byte slice obtained by
-// packing T (modulo type normalization to []byte, uint64, and int64).
+// packing T (modulo type normalization to []byte and int64).
 type Tuple []TupleElement
 
 // UUID wraps a basic byte array as a UUID. We do not provide any special
@@ -79,8 +75,8 @@ const bytesCode = 0x01
 const stringCode = 0x02
 const nestedCode = 0x05
 const intZeroCode = 0x14
-const posIntEnd = 0x1d
-const negIntStart = 0x0b
+const posIntEnd = 0x1c
+const negIntStart = 0x0c
 const floatCode = 0x20
 const doubleCode = 0x21
 const falseCode = 0x26
@@ -98,8 +94,6 @@ var sizeLimits = []uint64{
 	1<<(7*8) - 1,
 	1<<(8*8) - 1,
 }
-
-var minInt64BigInt = big.NewInt(math.MinInt64)
 
 func bisectLeft(u uint64) int {
 	var n int
@@ -153,77 +147,28 @@ func (p *packer) encodeBytes(code byte, b []byte) {
 	p.putByte(0x00)
 }
 
-func (p *packer) encodeUint(i uint64) {
-	if i == 0 {
-		p.putByte(intZeroCode)
-		return
-	}
-
-	n := bisectLeft(i)
-	var scratch [8]byte
-
-	p.putByte(byte(intZeroCode + n))
-	binary.BigEndian.PutUint64(scratch[:], i)
-
-	p.putBytes(scratch[8-n:])
-}
-
 func (p *packer) encodeInt(i int64) {
-	if i >= 0 {
-		p.encodeUint(uint64(i))
+	if i == 0 {
+		p.putByte(0x14)
 		return
 	}
 
-	n := bisectLeft(uint64(-i))
+	var n int
 	var scratch [8]byte
 
-	p.putByte(byte(intZeroCode - n))
-	offsetEncoded := int64(sizeLimits[n]) + i
-	binary.BigEndian.PutUint64(scratch[:], uint64(offsetEncoded))
+	switch {
+	case i > 0:
+		n = bisectLeft(uint64(i))
+		p.putByte(byte(intZeroCode + n))
+		binary.BigEndian.PutUint64(scratch[:], uint64(i))
+	case i < 0:
+		n = bisectLeft(uint64(-i))
+		p.putByte(byte(0x14 - n))
+		offsetEncoded := int64(sizeLimits[n]) + i
+		binary.BigEndian.PutUint64(scratch[:], uint64(offsetEncoded))
+	}
 
 	p.putBytes(scratch[8-n:])
-}
-
-func (p *packer) encodeBigInt(i *big.Int) {
-	length := len(i.Bytes())
-	if length > 0xff {
-		panic(fmt.Sprintf("Integer magnitude is too large (more than 255 bytes)"))
-	}
-
-	if i.Sign() >= 0 {
-		intBytes := i.Bytes()
-		if length > 8 {
-			p.putByte(byte(posIntEnd))
-			p.putByte(byte(len(intBytes)))
-		} else {
-			p.putByte(byte(intZeroCode + length))
-		}
-
-		p.putBytes(intBytes)
-	} else {
-		add := new(big.Int).Lsh(big.NewInt(1), uint(length*8))
-		add.Sub(add, big.NewInt(1))
-		transformed := new(big.Int)
-		transformed.Add(i, add)
-
-		intBytes := transformed.Bytes()
-		if length > 8 {
-			p.putByte(byte(negIntStart))
-			p.putByte(byte(length ^ 0xff))
-		} else {
-			p.putByte(byte(intZeroCode - length))
-		}
-
-		// For large negative numbers whose absolute value begins with 0xff bytes,
-		// the transformed bytes may begin with 0x00 bytes. However, intBytes
-		// will only contain the non-zero suffix, so this loop is needed to make
-		// the value written be the correct length.
-		for i := len(intBytes); i < length; i++ {
-			p.putByte(0x00)
-		}
-
-		p.putBytes(intBytes)
-	}
 }
 
 func (p *packer) encodeFloat(f float32) {
@@ -263,18 +208,10 @@ func (p *packer) encodeTuple(t Tuple, nested bool) {
 			if nested {
 				p.putByte(0xff)
 			}
-		case int:
-			p.encodeInt(int64(e))
 		case int64:
 			p.encodeInt(e)
-		case uint:
-			p.encodeUint(uint64(e))
-		case uint64:
-			p.encodeUint(e)
-		case *big.Int:
-			p.encodeBigInt(e)
-		case big.Int:
-			p.encodeBigInt(&e)
+		case int:
+			p.encodeInt(int64(e))
 		case []byte:
 			p.encodeBytes(bytesCode, e)
 		case fdb.KeyConvertible:
@@ -305,10 +242,8 @@ func (p *packer) encodeTuple(t Tuple, nested bool) {
 
 // Pack returns a new byte slice encoding the provided tuple. Pack will panic if
 // the tuple contains an element of any type other than []byte,
-// fdb.KeyConvertible, string, int64, int, uint64, uint, *big.Int, big.Int, float32,
-// float64, bool, tuple.UUID, nil, or a Tuple with elements of valid types. It will
-// also panic if an integer is specified with a value outside the range
-// [-2**2040+1, 2**2040-1]
+// fdb.KeyConvertible, string, int64, int, float32, float64, bool, tuple.UUID,
+// nil, or a Tuple with elements of valid types.
 //
 // Tuple satisfies the fdb.KeyConvertible interface, so it is not necessary to
 // call Pack when using a Tuple with a FoundationDB API function that requires a
@@ -346,9 +281,9 @@ func decodeString(b []byte) (string, int) {
 	return string(bp), idx
 }
 
-func decodeInt(b []byte) (interface{}, int) {
+func decodeInt(b []byte) (int64, int) {
 	if b[0] == intZeroCode {
-		return int64(0), 1
+		return 0, 1
 	}
 
 	var neg bool
@@ -363,55 +298,14 @@ func decodeInt(b []byte) (interface{}, int) {
 	copy(bp[8-n:], b[1:n+1])
 
 	var ret int64
+
 	binary.Read(bytes.NewBuffer(bp), binary.BigEndian, &ret)
 
 	if neg {
-		return ret - int64(sizeLimits[n]), n + 1
+		ret -= int64(sizeLimits[n])
 	}
 
-	if ret > 0 {
-		return ret, n + 1
-	}
-
-	// The encoded value claimed to be positive yet when put in an int64
-	// produced a negative value. This means that the number must be a positive
-	// 64-bit value that uses the most significant bit. This can be fit in a
-	// uint64, so return that. Note that this is the *only* time we return
-	// a uint64.
-	return uint64(ret), n + 1
-}
-
-func decodeBigInt(b []byte) (interface{}, int) {
-	val := new(big.Int)
-	offset := 1
-	var length int
-
-	if b[0] == negIntStart || b[0] == posIntEnd {
-		length = int(b[1])
-		if b[0] == negIntStart {
-			length ^= 0xff
-		}
-
-		offset += 1
-	} else {
-		// Must be a negative 8 byte integer
-		length = 8
-	}
-
-	val.SetBytes(b[offset : length+offset])
-
-	if b[0] < intZeroCode {
-		sub := new(big.Int).Lsh(big.NewInt(1), uint(length)*8)
-		sub.Sub(sub, big.NewInt(1))
-		val.Sub(val, sub)
-	}
-
-	// This is the only value that fits in an int64 or uint64 that is decoded with this function
-	if val.Cmp(minInt64BigInt) == 0 {
-		return val.Int64(), length + offset
-	}
-
-	return val, length + offset
+	return ret, n + 1
 }
 
 func decodeFloat(b []byte) (float32, int) {
@@ -462,12 +356,8 @@ func decodeTuple(b []byte, nested bool) (Tuple, int, error) {
 			el, off = decodeBytes(b[i:])
 		case b[i] == stringCode:
 			el, off = decodeString(b[i:])
-		case negIntStart+1 < b[i] && b[i] < posIntEnd:
-			el, off = decodeInt(b[i:])
-		case negIntStart+1 == b[i] && (b[i+1]&0x80 != 0):
-			el, off = decodeInt(b[i:])
 		case negIntStart <= b[i] && b[i] <= posIntEnd:
-			el, off = decodeBigInt(b[i:])
+			el, off = decodeInt(b[i:])
 		case b[i] == floatCode:
 			if i+5 > len(b) {
 				return nil, i, fmt.Errorf("insufficient bytes to decode float starting at position %d of byte array for tuple", i)

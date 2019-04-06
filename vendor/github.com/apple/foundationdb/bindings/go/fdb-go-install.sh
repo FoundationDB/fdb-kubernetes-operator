@@ -23,32 +23,8 @@ if [[ "${platform}" == "Darwin" ]] ; then
     FDBLIBDIR="${FDBLIBDIR:-/usr/local/lib}"
     libfdbc="libfdb_c.dylib"
 elif [[ "${platform}" == "Linux" ]] ; then
+    FDBLIBDIR="${FDBLIBDIR:-/usr/lib}"
     libfdbc="libfdb_c.so"
-    custom_libdir="${FDBLIBDIR:-}"
-    FDBLIBDIR=""
-
-    if [[ -z "${custom_libdir}" ]]; then
-	search_libdirs=( '/usr/lib' '/usr/lib64' )
-    else
-	search_libdirs=( "${custom_libdir}" )
-    fi
-
-    for libdir in "${search_libdirs[@]}" ; do
-        if [[ -e "${libdir}/${libfdbc}" ]]; then
-            FDBLIBDIR="${libdir}"
-            break
-        fi
-    done
-
-    if [[ -z "${FDBLIBDIR}" ]]; then
-        echo "The FoundationDB C library could not be found in any of:"
-        for libdir in "${search_libdirs[@]}" ; do
-            echo "   ${libdir}"
-        done
-        echo "Your installation may be incomplete, or you need to set a custom FDBLIBDIR."
-        let status="${status} + 1"
-    fi
-
 else
     echo "Unsupported platform ${platform}".
     echo "At the moment, only macOS and Linux are supported by this script."
@@ -221,7 +197,7 @@ else
                 fi
             else
                 echo "Downloading foundation repository into ${destdir}:"
-                cmd=( 'git' '-C' "${destdir}" 'clone' '--branch' "release-${FDBVER}" "https://${REMOTE}/${FDBREPO}.git" )
+                cmd=( 'git' '-C' "${destdir}" 'clone' '--branch' "release-${FDBVER}" "git@${REMOTE}:${FDBREPO}.git" )
 
                 echo "${cmd[*]}"
                 if ! "${cmd[@]}" ; then
@@ -296,12 +272,17 @@ else
             # Do not install if only downloading
             :
         elif [[ "${status}" -eq 0 ]] ; then
-            cgo_cppflags="-I${linkpath}/bindings/c"
-            cgo_cflags="-g -O2"
-            cgo_ldflags="-L${FDBLIBDIR}"
+            cgo_cflags="-g -O2 -I${linkpath}/bindings/c"
+            cgo_ldflags="-g -O2 -L${FDBLIBDIR}"
             fdb_go_path="${REMOTE}/${FDBREPO}/bindings/go/src"
 
-            if ! CGO_CPPFLAGS="${cgo_cppflags}" CGO_CFLAGS="${cgo_cflags}" CGO_LDFLAGS="${cgo_ldflags}" go install "${fdb_go_path}/fdb" "${fdb_go_path}/fdb/tuple" "${fdb_go_path}/fdb/subspace" "${fdb_go_path}/fdb/directory" ; then
+            if [[ ! -e "${FDBLIBDIR}/${libfdbc}" ]] ; then
+                # Just a warning. Don't fail script.
+                echo
+                echo "WARNING: The FoundationDB C library was not found within ${FDBLIBDIR}."
+                echo "Your installation may be incomplete."
+                echo
+            elif ! CGO_CFLAGS="${cgo_cflags}" CGO_LDFLAGS="${cgo_ldflags}" go install "${fdb_go_path}/fdb" "${fdb_go_path}/fdb/tuple" "${fdb_go_path}/fdb/subspace" "${fdb_go_path}/fdb/directory" ; then
                 let status="${status} + 1"
                 echo "Could not build FoundationDB go libraries."
             fi
@@ -314,7 +295,6 @@ else
             echo "The FoundationDB go bindings were successfully installed."
             echo "To build packages which use the go bindings, you will need to"
             echo "set the following environment variables:"
-            echo "   CGO_CPPFLAGS=\"${cgo_cppflags}\""
             echo "   CGO_CFLAGS=\"${cgo_cflags}\""
             echo "   CGO_LDFLAGS=\"${cgo_ldflags}\""
         fi

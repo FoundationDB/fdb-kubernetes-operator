@@ -86,6 +86,7 @@ func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValu
 	policyBytes := bytes.Join([][]byte{configurationProtocolVersion, policy.BinaryRepresentation()}, nil)
 	keys = append(keys,
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: replicas},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_quorum"), Value: replicas},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: replicas},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replication_policy"), Value: policyBytes},

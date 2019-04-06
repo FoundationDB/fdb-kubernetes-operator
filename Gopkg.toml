@@ -35,3 +35,7 @@ required = [
 name = "gopkg.in/fsnotify.v1"
 source = "https://github.com/fsnotify/fsnotify.git"
 version="v1.4.7"
+
+[[constraint]]
+  name = "github.com/apple/foundationdb"
+  version = "5.2.8"

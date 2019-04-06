@@ -10,12 +10,12 @@
   version = "v0.35.1"
 
 [[projects]]
-  digest = "1:74a0c5a7905f329104cca300d418f7ae236140b6d6669ec013ab1489f5b6fbf3"
+  digest = "1:49f1c5766f734fe4983c93ba53bfc5e540661fb3945dfbf178aa067340eb95af"
   name = "github.com/apple/foundationdb"
   packages = ["bindings/go/src/fdb"]
   pruneopts = "T"
-  revision = "48d84faa3e6174deb7f852ef4d314f7bad1dfa57"
-  version = "6.0.18"
+  revision = "ae899a1c6a06635c07d04c8577b885b7aa699773"
+  version = "5.2.8"
 
 [[projects]]
   digest = "1:464aef731a5f82ded547c62e249a2e9ec59fbbc9ddab53cda7b9857852630a61"
@@ -944,19 +944,23 @@
   input-imports = [
     "github.com/apple/foundationdb/bindings/go/src/fdb",
     "github.com/emicklei/go-restful",
+    "github.com/google/uuid",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "golang.org/x/net/context",
     "k8s.io/api/core/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
+    "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/types",
+    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
+    "k8s.io/client-go/tools/record",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
     "sigs.k8s.io/controller-runtime/pkg/client",

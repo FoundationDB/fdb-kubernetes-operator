@@ -19,6 +19,7 @@ func TestGettingConfigurationKeys(t *testing.T) {
 	}
 	g.Expect(configuration.getConfigurationKeys()).To(gomega.Equal([]fdb.KeyValue{
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: []byte("2")},
+		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_quorum"), Value: []byte("2")},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: []byte("2")},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
 		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replication_policy"), Value: []byte(
