@@ -281,7 +281,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.Foundation
 	existingPods := &corev1.PodList{}
 	err := r.List(
 		context.TODO(),
-		getPodListOptions(cluster, ""),
+		getPodListOptions(cluster, "", ""),
 		existingPods)
 	if err != nil {
 		return err
@@ -360,7 +360,7 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.Foundat
 	}
 
 	pods := &corev1.PodList{}
-	err = r.List(context.TODO(), getPodListOptions(cluster, ""), pods)
+	err = r.List(context.TODO(), getPodListOptions(cluster, "", ""), pods)
 	if err != nil {
 		return err
 	}
@@ -410,7 +410,7 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.Fo
 	signal <- nil
 }
 
-func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id int) map[string]string {
+func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
 	labels := map[string]string{
 		"fdb-cluster-name": cluster.ObjectMeta.Name,
 	}
@@ -419,15 +419,15 @@ func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id
 		labels["fdb-process-class"] = processClass
 	}
 
-	if id != 0 {
-		labels["fdb-instance-id"] = strconv.Itoa(id)
+	if id != "" {
+		labels["fdb-instance-id"] = id
 	}
 
 	return labels
 }
 
-func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass string) *client.ListOptions {
-	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingLabels(getPodLabels(cluster, processClass, 0))
+func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) *client.ListOptions {
+	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingLabels(getPodLabels(cluster, processClass, id))
 }
 
 func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBCluster) error {
@@ -442,11 +442,62 @@ func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBClu
 		newCount := desiredCount - currentCounts[processClass]
 		if newCount > 0 {
 			r.recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
+
+			pvcs := &corev1.PersistentVolumeClaimList{}
+			r.List(context.TODO(), getPodListOptions(cluster, processClass, ""), pvcs)
+			reusablePvcs := make(map[int]bool, len(pvcs.Items))
+			for index, pvc := range pvcs.Items {
+				if pvc.Status.Phase == "Bound" && pvc.ObjectMeta.DeletionTimestamp == nil {
+					matchingPods := &corev1.PodList{}
+					err := r.List(context.TODO(), getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"]), matchingPods)
+					if err != nil {
+						return err
+					}
+					if len(matchingPods.Items) == 0 {
+						reusablePvcs[index] = true
+					}
+				}
+			}
+
+			addedCount := 0
+			for index := range reusablePvcs {
+				if newCount <= 0 {
+					break
+				}
+				id, err := strconv.Atoi(pvcs.Items[index].Labels["fdb-instance-id"])
+				if err != nil {
+					return err
+				}
+
+				pod, err := GetPod(cluster, processClass, id, r)
+				if err != nil {
+					return err
+				}
+				err = r.Create(context.TODO(), pod)
+				if err != nil {
+					return err
+				}
+				addedCount++
+				newCount--
+			}
+
 			id := cluster.Spec.NextInstanceID
 			if id < 1 {
 				id = 1
 			}
 			for i := 0; i < newCount; i++ {
+				for id > 0 {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err := r.List(context.TODO(), getPodListOptions(cluster, "", strconv.Itoa(id)), pvcs)
+					if err != nil {
+						return err
+					}
+					if len(pvcs.Items) == 0 {
+						break
+					}
+					id++
+				}
+
 				pvc, err := GetPvc(cluster, processClass, id)
 				if err != nil {
 					return err
@@ -467,10 +518,11 @@ func (r *ReconcileFoundationDBCluster) addPods(cluster *fdbtypes.FoundationDBClu
 					return err
 				}
 
+				addedCount++
 				id++
 			}
 			cluster.Spec.NextInstanceID = id
-			cluster.Status.ProcessCounts.IncreaseCount(processClass, newCount)
+			cluster.Status.ProcessCounts.IncreaseCount(processClass, addedCount)
 			hasNewPods = true
 		}
 	}
@@ -488,7 +540,7 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 		log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "name", cluster.Name)
 		r.recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
 		pods := &corev1.PodList{}
-		err := r.List(context.TODO(), getPodListOptions(cluster, "storage"), pods)
+		err := r.List(context.TODO(), getPodListOptions(cluster, "storage", ""), pods)
 		if err != nil {
 			return err
 		}
@@ -576,7 +628,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 		existingPods := &corev1.PodList{}
 		err := r.List(
 			context.TODO(),
-			getPodListOptions(cluster, processClass),
+			getPodListOptions(cluster, processClass, ""),
 			existingPods)
 		if err != nil {
 			return err
@@ -588,6 +640,11 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(cluster *fdbtypes.Foundati
 
 		removedCount := currentCounts[processClass] - desiredCount
 		if removedCount > 0 {
+			err = sortPodsByID(existingPods)
+			if err != nil {
+				return err
+			}
+
 			r.recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 			for indexOfPod := 0; indexOfPod < removedCount; indexOfPod++ {
 				pod := existingPods.Items[len(existingPods.Items)-1-indexOfPod]
@@ -777,7 +834,7 @@ func (r *ReconcileFoundationDBCluster) includeInstances(cluster *fdbtypes.Founda
 
 func (r *ReconcileFoundationDBCluster) updateSidecarVersions(cluster *fdbtypes.FoundationDBCluster) error {
 	pods := &corev1.PodList{}
-	err := r.List(context.TODO(), getPodListOptions(cluster, ""), pods)
+	err := r.List(context.TODO(), getPodListOptions(cluster, "", ""), pods)
 	if err != nil {
 		return err
 	}
@@ -978,7 +1035,7 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass string, id int, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       cluster.Namespace,
-			Labels:          getPodLabels(cluster, processClass, id),
+			Labels:          getPodLabels(cluster, processClass, strconv.Itoa(id)),
 			OwnerReferences: owner,
 		},
 		Spec: *GetPodSpec(cluster, processClass, name),
@@ -1084,11 +1141,18 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, id int) 
 		StorageClassName: cluster.Spec.StorageClass,
 	}
 
+	var idLabel string
+	if id > 0 {
+		idLabel = strconv.Itoa(id)
+	} else {
+		idLabel = ""
+	}
+
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cluster.Namespace,
 			Name:      name,
-			Labels:    getPodLabels(cluster, processClass, id),
+			Labels:    getPodLabels(cluster, processClass, idLabel),
 		},
 		Spec: spec,
 	}, nil
@@ -1121,6 +1185,22 @@ func (r *ReconcileFoundationDBCluster) getPodClientAsync(cluster *fdbtypes.Found
 	} else {
 		clientChan <- client
 	}
+}
+
+func sortPodsByID(pods *corev1.PodList) error {
+	var err error
+	sort.Slice(pods.Items, func(i, j int) bool {
+		id1, err1 := strconv.Atoi(pods.Items[i].Labels["fdb-instance-id"])
+		id2, err2 := strconv.Atoi(pods.Items[j].Labels["fdb-instance-id"])
+		if err1 != nil {
+			err = err1
+		}
+		if err2 != nil {
+			err = err2
+		}
+		return id1 < id2
+	})
+	return err
 }
 
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
