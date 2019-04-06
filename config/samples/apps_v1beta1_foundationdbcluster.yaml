@@ -7,11 +7,11 @@ metadata:
 spec:
   version: 6.0.18
   replicationMode: double
-  volumeSize: 16G
+  volumeSize: "0"
   processCounts:
     stateless: -1
     transaction: -1
-  volumeSize: "0"
   resources:
-    cpus: 1
-    memory: 128Mi
+    requests:
+      cpu: 1
+      memory: 128Mi

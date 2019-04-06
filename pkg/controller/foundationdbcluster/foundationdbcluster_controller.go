@@ -80,6 +80,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return []string{o.(*corev1.Pod).Name}
 	})
 
+	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {
+		return []string{o.(*corev1.PersistentVolumeClaim).Name}
+	})
+
 	c, err := controller.New("foundationdbcluster-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
@@ -380,16 +384,27 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.Foundat
 func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, signal chan error) {
 	client, err := r.getPodClient(cluster, pod)
 
-	updateSignals := make(chan error, 3)
-	go UpdateDynamicFiles(client, "fdbmonitor.conf", GetMonitorConf(cluster, pod.ObjectMeta.Labels["fdb-process-class"], pod), updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
+	pendingUpdates := 3
+	updateSignals := make(chan error, pendingUpdates)
 	go UpdateDynamicFiles(client, "fdb.cluster", cluster.Spec.ConnectionString, updateSignals, func(client FdbPodClient, clientError chan error) { client.CopyFiles(clientError) })
-	go CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), updateSignals)
 
-	for i := 0; i < cap(updateSignals); i++ {
+	if !cluster.Spec.Configured {
 		err = <-updateSignals
 		if err != nil {
 			signal <- err
 		}
+		pendingUpdates--
+	}
+
+	go UpdateDynamicFiles(client, "fdbmonitor.conf", GetMonitorConf(cluster, pod.ObjectMeta.Labels["fdb-process-class"], pod), updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
+	go CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), updateSignals)
+
+	for pendingUpdates > 0 {
+		err = <-updateSignals
+		if err != nil {
+			signal <- err
+		}
+		pendingUpdates--
 	}
 
 	signal <- nil
@@ -673,9 +688,9 @@ func (r *ReconcileFoundationDBCluster) removePods(cluster *fdbtypes.FoundationDB
 }
 
 func (r *ReconcileFoundationDBCluster) removePod(cluster *fdbtypes.FoundationDBCluster, podName string, signal chan error) {
-	listOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", podName)
+	podListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", podName)
 	pods := &corev1.PodList{}
-	err := r.List(context.TODO(), listOptions, pods)
+	err := r.List(context.TODO(), podListOptions, pods)
 	if err != nil {
 		signal <- err
 		return
@@ -690,20 +705,48 @@ func (r *ReconcileFoundationDBCluster) removePod(cluster *fdbtypes.FoundationDBC
 		signal <- err
 		return
 	}
+
+	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", podName))
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = r.List(context.TODO(), pvcListOptions, pvcs)
+	if err != nil {
+		signal <- err
+		return
+	}
+	if len(pvcs.Items) > 0 {
+		err = r.Delete(context.TODO(), &pvcs.Items[0])
+	}
+
 	for {
-		err := r.List(context.TODO(), listOptions, pods)
+		err := r.List(context.TODO(), podListOptions, pods)
 		if err != nil {
 			signal <- err
 			return
 		}
 		if len(pods.Items) == 0 {
-			signal <- nil
-			return
+			break
 		}
 
 		log.Info("Waiting for pod get torn down", "pod", podName)
 		time.Sleep(time.Second)
 	}
+
+	for {
+		err := r.List(context.TODO(), pvcListOptions, pvcs)
+		if err != nil {
+			signal <- err
+			return
+		}
+		if len(pvcs.Items) == 0 {
+			break
+		}
+
+		log.Info("Waiting for volume claim get torn down", "name", pvcs.Items[0].Name)
+		time.Sleep(time.Second)
+	}
+
+	signal <- nil
+	return
 }
 
 func (r *ReconcileFoundationDBCluster) includeInstances(cluster *fdbtypes.FoundationDBCluster) error {
