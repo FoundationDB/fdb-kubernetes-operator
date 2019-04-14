@@ -315,7 +315,10 @@ func (r *ReconcileFoundationDBCluster) updateStatus(cluster *fdbtypes.Foundation
 			}
 		} else {
 			for _, process := range processStatus {
-				commandLine := GetStartCommand(cluster, &pod)
+				commandLine, err := GetStartCommand(cluster, &pod)
+				if err != nil {
+					return err
+				}
 				if commandLine != process.CommandLine {
 					existingTime, exists := cluster.Status.IncorrectProcesses[pod.Name]
 					if exists {
@@ -388,6 +391,16 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(cluster *fdbtypes.Foundat
 
 func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, signal chan error) {
 	client, err := r.getPodClient(cluster, pod)
+	if err != nil {
+		signal <- err
+		return
+	}
+
+	conf, err := GetMonitorConf(cluster, pod.ObjectMeta.Labels["fdb-process-class"], pod)
+	if err != nil {
+		signal <- err
+		return
+	}
 
 	pendingUpdates := 3
 	updateSignals := make(chan error, pendingUpdates)
@@ -401,7 +414,7 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.Fo
 		pendingUpdates--
 	}
 
-	go UpdateDynamicFiles(client, "fdbmonitor.conf", GetMonitorConf(cluster, pod.ObjectMeta.Labels["fdb-process-class"], pod), updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
+	go UpdateDynamicFiles(client, "fdbmonitor.conf", conf, updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
 	go CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), updateSignals)
 
 	for pendingUpdates > 0 {
@@ -999,7 +1012,11 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 			if connectionString == "" {
 				data[filename] = ""
 			} else {
-				data[filename] = GetMonitorConf(cluster, processClass, nil)
+				conf, err := GetMonitorConf(cluster, processClass, nil)
+				if err != nil {
+					return nil, err
+				}
+				data[filename] = conf
 			}
 		}
 	}
@@ -1035,7 +1052,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) string {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) (string, error) {
 	confLines := make([]string, 0, 20)
 	confLines = append(confLines,
 		"[general]",
@@ -1043,13 +1060,21 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		"restart_delay = 60",
 	)
 	confLines = append(confLines, "[fdbserver.1]")
-	confLines = append(confLines, getStartCommandLines(cluster, processClass, pod)...)
-	return strings.Join(confLines, "\n")
+	commands, err := getStartCommandLines(cluster, processClass, pod)
+	if err != nil {
+		return "", err
+	}
+	confLines = append(confLines, commands...)
+	return strings.Join(confLines, "\n"), nil
 }
 
 // GetStartCommand builds the expected start command for a pod.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) string {
-	lines := getStartCommandLines(cluster, pod.Labels["fdb-process-class"], pod)
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (string, error) {
+	lines, err := getStartCommandLines(cluster, pod.Labels["fdb-process-class"], pod)
+	if err != nil {
+		return "", err
+	}
+
 	regex := regexp.MustCompile("^(\\w+)\\s*=\\s*(.*)")
 	firstComponents := regex.FindStringSubmatch(lines[0])
 	command := firstComponents[2]
@@ -1063,20 +1088,37 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) str
 		}
 		command += " --" + components[1] + "=" + components[2]
 	}
-	return command
+	return command, nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) []string {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) ([]string, error) {
 	confLines := make([]string, 0, 20)
 	var publicIP string
 	var machineID string
+	var zoneID string
 
 	if pod == nil {
 		publicIP = "$FDB_PUBLIC_IP"
 		machineID = "$FDB_MACHINE_ID"
+		zoneID = "$FDB_ZONE_ID"
 	} else {
 		publicIP = pod.Status.PodIP
-		machineID = pod.Name
+		if cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
+			machineID = pod.Name
+			zoneID = pod.Name
+		} else {
+			faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
+			if faultDomainSource == "" {
+				faultDomainSource = "spec.nodeName"
+			}
+			machineID = pod.Spec.NodeName
+
+			if faultDomainSource == "spec.nodeName" {
+				zoneID = pod.Spec.NodeName
+			} else {
+				return nil, fmt.Errorf("Unsupported fault domain source %s", faultDomainSource)
+			}
+		}
 	}
 	confLines = append(confLines,
 		fmt.Sprintf("command = /var/dynamic-conf/bin/%s/fdbserver", cluster.Spec.Version),
@@ -1088,10 +1130,10 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", cluster.Name),
 		fmt.Sprintf("locality_machineid = %s", machineID),
-		fmt.Sprintf("locality_zoneid = %s", machineID),
+		fmt.Sprintf("locality_zoneid = %s", zoneID),
 	)
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
-	return confLines
+	return confLines, nil
 }
 
 // GetPod builds a pod for a new instance
@@ -1133,13 +1175,44 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		},
 		Resources: *cluster.Spec.Resources,
 	}
+
+	sidecarEnv := make([]corev1.EnvVar, 0, 5)
+	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
+	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
+	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+	}})
+
+	faultDomainKey := cluster.Spec.FaultDomain.Key
+	if faultDomainKey == "" {
+		faultDomainKey = "kubernetes.io/hostname"
+	}
+
+	faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
+	if faultDomainSource == "" {
+		faultDomainSource = "spec.nodeName"
+	}
+
+	if faultDomainKey == "foundationdb.org/none" {
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+	} else {
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}})
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
+		}})
+	}
+
 	initContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-init",
 		Image: fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s", DockerImageRoot, cluster.Spec.Version),
-		Env: []corev1.EnvVar{
-			corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
-			corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
-		},
+		Env:   sidecarEnv,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
@@ -1148,7 +1221,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	sidecarContainer := corev1.Container{
 		Name:         "foundationdb-kubernetes-sidecar",
 		Image:        initContainer.Image,
-		Env:          initContainer.Env[1:],
+		Env:          sidecarEnv[1:],
 		VolumeMounts: initContainer.VolumeMounts,
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{TCPSocket: &corev1.TCPSocketAction{
@@ -1179,10 +1252,29 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		}}},
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
+	var affinity *corev1.Affinity
+
+	if faultDomainKey != "foundationdb.org/none" {
+		affinity = &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+					corev1.WeightedPodAffinityTerm{
+						Weight: 1,
+						PodAffinityTerm: corev1.PodAffinityTerm{
+							TopologyKey:   faultDomainKey,
+							LabelSelector: &metav1.LabelSelector{MatchLabels: getPodLabels(cluster, processClass, "")},
+						},
+					},
+				},
+			},
+		}
+	}
+
 	return &corev1.PodSpec{
 		InitContainers: []corev1.Container{initContainer},
 		Containers:     []corev1.Container{mainContainer, sidecarContainer},
 		Volumes:        volumes,
+		Affinity:       affinity,
 	}
 }
 

@@ -38,6 +38,15 @@ spec:
               items:
                 type: string
               type: array
+            faultDomain:
+              properties:
+                key:
+                  type: string
+                value:
+                  type: string
+                valueFrom:
+                  type: string
+              type: object
             nextInstanceID:
               format: int64
               type: integer

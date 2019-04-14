@@ -35,16 +35,17 @@ type FoundationDBClusterSpec struct {
 	Version          string `json:"version"`
 	RoleCounts       `json:"roleCounts,omitempty"`
 	ProcessCounts    `json:"processCounts,omitempty"`
-	ConnectionString string                       `json:"connectionString,omitempty"`
-	NextInstanceID   int                          `json:"nextInstanceID,omitempty"`
-	ReplicationMode  string                       `json:"replicationMode,omitempty"`
-	StorageEngine    string                       `json:"storageEngine,omitempty"`
-	StorageClass     *string                      `json:"storageClass,omitempty"`
-	Configured       bool                         `json:"configured,omitempty"`
-	PendingRemovals  map[string]string            `json:"pendingRemovals,omitempty"`
-	VolumeSize       string                       `json:"volumeSize"`
-	CustomParameters []string                     `json:"customParameters,omitempty"`
-	Resources        *corev1.ResourceRequirements `json:"resources,omitempty"`
+	ConnectionString string                         `json:"connectionString,omitempty"`
+	NextInstanceID   int                            `json:"nextInstanceID,omitempty"`
+	ReplicationMode  string                         `json:"replicationMode,omitempty"`
+	StorageEngine    string                         `json:"storageEngine,omitempty"`
+	Configured       bool                           `json:"configured,omitempty"`
+	FaultDomain      FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
+	StorageClass     *string                        `json:"storageClass,omitempty"`
+	VolumeSize       string                         `json:"volumeSize"`
+	CustomParameters []string                       `json:"customParameters,omitempty"`
+	Resources        *corev1.ResourceRequirements   `json:"resources,omitempty"`
+	PendingRemovals  map[string]string              `json:"pendingRemovals,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -387,6 +388,14 @@ func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
 		}
 	}
 	return true
+}
+
+// FoundationDBClusterFaultDomain describes the fault domain that a cluster is
+// replicated across
+type FoundationDBClusterFaultDomain struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	ValueFrom string `json:"valueFrom,omitempty"`
 }
 
 func init() {

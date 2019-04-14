@@ -8,6 +8,8 @@ spec:
   version: 6.0.18
   replicationMode: double
   volumeSize: "0"
+  faultDomain:
+    key: foundationdb.org/none
   processCounts:
     stateless: -1
     transaction: -1

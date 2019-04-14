@@ -618,10 +618,14 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		if isCoordinator && !excluded {
 			coordinators[fullAddress] = true
 		}
+		command, err := GetStartCommand(client.Cluster, &pod)
+		if err != nil {
+			return nil, err
+		}
 		status.Cluster.Processes[pod.Name] = fdbtypes.FoundationDBStatusProcessInfo{
 			Address:      fullAddress,
 			ProcessClass: pod.Labels["fdb-process-class"],
-			CommandLine:  GetStartCommand(client.Cluster, &pod),
+			CommandLine:  command,
 			Excluded:     ipExcluded || addressExcluded,
 		}
 	}

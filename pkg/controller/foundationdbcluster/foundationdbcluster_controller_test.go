@@ -57,6 +57,9 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 			ProcessCounts: appsv1beta1.ProcessCounts{
 				Storage: 4,
 			},
+			FaultDomain: appsv1beta1.FoundationDBClusterFaultDomain{
+				Key: "foundationdb.org/none",
+			},
 			VolumeSize: "16G",
 			Resources: &corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
@@ -434,9 +437,12 @@ func TestGetConfigMap(t *testing.T) {
 		"fdb-cluster-name": "operator-test",
 	}))
 
+	expectedConf, err := GetMonitorConf(cluster, "storage", nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
 	g.Expect(len(configMap.Data)).To(gomega.Equal(3))
 	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal("operator-test:asdfasf@127.0.0.1:4500"))
-	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(GetMonitorConf(cluster, "storage", nil)))
+	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(expectedConf))
 	sidecarConf := make(map[string]interface{})
 	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -465,7 +471,8 @@ func TestGetConfigMapWithEmptyConnectionString(t *testing.T) {
 func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
-	conf := GetMonitorConf(cluster, "storage", nil)
+	conf, err := GetMonitorConf(cluster, "storage", nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
 		"[general]",
 		"kill_on_configuration_change = false",
@@ -480,7 +487,7 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 		"logdir = /var/log/fdb-trace-logs",
 		"loggroup = operator-test",
 		"locality_machineid = $FDB_MACHINE_ID",
-		"locality_zoneid = $FDB_MACHINE_ID",
+		"locality_zoneid = $FDB_ZONE_ID",
 	}, "\n")))
 }
 
@@ -491,7 +498,9 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 		err := c.List(context.TODO(), listOptions, pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		command := GetStartCommand(cluster, &pods.Items[0])
+		command, err := GetStartCommand(cluster, &pods.Items[0])
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
 		id := pods.Items[0].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
 			"/var/dynamic-conf/bin/6.0.18/fdbserver",
@@ -508,13 +517,45 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 	})
 }
 
+func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		err := c.List(context.TODO(), listOptions, pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		pod := pods.Items[0]
+		pod.Spec.NodeName = "machine1"
+		pod.Status.PodIP = "127.0.0.1"
+		cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
+
+		command, err := GetStartCommand(cluster, &pod)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Expect(command).To(gomega.Equal(strings.Join([]string{
+			"/var/dynamic-conf/bin/6.0.18/fdbserver",
+			"--class=storage",
+			"--cluster_file=/var/fdb/data/fdb.cluster",
+			"--datadir=/var/fdb/data",
+			"--locality_machineid=machine1",
+			"--locality_zoneid=machine1",
+			"--logdir=/var/log/fdb-trace-logs",
+			"--loggroup=operator-test",
+			"--public_address=127.0.0.1:4500",
+			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+		}, " ")))
+	})
+}
+
 func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.CustomParameters = []string{
 		"knob_disable_posix_kernel_aio = 1",
 	}
-	conf := GetMonitorConf(cluster, "storage", nil)
+	conf, err := GetMonitorConf(cluster, "storage", nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
 		"[general]",
 		"kill_on_configuration_change = false",
@@ -529,7 +570,7 @@ func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 		"logdir = /var/log/fdb-trace-logs",
 		"loggroup = operator-test",
 		"locality_machineid = $FDB_MACHINE_ID",
-		"locality_zoneid = $FDB_MACHINE_ID",
+		"locality_zoneid = $FDB_ZONE_ID",
 		"knob_disable_posix_kernel_aio = 1",
 	}, "\n")))
 }
@@ -558,6 +599,7 @@ func TestGetPodForStorageInstance(t *testing.T) {
 func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
 	spec := GetPodSpec(cluster, "storage", "operator-test-1")
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
@@ -567,6 +609,15 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
+		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
 	}))
 	g.Expect(initContainer.VolumeMounts).To(gomega.Equal([]corev1.VolumeMount{
 		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
@@ -583,9 +634,11 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
 			" --lockfile /var/fdb/fdbmonitor.lockfile",
 	}))
+
 	g.Expect(mainContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 	}))
+
 	g.Expect(*mainContainer.Resources.Limits.Cpu()).To(gomega.Equal(resource.MustParse("1")))
 	g.Expect(*mainContainer.Resources.Limits.Memory()).To(gomega.Equal(resource.MustParse("1Gi")))
 	g.Expect(*mainContainer.Resources.Requests.Cpu()).To(gomega.Equal(resource.MustParse("1")))
@@ -604,6 +657,15 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
 	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
+		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
 	}))
 	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
 	g.Expect(sidecarContainer.ReadinessProbe).To(gomega.Equal(&corev1.Probe{
@@ -638,6 +700,25 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		Name:         "fdb-trace-logs",
 		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 	}))
+
+	g.Expect(spec.Affinity).To(gomega.Equal(&corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				corev1.WeightedPodAffinityTerm{
+					Weight: 1,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						TopologyKey: "kubernetes.io/hostname",
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"fdb-cluster-name":  "operator-test",
+								"fdb-process-class": "storage",
+							},
+						},
+					},
+				},
+			},
+		},
+	}))
 }
 
 func TestGetPodSpecForStorageInstanceWithNoVolume(t *testing.T) {
@@ -650,6 +731,32 @@ func TestGetPodSpecForStorageInstanceWithNoVolume(t *testing.T) {
 		Name:         "data",
 		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 	}))
+}
+
+func TestGetPodSpecWithDefaultFaultDomainDisabled(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+		Key: "foundationdb.org/none",
+	}
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
+		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+	}))
+
+	g.Expect(spec.Affinity).To(gomega.BeNil())
 }
 
 func TestGetPvcForStorageInstance(t *testing.T) {
