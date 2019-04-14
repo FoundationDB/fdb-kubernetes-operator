@@ -44,6 +44,9 @@ type AdminClient interface {
 	// KillProcesses restarts processes
 	KillInstances(addresses []string) error
 
+	// SetConnectionString changes the coordinator set
+	SetConnectionString(connectionString fdbtypes.ConnectionString) error
+
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
@@ -135,7 +138,7 @@ func NewAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (Adm
 	}
 	clusterFilePath := fmt.Sprintf("/tmp/fdb/%s.cluster", cluster.Name)
 
-	clusterFile, err := os.OpenFile(clusterFilePath, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	clusterFile, err := os.OpenFile(clusterFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 	defer clusterFile.Close()
 	if err != nil {
 		return nil, err
@@ -466,6 +469,35 @@ func (client *RealAdminClient) KillInstances(addresses []string) error {
 	return err
 }
 
+// SetConnectionString updates the connection string to reflect a new set of
+// coordinators
+func (client *RealAdminClient) SetConnectionString(connectionString fdbtypes.ConnectionString) error {
+	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+		err = tr.Options().SetLockAware()
+		if err != nil {
+			return nil, err
+		}
+		existingBytes, err := tr.Get(fdb.Key("\xff/coordinators")).Get()
+		if err != nil {
+			return nil, err
+		}
+		existingConnectionString, err := fdbtypes.ParseConnectionString(string(existingBytes))
+		if err != nil {
+			return nil, err
+		}
+		if existingConnectionString.HasCoordinators(connectionString.Coordinators) {
+			return nil, nil
+		}
+		tr.Set(fdb.Key("\xff/coordinators"), []byte(connectionString.String()))
+		return nil, nil
+	})
+	return err
+}
+
 // Close shuts down any resources for the client once it is no longer
 // needed.
 func (client *RealAdminClient) Close() error {
@@ -564,13 +596,43 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			Processes: make(map[string]fdbtypes.FoundationDBStatusProcessInfo, len(pods.Items)),
 		},
 	}
+
+	coordinators := make(map[string]bool)
+	coordinatorAddresses := strings.Split(strings.Split(client.Cluster.Spec.ConnectionString, "@")[1], ",")
+	for _, address := range coordinatorAddresses {
+		coordinators[address] = false
+	}
+
+	exclusionMap := make(map[string]bool, len(client.ExcludedAddresses))
+	for _, address := range client.ExcludedAddresses {
+		exclusionMap[address] = true
+	}
+
 	for _, pod := range pods.Items {
 		ip := mockPodIP(&pod)
+		fullAddress := fmt.Sprintf("%s:4500", ip)
+		_, ipExcluded := exclusionMap[ip]
+		_, addressExcluded := exclusionMap[fullAddress]
+		excluded := ipExcluded || addressExcluded
+		_, isCoordinator := coordinators[fullAddress]
+		if isCoordinator && !excluded {
+			coordinators[fullAddress] = true
+		}
 		status.Cluster.Processes[pod.Name] = fdbtypes.FoundationDBStatusProcessInfo{
-			Address:     fmt.Sprintf("%s:4500", ip),
-			CommandLine: GetStartCommand(client.Cluster, &pod),
+			Address:      fullAddress,
+			ProcessClass: pod.Labels["fdb-process-class"],
+			CommandLine:  GetStartCommand(client.Cluster, &pod),
+			Excluded:     ipExcluded || addressExcluded,
 		}
 	}
+
+	for address, reachable := range coordinators {
+		status.Client.Coordinators.Coordinators = append(status.Client.Coordinators.Coordinators, fdbtypes.FoundationDBStatusCoordinator{
+			Address:   address,
+			Reachable: reachable,
+		})
+	}
+
 	return status, nil
 }
 
@@ -618,6 +680,11 @@ func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, er
 func (client *MockAdminClient) KillInstances(addresses []string) error {
 	client.KilledAddresses = append(client.KilledAddresses, addresses...)
 	client.UnfreezeStatus()
+	return nil
+}
+
+// SetConnectionString changes the coordinator set
+func (client *MockAdminClient) SetConnectionString(connectionString fdbtypes.ConnectionString) error {
 	return nil
 }
 
@@ -684,4 +751,16 @@ func (policy *acrossPolicy) BinaryRepresentation() []byte {
 	buffer.Write(intBuffer[:])
 	buffer.Write(policy.Subpolicy.BinaryRepresentation())
 	return buffer.Bytes()
+}
+
+// ChangeCoordinators changes the coordinator set
+func ChangeCoordinators(client AdminClient, cluster *fdbtypes.FoundationDBCluster, coordinators []string) (fdbtypes.ConnectionString, error) {
+	connectionString, err := fdbtypes.ParseConnectionString(cluster.Spec.ConnectionString)
+	if err != nil {
+		return fdbtypes.ConnectionString{}, err
+	}
+	connectionString.GenerateNewGenerationID()
+	connectionString.Coordinators = coordinators
+	err = client.SetConnectionString(connectionString)
+	return connectionString, err
 }

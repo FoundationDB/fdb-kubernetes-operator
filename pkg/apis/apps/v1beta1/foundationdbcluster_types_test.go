@@ -211,25 +211,94 @@ func TestParsingClusterStatus(t *testing.T) {
 	err = statusDecoder.Decode(&status)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(status).To(gomega.Equal(FoundationDBStatus{
+		Client: FoundationDBStatusClientInfo{
+			Coordinators: FoundationDBStatusCoordinatorInfo{
+				Coordinators: []FoundationDBStatusCoordinator{
+					FoundationDBStatusCoordinator{Address: "172.17.0.6:4500", Reachable: false},
+					FoundationDBStatusCoordinator{Address: "172.17.0.7:4500", Reachable: true},
+					FoundationDBStatusCoordinator{Address: "172.17.0.9:4500", Reachable: true},
+				},
+			},
+		},
 		Cluster: FoundationDBStatusClusterInfo{
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"c9eb35e25a364910fd77fdeec5c3a1f6": {
-					Address:     "172.17.0.6:4500",
-					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-4 --locality_zoneid=foundationdbcluster-sample-4 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.6:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Address:      "172.17.0.6:4500",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-4 --locality_zoneid=foundationdbcluster-sample-4 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.6:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     true,
 				},
 				"d532d8cb1c23d002c4b97742f5195fdb": {
-					Address:     "172.17.0.7:4500",
-					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-3 --locality_zoneid=foundationdbcluster-sample-3 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.7:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Address:      "172.17.0.7:4500",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-3 --locality_zoneid=foundationdbcluster-sample-3 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.7:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				},
 				"f7058e8bed0618a0533f6188e9e35cdb": {
-					Address:     "172.17.0.9:4500",
-					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-2 --locality_zoneid=foundationdbcluster-sample-2 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.9:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Address:      "172.17.0.9:4500",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-2 --locality_zoneid=foundationdbcluster-sample-2 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.9:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				},
 				"6a5d5735fc8a58add63cceba1da46421": {
-					Address:     "172.17.0.8:4500",
-					CommandLine: "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-1 --locality_zoneid=foundationdbcluster-sample-1 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.8:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Address:      "172.17.0.8:4500",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-1 --locality_zoneid=foundationdbcluster-sample-1 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.8:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				},
 			},
 		},
 	}))
+}
+
+func TestParsingConnectionString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	str, err := ParseConnectionString("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(str.DatabaseName).To(gomega.Equal("test"))
+	g.Expect(str.GenerationID).To(gomega.Equal("abcd"))
+	g.Expect(str.Coordinators).To(gomega.Equal([]string{
+		"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
+	}))
+
+	str, err = ParseConnectionString("test:abcd")
+	g.Expect(err.Error()).To(gomega.Equal("Invalid connection string test:abcd"))
+}
+
+func TestFormattingConnectionString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	str := ConnectionString{
+		DatabaseName: "test",
+		GenerationID: "abcd",
+		Coordinators: []string{
+			"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
+		},
+	}
+	g.Expect(str.String()).To(gomega.Equal("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"))
+}
+
+func TestGeneratingConnectionIDForConnectionString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	str := ConnectionString{
+		DatabaseName: "test",
+		GenerationID: "abcd",
+		Coordinators: []string{
+			"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
+		},
+	}
+	err := str.GenerateNewGenerationID()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(str.GenerationID)).To(gomega.Equal(32))
+}
+
+func TestCheckingCoordinatorsForConnectionString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	str := ConnectionString{
+		DatabaseName: "test",
+		GenerationID: "abcd",
+		Coordinators: []string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500"},
+	}
+	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500"})).To(gomega.BeTrue())
+	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.3:4500", "127.0.0.2:4500"})).To(gomega.BeTrue())
+	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500", "127.0.0.4:4500"})).To(gomega.BeFalse())
+	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.4:4500"})).To(gomega.BeFalse())
+	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500"})).To(gomega.BeFalse())
 }

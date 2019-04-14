@@ -17,7 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+	"math/rand"
 	"reflect"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -284,7 +287,26 @@ func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool
 // FoundationDBStatus describes the status of the cluster as provided by
 // FoundationDB itself
 type FoundationDBStatus struct {
+	Client  FoundationDBStatusClientInfo  `json:"client,omitempty"`
 	Cluster FoundationDBStatusClusterInfo `json:"cluster,omitempty"`
+}
+
+// FoundationDBStatusClientInfo contains information about the client connection
+type FoundationDBStatusClientInfo struct {
+	Coordinators FoundationDBStatusCoordinatorInfo `json:"coordinators,omitempty"`
+}
+
+// FoundationDBStatusCoordinatorInfo contains information about the clients
+// connection to the coordinators
+type FoundationDBStatusCoordinatorInfo struct {
+	Coordinators []FoundationDBStatusCoordinator `json:"coordinators,omitempty"`
+}
+
+// FoundationDBStatusCoordinator contains information about one of the
+// coordinators
+type FoundationDBStatusCoordinator struct {
+	Address   string `json:"address,omitempty"`
+	Reachable bool   `json:"reachable,omitempty"`
 }
 
 // FoundationDBStatusClusterInfo describes the "cluster" portion of the
@@ -296,8 +318,75 @@ type FoundationDBStatusClusterInfo struct {
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
 // cluster status
 type FoundationDBStatusProcessInfo struct {
-	Address     string `json:"address,omitempty"`
-	CommandLine string `json:"command_line,omitempty"`
+	Address      string `json:"address,omitempty"`
+	ProcessClass string `json:"class_type,omitempty"`
+	CommandLine  string `json:"command_line,omitempty"`
+	Excluded     bool   `json:"excluded,omitempty"`
+}
+
+var alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+var connectionStringPattern = regexp.MustCompile("^([^:@]+):([^:@]+)@(.*)$")
+
+// ConnectionString models the contents of a cluster file in a structured way
+type ConnectionString struct {
+	DatabaseName string
+	GenerationID string
+	Coordinators []string
+}
+
+// ParseConnectionString parses a connection string from its string
+// representation
+func ParseConnectionString(str string) (ConnectionString, error) {
+	components := connectionStringPattern.FindStringSubmatch(str)
+	if components == nil {
+		return ConnectionString{}, fmt.Errorf("Invalid connection string %s", str)
+	}
+	return ConnectionString{
+		components[1],
+		components[2],
+		strings.Split(components[3], ","),
+	}, nil
+}
+
+// String formats a connection string as a string
+func (str *ConnectionString) String() string {
+	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, strings.Join(str.Coordinators, ","))
+}
+
+// GenerateNewGenerationID builds a new generation ID
+func (str *ConnectionString) GenerateNewGenerationID() error {
+	id := strings.Builder{}
+	for i := 0; i < 32; i++ {
+		err := id.WriteByte(alphanum[rand.Intn(len(alphanum))])
+		if err != nil {
+			return err
+		}
+	}
+	str.GenerationID = id.String()
+	return nil
+}
+
+// HasCoordinators checks whether this connection string matches a set of
+// coordinators
+func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
+	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
+	for _, address := range str.Coordinators {
+		matchedCoordinators[address] = false
+	}
+	for _, address := range coordinators {
+		_, matched := matchedCoordinators[address]
+		if matched {
+			matchedCoordinators[address] = true
+		} else {
+			return false
+		}
+	}
+	for _, matched := range matchedCoordinators {
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 func init() {

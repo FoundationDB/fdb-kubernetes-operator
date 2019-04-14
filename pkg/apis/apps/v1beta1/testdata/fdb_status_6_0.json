@@ -8,7 +8,7 @@
             "coordinators" : [
                 {
                     "address" : "172.17.0.6:4500",
-                    "reachable" : true
+                    "reachable" : false
                 },
                 {
                     "address" : "172.17.0.7:4500",
@@ -411,7 +411,7 @@
                         "sectors" : 1808
                     }
                 },
-                "excluded" : false,
+                "excluded" : true,
                 "fault_domain" : "foundationdbcluster-sample-4",
                 "locality" : {
                     "machineid" : "foundationdbcluster-sample-4",

@@ -219,7 +219,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 12))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 14))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -340,12 +340,14 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 	})
 }
 
-func TestReconcileWithExplicitRemoval(t *testing.T) {
+func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalPods := &corev1.PodList{}
 
 		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		originalConnectionString := cluster.Spec.ConnectionString
 
 		g.Eventually(func() (int, error) {
 			err := c.List(context.TODO(), listOptions, originalPods)
@@ -359,7 +361,7 @@ func TestReconcileWithExplicitRemoval(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 15))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 17))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -378,6 +380,7 @@ func TestReconcileWithExplicitRemoval(t *testing.T) {
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
 		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{mockPodIP(&originalPods.Items[0])}))
+		g.Expect(cluster.Spec.ConnectionString).NotTo(gomega.Equal(originalConnectionString))
 	})
 }
 

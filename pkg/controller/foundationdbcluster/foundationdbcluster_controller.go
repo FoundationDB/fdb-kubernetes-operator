@@ -186,6 +186,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.changeCoordinators(cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.removePods(cluster)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -549,28 +554,28 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 			return errors.New("Cannot find enough pods to recruit coordinators")
 		}
 
+		clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
+		connectionString := fdbtypes.ConnectionString{DatabaseName: clusterName}
+		err = connectionString.GenerateNewGenerationID()
+		if err != nil {
+			return err
+		}
+
 		clientChan := make(chan FdbPodClient, count)
 		errChan := make(chan error)
 
 		for i := 0; i < count; i++ {
 			go r.getPodClientAsync(cluster, &pods.Items[i], clientChan, errChan)
 		}
-		clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
-		connectionString := fmt.Sprintf("%s:init", clusterName)
 		for i := 0; i < count; i++ {
 			select {
 			case client := <-clientChan:
-				if i == 0 {
-					connectionString = connectionString + "@"
-				} else {
-					connectionString = connectionString + ","
-				}
-				connectionString = connectionString + client.GetPodIP() + ":4500"
+				connectionString.Coordinators = append(connectionString.Coordinators, client.GetPodIP()+":4500")
 			case err := <-errChan:
 				return err
 			}
 		}
-		cluster.Spec.ConnectionString = connectionString
+		cluster.Spec.ConnectionString = connectionString.String()
 
 		err = r.Update(context.TODO(), cluster)
 		if err != nil {
@@ -719,6 +724,72 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 		if len(remaining) > 0 {
 			log.Info("Waiting for exclusions to complete", "remainingServers", remaining)
 			time.Sleep(time.Second)
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcileFoundationDBCluster) changeCoordinators(cluster *fdbtypes.FoundationDBCluster) error {
+	if !cluster.Spec.Configured {
+		return nil
+	}
+
+	adminClient, err := r.adminClientProvider(cluster, r)
+	if err != nil {
+		return err
+	}
+
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return err
+	}
+	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+	for _, coordinator := range status.Client.Coordinators.Coordinators {
+		coordinatorStatus[coordinator.Address] = false
+	}
+
+	if len(coordinatorStatus) == 0 {
+		return errors.New("Unable to get coordinator status")
+	}
+
+	for _, process := range status.Cluster.Processes {
+		_, isCoordinator := coordinatorStatus[process.Address]
+		if isCoordinator && !process.Excluded {
+			coordinatorStatus[process.Address] = true
+		}
+	}
+
+	needsChange := false
+	for _, healthy := range coordinatorStatus {
+		needsChange = needsChange || !healthy
+	}
+
+	if needsChange {
+		log.Info("Changing coordinators", "namespace", cluster.Namespace, "name", cluster.Name)
+		r.recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing new coordinators")
+		coordinatorCount := cluster.DesiredCoordinatorCount()
+		coordinators := make([]string, 0, coordinatorCount)
+		for _, process := range status.Cluster.Processes {
+			eligible := !process.Excluded && isStateful(process.ProcessClass)
+			if eligible {
+				coordinators = append(coordinators, process.Address)
+			}
+			if len(coordinators) >= coordinatorCount {
+				break
+			}
+		}
+		if len(coordinators) < coordinatorCount {
+			return errors.New("Unable to recruit new coordinators")
+		}
+		connectionString, err := ChangeCoordinators(adminClient, cluster, coordinators)
+		if err != nil {
+			return err
+		}
+		cluster.Spec.ConnectionString = connectionString.String()
+		err = r.Update(context.TODO(), cluster)
+		if err != nil {
+			return err
 		}
 	}
 
