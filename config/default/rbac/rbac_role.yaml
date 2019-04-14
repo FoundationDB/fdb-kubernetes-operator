@@ -8,6 +8,9 @@ rules:
   - ""
   resources:
   - pods
+  - configmaps
+  - persistentvolumeclaims
+  - events
   verbs:
   - get
   - watch
