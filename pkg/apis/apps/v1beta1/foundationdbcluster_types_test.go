@@ -153,6 +153,54 @@ func TestApplyingDefaultProcessCounts(t *testing.T) {
 	g.Expect(cluster.Spec.ProcessCounts.Log).To(gomega.Equal(2))
 }
 
+func TestApplyingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: FoundationDBClusterSpec{
+			ReplicationMode: "double",
+			FaultDomain: FoundationDBClusterFaultDomain{
+				Key: "foundationdb.org/kubernetes-cluster",
+			},
+			RoleCounts: RoleCounts{
+				Storage:   5,
+				Logs:      3,
+				Proxies:   5,
+				Resolvers: 1,
+			},
+		},
+	}
+	changed := cluster.ApplyDefaultProcessCounts()
+	g.Expect(changed).To(gomega.BeTrue())
+	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+		Storage:     2,
+		Transaction: 2,
+		Stateless:   3,
+	}))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{}
+	cluster.Spec.FaultDomain.ZoneIndex = 2
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+		Storage:     1,
+		Transaction: 1,
+		Stateless:   3,
+	}))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{}
+	cluster.Spec.FaultDomain.ZoneIndex = 1
+	cluster.Spec.FaultDomain.ZoneCount = 5
+	cluster.ApplyDefaultProcessCounts()
+	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+		Storage:     1,
+		Transaction: 1,
+		Stateless:   2,
+	}))
+}
+
 func TestCheckingWhetherProcessCountsAreSatisfied(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	counts := ProcessCounts{Stateless: 5}

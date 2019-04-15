@@ -203,16 +203,36 @@ func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alt
 	return count
 }
 
-func (cluster *FoundationDBCluster) calculateProcessCount(counts ...int) int {
-	var final = 0
-	for _, count := range counts {
-		if count > final {
-			final = count
+func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool, counts ...int) int {
+	var count = 0
+
+	if cluster.Spec.FaultDomain.ZoneIndex < 0 {
+		return -1
+	}
+
+	for _, possibleCount := range counts {
+		if possibleCount > count {
+			count = possibleCount
 		}
 	}
-	if final > 0 {
-		return final + cluster.DesiredFaultTolerance()
+	if count > 0 {
+		if addFaultTolerance {
+			count += cluster.DesiredFaultTolerance()
+		}
+		if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
+			zoneCount := cluster.Spec.FaultDomain.ZoneCount
+			if zoneCount < 1 {
+				zoneCount = cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
+			}
+			overflow := count % zoneCount
+			count = count / zoneCount
+			if cluster.Spec.FaultDomain.ZoneIndex < overflow {
+				count++
+			}
+		}
+		return count
 	}
+
 	return -1
 }
 
@@ -220,21 +240,23 @@ func (cluster *FoundationDBCluster) calculateProcessCount(counts ...int) int {
 // counts that are currently zero.
 func (cluster *FoundationDBCluster) ApplyDefaultProcessCounts() bool {
 	changed := false
+
 	if cluster.Spec.ProcessCounts.Storage == 0 {
-		cluster.Spec.ProcessCounts.Storage = cluster.Spec.RoleCounts.Storage
+		cluster.Spec.ProcessCounts.Storage = cluster.calculateProcessCount(false,
+			cluster.Spec.RoleCounts.Storage)
 		changed = true
 	}
 	if cluster.Spec.ProcessCounts.Transaction == 0 {
-		cluster.Spec.ProcessCounts.Transaction = cluster.calculateProcessCount(
+		cluster.Spec.ProcessCounts.Transaction = cluster.calculateProcessCount(true,
 			cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Logs, cluster.Spec.ProcessCounts.Log),
 		)
 		changed = true
 	}
 	if cluster.Spec.ProcessCounts.Stateless == 0 {
-		cluster.Spec.ProcessCounts.Stateless = cluster.calculateProcessCount(
-			cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.Master) +
-				cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.ClusterController) +
-				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Proxies, cluster.Spec.ProcessCounts.Proxy) +
+		cluster.Spec.ProcessCounts.Stateless = cluster.calculateProcessCount(true,
+			cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.Master)+
+				cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.ClusterController)+
+				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Proxies, cluster.Spec.ProcessCounts.Proxy)+
 				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Resolvers, cluster.Spec.ProcessCounts.Resolution, cluster.Spec.ProcessCounts.Resolver),
 		)
 		changed = true
@@ -257,17 +279,25 @@ func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
 	}
 }
 
-// DesiredCoordinatorCount returns the number of coordinators to recruit for
-// a cluster
-func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+// MinimumFaultDomains returns the number of fault domains the cluster needs
+// to function.
+func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 	switch cluster.Spec.ReplicationMode {
 	case "single":
 		return 1
 	case "double":
+		return 2
+	case "triple":
 		return 3
 	default:
 		return 1
 	}
+}
+
+// DesiredCoordinatorCount returns the number of coordinators to recruit for
+// a cluster
+func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+	return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
 }
 
 // CountsAreSatisfied checks whether the current counts of processes satisfy
@@ -396,6 +426,8 @@ type FoundationDBClusterFaultDomain struct {
 	Key       string `json:"key,omitempty"`
 	Value     string `json:"value,omitempty"`
 	ValueFrom string `json:"valueFrom,omitempty"`
+	ZoneCount int    `json:"zoneCount,omitempty"`
+	ZoneIndex int    `json:"zoneIndex,omitempty"`
 }
 
 func init() {

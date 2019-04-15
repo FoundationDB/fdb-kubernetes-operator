@@ -547,6 +547,39 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 	})
 }
 
+func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		err := c.List(context.TODO(), listOptions, pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		pod := pods.Items[0]
+		pod.Spec.NodeName = "machine1"
+		pod.Status.PodIP = "127.0.0.1"
+		cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+			Key:   "foundationdb.org/kubernetes-cluster",
+			Value: "kc2",
+		}
+
+		command, err := GetStartCommand(cluster, &pod)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Expect(command).To(gomega.Equal(strings.Join([]string{
+			"/var/dynamic-conf/bin/6.0.18/fdbserver",
+			"--class=storage",
+			"--cluster_file=/var/fdb/data/fdb.cluster",
+			"--datadir=/var/fdb/data",
+			"--locality_machineid=machine1",
+			"--locality_zoneid=kc2",
+			"--logdir=/var/log/fdb-trace-logs",
+			"--loggroup=operator-test",
+			"--public_address=127.0.0.1:4500",
+			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+		}, " ")))
+	})
+}
+
 func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
@@ -733,7 +766,7 @@ func TestGetPodSpecForStorageInstanceWithNoVolume(t *testing.T) {
 	}))
 }
 
-func TestGetPodSpecWithDefaultFaultDomainDisabled(t *testing.T) {
+func TestGetPodSpecWithFaultDomainDisabled(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
@@ -754,6 +787,31 @@ func TestGetPodSpecWithDefaultFaultDomainDisabled(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
+	}))
+
+	g.Expect(spec.Affinity).To(gomega.BeNil())
+}
+
+func TestGetPodSpecWithCrossKubernetesReplication(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+		Key:   "foundationdb.org/kubernetes-cluster",
+		Value: "kc2",
+	}
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
+		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
+		corev1.EnvVar{Name: "FDB_ZONE_ID", Value: "kc2"},
 	}))
 
 	g.Expect(spec.Affinity).To(gomega.BeNil())

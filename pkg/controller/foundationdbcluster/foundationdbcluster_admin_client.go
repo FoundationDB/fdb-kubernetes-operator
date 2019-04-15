@@ -263,6 +263,7 @@ func configureDatabaseInTransaction(configuration DatabaseConfiguration, newData
 		}
 	}
 
+	hasChanges := false
 	for _, keyValue := range keys {
 		var match bool
 		if !newDatabase {
@@ -274,10 +275,15 @@ func configureDatabaseInTransaction(configuration DatabaseConfiguration, newData
 		}
 		if !match {
 			tr.Set(keyValue.Key, keyValue.Value)
+			hasChanges = true
 		}
 	}
 
-	return tr.Commit().Get()
+	if hasChanges {
+		return tr.Commit().Get()
+	}
+	tr.Cancel()
+	return nil
 }
 
 /**

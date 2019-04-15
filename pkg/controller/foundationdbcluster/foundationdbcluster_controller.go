@@ -1106,6 +1106,9 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		if cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 			machineID = pod.Name
 			zoneID = pod.Name
+		} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
+			machineID = pod.Spec.NodeName
+			zoneID = cluster.Spec.FaultDomain.Value
 		} else {
 			faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 			if faultDomainSource == "" {
@@ -1200,6 +1203,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
+	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}})
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
 	} else {
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
@@ -1254,7 +1262,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	}
 	var affinity *corev1.Affinity
 
-	if faultDomainKey != "foundationdb.org/none" {
+	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
 		affinity = &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{

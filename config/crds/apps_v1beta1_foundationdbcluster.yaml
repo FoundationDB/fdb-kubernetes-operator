@@ -46,6 +46,12 @@ spec:
                   type: string
                 valueFrom:
                   type: string
+                zoneCount:
+                  format: int64
+                  type: integer
+                zoneIndex:
+                  format: int64
+                  type: integer
               type: object
             nextInstanceID:
               format: int64
