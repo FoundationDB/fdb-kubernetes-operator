@@ -41,7 +41,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -429,9 +428,13 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(cluster *fdbtypes.Fo
 }
 
 func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
-	labels := map[string]string{
-		"fdb-cluster-name": cluster.ObjectMeta.Name,
+	labels := map[string]string{}
+
+	for label, value := range cluster.ObjectMeta.Labels {
+		labels[label] = value
 	}
+
+	labels["fdb-cluster-name"] = cluster.ObjectMeta.Name
 
 	if processClass != "" {
 		labels["fdb-process-class"] = processClass
@@ -1232,11 +1235,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		Image:        initContainer.Image,
 		Env:          sidecarEnv[1:],
 		VolumeMounts: initContainer.VolumeMounts,
-		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt(8080),
-			}},
-		},
 	}
 
 	var mainVolumeSource corev1.VolumeSource
@@ -1270,8 +1268,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 					corev1.WeightedPodAffinityTerm{
 						Weight: 1,
 						PodAffinityTerm: corev1.PodAffinityTerm{
-							TopologyKey:   faultDomainKey,
-							LabelSelector: &metav1.LabelSelector{MatchLabels: getPodLabels(cluster, processClass, "")},
+							TopologyKey: faultDomainKey,
+							LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+								"fdb-cluster-name":  cluster.ObjectMeta.Name,
+								"fdb-process-class": processClass,
+							}},
 						},
 					},
 				},

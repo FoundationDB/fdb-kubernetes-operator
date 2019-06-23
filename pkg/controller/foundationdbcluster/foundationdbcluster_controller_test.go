@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/onsi/gomega"
 	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -50,7 +49,13 @@ const timeout = time.Second * 5
 
 func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 	return &appsv1beta1.FoundationDBCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: "operator-test", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "operator-test",
+			Namespace: "default",
+			Labels: map[string]string{
+				"fdb-label": "value",
+			},
+		},
 		Spec: appsv1beta1.FoundationDBClusterSpec{
 			Version:          "6.1.8",
 			ConnectionString: "operator-test:asdfasf@127.0.0.1:4500",
@@ -625,6 +630,7 @@ func TestGetPodForStorageInstance(t *testing.T) {
 		"fdb-cluster-name":  "operator-test",
 		"fdb-process-class": "storage",
 		"fdb-instance-id":   "1",
+		"fdb-label":         "value",
 	}))
 	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "storage", "operator-test-1")))
 }
@@ -701,11 +707,6 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		}},
 	}))
 	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
-	g.Expect(sidecarContainer.ReadinessProbe).To(gomega.Equal(&corev1.Probe{
-		Handler: corev1.Handler{TCPSocket: &corev1.TCPSocketAction{
-			Port: intstr.IntOrString{IntVal: 8080},
-		}},
-	}))
 
 	g.Expect(len(spec.Volumes)).To(gomega.Equal(4))
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
@@ -834,6 +835,7 @@ func TestGetPvcForStorageInstance(t *testing.T) {
 		"fdb-cluster-name":  "operator-test",
 		"fdb-process-class": "storage",
 		"fdb-instance-id":   "1",
+		"fdb-label":         "value",
 	}))
 	g.Expect(pvc.Spec).To(gomega.Equal(corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
