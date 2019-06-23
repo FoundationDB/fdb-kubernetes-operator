@@ -5,14 +5,16 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: foundationdbcluster-sample
 spec:
-  version: 6.0.18
+  version: 6.1.8
   replicationMode: double
-  volumeSize: "0"
+  volumeSize: "16G"
   faultDomain:
     key: foundationdb.org/none
   processCounts:
     stateless: -1
     transaction: -1
+  customParameters:
+      - "knob_disable_posix_kernel_aio=1"
   resources:
     requests:
       cpu: 250m

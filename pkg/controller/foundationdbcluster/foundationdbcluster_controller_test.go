@@ -52,7 +52,7 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 	return &appsv1beta1.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "operator-test", Namespace: "default"},
 		Spec: appsv1beta1.FoundationDBClusterSpec{
-			Version:          "6.0.18",
+			Version:          "6.1.8",
 			ConnectionString: "operator-test:asdfasf@127.0.0.1:4500",
 			ProcessCounts: appsv1beta1.ProcessCounts{
 				Storage: 4,
@@ -478,7 +478,7 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 		"kill_on_configuration_change = false",
 		"restart_delay = 60",
 		"[fdbserver.1]",
-		"command = /var/dynamic-conf/bin/6.0.18/fdbserver",
+		"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 		"public_address = $FDB_PUBLIC_IP:4500",
@@ -503,7 +503,7 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 
 		id := pods.Items[0].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
-			"/var/dynamic-conf/bin/6.0.18/fdbserver",
+			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
 			"--cluster_file=/var/fdb/data/fdb.cluster",
 			"--datadir=/var/fdb/data",
@@ -533,7 +533,7 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
-			"/var/dynamic-conf/bin/6.0.18/fdbserver",
+			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
 			"--cluster_file=/var/fdb/data/fdb.cluster",
 			"--datadir=/var/fdb/data",
@@ -566,7 +566,7 @@ func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
-			"/var/dynamic-conf/bin/6.0.18/fdbserver",
+			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
 			"--cluster_file=/var/fdb/data/fdb.cluster",
 			"--datadir=/var/fdb/data",
@@ -594,7 +594,7 @@ func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 		"kill_on_configuration_change = false",
 		"restart_delay = 60",
 		"[fdbserver.1]",
-		"command = /var/dynamic-conf/bin/6.0.18/fdbserver",
+		"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 		"public_address = $FDB_PUBLIC_IP:4500",
@@ -638,7 +638,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
 	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
-	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.0.18"))
+	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.1.8-1"))
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
@@ -661,7 +661,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 
 	mainContainer := spec.Containers[0]
 	g.Expect(mainContainer.Name).To(gomega.Equal("foundationdb"))
-	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.0.18"))
+	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.1.8"))
 	g.Expect(mainContainer.Command).To(gomega.Equal([]string{"sh", "-c"}))
 	g.Expect(mainContainer.Args).To(gomega.Equal([]string{
 		"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +

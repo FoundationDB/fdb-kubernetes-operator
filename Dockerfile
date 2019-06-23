@@ -2,8 +2,8 @@
 FROM golang:1.10.3 as builder
 
 # Install FDB
-ARG FDB_VERSION=6.0.18
-ARG FDB_ADDITIONAL_VERSIONS="5.2.5 5.1.7"
+ARG FDB_VERSION=6.1.8
+ARG FDB_ADDITIONAL_VERSIONS=""
 RUN mkdir -p /usr/lib/fdb/multiversion && \
 	wget https://www.foundationdb.org/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -O fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \

@@ -923,7 +923,7 @@ func (r *ReconcileFoundationDBCluster) updateSidecarVersions(cluster *fdbtypes.F
 		return err
 	}
 	upgraded := false
-	image := fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s", DockerImageRoot, cluster.Spec.Version)
+	image := fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s-1", DockerImageRoot, cluster.Spec.Version)
 	for _, pod := range pods.Items {
 		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
@@ -1219,13 +1219,14 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 
 	initContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-init",
-		Image: fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s", DockerImageRoot, cluster.Spec.Version),
+		Image: fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s-1", DockerImageRoot, cluster.Spec.Version),
 		Env:   sidecarEnv,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 		},
 	}
+
 	sidecarContainer := corev1.Container{
 		Name:         "foundationdb-kubernetes-sidecar",
 		Image:        initContainer.Image,

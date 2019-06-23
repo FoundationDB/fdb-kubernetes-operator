@@ -239,6 +239,10 @@ func configureDatabaseInTransaction(configuration DatabaseConfiguration, newData
 	if err != nil {
 		return err
 	}
+	err = tr.Options().SetUseProvisionalProxies()
+	if err != nil {
+		return err
+	}
 	keys, err := configuration.getConfigurationKeys()
 	if err != nil {
 		return err
