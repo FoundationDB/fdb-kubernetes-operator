@@ -46,6 +46,11 @@ type FoundationDBClusterSpec struct {
 	CustomParameters []string                       `json:"customParameters,omitempty"`
 	Resources        *corev1.ResourceRequirements   `json:"resources,omitempty"`
 	PendingRemovals  map[string]string              `json:"pendingRemovals,omitempty"`
+	InitContainers   []corev1.Container             `json:"initContainers,omitempty"`
+	Containers       []corev1.Container             `json:"containers,omitempty"`
+	Env              []corev1.EnvVar                `json:"env,omitempty"`
+	Volumes          []corev1.Volume                `json:"volumes,omitempty"`
+	VolumeMounts     []corev1.VolumeMount           `json:"volumeMounts,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

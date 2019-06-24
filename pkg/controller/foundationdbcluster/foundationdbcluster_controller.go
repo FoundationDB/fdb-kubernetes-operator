@@ -1163,23 +1163,28 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass string, id int, 
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podID string) *corev1.PodSpec {
+	mainEnv := []corev1.EnvVar{
+		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+	}
+	mainEnv = append(mainEnv, cluster.Spec.Env...)
+	mainVolumeMounts := []corev1.VolumeMount{
+		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+	}
+	mainVolumeMounts = append(mainVolumeMounts, cluster.Spec.VolumeMounts...)
+
 	mainContainer := corev1.Container{
-		Name:  "foundationdb",
-		Image: fmt.Sprintf("%s/foundationdb:%s", DockerImageRoot, cluster.Spec.Version),
-		Env: []corev1.EnvVar{
-			corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-		},
+		Name:    "foundationdb",
+		Image:   fmt.Sprintf("%s/foundationdb:%s", DockerImageRoot, cluster.Spec.Version),
+		Env:     mainEnv,
 		Command: []string{"sh", "-c"},
 		Args: []string{
 			"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
 				" --lockfile /var/fdb/fdbmonitor.lockfile",
 		},
-		VolumeMounts: []corev1.VolumeMount{
-			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
-			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
-			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-		},
-		Resources: *cluster.Spec.Resources,
+		VolumeMounts: mainVolumeMounts,
+		Resources:    *cluster.Spec.Resources,
 	}
 
 	sidecarEnv := make([]corev1.EnvVar, 0, 5)
@@ -1259,6 +1264,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		}}},
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
+	volumes = append(volumes, cluster.Spec.Volumes...)
+
 	var affinity *corev1.Affinity
 
 	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
@@ -1280,9 +1287,15 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		}
 	}
 
+	initContainers := []corev1.Container{initContainer}
+	initContainers = append(initContainers, cluster.Spec.InitContainers...)
+
+	containers := []corev1.Container{mainContainer, sidecarContainer}
+	containers = append(containers, cluster.Spec.Containers...)
+
 	return &corev1.PodSpec{
-		InitContainers: []corev1.Container{initContainer},
-		Containers:     []corev1.Container{mainContainer, sidecarContainer},
+		InitContainers: initContainers,
+		Containers:     containers,
 		Volumes:        volumes,
 		Affinity:       affinity,
 	}

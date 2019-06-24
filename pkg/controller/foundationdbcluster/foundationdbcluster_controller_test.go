@@ -818,6 +818,176 @@ func TestGetPodSpecWithCrossKubernetesReplication(t *testing.T) {
 	g.Expect(spec.Affinity).To(gomega.BeNil())
 }
 
+func TestGetPodSpecWithCustomContainers(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.InitContainers = []corev1.Container{corev1.Container{
+		Name:    "test-container",
+		Image:   "foundationdb/operator-test",
+		Command: []string{"echo", "test1"},
+	}}
+	cluster.Spec.Containers = []corev1.Container{corev1.Container{
+		Name:    "test-container",
+		Image:   "foundationdb/operator-test",
+		Command: []string{"echo", "test2"},
+	}}
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
+
+	g.Expect(len(spec.InitContainers)).To(gomega.Equal(2))
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.1.8-1"))
+
+	testInitContainer := spec.InitContainers[1]
+	g.Expect(testInitContainer.Name).To(gomega.Equal("test-container"))
+	g.Expect(testInitContainer.Image).To(gomega.Equal("foundationdb/operator-test"))
+	g.Expect(testInitContainer.Command).To(gomega.Equal([]string{"echo", "test1"}))
+
+	g.Expect(len(spec.Containers)).To(gomega.Equal(3))
+
+	mainContainer := spec.Containers[0]
+	g.Expect(mainContainer.Name).To(gomega.Equal("foundationdb"))
+	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.1.8"))
+
+	sidecarContainer := spec.Containers[1]
+	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
+	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
+
+	testContainer := spec.Containers[2]
+	g.Expect(testContainer.Name).To(gomega.Equal("test-container"))
+	g.Expect(testContainer.Image).To(gomega.Equal("foundationdb/operator-test"))
+	g.Expect(testContainer.Command).To(gomega.Equal([]string{"echo", "test2"}))
+}
+
+func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.Env = []corev1.EnvVar{
+		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
+		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
+	}
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
+
+	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.1.8-1"))
+	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
+		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+	}))
+
+	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
+
+	mainContainer := spec.Containers[0]
+	g.Expect(mainContainer.Name).To(gomega.Equal("foundationdb"))
+	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.1.8"))
+	g.Expect(mainContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
+		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
+	}))
+
+	sidecarContainer := spec.Containers[1]
+	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
+	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
+	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+	}))
+}
+
+func TestGetPodSpecWithCustomVolumes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.Volumes = []corev1.Volume{corev1.Volume{
+		Name: "test-secrets",
+		VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{
+			SecretName: "test-secrets",
+		}},
+	}}
+	cluster.Spec.VolumeMounts = []corev1.VolumeMount{corev1.VolumeMount{
+		Name:      "test-secrets",
+		MountPath: "/var/secrets",
+	}}
+	spec := GetPodSpec(cluster, "storage", "operator-test-1")
+
+	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.1.8-1"))
+	g.Expect(initContainer.VolumeMounts).To(gomega.Equal([]corev1.VolumeMount{
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
+	}))
+
+	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
+
+	mainContainer := spec.Containers[0]
+	g.Expect(mainContainer.Name).To(gomega.Equal("foundationdb"))
+	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.1.8"))
+	g.Expect(mainContainer.VolumeMounts).To(gomega.Equal([]corev1.VolumeMount{
+		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		corev1.VolumeMount{Name: "test-secrets", MountPath: "/var/secrets"},
+	}))
+
+	sidecarContainer := spec.Containers[1]
+	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
+	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
+	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
+	g.Expect(len(spec.Volumes)).To(gomega.Equal(5))
+	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
+		Name: "data",
+		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: "operator-test-1-data",
+		}},
+	}))
+	g.Expect(spec.Volumes[1]).To(gomega.Equal(corev1.Volume{
+		Name:         "dynamic-conf",
+		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+	}))
+	g.Expect(spec.Volumes[2]).To(gomega.Equal(corev1.Volume{
+		Name: "config-map",
+		VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "operator-test-config"},
+			Items: []corev1.KeyToPath{
+				corev1.KeyToPath{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
+				corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+				corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"},
+			},
+		}},
+	}))
+	g.Expect(spec.Volumes[3]).To(gomega.Equal(corev1.Volume{
+		Name:         "fdb-trace-logs",
+		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+	}))
+	g.Expect(spec.Volumes[4]).To(gomega.Equal(corev1.Volume{
+		Name: "test-secrets",
+		VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{
+			SecretName: "test-secrets",
+		}},
+	}))
+}
+
 func TestGetPvcForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

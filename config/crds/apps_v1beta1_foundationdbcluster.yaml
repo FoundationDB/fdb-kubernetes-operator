@@ -34,9 +34,17 @@ spec:
               type: boolean
             connectionString:
               type: string
+            containers:
+              items:
+                type: object
+              type: array
             customParameters:
               items:
                 type: string
+              type: array
+            env:
+              items:
+                type: object
               type: array
             faultDomain:
               properties:
@@ -53,6 +61,10 @@ spec:
                   format: int64
                   type: integer
               type: object
+            initContainers:
+              items:
+                type: object
+              type: array
             nextInstanceID:
               format: int64
               type: integer
@@ -116,8 +128,16 @@ spec:
               type: string
             version:
               type: string
+            volumeMounts:
+              items:
+                type: object
+              type: array
             volumeSize:
               type: string
+            volumes:
+              items:
+                type: object
+              type: array
           required:
           - version
           - volumeSize
