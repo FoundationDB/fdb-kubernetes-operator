@@ -24,6 +24,9 @@ bin
 *.swo
 .vscode
 *~
+.classpath
+.project
+.settings
 
 # binaries for sideloading
 foundationdb-kubernetes-sidecar/website

@@ -586,7 +586,7 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(cluster *fdbty
 		for i := 0; i < count; i++ {
 			select {
 			case client := <-clientChan:
-				connectionString.Coordinators = append(connectionString.Coordinators, client.GetPodIP()+":4500")
+				connectionString.Coordinators = append(connectionString.Coordinators, cluster.GetFullAddress(client.GetPodIP()))
 			case err := <-errChan:
 				return err
 			}
@@ -1008,6 +1008,16 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 	connectionString := cluster.Spec.ConnectionString
 	data["cluster-file"] = connectionString
 
+	caFile := ""
+	for _, ca := range cluster.Spec.TrustedCAs {
+		if caFile != "" {
+			caFile += "\n"
+		}
+		caFile += ca
+	}
+
+	data["ca-file"] = caFile
+
 	desiredCounts := cluster.Spec.ProcessCounts.Map()
 	for processClass, count := range desiredCounts {
 		if count > 0 {
@@ -1026,7 +1036,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Clien
 
 	sidecarConf := map[string]interface{}{
 		"COPY_BINARIES":      []string{"fdbserver", "fdbcli"},
-		"COPY_FILES":         []string{"fdb.cluster"},
+		"COPY_FILES":         []string{"fdb.cluster", "ca.pem"},
 		"COPY_LIBRARIES":     []string{},
 		"INPUT_MONITOR_CONF": "fdbmonitor.conf",
 	}
@@ -1130,7 +1140,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("command = /var/dynamic-conf/bin/%s/fdbserver", cluster.Spec.Version),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s:4500", publicIP),
+		fmt.Sprintf("public_address = %s", cluster.GetFullAddress(publicIP)),
 		fmt.Sprintf("class = %s", processClass),
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
@@ -1138,6 +1148,11 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("locality_machineid = %s", machineID),
 		fmt.Sprintf("locality_zoneid = %s", zoneID),
 	)
+
+	for _, rule := range cluster.Spec.PeerVerificationRules {
+		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", rule))
+	}
+
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
 	return confLines, nil
 }
@@ -1166,6 +1181,16 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	mainEnv := []corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 	}
+
+	envOverrides := make(map[string]bool)
+	for _, envVar := range cluster.Spec.Env {
+		envOverrides[envVar.Name] = true
+	}
+
+	if !envOverrides["FDB_TLS_CA_FILE"] {
+		mainEnv = append(mainEnv, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
+	}
+
 	mainEnv = append(mainEnv, cluster.Spec.Env...)
 	mainVolumeMounts := []corev1.VolumeMount{
 		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
@@ -1259,6 +1284,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 			Items: []corev1.KeyToPath{
 				corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
 				corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+				corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
 				corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"},
 			},
 		}}},

@@ -32,25 +32,28 @@ import (
 
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
-	Version          string `json:"version"`
-	RoleCounts       `json:"roleCounts,omitempty"`
-	ProcessCounts    `json:"processCounts,omitempty"`
-	ConnectionString string                         `json:"connectionString,omitempty"`
-	NextInstanceID   int                            `json:"nextInstanceID,omitempty"`
-	ReplicationMode  string                         `json:"replicationMode,omitempty"`
-	StorageEngine    string                         `json:"storageEngine,omitempty"`
-	Configured       bool                           `json:"configured,omitempty"`
-	FaultDomain      FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
-	StorageClass     *string                        `json:"storageClass,omitempty"`
-	VolumeSize       string                         `json:"volumeSize"`
-	CustomParameters []string                       `json:"customParameters,omitempty"`
-	Resources        *corev1.ResourceRequirements   `json:"resources,omitempty"`
-	PendingRemovals  map[string]string              `json:"pendingRemovals,omitempty"`
-	InitContainers   []corev1.Container             `json:"initContainers,omitempty"`
-	Containers       []corev1.Container             `json:"containers,omitempty"`
-	Env              []corev1.EnvVar                `json:"env,omitempty"`
-	Volumes          []corev1.Volume                `json:"volumes,omitempty"`
-	VolumeMounts     []corev1.VolumeMount           `json:"volumeMounts,omitempty"`
+	Version               string `json:"version"`
+	RoleCounts            `json:"roleCounts,omitempty"`
+	ProcessCounts         `json:"processCounts,omitempty"`
+	ConnectionString      string                         `json:"connectionString,omitempty"`
+	NextInstanceID        int                            `json:"nextInstanceID,omitempty"`
+	ReplicationMode       string                         `json:"replicationMode,omitempty"`
+	StorageEngine         string                         `json:"storageEngine,omitempty"`
+	Configured            bool                           `json:"configured,omitempty"`
+	FaultDomain           FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
+	StorageClass          *string                        `json:"storageClass,omitempty"`
+	VolumeSize            string                         `json:"volumeSize"`
+	CustomParameters      []string                       `json:"customParameters,omitempty"`
+	Resources             *corev1.ResourceRequirements   `json:"resources,omitempty"`
+	PendingRemovals       map[string]string              `json:"pendingRemovals,omitempty"`
+	InitContainers        []corev1.Container             `json:"initContainers,omitempty"`
+	Containers            []corev1.Container             `json:"containers,omitempty"`
+	Env                   []corev1.EnvVar                `json:"env,omitempty"`
+	Volumes               []corev1.Volume                `json:"volumes,omitempty"`
+	VolumeMounts          []corev1.VolumeMount           `json:"volumeMounts,omitempty"`
+	EnableTLS             bool                           `json:"enableTls,omitempty"`
+	TrustedCAs            []string                       `json:"trustedCAs,omitempty"`
+	PeerVerificationRules []string                       `json:"peerVerificationRules,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -400,6 +403,22 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 	}
 	str.GenerationID = id.String()
 	return nil
+}
+
+// GetFullAddress gets the full public address we should use for a process.
+// This will include the IP address, the port, and any additional flags.
+func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
+	var port int
+	var suffix string
+
+	if cluster.Spec.EnableTLS {
+		port = 4500
+		suffix = ":tls"
+	} else {
+		port = 4501
+		suffix = ""
+	}
+	return fmt.Sprintf("%s:%d%s", address, port, suffix)
 }
 
 // HasCoordinators checks whether this connection string matches a set of

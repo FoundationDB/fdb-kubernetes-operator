@@ -42,6 +42,8 @@ spec:
               items:
                 type: string
               type: array
+            enableTls:
+              type: boolean
             env:
               items:
                 type: object
@@ -68,6 +70,10 @@ spec:
             nextInstanceID:
               format: int64
               type: integer
+            peerVerificationRules:
+              items:
+                type: string
+              type: array
             pendingRemovals:
               type: object
             processCounts:
@@ -126,6 +132,10 @@ spec:
               type: string
             storageEngine:
               type: string
+            trustedCAs:
+              items:
+                type: string
+              type: array
             version:
               type: string
             volumeMounts:

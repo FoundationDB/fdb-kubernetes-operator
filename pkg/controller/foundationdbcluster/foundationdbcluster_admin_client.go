@@ -620,7 +620,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 	for _, pod := range pods.Items {
 		ip := mockPodIP(&pod)
-		fullAddress := fmt.Sprintf("%s:4500", ip)
+		fullAddress := client.Cluster.GetFullAddress(ip)
 		_, ipExcluded := exclusionMap[ip]
 		_, addressExcluded := exclusionMap[fullAddress]
 		excluded := ipExcluded || addressExcluded

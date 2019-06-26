@@ -185,6 +185,16 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.TrustedCAs != nil {
+		in, out := &in.TrustedCAs, &out.TrustedCAs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.PeerVerificationRules != nil {
+		in, out := &in.PeerVerificationRules, &out.PeerVerificationRules
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
