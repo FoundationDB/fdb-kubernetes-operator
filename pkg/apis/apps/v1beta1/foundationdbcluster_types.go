@@ -54,6 +54,7 @@ type FoundationDBClusterSpec struct {
 	EnableTLS             bool                           `json:"enableTls,omitempty"`
 	TrustedCAs            []string                       `json:"trustedCAs,omitempty"`
 	PeerVerificationRules []string                       `json:"peerVerificationRules,omitempty"`
+	LogGroup              string                         `json:"logGroup,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

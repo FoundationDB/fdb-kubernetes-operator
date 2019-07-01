@@ -67,6 +67,8 @@ spec:
               items:
                 type: object
               type: array
+            logGroup:
+              type: string
             nextInstanceID:
               format: int64
               type: integer

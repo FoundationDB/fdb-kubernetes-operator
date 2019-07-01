@@ -181,7 +181,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		configMap := &corev1.ConfigMap{}
 		configMapName := types.NamespacedName{Namespace: "default", Name: "operator-test-config"}
 		g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
-		expectedConfigMap, _ := GetConfigMap(cluster, c)
+		expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, c)
 		g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 
 		adminClient, err := newMockAdminClientUncast(cluster, client)
@@ -280,7 +280,7 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 		configMap := &corev1.ConfigMap{}
 		configMapName := types.NamespacedName{Namespace: "default", Name: "operator-test-config"}
 		g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
-		expectedConfigMap, _ := GetConfigMap(cluster, c)
+		expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, c)
 		g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 	})
 }
@@ -313,7 +313,7 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 		configMap := &corev1.ConfigMap{}
 		configMapName := types.NamespacedName{Namespace: "default", Name: "operator-test-config"}
 		g.Eventually(func() error { return c.Get(context.TODO(), configMapName, configMap) }, timeout).Should(gomega.Succeed())
-		expectedConfigMap, _ := GetConfigMap(cluster, c)
+		expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, c)
 		g.Expect(configMap.Data).To(gomega.Equal(expectedConfigMap.Data))
 	})
 }
@@ -434,7 +434,7 @@ func TestGetConfigMap(t *testing.T) {
 	c = mgr.GetClient()
 
 	cluster := createDefaultCluster()
-	configMap, err := GetConfigMap(cluster, c)
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configMap.Namespace).To(gomega.Equal("default"))
 	g.Expect(configMap.Name).To(gomega.Equal("operator-test-config"))
@@ -472,7 +472,7 @@ func TestGetConfigMapWithCustomCA(t *testing.T) {
 		"-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC",
 		"---CERT2----",
 	}
-	configMap, err := GetConfigMap(cluster, c)
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configMap.Data["ca-file"]).To(gomega.Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
 }
@@ -486,7 +486,7 @@ func TestGetConfigMapWithEmptyConnectionString(t *testing.T) {
 
 	cluster := createDefaultCluster()
 	cluster.Spec.ConnectionString = ""
-	configMap, err := GetConfigMap(cluster, c)
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal(""))
 	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(""))
@@ -684,6 +684,34 @@ func TestGetStartCommandWithPeerVerificationRules(t *testing.T) {
 	})
 }
 
+func TestGetStartCommandWithCustomLogGroup(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		err := c.List(context.TODO(), listOptions, pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		sortPodsByID(pods)
+
+		cluster.Spec.LogGroup = "test-fdb-cluster"
+		command, err := GetStartCommand(cluster, &pods.Items[0])
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		id := pods.Items[0].Labels["fdb-instance-id"]
+		g.Expect(command).To(gomega.Equal(strings.Join([]string{
+			"/var/dynamic-conf/bin/6.1.8/fdbserver",
+			"--class=storage",
+			"--cluster_file=/var/fdb/data/fdb.cluster",
+			"--datadir=/var/fdb/data",
+			"--locality_machineid=operator-test-" + id,
+			"--locality_zoneid=operator-test-" + id,
+			"--logdir=/var/log/fdb-trace-logs",
+			"--loggroup=test-fdb-cluster",
+			"--public_address=:4501",
+			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+		}, " ")))
+	})
+}
+
 func TestGetPodForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -692,7 +720,7 @@ func TestGetPodForStorageInstance(t *testing.T) {
 	c = mgr.GetClient()
 
 	cluster := createDefaultCluster()
-	pod, err := GetPod(cluster, "storage", 1, c)
+	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(pod.Namespace).To(gomega.Equal("default"))
