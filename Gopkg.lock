@@ -10,14 +10,6 @@
   version = "v0.35.1"
 
 [[projects]]
-  digest = "1:71043145da6add4fb263d5a06ce69271b27e06f8b03453aeb483ba2c767cf6b2"
-  name = "github.com/apple/foundationdb"
-  packages = ["bindings/go/src/fdb"]
-  pruneopts = "T"
-  revision = "141d6f4ba162bb9473a281ecfc0fbb4d32368a50"
-  version = "6.1.10"
-
-[[projects]]
   digest = "1:464aef731a5f82ded547c62e249a2e9ec59fbbc9ddab53cda7b9857852630a61"
   name = "github.com/appscode/jsonpatch"
   packages = ["."]
@@ -942,9 +934,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/apple/foundationdb/bindings/go/src/fdb",
     "github.com/emicklei/go-restful",
-    "github.com/google/uuid",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "golang.org/x/net/context",

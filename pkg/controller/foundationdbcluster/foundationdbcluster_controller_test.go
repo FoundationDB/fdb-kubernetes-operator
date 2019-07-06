@@ -248,7 +248,9 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
 		removedItem := originalPods.Items[3]
-		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{mockPodIP(&removedItem)}))
+		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{
+			cluster.GetFullAddress(mockPodIP(&removedItem)),
+		}))
 	})
 }
 
@@ -387,7 +389,9 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
-		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{mockPodIP(&originalPods.Items[0])}))
+		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{
+			cluster.GetFullAddress(mockPodIP(&originalPods.Items[0])),
+		}))
 		g.Expect(cluster.Spec.ConnectionString).NotTo(gomega.Equal(originalConnectionString))
 	})
 }
@@ -416,7 +420,7 @@ func TestReconcileWithKnobChange(t *testing.T) {
 
 		addresses := make([]string, 0, len(originalPods.Items))
 		for _, pod := range originalPods.Items {
-			addresses = append(addresses, mockPodIP(&pod))
+			addresses = append(addresses, cluster.GetFullAddress(mockPodIP(&pod)))
 		}
 
 		sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {

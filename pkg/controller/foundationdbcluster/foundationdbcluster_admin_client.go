@@ -5,20 +5,16 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
-	"reflect"
+	"os/exec"
 	"strings"
 
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
-	"github.com/google/uuid"
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var configurationProtocolVersion = []byte("\x01\x00\x04Q\xa5\x00\xdb\x0f")
 
 // AdminClient describes an interface for running administrative commands on a
 // cluster
@@ -44,8 +40,8 @@ type AdminClient interface {
 	// KillProcesses restarts processes
 	KillInstances(addresses []string) error
 
-	// SetConnectionString changes the coordinator set
-	SetConnectionString(connectionString fdbtypes.ConnectionString) error
+	// ChangeCoordinators changes the coordinator set
+	ChangeCoordinators(addresses []string) (string, error)
 
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
@@ -59,86 +55,21 @@ type DatabaseConfiguration struct {
 	RoleCounts      fdbtypes.RoleCounts
 }
 
-func (configuration DatabaseConfiguration) getConfigurationKeys() ([]fdb.KeyValue, error) {
-	keys := make([]fdb.KeyValue, 0)
-	var policy localityPolicy
-	var replicas []byte
-
-	switch configuration.ReplicationMode {
-	case "single":
-		policy = &singletonPolicy{}
-		replicas = []byte("1")
-	case "double":
-		policy = &acrossPolicy{
-			Count:     2,
-			Field:     "zoneid",
-			Subpolicy: &singletonPolicy{},
-		}
-		replicas = []byte("2")
-	case "triple":
-		policy = &acrossPolicy{
-			Count:     3,
-			Field:     "zoneid",
-			Subpolicy: &singletonPolicy{},
-		}
-		replicas = []byte("3")
-	default:
-		return nil, fmt.Errorf("Unknown replication mode %s", configuration.ReplicationMode)
-	}
-
-	policyBytes := bytes.Join([][]byte{configurationProtocolVersion, policy.BinaryRepresentation()}, nil)
-	keys = append(keys,
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replicas"), Value: replicas},
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_quorum"), Value: replicas},
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replicas"), Value: replicas},
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_anti_quorum"), Value: []byte("0")},
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_replication_policy"), Value: policyBytes},
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_replication_policy"), Value: policyBytes},
-	)
-
-	for role, count := range configuration.RoleCounts.Map() {
-		key := []byte("\xff/conf/")
-		key = append(key, []byte(role)...)
-
-		keys = append(keys, fdb.KeyValue{
-			Key:   fdb.Key(key),
-			Value: []byte(fmt.Sprintf("%d", count)),
-		})
-	}
-
-	var engine []byte
-	switch configuration.StorageEngine {
-	case "ssd":
-		engine = []byte("2")
-	case "memory":
-		engine = []byte("1")
-	default:
-		return nil, fmt.Errorf("Unknown storage engine %s", configuration.StorageEngine)
-	}
-
-	keys = append(keys,
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/storage_engine"), Value: engine},
-		fdb.KeyValue{Key: fdb.Key("\xff/conf/log_engine"), Value: engine},
-	)
-	return keys, nil
+// CliAdminClient provides an implementation of the admin interface using the
+// FDB CLI.
+type CliAdminClient struct {
+	Cluster         *fdbtypes.FoundationDBCluster
+	clusterFilePath string
 }
 
-// RealAdminClient provides an implementation of the admin interface using the
-// FDB client library
-type RealAdminClient struct {
-	Cluster  *fdbtypes.FoundationDBCluster
-	Database fdb.Database
-}
-
-// NewAdminClient generates an Admin client for a cluster
-func NewAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (AdminClient, error) {
-	err := os.MkdirAll("/tmp/fdb", os.ModePerm)
+// NewCliAdminClient generates an Admin client for a cluster
+func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (AdminClient, error) {
+	clusterFile, err := ioutil.TempFile("", "")
+	clusterFilePath := clusterFile.Name()
 	if err != nil {
 		return nil, err
 	}
-	clusterFilePath := fmt.Sprintf("/tmp/fdb/%s.cluster", cluster.Name)
 
-	clusterFile, err := os.OpenFile(clusterFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 	defer clusterFile.Close()
 	if err != nil {
 		return nil, err
@@ -152,409 +83,166 @@ func NewAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (Adm
 		return nil, err
 	}
 
-	db, err := fdb.Open(clusterFilePath, []byte("DB"))
+	return &CliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath}, nil
+}
+
+type cliCommand struct {
+	command string
+	timeout int
+}
+
+func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
+	version := client.Cluster.Spec.RunningVersion
+	version = version[:strings.LastIndex(version, ".")]
+	timeout := command.timeout
+	if timeout == 0 {
+		timeout = 10
+	}
+	execCommand := exec.Command(
+		fmt.Sprintf("%s/%s/fdbcli", os.Getenv("FDB_BINARY_DIR"), version),
+		"-C", client.clusterFilePath, "--exec", command.command,
+		"--timeout", fmt.Sprintf("%d", timeout),
+		"--log", "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"),
+	)
+
+	log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
+
+	output, err := execCommand.Output()
 	if err != nil {
-		return nil, err
+		exitError := err.(*exec.ExitError)
+		if exitError != nil {
+			log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stderr", string(exitError.Stderr))
+		}
+		return "", err
 	}
 
-	return &RealAdminClient{Cluster: cluster, Database: db}, nil
+	outputString := string(output)
+	log.Info("Command completed", "output", outputString)
+	return outputString, nil
+}
+
+func (configuration DatabaseConfiguration) getConfigurationString() (string, error) {
+	configurationString := fmt.Sprintf("%s %s", configuration.ReplicationMode, configuration.StorageEngine)
+
+	for role, count := range configuration.RoleCounts.Map() {
+		configurationString += fmt.Sprintf(" %s=%d", role, count)
+	}
+
+	return configurationString, nil
 }
 
 // GetStatus gets the database's status
-func (client *RealAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
-	data, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		return tr.Get(fdb.Key("\xff\xff/status/json")).Get()
-	})
+func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+	statusString, err := client.runCommand(cliCommand{command: "status json"})
 	if err != nil {
 		return nil, err
 	}
 	status := &fdbtypes.FoundationDBStatus{}
-	err = json.Unmarshal(data.([]byte), &status)
-	return status, err
+	err = json.Unmarshal([]byte(statusString), &status)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
 }
 
 // ConfigureDatabase sets the database configuration
-func (client *RealAdminClient) ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error {
-
-	tr, err := client.Database.CreateTransaction()
+func (client *CliAdminClient) ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error {
+	configurationString, err := configuration.getConfigurationString()
 	if err != nil {
 		return err
 	}
 
-	initID, err := uuid.NewRandom()
-	if err != nil {
-		return err
-	}
-
-	for {
-		err = configureDatabaseInTransaction(configuration, newDatabase, tr, initID)
-		if err == nil {
-			return err
-		}
-
-		fdbErr, isFdb := err.(fdb.Error)
-		log.Error(fdbErr, "Error configuring database", "newDatabase", newDatabase)
-		if !isFdb {
-			return err
-		}
-		if newDatabase && (fdbErr.Code == 1020 || fdbErr.Code == 1007) {
-			tr.Reset()
-			for {
-				err := checkConfigurationInitID(tr, initID)
-				if err == nil {
-					return err
-				}
-				fdbErr, isFdb = err.(fdb.Error)
-				if !isFdb {
-					return fdbErr
-				}
-				err = tr.OnError(fdbErr).Get()
-				if err != nil {
-					return err
-				}
-			}
-		} else {
-			err = tr.OnError(fdbErr).Get()
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
-/**
-configureDatabaseInTransaction runs the logic to change database
-configuration within a transactional block.
-*/
-func configureDatabaseInTransaction(configuration DatabaseConfiguration, newDatabase bool, tr fdb.Transaction, initID uuid.UUID) error {
-	err := tr.Options().SetAccessSystemKeys()
-	if err != nil {
-		return err
-	}
-	err = tr.Options().SetLockAware()
-	if err != nil {
-		return err
-	}
-	err = tr.Options().SetPrioritySystemImmediate()
-	if err != nil {
-		return err
-	}
-	err = tr.Options().SetUseProvisionalProxies()
-	if err != nil {
-		return err
-	}
-	keys, err := configuration.getConfigurationKeys()
-	if err != nil {
-		return err
-	}
 	if newDatabase {
-		err = tr.Options().SetInitializeNewDatabase()
-		if err != nil {
-			return err
-		}
-		initIDKey := fdb.Key("\xff/init_id")
-		err = tr.AddReadConflictKey(initIDKey)
-		if err != nil {
-			return err
-		}
-
-		tr.Set(fdb.Key(initIDKey), initID[:])
-		tr.Set(fdb.Key("\xff/conf/initialized"), []byte("1"))
-	} else {
-		err = tr.Options().SetCausalWriteRisky()
-		if err != nil {
-			return err
-		}
+		configurationString = "new " + configurationString
 	}
 
-	hasChanges := false
-	for _, keyValue := range keys {
-		var match bool
-		if !newDatabase {
-			currentValue, err := tr.Get(keyValue.Key).Get()
-			if err != nil {
-				return err
-			}
-			match = reflect.DeepEqual(currentValue, keyValue.Value)
-		}
-		if !match {
-			tr.Set(keyValue.Key, keyValue.Value)
-			hasChanges = true
-		}
-	}
-
-	if hasChanges {
-		return tr.Commit().Get()
-	}
-	tr.Cancel()
-	return nil
+	_, err = client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
+	return err
 }
 
-/**
-checkConfigurationInitID is run after a transaction to create a new database
-fails. It checks to see if the initial ID for the configuration is set to the
-value that this transaction was trying to set.
-*/
-func checkConfigurationInitID(tr fdb.Transaction, initID uuid.UUID) error {
-	err := tr.Options().SetPrioritySystemImmediate()
-	if err != nil {
-		return err
+func removeAddressFlags(addresses []string) []string {
+	results := make([]string, len(addresses))
+	for _, address := range addresses {
+		components := strings.Split(address, ":")
+		results = append(results, fmt.Sprintf("%s:%s", components[0], components[1]))
 	}
-	err = tr.Options().SetLockAware()
-	if err != nil {
-		return err
-	}
-	err = tr.Options().SetReadSystemKeys()
-	if err != nil {
-		return err
-	}
-	currentID, err := tr.Get(fdb.Key("\xff/init_id")).Get()
-	if err != nil {
-		return err
-	}
-	if !reflect.DeepEqual(currentID, initID[:]) {
-		return errors.New("Database has already been created")
-	}
-
-	return nil
+	return results
 }
 
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
-func (client *RealAdminClient) ExcludeInstances(addresses []string) error {
-	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		exclusionID, err := uuid.NewRandom()
-		if err != nil {
-			return nil, err
-		}
-		err = tr.Options().SetPrioritySystemImmediate()
-		if err != nil {
-			return nil, err
-		}
+func (client *CliAdminClient) ExcludeInstances(addresses []string) error {
+	if len(addresses) == 0 {
+		return nil
+	}
 
-		err = tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
-		err = tr.Options().SetLockAware()
-		if err != nil {
-			return nil, err
-		}
-
-		tr.AddReadConflictKey(fdb.Key("\xff/conf/excluded"))
-		tr.Set(fdb.Key("\xff/conf/excluded"), exclusionID[:])
-		for _, address := range addresses {
-			tr.Set(
-				fdb.Key(bytes.Join([][]byte{
-					[]byte("\xff/conf/excluded/"),
-					[]byte(address),
-				}, nil)),
-				nil,
-			)
-		}
-		return nil, nil
-	})
+	_, err := client.runCommand(cliCommand{
+		command: fmt.Sprintf(
+			"exclude %s",
+			strings.Join(removeAddressFlags(addresses), " "),
+		)})
 	return err
 }
 
 // IncludeInstances removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *RealAdminClient) IncludeInstances(addresses []string) error {
-	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		exclusionID, err := uuid.NewRandom()
-		if err != nil {
-			return nil, err
-		}
-		err = tr.Options().SetPrioritySystemImmediate()
-		if err != nil {
-			return nil, err
-		}
-
-		err = tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-
-		err = tr.Options().SetLockAware()
-		if err != nil {
-			return nil, err
-		}
-
-		tr.AddReadConflictKey(fdb.Key("\xff/conf/excluded"))
-		tr.Set(fdb.Key("\xff/conf/excluded"), exclusionID[:])
-		for _, address := range addresses {
-			// Clear an exclusion on this address
-			key := bytes.Join([][]byte{
-				[]byte("\xff/conf/excluded/"),
-				[]byte(address),
-			}, nil)
-			tr.Clear(fdb.Key(key))
-
-			// Clear an exclusion on any address that starts with this address,
-			// followed by a colon
-			key = append(key, 58)
-			keyRange, err := fdb.PrefixRange(key)
-			if err != nil {
-				return nil, err
-			}
-			tr.ClearRange(keyRange)
-		}
-		return nil, nil
-	})
+func (client *CliAdminClient) IncludeInstances(addresses []string) error {
+	if len(addresses) == 0 {
+		return nil
+	}
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+		"include %s",
+		strings.Join(removeAddressFlags(addresses), " "),
+	)})
 	return err
 }
 
 // CanSafelyRemove checks whether it is safe to remove processes from the
 // cluster
-func (client *RealAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
-	allServers, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		tr.Options().SetReadSystemKeys()
-		tr.Options().SetLockAware()
-		storageRange, err := fdb.PrefixRange([]byte("\xff/serverList/"))
-		if err != nil {
-			return nil, err
-		}
-		storageServers, err := tr.GetRange(storageRange, fdb.RangeOptions{}).GetSliceWithError()
-		if err != nil {
-			return nil, err
-		}
+func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+		"exclude %s",
+		strings.Join(removeAddressFlags(addresses), " "),
+	)})
+	return nil, err
+}
 
-		results := make([]string, 0, len(storageServers))
-		for _, server := range storageServers {
-			address, err := decodeStorageServerAddress(server.Value)
-			if err != nil {
-				return nil, err
-			}
-			results = append(results, address)
-		}
+// KillProcesses restarts processes
+func (client *CliAdminClient) KillInstances(addresses []string) error {
 
-		logServers, err := tr.Get(fdb.Key("\xff/logs")).Get()
-		currentLogs, offset := decodeLogList(logServers[8:])
-		oldLogs, _ := decodeLogList(logServers[offset+8:])
+	if len(addresses) == 0 {
+		return nil
+	}
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+		"kill; kill %s; status",
+		strings.Join(removeAddressFlags(addresses), " "),
+	)})
+	return err
+}
 
-		results = append(results, currentLogs...)
-		results = append(results, oldLogs...)
-
-		return results, nil
-	})
-
+// SetConnectionString changes the coordinator set
+func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, error) {
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+		"coordinators %s",
+		strings.Join(addresses, " "),
+	)})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	remainingServers := make([]string, 0, len(addresses))
-	for _, address := range addresses {
-		prefix := address + ":"
-		for _, activeAddress := range allServers.([]string) {
-			if activeAddress == address || strings.HasPrefix(activeAddress, prefix) {
-				remainingServers = append(remainingServers, address)
-				break
-			}
-		}
+	connectionStringBytes, err := ioutil.ReadFile(client.clusterFilePath)
+	if err != nil {
+		return "", err
 	}
-
-	return remainingServers, nil
+	return string(connectionStringBytes), nil
 }
 
-// KillInstances restarts processes
-func (client *RealAdminClient) KillInstances(addresses []string) error {
-	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		workerRange := fdb.KeyRange{Begin: fdb.Key("\xff\xff/worker_interfaces"), End: fdb.Key("\xff\xff/worker_interfaces")}
-		workers, err := tr.GetRange(workerRange, fdb.RangeOptions{}).GetSliceWithError()
-		if err != nil {
-			return nil, err
-		}
-		for _, worker := range workers {
-			workerAddress := string(worker.Key)
-			for _, address := range addresses {
-				prefix := address + ":"
-				if workerAddress == address || strings.HasPrefix(workerAddress, prefix) {
-					tr.Set(fdb.Key("\xff\xff/reboot_worker"), worker.Value)
-				}
-			}
-		}
-		return nil, nil
-	})
-	return err
-}
-
-// SetConnectionString updates the connection string to reflect a new set of
-// coordinators
-func (client *RealAdminClient) SetConnectionString(connectionString fdbtypes.ConnectionString) error {
-	_, err := client.Database.Transact(func(tr fdb.Transaction) (interface{}, error) {
-		err := tr.Options().SetAccessSystemKeys()
-		if err != nil {
-			return nil, err
-		}
-		err = tr.Options().SetLockAware()
-		if err != nil {
-			return nil, err
-		}
-		existingBytes, err := tr.Get(fdb.Key("\xff/coordinators")).Get()
-		if err != nil {
-			return nil, err
-		}
-		existingConnectionString, err := fdbtypes.ParseConnectionString(string(existingBytes))
-		if err != nil {
-			return nil, err
-		}
-		if existingConnectionString.HasCoordinators(connectionString.Coordinators) {
-			return nil, nil
-		}
-		tr.Set(fdb.Key("\xff/coordinators"), []byte(connectionString.String()))
-		return nil, nil
-	})
-	return err
-}
-
-// Close shuts down any resources for the client once it is no longer
-// needed.
-func (client *RealAdminClient) Close() error {
+func (client *CliAdminClient) Close() error {
+	err := os.Remove(client.clusterFilePath)
+	if err != nil {
+		return err
+	}
 	return nil
-}
-
-func decodeStorageServerAddress(encoded []byte) (string, error) {
-	localityStart := uint32(24)
-	localityCount := binary.LittleEndian.Uint64(encoded[localityStart : localityStart+8])
-	currentIndex := localityStart + 8
-	for indexOfLocality := uint64(0); indexOfLocality < localityCount; indexOfLocality++ {
-		nameLength := binary.LittleEndian.Uint32(encoded[currentIndex : currentIndex+4])
-		currentIndex += nameLength + 4
-		if encoded[currentIndex] > 0 {
-			valueLength := binary.LittleEndian.Uint32(encoded[currentIndex+1 : currentIndex+5])
-			currentIndex += valueLength + 5
-		} else {
-			currentIndex++
-		}
-	}
-
-	address := decodeAddress(encoded[currentIndex:])
-
-	return address, nil
-}
-
-func decodeLogList(encoded []byte) ([]string, int) {
-	addressCount := binary.LittleEndian.Uint32(encoded)
-	offset := 4
-	addresses := make([]string, 0, addressCount)
-	for indexOfAddress := uint32(0); indexOfAddress < addressCount; indexOfAddress++ {
-		offset += 16
-		addresses = append(addresses, decodeAddress(encoded[offset:]))
-		offset += 8
-	}
-	return addresses, offset
-}
-
-func decodeAddress(encoded []byte) string {
-	return fmt.Sprintf(
-		"%d.%d.%d.%d:%d",
-		encoded[3],
-		encoded[2],
-		encoded[1],
-		encoded[0],
-		binary.LittleEndian.Uint16(encoded[4:]),
-	)
 }
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
@@ -697,9 +385,15 @@ func (client *MockAdminClient) KillInstances(addresses []string) error {
 	return nil
 }
 
-// SetConnectionString changes the coordinator set
-func (client *MockAdminClient) SetConnectionString(connectionString fdbtypes.ConnectionString) error {
-	return nil
+// ChangeCoordinators changes the coordinator set
+func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, error) {
+	connectionString, err := fdbtypes.ParseConnectionString(client.Cluster.Spec.ConnectionString)
+	if err != nil {
+		return "", err
+	}
+	connectionString.GenerateNewGenerationID()
+	connectionString.Coordinators = addresses
+	return connectionString.String(), err
 }
 
 // Close shuts down any resources for the client once it is no longer
@@ -765,16 +459,4 @@ func (policy *acrossPolicy) BinaryRepresentation() []byte {
 	buffer.Write(intBuffer[:])
 	buffer.Write(policy.Subpolicy.BinaryRepresentation())
 	return buffer.Bytes()
-}
-
-// ChangeCoordinators changes the coordinator set
-func ChangeCoordinators(client AdminClient, cluster *fdbtypes.FoundationDBCluster, coordinators []string) (fdbtypes.ConnectionString, error) {
-	connectionString, err := fdbtypes.ParseConnectionString(cluster.Spec.ConnectionString)
-	if err != nil {
-		return fdbtypes.ConnectionString{}, err
-	}
-	connectionString.GenerateNewGenerationID()
-	connectionString.Coordinators = coordinators
-	err = client.SetConnectionString(connectionString)
-	return connectionString, err
 }

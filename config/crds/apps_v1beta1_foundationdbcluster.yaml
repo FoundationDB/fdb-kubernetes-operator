@@ -130,6 +130,8 @@ spec:
                   format: int64
                   type: integer
               type: object
+            runningVersion:
+              type: string
             storageClass:
               type: string
             storageEngine:

@@ -30,8 +30,6 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
-
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -55,7 +53,6 @@ var log = logf.Log.WithName("controller")
 // Add creates a new FoundationDBCluster Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	fdb.MustAPIVersion(510)
 	return add(mgr, newReconciler(mgr))
 }
 
@@ -66,7 +63,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		recorder:            mgr.GetRecorder("foundationdbcluster-controller"),
 		scheme:              mgr.GetScheme(),
 		podClientProvider:   NewFdbPodClient,
-		adminClientProvider: NewAdminClient,
+		adminClientProvider: NewCliAdminClient,
 	}
 }
 
@@ -249,6 +246,10 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, clu
 	if cluster.ApplyDefaultProcessCounts() {
 		changed = true
 	}
+	if cluster.Spec.RunningVersion == "" {
+		cluster.Spec.RunningVersion = cluster.Spec.Version
+		changed = true
+	}
 	if changed {
 		err := r.Update(context, cluster)
 		if err != nil {
@@ -271,6 +272,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 		if err != nil {
 			return err
 		}
+		defer adminClient.Close()
 		databaseStatus, err = adminClient.GetStatus()
 		if err != nil {
 			return err
@@ -615,6 +617,8 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 	if err != nil {
 		return err
 	}
+	defer adminClient.Close()
+
 	err = adminClient.ConfigureDatabase(DatabaseConfiguration{
 		ReplicationMode: cluster.Spec.ReplicationMode,
 		StorageEngine:   cluster.Spec.StorageEngine,
@@ -718,10 +722,11 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 	if err != nil {
 		return err
 	}
+	defer adminClient.Close()
 
 	addresses := make([]string, 0, len(cluster.Spec.PendingRemovals))
 	for _, address := range cluster.Spec.PendingRemovals {
-		addresses = append(addresses, address)
+		addresses = append(addresses, cluster.GetFullAddress(address))
 	}
 
 	if len(addresses) > 0 {
@@ -756,6 +761,7 @@ func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, c
 	if err != nil {
 		return err
 	}
+	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
@@ -799,11 +805,11 @@ func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, c
 		if len(coordinators) < coordinatorCount {
 			return errors.New("Unable to recruit new coordinators")
 		}
-		connectionString, err := ChangeCoordinators(adminClient, cluster, coordinators)
+		connectionString, err := adminClient.ChangeCoordinators(coordinators)
 		if err != nil {
 			return err
 		}
-		cluster.Spec.ConnectionString = connectionString.String()
+		cluster.Spec.ConnectionString = connectionString
 		err = r.Update(context, cluster)
 		if err != nil {
 			return err
@@ -899,10 +905,11 @@ func (r *ReconcileFoundationDBCluster) includeInstances(context ctx.Context, clu
 	if err != nil {
 		return err
 	}
+	defer adminClient.Close()
 
 	addresses := make([]string, 0, len(cluster.Spec.PendingRemovals))
 	for _, address := range cluster.Spec.PendingRemovals {
-		addresses = append(addresses, address)
+		addresses = append(addresses, cluster.GetFullAddress(address))
 	}
 
 	if len(addresses) > 0 {
@@ -952,6 +959,7 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 	if err != nil {
 		return err
 	}
+	defer adminClient.Close()
 
 	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
 	for podName := range cluster.Status.IncorrectProcesses {
@@ -964,7 +972,7 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 		if err != nil {
 			return err
 		}
-		addresses = append(addresses, podClient.GetPodIP())
+		addresses = append(addresses, cluster.GetFullAddress(podClient.GetPodIP()))
 
 		signal := make(chan error)
 		go r.updatePodDynamicConf(context, cluster, pod, signal)
@@ -978,6 +986,14 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
 		r.recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
+		if err != nil {
+			return err
+		}
+	}
+
+	if cluster.Spec.RunningVersion != cluster.Spec.Version {
+		cluster.Spec.RunningVersion = cluster.Spec.Version
+		err = r.Update(context, cluster)
 		if err != nil {
 			return err
 		}

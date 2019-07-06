@@ -33,6 +33,7 @@ import (
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
 	Version               string `json:"version"`
+	RunningVersion        string `json:"runningVersion,omitempty"`
 	RoleCounts            `json:"roleCounts,omitempty"`
 	ProcessCounts         `json:"processCounts,omitempty"`
 	ConnectionString      string                         `json:"connectionString,omitempty"`
