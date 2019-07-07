@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var maxCommandOutput int = 20
+
 // AdminClient describes an interface for running administrative commands on a
 // cluster
 type AdminClient interface {
@@ -23,7 +25,7 @@ type AdminClient interface {
 	GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 	// ConfigureDatabase sets the database configuration
-	ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error
+	ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error
 
 	// ExcludeInstances starts evacuating processes so that they can be removed
 	// from the database.
@@ -46,13 +48,6 @@ type AdminClient interface {
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
-}
-
-// DatabaseConfiguration represents the desired configuration of the database
-type DatabaseConfiguration struct {
-	ReplicationMode string
-	StorageEngine   string
-	RoleCounts      fdbtypes.RoleCounts
 }
 
 // CliAdminClient provides an implementation of the admin interface using the
@@ -117,18 +112,12 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	outputString := string(output)
-	log.Info("Command completed", "output", outputString)
-	return outputString, nil
-}
-
-func (configuration DatabaseConfiguration) getConfigurationString() (string, error) {
-	configurationString := fmt.Sprintf("%s %s", configuration.ReplicationMode, configuration.StorageEngine)
-
-	for role, count := range configuration.RoleCounts.Map() {
-		configurationString += fmt.Sprintf(" %s=%d", role, count)
+	debugOutput := outputString
+	if len(debugOutput) > maxCommandOutput {
+		debugOutput = debugOutput[0:maxCommandOutput] + "..."
 	}
-
-	return configurationString, nil
+	log.Info("Command completed", "output", debugOutput)
+	return outputString, nil
 }
 
 // GetStatus gets the database's status
@@ -146,17 +135,13 @@ func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 }
 
 // ConfigureDatabase sets the database configuration
-func (client *CliAdminClient) ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error {
-	configurationString, err := configuration.getConfigurationString()
-	if err != nil {
-		return err
-	}
-
+func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
+	configurationString := configuration.GetConfigurationString()
 	if newDatabase {
 		configurationString = "new " + configurationString
 	}
 
-	_, err = client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
+	_, err := client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
 	return err
 }
 
@@ -247,13 +232,13 @@ func (client *CliAdminClient) Close() error {
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
 type MockAdminClient struct {
-	Cluster    *fdbtypes.FoundationDBCluster
-	KubeClient client.Client
-	DatabaseConfiguration
-	ExcludedAddresses   []string
-	ReincludedAddresses []string
-	KilledAddresses     []string
-	frozenStatus        *fdbtypes.FoundationDBStatus
+	Cluster               *fdbtypes.FoundationDBCluster
+	KubeClient            client.Client
+	DatabaseConfiguration *fdbtypes.DatabaseConfiguration
+	ExcludedAddresses     []string
+	ReincludedAddresses   []string
+	KilledAddresses       []string
+	frozenStatus          *fdbtypes.FoundationDBStatus
 }
 
 var adminClientCache = make(map[string]*MockAdminClient)
@@ -335,12 +320,18 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		})
 	}
 
+	if client.DatabaseConfiguration != nil {
+		status.Cluster.DatabaseConfiguration = *client.DatabaseConfiguration
+	} else {
+		status.Cluster.DatabaseConfiguration = client.Cluster.DatabaseConfiguration()
+	}
+
 	return status, nil
 }
 
 // ConfigureDatabase changes the database configuration
-func (client *MockAdminClient) ConfigureDatabase(configuration DatabaseConfiguration, newDatabase bool) error {
-	client.DatabaseConfiguration = configuration
+func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
+	client.DatabaseConfiguration = configuration.DeepCopy()
 	return nil
 }
 

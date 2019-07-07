@@ -188,9 +188,8 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("double"))
-		g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd"))
+		g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd-2"))
 		g.Expect(adminClient.DatabaseConfiguration.RoleCounts).To(gomega.Equal(appsv1beta1.RoleCounts{
-			Storage:   3,
 			Logs:      3,
 			Proxies:   3,
 			Resolvers: 1,
@@ -202,7 +201,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			Transaction: 4,
 			Stateless:   7,
 		}))
-		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(cluster.Spec.ProcessCounts))
+		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(cluster.GetProcessCountsWithDefaults()))
 		g.Expect(cluster.Status.IncorrectProcesses).To(gomega.BeNil())
 		g.Expect(cluster.Status.MissingProcesses).To(gomega.BeNil())
 	})
@@ -265,7 +264,7 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 6))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 7))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -449,7 +448,7 @@ func TestGetConfigMap(t *testing.T) {
 	expectedConf, err := GetMonitorConf(cluster, "storage", nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(configMap.Data)).To(gomega.Equal(4))
+	g.Expect(len(configMap.Data)).To(gomega.Equal(6))
 	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal("operator-test:asdfasf@127.0.0.1:4501"))
 	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(expectedConf))
 	g.Expect(configMap.Data["ca-file"]).To(gomega.Equal(""))

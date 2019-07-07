@@ -240,12 +240,6 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, clu
 		}
 		changed = true
 	}
-	if cluster.ApplyDefaultRoleCounts() {
-		changed = true
-	}
-	if cluster.ApplyDefaultProcessCounts() {
-		changed = true
-	}
 	if cluster.Spec.RunningVersion == "" {
 		cluster.Spec.RunningVersion = cluster.Spec.Version
 		changed = true
@@ -335,8 +329,10 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 
 	status.FullyReconciled = cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
-		cluster.Spec.ProcessCounts.CountsAreSatisfied(status.ProcessCounts) &&
-		len(status.IncorrectProcesses) == 0
+		cluster.GetProcessCountsWithDefaults().CountsAreSatisfied(status.ProcessCounts) &&
+		len(status.IncorrectProcesses) == 0 &&
+		databaseStatus != nil &&
+		databaseStatus.Cluster.DatabaseConfiguration == cluster.DatabaseConfiguration()
 	cluster.Status = status
 
 	r.Status().Update(context, cluster)
@@ -457,7 +453,7 @@ func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass strin
 func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
 	hasNewPods := false
 	currentCounts := cluster.Status.ProcessCounts.Map()
-	desiredCounts := cluster.Spec.ProcessCounts.Map()
+	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		if desiredCount < 0 {
@@ -611,30 +607,44 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 	log.Info("Configuring database", "cluster", cluster.Name)
 	adminClient, err := r.adminClientProvider(cluster, r)
 
-	if !cluster.Spec.Configured {
-		r.recorder.Event(cluster, "Normal", "ChangingConfiguration", "Setting initial database configuration")
-	}
 	if err != nil {
 		return err
 	}
 	defer adminClient.Close()
 
-	err = adminClient.ConfigureDatabase(DatabaseConfiguration{
-		ReplicationMode: cluster.Spec.ReplicationMode,
-		StorageEngine:   cluster.Spec.StorageEngine,
-		RoleCounts:      cluster.Spec.RoleCounts,
-	}, !cluster.Spec.Configured)
-	if err != nil {
-		return err
-	}
+	desiredConfiguration := cluster.DatabaseConfiguration()
+	desiredConfiguration.RoleCounts.Storage = 0
+	needsChange := false
 	if !cluster.Spec.Configured {
-		cluster.Spec.Configured = true
-		err = r.Update(context, cluster)
+		needsChange = true
+	} else {
+		status, err := adminClient.GetStatus()
 		if err != nil {
 			return err
 		}
+
+		needsChange = desiredConfiguration != status.Cluster.DatabaseConfiguration
 	}
-	log.Info("Configured database", "cluster", cluster.Name)
+
+	if needsChange {
+		r.recorder.Event(cluster, "Normal", "ConfiguringDatabase",
+			fmt.Sprintf("Setting database configuration to `%s`",
+				desiredConfiguration.GetConfigurationString(),
+			),
+		)
+		err = adminClient.ConfigureDatabase(cluster.DatabaseConfiguration(), !cluster.Spec.Configured)
+		if err != nil {
+			return err
+		}
+		if !cluster.Spec.Configured {
+			cluster.Spec.Configured = true
+			err = r.Update(context, cluster)
+			if err != nil {
+				return err
+			}
+		}
+		log.Info("Configured database", "cluster", cluster.Name)
+	}
 
 	return nil
 }
@@ -648,7 +658,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, clust
 	}
 
 	currentCounts := cluster.Status.ProcessCounts.Map()
-	desiredCounts := cluster.Spec.ProcessCounts.Map()
+	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		existingPods := &corev1.PodList{}
@@ -783,7 +793,7 @@ func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, c
 		}
 	}
 
-	needsChange := false
+	needsChange := len(coordinatorStatus) != cluster.DesiredCoordinatorCount()
 	for _, healthy := range coordinatorStatus {
 		needsChange = needsChange || !healthy
 	}
@@ -1035,7 +1045,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 
 	data["ca-file"] = caFile
 
-	desiredCounts := cluster.Spec.ProcessCounts.Map()
+	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 	for processClass, count := range desiredCounts {
 		if count > 0 {
 			filename := fmt.Sprintf("fdbmonitor-conf-%s", processClass)

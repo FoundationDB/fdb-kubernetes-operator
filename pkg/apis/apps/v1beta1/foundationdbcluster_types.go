@@ -178,27 +178,23 @@ var ProcessClasses = fieldNames(ProcessCounts{})
 var processClassIndices = fieldIndices(ProcessCounts{})
 var roleIndices = fieldIndices(RoleCounts{})
 
-// ApplyDefaultRoleCounts sets the default values for any role
-// counts that are currently zero.
-func (cluster *FoundationDBCluster) ApplyDefaultRoleCounts() bool {
-	changed := false
-	if cluster.Spec.RoleCounts.Storage == 0 {
-		cluster.Spec.RoleCounts.Storage = 2*cluster.DesiredFaultTolerance() + 1
-		changed = true
+// GetRoleCountsWithDefaults gets the role counts from the cluster spec and
+// fills in default values for any role counts that are 0.
+func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
+	counts := cluster.Spec.RoleCounts.DeepCopy()
+	if counts.Storage == 0 {
+		counts.Storage = 2*cluster.DesiredFaultTolerance() + 1
 	}
-	if cluster.Spec.RoleCounts.Logs == 0 {
-		cluster.Spec.RoleCounts.Logs = 3
-		changed = true
+	if counts.Logs == 0 {
+		counts.Logs = 3
 	}
-	if cluster.Spec.RoleCounts.Proxies == 0 {
-		cluster.Spec.RoleCounts.Proxies = 3
-		changed = true
+	if counts.Proxies == 0 {
+		counts.Proxies = 3
 	}
-	if cluster.Spec.RoleCounts.Resolvers == 0 {
-		cluster.Spec.RoleCounts.Resolvers = 1
-		changed = true
+	if counts.Resolvers == 0 {
+		counts.Resolvers = 1
 	}
-	return changed
+	return *counts
 }
 
 func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alternatives ...int) int {
@@ -246,32 +242,29 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 	return -1
 }
 
-// ApplyDefaultProcessCounts sets the default values for any process
-// counts that are currently zero.
-func (cluster *FoundationDBCluster) ApplyDefaultProcessCounts() bool {
-	changed := false
-
-	if cluster.Spec.ProcessCounts.Storage == 0 {
-		cluster.Spec.ProcessCounts.Storage = cluster.calculateProcessCount(false,
-			cluster.Spec.RoleCounts.Storage)
-		changed = true
+// GetProcessCountsWithDefaults gets the process counts from the cluster spec
+// and fills in default values for any counts that are 0.
+func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts {
+	roleCounts := cluster.GetRoleCountsWithDefaults()
+	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
+	if processCounts.Storage == 0 {
+		processCounts.Storage = cluster.calculateProcessCount(false,
+			roleCounts.Storage)
 	}
-	if cluster.Spec.ProcessCounts.Transaction == 0 {
-		cluster.Spec.ProcessCounts.Transaction = cluster.calculateProcessCount(true,
-			cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Logs, cluster.Spec.ProcessCounts.Log),
+	if processCounts.Transaction == 0 {
+		processCounts.Transaction = cluster.calculateProcessCount(true,
+			cluster.calculateProcessCountFromRole(roleCounts.Logs, processCounts.Log),
 		)
-		changed = true
 	}
-	if cluster.Spec.ProcessCounts.Stateless == 0 {
-		cluster.Spec.ProcessCounts.Stateless = cluster.calculateProcessCount(true,
-			cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.Master)+
-				cluster.calculateProcessCountFromRole(1, cluster.Spec.ProcessCounts.ClusterController)+
-				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Proxies, cluster.Spec.ProcessCounts.Proxy)+
-				cluster.calculateProcessCountFromRole(cluster.Spec.RoleCounts.Resolvers, cluster.Spec.ProcessCounts.Resolution, cluster.Spec.ProcessCounts.Resolver),
+	if processCounts.Stateless == 0 {
+		processCounts.Stateless = cluster.calculateProcessCount(true,
+			cluster.calculateProcessCountFromRole(1, processCounts.Master)+
+				cluster.calculateProcessCountFromRole(1, processCounts.ClusterController)+
+				cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)+
+				cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution, processCounts.Resolver),
 		)
-		changed = true
 	}
-	return changed
+	return *processCounts
 }
 
 // DesiredFaultTolerance returns the number of replicas we should be able to
@@ -353,7 +346,8 @@ type FoundationDBStatusCoordinator struct {
 // FoundationDBStatusClusterInfo describes the "cluster" portion of the
 // cluster status
 type FoundationDBStatusClusterInfo struct {
-	Processes map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
+	DatabaseConfiguration `json:"configuration,omitempty"`
+	Processes             map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
 }
 
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
@@ -454,6 +448,41 @@ type FoundationDBClusterFaultDomain struct {
 	ValueFrom string `json:"valueFrom,omitempty"`
 	ZoneCount int    `json:"zoneCount,omitempty"`
 	ZoneIndex int    `json:"zoneIndex,omitempty"`
+}
+
+// DatabaseConfiguration represents the configuration of the database
+type DatabaseConfiguration struct {
+	ReplicationMode string `json:"redundancy_mode,omitempty"`
+	StorageEngine   string `json:"storage_engine,omitempty"`
+	RoleCounts
+}
+
+// GetConfigurationString gets the CLI command for configuring a database.
+func (configuration DatabaseConfiguration) GetConfigurationString() string {
+	configurationString := fmt.Sprintf("%s %s", configuration.ReplicationMode, configuration.StorageEngine)
+
+	for role, count := range configuration.RoleCounts.Map() {
+		configurationString += fmt.Sprintf(" %s=%d", role, count)
+	}
+
+	return configurationString
+}
+
+// DatabaseConfiguration builds the database configuration for the cluster based
+// on its spec.
+// This will turn it into a standardized form that will match the way it will
+// be represented in the cluster status.
+func (cluster *FoundationDBCluster) DatabaseConfiguration() DatabaseConfiguration {
+	configuration := DatabaseConfiguration{
+		ReplicationMode: cluster.Spec.ReplicationMode,
+		StorageEngine:   cluster.Spec.StorageEngine,
+		RoleCounts:      cluster.GetRoleCountsWithDefaults(),
+	}
+	configuration.RoleCounts.Storage = 0
+	if configuration.StorageEngine == "ssd" {
+		configuration.StorageEngine = "ssd-2"
+	}
+	return configuration
 }
 
 func init() {

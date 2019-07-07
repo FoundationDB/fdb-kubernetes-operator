@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestApplyingDefaultRoleCounts(t *testing.T) {
+func TestGetDefaultRoleCounts(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -38,27 +38,27 @@ func TestApplyingDefaultRoleCounts(t *testing.T) {
 			ReplicationMode: "double",
 		},
 	}
-	changed := cluster.ApplyDefaultRoleCounts()
-	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{
+
+	counts := cluster.GetRoleCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(RoleCounts{
 		Storage:   3,
 		Logs:      3,
 		Proxies:   3,
 		Resolvers: 1,
 	}))
-	g.Expect(cluster.Spec.RoleCounts.Map()).To(gomega.Equal(map[string]int{
+	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"logs":      3,
 		"proxies":   3,
 		"resolvers": 1,
 	}))
-	g.Expect(changed).To(gomega.BeTrue())
-	changed = cluster.ApplyDefaultRoleCounts()
-	g.Expect(changed).To(gomega.BeFalse())
+	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{}))
 
 	cluster.Spec.RoleCounts = RoleCounts{
 		Storage: 5,
 	}
-	cluster.ApplyDefaultRoleCounts()
-	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{
+
+	counts = cluster.GetRoleCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(RoleCounts{
 		Storage:   5,
 		Logs:      3,
 		Proxies:   3,
@@ -68,8 +68,8 @@ func TestApplyingDefaultRoleCounts(t *testing.T) {
 	cluster.Spec.RoleCounts = RoleCounts{
 		Logs: 8,
 	}
-	cluster.ApplyDefaultRoleCounts()
-	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{
+	counts = cluster.GetRoleCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(RoleCounts{
 		Storage:   3,
 		Logs:      8,
 		Proxies:   3,
@@ -77,7 +77,7 @@ func TestApplyingDefaultRoleCounts(t *testing.T) {
 	}))
 }
 
-func TestApplyingDefaultProcessCounts(t *testing.T) {
+func TestGettingDefaultProcessCounts(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -94,35 +94,33 @@ func TestApplyingDefaultProcessCounts(t *testing.T) {
 			},
 		},
 	}
-	changed := cluster.ApplyDefaultProcessCounts()
-	g.Expect(changed).To(gomega.BeTrue())
-	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+
+	counts := cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:     5,
 		Transaction: 4,
 		Stateless:   7,
 	}))
-	g.Expect(cluster.Spec.ProcessCounts.Map()).To(gomega.Equal(map[string]int{
+	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"storage":     5,
 		"transaction": 4,
 		"stateless":   7,
 	}))
-
-	changed = cluster.ApplyDefaultProcessCounts()
-	g.Expect(changed).To(gomega.BeFalse())
+	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Storage: 10,
 	}
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts.Storage).To(gomega.Equal(10))
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts.Storage).To(gomega.Equal(10))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		ClusterController: 3,
 	}
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts.Stateless).To(gomega.Equal(6))
-	g.Expect(cluster.Spec.ProcessCounts.ClusterController).To(gomega.Equal(3))
-	g.Expect(cluster.Spec.ProcessCounts.Map()).To(gomega.Equal(map[string]int{
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts.Stateless).To(gomega.Equal(6))
+	g.Expect(counts.ClusterController).To(gomega.Equal(3))
+	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"storage":            5,
 		"transaction":        4,
 		"stateless":          6,
@@ -132,28 +130,28 @@ func TestApplyingDefaultProcessCounts(t *testing.T) {
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Resolver: 1,
 	}
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts.Stateless).To(gomega.Equal(6))
-	g.Expect(cluster.Spec.ProcessCounts.Resolver).To(gomega.Equal(1))
-	g.Expect(cluster.Spec.ProcessCounts.Resolution).To(gomega.Equal(0))
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts.Stateless).To(gomega.Equal(6))
+	g.Expect(counts.Resolver).To(gomega.Equal(1))
+	g.Expect(counts.Resolution).To(gomega.Equal(0))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Resolution: 1,
 	}
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts.Stateless).To(gomega.Equal(6))
-	g.Expect(cluster.Spec.ProcessCounts.Resolution).To(gomega.Equal(1))
-	g.Expect(cluster.Spec.ProcessCounts.Resolver).To(gomega.Equal(0))
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts.Stateless).To(gomega.Equal(6))
+	g.Expect(counts.Resolution).To(gomega.Equal(1))
+	g.Expect(counts.Resolver).To(gomega.Equal(0))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Log: 2,
 	}
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts.Transaction).To(gomega.Equal(-1))
-	g.Expect(cluster.Spec.ProcessCounts.Log).To(gomega.Equal(2))
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts.Transaction).To(gomega.Equal(-1))
+	g.Expect(counts.Log).To(gomega.Equal(2))
 }
 
-func TestApplyingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
+func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -173,9 +171,8 @@ func TestApplyingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 			},
 		},
 	}
-	changed := cluster.ApplyDefaultProcessCounts()
-	g.Expect(changed).To(gomega.BeTrue())
-	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+	counts := cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:     2,
 		Transaction: 2,
 		Stateless:   3,
@@ -183,8 +180,8 @@ func TestApplyingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 
 	cluster.Spec.ProcessCounts = ProcessCounts{}
 	cluster.Spec.FaultDomain.ZoneIndex = 2
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:     1,
 		Transaction: 1,
 		Stateless:   3,
@@ -193,8 +190,8 @@ func TestApplyingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 	cluster.Spec.ProcessCounts = ProcessCounts{}
 	cluster.Spec.FaultDomain.ZoneIndex = 1
 	cluster.Spec.FaultDomain.ZoneCount = 5
-	cluster.ApplyDefaultProcessCounts()
-	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:     1,
 		Transaction: 1,
 		Stateless:   2,
@@ -269,6 +266,14 @@ func TestParsingClusterStatus(t *testing.T) {
 			},
 		},
 		Cluster: FoundationDBStatusClusterInfo{
+			DatabaseConfiguration: DatabaseConfiguration{
+				ReplicationMode: "double",
+				StorageEngine:   "memory",
+				RoleCounts: RoleCounts{
+					Logs:    3,
+					Proxies: 3,
+				},
+			},
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"c9eb35e25a364910fd77fdeec5c3a1f6": {
 					Address:      "172.17.0.6:4500",
@@ -349,4 +354,46 @@ func TestCheckingCoordinatorsForConnectionString(t *testing.T) {
 	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500", "127.0.0.4:4500"})).To(gomega.BeFalse())
 	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.4:4500"})).To(gomega.BeFalse())
 	g.Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500"})).To(gomega.BeFalse())
+}
+
+func TestGettingClusterDatabaseConfiguration(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: FoundationDBClusterSpec{
+			ReplicationMode: "double",
+			StorageEngine:   "ssd",
+			RoleCounts: RoleCounts{
+				Storage: 5,
+				Logs:    4,
+				Proxies: 5,
+			},
+		},
+	}
+
+	g.Expect(cluster.DatabaseConfiguration()).To(gomega.Equal(DatabaseConfiguration{
+		ReplicationMode: "double",
+		StorageEngine:   "ssd-2",
+		RoleCounts: RoleCounts{
+			Logs:      4,
+			Proxies:   5,
+			Resolvers: 1,
+		},
+	}))
+}
+
+func TestGettingConfigurationString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configuration := DatabaseConfiguration{
+		ReplicationMode: "double",
+		StorageEngine:   "ssd",
+		RoleCounts: RoleCounts{
+			Logs: 5,
+		},
+	}
+	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd logs=5"))
 }

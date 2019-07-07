@@ -76,6 +76,8 @@
             "coordinators_count" : 3,
             "excluded_servers" : [
             ],
+            "logs" : 3,
+            "proxies" : 3,
             "redundancy_mode" : "double",
             "storage_engine" : "memory",
             "usable_regions" : 1
