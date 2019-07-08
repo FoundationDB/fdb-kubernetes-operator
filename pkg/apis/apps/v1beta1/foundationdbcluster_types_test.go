@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,23 +36,47 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ReplicationMode: "double",
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+			},
 		},
 	}
 
 	counts := cluster.GetRoleCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(RoleCounts{
-		Storage:   3,
-		Logs:      3,
-		Proxies:   3,
-		Resolvers: 1,
+		Storage:    3,
+		Logs:       3,
+		Proxies:    3,
+		Resolvers:  1,
+		RemoteLogs: -1,
+		LogRouters: -1,
 	}))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
-		"logs":      3,
-		"proxies":   3,
-		"resolvers": 1,
+		"logs":        3,
+		"proxies":     3,
+		"resolvers":   1,
+		"remote_logs": -1,
+		"log_routers": -1,
 	}))
 	g.Expect(cluster.Spec.RoleCounts).To(gomega.Equal(RoleCounts{}))
+
+	cluster.Spec.UsableRegions = 2
+	counts = cluster.GetRoleCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(RoleCounts{
+		Storage:    3,
+		Logs:       3,
+		Proxies:    3,
+		Resolvers:  1,
+		RemoteLogs: 3,
+		LogRouters: 9,
+	}))
+	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
+		"logs":        3,
+		"proxies":     3,
+		"resolvers":   1,
+		"remote_logs": 3,
+		"log_routers": 9,
+	}))
 
 	cluster.Spec.RoleCounts = RoleCounts{
 		Storage: 5,
@@ -59,10 +84,12 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 
 	counts = cluster.GetRoleCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(RoleCounts{
-		Storage:   5,
-		Logs:      3,
-		Proxies:   3,
-		Resolvers: 1,
+		Storage:    5,
+		Logs:       3,
+		Proxies:    3,
+		Resolvers:  1,
+		RemoteLogs: 3,
+		LogRouters: 9,
 	}))
 
 	cluster.Spec.RoleCounts = RoleCounts{
@@ -70,10 +97,27 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 	}
 	counts = cluster.GetRoleCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(RoleCounts{
-		Storage:   3,
-		Logs:      8,
-		Proxies:   3,
-		Resolvers: 1,
+		Storage:    3,
+		Logs:       8,
+		Proxies:    3,
+		Resolvers:  1,
+		RemoteLogs: 8,
+		LogRouters: 24,
+	}))
+
+	cluster.Spec.RoleCounts = RoleCounts{
+		Logs:       4,
+		RemoteLogs: 5,
+		LogRouters: 6,
+	}
+	counts = cluster.GetRoleCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(RoleCounts{
+		Storage:    3,
+		Logs:       4,
+		Proxies:    3,
+		Resolvers:  1,
+		RemoteLogs: 5,
+		LogRouters: 6,
 	}))
 }
 
@@ -85,12 +129,14 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ReplicationMode: "double",
-			RoleCounts: RoleCounts{
-				Storage:   5,
-				Logs:      3,
-				Proxies:   3,
-				Resolvers: 1,
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+				RoleCounts: RoleCounts{
+					Storage:   5,
+					Logs:      3,
+					Proxies:   3,
+					Resolvers: 1,
+				},
 			},
 		},
 	}
@@ -149,6 +195,17 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 	counts = cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts.Transaction).To(gomega.Equal(-1))
 	g.Expect(counts.Log).To(gomega.Equal(2))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{}
+	cluster.Spec.RoleCounts.RemoteLogs = 4
+	cluster.Spec.RoleCounts.LogRouters = 8
+
+	counts = cluster.GetProcessCountsWithDefaults()
+	g.Expect(counts).To(gomega.Equal(ProcessCounts{
+		Storage:     5,
+		Transaction: 5,
+		Stateless:   9,
+	}))
 }
 
 func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
@@ -159,18 +216,21 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ReplicationMode: "double",
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+				RoleCounts: RoleCounts{
+					Storage:   5,
+					Logs:      3,
+					Proxies:   5,
+					Resolvers: 1,
+				},
+			},
 			FaultDomain: FoundationDBClusterFaultDomain{
 				Key: "foundationdb.org/kubernetes-cluster",
 			},
-			RoleCounts: RoleCounts{
-				Storage:   5,
-				Logs:      3,
-				Proxies:   5,
-				Resolvers: 1,
-			},
 		},
 	}
+
 	counts := cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:     2,
@@ -230,7 +290,9 @@ func TestClusterDesiredCoordinatorCounts(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ReplicationMode: "double",
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+			},
 		},
 	}
 
@@ -239,7 +301,7 @@ func TestClusterDesiredCoordinatorCounts(t *testing.T) {
 		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 3, count)
 	}
 
-	cluster.Spec.ReplicationMode = "single"
+	cluster.Spec.RedundancyMode = "single"
 	count = cluster.DesiredCoordinatorCount()
 	if count != 1 {
 		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 1, count)
@@ -267,8 +329,9 @@ func TestParsingClusterStatus(t *testing.T) {
 		},
 		Cluster: FoundationDBStatusClusterInfo{
 			DatabaseConfiguration: DatabaseConfiguration{
-				ReplicationMode: "double",
-				StorageEngine:   "memory",
+				RedundancyMode: "double",
+				StorageEngine:  "memory",
+				UsableRegions:  1,
 				RoleCounts: RoleCounts{
 					Logs:    3,
 					Proxies: 3,
@@ -365,23 +428,27 @@ func TestGettingClusterDatabaseConfiguration(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			ReplicationMode: "double",
-			StorageEngine:   "ssd",
-			RoleCounts: RoleCounts{
-				Storage: 5,
-				Logs:    4,
-				Proxies: 5,
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+				StorageEngine:  "ssd",
+				RoleCounts: RoleCounts{
+					Storage: 5,
+					Logs:    4,
+					Proxies: 5,
+				},
 			},
 		},
 	}
 
-	g.Expect(cluster.DatabaseConfiguration()).To(gomega.Equal(DatabaseConfiguration{
-		ReplicationMode: "double",
-		StorageEngine:   "ssd-2",
+	g.Expect(cluster.DesiredDatabaseConfiguration()).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		StorageEngine:  "ssd-2",
 		RoleCounts: RoleCounts{
-			Logs:      4,
-			Proxies:   5,
-			Resolvers: 1,
+			Logs:       4,
+			Proxies:    5,
+			Resolvers:  1,
+			LogRouters: -1,
+			RemoteLogs: -1,
 		},
 	}))
 }
@@ -389,11 +456,23 @@ func TestGettingClusterDatabaseConfiguration(t *testing.T) {
 func TestGettingConfigurationString(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configuration := DatabaseConfiguration{
-		ReplicationMode: "double",
-		StorageEngine:   "ssd",
+		RedundancyMode: "double",
+		StorageEngine:  "ssd",
+		UsableRegions:  1,
 		RoleCounts: RoleCounts{
 			Logs: 5,
 		},
 	}
-	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd logs=5"))
+	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[]"))
+
+	configuration.Regions = []Region{Region{
+		DataCenters: []DataCenter{DataCenter{
+			ID:        "iad",
+			Priority:  1,
+			Satellite: 0,
+		}},
+		SatelliteLogs: 2,
+	}}
+	fmt.Println(configuration.GetConfigurationString())
+	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 }

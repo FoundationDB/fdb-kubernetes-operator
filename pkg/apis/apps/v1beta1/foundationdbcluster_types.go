@@ -17,11 +17,13 @@ limitations under the License.
 package v1beta1
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
 	"regexp"
 	"strings"
+	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,13 +36,11 @@ import (
 type FoundationDBClusterSpec struct {
 	Version               string `json:"version"`
 	RunningVersion        string `json:"runningVersion,omitempty"`
-	RoleCounts            `json:"roleCounts,omitempty"`
+	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	Configured            bool `json:"configured,omitempty"`
 	ProcessCounts         `json:"processCounts,omitempty"`
 	ConnectionString      string                         `json:"connectionString,omitempty"`
 	NextInstanceID        int                            `json:"nextInstanceID,omitempty"`
-	ReplicationMode       string                         `json:"replicationMode,omitempty"`
-	StorageEngine         string                         `json:"storageEngine,omitempty"`
-	Configured            bool                           `json:"configured,omitempty"`
 	FaultDomain           FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
 	StorageClass          *string                        `json:"storageClass,omitempty"`
 	VolumeSize            string                         `json:"volumeSize"`
@@ -91,10 +91,12 @@ type FoundationDBClusterList struct {
 
 // RoleCounts represents the roles whose counts can be customized.
 type RoleCounts struct {
-	Storage   int `json:"storage,omitempty"`
-	Logs      int `json:"logs,omitempty"`
-	Proxies   int `json:"proxies,omitempty"`
-	Resolvers int `json:"resolvers,omitempty"`
+	Storage    int `json:"storage,omitempty"`
+	Logs       int `json:"logs,omitempty"`
+	Proxies    int `json:"proxies,omitempty"`
+	Resolvers  int `json:"resolvers,omitempty"`
+	LogRouters int `json:"log_routers,omitempty"`
+	RemoteLogs int `json:"remote_logs,omitempty"`
 }
 
 // Map returns a map from process classes to the desired count for that role
@@ -104,9 +106,7 @@ func (counts RoleCounts) Map() map[string]int {
 	for role, index := range roleIndices {
 		if role != "storage" {
 			value := int(countValue.Field(index).Int())
-			if value > 0 {
-				countMap[role] = value
-			}
+			countMap[role] = value
 		}
 	}
 	return countMap
@@ -153,7 +153,7 @@ func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
 }
 
 func fieldNames(value interface{}) []string {
-	countType := reflect.TypeOf(ProcessCounts{})
+	countType := reflect.TypeOf(value)
 	names := make([]string, 0, countType.NumField())
 	for index := 0; index < countType.NumField(); index++ {
 		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
@@ -176,6 +176,7 @@ func fieldIndices(value interface{}) map[string]int {
 // classes.
 var ProcessClasses = fieldNames(ProcessCounts{})
 var processClassIndices = fieldIndices(ProcessCounts{})
+var roleNames = fieldNames(RoleCounts{})
 var roleIndices = fieldIndices(RoleCounts{})
 
 // GetRoleCountsWithDefaults gets the role counts from the cluster spec and
@@ -193,6 +194,20 @@ func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	}
 	if counts.Resolvers == 0 {
 		counts.Resolvers = 1
+	}
+	if counts.RemoteLogs == 0 {
+		if cluster.Spec.UsableRegions > 1 {
+			counts.RemoteLogs = counts.Logs
+		} else {
+			counts.RemoteLogs = -1
+		}
+	}
+	if counts.LogRouters == 0 {
+		if cluster.Spec.UsableRegions > 1 {
+			counts.LogRouters = 3 * counts.Logs
+		} else {
+			counts.LogRouters = -1
+		}
 	}
 	return *counts
 }
@@ -254,6 +269,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts
 	if processCounts.Transaction == 0 {
 		processCounts.Transaction = cluster.calculateProcessCount(true,
 			cluster.calculateProcessCountFromRole(roleCounts.Logs, processCounts.Log),
+			cluster.calculateProcessCountFromRole(roleCounts.RemoteLogs, processCounts.Log),
 		)
 	}
 	if processCounts.Stateless == 0 {
@@ -262,6 +278,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts
 				cluster.calculateProcessCountFromRole(1, processCounts.ClusterController)+
 				cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)+
 				cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution, processCounts.Resolver),
+			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
 		)
 	}
 	return *processCounts
@@ -270,7 +287,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts
 // DesiredFaultTolerance returns the number of replicas we should be able to
 // lose when the cluster is at full replication health.
 func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
-	switch cluster.Spec.ReplicationMode {
+	switch cluster.Spec.RedundancyMode {
 	case "single":
 		return 0
 	case "double":
@@ -285,7 +302,7 @@ func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
 // MinimumFaultDomains returns the number of fault domains the cluster needs
 // to function.
 func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
-	switch cluster.Spec.ReplicationMode {
+	switch cluster.Spec.RedundancyMode {
 	case "single":
 		return 1
 	case "double":
@@ -346,7 +363,7 @@ type FoundationDBStatusCoordinator struct {
 // FoundationDBStatusClusterInfo describes the "cluster" portion of the
 // cluster status
 type FoundationDBStatusClusterInfo struct {
-	DatabaseConfiguration `json:"configuration,omitempty"`
+	DatabaseConfiguration DatabaseConfiguration                    `json:"configuration,omitempty"`
 	Processes             map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
 }
 
@@ -452,37 +469,83 @@ type FoundationDBClusterFaultDomain struct {
 
 // DatabaseConfiguration represents the configuration of the database
 type DatabaseConfiguration struct {
-	ReplicationMode string `json:"redundancy_mode,omitempty"`
-	StorageEngine   string `json:"storage_engine,omitempty"`
+	RedundancyMode string   `json:"redundancy_mode,omitempty"`
+	StorageEngine  string   `json:"storage_engine,omitempty"`
+	UsableRegions  int      `json:"usable_regions,omitempty"`
+	Regions        []Region `json:"regions,omitempty"`
 	RoleCounts
 }
 
-// GetConfigurationString gets the CLI command for configuring a database.
-func (configuration DatabaseConfiguration) GetConfigurationString() string {
-	configurationString := fmt.Sprintf("%s %s", configuration.ReplicationMode, configuration.StorageEngine)
+// Region represents a region in the database configuration
+type Region struct {
+	DataCenters             []DataCenter `json:"datacenters,omitempty"`
+	SatelliteLogs           int          `json:"satellite_logs,omitempty"`
+	SatelliteRedundancyMode string       `json:"satellite_redundancy_mode,omitempty"`
+}
 
-	for role, count := range configuration.RoleCounts.Map() {
-		configurationString += fmt.Sprintf(" %s=%d", role, count)
+// DataCenter represents a data center in the region configuration
+type DataCenter struct {
+	ID        string `json:"id,omitempty"`
+	Priority  int    `json:"priority,omitempty"`
+	Satellite int    `json:"satellite,omitempty"`
+}
+
+// GetConfigurationString gets the CLI command for configuring a database.
+func (configuration DatabaseConfiguration) GetConfigurationString() (string, error) {
+	configurationString := fmt.Sprintf("%s %s", configuration.RedundancyMode, configuration.StorageEngine)
+
+	counts := configuration.RoleCounts.Map()
+	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
+	for _, role := range roleNames {
+		if role != "storage" {
+			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
+		}
 	}
 
-	return configurationString
+	var regionString string
+	if configuration.Regions == nil {
+		regionString = "[]"
+	} else {
+		regionBytes, err := json.Marshal(configuration.Regions)
+		if err != nil {
+			return "", err
+		}
+		regionString = template.JSEscapeString(string(regionBytes))
+	}
+
+	configurationString += " regions=" + regionString
+
+	return configurationString, nil
 }
 
 // DatabaseConfiguration builds the database configuration for the cluster based
 // on its spec.
-// This will turn it into a standardized form that will match the way it will
-// be represented in the cluster status.
-func (cluster *FoundationDBCluster) DatabaseConfiguration() DatabaseConfiguration {
-	configuration := DatabaseConfiguration{
-		ReplicationMode: cluster.Spec.ReplicationMode,
-		StorageEngine:   cluster.Spec.StorageEngine,
-		RoleCounts:      cluster.GetRoleCountsWithDefaults(),
-	}
+func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
+	configuration := cluster.Spec.DatabaseConfiguration.DeepCopy()
+	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 	if configuration.StorageEngine == "ssd" {
 		configuration.StorageEngine = "ssd-2"
 	}
-	return configuration
+	if configuration.StorageEngine == "memory" {
+		configuration.StorageEngine = "memory-2"
+	}
+	return *configuration
+}
+
+// FillInDefaultsFromStatus adds in missing fields from the database
+// configuration in the database status to make sure they match the fields that
+// will appear in the cluster spec.
+func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseConfiguration {
+	result := configuration.DeepCopy()
+
+	if result.RemoteLogs == 0 {
+		result.RemoteLogs = -1
+	}
+	if result.LogRouters == 0 {
+		result.LogRouters = -1
+	}
+	return *result
 }
 
 func init() {

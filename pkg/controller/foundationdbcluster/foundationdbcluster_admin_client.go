@@ -136,12 +136,16 @@ func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 
 // ConfigureDatabase sets the database configuration
 func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
-	configurationString := configuration.GetConfigurationString()
+	configurationString, err := configuration.GetConfigurationString()
+	if err != nil {
+		return err
+	}
+
 	if newDatabase {
 		configurationString = "new " + configurationString
 	}
 
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
+	_, err = client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
 	return err
 }
 
@@ -323,7 +327,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	if client.DatabaseConfiguration != nil {
 		status.Cluster.DatabaseConfiguration = *client.DatabaseConfiguration
 	} else {
-		status.Cluster.DatabaseConfiguration = client.Cluster.DatabaseConfiguration()
+		status.Cluster.DatabaseConfiguration = client.Cluster.DesiredDatabaseConfiguration()
 	}
 
 	return status, nil

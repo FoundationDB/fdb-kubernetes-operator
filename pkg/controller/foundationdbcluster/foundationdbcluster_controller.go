@@ -219,13 +219,16 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 
 func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
 	changed := false
-	if cluster.Spec.ReplicationMode == "" {
-		cluster.Spec.ReplicationMode = "double"
+	if cluster.Spec.RedundancyMode == "" {
+		cluster.Spec.RedundancyMode = "double"
 		changed = true
 	}
 	if cluster.Spec.StorageEngine == "" {
 		cluster.Spec.StorageEngine = "ssd"
 		changed = true
+	}
+	if cluster.Spec.UsableRegions == 0 {
+		cluster.Spec.UsableRegions = 1
 	}
 	if cluster.Spec.Resources == nil {
 		cluster.Spec.Resources = &corev1.ResourceRequirements{
@@ -261,6 +264,8 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
 
+	var currentDatabaseConfiguration fdbtypes.DatabaseConfiguration
+
 	if cluster.Spec.Configured {
 		adminClient, err := r.adminClientProvider(cluster, r)
 		if err != nil {
@@ -275,6 +280,9 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 			address := strings.Split(process.Address, ":")
 			processMap[address[0]] = append(processMap[address[0]], process)
 		}
+
+		currentDatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.FillInDefaultsFromStatus()
+
 	} else {
 		databaseStatus = nil
 	}
@@ -332,7 +340,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 		cluster.GetProcessCountsWithDefaults().CountsAreSatisfied(status.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0 &&
 		databaseStatus != nil &&
-		databaseStatus.Cluster.DatabaseConfiguration == cluster.DatabaseConfiguration()
+		reflect.DeepEqual(currentDatabaseConfiguration, cluster.DesiredDatabaseConfiguration())
 	cluster.Status = status
 
 	r.Status().Update(context, cluster)
@@ -604,7 +612,6 @@ func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(context ctx.Co
 }
 
 func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
-	log.Info("Configuring database", "cluster", cluster.Name)
 	adminClient, err := r.adminClientProvider(cluster, r)
 
 	if err != nil {
@@ -612,7 +619,7 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 	}
 	defer adminClient.Close()
 
-	desiredConfiguration := cluster.DatabaseConfiguration()
+	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	needsChange := false
 	if !cluster.Spec.Configured {
@@ -623,16 +630,16 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 			return err
 		}
 
-		needsChange = desiredConfiguration != status.Cluster.DatabaseConfiguration
+		needsChange = !reflect.DeepEqual(desiredConfiguration, status.Cluster.DatabaseConfiguration.FillInDefaultsFromStatus())
 	}
 
 	if needsChange {
+		configurationString, _ := desiredConfiguration.GetConfigurationString()
+		log.Info("Configuring database", "cluster", cluster.Name)
 		r.recorder.Event(cluster, "Normal", "ConfiguringDatabase",
-			fmt.Sprintf("Setting database configuration to `%s`",
-				desiredConfiguration.GetConfigurationString(),
-			),
+			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
-		err = adminClient.ConfigureDatabase(cluster.DatabaseConfiguration(), !cluster.Spec.Configured)
+		err = adminClient.ConfigureDatabase(cluster.DesiredDatabaseConfiguration(), !cluster.Spec.Configured)
 		if err != nil {
 			return err
 		}

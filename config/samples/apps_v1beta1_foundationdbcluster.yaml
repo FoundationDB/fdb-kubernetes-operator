@@ -6,7 +6,8 @@ metadata:
   name: foundationdbcluster-sample
 spec:
   version: 6.1.8
-  replicationMode: triple
+  databaseConfiguration:
+    redundancy_mode: double
   volumeSize: "16G"
   faultDomain:
     key: foundationdb.org/none
@@ -14,7 +15,6 @@ spec:
     stateless: -1
   customParameters:
     - "knob_disable_posix_kernel_aio=1"
-    - "knob_shard_max_bytes_per_ksec=1000000001"
   enableTls: true
   env:
     - name: FDB_TLS_CERTIFICATE_FILE

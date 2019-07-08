@@ -42,6 +42,27 @@ spec:
               items:
                 type: string
               type: array
+            databaseConfiguration:
+              properties:
+                regions:
+                  items:
+                    properties:
+                      datacenters:
+                        items:
+                          properties:
+                            id:
+                              type: string
+                            priority:
+                              format: int64
+                              type: integer
+                            satellite:
+                              format: int64
+                              type: integer
+                          type: object
+                        type: array
+                    type: object
+                  type: array
+              type: object
             enableTls:
               type: boolean
             env:
@@ -111,30 +132,11 @@ spec:
                   format: int64
                   type: integer
               type: object
-            replicationMode:
-              type: string
             resources:
-              type: object
-            roleCounts:
-              properties:
-                logs:
-                  format: int64
-                  type: integer
-                proxies:
-                  format: int64
-                  type: integer
-                resolvers:
-                  format: int64
-                  type: integer
-                storage:
-                  format: int64
-                  type: integer
               type: object
             runningVersion:
               type: string
             storageClass:
-              type: string
-            storageEngine:
               type: string
             trustedCAs:
               items:

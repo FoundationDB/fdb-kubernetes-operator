@@ -173,7 +173,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			return c.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "operator-test"}, cluster)
 		}, timeout).Should(gomega.Succeed())
 
-		g.Expect(cluster.Spec.ReplicationMode).To(gomega.Equal("double"))
+		g.Expect(cluster.Spec.RedundancyMode).To(gomega.Equal("double"))
 		g.Expect(cluster.Spec.StorageEngine).To(gomega.Equal("ssd"))
 		g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(16))
 		g.Expect(cluster.Spec.ConnectionString).NotTo(gomega.Equal(""))
@@ -187,12 +187,14 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		adminClient, err := newMockAdminClientUncast(cluster, client)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(adminClient).NotTo(gomega.BeNil())
-		g.Expect(adminClient.DatabaseConfiguration.ReplicationMode).To(gomega.Equal("double"))
+		g.Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(gomega.Equal("double"))
 		g.Expect(adminClient.DatabaseConfiguration.StorageEngine).To(gomega.Equal("ssd-2"))
 		g.Expect(adminClient.DatabaseConfiguration.RoleCounts).To(gomega.Equal(appsv1beta1.RoleCounts{
-			Logs:      3,
-			Proxies:   3,
-			Resolvers: 1,
+			Logs:       3,
+			Proxies:    3,
+			Resolvers:  1,
+			RemoteLogs: -1,
+			LogRouters: -1,
 		}))
 
 		g.Expect(cluster.Status.FullyReconciled).To(gomega.BeTrue())
