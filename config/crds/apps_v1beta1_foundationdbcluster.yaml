@@ -160,8 +160,12 @@ spec:
           type: object
         status:
           properties:
-            fullyReconciled:
-              type: boolean
+            generations:
+              properties:
+                reconciled:
+                  format: int64
+                  type: integer
+              type: object
             incorrectProcesses:
               type: object
             missingProcesses:
@@ -199,8 +203,6 @@ spec:
                   format: int64
                   type: integer
               type: object
-          required:
-          - fullyReconciled
           type: object
   version: v1beta1
 status:

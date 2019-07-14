@@ -128,6 +128,8 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	context := ctx.Background()
 	err := r.Get(context, request.NamespacedName, cluster)
 
+	originalGeneration := cluster.ObjectMeta.Generation
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -208,11 +210,9 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	if !cluster.Status.FullyReconciled {
+	if cluster.Status.Generations.Reconciled < originalGeneration {
 		return reconcile.Result{}, errors.New("Cluster was not fully reconciled by reconciliation process")
 	}
-
-	log.Info("Reconciliation complete", "namespace", cluster.Namespace, "name", cluster.Name)
 
 	return reconcile.Result{}, nil
 }
@@ -335,12 +335,17 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 		}
 	}
 
-	status.FullyReconciled = cluster.Spec.Configured &&
+	reconciled := cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
 		cluster.GetProcessCountsWithDefaults().CountsAreSatisfied(status.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0 &&
 		databaseStatus != nil &&
 		reflect.DeepEqual(currentDatabaseConfiguration, cluster.DesiredDatabaseConfiguration())
+	status.Generations = cluster.Status.Generations
+	if reconciled {
+		status.Generations.Reconciled = cluster.ObjectMeta.Generation
+	}
+
 	cluster.Status = status
 
 	r.Status().Update(context, cluster)

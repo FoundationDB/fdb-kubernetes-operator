@@ -60,10 +60,16 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	FullyReconciled    bool `json:"fullyReconciled"`
 	ProcessCounts      `json:"processCounts,omitempty"`
 	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
 	MissingProcesses   map[string]int64 `json:"missingProcesses,omitempty"`
+	Generations        GenerationStatus `json:"generations,omitempty"`
+}
+
+// GenerationStatus stores information on which generations have reached
+// different stages in reconciliation.
+type GenerationStatus struct {
+	Reconciled int64 `json:"reconciled,omitempty"`
 }
 
 // +genclient

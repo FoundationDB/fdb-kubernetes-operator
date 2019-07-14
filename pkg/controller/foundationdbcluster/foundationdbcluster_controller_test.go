@@ -19,7 +19,6 @@ package foundationdbcluster
 import (
 	"encoding/json"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -85,7 +84,7 @@ func reloadCluster(client client.Client, cluster *appsv1beta1.FoundationDBCluste
 	if err != nil {
 		return 0, err
 	}
-	version, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
+	version := cluster.Status.Generations.Reconciled
 	return version, err
 }
 
@@ -197,7 +196,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			LogRouters: -1,
 		}))
 
-		g.Expect(cluster.Status.FullyReconciled).To(gomega.BeTrue())
+		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(5)))
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(appsv1beta1.ProcessCounts{
 			Storage:     4,
 			Transaction: 4,
@@ -213,8 +212,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalPods := &corev1.PodList{}
 
-		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
 			err := c.List(context.TODO(), listOptions, originalPods)
@@ -224,11 +222,11 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		sortPodsByID(originalPods)
 
 		cluster.Spec.ProcessCounts.Storage = 3
-		err = client.Update(context.TODO(), cluster)
+		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 14))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 4))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -257,16 +255,15 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 
 func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
-		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		originalVersion := cluster.ObjectMeta.Generation
 
 		originalID := cluster.Spec.NextInstanceID
 		cluster.Spec.ProcessCounts.Storage = 5
-		err = client.Update(context.TODO(), cluster)
+		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 7))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -290,16 +287,15 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 
 func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
-		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		originalVersion := cluster.ObjectMeta.Generation
 
 		originalID := cluster.Spec.NextInstanceID
 		cluster.Spec.ProcessCounts.Stateless = 10
-		err = client.Update(context.TODO(), cluster)
+		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 8))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -325,8 +321,7 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalPods := &corev1.PodList{}
 
-		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
 			err := c.List(context.TODO(), listOptions, originalPods)
@@ -334,11 +329,11 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 		}, timeout).Should(gomega.Equal(15))
 
 		cluster.Spec.ProcessCounts.Stateless = -1
-		err = client.Update(context.TODO(), cluster)
+		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 25))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -347,7 +342,7 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 		}, timeout).Should(gomega.Equal(8))
 
 		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
-		g.Expect(cluster.Status.FullyReconciled).To(gomega.BeTrue())
+		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(8)))
 	})
 }
 
@@ -355,8 +350,7 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalPods := &corev1.PodList{}
 
-		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		originalVersion := cluster.ObjectMeta.Generation
 
 		originalConnectionString := cluster.Spec.ConnectionString
 
@@ -368,11 +362,11 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 		cluster.Spec.PendingRemovals = map[string]string{
 			originalPods.Items[0].Name: "",
 		}
-		err = client.Update(context.TODO(), cluster)
+		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 17))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 5))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -401,8 +395,7 @@ func TestReconcileWithKnobChange(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalPods := &corev1.PodList{}
 
-		originalVersion, err := strconv.ParseInt(cluster.ResourceVersion, 10, 16)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
 			err := c.List(context.TODO(), listOptions, originalPods)
@@ -417,7 +410,7 @@ func TestReconcileWithKnobChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 6))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
 		addresses := make([]string, 0, len(originalPods.Items))
 		for _, pod := range originalPods.Items {
