@@ -137,7 +137,7 @@ func runReconciliationOnCluster(t *testing.T, cluster *appsv1beta1.FoundationDBC
 	c = mgr.GetClient()
 
 	recFn, requests := SetupTestReconcile(t, newTestReconciler(mgr))
-	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+	g.Expect(AddReconciler(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
 	defer cleanupCluster(cluster, g)
 

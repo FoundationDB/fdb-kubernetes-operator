@@ -53,7 +53,7 @@ var log = logf.Log.WithName("controller")
 // Add creates a new FoundationDBCluster Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	return AddReconciler(mgr, newReconciler(mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -69,7 +69,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func AddReconciler(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	log.Info("Adding controller")
 
