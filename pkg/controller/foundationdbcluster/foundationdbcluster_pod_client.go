@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// FdbPodClient provides methods for working with the a FoundationDB pod
+// FdbPodClient provides methods for working with a FoundationDB pod
 type FdbPodClient interface {
 	// GetCluster returns the cluster associated with a client
 	GetCluster() *fdbtypes.FoundationDBCluster

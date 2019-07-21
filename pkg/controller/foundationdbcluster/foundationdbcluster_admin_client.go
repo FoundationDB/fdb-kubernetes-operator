@@ -305,7 +305,8 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		if isCoordinator && !excluded {
 			coordinators[fullAddress] = true
 		}
-		command, err := GetStartCommand(client.Cluster, &pod)
+		instance := newFdbInstance(pod)
+		command, err := GetStartCommand(client.Cluster, instance)
 		if err != nil {
 			return nil, err
 		}

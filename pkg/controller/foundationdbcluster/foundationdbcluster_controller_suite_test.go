@@ -78,12 +78,13 @@ func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newTestReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newTestReconciler(mgr manager.Manager) *ReconcileFoundationDBCluster {
 	return &ReconcileFoundationDBCluster{
 		Client:              mgr.GetClient(),
-		recorder:            mgr.GetRecorder("foundationdbcluster_controller"),
-		scheme:              mgr.GetScheme(),
-		podClientProvider:   NewMockFdbPodClient,
-		adminClientProvider: NewMockAdminClient,
+		Recorder:            mgr.GetRecorder("foundationdbcluster_controller"),
+		Scheme:              mgr.GetScheme(),
+		PodLifecycleManager: StandardPodLifecycleManager{},
+		PodClientProvider:   NewMockFdbPodClient,
+		AdminClientProvider: NewMockAdminClient,
 	}
 }

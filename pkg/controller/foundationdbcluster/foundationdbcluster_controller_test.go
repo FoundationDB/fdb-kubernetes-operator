@@ -420,6 +420,9 @@ func TestReconcileWithKnobChange(t *testing.T) {
 		sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
 			return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
 		})
+		sort.Slice(addresses, func(i, j int) bool {
+			return strings.Compare(addresses[i], addresses[j]) < 0
+		})
 		g.Expect(adminClient.KilledAddresses).To(gomega.Equal(addresses))
 	})
 }
@@ -572,7 +575,7 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 		err := c.List(context.TODO(), listOptions, pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		command, err := GetStartCommand(cluster, &pods.Items[0])
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		id := pods.Items[0].Labels["fdb-instance-id"]
@@ -603,7 +606,7 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 		pod.Status.PodIP = "127.0.0.1"
 		cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
 
-		command, err := GetStartCommand(cluster, &pod)
+		command, err := GetStartCommand(cluster, newFdbInstance(pod))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
@@ -636,7 +639,7 @@ func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T
 			Value: "kc2",
 		}
 
-		command, err := GetStartCommand(cluster, &pod)
+		command, err := GetStartCommand(cluster, newFdbInstance(pod))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
@@ -662,7 +665,7 @@ func TestGetStartCommandWithPeerVerificationRules(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.PeerVerificationRules = []string{"S.CN=foundationdb.org"}
-		command, err := GetStartCommand(cluster, &pods.Items[0])
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		id := pods.Items[0].Labels["fdb-instance-id"]
@@ -691,7 +694,7 @@ func TestGetStartCommandWithCustomLogGroup(t *testing.T) {
 		sortPodsByID(pods)
 
 		cluster.Spec.LogGroup = "test-fdb-cluster"
-		command, err := GetStartCommand(cluster, &pods.Items[0])
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		id := pods.Items[0].Labels["fdb-instance-id"]
