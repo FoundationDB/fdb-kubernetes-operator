@@ -1116,6 +1116,10 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 
 // GetMonitorConf builds the monitor conf template
 func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) (string, error) {
+	if cluster.Spec.ConnectionString == "" {
+		return "", nil
+	}
+
 	confLines := make([]string, 0, 20)
 	confLines = append(confLines,
 		"[general]",
