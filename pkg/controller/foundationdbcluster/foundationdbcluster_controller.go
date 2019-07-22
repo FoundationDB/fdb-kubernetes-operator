@@ -906,6 +906,21 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 			break
 		}
 
+		log.Info("Waiting for instance get torn down", "pod", instanceName)
+		time.Sleep(time.Second)
+	}
+
+	pods := &corev1.PodList{}
+	for {
+		err = r.List(context, instanceListOptions, pods)
+		if err != nil {
+			signal <- err
+			return
+		}
+		if len(pods.Items) == 0 {
+			break
+		}
+
 		log.Info("Waiting for pod get torn down", "pod", instanceName)
 		time.Sleep(time.Second)
 	}
