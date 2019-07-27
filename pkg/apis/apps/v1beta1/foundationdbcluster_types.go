@@ -39,23 +39,24 @@ type FoundationDBClusterSpec struct {
 	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 	Configured            bool `json:"configured,omitempty"`
 	ProcessCounts         `json:"processCounts,omitempty"`
-	ConnectionString      string                         `json:"connectionString,omitempty"`
-	NextInstanceID        int                            `json:"nextInstanceID,omitempty"`
-	FaultDomain           FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
-	StorageClass          *string                        `json:"storageClass,omitempty"`
-	VolumeSize            string                         `json:"volumeSize"`
-	CustomParameters      []string                       `json:"customParameters,omitempty"`
-	Resources             *corev1.ResourceRequirements   `json:"resources,omitempty"`
-	PendingRemovals       map[string]string              `json:"pendingRemovals,omitempty"`
-	InitContainers        []corev1.Container             `json:"initContainers,omitempty"`
-	Containers            []corev1.Container             `json:"containers,omitempty"`
-	Env                   []corev1.EnvVar                `json:"env,omitempty"`
-	Volumes               []corev1.Volume                `json:"volumes,omitempty"`
-	VolumeMounts          []corev1.VolumeMount           `json:"volumeMounts,omitempty"`
-	EnableTLS             bool                           `json:"enableTls,omitempty"`
-	TrustedCAs            []string                       `json:"trustedCAs,omitempty"`
-	PeerVerificationRules []string                       `json:"peerVerificationRules,omitempty"`
-	LogGroup              string                         `json:"logGroup,omitempty"`
+	ConnectionString      string                               `json:"connectionString,omitempty"`
+	NextInstanceID        int                                  `json:"nextInstanceID,omitempty"`
+	FaultDomain           FoundationDBClusterFaultDomain       `json:"faultDomain,omitempty"`
+	StorageClass          *string                              `json:"storageClass,omitempty"`
+	VolumeSize            string                               `json:"volumeSize"`
+	CustomParameters      []string                             `json:"customParameters,omitempty"`
+	Resources             *corev1.ResourceRequirements         `json:"resources,omitempty"`
+	PendingRemovals       map[string]string                    `json:"pendingRemovals,omitempty"`
+	InitContainers        []corev1.Container                   `json:"initContainers,omitempty"`
+	Containers            []corev1.Container                   `json:"containers,omitempty"`
+	Env                   []corev1.EnvVar                      `json:"env,omitempty"`
+	Volumes               []corev1.Volume                      `json:"volumes,omitempty"`
+	VolumeMounts          []corev1.VolumeMount                 `json:"volumeMounts,omitempty"`
+	EnableTLS             bool                                 `json:"enableTls,omitempty"`
+	TrustedCAs            []string                             `json:"trustedCAs,omitempty"`
+	PeerVerificationRules []string                             `json:"peerVerificationRules,omitempty"`
+	LogGroup              string                               `json:"logGroup,omitempty"`
+	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -69,7 +70,8 @@ type FoundationDBClusterStatus struct {
 // GenerationStatus stores information on which generations have reached
 // different stages in reconciliation.
 type GenerationStatus struct {
-	Reconciled int64 `json:"reconciled,omitempty"`
+	Reconciled               int64 `json:"reconciled,omitempty"`
+	NeedsConfigurationChange int64 `json:"needsConfigurationChange,omitempty"`
 }
 
 // +genclient
@@ -184,6 +186,12 @@ var ProcessClasses = fieldNames(ProcessCounts{})
 var processClassIndices = fieldIndices(ProcessCounts{})
 var roleNames = fieldNames(RoleCounts{})
 var roleIndices = fieldIndices(RoleCounts{})
+
+// FoundationDBClusterAutomationOptions provides flags for enabling or disabling
+// operations that can be performed on a cluster.
+type FoundationDBClusterAutomationOptions struct {
+	ConfigureDatabase *bool `json:"configureDatabase,omitempty"`
+}
 
 // GetRoleCountsWithDefaults gets the role counts from the cluster spec and
 // fills in default values for any role counts that are 0.

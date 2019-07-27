@@ -30,6 +30,11 @@ spec:
           type: object
         spec:
           properties:
+            automationOptions:
+              properties:
+                configureDatabase:
+                  type: boolean
+              type: object
             configured:
               type: boolean
             connectionString:
@@ -162,6 +167,9 @@ spec:
           properties:
             generations:
               properties:
+                needsConfigurationChange:
+                  format: int64
+                  type: integer
                 reconciled:
                   format: int64
                   type: integer

@@ -57,7 +57,13 @@ func SetupTestReconcile(t *testing.T, inner reconcile.Reconciler) (reconcile.Rec
 	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
 		result, err := inner.Reconcile(req)
 		if err != nil {
-			t.Errorf("Reconcile function returned error %s", err.Error())
+			switch err.(type) {
+			case ReconciliationNotReadyError:
+				requests <- req
+				return reconcile.Result{}, nil
+			default:
+				t.Errorf("Reconcile function returned error %s", err.Error())
+			}
 		}
 		requests <- req
 		return result, err

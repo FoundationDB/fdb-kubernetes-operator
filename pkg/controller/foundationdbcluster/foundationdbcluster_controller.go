@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -55,6 +56,8 @@ var log = logf.Log.WithName("controller")
 func Add(mgr manager.Manager) error {
 	return AddReconciler(mgr, newReconciler(mgr))
 }
+
+var hasStatusSubresource = os.Getenv("HAS_STATUS_SUBRESOURCE") != "0"
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
@@ -139,6 +142,10 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	if originalGeneration == cluster.Status.Generations.Reconciled && hasStatusSubresource {
 		return reconcile.Result{}, err
 	}
 
@@ -349,13 +356,24 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 
 	status.Generations = cluster.Status.Generations
 	if reconciled {
-		status.Generations.Reconciled = cluster.ObjectMeta.Generation
+		status.Generations = fdbtypes.GenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
 	}
 
 	cluster.Status = status
+	err = r.postStatusUpdate(context, cluster)
+	if err != nil {
+		log.Error(err, "Error updating cluster status")
+	}
 
-	r.Status().Update(context, cluster)
 	return nil
+}
+
+func (r *ReconcileFoundationDBCluster) postStatusUpdate(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+	if hasStatusSubresource {
+		return r.Status().Update(context, cluster)
+	} else {
+		return r.Update(context, cluster)
+	}
 }
 
 func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -481,6 +499,12 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 	hasNewPods := false
 	currentCounts := cluster.Status.ProcessCounts.Map()
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
+
+	err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+	if err != nil {
+		return err
+	}
+
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		if desiredCount < 0 {
@@ -656,6 +680,22 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 
 	if needsChange {
 		configurationString, _ := desiredConfiguration.GetConfigurationString()
+		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
+		if enabled != nil && !*enabled {
+			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			if err != nil {
+				return err
+			}
+
+			r.Recorder.Event(cluster, "Normal", "NeedsConfigurationChange",
+				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
+			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
+			err = r.postStatusUpdate(context, cluster)
+			if err != nil {
+				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "name", cluster.Name)
+			}
+			return ReconciliationNotReadyError{message: "Database configuration changes are disabled"}
+		}
 		log.Info("Configuring database", "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
@@ -1587,4 +1627,14 @@ func MissingPodError(instance FdbInstance, cluster *fdbtypes.FoundationDBCluster
 // does not have an associated pod.
 func MissingPodErrorByName(instanceName string, cluster *fdbtypes.FoundationDBCluster) error {
 	return fmt.Errorf("Instance %s in cluster %s/%s does not have pod defined", instanceName, cluster.Namespace, cluster.Name)
+}
+
+// ReconciliationNotReadyError is returned when reconciliation cannot proceed
+// because of a temporary condition or because automation is disabled
+type ReconciliationNotReadyError struct {
+	message string
+}
+
+func (err ReconciliationNotReadyError) Error() string {
+	return err.message
 }
