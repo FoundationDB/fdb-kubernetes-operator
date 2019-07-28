@@ -325,11 +325,16 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		})
 	}
 
+	status.Client.DatabaseStatus.Available = true
+	status.Client.DatabaseStatus.Healthy = true
+
 	if client.DatabaseConfiguration != nil {
 		status.Cluster.DatabaseConfiguration = *client.DatabaseConfiguration
 	} else {
 		status.Cluster.DatabaseConfiguration = client.Cluster.DesiredDatabaseConfiguration()
 	}
+
+	status.Cluster.FullReplication = true
 
 	return status, nil
 }

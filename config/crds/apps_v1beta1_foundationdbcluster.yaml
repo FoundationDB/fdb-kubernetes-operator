@@ -6,6 +6,19 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: foundationdbclusters.apps.foundationdb.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.generation
+    description: Latest generation of the spec
+    name: Generation
+    type: integer
+  - JSONPath: .status.generations.reconciled
+    description: Last reconciled generation of the spec
+    name: Reconciled
+    type: integer
+  - JSONPath: .status.health.healthy
+    description: Database health
+    name: Healthy
+    type: boolean
   group: apps.foundationdb.org
   names:
     kind: FoundationDBCluster
@@ -168,6 +181,27 @@ spec:
           type: object
         status:
           properties:
+            databaseConfiguration:
+              properties:
+                regions:
+                  items:
+                    properties:
+                      datacenters:
+                        items:
+                          properties:
+                            id:
+                              type: string
+                            priority:
+                              format: int64
+                              type: integer
+                            satellite:
+                              format: int64
+                              type: integer
+                          type: object
+                        type: array
+                    type: object
+                  type: array
+              type: object
             generations:
               properties:
                 needsConfigurationChange:
@@ -176,6 +210,18 @@ spec:
                 reconciled:
                   format: int64
                   type: integer
+              type: object
+            health:
+              properties:
+                available:
+                  type: boolean
+                dataMovementPriority:
+                  format: int64
+                  type: integer
+                fullReplication:
+                  type: boolean
+                healthy:
+                  type: boolean
               type: object
             incorrectProcesses:
               type: object

@@ -88,10 +88,10 @@
             "least_operating_space_bytes_log_server" : 973727511,
             "least_operating_space_bytes_storage_server" : 972697592,
             "moving_data" : {
-                "highest_priority" : 0,
-                "in_flight_bytes" : 0,
-                "in_queue_bytes" : 0,
-                "total_written_bytes" : 0
+                "highest_priority" : 1,
+                "in_flight_bytes" : 100,
+                "in_queue_bytes" : 500,
+                "total_written_bytes" : 2000
             },
             "partitions_count" : 1,
             "state" : {

@@ -215,6 +215,13 @@ func TestReconcileWithNewCluster(t *testing.T) {
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(cluster.GetProcessCountsWithDefaults()))
 		g.Expect(cluster.Status.IncorrectProcesses).To(gomega.BeNil())
 		g.Expect(cluster.Status.MissingProcesses).To(gomega.BeNil())
+		g.Expect(cluster.Status.DatabaseConfiguration).To(gomega.Equal(*adminClient.DatabaseConfiguration))
+		g.Expect(cluster.Status.Health).To(gomega.Equal(appsv1beta1.ClusterHealth{
+			Available:            true,
+			Healthy:              true,
+			FullReplication:      true,
+			DataMovementPriority: 0,
+		}))
 	})
 }
 

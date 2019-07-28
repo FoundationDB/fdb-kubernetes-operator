@@ -326,6 +326,10 @@ func TestParsingClusterStatus(t *testing.T) {
 					FoundationDBStatusCoordinator{Address: "172.17.0.9:4500", Reachable: true},
 				},
 			},
+			DatabaseStatus: FoundationDBStatusClientDBStatus{
+				Available: true,
+				Healthy:   true,
+			},
 		},
 		Cluster: FoundationDBStatusClusterInfo{
 			DatabaseConfiguration: DatabaseConfiguration{
@@ -360,6 +364,16 @@ func TestParsingClusterStatus(t *testing.T) {
 					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-1 --locality_zoneid=foundationdbcluster-sample-1 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.8:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				},
 			},
+			Data: FoundationDBStatusDataStatistics{
+				MovingData: FoundationDBStatusMovingData{
+					HighestPriority:   1,
+					InFlightBytes:     100,
+					InQueueBytes:      500,
+					TotalWrittenBytes: 2000,
+				},
+				KVBytes: 215250,
+			},
+			FullReplication: true,
 		},
 	}))
 }

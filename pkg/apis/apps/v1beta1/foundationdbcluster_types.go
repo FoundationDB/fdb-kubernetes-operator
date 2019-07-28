@@ -62,10 +62,12 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	ProcessCounts      `json:"processCounts,omitempty"`
-	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
-	MissingProcesses   map[string]int64 `json:"missingProcesses,omitempty"`
-	Generations        GenerationStatus `json:"generations,omitempty"`
+	ProcessCounts         `json:"processCounts,omitempty"`
+	IncorrectProcesses    map[string]int64      `json:"incorrectProcesses,omitempty"`
+	MissingProcesses      map[string]int64      `json:"missingProcesses,omitempty"`
+	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	Generations           GenerationStatus      `json:"generations,omitempty"`
+	Health                ClusterHealth         `json:"health,omitempty"`
 }
 
 // GenerationStatus stores information on which generations have reached
@@ -75,12 +77,23 @@ type GenerationStatus struct {
 	NeedsConfigurationChange int64 `json:"needsConfigurationChange,omitempty"`
 }
 
+// ClusterHealth represents different views into health in the cluster status.
+type ClusterHealth struct {
+	Available            bool `json:"available,omitempty"`
+	Healthy              bool `json:"healthy,omitempty"`
+	FullReplication      bool `json:"fullReplication,omitempty"`
+	DataMovementPriority int  `json:"dataMovementPriority,omitempty"`
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // FoundationDBCluster is the Schema for the foundationdbclusters API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Healthy",type="boolean",JSONPath=".status.health.healthy",description="Database health",priority=0
 type FoundationDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -359,7 +372,8 @@ type FoundationDBStatus struct {
 
 // FoundationDBStatusClientInfo contains information about the client connection
 type FoundationDBStatusClientInfo struct {
-	Coordinators FoundationDBStatusCoordinatorInfo `json:"coordinators,omitempty"`
+	Coordinators   FoundationDBStatusCoordinatorInfo `json:"coordinators,omitempty"`
+	DatabaseStatus FoundationDBStatusClientDBStatus  `json:"database_status,omitempty"`
 }
 
 // FoundationDBStatusCoordinatorInfo contains information about the clients
@@ -380,6 +394,8 @@ type FoundationDBStatusCoordinator struct {
 type FoundationDBStatusClusterInfo struct {
 	DatabaseConfiguration DatabaseConfiguration                    `json:"configuration,omitempty"`
 	Processes             map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
+	Data                  FoundationDBStatusDataStatistics         `json:"data,omitempty"`
+	FullReplication       bool                                     `json:"full_replication,omitempty"`
 }
 
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
@@ -389,6 +405,22 @@ type FoundationDBStatusProcessInfo struct {
 	ProcessClass string `json:"class_type,omitempty"`
 	CommandLine  string `json:"command_line,omitempty"`
 	Excluded     bool   `json:"excluded,omitempty"`
+}
+
+// FoundationDBStatusDataStatistics provides information about the database in
+// the database
+type FoundationDBStatusDataStatistics struct {
+	KVBytes    int                          `json:"total_kv_size_bytes,omitempty"`
+	MovingData FoundationDBStatusMovingData `json:"moving_data,omitempty"`
+}
+
+// FoundationDBStatusMovingData provides information about the current data
+// movement
+type FoundationDBStatusMovingData struct {
+	HighestPriority   int `json:"highest_priority,omitempty"`
+	InFlightBytes     int `json:"in_flight_bytes,omitempty"`
+	InQueueBytes      int `json:"in_queue_bytes,omitempty"`
+	TotalWrittenBytes int `json:"total_written_bytes,omitempty"`
 }
 
 var alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -513,6 +545,13 @@ type DataCenter struct {
 	ID        string `json:"id,omitempty"`
 	Priority  int    `json:"priority,omitempty"`
 	Satellite int    `json:"satellite,omitempty"`
+}
+
+// FoundationDBStatusClientDBStatus represents the databaseStatus field in the
+// JSON database status
+type FoundationDBStatusClientDBStatus struct {
+	Available bool `json:"available,omitempty"`
+	Healthy   bool `json:"healthy,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

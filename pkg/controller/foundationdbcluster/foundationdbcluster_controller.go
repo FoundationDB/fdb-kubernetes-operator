@@ -275,8 +275,6 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
 
-	var currentDatabaseConfiguration fdbtypes.DatabaseConfiguration
-
 	if cluster.Spec.Configured {
 		adminClient, err := r.AdminClientProvider(cluster, r)
 		if err != nil {
@@ -292,8 +290,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 			processMap[address[0]] = append(processMap[address[0]], process)
 		}
 
-		currentDatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.FillInDefaultsFromStatus()
-
+		status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.FillInDefaultsFromStatus()
 	} else {
 		databaseStatus = nil
 	}
@@ -352,11 +349,19 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 		cluster.GetProcessCountsWithDefaults().CountsAreSatisfied(status.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0 &&
 		databaseStatus != nil &&
-		reflect.DeepEqual(currentDatabaseConfiguration, cluster.DesiredDatabaseConfiguration())
+		reflect.DeepEqual(status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration())
 
-	status.Generations = cluster.Status.Generations
 	if reconciled {
 		status.Generations = fdbtypes.GenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
+	} else {
+		status.Generations = cluster.Status.Generations
+	}
+
+	if databaseStatus != nil {
+		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
+		status.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
+		status.Health.FullReplication = databaseStatus.Cluster.FullReplication
+		status.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
 	}
 
 	cluster.Status = status
