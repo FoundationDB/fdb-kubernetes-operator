@@ -77,16 +77,12 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 	}
 }
 
-func reloadClusterDeprecated(client client.Client, cluster *appsv1beta1.FoundationDBCluster) (int64, error) {
-	err := c.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-	if err != nil {
-		return 0, err
-	}
-	version := cluster.Status.Generations.Reconciled
-	return version, err
+func reloadCluster(client client.Client, cluster *appsv1beta1.FoundationDBCluster) (int64, error) {
+	generations, err := reloadClusterGenerations(client, cluster)
+	return generations.Reconciled, err
 }
 
-func reloadCluster(client client.Client, cluster *appsv1beta1.FoundationDBCluster) (appsv1beta1.GenerationStatus, error) {
+func reloadClusterGenerations(client client.Client, cluster *appsv1beta1.FoundationDBCluster) (appsv1beta1.GenerationStatus, error) {
 	err := c.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {
 		return appsv1beta1.GenerationStatus{}, err
@@ -166,7 +162,7 @@ func runReconciliationOnCluster(t *testing.T, cluster *appsv1beta1.FoundationDBC
 
 	expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-	g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{Reconciled: 5}))
+	g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{Reconciled: 5}))
 
 	err = c.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -241,7 +237,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -279,7 +275,7 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -312,7 +308,7 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -351,7 +347,7 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -385,7 +381,7 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 5))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 5))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -430,7 +426,7 @@ func TestReconcileWithKnobChange(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
 		addresses := make([]string, 0, len(originalPods.Items))
 		for _, pod := range originalPods.Items {
@@ -459,7 +455,7 @@ func TestReconcileWithConfigurationChange(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadClusterDeprecated(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
 
 		g.Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(gomega.Equal("triple"))
 	})
@@ -481,7 +477,7 @@ func TestReconcileWithConfigurationChangeWithChangesDisabled(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{
+		g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{
 			Reconciled:               originalVersion,
 			NeedsConfigurationChange: originalVersion + 2,
 		}))
