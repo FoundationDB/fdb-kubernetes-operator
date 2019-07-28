@@ -35,6 +35,7 @@ import (
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
 	Version               string `json:"version"`
+	SidecarVersion        int    `json:"sidecarVersion,omitempty"`
 	RunningVersion        string `json:"runningVersion,omitempty"`
 	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 	Configured            bool `json:"configured,omitempty"`
@@ -446,6 +447,16 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
 		suffix = ""
 	}
 	return fmt.Sprintf("%s:%d%s", address, port, suffix)
+}
+
+// GetFullSidecarVersion gets the version of the image for the sidecar,
+// including the main FoundationDB version and the sidecar version suffix
+func (cluster *FoundationDBCluster) GetFullSidecarVersion() string {
+	sidecarVersion := cluster.Spec.SidecarVersion
+	if sidecarVersion < 1 {
+		sidecarVersion = 1
+	}
+	return fmt.Sprintf("%s-%d", cluster.Spec.Version, sidecarVersion)
 }
 
 // HasCoordinators checks whether this connection string matches a set of

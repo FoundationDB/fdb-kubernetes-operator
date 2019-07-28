@@ -476,3 +476,24 @@ func TestGettingConfigurationString(t *testing.T) {
 	fmt.Println(configuration.GetConfigurationString())
 	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 }
+
+func TestGettingSidecarVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: FoundationDBClusterSpec{
+			Version: "6.1.8",
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+			},
+		},
+	}
+
+	g.Expect(cluster.GetFullSidecarVersion()).To(gomega.Equal("6.1.8-1"))
+
+	cluster.Spec.SidecarVersion = 2
+	g.Expect(cluster.GetFullSidecarVersion()).To(gomega.Equal("6.1.8-2"))
+}

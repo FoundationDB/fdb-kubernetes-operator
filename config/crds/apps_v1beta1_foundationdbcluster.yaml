@@ -141,6 +141,9 @@ spec:
               type: object
             runningVersion:
               type: string
+            sidecarVersion:
+              format: int64
+              type: integer
             storageClass:
               type: string
             trustedCAs:
