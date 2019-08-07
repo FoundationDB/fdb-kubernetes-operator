@@ -520,11 +520,12 @@ func TestGetConfigMap(t *testing.T) {
 	sidecarConf := make(map[string]interface{})
 	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(len(sidecarConf)).To(gomega.Equal(4))
+	g.Expect(len(sidecarConf)).To(gomega.Equal(5))
 	g.Expect(sidecarConf["COPY_FILES"]).To(gomega.Equal([]interface{}{"fdb.cluster", "ca.pem"}))
 	g.Expect(sidecarConf["COPY_BINARIES"]).To(gomega.Equal([]interface{}{"fdbserver", "fdbcli"}))
 	g.Expect(sidecarConf["COPY_LIBRARIES"]).To(gomega.Equal([]interface{}{}))
 	g.Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(gomega.Equal("fdbmonitor.conf"))
+	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.BeNil())
 }
 
 func TestGetConfigMapWithCustomCA(t *testing.T) {
@@ -557,6 +558,25 @@ func TestGetConfigMapWithEmptyConnectionString(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configMap.Data["cluster-file"]).To(gomega.Equal(""))
 	g.Expect(configMap.Data["fdbmonitor-conf-storage"]).To(gomega.Equal(""))
+}
+
+func TestGetConfigMapWithCustomSidecarSubstitutions(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.SidecarVariables = []string{"FAULT_DOMAIN", "ZONE"}
+
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	sidecarConf := make(map[string]interface{})
+	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FAULT_DOMAIN", "ZONE"}))
 }
 
 func TestGetMonitorConfForStorageInstance(t *testing.T) {
@@ -1032,11 +1052,15 @@ func TestGetPodSpecWithCustomContainers(t *testing.T) {
 func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
-	cluster.Spec.Env = []corev1.EnvVar{
+	cluster.Spec.MainContainer.Env = []corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
 	}
+	cluster.Spec.SidecarContainer.Env = []corev1.EnvVar{
+		corev1.EnvVar{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
+	}
+
 	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
@@ -1044,6 +1068,7 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
 	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.1.8-1"))
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
 		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
 		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1063,16 +1088,17 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 	g.Expect(mainContainer.Name).To(gomega.Equal("foundationdb"))
 	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.1.8"))
 	g.Expect(mainContainer.Env).To(gomega.Equal([]corev1.EnvVar{
-		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
+		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 	}))
 
 	sidecarContainer := spec.Containers[1]
 	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
 	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
 	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
 		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
@@ -1095,7 +1121,7 @@ func TestGetPodSpecWithCustomVolumes(t *testing.T) {
 			SecretName: "test-secrets",
 		}},
 	}}
-	cluster.Spec.VolumeMounts = []corev1.VolumeMount{corev1.VolumeMount{
+	cluster.Spec.MainContainer.VolumeMounts = []corev1.VolumeMount{corev1.VolumeMount{
 		Name:      "test-secrets",
 		MountPath: "/var/secrets",
 	}}

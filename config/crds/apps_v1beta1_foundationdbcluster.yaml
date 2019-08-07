@@ -83,10 +83,6 @@ spec:
               type: object
             enableTls:
               type: boolean
-            env:
-              items:
-                type: object
-              type: array
             faultDomain:
               properties:
                 key:
@@ -108,6 +104,17 @@ spec:
               type: array
             logGroup:
               type: string
+            mainContainer:
+              properties:
+                env:
+                  items:
+                    type: object
+                  type: array
+                volumeMounts:
+                  items:
+                    type: object
+                  type: array
+              type: object
             nextInstanceID:
               format: int64
               type: integer
@@ -154,6 +161,21 @@ spec:
               type: object
             runningVersion:
               type: string
+            sidecarContainer:
+              properties:
+                env:
+                  items:
+                    type: object
+                  type: array
+                volumeMounts:
+                  items:
+                    type: object
+                  type: array
+              type: object
+            sidecarVariables:
+              items:
+                type: string
+              type: array
             sidecarVersion:
               format: int64
               type: integer
@@ -165,10 +187,6 @@ spec:
               type: array
             version:
               type: string
-            volumeMounts:
-              items:
-                type: object
-              type: array
             volumeSize:
               type: string
             volumes:

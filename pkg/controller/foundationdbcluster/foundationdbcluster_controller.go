@@ -1146,10 +1146,11 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}
 
 	sidecarConf := map[string]interface{}{
-		"COPY_BINARIES":      []string{"fdbserver", "fdbcli"},
-		"COPY_FILES":         []string{"fdb.cluster", "ca.pem"},
-		"COPY_LIBRARIES":     []string{},
-		"INPUT_MONITOR_CONF": "fdbmonitor.conf",
+		"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},
+		"COPY_FILES":               []string{"fdb.cluster", "ca.pem"},
+		"COPY_LIBRARIES":           []string{},
+		"INPUT_MONITOR_CONF":       "fdbmonitor.conf",
+		"ADDITIONAL_SUBSTITUTIONS": cluster.Spec.SidecarVariables,
 	}
 	sidecarConfData, err := json.Marshal(sidecarConf)
 	if err != nil {
@@ -1300,41 +1301,48 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 	}, nil
 }
 
-// GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podID string) *corev1.PodSpec {
-	mainEnv := []corev1.EnvVar{
-		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-	}
-
+func customizeContainer(container *corev1.Container, overrides fdbtypes.ContainerOverrides) {
 	envOverrides := make(map[string]bool)
-	for _, envVar := range cluster.Spec.Env {
+	fullEnv := []corev1.EnvVar{}
+
+	for _, envVar := range overrides.Env {
+		fullEnv = append(fullEnv, envVar)
 		envOverrides[envVar.Name] = true
 	}
 
-	if !envOverrides["FDB_TLS_CA_FILE"] {
-		mainEnv = append(mainEnv, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
+	for _, envVar := range container.Env {
+		if !envOverrides[envVar.Name] {
+			fullEnv = append(fullEnv, envVar)
+		}
 	}
 
-	mainEnv = append(mainEnv, cluster.Spec.Env...)
-	mainVolumeMounts := []corev1.VolumeMount{
-		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
-		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
-		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-	}
-	mainVolumeMounts = append(mainVolumeMounts, cluster.Spec.VolumeMounts...)
+	container.Env = fullEnv
+	container.VolumeMounts = append(container.VolumeMounts, overrides.VolumeMounts...)
+}
 
+// GetPodSpec builds a pod spec for a FoundationDB pod
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podID string) *corev1.PodSpec {
 	mainContainer := corev1.Container{
-		Name:    "foundationdb",
-		Image:   fmt.Sprintf("%s/foundationdb:%s", DockerImageRoot, cluster.Spec.Version),
-		Env:     mainEnv,
+		Name:  "foundationdb",
+		Image: fmt.Sprintf("%s/foundationdb:%s", DockerImageRoot, cluster.Spec.Version),
+		Env: []corev1.EnvVar{
+			corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+			corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
+		},
 		Command: []string{"sh", "-c"},
 		Args: []string{
 			"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
 				" --lockfile /var/fdb/fdbmonitor.lockfile",
 		},
-		VolumeMounts: mainVolumeMounts,
-		Resources:    *cluster.Spec.Resources,
+		Resources: *cluster.Spec.Resources,
+		VolumeMounts: []corev1.VolumeMount{
+			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		},
 	}
+
+	customizeContainer(&mainContainer, cluster.Spec.MainContainer)
 
 	sidecarEnv := make([]corev1.EnvVar, 0, 5)
 	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
@@ -1385,12 +1393,19 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		},
 	}
 
+	customizeContainer(&initContainer, cluster.Spec.SidecarContainer)
+
 	sidecarContainer := corev1.Container{
-		Name:         "foundationdb-kubernetes-sidecar",
-		Image:        initContainer.Image,
-		Env:          sidecarEnv[1:],
-		VolumeMounts: initContainer.VolumeMounts,
+		Name:  "foundationdb-kubernetes-sidecar",
+		Image: initContainer.Image,
+		Env:   sidecarEnv[1:],
+		VolumeMounts: []corev1.VolumeMount{
+			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
+			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
+		},
 	}
+
+	customizeContainer(&sidecarContainer, cluster.Spec.SidecarContainer)
 
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {

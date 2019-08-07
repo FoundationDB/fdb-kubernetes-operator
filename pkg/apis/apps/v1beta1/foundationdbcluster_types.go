@@ -50,12 +50,13 @@ type FoundationDBClusterSpec struct {
 	PendingRemovals       map[string]string                    `json:"pendingRemovals,omitempty"`
 	InitContainers        []corev1.Container                   `json:"initContainers,omitempty"`
 	Containers            []corev1.Container                   `json:"containers,omitempty"`
-	Env                   []corev1.EnvVar                      `json:"env,omitempty"`
+	MainContainer         ContainerOverrides                   `json:"mainContainer,omitempty"`
+	SidecarContainer      ContainerOverrides                   `json:"sidecarContainer,omitempty"`
 	Volumes               []corev1.Volume                      `json:"volumes,omitempty"`
-	VolumeMounts          []corev1.VolumeMount                 `json:"volumeMounts,omitempty"`
 	EnableTLS             bool                                 `json:"enableTls,omitempty"`
 	TrustedCAs            []string                             `json:"trustedCAs,omitempty"`
 	PeerVerificationRules []string                             `json:"peerVerificationRules,omitempty"`
+	SidecarVariables      []string                             `json:"sidecarVariables,omitempty"`
 	LogGroup              string                               `json:"logGroup,omitempty"`
 	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
 }
@@ -552,6 +553,13 @@ type DataCenter struct {
 type FoundationDBStatusClientDBStatus struct {
 	Available bool `json:"available,omitempty"`
 	Healthy   bool `json:"healthy,omitempty"`
+}
+
+// ContainerOverrides provides options for customizing a container created by
+// the operator.
+type ContainerOverrides struct {
+	Env          []corev1.EnvVar      `json:"env,omitempty"`
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

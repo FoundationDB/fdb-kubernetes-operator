@@ -16,20 +16,21 @@ spec:
   customParameters:
     - "knob_disable_posix_kernel_aio=1"
   enableTls: true
-  env:
-    - name: FDB_TLS_CERTIFICATE_FILE
-      value: /tmp/fdb-certs/cert.pem
-    - name: FDB_TLS_CA_FILE
-      value: /tmp/fdb-certs/cert.pem
-    - name: FDB_TLS_KEY_FILE
-      value: /tmp/fdb-certs/key.pem
   volumes:
     - name: fdb-certs
       secret:
         secretName: fdb-kubernetes-operator-secrets
-  volumeMounts:
-    - name: fdb-certs
-      mountPath: /tmp/fdb-certs
+  mainContainer:
+    env:
+      - name: FDB_TLS_CERTIFICATE_FILE
+        value: /tmp/fdb-certs/cert.pem
+      - name: FDB_TLS_CA_FILE
+        value: /tmp/fdb-certs/cert.pem
+      - name: FDB_TLS_KEY_FILE
+        value: /tmp/fdb-certs/key.pem
+    volumeMounts:
+      - name: fdb-certs
+        mountPath: /tmp/fdb-certs
   resources:
     requests:
       cpu: 250m

@@ -48,48 +48,51 @@ if substitutions['FDB_PUBLIC_IP'] == '':
     if len(address_info) > 0:
         substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
 
+if 'ADDITIONAL_SUBSTITUTIONS' in app.config and app.config['ADDITIONAL_SUBSTITUTIONS']:
+    for key in app.config['ADDITIONAL_SUBSTITUTIONS']:
+        substitutions[key] = os.getenv(key, key)
 
 @app.route('/check_hash/<path:filename>')
 def check_hash(filename):
-	try:
-		with open('%s/%s' % (output_dir, filename), 'rb') as contents:
-			m = hashlib.sha256()
-			m.update(contents.read())
-			return m.hexdigest()
-	except FileNotFoundError:
-		flask.abort(404)
+    try:
+        with open('%s/%s' % (output_dir, filename), 'rb') as contents:
+            m = hashlib.sha256()
+            m.update(contents.read())
+            return m.hexdigest()
+    except FileNotFoundError:
+        flask.abort(404)
 
 @app.route('/copy_files', methods=['POST'])
 def copy_files():
-	for filename in app.config['COPY_FILES']:
-		shutil.copy('%s/%s' % (input_dir, filename), '%s/%s' % (output_dir, filename))
-	return "OK"
+    for filename in app.config['COPY_FILES']:
+        shutil.copy('%s/%s' % (input_dir, filename), '%s/%s' % (output_dir, filename))
+    return "OK"
 
 @app.route('/copy_binaries', methods=['POST'])
 def copy_binaries():
-	with open('/var/fdb/version') as version_file:
-		primary_version = version_file.read().strip()
-	for binary in app.config['COPY_BINARIES']:
-		path = Path('/usr/bin/%s' % binary)
-		target_path = Path('%s/bin/%s/%s' % (output_dir, primary_version, binary))
-		if not target_path.exists():
-			target_path.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy(path, target_path)
-			target_path.chmod(0o744)
-	return "OK"
+    with open('/var/fdb/version') as version_file:
+        primary_version = version_file.read().strip()
+    for binary in app.config['COPY_BINARIES']:
+        path = Path('/usr/bin/%s' % binary)
+        target_path = Path('%s/bin/%s/%s' % (output_dir, primary_version, binary))
+        if not target_path.exists():
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(path, target_path)
+            target_path.chmod(0o744)
+    return "OK"
 
 @app.route('/copy_libraries', methods=['POST'])
 def copy_libraries():
-	for version in app.config['COPY_LIBRARIES']:
-		path =  Path('/var/fdb/lib/libfdb_c_%s.so' % version)
-		if version == app.config['COPY_LIBRARIES'][0]:
-			target_path = Path('%s/lib/libfdb_c.so' % (output_dir))
-		else:
-			target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (output_dir, version))
-		if not target_path.exists():
-			target_path.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy(path, target_path)
-	return "OK"
+    for version in app.config['COPY_LIBRARIES']:
+        path =  Path('/var/fdb/lib/libfdb_c_%s.so' % version)
+        if version == app.config['COPY_LIBRARIES'][0]:
+            target_path = Path('%s/lib/libfdb_c.so' % (output_dir))
+        else:
+            target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (output_dir, version))
+        if not target_path.exists():
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(path, target_path)
+    return "OK"
 
 @app.route("/copy_monitor_conf", methods=['POST'])
 def copy_monitor_conf():
@@ -104,7 +107,7 @@ def copy_monitor_conf():
 
 @app.route('/ready')
 def ready():
-	return "OK"
+    return "OK"
 
 copy_files()
 copy_binaries()
