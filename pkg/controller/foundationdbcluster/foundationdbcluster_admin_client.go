@@ -297,6 +297,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 	for _, pod := range pods.Items {
 		ip := mockPodIP(&pod)
+		podClient := &mockFdbPodClient{Cluster: client.Cluster, Pod: &pod}
 		fullAddress := client.Cluster.GetFullAddress(ip)
 		_, ipExcluded := exclusionMap[ip]
 		_, addressExcluded := exclusionMap[fullAddress]
@@ -306,7 +307,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			coordinators[fullAddress] = true
 		}
 		instance := newFdbInstance(pod)
-		command, err := GetStartCommand(client.Cluster, instance)
+		command, err := GetStartCommand(client.Cluster, instance, podClient)
 		if err != nil {
 			return nil, err
 		}

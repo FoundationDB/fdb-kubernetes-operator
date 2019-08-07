@@ -20,6 +20,7 @@
 #
 
 import hashlib
+import json
 import os
 import shutil
 import socket
@@ -105,9 +106,14 @@ def copy_monitor_conf():
             output_conf_file.write(monitor_conf)
     return "OK"
 
+@app.route('/substitutions', methods=['GET'])
+def get_substitutions():
+    return json.dumps(substitutions)
+
 @app.route('/ready')
 def ready():
     return "OK"
+
 
 copy_files()
 copy_binaries()

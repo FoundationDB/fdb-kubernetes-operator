@@ -509,7 +509,7 @@ func TestGetConfigMap(t *testing.T) {
 		"fdb-cluster-name": cluster.Name,
 	}))
 
-	expectedConf, err := GetMonitorConf(cluster, "storage", nil)
+	expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(configMap.Data)).To(gomega.Equal(6))
@@ -582,7 +582,7 @@ func TestGetConfigMapWithCustomSidecarSubstitutions(t *testing.T) {
 func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
-	conf, err := GetMonitorConf(cluster, "storage", nil)
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
 		"[general]",
@@ -606,7 +606,7 @@ func TestGetMonitorConfWithTls(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.EnableTLS = true
-	conf, err := GetMonitorConf(cluster, "storage", nil)
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
 		"[general]",
@@ -632,7 +632,7 @@ func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 	cluster.Spec.CustomParameters = []string{
 		"knob_disable_posix_kernel_aio = 1",
 	}
-	conf, err := GetMonitorConf(cluster, "storage", nil)
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
@@ -661,7 +661,9 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 		err := c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]))
+		instance := newFdbInstance(pods.Items[0])
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		command, err := GetStartCommand(cluster, instance, podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		id := pods.Items[0].Labels["fdb-instance-id"]
@@ -692,7 +694,8 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 		pod.Status.PodIP = "127.0.0.1"
 		cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
 
-		command, err := GetStartCommand(cluster, newFdbInstance(pod))
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
+		command, err := GetStartCommand(cluster, newFdbInstance(pod), podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
@@ -725,7 +728,8 @@ func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T
 			Value: "kc2",
 		}
 
-		command, err := GetStartCommand(cluster, newFdbInstance(pod))
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
+		command, err := GetStartCommand(cluster, newFdbInstance(pod), podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
@@ -753,7 +757,8 @@ func TestGetStartCommandWithPeerVerificationRules(t *testing.T) {
 
 		cluster.Spec.PeerVerificationRules = []string{"S.CN=foundationdb.org"}
 
-		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]))
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]), podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		id := pods.Items[0].Labels["fdb-instance-id"]
@@ -782,7 +787,8 @@ func TestGetStartCommandWithCustomLogGroup(t *testing.T) {
 		sortPodsByID(pods)
 
 		cluster.Spec.LogGroup = "test-fdb-cluster"
-		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]))
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]), podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		id := pods.Items[0].Labels["fdb-instance-id"]

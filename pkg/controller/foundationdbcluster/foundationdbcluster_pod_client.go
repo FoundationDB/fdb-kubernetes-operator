@@ -3,6 +3,7 @@ package foundationdbcluster
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -36,6 +37,10 @@ type FdbPodClient interface {
 	// CopyFiles copies the files from the config map to the shared dynamic conf
 	// volume
 	CopyFiles(err chan error)
+
+	// GetVariableSubstitutions gets the current keys and values that this
+	// instance will substitute into its monitor conf.
+	GetVariableSubstitutions() (map[string]string, error)
 }
 
 type realFdbPodClient struct {
@@ -142,6 +147,18 @@ func (client *realFdbPodClient) GenerateMonitorConf(errorChan chan error) {
 func (client *realFdbPodClient) CopyFiles(errorChan chan error) {
 	_, err := client.makeRequest("POST", "/copy_files")
 	errorChan <- err
+}
+
+// GetVariableSubstitutions gets the current keys and values that this
+// instance will substitute into its monitor conf.
+func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
+	contents, err := client.makeRequest("GET", "/substitutions")
+	if err != nil {
+		return nil, err
+	}
+	substitutions := map[string]string{}
+	err = json.Unmarshal([]byte(contents), &substitutions)
+	return substitutions, err
 }
 
 // MockFdbPodClient provides a mock connection to a pod
@@ -257,6 +274,33 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string, signal chan e
 	}
 
 	signal <- nil
+}
+
+// GetVariableSubstitutions gets the current keys and values that this
+// instance will substitute into its monitor conf.
+func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
+	substitutions := map[string]string{}
+	substitutions["FDB_PUBLIC_IP"] = client.Pod.Status.PodIP
+	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
+		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
+		substitutions["FDB_ZONE_ID"] = client.Pod.Name
+	} else if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
+		substitutions["FDB_MACHINE_ID"] = client.Pod.Spec.NodeName
+		substitutions["FDB_ZONE_ID"] = client.Cluster.Spec.FaultDomain.Value
+	} else {
+		faultDomainSource := client.Cluster.Spec.FaultDomain.ValueFrom
+		if faultDomainSource == "" {
+			faultDomainSource = "spec.nodeName"
+		}
+		substitutions["FDB_MACHINE_ID"] = client.Pod.Spec.NodeName
+
+		if faultDomainSource == "spec.nodeName" {
+			substitutions["FDB_ZONE_ID"] = client.Pod.Spec.NodeName
+		} else {
+			return nil, fmt.Errorf("Unsupported fault domain source %s", faultDomainSource)
+		}
+	}
+	return substitutions, nil
 }
 
 type fdbPodClientError int

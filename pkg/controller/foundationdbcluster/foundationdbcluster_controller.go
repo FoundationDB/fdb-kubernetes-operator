@@ -327,8 +327,13 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 				status.MissingProcesses[instance.Metadata.Name] = time.Now().Unix()
 			}
 		} else {
+			podClient, err := r.getPodClient(context, cluster, instance)
+			if err != nil {
+				return err
+			}
+
 			for _, process := range processStatus {
-				commandLine, err := GetStartCommand(cluster, instance)
+				commandLine, err := GetStartCommand(cluster, instance, podClient)
 				if err != nil {
 					return err
 				}
@@ -440,7 +445,13 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 		return
 	}
 
-	conf, err := GetMonitorConf(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod)
+	podClient, err := r.getPodClient(context, cluster, instance)
+	if err != nil {
+		signal <- err
+		return
+	}
+
+	conf, err := GetMonitorConf(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, podClient)
 	if err != nil {
 		signal <- err
 		return
@@ -1136,7 +1147,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 			if connectionString == "" {
 				data[filename] = ""
 			} else {
-				conf, err := GetMonitorConf(cluster, processClass, nil)
+				conf, err := GetMonitorConf(cluster, processClass, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -1177,7 +1188,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod, podClient FdbPodClient) (string, error) {
 	if cluster.Spec.ConnectionString == "" {
 		return "", nil
 	}
@@ -1189,7 +1200,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		"restart_delay = 60",
 	)
 	confLines = append(confLines, "[fdbserver.1]")
-	commands, err := getStartCommandLines(cluster, processClass, pod)
+	commands, err := getStartCommandLines(cluster, processClass, pod, podClient)
 	if err != nil {
 		return "", err
 	}
@@ -1197,12 +1208,12 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	return strings.Join(confLines, "\n"), nil
 }
 
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (string, error) {
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, podClient FdbPodClient) (string, error) {
 	if instance.Pod == nil {
 		return "", MissingPodError(instance, cluster)
 	}
 
-	lines, err := getStartCommandLines(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod)
+	lines, err := getStartCommandLines(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, podClient)
 	if err != nil {
 		return "", err
 	}
@@ -1223,37 +1234,19 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 	return command, nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod) ([]string, error) {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod, podClient FdbPodClient) ([]string, error) {
 	confLines := make([]string, 0, 20)
-	var publicIP string
-	var machineID string
-	var zoneID string
 
-	if pod == nil {
-		publicIP = "$FDB_PUBLIC_IP"
-		machineID = "$FDB_MACHINE_ID"
-		zoneID = "$FDB_ZONE_ID"
+	var substitutions map[string]string
+
+	if podClient == nil {
+		substitutions = map[string]string{}
 	} else {
-		publicIP = pod.Status.PodIP
-		if cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
-			machineID = pod.Name
-			zoneID = pod.Name
-		} else if cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
-			machineID = pod.Spec.NodeName
-			zoneID = cluster.Spec.FaultDomain.Value
-		} else {
-			faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
-			if faultDomainSource == "" {
-				faultDomainSource = "spec.nodeName"
-			}
-			machineID = pod.Spec.NodeName
-
-			if faultDomainSource == "spec.nodeName" {
-				zoneID = pod.Spec.NodeName
-			} else {
-				return nil, fmt.Errorf("Unsupported fault domain source %s", faultDomainSource)
-			}
+		subs, err := podClient.GetVariableSubstitutions()
+		if err != nil {
+			return nil, err
 		}
+		substitutions = subs
 	}
 
 	logGroup := cluster.Spec.LogGroup
@@ -1265,13 +1258,13 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("command = /var/dynamic-conf/bin/%s/fdbserver", cluster.Spec.Version),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s", cluster.GetFullAddress(publicIP)),
+		fmt.Sprintf("public_address = %s", cluster.GetFullAddress("$FDB_PUBLIC_IP")),
 		fmt.Sprintf("class = %s", processClass),
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", logGroup),
-		fmt.Sprintf("locality_machineid = %s", machineID),
-		fmt.Sprintf("locality_zoneid = %s", zoneID),
+		fmt.Sprintf("locality_machineid = %s", "$FDB_MACHINE_ID"),
+		fmt.Sprintf("locality_zoneid = %s", "$FDB_ZONE_ID"),
 	)
 
 	for _, rule := range cluster.Spec.PeerVerificationRules {
@@ -1279,6 +1272,12 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	}
 
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
+
+	for index, _ := range confLines {
+		for key, value := range substitutions {
+			confLines[index] = strings.Replace(confLines[index], "$"+key, value, -1)
+		}
+	}
 	return confLines, nil
 }
 
