@@ -1254,6 +1254,13 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		logGroup = cluster.Name
 	}
 
+	var zoneVariable string
+	if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {
+		zoneVariable = cluster.Spec.FaultDomain.ValueFrom
+	} else {
+		zoneVariable = "$FDB_ZONE_ID"
+	}
+
 	confLines = append(confLines,
 		fmt.Sprintf("command = /var/dynamic-conf/bin/%s/fdbserver", cluster.Spec.Version),
 		"cluster_file = /var/fdb/data/fdb.cluster",
@@ -1264,7 +1271,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", logGroup),
 		fmt.Sprintf("locality_machineid = %s", "$FDB_MACHINE_ID"),
-		fmt.Sprintf("locality_zoneid = %s", "$FDB_ZONE_ID"),
+		fmt.Sprintf("locality_zoneid = %s", zoneVariable),
 	)
 
 	for _, rule := range cluster.Spec.PeerVerificationRules {
@@ -1376,9 +1383,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
-		}})
+		if !strings.HasPrefix(faultDomainSource, "$") {
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
+			}})
+		}
 	}
 
 	initContainer := corev1.Container{

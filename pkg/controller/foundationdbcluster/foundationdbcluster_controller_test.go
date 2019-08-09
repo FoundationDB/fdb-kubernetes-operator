@@ -654,6 +654,33 @@ func TestGetMonitorConfWithCustomParameters(t *testing.T) {
 	}, "\n")))
 }
 
+func TestGetMonitorConfWithAlternativeFaultDomainVariable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+		Key:       "rack",
+		ValueFrom: "$RACK",
+	}
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
+		"[general]",
+		"kill_on_configuration_change = false",
+		"restart_delay = 60",
+		"[fdbserver.1]",
+		"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+		"cluster_file = /var/fdb/data/fdb.cluster",
+		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+		"public_address = $FDB_PUBLIC_IP:4501",
+		"class = storage",
+		"datadir = /var/fdb/data",
+		"logdir = /var/log/fdb-trace-logs",
+		"loggroup = " + cluster.Name,
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $RACK",
+	}, "\n")))
+}
+
 func TestGetStartCommandForStoragePod(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
@@ -987,6 +1014,47 @@ func TestGetPodSpecWithFaultDomainDisabled(t *testing.T) {
 	}))
 
 	g.Expect(spec.Affinity).To(gomega.BeNil())
+}
+
+func TestGetPodSpecWithAlternativeFaultDomainVariable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+		Key:       "rack",
+		ValueFrom: "$RACK",
+	}
+	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
+		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
+		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
+		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}},
+		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}},
+	}))
+
+	g.Expect(spec.Affinity).To(gomega.Equal(&corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				corev1.WeightedPodAffinityTerm{
+					Weight: 1,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						TopologyKey: "rack",
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"fdb-cluster-name":  cluster.Name,
+								"fdb-process-class": "storage",
+							},
+						},
+					},
+				},
+			},
+		},
+	}))
 }
 
 func TestGetPodSpecWithCrossKubernetesReplication(t *testing.T) {

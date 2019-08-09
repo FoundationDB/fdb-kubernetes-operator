@@ -5,7 +5,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: foundationdbcluster-sample
 spec:
-  version: 6.1.8
+  version: 6.1.12
   sidecarVersion: 2
   databaseConfiguration:
     redundancy_mode: double
