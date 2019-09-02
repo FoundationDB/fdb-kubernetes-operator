@@ -209,9 +209,9 @@ func TestReconcileWithNewCluster(t *testing.T) {
 
 		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(5)))
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(appsv1beta1.ProcessCounts{
-			Storage:     4,
-			Transaction: 4,
-			Stateless:   7,
+			Storage:   4,
+			Log:       4,
+			Stateless: 7,
 		}))
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(cluster.GetProcessCountsWithDefaults()))
 		g.Expect(cluster.Status.IncorrectProcesses).To(gomega.BeNil())

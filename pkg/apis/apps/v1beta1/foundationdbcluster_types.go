@@ -295,8 +295,8 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts
 		processCounts.Storage = cluster.calculateProcessCount(false,
 			roleCounts.Storage)
 	}
-	if processCounts.Transaction == 0 {
-		processCounts.Transaction = cluster.calculateProcessCount(true,
+	if processCounts.Log == 0 {
+		processCounts.Log = cluster.calculateProcessCount(true,
 			cluster.calculateProcessCountFromRole(roleCounts.Logs, processCounts.Log),
 			cluster.calculateProcessCountFromRole(roleCounts.RemoteLogs, processCounts.Log),
 		)

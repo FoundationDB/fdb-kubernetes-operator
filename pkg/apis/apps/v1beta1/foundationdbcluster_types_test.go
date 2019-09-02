@@ -143,14 +143,14 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 
 	counts := cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
-		Storage:     5,
-		Transaction: 4,
-		Stateless:   7,
+		Storage:   5,
+		Log:       4,
+		Stateless: 7,
 	}))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
-		"storage":     5,
-		"transaction": 4,
-		"stateless":   7,
+		"storage":   5,
+		"log":       4,
+		"stateless": 7,
 	}))
 	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{}))
 
@@ -168,7 +168,7 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 	g.Expect(counts.ClusterController).To(gomega.Equal(3))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"storage":            5,
-		"transaction":        4,
+		"log":                4,
 		"stateless":          6,
 		"cluster_controller": 3,
 	}))
@@ -193,7 +193,6 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 		Log: 2,
 	}
 	counts = cluster.GetProcessCountsWithDefaults()
-	g.Expect(counts.Transaction).To(gomega.Equal(-1))
 	g.Expect(counts.Log).To(gomega.Equal(2))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{}
@@ -202,9 +201,9 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 
 	counts = cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
-		Storage:     5,
-		Transaction: 5,
-		Stateless:   9,
+		Storage:   5,
+		Log:       5,
+		Stateless: 9,
 	}))
 }
 
@@ -233,18 +232,18 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 
 	counts := cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
-		Storage:     2,
-		Transaction: 2,
-		Stateless:   3,
+		Storage:   2,
+		Log:       2,
+		Stateless: 3,
 	}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{}
 	cluster.Spec.FaultDomain.ZoneIndex = 2
 	counts = cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
-		Storage:     1,
-		Transaction: 1,
-		Stateless:   3,
+		Storage:   1,
+		Log:       1,
+		Stateless: 3,
 	}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{}
@@ -252,9 +251,9 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 	cluster.Spec.FaultDomain.ZoneCount = 5
 	counts = cluster.GetProcessCountsWithDefaults()
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
-		Storage:     1,
-		Transaction: 1,
-		Stateless:   2,
+		Storage:   1,
+		Log:       1,
+		Stateless: 2,
 	}))
 }
 
