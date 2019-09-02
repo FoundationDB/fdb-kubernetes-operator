@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/onsi/gomega"
 	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -883,6 +884,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	}))
+	g.Expect(initContainer.ReadinessProbe).To(gomega.BeNil())
 
 	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
 
@@ -929,6 +931,14 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		}},
 	}))
 	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
+	g.Expect(sidecarContainer.ReadinessProbe).To(gomega.Equal(&corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/ready",
+				Port: intstr.IntOrString{IntVal: 8080},
+			},
+		},
+	}))
 
 	g.Expect(len(spec.Volumes)).To(gomega.Equal(4))
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
