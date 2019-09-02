@@ -593,7 +593,14 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 				if err != nil {
 					return err
 				}
+
 				if pvc != nil {
+					owner, err := buildOwnerReference(context, cluster, r)
+					if err != nil {
+						return err
+					}
+					pvc.ObjectMeta.OwnerReferences = owner
+
 					err = r.Create(context, pvc)
 					if err != nil {
 						return err
