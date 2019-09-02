@@ -31,7 +31,6 @@ resources:
 patches:
 - manager_image_patch.yaml
 - test_certs.yaml
-- local_overrides.yaml
 
   # Protect the /metrics endpoint by putting it behind auth.
   # Only one of manager_auth_proxy_patch.yaml and

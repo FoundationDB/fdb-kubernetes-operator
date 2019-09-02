@@ -835,6 +835,37 @@ func TestGetStartCommandWithCustomLogGroup(t *testing.T) {
 	})
 }
 
+func TestGetStartCommandWithDataCenter(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		cluster.Spec.DataCenter = "dc01"
+
+		instance := newFdbInstance(pods.Items[0])
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		command, err := GetStartCommand(cluster, instance, podClient)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		id := pods.Items[0].Labels["fdb-instance-id"]
+		g.Expect(command).To(gomega.Equal(strings.Join([]string{
+			"/var/dynamic-conf/bin/6.1.8/fdbserver",
+			"--class=storage",
+			"--cluster_file=/var/fdb/data/fdb.cluster",
+			"--datadir=/var/fdb/data",
+			"--locality_dcid=dc01",
+			fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+			fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
+			"--logdir=/var/log/fdb-trace-logs",
+			"--loggroup=" + cluster.Name,
+			"--public_address=:4501",
+			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+		}, " ")))
+	})
+}
+
 func TestGetPodForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

@@ -58,6 +58,7 @@ type FoundationDBClusterSpec struct {
 	PeerVerificationRules []string                             `json:"peerVerificationRules,omitempty"`
 	SidecarVariables      []string                             `json:"sidecarVariables,omitempty"`
 	LogGroup              string                               `json:"logGroup,omitempty"`
+	DataCenter            string                               `json:"dataCenter,omitempty"`
 	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
 }
 

@@ -1282,6 +1282,10 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("locality_zoneid = %s", zoneVariable),
 	)
 
+	if cluster.Spec.DataCenter != "" {
+		confLines = append(confLines, fmt.Sprintf("locality_dcid = %s", cluster.Spec.DataCenter))
+	}
+
 	for _, rule := range cluster.Spec.PeerVerificationRules {
 		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", rule))
 	}
