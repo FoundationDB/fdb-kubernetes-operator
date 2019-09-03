@@ -126,6 +126,8 @@ spec:
               type: array
             pendingRemovals:
               type: object
+            podLabels:
+              type: object
             processCounts:
               properties:
                 log:

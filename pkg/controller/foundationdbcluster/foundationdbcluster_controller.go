@@ -155,7 +155,7 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateStatus(context, cluster)
+	err = r.updateStatus(context, cluster, false)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -166,6 +166,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	}
 
 	err = r.updateConfigMap(context, cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.updateLabels(context, cluster)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -215,7 +220,7 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateStatus(context, cluster)
+	err = r.updateStatus(context, cluster, true)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -268,7 +273,7 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, clu
 	return nil
 }
 
-func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, updateGenerations bool) error {
 	status := fdbtypes.FoundationDBClusterStatus{}
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
@@ -357,7 +362,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 		databaseStatus != nil &&
 		reflect.DeepEqual(status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration())
 
-	if reconciled {
+	if reconciled && updateGenerations {
 		status.Generations = fdbtypes.GenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
 	} else {
 		status.Generations = cluster.Status.Generations
@@ -434,6 +439,49 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, clus
 	return nil
 }
 
+func (r *ReconcileFoundationDBCluster) updateLabels(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+	instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "", ""))
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		if instance.Pod != nil {
+			processClass := instance.Metadata.Labels["fdb-process-class"]
+			instanceId := instance.Metadata.Labels["fdb-instance-id"]
+
+			labels := getPodLabels(cluster, processClass, instanceId)
+			if !reflect.DeepEqual(instance.Pod.ObjectMeta.Labels, labels) {
+				instance.Pod.ObjectMeta.Labels = labels
+				err = r.Update(context, instance.Pod)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = r.List(context, getPodListOptions(cluster, "", ""), pvcs)
+	if err != nil {
+		return err
+	}
+	for _, pvc := range pvcs.Items {
+		processClass := pvc.ObjectMeta.Labels["fdb-process-class"]
+		instanceId := pvc.ObjectMeta.Labels["fdb-instance-id"]
+
+		labels := getPodLabels(cluster, processClass, instanceId)
+		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, labels) {
+			pvc.ObjectMeta.Labels = labels
+			err = r.Update(context, &pvc)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, signal chan error) {
 	client, err := r.getPodClient(context, cluster, instance)
 	if err != nil {
@@ -485,11 +533,17 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 }
 
 func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
-	labels := map[string]string{}
+	labels := getMinimalPodLabels(cluster, processClass, id)
 
-	for label, value := range cluster.ObjectMeta.Labels {
+	for label, value := range cluster.Spec.PodLabels {
 		labels[label] = value
 	}
+
+	return labels
+}
+
+func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
+	labels := map[string]string{}
 
 	labels["fdb-cluster-name"] = cluster.ObjectMeta.Name
 
@@ -505,7 +559,7 @@ func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id
 }
 
 func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) *client.ListOptions {
-	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingLabels(getPodLabels(cluster, processClass, id))
+	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingLabels(getMinimalPodLabels(cluster, processClass, id))
 }
 
 func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, name string) *client.ListOptions {
@@ -1184,11 +1238,9 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cluster.Namespace,
-			Name:      fmt.Sprintf("%s-config", cluster.Name),
-			Labels: map[string]string{
-				"fdb-cluster-name": cluster.Name,
-			},
+			Namespace:       cluster.Namespace,
+			Name:            fmt.Sprintf("%s-config", cluster.Name),
+			Labels:          getPodLabels(cluster, "", ""),
 			OwnerReferences: owner,
 		},
 		Data: data,

@@ -59,6 +59,7 @@ type FoundationDBClusterSpec struct {
 	SidecarVariables      []string                             `json:"sidecarVariables,omitempty"`
 	LogGroup              string                               `json:"logGroup,omitempty"`
 	DataCenter            string                               `json:"dataCenter,omitempty"`
+	PodLabels             map[string]string                    `json:"podLabels,omitempty"`
 	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
 }
 

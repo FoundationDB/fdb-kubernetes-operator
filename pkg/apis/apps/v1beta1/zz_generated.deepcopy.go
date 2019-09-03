@@ -295,6 +295,13 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.PodLabels != nil {
+		in, out := &in.PodLabels, &out.PodLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.AutomationOptions.DeepCopyInto(&out.AutomationOptions)
 	return
 }
