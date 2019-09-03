@@ -100,13 +100,13 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 		"--log", "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"),
 	)
 
-	log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
+	log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
 
 	output, err := execCommand.Output()
 	if err != nil {
 		exitError := err.(*exec.ExitError)
 		if exitError != nil {
-			log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stderr", string(exitError.Stderr))
+			log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stderr", string(exitError.Stderr))
 		}
 		return "", err
 	}
@@ -116,7 +116,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	if len(debugOutput) > maxCommandOutput {
 		debugOutput = debugOutput[0:maxCommandOutput] + "..."
 	}
-	log.Info("Command completed", "output", debugOutput)
+	log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
 	return outputString, nil
 }
 

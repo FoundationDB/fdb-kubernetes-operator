@@ -229,7 +229,7 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, errors.New("Cluster was not fully reconciled by reconciliation process")
 	}
 
-	log.Info("Reconcilation complete", "namespace", cluster.Namespace, "name", cluster.Name)
+	log.Info("Reconcilation complete", "namespace", cluster.Namespace, "cluster", cluster.Name)
 
 	return reconcile.Result{}, nil
 }
@@ -378,7 +378,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 	cluster.Status = status
 	err = r.postStatusUpdate(context, cluster)
 	if err != nil {
-		log.Error(err, "Error updating cluster status")
+		log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	}
 
 	return nil
@@ -400,7 +400,7 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, clus
 	existing := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
 	if err != nil && k8serrors.IsNotFound(err) {
-		log.Info("Creating config map", "namespace", configMap.Namespace, "name", configMap.Name)
+		log.Info("Creating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
 		err = r.Create(context, configMap)
 		return err
 	} else if err != nil {
@@ -408,7 +408,7 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, clus
 	}
 
 	if !reflect.DeepEqual(existing.Data, configMap.Data) || !reflect.DeepEqual(existing.Labels, configMap.Labels) {
-		log.Info("Updating config map", "namespace", configMap.Namespace, "name", configMap.Name)
+		log.Info("Updating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
 		r.Recorder.Event(cluster, "Normal", "UpdatingConfigMap", "")
 		existing.ObjectMeta.Labels = configMap.ObjectMeta.Labels
 		existing.Data = configMap.Data
@@ -689,7 +689,7 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 
 func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
 	if cluster.Spec.ConnectionString == "" {
-		log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "name", cluster.Name)
+		log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
 		instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "storage", ""))
 		if err != nil {
@@ -770,11 +770,11 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 			err = r.postStatusUpdate(context, cluster)
 			if err != nil {
-				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "name", cluster.Name)
+				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
 			return ReconciliationNotReadyError{message: "Database configuration changes are disabled"}
 		}
-		log.Info("Configuring database", "cluster", cluster.Name)
+		log.Info("Configuring database", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
@@ -789,7 +789,7 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 				return err
 			}
 		}
-		log.Info("Configured database", "cluster", cluster.Name)
+		log.Info("Configured database", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	}
 
 	return nil
@@ -895,7 +895,7 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 			return err
 		}
 		if len(remaining) > 0 {
-			log.Info("Waiting for exclusions to complete", "remainingServers", remaining)
+			log.Info("Waiting for exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
 			time.Sleep(time.Second)
 		}
 	}
@@ -940,7 +940,7 @@ func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, c
 	}
 
 	if needsChange {
-		log.Info("Changing coordinators", "namespace", cluster.Namespace, "name", cluster.Name)
+		log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing new coordinators")
 		coordinatorCount := cluster.DesiredCoordinatorCount()
 		coordinators := make([]string, 0, coordinatorCount)
@@ -1024,7 +1024,7 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 			break
 		}
 
-		log.Info("Waiting for instance get torn down", "pod", instanceName)
+		log.Info("Waiting for instance get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instanceName)
 		time.Sleep(time.Second)
 	}
 
@@ -1039,7 +1039,7 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 			break
 		}
 
-		log.Info("Waiting for pod get torn down", "pod", instanceName)
+		log.Info("Waiting for pod get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instanceName)
 		time.Sleep(time.Second)
 	}
 
@@ -1053,7 +1053,7 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 			break
 		}
 
-		log.Info("Waiting for volume claim get torn down", "name", pvcs.Items[0].Name)
+		log.Info("Waiting for volume claim get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "name", pvcs.Items[0].Name)
 		time.Sleep(time.Second)
 	}
 
@@ -1102,7 +1102,7 @@ func (r *ReconcileFoundationDBCluster) updateSidecarVersions(context ctx.Context
 		}
 		for containerIndex, container := range instance.Pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
-				log.Info("Upgrading sidecar", "namespace", cluster.Namespace, "pod", instance.Pod.Name, "oldImage", container.Image, "newImage", image)
+				log.Info("Upgrading sidecar", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instance.Pod.Name, "oldImage", container.Image, "newImage", image)
 				instance.Pod.Spec.Containers[containerIndex].Image = image
 				err := r.Update(context, instance.Pod)
 				if err != nil {
@@ -1599,9 +1599,9 @@ func (r *ReconcileFoundationDBCluster) getPodClient(context ctx.Context, cluster
 	client, err := r.PodClientProvider(cluster, pod)
 	for err != nil {
 		if err == fdbPodClientErrorNoIP {
-			log.Info("Waiting for pod to be assigned an IP", "pod", pod.Name)
+			log.Info("Waiting for pod to be assigned an IP", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
 		} else if err == fdbPodClientErrorNotReady {
-			log.Info("Waiting for pod to be ready", "pod", pod.Name)
+			log.Info("Waiting for pod to be ready", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
 		} else {
 			return nil, err
 		}
