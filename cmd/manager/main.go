@@ -47,7 +47,14 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	log.Info("setting up manager")
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: metricsAddr})
+
+	options := manager.Options{MetricsBindAddress: metricsAddr}
+	namespace := os.Getenv("WATCH_NAMESPACE")
+	if namespace != "" {
+		options.Namespace = namespace
+	}
+
+	mgr, err := manager.New(cfg, options)
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
 		os.Exit(1)
