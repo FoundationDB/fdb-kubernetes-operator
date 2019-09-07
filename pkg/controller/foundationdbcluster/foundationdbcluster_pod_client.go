@@ -65,9 +65,8 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 	}
 	useTls := cluster.Spec.SidecarContainer.EnableTLS
 
-	var tlsConfig *tls.Config
+	var tlsConfig = &tls.Config{}
 	if useTls {
-		tlsConfig = &tls.Config{}
 		cert, err := tls.LoadX509KeyPair(
 			os.Getenv("FDB_TLS_CERTIFICATE_FILE"),
 			os.Getenv("FDB_TLS_KEY_FILE"),
