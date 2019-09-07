@@ -109,7 +109,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 
 // IsPresent checks whether a file in the sidecar is present.
 func (client *realFdbPodClient) IsPresent(filename string, resultChan chan bool, errorChan chan error) {
-	_, err := client.makeRequest("GET", fmt.Sprintf("/check_hash/%s", filename))
+	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err == nil {
 		resultChan <- true
 		return
@@ -125,7 +125,7 @@ func (client *realFdbPodClient) IsPresent(filename string, resultChan chan bool,
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
 func (client *realFdbPodClient) CheckHash(filename string, contents string, resultChan chan bool, errorChan chan error) {
-	response, err := client.makeRequest("GET", fmt.Sprintf("/check_hash/%s", filename))
+	response, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
 		errorChan <- err
 		return
@@ -138,21 +138,21 @@ func (client *realFdbPodClient) CheckHash(filename string, contents string, resu
 
 // GenerateMonitorConf updates the monitor conf file for a pod
 func (client *realFdbPodClient) GenerateMonitorConf(errorChan chan error) {
-	_, err := client.makeRequest("POST", "/copy_monitor_conf")
+	_, err := client.makeRequest("POST", "copy_monitor_conf")
 	errorChan <- err
 }
 
 // CopyFiles copies the files from the config map to the shared dynamic conf
 // volume
 func (client *realFdbPodClient) CopyFiles(errorChan chan error) {
-	_, err := client.makeRequest("POST", "/copy_files")
+	_, err := client.makeRequest("POST", "copy_files")
 	errorChan <- err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
 // instance will substitute into its monitor conf.
 func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
-	contents, err := client.makeRequest("GET", "/substitutions")
+	contents, err := client.makeRequest("GET", "substitutions")
 	if err != nil {
 		return nil, err
 	}

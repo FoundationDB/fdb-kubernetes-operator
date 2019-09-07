@@ -652,7 +652,7 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 func TestGetMonitorConfWithTls(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
-	cluster.Spec.EnableTLS = true
+	cluster.Spec.MainContainer.EnableTLS = true
 	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
@@ -829,7 +829,7 @@ func TestGetStartCommandWithPeerVerificationRules(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		sortPodsByID(pods)
 
-		cluster.Spec.PeerVerificationRules = []string{"S.CN=foundationdb.org"}
+		cluster.Spec.MainContainer.PeerVerificationRules = []string{"S.CN=foundationdb.org"}
 
 		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
 		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]), podClient)
@@ -1010,8 +1010,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
 	g.Expect(sidecarContainer.ReadinessProbe).To(gomega.Equal(&corev1.Probe{
 		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/ready",
+			TCPSocket: &corev1.TCPSocketAction{
 				Port: intstr.IntOrString{IntVal: 8080},
 			},
 		},

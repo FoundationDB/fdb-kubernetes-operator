@@ -1338,7 +1338,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		confLines = append(confLines, fmt.Sprintf("locality_dcid = %s", cluster.Spec.DataCenter))
 	}
 
-	for _, rule := range cluster.Spec.PeerVerificationRules {
+	for _, rule := range cluster.Spec.MainContainer.PeerVerificationRules {
 		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", rule))
 	}
 
@@ -1477,8 +1477,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		},
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/ready",
+				TCPSocket: &corev1.TCPSocketAction{
 					Port: intstr.IntOrString{IntVal: 8080},
 				},
 			},

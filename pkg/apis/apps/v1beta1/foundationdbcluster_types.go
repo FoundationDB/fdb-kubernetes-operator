@@ -53,9 +53,7 @@ type FoundationDBClusterSpec struct {
 	MainContainer         ContainerOverrides                   `json:"mainContainer,omitempty"`
 	SidecarContainer      ContainerOverrides                   `json:"sidecarContainer,omitempty"`
 	Volumes               []corev1.Volume                      `json:"volumes,omitempty"`
-	EnableTLS             bool                                 `json:"enableTls,omitempty"`
 	TrustedCAs            []string                             `json:"trustedCAs,omitempty"`
-	PeerVerificationRules []string                             `json:"peerVerificationRules,omitempty"`
 	SidecarVariables      []string                             `json:"sidecarVariables,omitempty"`
 	LogGroup              string                               `json:"logGroup,omitempty"`
 	DataCenter            string                               `json:"dataCenter,omitempty"`
@@ -474,7 +472,7 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
 	var port int
 	var suffix string
 
-	if cluster.Spec.EnableTLS {
+	if cluster.Spec.MainContainer.EnableTLS {
 		port = 4500
 		suffix = ":tls"
 	} else {
@@ -560,8 +558,10 @@ type FoundationDBStatusClientDBStatus struct {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	Env          []corev1.EnvVar      `json:"env,omitempty"`
-	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+	Env                   []corev1.EnvVar      `json:"env,omitempty"`
+	VolumeMounts          []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+	EnableTLS             bool                 `json:"enableTls,omitempty"`
+	PeerVerificationRules []string             `json:"peerVerificationRules,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

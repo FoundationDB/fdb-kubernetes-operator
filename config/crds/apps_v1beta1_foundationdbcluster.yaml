@@ -83,8 +83,6 @@ spec:
                     type: object
                   type: array
               type: object
-            enableTls:
-              type: boolean
             faultDomain:
               properties:
                 key:
@@ -108,9 +106,15 @@ spec:
               type: string
             mainContainer:
               properties:
+                enableTls:
+                  type: boolean
                 env:
                   items:
                     type: object
+                  type: array
+                peerVerificationRules:
+                  items:
+                    type: string
                   type: array
                 volumeMounts:
                   items:
@@ -120,10 +124,6 @@ spec:
             nextInstanceID:
               format: int64
               type: integer
-            peerVerificationRules:
-              items:
-                type: string
-              type: array
             pendingRemovals:
               type: object
             podLabels:
@@ -167,9 +167,15 @@ spec:
               type: string
             sidecarContainer:
               properties:
+                enableTls:
+                  type: boolean
                 env:
                   items:
                     type: object
+                  type: array
+                peerVerificationRules:
+                  items:
+                    type: string
                   type: array
                 volumeMounts:
                   items:

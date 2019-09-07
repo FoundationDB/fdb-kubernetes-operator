@@ -16,8 +16,6 @@ RUN curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fd
 	rm -r /var/fdb/tmp
 
 WORKDIR /
-COPY requirements.txt /
-RUN pip install -r requirements.txt && rm requirements.txt
 
 COPY sidecar.py /
 COPY entrypoint.bash /

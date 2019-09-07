@@ -5,8 +5,8 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: foundationdbcluster-sample
 spec:
-  version: 6.1.12
-  sidecarVersion: 2
+  version: 6.1.8
+  sidecarVersion: 3
   databaseConfiguration:
     redundancy_mode: double
   volumeSize: "16G"
@@ -16,12 +16,12 @@ spec:
     stateless: -1
   customParameters:
     - "knob_disable_posix_kernel_aio=1"
-  enableTls: true
   volumes:
     - name: fdb-certs
       secret:
         secretName: fdb-kubernetes-operator-secrets
   mainContainer:
+    enableTls: true
     env:
       - name: FDB_TLS_CERTIFICATE_FILE
         value: /tmp/fdb-certs/cert.pem
