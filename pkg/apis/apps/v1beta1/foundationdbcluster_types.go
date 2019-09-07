@@ -561,7 +561,7 @@ type ContainerOverrides struct {
 	Env                   []corev1.EnvVar      `json:"env,omitempty"`
 	VolumeMounts          []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 	EnableTLS             bool                 `json:"enableTls,omitempty"`
-	PeerVerificationRules []string             `json:"peerVerificationRules,omitempty"`
+	PeerVerificationRules string               `json:"peerVerificationRules,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

@@ -1338,8 +1338,8 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		confLines = append(confLines, fmt.Sprintf("locality_dcid = %s", cluster.Spec.DataCenter))
 	}
 
-	for _, rule := range cluster.Spec.MainContainer.PeerVerificationRules {
-		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", rule))
+	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
+		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", cluster.Spec.MainContainer.PeerVerificationRules))
 	}
 
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
@@ -1482,6 +1482,14 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 				},
 			},
 		},
+	}
+
+	if cluster.Spec.SidecarContainer.EnableTLS {
+		args := []string{"--tls"}
+		if cluster.Spec.SidecarContainer.PeerVerificationRules != "" {
+			args = append(args, "--tls-verify-peers", cluster.Spec.SidecarContainer.PeerVerificationRules)
+		}
+		sidecarContainer.Args = args
 	}
 
 	customizeContainer(&sidecarContainer, cluster.Spec.SidecarContainer)

@@ -113,9 +113,7 @@ spec:
                     type: object
                   type: array
                 peerVerificationRules:
-                  items:
-                    type: string
-                  type: array
+                  type: string
                 volumeMounts:
                   items:
                     type: object
@@ -174,9 +172,7 @@ spec:
                     type: object
                   type: array
                 peerVerificationRules:
-                  items:
-                    type: string
-                  type: array
+                  type: string
                 volumeMounts:
                   items:
                     type: object

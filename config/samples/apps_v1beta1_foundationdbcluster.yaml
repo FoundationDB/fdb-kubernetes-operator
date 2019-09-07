@@ -32,6 +32,18 @@ spec:
     volumeMounts:
       - name: fdb-certs
         mountPath: /tmp/fdb-certs
+  sidecarContainer:
+    enableTls: true
+    env:
+      - name: FDB_TLS_CERTIFICATE_FILE
+        value: /tmp/fdb-certs/cert.pem
+      - name: FDB_TLS_CA_FILE
+        value: /tmp/fdb-certs/cert.pem
+      - name: FDB_TLS_KEY_FILE
+        value: /tmp/fdb-certs/key.pem
+    volumeMounts:
+      - name: fdb-certs
+        mountPath: /tmp/fdb-certs
   resources:
     requests:
       cpu: 250m

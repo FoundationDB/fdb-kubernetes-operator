@@ -2,11 +2,14 @@ package foundationdbcluster
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -44,8 +47,10 @@ type FdbPodClient interface {
 }
 
 type realFdbPodClient struct {
-	Cluster *fdbtypes.FoundationDBCluster
-	Pod     *corev1.Pod
+	Cluster   *fdbtypes.FoundationDBCluster
+	Pod       *corev1.Pod
+	useTls    bool
+	tlsConfig *tls.Config
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
@@ -58,7 +63,31 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 			return nil, fdbPodClientErrorNotReady
 		}
 	}
-	return &realFdbPodClient{Cluster: cluster, Pod: pod}, nil
+	useTls := cluster.Spec.SidecarContainer.EnableTLS
+
+	var tlsConfig *tls.Config
+	if useTls {
+		tlsConfig = &tls.Config{}
+		cert, err := tls.LoadX509KeyPair(
+			os.Getenv("FDB_TLS_CERTIFICATE_FILE"),
+			os.Getenv("FDB_TLS_KEY_FILE"),
+		)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+		if os.Getenv("DISABLE_SIDECAR_TLS_CHECK") == "1" {
+			tlsConfig.InsecureSkipVerify = true
+		}
+		certPool := x509.NewCertPool()
+		caList, err := ioutil.ReadFile(os.Getenv("FDB_TLS_CA_FILE"))
+		if err != nil {
+			return nil, err
+		}
+		certPool.AppendCertsFromPEM(caList)
+	}
+
+	return &realFdbPodClient{Cluster: cluster, Pod: pod, useTls: useTls, tlsConfig: tlsConfig}, nil
 }
 
 // GetCluster returns the cluster associated with a client
@@ -77,14 +106,28 @@ func (client *realFdbPodClient) GetPodIP() string {
 }
 
 func (client *realFdbPodClient) makeRequest(method string, path string) (string, error) {
-	url := fmt.Sprintf("http://%s:8080/%s", client.GetPodIP(), path)
+
+	var protocol string
+	if client.useTls {
+		protocol = "https"
+	} else {
+		protocol = "http"
+	}
+
+	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.GetPodIP(), path)
 	var resp *http.Response
 	var err error
+
+	httpClient := &http.Client{}
+	if client.useTls {
+		httpClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
+	}
+
 	switch method {
 	case "GET":
-		resp, err = http.Get(url)
+		resp, err = httpClient.Get(url)
 	case "POST":
-		resp, err = http.Post(url, "application/json", strings.NewReader(""))
+		resp, err = httpClient.Post(url, "application/json", strings.NewReader(""))
 	default:
 		return "", fmt.Errorf("Unknown HTTP method %s", method)
 	}

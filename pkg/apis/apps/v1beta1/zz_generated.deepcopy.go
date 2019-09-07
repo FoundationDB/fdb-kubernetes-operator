@@ -78,11 +78,6 @@ func (in *ContainerOverrides) DeepCopyInto(out *ContainerOverrides) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.PeerVerificationRules != nil {
-		in, out := &in.PeerVerificationRules, &out.PeerVerificationRules
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	return
 }
 

@@ -26,6 +26,7 @@ import json
 import os
 import shutil
 import socket
+import ssl
 import stat
 import traceback
 from pathlib import Path
@@ -55,6 +56,7 @@ if 'ADDITIONAL_SUBSTITUTIONS' in config and config['ADDITIONAL_SUBSTITUTIONS']:
 
 class Server(http.server.BaseHTTPRequestHandler):
     options_cache = None
+    peer_verification_rules = None
 
     @classmethod
     def options(cls):
@@ -68,8 +70,57 @@ class Server(http.server.BaseHTTPRequestHandler):
         parser = argparse.ArgumentParser(description='FoundationDB Kubernetes Sidecar')
         parser.add_argument('--bind-address', help='IP and port to bind on',
                             default='0.0.0.0:8080')
+        parser.add_argument('--tls',
+                            help=('This flag enables TLS for incoming '
+                                  'connections'),
+                            action='store_true')
+        parser.add_argument('--tls-certificate-file',
+                            help=('The path to the certificate file for TLS '
+                                  'connections. If this is not provided we '
+                                  'will take the path from the '
+                                  'FDB_TLS_CERTIFICATE_FILE environment '
+                                  'variable.'))
+        parser.add_argument('--tls-ca-file',
+                            help=('The path to the certificate authority file '
+                                  'for TLS connections  If this is not '
+                                  'provided we will take the path from the '
+                                  'FDB_TLS_CA_FILE environment variable.'))
+        parser.add_argument('--tls-key-file',
+                            help=('The path to the key file for TLS '
+                                  'connections. If this is not provided we '
+                                  'will take the path from the '
+                                  'FDB_TLS_CERTIFICATE_FILE environment '
+                                  'variable.'))
+        parser.add_argument('--tls-verify-peers',
+                            help=('The peer verification rules for incoming '
+                                  'TLS  connections. If this is not provided we '
+                                  'will take the rules from the '
+                                  'FDB_TLS_VERIFY_PEERS environment variable. '
+                                  'The format of this is the same as the TLS '
+                                  'peer verification rules in FoundationDB.'))
         cls.options_cache = parser.parse_args()
         return cls.options_cache
+
+    @classmethod
+    def tls_args(cls):
+        '''
+        This method constructs the TLS file paths for a TLS session.
+        '''
+        options = cls.options()
+        certificate_file = options.tls_certificate_file or os.getenv('FDB_TLS_CERTIFICATE_FILE')
+        assert certificate_file, (
+            "You must provide a certificate file, either through the "
+            "tls_certificate_file argument or the FDB_TLS_CERTIFICATE_FILE "
+            "environment variable")
+        ca_file = options.tls_ca_file or os.getenv('FDB_TLS_CA_FILE')
+        assert ca_file, (
+            "You must provide a CA file, either through the tls_ca_file "
+            "argument or the FDB_TLS_CA_FILE environment variable")
+        key_file = options.tls_key_file or os.getenv('FDB_TLS_KEY_FILE')
+        assert key_file, (
+            "You must provide a key file, either through the tls_key_file "
+            "argument or the FDB_TLS_KEY_FILE environment variable")
+        return (certificate_file, ca_file, key_file)
 
     @classmethod
     def start(cls):
@@ -80,6 +131,16 @@ class Server(http.server.BaseHTTPRequestHandler):
         (address, port) = options.bind_address.split(':')
         print('Listening on %s:%s' % (address, port))
         httpd = http.server.HTTPServer((address, int(port)), cls)
+
+        if options.tls:
+            (certificate_file, ca_file, key_file) = cls.tls_args()
+            context = ssl.create_default_context(cafile=ca_file)
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_REQUIRED
+            context.load_cert_chain(certificate_file, key_file)
+            cls.peer_verification_rules = options.tls_verify_peers \
+                or os.getenv('FDB_TLS_VERIFY_PEERS')
+            httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
         httpd.serve_forever()
 
     def send_text(self, text, code=200, content_type='text/plain',
@@ -97,11 +158,103 @@ class Server(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response)
 
+    def check_request_cert(self):
+        approved = not Server.options().tls or self.check_cert(self.connection.getpeercert(), Server.peer_verification_rules)
+        if not approved:
+            self.send_error(401, 'Client certificate was not approved')
+        return approved
+
+    def check_cert(self, cert, rules):
+        '''
+        This method checks that the client's certificate is valid.
+
+        If there is any problem with the certificate, this will return a string
+        describing the error.
+        '''
+        if not rules:
+            return True
+
+        for option in rules.split(';'):
+            option_valid = True
+            for rule in option.split(','):
+                if not self.check_cert_rule(cert, rule):
+                    option_valid = False
+                    break
+
+            if option_valid:
+                return True
+
+        return False
+
+    def check_cert_rule(self, cert, rule):
+        (key, expected_value) = rule.split('=', 1)
+        if '.' in key:
+            (scope_key, field_key) = key.split('.', 1)
+        else:
+            scope_key = 'S'
+            field_key = key
+
+        if scope_key == 'S' or scope_key == 'Subject':
+            scope_name = 'subject'
+        elif scope_key == 'I' or scope_key == 'Issuer':
+            scope_name = 'issuer'
+        elif scope_key == 'R' or scope_key == 'Root':
+            scope_name = 'root'
+        else:
+            assert False, 'Unknown certificate scope %s' % scope_key
+
+        if not scope_name in cert:
+            return False
+
+        rdns = None
+        operator = ''
+        if field_key == 'CN':
+            field_name = 'commonName'
+        elif field_key == 'C':
+            field_name = 'country'
+        elif field_key == 'L':
+            field_name = 'localityName'
+        elif field_key == 'ST':
+            field_name = 'stateOrProvinceName'
+        elif field_key == 'O':
+            field_name = 'organizationName'
+        elif field_key == 'OU':
+            field_name = 'organizationalUnitName'
+        elif field_key == 'UID':
+            field_name = 'userId'
+        elif field_key == 'DC':
+            field_name = 'domainComponent'
+        elif field_key.startswith('subjectAltName') and scope_name == 'subject':
+            operator = field_key[14:]
+            field_key = field_key[0:14]
+            (field_name, expected_value) = expected_value.split(':', 1)
+            if not field_key in cert:
+                return False
+            rdns = [cert['subjectAltName']]
+        else:
+            assert False, 'Unknown certificate field %s' % field_key
+
+        if not rdns:
+            rdns = list(cert[scope_name])
+
+        for rdn in rdns:
+            for entry in list(rdn):
+                if entry[0] == field_name:
+                    if operator == '' and entry[1] == expected_value:
+                        return True
+                    elif operator == '<' and entry[1].endswith(expected_value):
+                        return True
+                    elif operator == '>' and entry[1].startswith(expected_value):
+                        return True
+
+
     def do_GET(self):
         '''
         This method executes a GET request.
         '''
         try:
+            if not self.check_request_cert():
+                return
             if self.path.startswith('/check_hash/'):
                 self.send_text(check_hash(self.path[12:]), add_newline=False)
             elif self.path == "/ready":
@@ -122,6 +275,8 @@ class Server(http.server.BaseHTTPRequestHandler):
         This method executes a POST request.
         '''
         try:
+            if not self.check_request_cert():
+                return
             if self.path == '/copy_files':
                 self.send_text(copy_files())
             elif self.path == '/copy_binaries':

@@ -29,5 +29,5 @@ VOLUME /var/input-files
 VOLUME /var/output-files
 
 ENV LISTEN_PORT 8080
-ENTRYPOINT /entrypoint.bash
+ENTRYPOINT ["/entrypoint.bash"]
 
