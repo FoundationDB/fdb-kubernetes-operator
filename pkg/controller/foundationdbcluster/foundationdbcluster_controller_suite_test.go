@@ -89,6 +89,7 @@ func newTestReconciler(mgr manager.Manager) *ReconcileFoundationDBCluster {
 		Client:              mgr.GetClient(),
 		Recorder:            mgr.GetRecorder("foundationdbcluster_controller"),
 		Scheme:              mgr.GetScheme(),
+		InSimulation:        true,
 		PodLifecycleManager: StandardPodLifecycleManager{},
 		PodClientProvider:   NewMockFdbPodClient,
 		AdminClientProvider: NewMockAdminClient,

@@ -60,6 +60,8 @@ func Add(mgr manager.Manager) error {
 
 var hasStatusSubresource = os.Getenv("HAS_STATUS_SUBRESOURCE") != "0"
 
+const lastPodSpecKey = "org.foundationdb/last-applied-pod-spec"
+
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileFoundationDBCluster{
@@ -115,6 +117,7 @@ type ReconcileFoundationDBCluster struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Scheme              *runtime.Scheme
+	InSimulation        bool
 	PodLifecycleManager PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
@@ -177,6 +180,9 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 
 	err = r.addPods(context, cluster)
 	if err != nil {
+		if r.checkRetryableError(err) {
+			return r.Reconcile(request)
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -220,6 +226,14 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.updatePods(context, cluster)
+	if err != nil {
+		if r.checkRetryableError(err) {
+			return r.Reconcile(request)
+		}
+		return reconcile.Result{}, err
+	}
+
 	err = r.updateStatus(context, cluster, true)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -232,6 +246,11 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	log.Info("Reconcilation complete", "namespace", cluster.Namespace, "cluster", cluster.Name)
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileFoundationDBCluster) checkRetryableError(err error) bool {
+	castError, canCast := err.(ReconciliationNotReadyError)
+	return canCast && castError.retryable && r.InSimulation
 }
 
 func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -574,6 +593,17 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 	err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {
 		return err
+	}
+
+	currentPods := &corev1.PodList{}
+	err = r.List(context, getPodListOptions(cluster, "", ""), currentPods)
+	if err != nil {
+		return err
+	}
+	for _, pod := range currentPods.Items {
+		if pod.DeletionTimestamp != nil {
+			return ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
+		}
 	}
 
 	for _, processClass := range fdbtypes.ProcessClasses {
@@ -1187,6 +1217,58 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 	return nil
 }
 
+func (r *ReconcileFoundationDBCluster) updatePods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+	instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "", ""))
+	if err != nil {
+		return err
+	}
+
+	updates := make(map[string][]FdbInstance)
+
+	for _, instance := range instances {
+		if instance.Pod == nil {
+			continue
+		}
+		spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], fmt.Sprintf("%s-%s", cluster.ObjectMeta.Name, instance.Metadata.Labels["fdb-instance-id"]))
+		specBytes, err := json.Marshal(spec)
+		if err != nil {
+			return err
+		}
+		if instance.Metadata.Annotations[lastPodSpecKey] != string(specBytes) {
+			podClient, err := r.getPodClient(context, cluster, instance)
+			if err != nil {
+				return err
+			}
+			substitutions, err := podClient.GetVariableSubstitutions()
+			if err != nil {
+				return err
+			}
+			zone := substitutions["FDB_ZONE_ID"]
+			if updates[zone] == nil {
+				updates[zone] = make([]FdbInstance, 0)
+			}
+			updates[zone] = append(updates[zone], instance)
+		}
+	}
+
+	for zone, zoneInstances := range updates {
+		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
+		r.Recorder.Event(cluster, "Normal", "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
+		ready, err := r.PodLifecycleManager.CanDeletePods(r, context, cluster)
+		if err != nil {
+			return err
+		}
+		if !ready {
+			return ReconciliationNotReadyError{message: "Reconciliation requires deleting pods, but deletion is not currently safe"}
+		}
+		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func buildOwnerReference(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) ([]metav1.OwnerReference, error) {
 	reloadedCluster := &fdbtypes.FoundationDBCluster{}
 	kubeClient.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, reloadedCluster)
@@ -1378,14 +1460,22 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 	if err != nil {
 		return nil, err
 	}
+	spec := GetPodSpec(cluster, processClass, name)
+	specJson, err := json.Marshal(spec)
+	if err != nil {
+		return nil, err
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       cluster.Namespace,
 			Labels:          getPodLabels(cluster, processClass, strconv.Itoa(id)),
 			OwnerReferences: owner,
+			Annotations: map[string]string{
+				lastPodSpecKey: string(specJson),
+			},
 		},
-		Spec: *GetPodSpec(cluster, processClass, name),
+		Spec: *spec,
 	}, nil
 }
 
@@ -1702,6 +1792,12 @@ type PodLifecycleManager interface {
 
 	// DeleteInstance shuts down an instance
 	DeleteInstance(*ReconcileFoundationDBCluster, ctx.Context, FdbInstance) error
+
+	// CanDeletePods checks whether it is safe to delete pods.
+	CanDeletePods(*ReconcileFoundationDBCluster, ctx.Context, *fdbtypes.FoundationDBCluster) (bool, error)
+
+	// UpdatePods updates a list of pods to match the latest specs.
+	UpdatePods(*ReconcileFoundationDBCluster, ctx.Context, *fdbtypes.FoundationDBCluster, []FdbInstance) error
 }
 
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
@@ -1744,6 +1840,25 @@ func (manager StandardPodLifecycleManager) DeleteInstance(r *ReconcileFoundation
 	return r.Delete(context, instance.Pod)
 }
 
+// CanDeletePods checks whether it is safe to delete pods.
+func (manager StandardPodLifecycleManager) CanDeletePods(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	return true, nil
+}
+
+// UpdatePods updates a list of pods to match the latest specs.
+func (manager StandardPodLifecycleManager) UpdatePods(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instances []FdbInstance) error {
+	for _, instance := range instances {
+		err := r.Delete(context, instance.Pod)
+		if err != nil {
+			return err
+		}
+	}
+	if len(instances) > 0 {
+		return ReconciliationNotReadyError{message: "Need to restart reconciliation to recreate pods", retryable: true}
+	}
+	return nil
+}
+
 // MissingPodError creates an error that can be thrown when an instance does not
 // have an associated pod.
 func MissingPodError(instance FdbInstance, cluster *fdbtypes.FoundationDBCluster) error {
@@ -1759,7 +1874,8 @@ func MissingPodErrorByName(instanceName string, cluster *fdbtypes.FoundationDBCl
 // ReconciliationNotReadyError is returned when reconciliation cannot proceed
 // because of a temporary condition or because automation is disabled
 type ReconciliationNotReadyError struct {
-	message string
+	message   string
+	retryable bool
 }
 
 func (err ReconciliationNotReadyError) Error() string {
