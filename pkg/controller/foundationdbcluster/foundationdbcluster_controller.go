@@ -1503,7 +1503,7 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 	fullEnv := []corev1.EnvVar{}
 
 	for _, envVar := range overrides.Env {
-		fullEnv = append(fullEnv, envVar)
+		fullEnv = append(fullEnv, *envVar.DeepCopy())
 		envOverrides[envVar.Name] = true
 	}
 
@@ -1514,7 +1514,10 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 	}
 
 	container.Env = fullEnv
-	container.VolumeMounts = append(container.VolumeMounts, overrides.VolumeMounts...)
+
+	for _, volume := range overrides.VolumeMounts {
+		container.VolumeMounts = append(container.VolumeMounts, *volume.DeepCopy())
+	}
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
@@ -1644,7 +1647,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		}}},
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
-	volumes = append(volumes, cluster.Spec.Volumes...)
+
+	for _, volume := range cluster.Spec.Volumes {
+		volumes = append(volumes, *volume.DeepCopy())
+	}
 
 	var affinity *corev1.Affinity
 

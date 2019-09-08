@@ -14,6 +14,9 @@ ifneq "$(go_subs)" ""
 	go_ld_flags := -ldflags "$(go_subs)"
 endif
 
+ifneq "$(FDB_WEBSITE)" ""
+	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
+endif
 
 # Run tests
 test: generate fmt vet manifests
@@ -63,7 +66,7 @@ endif
 
 # Build the docker image
 docker-build: test templates
-	docker build --build-arg "GO_BUILD_SUBS=${go_subs}" . -t ${IMG}
+	docker build ${docker_build_args} --build-arg "GO_BUILD_SUBS=${go_subs}" . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
 
