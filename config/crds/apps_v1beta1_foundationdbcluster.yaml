@@ -47,6 +47,8 @@ spec:
               properties:
                 configureDatabase:
                   type: boolean
+                deletePods:
+                  type: boolean
                 killProcesses:
                   type: boolean
               type: object
@@ -234,6 +236,9 @@ spec:
                   format: int64
                   type: integer
                 needsConfigurationChange:
+                  format: int64
+                  type: integer
+                needsPodDeletion:
                   format: int64
                   type: integer
                 reconciled:

@@ -172,6 +172,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeletePods != nil {
+		in, out := &in.DeletePods, &out.DeletePods
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

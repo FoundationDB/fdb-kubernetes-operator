@@ -589,7 +589,7 @@ func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 10).Should(gomega.Equal(originalVersion + int64(4+len(pods.Items))))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 10).Should(gomega.Not(gomega.Equal(originalVersion)))
 
 		err = c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -598,6 +598,39 @@ func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
 			g.Expect(len(pod.Spec.Containers[0].Env)).To(gomega.Equal(3))
 			g.Expect(pod.Spec.Containers[0].Env[0].Name).To(gomega.Equal("TEST_CHANGE"))
 			g.Expect(pod.Spec.Containers[0].Env[0].Value).To(gomega.Equal("1"))
+		}
+	})
+}
+
+func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabled(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalVersion := cluster.ObjectMeta.Generation
+
+		pods := &corev1.PodList{}
+		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		cluster.Spec.MainContainer.Env = append(cluster.Spec.MainContainer.Env, corev1.EnvVar{
+			Name:  "TEST_CHANGE",
+			Value: "1",
+		})
+		var flag = false
+		cluster.Spec.AutomationOptions.DeletePods = &flag
+
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{
+			Reconciled:       originalVersion,
+			NeedsPodDeletion: originalVersion + 1,
+		}))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, pod := range pods.Items {
+			g.Expect(len(pod.Spec.Containers[0].Env)).To(gomega.Equal(2))
 		}
 	})
 }

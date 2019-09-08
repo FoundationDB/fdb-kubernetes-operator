@@ -1251,6 +1251,25 @@ func (r *ReconcileFoundationDBCluster) updatePods(context ctx.Context, cluster *
 		}
 	}
 
+	if len(updates) > 0 {
+		var enabled = cluster.Spec.AutomationOptions.DeletePods
+		if enabled != nil && !*enabled {
+			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			if err != nil {
+				return err
+			}
+
+			r.Recorder.Event(cluster, "Normal", "NeedsPodsDeletion",
+				fmt.Sprintf("Spec require deleting some pods, but deleting pods is disabled"))
+			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
+			err = r.postStatusUpdate(context, cluster)
+			if err != nil {
+				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			}
+			return ReconciliationNotReadyError{message: "Pod deletion is disabled"}
+		}
+	}
+
 	for zone, zoneInstances := range updates {
 		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
@@ -1842,7 +1861,15 @@ func (manager StandardPodLifecycleManager) DeleteInstance(r *ReconcileFoundation
 
 // CanDeletePods checks whether it is safe to delete pods.
 func (manager StandardPodLifecycleManager) CanDeletePods(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	return true, nil
+	adminClient, err := r.AdminClientProvider(cluster, r)
+	if err != nil {
+		return false, err
+	}
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
+	}
+	return status.Client.DatabaseStatus.Healthy, nil
 }
 
 // UpdatePods updates a list of pods to match the latest specs.
