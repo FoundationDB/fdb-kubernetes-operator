@@ -47,6 +47,8 @@ spec:
               properties:
                 configureDatabase:
                   type: boolean
+                killProcesses:
+                  type: boolean
               type: object
             configured:
               type: boolean
@@ -228,6 +230,9 @@ spec:
               type: object
             generations:
               properties:
+                needsBounce:
+                  format: int64
+                  type: integer
                 needsConfigurationChange:
                   format: int64
                   type: integer

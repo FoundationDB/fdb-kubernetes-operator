@@ -76,6 +76,7 @@ type FoundationDBClusterStatus struct {
 type GenerationStatus struct {
 	Reconciled               int64 `json:"reconciled,omitempty"`
 	NeedsConfigurationChange int64 `json:"needsConfigurationChange,omitempty"`
+	NeedsBounce              int64 `json:"needsBounce,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -206,6 +207,7 @@ var roleIndices = fieldIndices(RoleCounts{})
 // operations that can be performed on a cluster.
 type FoundationDBClusterAutomationOptions struct {
 	ConfigureDatabase *bool `json:"configureDatabase,omitempty"`
+	KillProcesses     *bool `json:"killProcesses,omitempty"`
 }
 
 // GetRoleCountsWithDefaults gets the role counts from the cluster spec and

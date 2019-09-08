@@ -1119,6 +1119,7 @@ func (r *ReconcileFoundationDBCluster) updateSidecarVersions(context ctx.Context
 }
 
 func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
 		return err
@@ -1150,6 +1151,23 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 	}
 
 	if len(addresses) > 0 {
+		var enabled = cluster.Spec.AutomationOptions.KillProcesses
+		if enabled != nil && !*enabled {
+			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+			if err != nil {
+				return err
+			}
+
+			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
+				fmt.Sprintf("Spec require a bounce of some processes, but killing processes is disabled"))
+			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
+			err = r.postStatusUpdate(context, cluster)
+			if err != nil {
+				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			}
+			return ReconciliationNotReadyError{message: "Kills are disabled"}
+		}
+
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
 		r.Recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)

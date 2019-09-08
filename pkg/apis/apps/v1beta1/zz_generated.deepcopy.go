@@ -167,6 +167,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
+	if in.KillProcesses != nil {
+		in, out := &in.KillProcesses, &out.KillProcesses
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

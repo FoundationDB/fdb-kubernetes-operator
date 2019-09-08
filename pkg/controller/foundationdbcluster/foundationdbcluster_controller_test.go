@@ -454,6 +454,38 @@ func TestReconcileWithKnobChange(t *testing.T) {
 	})
 }
 
+func TestReconcileWithKnobChangeWithBouncesDisabled(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalPods := &corev1.PodList{}
+
+		originalVersion := cluster.ObjectMeta.Generation
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), getListOptions(cluster), originalPods)
+			return len(originalPods.Items), err
+		}, timeout).Should(gomega.Equal(15))
+
+		adminClient, err := newMockAdminClientUncast(cluster, client)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		adminClient.FreezeStatus()
+		var flag = false
+		cluster.Spec.AutomationOptions.KillProcesses = &flag
+		cluster.Spec.CustomParameters = []string{"knob_disable_posix_kernel_aio=1"}
+
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{
+			Reconciled:  originalVersion,
+			NeedsBounce: originalVersion + 1,
+		}))
+
+		g.Expect(adminClient.KilledAddresses).To(gomega.BeNil())
+	})
+}
+
 func TestReconcileWithConfigurationChange(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalVersion := cluster.ObjectMeta.Generation
@@ -496,6 +528,7 @@ func TestReconcileWithConfigurationChangeWithChangesDisabled(t *testing.T) {
 		g.Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(gomega.Equal("double"))
 	})
 }
+
 func TestReconcileWithLabelChange(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
