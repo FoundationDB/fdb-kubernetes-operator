@@ -60,7 +60,7 @@ func Add(mgr manager.Manager) error {
 
 var hasStatusSubresource = os.Getenv("HAS_STATUS_SUBRESOURCE") != "0"
 
-const lastPodSpecKey = "org.foundationdb/last-applied-pod-spec"
+const LastPodSpecKey = "org.foundationdb/last-applied-pod-spec"
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
@@ -1234,7 +1234,7 @@ func (r *ReconcileFoundationDBCluster) updatePods(context ctx.Context, cluster *
 		if err != nil {
 			return err
 		}
-		if instance.Metadata.Annotations[lastPodSpecKey] != string(specBytes) {
+		if instance.Metadata.Annotations[LastPodSpecKey] != string(specBytes) {
 			podClient, err := r.getPodClient(context, cluster, instance)
 			if err != nil {
 				return err
@@ -1491,7 +1491,7 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 			Labels:          getPodLabels(cluster, processClass, strconv.Itoa(id)),
 			OwnerReferences: owner,
 			Annotations: map[string]string{
-				lastPodSpecKey: string(specJson),
+				LastPodSpecKey: string(specJson),
 			},
 		},
 		Spec: *spec,
