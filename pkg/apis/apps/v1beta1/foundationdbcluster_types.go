@@ -566,6 +566,7 @@ type ContainerOverrides struct {
 	VolumeMounts          []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 	EnableTLS             bool                 `json:"enableTls,omitempty"`
 	PeerVerificationRules string               `json:"peerVerificationRules,omitempty"`
+	ImageName             string               `json:"imageName,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

@@ -116,6 +116,8 @@ spec:
                   items:
                     type: object
                   type: array
+                imageName:
+                  type: string
                 peerVerificationRules:
                   type: string
                 volumeMounts:
@@ -175,6 +177,8 @@ spec:
                   items:
                     type: object
                   type: array
+                imageName:
+                  type: string
                 peerVerificationRules:
                   type: string
                 volumeMounts:

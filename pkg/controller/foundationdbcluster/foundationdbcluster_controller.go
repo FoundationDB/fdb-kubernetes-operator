@@ -1124,8 +1124,11 @@ func (r *ReconcileFoundationDBCluster) updateSidecarVersions(context ctx.Context
 		return err
 	}
 	upgraded := false
-	image := fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s",
-		DockerImageRoot, cluster.GetFullSidecarVersion())
+	image := cluster.Spec.SidecarContainer.ImageName
+	if image == "" {
+		image = "foundationdb/foundationdb-kubernetes-sidecar"
+	}
+	image = fmt.Sprintf("%s:%s", image, cluster.GetFullSidecarVersion())
 	for _, instance := range instances {
 		if instance.Pod == nil {
 			return MissingPodError(instance, cluster)
@@ -1300,9 +1303,6 @@ func buildOwnerReference(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 		Controller: &isController,
 	}}, nil
 }
-
-// DockerImageRoot is the prefix for our docker image paths
-var DockerImageRoot = "foundationdb"
 
 // GetConfigMap builds a config map for a cluster's dynamic config
 func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*corev1.ConfigMap, error) {
@@ -1522,9 +1522,13 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podID string) *corev1.PodSpec {
+	imageName := cluster.Spec.MainContainer.ImageName
+	if imageName == "" {
+		imageName = "foundationdb/foundationdb"
+	}
 	mainContainer := corev1.Container{
 		Name:  "foundationdb",
-		Image: fmt.Sprintf("%s/foundationdb:%s", DockerImageRoot, cluster.Spec.Version),
+		Image: fmt.Sprintf("%s:%s", imageName, cluster.Spec.Version),
 		Env: []corev1.EnvVar{
 			corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 			corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
@@ -1584,11 +1588,15 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		}
 	}
 
+	sidecarImageName := cluster.Spec.SidecarContainer.ImageName
+	if sidecarImageName == "" {
+		sidecarImageName = "foundationdb/foundationdb-kubernetes-sidecar"
+	}
+
 	initContainer := corev1.Container{
-		Name: "foundationdb-kubernetes-init",
-		Image: fmt.Sprintf("%s/foundationdb-kubernetes-sidecar:%s",
-			DockerImageRoot, cluster.GetFullSidecarVersion()),
-		Env: sidecarEnv,
+		Name:  "foundationdb-kubernetes-init",
+		Image: fmt.Sprintf("%s:%s", sidecarImageName, cluster.GetFullSidecarVersion()),
+		Env:   sidecarEnv,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},

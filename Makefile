@@ -6,14 +6,6 @@ all: test manager
 
 PKG_PATH = github.com/foundationdb/fdb-kubernetes-operator
 
-ifneq "$(DOCKER_IMAGE_ROOT)" ""
-	go_subs := $(go_subs) -X ${PKG_PATH}/pkg/controller/foundationdbcluster.DockerImageRoot=$(DOCKER_IMAGE_ROOT)
-endif
-
-ifneq "$(go_subs)" ""
-	go_ld_flags := -ldflags "$(go_subs)"
-endif
-
 ifneq "$(FDB_WEBSITE)" ""
 	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
 endif
@@ -24,11 +16,11 @@ test: generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build $(go_ld_flags) -o bin/manager ${PKG_PATH}/cmd/manager
+	go build -o bin/manager ${PKG_PATH}/cmd/manager
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet
-	go run $(go_ld_flags) ./cmd/manager/main.go
+	go run ./cmd/manager/main.go
 
 # Install CRDs into a cluster
 install: manifests
@@ -66,7 +58,7 @@ endif
 
 # Build the docker image
 docker-build: test templates
-	docker build ${docker_build_args} --build-arg "GO_BUILD_SUBS=${go_subs}" . -t ${IMG}
+	docker build ${docker_build_args} . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 	sed -i'' -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
 
