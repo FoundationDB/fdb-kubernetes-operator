@@ -1538,6 +1538,37 @@ func TestGetPodSpecWithCustomSidecarVersion(t *testing.T) {
 	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
 }
 
+func TestGetPodSpecWithSecurityContext(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.PodSecurityContext = &corev1.PodSecurityContext{FSGroup: new(int64)}
+	*cluster.Spec.PodSecurityContext.FSGroup = 5000
+
+	cluster.Spec.MainContainer.SecurityContext = &corev1.SecurityContext{RunAsGroup: new(int64), RunAsUser: new(int64)}
+	*cluster.Spec.MainContainer.SecurityContext.RunAsGroup = 3000
+	*cluster.Spec.MainContainer.SecurityContext.RunAsUser = 4000
+	cluster.Spec.SidecarContainer.SecurityContext = &corev1.SecurityContext{RunAsGroup: new(int64), RunAsUser: new(int64)}
+	*cluster.Spec.SidecarContainer.SecurityContext.RunAsGroup = 1000
+	*cluster.Spec.SidecarContainer.SecurityContext.RunAsUser = 2000
+
+	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
+
+	g.Expect(*spec.SecurityContext.FSGroup).To(gomega.Equal(int64(5000)))
+
+	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
+	initContainer := spec.InitContainers[0]
+	g.Expect(*initContainer.SecurityContext.RunAsGroup).To(gomega.Equal(int64(1000)))
+	g.Expect(*initContainer.SecurityContext.RunAsUser).To(gomega.Equal(int64(2000)))
+
+	mainContainer := spec.Containers[0]
+	g.Expect(*mainContainer.SecurityContext.RunAsGroup).To(gomega.Equal(int64(3000)))
+	g.Expect(*mainContainer.SecurityContext.RunAsUser).To(gomega.Equal(int64(4000)))
+
+	sidecarContainer := spec.Containers[1]
+	g.Expect(*sidecarContainer.SecurityContext.RunAsGroup).To(gomega.Equal(int64(1000)))
+	g.Expect(*sidecarContainer.SecurityContext.RunAsUser).To(gomega.Equal(int64(2000)))
+}
+
 func TestGetPvcForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

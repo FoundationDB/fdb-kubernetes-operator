@@ -1518,6 +1518,8 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 	for _, volume := range overrides.VolumeMounts {
 		container.VolumeMounts = append(container.VolumeMounts, *volume.DeepCopy())
 	}
+
+	container.SecurityContext = overrides.SecurityContext
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
@@ -1688,10 +1690,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	containers = append(containers, cluster.Spec.Containers...)
 
 	return &corev1.PodSpec{
-		InitContainers: initContainers,
-		Containers:     containers,
-		Volumes:        volumes,
-		Affinity:       affinity,
+		InitContainers:  initContainers,
+		Containers:      containers,
+		Volumes:         volumes,
+		Affinity:        affinity,
+		SecurityContext: cluster.Spec.PodSecurityContext,
 	}
 }
 

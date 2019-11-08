@@ -120,6 +120,8 @@ spec:
                   type: string
                 peerVerificationRules:
                   type: string
+                securityContext:
+                  type: object
                 volumeMounts:
                   items:
                     type: object
@@ -131,6 +133,8 @@ spec:
             pendingRemovals:
               type: object
             podLabels:
+              type: object
+            podSecurityContext:
               type: object
             processCounts:
               properties:
@@ -181,6 +185,8 @@ spec:
                   type: string
                 peerVerificationRules:
                   type: string
+                securityContext:
+                  type: object
                 volumeMounts:
                   items:
                     type: object

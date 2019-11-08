@@ -59,6 +59,7 @@ type FoundationDBClusterSpec struct {
 	DataCenter            string                               `json:"dataCenter,omitempty"`
 	PodLabels             map[string]string                    `json:"podLabels,omitempty"`
 	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
+	PodSecurityContext    *corev1.PodSecurityContext           `json:"podSecurityContext,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -562,11 +563,12 @@ type FoundationDBStatusClientDBStatus struct {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	Env                   []corev1.EnvVar      `json:"env,omitempty"`
-	VolumeMounts          []corev1.VolumeMount `json:"volumeMounts,omitempty"`
-	EnableTLS             bool                 `json:"enableTls,omitempty"`
-	PeerVerificationRules string               `json:"peerVerificationRules,omitempty"`
-	ImageName             string               `json:"imageName,omitempty"`
+	Env                   []corev1.EnvVar         `json:"env,omitempty"`
+	VolumeMounts          []corev1.VolumeMount    `json:"volumeMounts,omitempty"`
+	EnableTLS             bool                    `json:"enableTls,omitempty"`
+	PeerVerificationRules string                  `json:"peerVerificationRules,omitempty"`
+	ImageName             string                  `json:"imageName,omitempty"`
+	SecurityContext       *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

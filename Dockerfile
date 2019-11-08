@@ -2,8 +2,8 @@
 FROM golang:1.12.5 as builder
 
 # Install FDB
-ARG FDB_VERSION=6.1.8
-ARG FDB_ADDITIONAL_VERSIONS="6.0.18"
+ARG FDB_VERSION=6.2.7
+ARG FDB_ADDITIONAL_VERSIONS="6.1.8 6.0.18"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
