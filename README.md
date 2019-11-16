@@ -5,6 +5,15 @@ clusters on Kubernetes.
 
 # Local Development
 
+## Environment Set-up
+
+1. Install GO on your machine, see the [Getting Started](https://golang.org/doc/install) guide for more information.
+2. Install KubeBuilder and its dependencies on your machine, see [The KubeBuilder Book](https://book.kubebuilder.io/quick-start.html) for more information.
+3. Set your $GOPATH, e.x. `/Users/me/Code/go`
+
+
+## Running Locally
+
 To get this controller running in a local Kubernetes cluster:
 
 1.	Run `config/test-certs/generate_secrets.bash` to set up a secret with

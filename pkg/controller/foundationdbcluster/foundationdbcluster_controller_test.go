@@ -1104,6 +1104,8 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
 	g.Expect(sidecarContainer.VolumeMounts).To(gomega.Equal(initContainer.VolumeMounts))
 	g.Expect(sidecarContainer.ReadinessProbe).To(gomega.Equal(&corev1.Probe{
@@ -1367,6 +1369,8 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
 }
 
@@ -1376,7 +1380,6 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 	cluster.Spec.SidecarContainer.EnableTLS = true
 	cluster.Spec.SidecarContainer.Env = []corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
 	}
 
@@ -1391,7 +1394,6 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 	g.Expect(initContainer.Args).To(gomega.BeNil())
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
@@ -1421,12 +1423,9 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
 	g.Expect(sidecarContainer.Args).To(gomega.Equal([]string{
 		"--tls",
-		"--tls-verify-peers",
-		"S.CN=foundationdb.org",
 	}))
 	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
 		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1438,6 +1437,8 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: "S.CN=foundationdb.org"},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
 }
 

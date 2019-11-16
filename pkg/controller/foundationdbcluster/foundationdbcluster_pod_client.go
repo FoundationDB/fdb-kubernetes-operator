@@ -84,6 +84,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 			return nil, err
 		}
 		certPool.AppendCertsFromPEM(caList)
+		tlsConfig.RootCAs = certPool
 	}
 
 	return &realFdbPodClient{Cluster: cluster, Pod: pod, useTls: useTls, tlsConfig: tlsConfig}, nil

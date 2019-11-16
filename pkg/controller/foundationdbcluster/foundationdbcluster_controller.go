@@ -1607,6 +1607,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 
 	customizeContainer(&initContainer, cluster.Spec.SidecarContainer)
 
+	sidecarEnv = append(sidecarEnv,
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: cluster.Spec.SidecarContainer.PeerVerificationRules})
+	sidecarEnv = append(sidecarEnv,
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
+
 	sidecarContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-sidecar",
 		Image: initContainer.Image,
@@ -1625,11 +1630,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	}
 
 	if cluster.Spec.SidecarContainer.EnableTLS {
-		args := []string{"--tls"}
-		if cluster.Spec.SidecarContainer.PeerVerificationRules != "" {
-			args = append(args, "--tls-verify-peers", cluster.Spec.SidecarContainer.PeerVerificationRules)
-		}
-		sidecarContainer.Args = args
+		sidecarContainer.Args = []string{"--tls"}
 	}
 
 	customizeContainer(&sidecarContainer, cluster.Spec.SidecarContainer)

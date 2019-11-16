@@ -89,7 +89,7 @@ class Server(http.server.BaseHTTPRequestHandler):
                             help=('The path to the key file for TLS '
                                   'connections. If this is not provided we '
                                   'will take the path from the '
-                                  'FDB_TLS_CERTIFICATE_FILE environment '
+                                  'FDB_TLS_KEY_FILE environment '
                                   'variable.'))
         parser.add_argument('--tls-verify-peers',
                             help=('The peer verification rules for incoming '
