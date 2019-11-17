@@ -5,8 +5,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: foundationdbcluster-sample
 spec:
-  version: 6.1.8
-  sidecarVersion: 3
+  version: 6.2.8
   databaseConfiguration:
     redundancy_mode: double
   volumeSize: "16G"
@@ -32,6 +31,24 @@ spec:
     volumeMounts:
       - name: fdb-certs
         mountPath: /tmp/fdb-certs
+    securityContext:
+      runAsUser: 0
+  sidecarContainer:
+    enableTls: true
+    env:
+      - name: FDB_TLS_CERTIFICATE_FILE
+        value: /tmp/fdb-certs/cert.pem
+      - name: FDB_TLS_CA_FILE
+        value: /tmp/fdb-certs/cert.pem
+      - name: FDB_TLS_KEY_FILE
+        value: /tmp/fdb-certs/key.pem
+    volumeMounts:
+      - name: fdb-certs
+        mountPath: /tmp/fdb-certs
+    securityContext:
+      runAsUser: 0
+  securityContext:
+    fsGroup: 0
   resources:
     requests:
       cpu: 250m
