@@ -563,6 +563,11 @@ func (r *ReconcileFoundationDBCluster) updateLabels(context ctx.Context, cluster
 }
 
 func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
+	_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
+	if pendingRemoval {
+		return true, nil
+	}
+
 	client, err := r.getPodClient(context, cluster, instance)
 	if err != nil {
 		return false, err
@@ -572,12 +577,7 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 		return false, MissingPodError(instance, cluster)
 	}
 
-	podClient, err := r.getPodClient(context, cluster, instance)
-	if err != nil {
-		return false, err
-	}
-
-	conf, err := GetMonitorConf(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, podClient)
+	conf, err := GetMonitorConf(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, client)
 	if err != nil {
 		return false, err
 	}
