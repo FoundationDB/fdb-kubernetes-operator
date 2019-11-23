@@ -69,7 +69,9 @@ func SetupTestReconcile(t *testing.T, inner reconcile.Reconciler) (reconcile.Rec
 				t.Errorf("Reconcile function returned error %s", err.Error())
 			}
 		}
-		requests <- req
+		if !result.Requeue && result.RequeueAfter == 0 {
+			requests <- req
+		}
 		return result, err
 	})
 	return fn, requests

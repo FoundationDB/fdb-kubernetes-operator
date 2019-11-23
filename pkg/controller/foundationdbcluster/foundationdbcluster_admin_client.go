@@ -369,7 +369,22 @@ func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.Database
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
 func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
-	client.ExcludedAddresses = append(client.ExcludedAddresses, addresses...)
+	count := len(addresses) + len(client.ExcludedAddresses)
+	exclusionMap := make(map[string]bool, count)
+	newExclusions := make([]string, 0, count)
+	for _, address := range addresses {
+		if !exclusionMap[address] {
+			exclusionMap[address] = true
+			newExclusions = append(newExclusions, address)
+		}
+	}
+	for _, address := range client.ExcludedAddresses {
+		if !exclusionMap[address] {
+			exclusionMap[address] = true
+			newExclusions = append(newExclusions, address)
+		}
+	}
+	client.ExcludedAddresses = newExclusions
 	return nil
 }
 

@@ -436,6 +436,7 @@ func TestReconcileWithKnobChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		adminClient.FreezeStatus()
 		cluster.Spec.CustomParameters = []string{"knob_disable_posix_kernel_aio=1"}
+
 		err = client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -592,8 +593,8 @@ func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
-		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 10).Should(gomega.Not(gomega.Equal(originalVersion)))
+		g.Eventually(requests, 60).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 60).Should(gomega.Not(gomega.Equal(originalVersion)))
 
 		err = c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())

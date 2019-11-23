@@ -139,6 +139,7 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	// Fetch the FoundationDBCluster instance
 	cluster := &fdbtypes.FoundationDBCluster{}
 	context := ctx.Background()
+
 	err := r.Get(context, request.NamespacedName, cluster)
 
 	originalGeneration := cluster.ObjectMeta.Generation
@@ -153,111 +154,142 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	if originalGeneration == cluster.Status.Generations.Reconciled && hasStatusSubresource {
-		return reconcile.Result{}, err
-	}
-
-	err = r.setDefaultValues(context, cluster)
+	changed, err := r.setDefaultValues(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if changed {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	err = r.updateStatus(context, cluster, false)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
 	}
 
 	err = r.updateSidecarVersions(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
 	}
 
-	err = r.updateConfigMap(context, cluster)
+	synced, err := r.updateConfigMap(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if !synced {
+		return reconcile.Result{RequeueAfter: time.Duration(30) * time.Second}, nil
 	}
 
 	err = r.updateLabels(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
 	}
 
-	err = r.addPods(context, cluster)
+	added, err := r.addPods(context, cluster)
 	if err != nil {
-		if r.checkRetryableError(err) {
-			return r.Reconcile(request)
-		}
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if added {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	err = r.generateInitialClusterFile(context, cluster)
+	synced, err = r.generateInitialClusterFile(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if !synced {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
+	initialConfig := !cluster.Spec.Configured
 	err = r.updateDatabaseConfiguration(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if initialConfig {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	err = r.chooseRemovals(context, cluster)
+	hasNewRemovals, err := r.chooseRemovals(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if hasNewRemovals {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	err = r.excludeInstances(cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
 	}
 
-	err = r.changeCoordinators(context, cluster)
+	changed, err = r.changeCoordinators(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if changed {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	err = r.removePods(context, cluster)
+	removed, err := r.removePods(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if !removed {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	err = r.includeInstances(context, cluster)
+	changed, err = r.includeInstances(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if changed {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	err = r.bounceProcesses(context, cluster)
+	complete, err := r.bounceProcesses(context, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
+	}
+	if !complete {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	err = r.updatePods(context, cluster)
 	if err != nil {
-		if r.checkRetryableError(err) {
-			return r.Reconcile(request)
-		}
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
 	}
 
 	err = r.updateStatus(context, cluster, true)
 	if err != nil {
-		return reconcile.Result{}, err
+		return r.checkRetryableError(err)
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration {
-		return reconcile.Result{}, errors.New("Cluster was not fully reconciled by reconciliation process")
+		log.Info("Cluster was not fully reconciled by reconciliation process")
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	log.Info("Reconcilation complete", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	log.Info("Reconciliation complete", "namespace", cluster.Namespace, "cluster", cluster.Name)
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileFoundationDBCluster) checkRetryableError(err error) bool {
-	castError, canCast := err.(ReconciliationNotReadyError)
-	return canCast && castError.retryable && r.InSimulation
+func (r *ReconcileFoundationDBCluster) checkRetryableError(err error) (reconcile.Result, error) {
+	notReadyError, canCast := err.(ReconciliationNotReadyError)
+	if canCast && notReadyError.retryable {
+		log.Info("Retrying reconcilation", "reason", notReadyError.message)
+		return reconcile.Result{Requeue: true}, nil
+	}
+	if k8serrors.IsConflict(err) {
+		log.Info("Retrying reconcilation", "reason", "Conflict")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	return reconcile.Result{}, err
 }
 
-func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	changed := false
 	if cluster.Spec.RedundancyMode == "" {
 		cluster.Spec.RedundancyMode = "double"
@@ -290,10 +322,10 @@ func (r *ReconcileFoundationDBCluster) setDefaultValues(context ctx.Context, clu
 	if changed {
 		err := r.Update(context, cluster)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return changed, nil
 }
 
 func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, updateGenerations bool) error {
@@ -328,6 +360,8 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 	if err != nil {
 		return err
 	}
+
+	hasIncorrectPodSpecs := false
 
 	for _, instance := range instances {
 		processClass := instance.Metadata.Labels["fdb-process-class"]
@@ -376,14 +410,42 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 				}
 			}
 		}
+
+		if instance.Pod != nil {
+			spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], fmt.Sprintf("%s-%s", cluster.ObjectMeta.Name, instance.Metadata.Labels["fdb-instance-id"]))
+			specBytes, err := json.Marshal(spec)
+			if err != nil {
+				return err
+			}
+			if instance.Metadata.Annotations[LastPodSpecKey] != string(specBytes) {
+				hasIncorrectPodSpecs = true
+			}
+		}
 	}
+
+	configMap, err := GetConfigMap(context, cluster, r)
+	if err != nil {
+		return err
+	}
+	existingConfigMap := &corev1.ConfigMap{}
+	configMapUpdated := true
+	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
+	if err != nil && k8serrors.IsNotFound(err) {
+		configMapUpdated = false
+	} else if err != nil {
+		return err
+	}
+
+	configMapUpdated = reflect.DeepEqual(existingConfigMap.Data, configMap.Data) && reflect.DeepEqual(existingConfigMap.Labels, configMap.Labels)
 
 	reconciled := cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
 		cluster.GetProcessCountsWithDefaults().CountsAreSatisfied(status.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0 &&
+		!hasIncorrectPodSpecs &&
 		databaseStatus != nil &&
-		reflect.DeepEqual(status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration())
+		reflect.DeepEqual(status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration()) &&
+		configMapUpdated
 
 	if reconciled && updateGenerations {
 		status.Generations = fdbtypes.GenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
@@ -402,6 +464,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 	err = r.postStatusUpdate(context, cluster)
 	if err != nil {
 		log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		return err
 	}
 
 	return nil
@@ -415,19 +478,19 @@ func (r *ReconcileFoundationDBCluster) postStatusUpdate(context ctx.Context, clu
 	}
 }
 
-func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	configMap, err := GetConfigMap(context, cluster, r)
 	if err != nil {
-		return err
+		return false, err
 	}
 	existing := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
 	if err != nil && k8serrors.IsNotFound(err) {
 		log.Info("Creating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
 		err = r.Create(context, configMap)
-		return err
+		return err == nil, err
 	} else if err != nil {
-		return err
+		return false, err
 	}
 
 	if !reflect.DeepEqual(existing.Data, configMap.Data) || !reflect.DeepEqual(existing.Labels, configMap.Labels) {
@@ -437,29 +500,23 @@ func (r *ReconcileFoundationDBCluster) updateConfigMap(context ctx.Context, clus
 		existing.Data = configMap.Data
 		err = r.Update(context, existing)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "", ""))
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	podUpdates := make([]chan error, len(instances))
 	for index := range instances {
-		podUpdates[index] = make(chan error)
-		go r.updatePodDynamicConf(context, cluster, instances[index], podUpdates[index])
-	}
-
-	for _, podUpdate := range podUpdates {
-		err = <-podUpdate
-		if err != nil {
-			return err
+		synced, err := r.updatePodDynamicConf(context, cluster, instances[index])
+		if !synced {
+			return synced, err
 		}
 	}
 
-	return nil
+	return true, nil
 }
 
 func (r *ReconcileFoundationDBCluster) updateLabels(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -505,54 +562,42 @@ func (r *ReconcileFoundationDBCluster) updateLabels(context ctx.Context, cluster
 	return nil
 }
 
-func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, signal chan error) {
+func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
 	client, err := r.getPodClient(context, cluster, instance)
 	if err != nil {
-		signal <- err
-		return
+		return false, err
 	}
 
 	if instance.Pod == nil {
-		signal <- MissingPodError(instance, cluster)
-		return
+		return false, MissingPodError(instance, cluster)
 	}
 
 	podClient, err := r.getPodClient(context, cluster, instance)
 	if err != nil {
-		signal <- err
-		return
+		return false, err
 	}
 
 	conf, err := GetMonitorConf(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, podClient)
 	if err != nil {
-		signal <- err
-		return
+		return false, err
 	}
 
-	pendingUpdates := 3
-	updateSignals := make(chan error, pendingUpdates)
-	go UpdateDynamicFiles(client, "fdb.cluster", cluster.Spec.ConnectionString, updateSignals, func(client FdbPodClient, clientError chan error) { client.CopyFiles(clientError) })
-
-	if !cluster.Spec.Configured {
-		err = <-updateSignals
-		if err != nil {
-			signal <- err
-		}
-		pendingUpdates--
+	synced, err := UpdateDynamicFiles(client, "fdb.cluster", cluster.Spec.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
+	if !synced {
+		return synced, err
 	}
 
-	go UpdateDynamicFiles(client, "fdbmonitor.conf", conf, updateSignals, func(client FdbPodClient, clientError chan error) { client.GenerateMonitorConf(clientError) })
-	go CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), updateSignals)
-
-	for pendingUpdates > 0 {
-		err = <-updateSignals
-		if err != nil {
-			signal <- err
-		}
-		pendingUpdates--
+	synced, err = UpdateDynamicFiles(client, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
+	if !synced {
+		return synced, err
 	}
 
-	signal <- nil
+	synced, err = CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
+	if !synced {
+		return synced, err
+	}
+
+	return true, nil
 }
 
 func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
@@ -589,24 +634,24 @@ func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, name string)
 	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", name)
 }
 
-func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewPods := false
 	currentCounts := cluster.Status.ProcessCounts.Map()
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 
 	err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	currentPods := &corev1.PodList{}
 	err = r.List(context, getPodListOptions(cluster, "", ""), currentPods)
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, pod := range currentPods.Items {
 		if pod.DeletionTimestamp != nil {
-			return ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
+			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
 		}
 	}
 
@@ -629,7 +674,7 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"]),
 					)
 					if err != nil {
-						return err
+						return false, err
 					}
 					if len(matchingInstances) == 0 {
 						reusablePvcs[index] = true
@@ -644,17 +689,17 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 				}
 				id, err := strconv.Atoi(pvcs.Items[index].Labels["fdb-instance-id"])
 				if err != nil {
-					return err
+					return false, err
 				}
 
 				pod, err := GetPod(context, cluster, processClass, id, r)
 				if err != nil {
-					return err
+					return false, err
 				}
 
 				err = r.PodLifecycleManager.CreateInstance(r, context, pod)
 				if err != nil {
-					return err
+					return false, err
 				}
 				addedCount++
 				newCount--
@@ -669,7 +714,7 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 					pvcs := &corev1.PersistentVolumeClaimList{}
 					err := r.List(context, getPodListOptions(cluster, "", strconv.Itoa(id)), pvcs)
 					if err != nil {
-						return err
+						return false, err
 					}
 					if len(pvcs.Items) == 0 {
 						break
@@ -679,29 +724,29 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 
 				pvc, err := GetPvc(cluster, processClass, id)
 				if err != nil {
-					return err
+					return false, err
 				}
 
 				if pvc != nil {
 					owner, err := buildOwnerReference(context, cluster, r)
 					if err != nil {
-						return err
+						return false, err
 					}
 					pvc.ObjectMeta.OwnerReferences = owner
 
 					err = r.Create(context, pvc)
 					if err != nil {
-						return err
+						return false, err
 					}
 				}
 
 				pod, err := GetPod(context, cluster, processClass, id, r)
 				if err != nil {
-					return err
+					return false, err
 				}
 				err = r.PodLifecycleManager.CreateInstance(r, context, pod)
 				if err != nil {
-					return err
+					return false, err
 				}
 
 				addedCount++
@@ -715,57 +760,46 @@ func (r *ReconcileFoundationDBCluster) addPods(context ctx.Context, cluster *fdb
 	if hasNewPods {
 		err := r.Update(context, cluster)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return hasNewPods, nil
 }
 
-func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
-	if cluster.Spec.ConnectionString == "" {
-		log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
-		instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "storage", ""))
-		if err != nil {
-			return err
-		}
-		count := cluster.DesiredCoordinatorCount()
-		if len(instances) < count {
-			return errors.New("Cannot find enough pods to recruit coordinators")
-		}
-
-		clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
-		connectionString := fdbtypes.ConnectionString{DatabaseName: clusterName}
-		err = connectionString.GenerateNewGenerationID()
-		if err != nil {
-			return err
-		}
-
-		clientChan := make(chan FdbPodClient, count)
-		errChan := make(chan error)
-
-		for i := 0; i < count; i++ {
-			go r.getPodClientAsync(context, cluster, instances[i], clientChan, errChan)
-		}
-		for i := 0; i < count; i++ {
-			select {
-			case client := <-clientChan:
-				connectionString.Coordinators = append(connectionString.Coordinators, cluster.GetFullAddress(client.GetPodIP()))
-			case err := <-errChan:
-				return err
-			}
-		}
-		cluster.Spec.ConnectionString = connectionString.String()
-
-		err = r.Update(context, cluster)
-		if err != nil {
-			return err
-		}
-
-		return r.updateConfigMap(context, cluster)
+func (r *ReconcileFoundationDBCluster) generateInitialClusterFile(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	if cluster.Spec.ConnectionString != "" {
+		return true, nil
 	}
 
-	return nil
+	log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
+	instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "storage", ""))
+	if err != nil {
+		return false, err
+	}
+	count := cluster.DesiredCoordinatorCount()
+	if len(instances) < count {
+		return false, errors.New("Cannot find enough pods to recruit coordinators")
+	}
+
+	clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
+	connectionString := fdbtypes.ConnectionString{DatabaseName: clusterName}
+	err = connectionString.GenerateNewGenerationID()
+	if err != nil {
+		return false, err
+	}
+
+	for i := 0; i < count; i++ {
+		client, err := r.getPodClient(context, cluster, instances[i])
+		if err != nil {
+			return false, err
+		}
+		connectionString.Coordinators = append(connectionString.Coordinators, cluster.GetFullAddress(client.GetPodIP()))
+	}
+	cluster.Spec.ConnectionString = connectionString.String()
+
+	err = r.Update(context, cluster)
+	return false, err
 }
 
 func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -829,7 +863,7 @@ func (r *ReconcileFoundationDBCluster) updateDatabaseConfiguration(context ctx.C
 	return nil
 }
 
-func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
 	var removals = cluster.Spec.PendingRemovals
@@ -843,7 +877,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, clust
 		desiredCount := desiredCounts[processClass]
 		instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, processClass, ""))
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		if desiredCount < 0 {
@@ -854,7 +888,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, clust
 		if removedCount > 0 {
 			err = sortInstancesByID(instances)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
@@ -862,7 +896,7 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, clust
 				instance := instances[len(instances)-1-indexOfPod]
 				podClient, err := r.getPodClient(context, cluster, instance)
 				if err != nil {
-					return err
+					return false, err
 				}
 				removals[instance.Metadata.Name] = podClient.GetPodIP()
 			}
@@ -876,14 +910,14 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, clust
 			if removals[podName] == "" {
 				instances, err := r.PodLifecycleManager.GetInstances(r, context, client.InNamespace(cluster.Namespace).MatchingField("metadata.name", podName))
 				if err != nil {
-					return err
+					return false, err
 				}
 				if len(instances) == 0 {
 					delete(removals, podName)
 				} else {
 					podClient, err := r.getPodClient(context, cluster, instances[0])
 					if err != nil {
-						return err
+						return false, err
 					}
 					removals[podName] = podClient.GetPodIP()
 				}
@@ -896,10 +930,10 @@ func (r *ReconcileFoundationDBCluster) chooseRemovals(context ctx.Context, clust
 		cluster.Spec.PendingRemovals = removals
 		err := r.Update(context, cluster)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return hasNewRemovals, nil
 }
 
 func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.FoundationDBCluster) error {
@@ -937,20 +971,20 @@ func (r *ReconcileFoundationDBCluster) excludeInstances(cluster *fdbtypes.Founda
 	return nil
 }
 
-func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Spec.Configured {
-		return nil
+		return false, nil
 	}
 
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return err
+		return false, err
 	}
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range status.Client.Coordinators.Coordinators {
@@ -958,7 +992,7 @@ func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, c
 	}
 
 	if len(coordinatorStatus) == 0 {
-		return errors.New("Unable to get coordinator status")
+		return false, errors.New("Unable to get coordinator status")
 	}
 
 	for _, process := range status.Cluster.Processes {
@@ -988,117 +1022,114 @@ func (r *ReconcileFoundationDBCluster) changeCoordinators(context ctx.Context, c
 			}
 		}
 		if len(coordinators) < coordinatorCount {
-			return errors.New("Unable to recruit new coordinators")
+			return false, errors.New("Unable to recruit new coordinators")
 		}
 		connectionString, err := adminClient.ChangeCoordinators(coordinators)
 		if err != nil {
-			return err
+			return false, err
 		}
 		cluster.Spec.ConnectionString = connectionString
 		err = r.Update(context, cluster)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return nil
+	return needsChange, nil
 }
 
-func (r *ReconcileFoundationDBCluster) removePods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) removePods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if len(cluster.Spec.PendingRemovals) == 0 {
-		return nil
+		return true, nil
 	}
 	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", cluster.Spec.PendingRemovals))
-	updateSignals := make(chan error, len(cluster.Spec.PendingRemovals))
 	for id := range cluster.Spec.PendingRemovals {
-		go r.removePod(context, cluster, id, updateSignals)
+		err := r.removePod(context, cluster, id)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	for range cluster.Spec.PendingRemovals {
-		err := <-updateSignals
+	for id := range cluster.Spec.PendingRemovals {
+		removed, err := r.confirmPodRemoval(context, cluster, id)
+		if !removed {
+			return removed, err
+		}
+	}
+
+	return true, nil
+}
+
+func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) error {
+	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
+	instances, err := r.PodLifecycleManager.GetInstances(r, context, instanceListOptions)
+	if err != nil {
+		return err
+	}
+	if len(instances) > 0 {
+		err = r.PodLifecycleManager.DeleteInstance(r, context, instances[0])
+
 		if err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string, signal chan error) {
-	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
-	instances, err := r.PodLifecycleManager.GetInstances(r, context, instanceListOptions)
-	if err != nil {
-		signal <- err
-		return
-	}
-	if len(instances) == 0 {
-		signal <- nil
-		return
-	}
-
-	err = r.PodLifecycleManager.DeleteInstance(r, context, instances[0])
 
 	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", instanceName))
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcListOptions, pvcs)
 	if err != nil {
-		signal <- err
-		return
+		return err
 	}
 	if len(pvcs.Items) > 0 {
 		err = r.Delete(context, &pvcs.Items[0])
+		if err != nil {
+			return err
+		}
 	}
 
-	for {
-		instances, err = r.PodLifecycleManager.GetInstances(r, context, instanceListOptions)
-		if err != nil {
-			signal <- err
-			return
-		}
-		if len(instances) == 0 {
-			break
-		}
+	return nil
+}
 
+func (r *ReconcileFoundationDBCluster) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) (bool, error) {
+	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
+
+	instances, err := r.PodLifecycleManager.GetInstances(r, context, instanceListOptions)
+	if err != nil {
+		return false, err
+	}
+	if len(instances) > 0 {
 		log.Info("Waiting for instance get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instanceName)
-		time.Sleep(time.Second)
+		return false, nil
 	}
 
 	pods := &corev1.PodList{}
-	for {
-		err = r.List(context, instanceListOptions, pods)
-		if err != nil {
-			signal <- err
-			return
-		}
-		if len(pods.Items) == 0 {
-			break
-		}
-
+	err = r.List(context, instanceListOptions, pods)
+	if err != nil {
+		return false, err
+	}
+	if len(pods.Items) > 0 {
 		log.Info("Waiting for pod get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instanceName)
-		time.Sleep(time.Second)
+		return false, nil
 	}
 
-	for {
-		err := r.List(context, pvcListOptions, pvcs)
-		if err != nil {
-			signal <- err
-			return
-		}
-		if len(pvcs.Items) == 0 {
-			break
-		}
-
+	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", instanceName))
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = r.List(context, pvcListOptions, pvcs)
+	if err != nil {
+		return false, err
+	}
+	if len(pvcs.Items) > 0 {
 		log.Info("Waiting for volume claim get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "name", pvcs.Items[0].Name)
-		time.Sleep(time.Second)
+		return false, nil
 	}
 
-	signal <- nil
-	return
+	return true, nil
 }
 
-func (r *ReconcileFoundationDBCluster) includeInstances(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *ReconcileFoundationDBCluster) includeInstances(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer adminClient.Close()
 
@@ -1113,13 +1144,16 @@ func (r *ReconcileFoundationDBCluster) includeInstances(context ctx.Context, clu
 
 	err = adminClient.IncludeInstances(addresses)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	cluster.Spec.PendingRemovals = nil
-	r.Update(context, cluster)
+	if cluster.Spec.PendingRemovals != nil {
+		cluster.Spec.PendingRemovals = nil
+		r.Update(context, cluster)
+		return true, nil
+	}
 
-	return nil
+	return false, nil
 }
 
 func (r *ReconcileFoundationDBCluster) updateSidecarVersions(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -1155,11 +1189,10 @@ func (r *ReconcileFoundationDBCluster) updateSidecarVersions(context ctx.Context
 	return nil
 }
 
-func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
-
+func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer adminClient.Close()
 
@@ -1167,23 +1200,21 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 	for instanceName := range cluster.Status.IncorrectProcesses {
 		instances, err := r.PodLifecycleManager.GetInstances(r, context, getSinglePodListOptions(cluster, instanceName))
 		if err != nil {
-			return err
+			return false, err
 		}
 		if len(instances) == 0 {
-			return MissingPodErrorByName(instanceName, cluster)
+			return false, MissingPodErrorByName(instanceName, cluster)
 		}
 
 		podClient, err := r.getPodClient(context, cluster, instances[0])
 		if err != nil {
-			return err
+			return false, err
 		}
 		addresses = append(addresses, cluster.GetFullAddress(podClient.GetPodIP()))
 
-		signal := make(chan error)
-		go r.updatePodDynamicConf(context, cluster, instances[0], signal)
-		err = <-signal
-		if err != nil {
-			return err
+		synced, err := r.updatePodDynamicConf(context, cluster, instances[0])
+		if !synced {
+			return synced, err
 		}
 	}
 
@@ -1192,7 +1223,7 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 		if enabled != nil && !*enabled {
 			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
@@ -1202,14 +1233,14 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
-			return ReconciliationNotReadyError{message: "Kills are disabled"}
+			return false, ReconciliationNotReadyError{message: "Kills are disabled"}
 		}
 
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
 		r.Recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
@@ -1217,11 +1248,11 @@ func (r *ReconcileFoundationDBCluster) bounceProcesses(context ctx.Context, clus
 		cluster.Spec.RunningVersion = cluster.Spec.Version
 		err = r.Update(context, cluster)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return nil
+	return true, nil
 }
 
 func (r *ReconcileFoundationDBCluster) updatePods(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -1753,20 +1784,12 @@ func (r *ReconcileFoundationDBCluster) getPodClient(context ctx.Context, cluster
 
 	pod := instance.Pod
 	client, err := r.PodClientProvider(cluster, pod)
-	for err != nil {
-		if err == fdbPodClientErrorNoIP {
-			log.Info("Waiting for pod to be assigned an IP", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
-		} else if err == fdbPodClientErrorNotReady {
-			log.Info("Waiting for pod to be ready", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
-		} else {
-			return nil, err
-		}
-		time.Sleep(time.Second)
-		err = r.Get(context, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, pod)
-		if err != nil {
-			return nil, err
-		}
-		client, err = r.PodClientProvider(cluster, pod)
+	if err == fdbPodClientErrorNoIP {
+		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name), retryable: true}
+	} else if err == fdbPodClientErrorNotReady {
+		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name), retryable: true}
+	} else if err != nil {
+		return nil, err
 	}
 	return client, nil
 }
@@ -1917,7 +1940,10 @@ func MissingPodError(instance FdbInstance, cluster *fdbtypes.FoundationDBCluster
 // MissingPodErrorByName creates an error that can be thrown when an instance
 // does not have an associated pod.
 func MissingPodErrorByName(instanceName string, cluster *fdbtypes.FoundationDBCluster) error {
-	return fmt.Errorf("Instance %s in cluster %s/%s does not have pod defined", instanceName, cluster.Namespace, cluster.Name)
+	return ReconciliationNotReadyError{
+		message:   fmt.Sprintf("Instance %s in cluster %s/%s does not have pod defined", instanceName, cluster.Namespace, cluster.Name),
+		retryable: true,
+	}
 }
 
 // ReconciliationNotReadyError is returned when reconciliation cannot proceed

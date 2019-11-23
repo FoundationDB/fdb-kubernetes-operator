@@ -31,7 +31,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,17 +48,17 @@ type FdbPodClient interface {
 	GetPodIP() string
 
 	// IsPresent checks whether a file in the sidecar is present
-	IsPresent(filename string, result chan bool, err chan error)
+	IsPresent(filename string) (bool, error)
 
 	// CheckHash checks whether a file in the sidecar has the expected contents.
-	CheckHash(filename string, contents string, result chan bool, err chan error)
+	CheckHash(filename string, contents string) (bool, error)
 
 	// GenerateMonitorConf updates the monitor conf file for a pod
-	GenerateMonitorConf(err chan error)
+	GenerateMonitorConf() error
 
 	// CopyFiles copies the files from the config map to the shared dynamic conf
 	// volume
-	CopyFiles(err chan error)
+	CopyFiles() error
 
 	// GetVariableSubstitutions gets the current keys and values that this
 	// instance will substitute into its monitor conf.
@@ -171,45 +170,43 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 }
 
 // IsPresent checks whether a file in the sidecar is present.
-func (client *realFdbPodClient) IsPresent(filename string, resultChan chan bool, errorChan chan error) {
+func (client *realFdbPodClient) IsPresent(filename string) (bool, error) {
 	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err == nil {
-		resultChan <- true
-		return
+		return true, err
 	}
 
 	response, isResponse := err.(failedResponse)
 	if isResponse && response.response.StatusCode == 404 {
-		resultChan <- false
+		return false, nil
 	} else {
-		errorChan <- err
+		return false, err
 	}
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
-func (client *realFdbPodClient) CheckHash(filename string, contents string, resultChan chan bool, errorChan chan error) {
+func (client *realFdbPodClient) CheckHash(filename string, contents string) (bool, error) {
 	response, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
-		errorChan <- err
-		return
+		return false, err
 	}
 
 	expectedHash := sha256.Sum256([]byte(contents))
 	expectedHashString := hex.EncodeToString(expectedHash[:])
-	resultChan <- strings.Compare(expectedHashString, response) == 0
+	return strings.Compare(expectedHashString, response) == 0, nil
 }
 
 // GenerateMonitorConf updates the monitor conf file for a pod
-func (client *realFdbPodClient) GenerateMonitorConf(errorChan chan error) {
+func (client *realFdbPodClient) GenerateMonitorConf() error {
 	_, err := client.makeRequest("POST", "copy_monitor_conf")
-	errorChan <- err
+	return err
 }
 
 // CopyFiles copies the files from the config map to the shared dynamic conf
 // volume
-func (client *realFdbPodClient) CopyFiles(errorChan chan error) {
+func (client *realFdbPodClient) CopyFiles() error {
 	_, err := client.makeRequest("POST", "copy_files")
-	errorChan <- err
+	return err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
@@ -251,92 +248,64 @@ func (client *mockFdbPodClient) GetPodIP() string {
 }
 
 // IsPresent checks whether a file in the sidecar is prsent.
-func (client *mockFdbPodClient) IsPresent(filename string, result chan bool, err chan error) {
-	result <- true
+func (client *mockFdbPodClient) IsPresent(filename string) (bool, error) {
+	return true, nil
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
-func (client *mockFdbPodClient) CheckHash(filename string, contents string, result chan bool, err chan error) {
-	result <- true
+func (client *mockFdbPodClient) CheckHash(filename string, contents string) (bool, error) {
+	return true, nil
 }
 
 // GenerateMonitorConf updates the monitor conf file for a pod
-func (client *mockFdbPodClient) GenerateMonitorConf(err chan error) {
-	err <- nil
+func (client *mockFdbPodClient) GenerateMonitorConf() error {
+	return nil
 }
 
 // CopyFiles copies the files from the config map to the shared dynamic conf
 // volume
-func (client *mockFdbPodClient) CopyFiles(err chan error) {
-	err <- nil
+func (client *mockFdbPodClient) CopyFiles() error {
+	return nil
 }
 
 func mockPodIP(pod *corev1.Pod) string {
 	return fmt.Sprintf("1.1.1.%s", pod.Labels["fdb-instance-id"])
 }
 
-// UpdateDynamicFiles updates the files in the dynamic conf volume until they
-// match the expected contents.
-func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, signal chan error, updateFunc func(client FdbPodClient, err chan error)) {
-	clientError := make(chan error)
-	hashMatch := make(chan bool)
-
+// UpdateDynamicFiles checks if the files in the dynamic conf volume match the
+// expected contents, and tries to copy the latest files from the input volume
+// if they do not.
+func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, updateFunc func(client FdbPodClient) error) (bool, error) {
 	match := false
-	firstCheck := true
 	var err error
 
-	for !match {
-		go client.CheckHash(filename, contents, hashMatch, clientError)
-		select {
-		case match = <-hashMatch:
-			if !match {
-				log.Info("Waiting for config update", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
-				if firstCheck {
-					firstCheck = false
-				} else {
-					time.Sleep(time.Second * 10)
-				}
-				go updateFunc(client, clientError)
-				err = <-clientError
-				if err != nil {
-					signal <- err
-					return
-				}
-			}
-			break
-		case err = <-clientError:
-			signal <- err
-			return
-		}
+	match, err = client.CheckHash(filename, contents)
+	if err != nil {
+		return false, err
 	}
 
-	signal <- nil
+	if !match {
+		log.Info("Waiting for config update", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
+		err = updateFunc(client)
+		if err != nil {
+			return false, err
+		}
+
+		return client.CheckHash(filename, contents)
+	}
+
+	return true, nil
 }
 
 // CheckDynamicFilePresent waits for a file to be present in the dynamic conf
-func CheckDynamicFilePresent(client FdbPodClient, filename string, signal chan error) {
-	clientError := make(chan error)
-	presentChan := make(chan bool)
+func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error) {
+	present, err := client.IsPresent(filename)
 
-	present := false
-	var err error
-
-	for !present {
-		go client.IsPresent(filename, presentChan, clientError)
-		select {
-		case present = <-presentChan:
-			if !present {
-				log.Info("Waiting for file", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
-				time.Sleep(time.Second * 10)
-			}
-			break
-		case err = <-clientError:
-			signal <- err
-			return
-		}
+	if !present {
+		log.Info("Waiting for file", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
 	}
 
-	signal <- nil
+	return present, err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
