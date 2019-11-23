@@ -60,6 +60,7 @@ type FoundationDBClusterSpec struct {
 	PodLabels             map[string]string                    `json:"podLabels,omitempty"`
 	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
 	PodSecurityContext    *corev1.PodSecurityContext           `json:"podSecurityContext,omitempty"`
+	InstanceIDPrefix      string                               `json:"instanceIDPrefix,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

@@ -363,6 +363,9 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 			return nil, fmt.Errorf("Unsupported fault domain source %s", faultDomainSource)
 		}
 	}
+
+	substitutions["FDB_INSTANCE_ID"] = client.Pod.ObjectMeta.Labels["fdb-full-instance-id"]
+
 	return substitutions, nil
 }
 

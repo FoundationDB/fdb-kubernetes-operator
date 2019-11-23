@@ -106,6 +106,8 @@ spec:
               items:
                 type: object
               type: array
+            instanceIDPrefix:
+              type: string
             logGroup:
               type: string
             mainContainer:
