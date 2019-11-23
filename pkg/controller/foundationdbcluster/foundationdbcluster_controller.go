@@ -621,6 +621,11 @@ func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass str
 
 	if id != "" {
 		labels["fdb-instance-id"] = id
+		fullID := id
+		if cluster.Spec.InstanceIDPrefix != "" {
+			fullID = fmt.Sprintf("%s-%s", cluster.Spec.InstanceIDPrefix, fullID)
+		}
+		labels["fdb-full-instance-id"] = fullID
 	}
 
 	return labels
@@ -1267,7 +1272,7 @@ func (r *ReconcileFoundationDBCluster) updatePods(context ctx.Context, cluster *
 		if instance.Pod == nil {
 			continue
 		}
-		spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], fmt.Sprintf("%s-%s", cluster.ObjectMeta.Name, instance.Metadata.Labels["fdb-instance-id"]))
+		spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Metadata.Labels["fdb-instance-id"])
 		specBytes, err := json.Marshal(spec)
 		if err != nil {
 			return err
@@ -1372,12 +1377,17 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
+	substitutionCount := len(cluster.Spec.SidecarVariables)
+	substitutionKeys := make([]string, 0, 1+substitutionCount)
+	substitutionKeys = append(substitutionKeys, cluster.Spec.SidecarVariables...)
+	substitutionKeys = append(substitutionKeys, "FDB_INSTANCE_ID")
+
 	sidecarConf := map[string]interface{}{
 		"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},
 		"COPY_FILES":               []string{"fdb.cluster", "ca.pem"},
 		"COPY_LIBRARIES":           []string{},
 		"INPUT_MONITOR_CONF":       "fdbmonitor.conf",
-		"ADDITIONAL_SUBSTITUTIONS": cluster.Spec.SidecarVariables,
+		"ADDITIONAL_SUBSTITUTIONS": substitutionKeys,
 	}
 	sidecarConfData, err := json.Marshal(sidecarConf)
 	if err != nil {
@@ -1484,7 +1494,8 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", logGroup),
-		fmt.Sprintf("locality_machineid = %s", "$FDB_MACHINE_ID"),
+		fmt.Sprintf("locality_instance_id = $FDB_INSTANCE_ID"),
+		fmt.Sprintf("locality_machineid = $FDB_MACHINE_ID"),
 		fmt.Sprintf("locality_zoneid = %s", zoneVariable),
 	)
 
@@ -1514,7 +1525,7 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 	if err != nil {
 		return nil, err
 	}
-	spec := GetPodSpec(cluster, processClass, name)
+	spec := GetPodSpec(cluster, processClass, strconv.Itoa(id))
 	specJson, err := json.Marshal(spec)
 	if err != nil {
 		return nil, err
@@ -1563,6 +1574,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	if imageName == "" {
 		imageName = "foundationdb/foundationdb"
 	}
+	podName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Name, podID)
 	mainContainer := corev1.Container{
 		Name:  "foundationdb",
 		Image: fmt.Sprintf("%s:%s", imageName, cluster.Spec.Version),
@@ -1625,6 +1637,13 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 		}
 	}
 
+	instanceID := podID
+	if cluster.Spec.InstanceIDPrefix != "" {
+		instanceID = fmt.Sprintf("%s-%s", cluster.Spec.InstanceIDPrefix, instanceID)
+	}
+
+	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+
 	sidecarImageName := cluster.Spec.SidecarContainer.ImageName
 	if sidecarImageName == "" {
 		sidecarImageName = "foundationdb/foundationdb-kubernetes-sidecar"
@@ -1673,7 +1692,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
 		mainVolumeSource.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: fmt.Sprintf("%s-data", podID),
+			ClaimName: fmt.Sprintf("%s-data", podName),
 		}
 	} else {
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
