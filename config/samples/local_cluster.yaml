@@ -49,6 +49,7 @@ spec:
       runAsUser: 0
   securityContext:
     fsGroup: 0
+  automountServiceAccountToken: false
   resources:
     requests:
       cpu: 250m

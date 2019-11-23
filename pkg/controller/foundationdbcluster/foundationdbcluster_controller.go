@@ -1745,11 +1745,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 	containers = append(containers, cluster.Spec.Containers...)
 
 	return &corev1.PodSpec{
-		InitContainers:  initContainers,
-		Containers:      containers,
-		Volumes:         volumes,
-		Affinity:        affinity,
-		SecurityContext: cluster.Spec.PodSecurityContext,
+		InitContainers:               initContainers,
+		Containers:                   containers,
+		Volumes:                      volumes,
+		Affinity:                     affinity,
+		SecurityContext:              cluster.Spec.PodSecurityContext,
+		AutomountServiceAccountToken: cluster.Spec.AutomountServiceAccountToken,
 	}
 }
 

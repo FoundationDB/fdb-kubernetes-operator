@@ -34,33 +34,34 @@ import (
 
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
-	Version               string `json:"version"`
-	SidecarVersion        int    `json:"sidecarVersion,omitempty"`
-	RunningVersion        string `json:"runningVersion,omitempty"`
-	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
-	Configured            bool `json:"configured,omitempty"`
-	ProcessCounts         `json:"processCounts,omitempty"`
-	ConnectionString      string                               `json:"connectionString,omitempty"`
-	NextInstanceID        int                                  `json:"nextInstanceID,omitempty"`
-	FaultDomain           FoundationDBClusterFaultDomain       `json:"faultDomain,omitempty"`
-	StorageClass          *string                              `json:"storageClass,omitempty"`
-	VolumeSize            string                               `json:"volumeSize"`
-	CustomParameters      []string                             `json:"customParameters,omitempty"`
-	Resources             *corev1.ResourceRequirements         `json:"resources,omitempty"`
-	PendingRemovals       map[string]string                    `json:"pendingRemovals,omitempty"`
-	InitContainers        []corev1.Container                   `json:"initContainers,omitempty"`
-	Containers            []corev1.Container                   `json:"containers,omitempty"`
-	MainContainer         ContainerOverrides                   `json:"mainContainer,omitempty"`
-	SidecarContainer      ContainerOverrides                   `json:"sidecarContainer,omitempty"`
-	Volumes               []corev1.Volume                      `json:"volumes,omitempty"`
-	TrustedCAs            []string                             `json:"trustedCAs,omitempty"`
-	SidecarVariables      []string                             `json:"sidecarVariables,omitempty"`
-	LogGroup              string                               `json:"logGroup,omitempty"`
-	DataCenter            string                               `json:"dataCenter,omitempty"`
-	PodLabels             map[string]string                    `json:"podLabels,omitempty"`
-	AutomationOptions     FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
-	PodSecurityContext    *corev1.PodSecurityContext           `json:"podSecurityContext,omitempty"`
-	InstanceIDPrefix      string                               `json:"instanceIDPrefix,omitempty"`
+	Version                      string `json:"version"`
+	SidecarVersion               int    `json:"sidecarVersion,omitempty"`
+	RunningVersion               string `json:"runningVersion,omitempty"`
+	DatabaseConfiguration        `json:"databaseConfiguration,omitempty"`
+	Configured                   bool `json:"configured,omitempty"`
+	ProcessCounts                `json:"processCounts,omitempty"`
+	ConnectionString             string                               `json:"connectionString,omitempty"`
+	NextInstanceID               int                                  `json:"nextInstanceID,omitempty"`
+	FaultDomain                  FoundationDBClusterFaultDomain       `json:"faultDomain,omitempty"`
+	StorageClass                 *string                              `json:"storageClass,omitempty"`
+	VolumeSize                   string                               `json:"volumeSize"`
+	CustomParameters             []string                             `json:"customParameters,omitempty"`
+	Resources                    *corev1.ResourceRequirements         `json:"resources,omitempty"`
+	PendingRemovals              map[string]string                    `json:"pendingRemovals,omitempty"`
+	InitContainers               []corev1.Container                   `json:"initContainers,omitempty"`
+	Containers                   []corev1.Container                   `json:"containers,omitempty"`
+	MainContainer                ContainerOverrides                   `json:"mainContainer,omitempty"`
+	SidecarContainer             ContainerOverrides                   `json:"sidecarContainer,omitempty"`
+	Volumes                      []corev1.Volume                      `json:"volumes,omitempty"`
+	TrustedCAs                   []string                             `json:"trustedCAs,omitempty"`
+	SidecarVariables             []string                             `json:"sidecarVariables,omitempty"`
+	LogGroup                     string                               `json:"logGroup,omitempty"`
+	DataCenter                   string                               `json:"dataCenter,omitempty"`
+	PodLabels                    map[string]string                    `json:"podLabels,omitempty"`
+	AutomationOptions            FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
+	PodSecurityContext           *corev1.PodSecurityContext           `json:"podSecurityContext,omitempty"`
+	InstanceIDPrefix             string                               `json:"instanceIDPrefix,omitempty"`
+	AutomountServiceAccountToken *bool                                `json:"automountServiceAccountToken,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

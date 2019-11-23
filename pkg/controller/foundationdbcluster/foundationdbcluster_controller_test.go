@@ -1231,6 +1231,8 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 			},
 		},
 	}))
+
+	g.Expect(spec.AutomountServiceAccountToken).To(gomega.BeNil())
 }
 
 func TestGetPodSpecForStorageInstanceWithNoVolume(t *testing.T) {
@@ -1669,6 +1671,16 @@ func TestGetPodSpecWithInstanceIDPrefix(t *testing.T) {
 		}},
 		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "dc1-1"},
 	}))
+}
+
+func TestGetPodSpecWithServiceAccountDisabled(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	var automount = false
+	cluster.Spec.AutomountServiceAccountToken = &automount
+	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
+
+	g.Expect(*spec.AutomountServiceAccountToken).To(gomega.BeFalse())
 }
 
 func TestGetPvcForStorageInstance(t *testing.T) {
