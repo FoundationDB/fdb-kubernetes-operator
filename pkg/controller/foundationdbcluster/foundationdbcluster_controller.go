@@ -154,6 +154,19 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	adminClient, err := r.AdminClientProvider(cluster, r)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !supportedVersion {
+		return reconcile.Result{}, fmt.Errorf("Version %s is not supported", cluster.Spec.Version)
+	}
+
 	changed, err := r.setDefaultValues(context, cluster)
 	if err != nil {
 		return r.checkRetryableError(err)
