@@ -65,6 +65,10 @@ type AdminClient interface {
 	// ChangeCoordinators changes the coordinator set
 	ChangeCoordinators(addresses []string) (string, error)
 
+	// VersionSupported reports whether we can support a cluster with a given
+	// version.
+	VersionSupported(version string) (bool, error)
+
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
@@ -106,15 +110,20 @@ type cliCommand struct {
 	timeout int
 }
 
+func getBinaryPath(version string) string {
+	shortVersion := version[:strings.LastIndex(version, ".")]
+	return fmt.Sprintf("%s/%s/fdbcli", os.Getenv("FDB_BINARY_DIR"), shortVersion)
+}
+
 func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	version := client.Cluster.Spec.RunningVersion
-	version = version[:strings.LastIndex(version, ".")]
+	binary := getBinaryPath(version)
 	timeout := command.timeout
 	if timeout == 0 {
 		timeout = 10
 	}
 	execCommand := exec.Command(
-		fmt.Sprintf("%s/%s/fdbcli", os.Getenv("FDB_BINARY_DIR"), version),
+		binary,
 		"-C", client.clusterFilePath, "--exec", command.command,
 		"--timeout", fmt.Sprintf("%d", timeout),
 		"--log", "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"),
@@ -124,8 +133,8 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	output, err := execCommand.Output()
 	if err != nil {
-		exitError := err.(*exec.ExitError)
-		if exitError != nil {
+		exitError, canCast := err.(*exec.ExitError)
+		if canCast {
 			log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stderr", string(exitError.Stderr))
 		}
 		return "", err
@@ -244,6 +253,20 @@ func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, er
 		return "", err
 	}
 	return string(connectionStringBytes), nil
+}
+
+// VersionSupported reports whether we can support a cluster with a given
+// version.
+func (client *CliAdminClient) VersionSupported(version string) (bool, error) {
+	_, err := os.Stat(getBinaryPath(version))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func (client *CliAdminClient) Close() error {
@@ -431,6 +454,12 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 	connectionString.GenerateNewGenerationID()
 	connectionString.Coordinators = addresses
 	return connectionString.String(), err
+}
+
+// VersionSupported reports whether we can support a cluster with a given
+// version.
+func (client *MockAdminClient) VersionSupported(version string) (bool, error) {
+	return true, nil
 }
 
 // Close shuts down any resources for the client once it is no longer
