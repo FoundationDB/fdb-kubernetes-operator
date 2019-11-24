@@ -1598,6 +1598,31 @@ func TestGetPodSpecWithCustomVolumes(t *testing.T) {
 func TestGetPodSpecWithCustomSidecarVersion(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
+	cluster.Spec.SidecarVersions = map[string]int{
+		cluster.Spec.Version: 2,
+		"6.1.0":              3,
+	}
+	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
+
+	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
+	initContainer := spec.InitContainers[0]
+	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
+	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:6.1.8-2"))
+
+	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
+
+	mainContainer := spec.Containers[0]
+	g.Expect(mainContainer.Name).To(gomega.Equal("foundationdb"))
+	g.Expect(mainContainer.Image).To(gomega.Equal("foundationdb/foundationdb:6.1.8"))
+
+	sidecarContainer := spec.Containers[1]
+	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
+	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
+}
+
+func TestGetPodSpecWithCustomDeprecatedSidecarVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
 	cluster.Spec.SidecarVersion = 2
 	spec := GetPodSpec(cluster, "storage", "1")
 
