@@ -412,7 +412,7 @@ func (r *ReconcileFoundationDBCluster) updateStatus(context ctx.Context, cluster
 		}
 
 		if instance.Pod != nil {
-			spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], fmt.Sprintf("%s-%s", cluster.ObjectMeta.Name, instance.Metadata.Labels["fdb-instance-id"]))
+			spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Metadata.Labels["fdb-instance-id"])
 			specBytes, err := json.Marshal(spec)
 			if err != nil {
 				return err
