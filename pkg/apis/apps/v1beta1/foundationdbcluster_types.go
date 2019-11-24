@@ -34,9 +34,9 @@ import (
 
 // FoundationDBClusterSpec defines the desired state of FoundationDBCluster
 type FoundationDBClusterSpec struct {
-	Version                      string `json:"version"`
-	SidecarVersion               int    `json:"sidecarVersion,omitempty"`
-	RunningVersion               string `json:"runningVersion,omitempty"`
+	Version                      string         `json:"version"`
+	SidecarVersions              map[string]int `json:"sidecarVersions,omitempty"`
+	RunningVersion               string         `json:"runningVersion,omitempty"`
 	DatabaseConfiguration        `json:"databaseConfiguration,omitempty"`
 	Configured                   bool `json:"configured,omitempty"`
 	ProcessCounts                `json:"processCounts,omitempty"`
@@ -62,6 +62,9 @@ type FoundationDBClusterSpec struct {
 	PodSecurityContext           *corev1.PodSecurityContext           `json:"podSecurityContext,omitempty"`
 	InstanceIDPrefix             string                               `json:"instanceIDPrefix,omitempty"`
 	AutomountServiceAccountToken *bool                                `json:"automountServiceAccountToken,omitempty"`
+
+	// Deprecated: Use SidecarVersions instead.
+	SidecarVersion int `json:"sidecarVersion,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -492,7 +495,10 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
 // GetFullSidecarVersion gets the version of the image for the sidecar,
 // including the main FoundationDB version and the sidecar version suffix
 func (cluster *FoundationDBCluster) GetFullSidecarVersion() string {
-	sidecarVersion := cluster.Spec.SidecarVersion
+	sidecarVersion := cluster.Spec.SidecarVersions[cluster.Spec.Version]
+	if sidecarVersion < 1 {
+		sidecarVersion = cluster.Spec.SidecarVersion
+	}
 	if sidecarVersion < 1 {
 		sidecarVersion = 1
 	}

@@ -201,8 +201,11 @@ spec:
                 type: string
               type: array
             sidecarVersion:
+              description: 'Deprecated: Use SidecarVersions instead.'
               format: int64
               type: integer
+            sidecarVersions:
+              type: object
             storageClass:
               type: string
             trustedCAs:
