@@ -1,5 +1,5 @@
 /*
- * foundationdbcluster_pod_clien t.go
+ * pod_client.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -65,10 +65,19 @@ type FdbPodClient interface {
 	GetVariableSubstitutions() (map[string]string, error)
 }
 
+// realPodClient provides a client for use in real environments.
 type realFdbPodClient struct {
-	Cluster   *fdbtypes.FoundationDBCluster
-	Pod       *corev1.Pod
-	useTls    bool
+	// Cluster is the cluster we are connecting to.
+	Cluster *fdbtypes.FoundationDBCluster
+
+	// Pod is the pod we are connecting to.
+	Pod *corev1.Pod
+
+	// useTls indicates whether this is using a TLS connection to the sidecar.
+	useTls bool
+
+	// tlsConfig contains the TLS configuration for the connection to the
+	// sidecar.
 	tlsConfig *tls.Config
 }
 
@@ -124,8 +133,8 @@ func (client *realFdbPodClient) GetPodIP() string {
 	return client.Pod.Status.PodIP
 }
 
+// makeRequest submits a request to the sidecar.
 func (client *realFdbPodClient) makeRequest(method string, path string) (string, error) {
-
 	var protocol string
 	if client.useTls {
 		protocol = "https"
@@ -268,6 +277,7 @@ func (client *mockFdbPodClient) CopyFiles() error {
 	return nil
 }
 
+// mockPodIp generates an IP address for a pod in the mock client.
 func mockPodIP(pod *corev1.Pod) string {
 	return fmt.Sprintf("1.1.1.%s", pod.Labels["fdb-instance-id"])
 }
@@ -338,13 +348,20 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	return substitutions, nil
 }
 
+// fdbPodClient provides errors that are returned when talking to FDB pods.
 type fdbPodClientError int
 
 const (
-	fdbPodClientErrorNoIP     fdbPodClientError = iota
+	// fdbPodClientErrorNoIP is returned when the pod has not been assigned an
+	// IP address.
+	fdbPodClientErrorNoIP fdbPodClientError = iota
+
+	// fdbPodClientErrorNotReady is returned when the pod is not ready to
+	// recieve requests.
 	fdbPodClientErrorNotReady fdbPodClientError = iota
 )
 
+// Error generates an error message.
 func (err fdbPodClientError) Error() string {
 	switch err {
 	case fdbPodClientErrorNoIP:
@@ -354,11 +371,13 @@ func (err fdbPodClientError) Error() string {
 	}
 }
 
+// failedResponse is an error thrown when a request to the sidecar fails.
 type failedResponse struct {
 	response *http.Response
 	body     string
 }
 
+// Error generates an error message.
 func (response failedResponse) Error() string {
 	return fmt.Sprintf("HTTP request failed. Status=%d; response=%s", response.response.StatusCode, response.body)
 }

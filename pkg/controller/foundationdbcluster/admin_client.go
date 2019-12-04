@@ -1,5 +1,5 @@
 /*
- * foundationdbcluster_admin_client.go
+ * admin_client.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,9 +21,7 @@
 package foundationdbcluster
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -77,7 +75,11 @@ type AdminClient interface {
 // CliAdminClient provides an implementation of the admin interface using the
 // FDB CLI.
 type CliAdminClient struct {
-	Cluster         *fdbtypes.FoundationDBCluster
+	// Cluster is the reference to the cluster model.
+	Cluster *fdbtypes.FoundationDBCluster
+
+	// clusterFilePath is the path to the temp file containing the cluster file
+	// for this session.
 	clusterFilePath string
 }
 
@@ -105,16 +107,22 @@ func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (
 	return &CliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath}, nil
 }
 
+// cliCommand describes a command that we are running against FDB.
 type cliCommand struct {
+	// command is the command to execute.
 	command string
+
+	// timeout is the timeout for the CLI.
 	timeout int
 }
 
+// getBinaryPath generates the path to the fdbcli binary.
 func getBinaryPath(version string) string {
 	shortVersion := version[:strings.LastIndex(version, ".")]
 	return fmt.Sprintf("%s/%s/fdbcli", os.Getenv("FDB_BINARY_DIR"), shortVersion)
 }
 
+// runCommand executes a command in the CLI.
 func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	version := client.Cluster.Spec.RunningVersion
 	binary := getBinaryPath(version)
@@ -178,6 +186,8 @@ func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 	return err
 }
 
+// removeAddressFlags strips the flags from the end of the addresses, leaving
+// only the IP and port.
 func removeAddressFlags(addresses []string) []string {
 	results := make([]string, len(addresses))
 	for _, address := range addresses {
@@ -225,7 +235,7 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	return nil, err
 }
 
-// KillProcesses restarts processes
+// KillInstances restarts processes
 func (client *CliAdminClient) KillInstances(addresses []string) error {
 
 	if len(addresses) == 0 {
@@ -269,6 +279,7 @@ func (client *CliAdminClient) VersionSupported(version string) (bool, error) {
 	return true, nil
 }
 
+// Close cleans up any pending resources.
 func (client *CliAdminClient) Close() error {
 	err := os.Remove(client.clusterFilePath)
 	if err != nil {
@@ -288,6 +299,7 @@ type MockAdminClient struct {
 	frozenStatus          *fdbtypes.FoundationDBStatus
 }
 
+// adminClientCache provides a cache of mock admin clients.
 var adminClientCache = make(map[string]*MockAdminClient)
 
 // NewMockAdminClient creates an admin client for a cluster.
@@ -295,6 +307,7 @@ func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client
 	return newMockAdminClientUncast(cluster, kubeClient)
 }
 
+// newMockAdminClientUncast creates a mock admin client for a cluster.
 func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*MockAdminClient, error) {
 	client := adminClientCache[cluster.Name]
 	if client == nil {
@@ -484,45 +497,4 @@ func (client *MockAdminClient) FreezeStatus() error {
 // on every call to GetStatus
 func (client *MockAdminClient) UnfreezeStatus() {
 	client.frozenStatus = nil
-}
-
-// localityPolicy describes a policy for how data is replicated.
-type localityPolicy interface {
-	// BinaryRepresentation gets the encoded policy for use in database
-	// configuration
-	BinaryRepresentation() []byte
-}
-
-// singletonPolicy provides a policy that keeps a single replica of data
-type singletonPolicy struct {
-}
-
-// BinaryRepresentation gets the encoded policy for use in database
-// configuration
-func (policy *singletonPolicy) BinaryRepresentation() []byte {
-	return []byte("\x03\x00\x00\x00One")
-}
-
-// acrossPolicy provides a policy that replicates across fault domains
-type acrossPolicy struct {
-	Count     uint32
-	Field     string
-	Subpolicy localityPolicy
-}
-
-// BinaryRepresentation gets the encoded policy for use in database
-// configuration
-func (policy *acrossPolicy) BinaryRepresentation() []byte {
-	intBuffer := [4]byte{}
-	buffer := bytes.NewBuffer(nil)
-	binary.LittleEndian.PutUint32(intBuffer[:], 6)
-	buffer.Write(intBuffer[:])
-	buffer.WriteString("Across")
-	binary.LittleEndian.PutUint32(intBuffer[:], uint32(len(policy.Field)))
-	buffer.Write(intBuffer[:])
-	buffer.WriteString(policy.Field)
-	binary.LittleEndian.PutUint32(intBuffer[:], policy.Count)
-	buffer.Write(intBuffer[:])
-	buffer.Write(policy.Subpolicy.BinaryRepresentation())
-	return buffer.Bytes()
 }

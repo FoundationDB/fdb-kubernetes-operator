@@ -29,69 +29,174 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// FoundationDBClusterSpec defines the desired state of FoundationDBCluster
+// FoundationDBClusterSpec defines the desired state of a cluster.
 type FoundationDBClusterSpec struct {
-	Version                      string         `json:"version"`
-	SidecarVersions              map[string]int `json:"sidecarVersions,omitempty"`
-	RunningVersion               string         `json:"runningVersion,omitempty"`
-	DatabaseConfiguration        `json:"databaseConfiguration,omitempty"`
-	Configured                   bool `json:"configured,omitempty"`
-	ProcessCounts                `json:"processCounts,omitempty"`
-	ConnectionString             string                               `json:"connectionString,omitempty"`
-	NextInstanceID               int                                  `json:"nextInstanceID,omitempty"`
-	FaultDomain                  FoundationDBClusterFaultDomain       `json:"faultDomain,omitempty"`
-	StorageClass                 *string                              `json:"storageClass,omitempty"`
-	VolumeSize                   string                               `json:"volumeSize"`
-	CustomParameters             []string                             `json:"customParameters,omitempty"`
-	Resources                    *corev1.ResourceRequirements         `json:"resources,omitempty"`
-	PendingRemovals              map[string]string                    `json:"pendingRemovals,omitempty"`
-	InitContainers               []corev1.Container                   `json:"initContainers,omitempty"`
-	Containers                   []corev1.Container                   `json:"containers,omitempty"`
-	MainContainer                ContainerOverrides                   `json:"mainContainer,omitempty"`
-	SidecarContainer             ContainerOverrides                   `json:"sidecarContainer,omitempty"`
-	Volumes                      []corev1.Volume                      `json:"volumes,omitempty"`
-	TrustedCAs                   []string                             `json:"trustedCAs,omitempty"`
-	SidecarVariables             []string                             `json:"sidecarVariables,omitempty"`
-	LogGroup                     string                               `json:"logGroup,omitempty"`
-	DataCenter                   string                               `json:"dataCenter,omitempty"`
-	PodLabels                    map[string]string                    `json:"podLabels,omitempty"`
-	AutomationOptions            FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
-	PodSecurityContext           *corev1.PodSecurityContext           `json:"podSecurityContext,omitempty"`
-	InstanceIDPrefix             string                               `json:"instanceIDPrefix,omitempty"`
-	AutomountServiceAccountToken *bool                                `json:"automountServiceAccountToken,omitempty"`
+	// Version defines the version of FoundationDB the cluster should run.
+	Version string `json:"version"`
 
+	// SidecarVersions defines the build version of the sidecar to run. This
+	// maps an FDB version to the corresponding sidecar build version.
+	SidecarVersions map[string]int `json:"sidecarVersions,omitempty"`
+
+	// RunningVersion defines the version of FoundationDB that the cluster is
+	// currently running.
+	RunningVersion string `json:"runningVersion,omitempty"`
+
+	// DatabaseConfiguration defines the database configuration.
+	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+
+	// Configured defines whether we have configured the database yet.
+	Configured bool `json:"configured,omitempty"`
+
+	// ProcessCounts defines the number of processes to configure for each
+	// process class. You can generally omit this, to allow the operator to
+	// infer the process counts based on the database configuration.
+	ProcessCounts `json:"processCounts,omitempty"`
+
+	// ConnectionString defines the contents of the cluster file.
+	ConnectionString string `json:"connectionString,omitempty"`
+
+	// NextInstanceID defines the ID to use when creating the next instance.
+	NextInstanceID int `json:"nextInstanceID,omitempty"`
+
+	// FaultDomain defines the rules for what fault domain to replicate across.
+	FaultDomain FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
+
+	// StorageClass defines the storage class for the volumes in the cluster.
+	StorageClass *string `json:"storageClass,omitempty"`
+
+	// VolumeSize defines the size of the volume to use for stateful processes.
+	VolumeSize string `json:"volumeSize"`
+
+	// CustomParameters defines additional parameters to pass to the fdbserver
+	// processes.
+	CustomParameters []string `json:"customParameters,omitempty"`
+
+	// Resources defines the resource requirements for the foundationdb
+	// containers.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// PendingRemovals defines the processes that are pending removal.
+	// This maps the name of a pod to its IP address. If a value is left blank,
+	// the controller will provide the pod's current IP.
+	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
+
+	// InitContainers defines custom init containers for the FDB pods.
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+
+	// Containers defines custom containers for the FDB pods.
+	Containers []corev1.Container `json:"containers,omitempty"`
+
+	// MainContainer defines customization for the foundationdb container.
+	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
+
+	// SidecarContainer defines customization for the
+	// foundationdb-kubernetes-sidecar container.
+	SidecarContainer ContainerOverrides `json:"sidecarContainer,omitempty"`
+
+	// Volumes defines custom volumes for the FDB pods.
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// TrustedCAs defines a list of root CAs the cluster should trust, in PEM
+	// format.
+	TrustedCAs []string `json:"trustedCAs,omitempty"`
+
+	// SidecarVariables defines Ccustom variables that the sidecar should make
+	// available for substitution in the monitor conf file.
+	SidecarVariables []string `json:"sidecarVariables,omitempty"`
+
+	// LogGroup defines the log group to use for the trace logs for the cluster.
+	LogGroup string `json:"logGroup,omitempty"`
+
+	// DataCenter defines the data center where these processes are running.
+	DataCenter string `json:"dataCenter,omitempty"`
+
+	// PodLabels defines custom labels to apply to the FDB pods.
+	PodLabels map[string]string `json:"podLabels,omitempty"`
+
+	// AutomationOptions defines customization for enabling or disabling certain
+	// operations in the operator.
+	AutomationOptions FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
+
+	// PodSecurityContext defines the security context to apply to the FDB pods.
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+
+	// InstanceIDPrefix defines a prefix to append to the instance IDs in the
+	// locality fields.
+	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
+
+	// AutomountServiceAccountToken defines whether we should automount the
+	// service account tokens in the FDB pods.
+	AutomountServiceAccountToken *bool `json:"automountServiceAccountToken,omitempty"`
+
+	// SidecarVersion defines the build version of the sidecar to use.
 	// Deprecated: Use SidecarVersions instead.
 	SidecarVersion int `json:"sidecarVersion,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	ProcessCounts         `json:"processCounts,omitempty"`
-	IncorrectProcesses    map[string]int64      `json:"incorrectProcesses,omitempty"`
-	MissingProcesses      map[string]int64      `json:"missingProcesses,omitempty"`
+	// ProcessCounts defines the number of processes that are currently running
+	// in the cluster.
+	ProcessCounts `json:"processCounts,omitempty"`
+
+	// IncorrectProcesses provides the processes that do not have the correct
+	// configuration.
+	// This will map the names of the pod to the timestamp when we observed
+	// the incorrect configuration.
+	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
+
+	// MissingProcesses provides the processes that are not reporting to the
+	// cluster.
+	// This will map the names of the pod to the timestamp when we observed
+	// that the process was missing.
+	MissingProcesses map[string]int64 `json:"missingProcesses,omitempty"`
+
+	// DatabaseConfiguration provides the running configuration of the database.
 	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
-	Generations           GenerationStatus      `json:"generations,omitempty"`
-	Health                ClusterHealth         `json:"health,omitempty"`
+
+	// Generations provides information about the latest generation to be
+	// reconciled, or to reach other stages at which reconciliation can halt.
+	Generations GenerationStatus `json:"generations,omitempty"`
+
+	// Health provides information about the health of the database.
+	Health ClusterHealth `json:"health,omitempty"`
 }
 
 // GenerationStatus stores information on which generations have reached
 // different stages in reconciliation.
 type GenerationStatus struct {
-	Reconciled               int64 `json:"reconciled,omitempty"`
+	// Reconciled provides the last generation that was fully reconciled.
+	Reconciled int64 `json:"reconciled,omitempty"`
+
+	// NeedsConfigurationChange provides the last generation that is pending
+	// a change to configuration.
 	NeedsConfigurationChange int64 `json:"needsConfigurationChange,omitempty"`
-	NeedsBounce              int64 `json:"needsBounce,omitempty"`
-	NeedsPodDeletion         int64 `json:"needsPodDeletion,omitempty"`
+
+	// NeedsBounce provides the last generation that is pending a bounce of
+	// fdbserver.
+	NeedsBounce int64 `json:"needsBounce,omitempty"`
+
+	// NeedsPodDeletion provides the last generation that is pending pods being
+	// deleted and recreated.
+	NeedsPodDeletion int64 `json:"needsPodDeletion,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
 type ClusterHealth struct {
-	Available            bool `json:"available,omitempty"`
-	Healthy              bool `json:"healthy,omitempty"`
-	FullReplication      bool `json:"fullReplication,omitempty"`
-	DataMovementPriority int  `json:"dataMovementPriority,omitempty"`
+	// Available reports whether the database is accepting reads and writes.
+	Available bool `json:"available,omitempty"`
+
+	// Healthy reports whether the database is in a fully healthy state.
+	Healthy bool `json:"healthy,omitempty"`
+
+	// FullReplication reports whether all data are fully replicated according
+	// to the current replication policy.
+	FullReplication bool `json:"fullReplication,omitempty"`
+
+	// DataMovementPriority reports the priority of the highest-priority data
+	// movement in the cluster.
+	DataMovementPriority int `json:"dataMovementPriority,omitempty"`
 }
 
 // +genclient
@@ -107,7 +212,10 @@ type FoundationDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   FoundationDBClusterSpec   `json:"spec,omitempty"`
+	// Spec defines the desired state of the cluster.
+	Spec FoundationDBClusterSpec `json:"spec,omitempty"`
+
+	// Status defines the current state of the cluster.
 	Status FoundationDBClusterStatus `json:"status,omitempty"`
 }
 
@@ -117,7 +225,9 @@ type FoundationDBCluster struct {
 type FoundationDBClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []FoundationDBCluster `json:"items"`
+
+	// Items defines the clusters in the list.
+	Items []FoundationDBCluster `json:"items"`
 }
 
 // RoleCounts represents the roles whose counts can be customized.
@@ -145,10 +255,23 @@ func (counts RoleCounts) Map() map[string]int {
 
 // ProcessCounts represents the number of processes we have for each valid
 // process class.
+//
+// If one of the counts in the spec is set to 0, we will infer the process count
+// for that class from the role counts. If one of the counts in the spec is set
+// to -1, we will not create any processes for that class. See
+// GetProcessCountsWithDefaults for more information on the rules for inferring
+// process counts.
 type ProcessCounts struct {
-	Storage           int `json:"storage,omitempty"`
-	Transaction       int `json:"transaction,omitempty"`
-	Stateless         int `json:"stateless,omitempty"`
+	// Storage defines the number of storage class processes.
+	Storage int `json:"storage,omitempty"`
+
+	// Transaction defines the number of transaction class processes.
+	Transaction int `json:"transaction,omitempty"`
+
+	// Stateless defines the number of stateless class processes.
+	Stateless int `json:"stateless,omitempty"`
+
+	// Resolution defines the number of resolution class processes.
 	Resolution        int `json:"resolution,omitempty"`
 	Unset             int `json:"unset,omitempty"`
 	Log               int `json:"log,omitempty"`
@@ -160,7 +283,7 @@ type ProcessCounts struct {
 }
 
 // Map returns a map from process classes to the number of processes with that
-// class
+// class.
 func (counts ProcessCounts) Map() map[string]int {
 	countMap := make(map[string]int, len(processClassIndices))
 	countValue := reflect.ValueOf(counts)
@@ -173,7 +296,7 @@ func (counts ProcessCounts) Map() map[string]int {
 	return countMap
 }
 
-// IncreaseCount adds to one of the process counts based on the name
+// IncreaseCount adds to one of the process counts based on the name.
 func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
 	index, present := processClassIndices[name]
 	if present {
@@ -183,6 +306,7 @@ func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
 	}
 }
 
+// fieldNames provides the names of fields on a structure.
 func fieldNames(value interface{}) []string {
 	countType := reflect.TypeOf(value)
 	names := make([]string, 0, countType.NumField())
@@ -193,6 +317,8 @@ func fieldNames(value interface{}) []string {
 	return names
 }
 
+// fieldIndices provides a map from the names of fields in a structure to the
+// index of each field in the list of fields.
 func fieldIndices(value interface{}) map[string]int {
 	countType := reflect.TypeOf(value)
 	indices := make(map[string]int, countType.NumField())
@@ -206,20 +332,52 @@ func fieldIndices(value interface{}) map[string]int {
 // ProcessClasses provides a consistent ordered list of the supported process
 // classes.
 var ProcessClasses = fieldNames(ProcessCounts{})
+
+// processClassIndices provides the indices of each process class in the list
+// of process classes.
 var processClassIndices = fieldIndices(ProcessCounts{})
+
+// roleNames provides a consistent ordered list of the supported roles.
 var roleNames = fieldNames(RoleCounts{})
+
+// roleIndices provides the indices of each role in the list of roles.
 var roleIndices = fieldIndices(RoleCounts{})
 
 // FoundationDBClusterAutomationOptions provides flags for enabling or disabling
 // operations that can be performed on a cluster.
 type FoundationDBClusterAutomationOptions struct {
+	// ConfigureDatabase defines whether the operator is allowed to reconfigure
+	// the database.
 	ConfigureDatabase *bool `json:"configureDatabase,omitempty"`
-	KillProcesses     *bool `json:"killProcesses,omitempty"`
-	DeletePods        *bool `json:"deletePods,omitempty"`
+
+	// KillProcesses defines whether the operator is allowed to bounce fdbserver
+	// processes.
+	KillProcesses *bool `json:"killProcesses,omitempty"`
+
+	// DeletePods defines whether the operator is allowed to delete pods in
+	// order to recreate them.
+	DeletePods *bool `json:"deletePods,omitempty"`
 }
 
 // GetRoleCountsWithDefaults gets the role counts from the cluster spec and
 // fills in default values for any role counts that are 0.
+//
+// The default Storage value will be 2F + 1, where F is the cluster's fault
+// tolerance.
+//
+// The default Logs value will be 3.
+//
+// The default Proxies value will be 3.
+//
+// The default Resolvers value will be 1.
+//
+// The default RemoteLogs value will be equal to the Logs value when the
+// UsableRegions is greater than 1. It will be equal to -1 when the
+// UsableRegions is less than or equal to 1.
+//
+// The default LogRouters value will be equal to 3 times the Logs value when
+// the UsableRegions is greater than 1. It will be equal to -1 when the
+// UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	counts := cluster.Spec.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
@@ -251,6 +409,11 @@ func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	return *counts
 }
 
+// calculateProcessCount determines the process count from a given role count.
+//
+// alternatives provides a list of other process counts that can fulfill this
+// role instead. If any of those process counts is positive, then this will
+// return 0.
 func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alternatives ...int) int {
 	for _, value := range alternatives {
 		if value > 0 {
@@ -263,6 +426,14 @@ func (cluster *FoundationDBCluster) calculateProcessCountFromRole(count int, alt
 	return count
 }
 
+// calculateProcessCount calculates the process count for a process class based
+// on the counts for the roles it can fulfill.
+//
+// If addFaultTolerance is true, this will add the cluster's desired fault
+// tolerance to the result.
+//
+// If the cluster is using multi-KC replication, this will divide the total
+// count across the number of KCs in the data center.
 func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool, counts ...int) int {
 	var count = 0
 
@@ -354,13 +525,13 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 }
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
-// a cluster
+// a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 	return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
 }
 
 // CountsAreSatisfied checks whether the current counts of processes satisfy
-// a desired set of counts
+// a desired set of counts.
 func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool {
 	desiredValue := reflect.ValueOf(counts)
 	currentValue := reflect.ValueOf(currentCounts)
@@ -375,72 +546,118 @@ func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool
 }
 
 // FoundationDBStatus describes the status of the cluster as provided by
-// FoundationDB itself
+// FoundationDB itself.
 type FoundationDBStatus struct {
-	Client  FoundationDBStatusClientInfo  `json:"client,omitempty"`
+	// Client provides the client section of the status.
+	Client FoundationDBStatusClientInfo `json:"client,omitempty"`
+
+	// Cluster provides the cluster section of the status.
 	Cluster FoundationDBStatusClusterInfo `json:"cluster,omitempty"`
 }
 
 // FoundationDBStatusClientInfo contains information about the client connection
 type FoundationDBStatusClientInfo struct {
-	Coordinators   FoundationDBStatusCoordinatorInfo `json:"coordinators,omitempty"`
-	DatabaseStatus FoundationDBStatusClientDBStatus  `json:"database_status,omitempty"`
+	// Coordinators provides information about the cluster's coordinators.
+	Coordinators FoundationDBStatusCoordinatorInfo `json:"coordinators,omitempty"`
+
+	// DatabaseStatus provides a summary of the database's health.
+	DatabaseStatus FoundationDBStatusClientDBStatus `json:"database_status,omitempty"`
 }
 
-// FoundationDBStatusCoordinatorInfo contains information about the clients
-// connection to the coordinators
+// FoundationDBStatusCoordinatorInfo contains information about the client's
+// connection to the coordinators.
 type FoundationDBStatusCoordinatorInfo struct {
+	// Coordinators provides a list with coordinator details.
 	Coordinators []FoundationDBStatusCoordinator `json:"coordinators,omitempty"`
 }
 
 // FoundationDBStatusCoordinator contains information about one of the
-// coordinators
+// coordinators.
 type FoundationDBStatusCoordinator struct {
-	Address   string `json:"address,omitempty"`
-	Reachable bool   `json:"reachable,omitempty"`
+	// Address provides the coordinator's address.
+	Address string `json:"address,omitempty"`
+
+	// Reachable indicates whether the coordinator is reachable.
+	Reachable bool `json:"reachable,omitempty"`
 }
 
 // FoundationDBStatusClusterInfo describes the "cluster" portion of the
 // cluster status
 type FoundationDBStatusClusterInfo struct {
-	DatabaseConfiguration DatabaseConfiguration                    `json:"configuration,omitempty"`
-	Processes             map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
-	Data                  FoundationDBStatusDataStatistics         `json:"data,omitempty"`
-	FullReplication       bool                                     `json:"full_replication,omitempty"`
+	// DatabaseConfiguration describes the current configuration of the
+	// database.
+	DatabaseConfiguration DatabaseConfiguration `json:"configuration,omitempty"`
+
+	// Processes provides details on the processes that are reporting to the
+	// cluster.
+	Processes map[string]FoundationDBStatusProcessInfo `json:"processes,omitempty"`
+
+	// Data provides information about the data in the database.
+	Data FoundationDBStatusDataStatistics `json:"data,omitempty"`
+
+	// FullReplication indicates whether the database is fully replicated.
+	FullReplication bool `json:"full_replication,omitempty"`
 }
 
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
 // cluster status
 type FoundationDBStatusProcessInfo struct {
-	Address      string `json:"address,omitempty"`
+	// Address provides the address of the process.
+	Address string `json:"address,omitempty"`
+
+	// ProcessClass provides the process class the process has been given.
 	ProcessClass string `json:"class_type,omitempty"`
-	CommandLine  string `json:"command_line,omitempty"`
-	Excluded     bool   `json:"excluded,omitempty"`
+
+	// CommandLine provides the command-line invocation for the process.
+	CommandLine string `json:"command_line,omitempty"`
+
+	// Excluded indicates whether the process has been excluded.
+	Excluded bool `json:"excluded,omitempty"`
 }
 
-// FoundationDBStatusDataStatistics provides information about the database in
+// FoundationDBStatusDataStatistics provides information about the data in
 // the database
 type FoundationDBStatusDataStatistics struct {
-	KVBytes    int                          `json:"total_kv_size_bytes,omitempty"`
+	// KVBytes provides the total Key Value Bytes in the database.
+	KVBytes int `json:"total_kv_size_bytes,omitempty"`
+
+	// MovingData provides information about the current data movement.
 	MovingData FoundationDBStatusMovingData `json:"moving_data,omitempty"`
 }
 
 // FoundationDBStatusMovingData provides information about the current data
 // movement
 type FoundationDBStatusMovingData struct {
-	HighestPriority   int `json:"highest_priority,omitempty"`
-	InFlightBytes     int `json:"in_flight_bytes,omitempty"`
-	InQueueBytes      int `json:"in_queue_bytes,omitempty"`
-	TotalWrittenBytes int `json:"total_written_bytes,omitempty"`
+	// HighestPriority provides the priority of the highest-priority data
+	// movement.
+	HighestPriority int `json:"highest_priority,omitempty"`
+
+	// InFlightBytes provides how many bytes are being actively moved.
+	InFlightBytes int `json:"in_flight_bytes,omitempty"`
+
+	// InQueueBytes provides how many bytes are pending data movement.
+	InQueueBytes int `json:"in_queue_bytes,omitempty"`
 }
 
+// alphanum provides the characters that are used for the generation ID in the
+// connection string.
 var alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+// connectionStringPattern provides a regular expression for parsing the
+// connection string.
 var connectionStringPattern = regexp.MustCompile("^([^:@]+):([^:@]+)@(.*)$")
 
 // ConnectionString models the contents of a cluster file in a structured way
 type ConnectionString struct {
+	// DatabaseName provides an identifier for the database which persists
+	// across coordinator changes.
 	DatabaseName string
+
+	// GenerationID provides a unique ID for the current generation of
+	// coordinators.
 	GenerationID string
+
+	// Coordinators provides the addresses of the current coordinators.
 	Coordinators []string
 }
 
@@ -493,7 +710,7 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
 }
 
 // GetFullSidecarVersion gets the version of the image for the sidecar,
-// including the main FoundationDB version and the sidecar version suffix
+// including the main FoundationDB version and the sidecar version suffix.
 func (cluster *FoundationDBCluster) GetFullSidecarVersion() string {
 	sidecarVersion := cluster.Spec.SidecarVersions[cluster.Spec.Version]
 	if sidecarVersion < 1 {
@@ -506,7 +723,7 @@ func (cluster *FoundationDBCluster) GetFullSidecarVersion() string {
 }
 
 // HasCoordinators checks whether this connection string matches a set of
-// coordinators
+// coordinators.
 func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
 	for _, address := range str.Coordinators {
@@ -529,54 +746,107 @@ func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
 }
 
 // FoundationDBClusterFaultDomain describes the fault domain that a cluster is
-// replicated across
+// replicated across.
 type FoundationDBClusterFaultDomain struct {
-	Key       string `json:"key,omitempty"`
-	Value     string `json:"value,omitempty"`
+	// Key provides a topology key for the fault domain to replicate across.
+	Key string `json:"key,omitempty"`
+
+	// Value provides a harcoded value to use for the zoneid for the pods.
+	Value string `json:"value,omitempty"`
+
+	// ValueFrom provides a field selector to use as the source of the fault
+	// domain.
 	ValueFrom string `json:"valueFrom,omitempty"`
-	ZoneCount int    `json:"zoneCount,omitempty"`
-	ZoneIndex int    `json:"zoneIndex,omitempty"`
+
+	// ZoneCount provides the number of fault domains in the data center where
+	// these processes are running. This is only used in the
+	// `kubernetes-cluster` fault domain strategy.
+	ZoneCount int `json:"zoneCount,omitempty"`
+
+	// ZoneIndex provides the index of this Kubernetes cluster in the list of
+	// KCs in the data center. This is only used in the `kubernetes-cluster`
+	// fault domain strategy
+	ZoneIndex int `json:"zoneIndex,omitempty"`
 }
 
 // DatabaseConfiguration represents the configuration of the database
 type DatabaseConfiguration struct {
-	RedundancyMode string   `json:"redundancy_mode,omitempty"`
-	StorageEngine  string   `json:"storage_engine,omitempty"`
-	UsableRegions  int      `json:"usable_regions,omitempty"`
-	Regions        []Region `json:"regions,omitempty"`
+	// RedundancyMode defines the core replication factor for the database.
+	RedundancyMode string `json:"redundancy_mode,omitempty"`
+
+	// StorageEngine defines the storage engine the database uses.
+	StorageEngine string `json:"storage_engine,omitempty"`
+
+	// UsableRegions defines how many regions the database should store data in.
+	UsableRegions int `json:"usable_regions,omitempty"`
+
+	// Regions defines the regions that the database can replicate in.
+	Regions []Region `json:"regions,omitempty"`
+
+	// RoleCounts defines how many processes the database should recruit for
+	// each role.
 	RoleCounts
 }
 
 // Region represents a region in the database configuration
 type Region struct {
-	DataCenters             []DataCenter `json:"datacenters,omitempty"`
-	SatelliteLogs           int          `json:"satellite_logs,omitempty"`
-	SatelliteRedundancyMode string       `json:"satellite_redundancy_mode,omitempty"`
+	// The data centers in this region.
+	DataCenters []DataCenter `json:"datacenters,omitempty"`
+
+	// The number of satellite logs that we should recruit.
+	SatelliteLogs int `json:"satellite_logs,omitempty"`
+
+	// The replication strategy for satellite logs.
+	SatelliteRedundancyMode string `json:"satellite_redundancy_mode,omitempty"`
 }
 
 // DataCenter represents a data center in the region configuration
 type DataCenter struct {
-	ID        string `json:"id,omitempty"`
-	Priority  int    `json:"priority,omitempty"`
-	Satellite int    `json:"satellite,omitempty"`
+	// The ID of the data center. This must match the dcid locality field.
+	ID string `json:"id,omitempty"`
+
+	// The priority of this data center when we have to choose a location.
+	// Higher priorities are preferred over lower priorities.
+	Priority int `json:"priority,omitempty"`
+
+	// Satellite indicates whether the data center is serving as a satellite for
+	// the region. A value of 1 indicates that it is a satellite, and a value of
+	// 0 indicates that it is not a satellite.
+	Satellite int `json:"satellite,omitempty"`
 }
 
 // FoundationDBStatusClientDBStatus represents the databaseStatus field in the
 // JSON database status
 type FoundationDBStatusClientDBStatus struct {
+	// Available indicates whether the database is accepting traffic.
 	Available bool `json:"available,omitempty"`
-	Healthy   bool `json:"healthy,omitempty"`
+
+	// Healthy indicates whether the database is fully healthy.
+	Healthy bool `json:"healthy,omitempty"`
 }
 
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	Env                   []corev1.EnvVar         `json:"env,omitempty"`
-	VolumeMounts          []corev1.VolumeMount    `json:"volumeMounts,omitempty"`
-	EnableTLS             bool                    `json:"enableTls,omitempty"`
-	PeerVerificationRules string                  `json:"peerVerificationRules,omitempty"`
-	ImageName             string                  `json:"imageName,omitempty"`
-	SecurityContext       *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// Env provides environment variables.
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// VolumeMounts provides volume mounts.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
+	// EnableTLS controls whether we should be listening on a TLS connection=.
+	EnableTLS bool `json:"enableTls,omitempty"`
+
+	// PeerVerificationRules provides the rules for what client certificates
+	// the process should accept.
+	PeerVerificationRules string `json:"peerVerificationRules,omitempty"`
+
+	// ImageName provides the name of the image to use for the container,
+	// without the version tag.
+	ImageName string `json:"imageName,omitempty"`
+
+	// SecurityContext provides the container's security context.
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.

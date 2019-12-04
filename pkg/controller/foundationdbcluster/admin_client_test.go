@@ -1,5 +1,5 @@
 /*
- * foundationdbcluster_admin_client_test.go
+ * admin_client_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
