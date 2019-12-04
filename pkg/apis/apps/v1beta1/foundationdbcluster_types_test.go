@@ -365,10 +365,9 @@ func TestParsingClusterStatus(t *testing.T) {
 			},
 			Data: FoundationDBStatusDataStatistics{
 				MovingData: FoundationDBStatusMovingData{
-					HighestPriority:   1,
-					InFlightBytes:     100,
-					InQueueBytes:      500,
-					TotalWrittenBytes: 2000,
+					HighestPriority: 1,
+					InFlightBytes:   100,
+					InQueueBytes:    500,
 				},
 				KVBytes: 215250,
 			},

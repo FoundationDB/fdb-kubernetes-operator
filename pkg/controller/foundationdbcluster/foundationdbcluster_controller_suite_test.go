@@ -38,6 +38,7 @@ import (
 
 var cfg *rest.Config
 
+// TestMain runs the test suite.
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
