@@ -146,7 +146,7 @@ spec:
                 zoneIndex:
                   description: ZoneIndex provides the index of this Kubernetes cluster
                     in the list of KCs in the data center. This is only used in the
-                    `kubernetes-cluster` fault domain strategy
+                    `kubernetes-cluster` fault domain strategy.
                   format: int64
                   type: integer
               type: object
@@ -170,7 +170,7 @@ spec:
               properties:
                 enableTls:
                   description: EnableTLS controls whether we should be listening on
-                    a TLS connection=.
+                    a TLS connection.
                   type: boolean
                 env:
                   description: Env provides environment variables.
@@ -266,7 +266,7 @@ spec:
               properties:
                 enableTls:
                   description: EnableTLS controls whether we should be listening on
-                    a TLS connection=.
+                    a TLS connection.
                   type: boolean
                 env:
                   description: Env provides environment variables.

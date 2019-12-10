@@ -123,10 +123,8 @@ type ReconcileFoundationDBCluster struct {
 }
 
 // Reconcile reads that state of the cluster for a FoundationDBCluster object and makes changes based on the state read
-// and what is in the FoundationDBCluster.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  The scaffolding writes
-// a Deployment as an example
-// Automatically generate RBAC rules to allow the Controller to read and write Deployments
+// and what is in the FoundationDBCluster.Spec.
+// Automatically generate RBAC rules to allow the Controller to read and write FoundationDBClusters.
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;watch;list;create;update;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
