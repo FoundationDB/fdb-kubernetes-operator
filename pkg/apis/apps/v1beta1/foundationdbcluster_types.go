@@ -765,7 +765,7 @@ type FoundationDBClusterFaultDomain struct {
 
 	// ZoneIndex provides the index of this Kubernetes cluster in the list of
 	// KCs in the data center. This is only used in the `kubernetes-cluster`
-	// fault domain strategy
+	// fault domain strategy.
 	ZoneIndex int `json:"zoneIndex,omitempty"`
 }
 
@@ -834,7 +834,7 @@ type ContainerOverrides struct {
 	// VolumeMounts provides volume mounts.
 	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 
-	// EnableTLS controls whether we should be listening on a TLS connection=.
+	// EnableTLS controls whether we should be listening on a TLS connection.
 	EnableTLS bool `json:"enableTls,omitempty"`
 
 	// PeerVerificationRules provides the rules for what client certificates
