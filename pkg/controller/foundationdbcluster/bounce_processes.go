@@ -42,7 +42,7 @@ func (b BounceProcesses) Reconcile(r *ReconcileFoundationDBCluster, context ctx.
 
 	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
 	for instanceName := range cluster.Status.IncorrectProcesses {
-		instances, err := r.PodLifecycleManager.GetInstances(r, context, getSinglePodListOptions(cluster, instanceName))
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceName))
 		if err != nil {
 			return false, err
 		}

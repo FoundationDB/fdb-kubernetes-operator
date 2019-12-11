@@ -44,7 +44,7 @@ func (c ChooseRemovals) Reconcile(r *ReconcileFoundationDBCluster, context ctx.C
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
-		instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, processClass, ""))
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, processClass, ""))
 		if err != nil {
 			return false, err
 		}
@@ -77,7 +77,7 @@ func (c ChooseRemovals) Reconcile(r *ReconcileFoundationDBCluster, context ctx.C
 	if cluster.Spec.PendingRemovals != nil {
 		for podName := range cluster.Spec.PendingRemovals {
 			if removals[podName] == "" {
-				instances, err := r.PodLifecycleManager.GetInstances(r, context, client.InNamespace(cluster.Namespace).MatchingField("metadata.name", podName))
+				instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace).MatchingField("metadata.name", podName))
 				if err != nil {
 					return false, err
 				}

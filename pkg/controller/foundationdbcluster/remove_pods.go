@@ -58,7 +58,7 @@ func (u RemovePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Conte
 
 func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) error {
 	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
-	instances, err := r.PodLifecycleManager.GetInstances(r, context, instanceListOptions)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 func (r *ReconcileFoundationDBCluster) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) (bool, error) {
 	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, context, instanceListOptions)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions)
 	if err != nil {
 		return false, err
 	}
