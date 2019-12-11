@@ -61,7 +61,7 @@ func (u UpdateConfigMap) Reconcile(r *ReconcileFoundationDBCluster, context ctx.
 		}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, context, getPodListOptions(cluster, "", ""))
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", ""))
 	if err != nil {
 		return false, err
 	}

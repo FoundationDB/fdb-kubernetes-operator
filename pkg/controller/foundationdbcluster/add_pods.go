@@ -68,9 +68,17 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 			r.List(context, getPodListOptions(cluster, processClass, ""), pvcs)
 			reusablePvcs := make(map[int]bool, len(pvcs.Items))
 			for index, pvc := range pvcs.Items {
-				if pvc.Status.Phase == "Bound" && pvc.ObjectMeta.DeletionTimestamp == nil {
+				ownedByCluster := false
+				for _, ownerReference := range pvc.OwnerReferences {
+					if ownerReference.UID == cluster.UID {
+						ownedByCluster = true
+						break
+					}
+				}
+
+				if ownedByCluster && pvc.Status.Phase == "Bound" && pvc.ObjectMeta.DeletionTimestamp == nil {
 					matchingInstances, err := r.PodLifecycleManager.GetInstances(
-						r, context,
+						r, cluster, context,
 						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"]),
 					)
 					if err != nil {

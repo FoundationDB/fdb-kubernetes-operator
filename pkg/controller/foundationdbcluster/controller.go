@@ -582,7 +582,7 @@ type FdbInstance struct {
 // lifecycle.
 type PodLifecycleManager interface {
 	// GetInstances lists the instances in the cluster
-	GetInstances(*ReconcileFoundationDBCluster, ctx.Context, *client.ListOptions) ([]FdbInstance, error)
+	GetInstances(*ReconcileFoundationDBCluster, *fdbtypes.FoundationDBCluster, ctx.Context, *client.ListOptions) ([]FdbInstance, error)
 
 	// CreateInstance creates a new instance based on a pod definition
 	CreateInstance(*ReconcileFoundationDBCluster, ctx.Context, *corev1.Pod) error
@@ -613,15 +613,24 @@ func (instance FdbInstance) NamespacedName() types.NamespacedName {
 
 // GetInstances returns a list of instances for FDB pods that have been
 // created.
-func (manager StandardPodLifecycleManager) GetInstances(r *ReconcileFoundationDBCluster, context ctx.Context, options *client.ListOptions) ([]FdbInstance, error) {
+func (manager StandardPodLifecycleManager) GetInstances(r *ReconcileFoundationDBCluster, cluster *fdbtypes.FoundationDBCluster, context ctx.Context, options *client.ListOptions) ([]FdbInstance, error) {
 	pods := &corev1.PodList{}
 	err := r.List(context, options, pods)
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]FdbInstance, len(pods.Items))
-	for index, pod := range pods.Items {
-		instances[index] = newFdbInstance(pod)
+	instances := make([]FdbInstance, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		ownedByCluster := false
+		for _, reference := range pod.ObjectMeta.OwnerReferences {
+			if reference.UID == cluster.UID {
+				ownedByCluster = true
+				break
+			}
+		}
+		if ownedByCluster {
+			instances = append(instances, newFdbInstance(pod))
+		}
 	}
 
 	return instances, nil
