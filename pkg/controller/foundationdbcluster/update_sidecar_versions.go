@@ -43,7 +43,7 @@ func (u UpdateSidecarVersions) Reconcile(r *ReconcileFoundationDBCluster, contex
 	if image == "" {
 		image = "foundationdb/foundationdb-kubernetes-sidecar"
 	}
-	image = fmt.Sprintf("%s:%s", image, cluster.GetFullSidecarVersion())
+	image = fmt.Sprintf("%s:%s", image, cluster.GetFullSidecarVersion(false))
 	for _, instance := range instances {
 		if instance.Pod == nil {
 			return false, MissingPodError(instance, cluster)
