@@ -115,7 +115,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 
 	initContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-init",
-		Image: fmt.Sprintf("%s:%s", sidecarImageName, cluster.GetFullSidecarVersion()),
+		Image: fmt.Sprintf("%s:%s", sidecarImageName, cluster.GetFullSidecarVersion(true)),
 		Env:   sidecarEnv,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},

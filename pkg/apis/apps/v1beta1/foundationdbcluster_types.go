@@ -746,15 +746,22 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
 
 // GetFullSidecarVersion gets the version of the image for the sidecar,
 // including the main FoundationDB version and the sidecar version suffix.
-func (cluster *FoundationDBCluster) GetFullSidecarVersion() string {
-	sidecarVersion := cluster.Spec.SidecarVersions[cluster.Spec.Version]
+func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool) string {
+	version := ""
+	if useRunningVersion {
+		version = cluster.Spec.RunningVersion
+	}
+	if version == "" {
+		version = cluster.Spec.Version
+	}
+	sidecarVersion := cluster.Spec.SidecarVersions[version]
 	if sidecarVersion < 1 {
 		sidecarVersion = cluster.Spec.SidecarVersion
 	}
 	if sidecarVersion < 1 {
 		sidecarVersion = 1
 	}
-	return fmt.Sprintf("%s-%d", cluster.Spec.Version, sidecarVersion)
+	return fmt.Sprintf("%s-%d", version, sidecarVersion)
 }
 
 // HasCoordinators checks whether this connection string matches a set of
