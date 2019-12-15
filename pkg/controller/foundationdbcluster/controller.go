@@ -188,8 +188,10 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
 		if err != nil {
+			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
 			return r.checkRetryableError(err)
 		} else if !canContinue {
+			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
 			return reconcile.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
 		}
 	}
@@ -231,7 +233,6 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 	if pendingRemoval {
 		return true, nil
 	}
-
 	client, err := r.getPodClient(context, cluster, instance)
 	if err != nil {
 		return false, err

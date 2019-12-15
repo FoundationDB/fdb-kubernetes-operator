@@ -28,6 +28,7 @@ import (
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -39,7 +40,23 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 	currentCounts := cluster.Status.ProcessCounts.Map()
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 
-	err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+	configMap, err := GetConfigMap(context, cluster, r)
+	if err != nil {
+		return false, err
+	}
+	existingConfigMap := &corev1.ConfigMap{}
+	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
+	if err != nil && k8serrors.IsNotFound(err) {
+		log.Info("Creating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
+		err = r.Create(context, configMap)
+		if err != nil {
+			return false, err
+		}
+	} else if err != nil {
+		return false, err
+	}
+
+	err = r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {
 		return false, err
 	}
@@ -49,9 +66,27 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 	if err != nil {
 		return false, err
 	}
+
+	maxInstanceId := 0
 	for _, pod := range currentPods.Items {
+		ownedByCluster := false
+		for _, reference := range pod.OwnerReferences {
+			if reference.UID == cluster.UID {
+				ownedByCluster = true
+			}
+		}
+		if !ownedByCluster {
+			continue
+		}
 		if pod.DeletionTimestamp != nil {
 			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
+		}
+		instanceId, err := strconv.Atoi(pod.Labels["fdb-instance-id"])
+		if err != nil {
+			return false, err
+		}
+		if instanceId > maxInstanceId {
+			maxInstanceId = instanceId
 		}
 	}
 
@@ -119,12 +154,12 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 			}
 			for i := 0; i < newCount; i++ {
 				for id > 0 {
-					pvcs := &corev1.PersistentVolumeClaimList{}
-					err := r.List(context, getPodListOptions(cluster, "", strconv.Itoa(id)), pvcs)
+					conflictingPods := &corev1.PodList{}
+					err := r.List(context, getPodListOptions(cluster, "", strconv.Itoa(id)), conflictingPods)
 					if err != nil {
 						return false, err
 					}
-					if len(pvcs.Items) == 0 {
+					if len(conflictingPods.Items) == 0 {
 						break
 					}
 					id++
@@ -164,6 +199,11 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 			cluster.Status.ProcessCounts.IncreaseCount(processClass, addedCount)
 			hasNewPods = true
 		}
+	}
+
+	if cluster.Spec.NextInstanceID < maxInstanceId {
+		cluster.Spec.NextInstanceID = maxInstanceId + 1
+		hasNewPods = true
 	}
 	if hasNewPods {
 		err := r.Update(context, cluster)
