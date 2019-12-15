@@ -67,7 +67,8 @@ func SetupTestReconcile(t *testing.T, inner reconcile.Reconciler) (reconcile.Rec
 				requests <- req
 				return reconcile.Result{}, nil
 			default:
-				t.Errorf("Reconcile function returned error %s", err.Error())
+				t.Errorf("Reconcile function returned %T error %s", err, err.Error())
+				return reconcile.Result{Requeue: true}, nil
 			}
 		}
 		if !result.Requeue && result.RequeueAfter == 0 {
