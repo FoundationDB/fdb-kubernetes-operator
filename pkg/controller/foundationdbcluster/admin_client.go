@@ -262,7 +262,12 @@ func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, er
 	if err != nil {
 		return "", err
 	}
-	return string(connectionStringBytes), nil
+
+	connectionString, err := fdbtypes.ParseConnectionString(string(connectionStringBytes))
+	if err != nil {
+		return "", err
+	}
+	return connectionString.String(), nil
 }
 
 // VersionSupported reports whether we can support a cluster with a given
