@@ -645,7 +645,7 @@ var alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 // connectionStringPattern provides a regular expression for parsing the
 // connection string.
-var connectionStringPattern = regexp.MustCompile("^([^:@]+):([^:@]+)@(.*)$")
+var connectionStringPattern = regexp.MustCompile("(?m)^([^#][^:@]+):([^:@]+)@(.*)$")
 
 // ConnectionString models the contents of a cluster file in a structured way
 type ConnectionString struct {
