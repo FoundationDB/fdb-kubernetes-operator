@@ -163,6 +163,7 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 	subReconcilers := []SubReconciler{
 		SetDefaultValues{},
 		UpdateStatus{UpdateGenerations: false},
+		CheckClientCompatibility{},
 		UpdateSidecarVersions{},
 		UpdateConfigMap{},
 		UpdateLabels{},
@@ -181,6 +182,9 @@ func (r *ReconcileFoundationDBCluster) Reconcile(request reconcile.Request) (rec
 
 	for _, subReconciler := range subReconcilers {
 		canContinue, err := subReconciler.Reconcile(r, context, cluster)
+		if !canContinue || err != nil {
+			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+		}
 		if err != nil {
 			return r.checkRetryableError(err)
 		} else if !canContinue {

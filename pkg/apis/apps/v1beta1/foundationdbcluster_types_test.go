@@ -317,7 +317,7 @@ func TestParsingClusterStatus(t *testing.T) {
 	err = statusDecoder.Decode(&status)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(status).To(gomega.Equal(FoundationDBStatus{
-		Client: FoundationDBStatusClientInfo{
+		Client: FoundationDBStatusLocalClientInfo{
 			Coordinators: FoundationDBStatusCoordinatorInfo{
 				Coordinators: []FoundationDBStatusCoordinator{
 					FoundationDBStatusCoordinator{Address: "172.17.0.6:4500", Reachable: false},
@@ -331,6 +331,44 @@ func TestParsingClusterStatus(t *testing.T) {
 			},
 		},
 		Cluster: FoundationDBStatusClusterInfo{
+			Clients: FoundationDBStatusClusterClientInfo{
+				Count: 1,
+				SupportedVersions: []FoundationDBStatusSupportedVersion{
+					FoundationDBStatusSupportedVersion{
+						ClientVersion: "5.1.7",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							FoundationDBStatusConnectedClient{
+								Address:  "172.17.0.5:38260",
+								LogGroup: "fdb-kubernetes-operator",
+							},
+						},
+						ProtocolVersion: "fdb00a551040001",
+						SourceVersion:   "9ad8d02386d4a6a5efecf898df80f2747695c627",
+					},
+					FoundationDBStatusSupportedVersion{
+						ClientVersion: "5.2.5",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							FoundationDBStatusConnectedClient{
+								Address:  "172.17.0.5:38260",
+								LogGroup: "fdb-kubernetes-operator",
+							},
+						},
+						ProtocolVersion: "fdb00a552000001",
+						SourceVersion:   "4e48018437df4506aa5ed0c7f5976b9412b0145f",
+					},
+					FoundationDBStatusSupportedVersion{
+						ClientVersion: "6.0.18",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							FoundationDBStatusConnectedClient{
+								Address:  "172.17.0.5:38260",
+								LogGroup: "fdb-kubernetes-operator",
+							},
+						},
+						ProtocolVersion: "fdb00a570010001",
+						SourceVersion:   "48d84faa3e6174deb7f852ef4d314f7bad1dfa57",
+					},
+				},
+			},
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode: "double",
 				StorageEngine:  "memory",

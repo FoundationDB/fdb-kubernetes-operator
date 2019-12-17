@@ -549,14 +549,15 @@ func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool
 // FoundationDB itself.
 type FoundationDBStatus struct {
 	// Client provides the client section of the status.
-	Client FoundationDBStatusClientInfo `json:"client,omitempty"`
+	Client FoundationDBStatusLocalClientInfo `json:"client,omitempty"`
 
 	// Cluster provides the cluster section of the status.
 	Cluster FoundationDBStatusClusterInfo `json:"cluster,omitempty"`
 }
 
-// FoundationDBStatusClientInfo contains information about the client connection
-type FoundationDBStatusClientInfo struct {
+// FoundationDBStatusLocalClientInfo contains information about the
+// client connection from the process getting the status.
+type FoundationDBStatusLocalClientInfo struct {
 	// Coordinators provides information about the cluster's coordinators.
 	Coordinators FoundationDBStatusCoordinatorInfo `json:"coordinators,omitempty"`
 
@@ -597,6 +598,10 @@ type FoundationDBStatusClusterInfo struct {
 
 	// FullReplication indicates whether the database is fully replicated.
 	FullReplication bool `json:"full_replication,omitempty"`
+
+	// Clients provides information about clients that are connected to the
+	// database.
+	Clients FoundationDBStatusClusterClientInfo `json:"clients,omitemtpy"`
 }
 
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
@@ -823,6 +828,54 @@ type FoundationDBStatusClientDBStatus struct {
 
 	// Healthy indicates whether the database is fully healthy.
 	Healthy bool `json:"healthy,omitempty"`
+}
+
+// FoundationDBStatusClusterClientInfo represents the connected client details in the
+// cluster status.
+type FoundationDBStatusClusterClientInfo struct {
+	// Count provides the number of clients connected to the database.
+	Count int `json:"count,omitempty"`
+
+	// SupportedVersions provides information about the versions supported by
+	// the connected clients.
+	SupportedVersions []FoundationDBStatusSupportedVersion `json:"supported_versions,omitempty"`
+}
+
+// FoundationDBStatusSupportedVersion provides information about a version of
+// FDB supported by the connected clients.
+type FoundationDBStatusSupportedVersion struct {
+	// ClientVersion provides the version of FDB the client is connecting
+	// through.
+	ClientVersion string `json:"client_version,omitempty"`
+
+	// ConnectedClient provides the clients that are using this version.
+	ConnectedClients []FoundationDBStatusConnectedClient `json:"connected_clients"`
+
+	// ProtocolVersion is the version of the wire protocol the client is using.
+	ProtocolVersion string `json:"protocol_version,omitempty"`
+
+	// SourceVersion is the version of the source code that the client library
+	// was built from.
+	SourceVersion string `json:"source_version,omitempty"`
+}
+
+// FoundationDBStatusConnectedClient provides information about a client that
+// is connected to the database.
+type FoundationDBStatusConnectedClient struct {
+	// Address provides the address the client is connecting from.
+	Address string `json:"address,omitempty"`
+
+	// LogGroup provides the trace log group the client has set.
+	LogGroup string `json:"log_group,omitempty"`
+}
+
+// Description returns a string description of the a connected client.
+func (client FoundationDBStatusConnectedClient) Description() string {
+	if client.LogGroup == "default" || client.LogGroup == "" {
+		return client.Address
+	} else {
+		return fmt.Sprintf("%s (%s)", client.Address, client.LogGroup)
+	}
 }
 
 // ContainerOverrides provides options for customizing a container created by

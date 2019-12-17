@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -35,6 +36,8 @@ import (
 )
 
 var maxCommandOutput int = 20
+
+var protocolVersionRegex = regexp.MustCompile("(?m)^protocol (\\w+)$")
 
 // AdminClient describes an interface for running administrative commands on a
 // cluster
@@ -66,6 +69,10 @@ type AdminClient interface {
 	// VersionSupported reports whether we can support a cluster with a given
 	// version.
 	VersionSupported(version string) (bool, error)
+
+	// GetProtocolVersion determines the protocol version that is used by a
+	// version of FDB.
+	GetProtocolVersion(version string) (string, error)
 
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
@@ -112,6 +119,12 @@ type cliCommand struct {
 	// command is the command to execute.
 	command string
 
+	// version is the version of FoundationDB we should run.
+	version string
+
+	// args provides alternative arguments in place of the exec command.
+	args []string
+
 	// timeout is the timeout for the CLI.
 	timeout int
 }
@@ -124,18 +137,24 @@ func getBinaryPath(version string) string {
 
 // runCommand executes a command in the CLI.
 func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
-	version := client.Cluster.Spec.RunningVersion
+	version := command.version
+	if version == "" {
+		version = client.Cluster.Spec.RunningVersion
+	}
 	binary := getBinaryPath(version)
 	timeout := command.timeout
 	if timeout == 0 {
 		timeout = 10
 	}
-	execCommand := exec.Command(
-		binary,
-		"-C", client.clusterFilePath, "--exec", command.command,
+	args := make([]string, 0, 9)
+	args = append(args, command.args...)
+	if len(args) == 0 {
+		args = append(args, "--exec", command.command)
+	}
+	args = append(args, "-C", client.clusterFilePath,
 		"--timeout", fmt.Sprintf("%d", timeout),
-		"--log", "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"),
-	)
+		"--log", "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
+	execCommand := exec.Command(binary, args...)
 
 	log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
 
@@ -282,6 +301,23 @@ func (client *CliAdminClient) VersionSupported(version string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// GetProtocolVersion determines the protocol version that is used by a
+// version of FDB.
+func (client *CliAdminClient) GetProtocolVersion(version string) (string, error) {
+	output, err := client.runCommand(cliCommand{args: []string{"--version"}, version: version})
+	if err != nil {
+		return "", err
+	}
+
+	protocolVersionMatch := protocolVersionRegex.FindStringSubmatch(output)
+
+	if protocolVersionMatch == nil || len(protocolVersionMatch) < 2 {
+		return "", fmt.Errorf("Failed to parse protocol version for %s. Version output:\n%s", version, output)
+	}
+
+	return protocolVersionMatch[1], nil
 }
 
 // Close cleans up any pending resources.
@@ -478,6 +514,12 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 // version.
 func (client *MockAdminClient) VersionSupported(version string) (bool, error) {
 	return true, nil
+}
+
+// GetProtocolVersion determines the protocol version that is used by a
+// version of FDB.
+func (client *MockAdminClient) GetProtocolVersion(version string) (string, error) {
+	return version, nil
 }
 
 // Close shuts down any resources for the client once it is no longer

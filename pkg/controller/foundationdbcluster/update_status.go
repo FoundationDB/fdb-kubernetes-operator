@@ -88,10 +88,12 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 		} else {
 			podClient, err := r.getPodClient(context, cluster, instance)
 			if err != nil {
-				return false, err
+				log.Error(err, "Error getting pod IP", "namespace", cluster.Namespace, "name", cluster.Name, "instance", instance.Metadata.Name)
+				processStatus = nil
+			} else {
+				ip := podClient.GetPodIP()
+				processStatus = processMap[ip]
 			}
-			ip := podClient.GetPodIP()
-			processStatus = processMap[ip]
 		}
 		if len(processStatus) == 0 {
 			existingTime, exists := cluster.Status.MissingProcesses[instance.Metadata.Name]
@@ -102,22 +104,26 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 			}
 		} else {
 			podClient, err := r.getPodClient(context, cluster, instance)
+			correct := false
 			if err != nil {
-				return false, err
+				log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
+			} else {
+				for _, process := range processStatus {
+					commandLine, err := GetStartCommand(cluster, instance, podClient)
+					if err != nil {
+						return false, err
+					}
+					correct = commandLine == process.CommandLine
+					break
+				}
 			}
 
-			for _, process := range processStatus {
-				commandLine, err := GetStartCommand(cluster, instance, podClient)
-				if err != nil {
-					return false, err
-				}
-				if commandLine != process.CommandLine {
-					existingTime, exists := cluster.Status.IncorrectProcesses[instance.Metadata.Name]
-					if exists {
-						status.IncorrectProcesses[instance.Metadata.Name] = existingTime
-					} else {
-						status.IncorrectProcesses[instance.Metadata.Name] = time.Now().Unix()
-					}
+			if !correct {
+				existingTime, exists := cluster.Status.IncorrectProcesses[instance.Metadata.Name]
+				if exists {
+					status.IncorrectProcesses[instance.Metadata.Name] = existingTime
+				} else {
+					status.IncorrectProcesses[instance.Metadata.Name] = time.Now().Unix()
 				}
 			}
 		}
