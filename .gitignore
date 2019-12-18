@@ -35,3 +35,4 @@ foundationdb-kubernetes-sidecar/website
 
 config/default/manager_image_patch.yaml
 config/default/manager_image_patch.yaml-e
+config/samples/deployment/crd.yaml

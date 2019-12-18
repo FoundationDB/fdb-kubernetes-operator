@@ -2,7 +2,7 @@
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
 
-all: test manager
+all: test manager samples
 
 PKG_PATH = github.com/foundationdb/fdb-kubernetes-operator
 
@@ -40,6 +40,12 @@ templates: config/default/manager_image_patch.yaml
 config/default/manager_image_patch.yaml:
 	cp config/default/manager_image_patch.yaml.sample config/default/manager_image_patch.yaml
 
+samples: config/samples/deployment.yaml
+
+config/samples/deployment/crd.yaml: config/crds/apps_v1beta1_foundationdbcluster.yaml
+	cp config/crds/apps_v1beta1_foundationdbcluster.yaml config/samples/deployment/crd.yaml
+config/samples/deployment.yaml: manifests templates config/samples/deployment/crd.yaml
+	kustomize build config/samples/deployment > config/samples/deployment.yaml
 
 # Run go fmt against code
 fmt:

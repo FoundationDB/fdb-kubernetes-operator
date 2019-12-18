@@ -1,9 +1,11 @@
+# This file provides an example of a cluster you can run in a local testing
+# environment, with TLS enabled.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
-  name: foundationdbcluster-sample
+  name: sample-cluster
 spec:
   version: 6.2.11
   databaseConfiguration:

@@ -3,6 +3,30 @@
 This project provides an experimental operator for managing FoundationDB
 clusters on Kubernetes.
 
+# Running the Operator
+
+To run the operator in your environment, you need to install the controller and
+the CRD:
+
+		kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+
+At that point, you can set up one of the sample clusters:
+
+		kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/cluster_local.yaml
+
+You can see logs from the operator by running
+`kubectl logs fdb-kubernetes-operator-controller-manager-0 --container=manager -f`. To determine whether the reconciliation has completed, you can run `kubectl get foundationdbcluster sample-cluster`. This will show the latest generation of the
+spec and the last reconciled generation of the spec. Once reconciliation has completed, these values will be the same.
+
+Once the reconciliation is complete, you can run `kubectl exec -it sample-cluster-1 fdbcli` to open up a CLI on your cluster.
+
+
+You can also browse the [sample directory](config/samples) for more examples
+of how to configure a cluster.
+
+For more information on the fields you can define on the cluster resource, see
+the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta1#FoundationDBCluster).
+
 # Local Development
 
 ## Environment Set-up
@@ -11,7 +35,6 @@ clusters on Kubernetes.
 2. Install KubeBuilder and its dependencies on your machine, see [The KubeBuilder Book](https://book.kubebuilder.io/quick-start.html) for more information.
 3. Set your $GOPATH, e.x. `/Users/me/Code/go`
 4. Install [kustomize](https://github.com/kubernetes-sigs/kustomize).
-
 
 ## Running Locally
 
@@ -25,9 +48,5 @@ To get this controller running in a local Kubernetes cluster:
 3.	Run `config/test-certs/generate_secrets.bash` to set up a secret with
 	self-signed test certs.
 4.	Run `make rebuild-operator` to install the operator.
-5.	Run `kubectl apply -f config/samples/local_cluster.yaml`
+5.	Run `kubectl apply -f config/samples/cluster_local_tls.yaml`
 	to create a new FoundationDB cluster with the operator.
-
-You can see logs from the operator by running
-`kubectl logs fdb-kubernetes-operator-controller-manager-0 --container=manager -f`.
-
