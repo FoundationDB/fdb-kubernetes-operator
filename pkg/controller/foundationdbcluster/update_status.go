@@ -22,7 +22,6 @@ package foundationdbcluster
 
 import (
 	ctx "context"
-	"encoding/json"
 	"reflect"
 	"strings"
 	"time"
@@ -130,11 +129,11 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 
 		if instance.Pod != nil {
 			spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Metadata.Labels["fdb-instance-id"])
-			specBytes, err := json.Marshal(spec)
+			specHash, err := hashPodSpec(spec)
 			if err != nil {
 				return false, err
 			}
-			if instance.Metadata.Annotations[LastPodSpecKey] != string(specBytes) {
+			if instance.Metadata.Annotations[LastPodHashKey] != specHash {
 				hasIncorrectPodSpecs = true
 			}
 		}

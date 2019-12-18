@@ -22,6 +22,8 @@ package foundationdbcluster
 
 import (
 	ctx "context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -59,7 +61,7 @@ func Add(mgr manager.Manager) error {
 
 var hasStatusSubresource = os.Getenv("HAS_STATUS_SUBRESOURCE") != "0"
 
-const LastPodSpecKey = "org.foundationdb/last-applied-pod-spec"
+const LastPodHashKey = "org.foundationdb/last-applied-pod-spec-hash"
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
@@ -487,6 +489,17 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	return confLines, nil
 }
 
+func hashPodSpec(spec *corev1.PodSpec) (string, error) {
+	hash := sha256.New()
+	encoder := json.NewEncoder(hash)
+	err := encoder.Encode(spec)
+	if err != nil {
+		return "", err
+	}
+	specHash := hash.Sum(make([]byte, 0))
+	return hex.EncodeToString(specHash), nil
+}
+
 // GetPod builds a pod for a new instance
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, id int, kubeClient client.Client) (*corev1.Pod, error) {
 	name := fmt.Sprintf("%s-%d", cluster.ObjectMeta.Name, id)
@@ -496,10 +509,11 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 		return nil, err
 	}
 	spec := GetPodSpec(cluster, processClass, strconv.Itoa(id))
-	specJson, err := json.Marshal(spec)
+	specHash, err := hashPodSpec(spec)
 	if err != nil {
 		return nil, err
 	}
+
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -507,7 +521,7 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 			Labels:          getPodLabels(cluster, processClass, strconv.Itoa(id)),
 			OwnerReferences: owner,
 			Annotations: map[string]string{
-				LastPodSpecKey: string(specJson),
+				LastPodHashKey: specHash,
 			},
 		},
 		Spec: *spec,
