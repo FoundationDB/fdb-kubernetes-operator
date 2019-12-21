@@ -257,6 +257,116 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 	}))
 }
 
+func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: FoundationDBClusterSpec{
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+				RoleCounts: RoleCounts{
+					Storage:   5,
+					Logs:      3,
+					Proxies:   5,
+					Resolvers: 1,
+				},
+				Regions: []Region{
+					Region{
+						DataCenters: []DataCenter{
+							DataCenter{ID: "dc1", Satellite: 0, Priority: 1},
+							DataCenter{ID: "dc2", Satellite: 1, Priority: 1},
+						},
+						SatelliteLogs:           2,
+						SatelliteRedundancyMode: "one_satellite_double",
+					},
+					Region{
+						DataCenters: []DataCenter{
+							DataCenter{ID: "dc3", Satellite: 0, Priority: 1},
+							DataCenter{ID: "dc4", Satellite: 1, Priority: 1},
+						},
+						SatelliteLogs:           2,
+						SatelliteRedundancyMode: "one_satellite_double",
+					},
+				},
+			},
+		},
+	}
+
+	cluster.Spec.DataCenter = "dc1"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Storage:   5,
+		Log:       4,
+		Stateless: 9,
+	}))
+
+	cluster.Spec.DataCenter = "dc2"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Log: 3,
+	}))
+
+	cluster.Spec.DataCenter = "dc3"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Storage:   5,
+		Log:       4,
+		Stateless: 9,
+	}))
+
+	cluster.Spec.DataCenter = "dc4"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Log: 3,
+	}))
+
+	cluster.Spec.DataCenter = "dc5"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Storage:   5,
+		Log:       4,
+		Stateless: 9,
+	}))
+
+	cluster.Spec.DatabaseConfiguration.Regions = []Region{
+		Region{
+			DataCenters: []DataCenter{
+				DataCenter{ID: "dc1", Satellite: 0, Priority: 1},
+				DataCenter{ID: "dc2", Satellite: 1, Priority: 2},
+				DataCenter{ID: "dc3", Satellite: 1, Priority: 1},
+			},
+			SatelliteLogs:           4,
+			SatelliteRedundancyMode: "one_satellite_double",
+		},
+		Region{
+			DataCenters: []DataCenter{
+				DataCenter{ID: "dc3", Satellite: 0, Priority: 1},
+				DataCenter{ID: "dc2", Satellite: 1, Priority: 1},
+				DataCenter{ID: "dc1", Satellite: 1, Priority: 2},
+			},
+			SatelliteLogs:           3,
+			SatelliteRedundancyMode: "one_satellite_double",
+		},
+	}
+
+	cluster.Spec.DataCenter = "dc1"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Storage:   5,
+		Log:       7,
+		Stateless: 9,
+	}))
+
+	cluster.Spec.DataCenter = "dc2"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Log: 5,
+	}))
+
+	cluster.Spec.DataCenter = "dc3"
+	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
+		Storage:   5,
+		Log:       8,
+		Stateless: 9,
+	}))
+}
+
 func TestCheckingWhetherProcessCountsAreSatisfied(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	counts := ProcessCounts{Stateless: 5}

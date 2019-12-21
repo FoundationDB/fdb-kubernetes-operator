@@ -472,13 +472,40 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts {
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
+
+	isSatellite := false
+	isMain := false
+
+	satelliteLogs := 0
+	for _, region := range cluster.Spec.DatabaseConfiguration.Regions {
+		for _, dataCenter := range region.DataCenters {
+			if dataCenter.ID == cluster.Spec.DataCenter {
+				if dataCenter.Satellite == 0 {
+					isMain = true
+				} else {
+					isSatellite = true
+					if region.SatelliteLogs > satelliteLogs {
+						satelliteLogs = region.SatelliteLogs
+					}
+				}
+			}
+		}
+	}
+
+	if isSatellite && !isMain {
+		if processCounts.Log == 0 {
+			processCounts.Log = 1 + satelliteLogs
+			return *processCounts
+		}
+	}
+
 	if processCounts.Storage == 0 {
 		processCounts.Storage = cluster.calculateProcessCount(false,
 			roleCounts.Storage)
 	}
 	if processCounts.Log == 0 {
 		processCounts.Log = cluster.calculateProcessCount(true,
-			cluster.calculateProcessCountFromRole(roleCounts.Logs, processCounts.Log),
+			cluster.calculateProcessCountFromRole(roleCounts.Logs+satelliteLogs, processCounts.Log),
 			cluster.calculateProcessCountFromRole(roleCounts.RemoteLogs, processCounts.Log),
 		)
 	}
