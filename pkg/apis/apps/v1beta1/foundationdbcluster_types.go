@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -974,7 +975,8 @@ func (configuration DatabaseConfiguration) GetConfigurationString() (string, err
 // DatabaseConfiguration builds the database configuration for the cluster based
 // on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.DeepCopy()
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
+
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 	if configuration.StorageEngine == "ssd" {
@@ -983,7 +985,7 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	if configuration.StorageEngine == "memory" {
 		configuration.StorageEngine = "memory-2"
 	}
-	return *configuration
+	return configuration
 }
 
 // IsBeingUpgraded determines whether the cluster has a pending upgrade.
@@ -994,6 +996,8 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 // FillInDefaultsFromStatus adds in missing fields from the database
 // configuration in the database status to make sure they match the fields that
 // will appear in the cluster spec.
+//
+// Deprecated: Use NormalizeConfiguration instead.
 func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseConfiguration {
 	result := configuration.DeepCopy()
 
@@ -1004,6 +1008,282 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 		result.LogRouters = -1
 	}
 	return *result
+}
+
+func getMainDataCenter(region Region) (string, int) {
+	for _, dataCenter := range region.DataCenters {
+		if dataCenter.Satellite == 0 {
+			return dataCenter.ID, dataCenter.Priority
+		}
+	}
+	return "", -1
+}
+
+// NormalizeConfiguration ensures a standardized format and defaults when
+// comparing database configuration in the cluster spec with database
+// configuration in the cluster status.
+//
+// This will fill in defaults of -1 for some fields that have a default of 0,
+// and will ensure that the region configuration is ordered consistently.
+func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConfiguration {
+	result := configuration.DeepCopy()
+
+	if result.RemoteLogs == 0 {
+		result.RemoteLogs = -1
+	}
+	if result.LogRouters == 0 {
+		result.LogRouters = -1
+	}
+
+	for _, region := range result.Regions {
+		sort.Slice(region.DataCenters, func(leftIndex int, rightIndex int) bool {
+			if region.DataCenters[leftIndex].Satellite != region.DataCenters[rightIndex].Satellite {
+				return region.DataCenters[leftIndex].Satellite < region.DataCenters[rightIndex].Satellite
+			} else if region.DataCenters[leftIndex].Priority != region.DataCenters[rightIndex].Priority {
+				return region.DataCenters[leftIndex].Priority > region.DataCenters[rightIndex].Priority
+			} else {
+				return region.DataCenters[leftIndex].ID < region.DataCenters[rightIndex].ID
+			}
+		})
+	}
+
+	sort.Slice(result.Regions, func(leftIndex int, rightIndex int) bool {
+		leftID, leftPriority := getMainDataCenter(result.Regions[leftIndex])
+		rightID, rightPriority := getMainDataCenter(result.Regions[rightIndex])
+		if leftPriority != rightPriority {
+			return leftPriority > rightPriority
+		} else {
+			return leftID < rightID
+		}
+	})
+
+	return *result
+}
+
+// GetNextConfigurationChange produces the next marginal change that should
+// be made to transform this configuration into another configuration.
+//
+// If there are multiple changes between the two configurations that can not be
+// made simultaneously, this will produce a subset of the changes that move
+// in the correct direction. Applying this method repeatedly will eventually
+// converge on the final configuration.
+func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfiguration DatabaseConfiguration) DatabaseConfiguration {
+	if !reflect.DeepEqual(configuration.Regions, finalConfiguration.Regions) {
+		result := configuration.DeepCopy()
+		currentPriorities := configuration.getRegionPriorities()
+		nextPriorities := finalConfiguration.getRegionPriorities()
+		finalPriorities := finalConfiguration.getRegionPriorities()
+
+		// Step 1: If we have a region that is in the final config that is not
+		// in the current config, add it.
+		//
+		// We can currently only add a maximum of two regions at a time.
+		//
+		// The new region will join at a negative priority, unless it is the
+		// first region in the list.
+		if len(configuration.Regions) < 2 {
+			regionToAdd := ""
+
+			for id, priority := range nextPriorities {
+				_, present := currentPriorities[id]
+				if !present && (regionToAdd == "" || priority > nextPriorities[regionToAdd]) {
+					regionToAdd = id
+				}
+			}
+
+			if regionToAdd != "" {
+				priority := -1
+				if len(configuration.Regions) == 0 {
+					priority = 1
+				}
+				result.Regions = append(result.Regions, Region{
+					DataCenters: []DataCenter{
+						DataCenter{
+							ID:       regionToAdd,
+							Priority: priority,
+						},
+					},
+				})
+				return *result
+			}
+		}
+
+		currentRegions := make([]string, 0, len(configuration.Regions))
+		for _, region := range configuration.Regions {
+			for _, dataCenter := range region.DataCenters {
+				if dataCenter.Satellite == 0 {
+					currentRegions = append(currentRegions, dataCenter.ID)
+				}
+			}
+		}
+
+		// Step 2: If we currently have multiple regions, and one of them is not
+		// in the final config, remove it.
+		//
+		// If that region has a positive priority, we must first give it a
+		// negative priority.
+		//
+		// Before removing regions, the UsableRegions must be set to the next
+		// region count.
+		//
+		// We skip this step if we are going to be removing region configuration
+		// entirely.
+		for _, regionID := range currentRegions {
+			_, present := finalPriorities[regionID]
+			if !present && len(configuration.Regions) > 1 && len(finalConfiguration.Regions) > 0 {
+				if currentPriorities[regionID] >= 0 {
+					continue
+				} else if result.UsableRegions != len(result.Regions)-1 {
+					result.UsableRegions = len(result.Regions) - 1
+				} else {
+					newRegions := make([]Region, 0, len(result.Regions)-1)
+					for _, region := range result.Regions {
+						toRemove := false
+						for _, dataCenter := range region.DataCenters {
+							if dataCenter.Satellite == 0 && dataCenter.ID == regionID {
+								toRemove = true
+							}
+						}
+						if !toRemove {
+							newRegions = append(newRegions, region)
+						}
+					}
+					result.Regions = newRegions
+				}
+				return *result
+			}
+		}
+
+		for _, regionID := range currentRegions {
+			priority := currentPriorities[regionID]
+			_, present := finalPriorities[regionID]
+			if !present && len(configuration.Regions) > 1 && len(finalConfiguration.Regions) > 0 {
+				if priority > 0 && configuration.UsableRegions < 2 {
+					continue
+				} else if priority >= 0 {
+					hasAlternativePrimary := false
+					for regionIndex, region := range result.Regions {
+						for dataCenterIndex, dataCenter := range region.DataCenters {
+							if dataCenter.Satellite == 0 {
+								if dataCenter.ID == regionID {
+									result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = -1
+								} else if dataCenter.Priority > 0 {
+									hasAlternativePrimary = true
+								}
+
+							}
+						}
+					}
+
+					if !hasAlternativePrimary {
+						for regionIndex, region := range result.Regions {
+							for dataCenterIndex, dataCenter := range region.DataCenters {
+								if dataCenter.Satellite == 0 {
+									if dataCenter.ID != regionID {
+										result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = 1
+										break
+									}
+								}
+							}
+						}
+					}
+
+					return *result
+				} else if result.UsableRegions != len(result.Regions)-1 {
+					result.UsableRegions = len(result.Regions) - 1
+				} else {
+					newRegions := make([]Region, 0, len(result.Regions)-1)
+					for _, region := range result.Regions {
+						toRemove := false
+						for _, dataCenter := range region.DataCenters {
+							if dataCenter.Satellite == 0 && dataCenter.ID == regionID {
+								toRemove = true
+							}
+						}
+						if !toRemove {
+							newRegions = append(newRegions, region)
+						}
+					}
+					result.Regions = newRegions
+				}
+				return *result
+			}
+		}
+
+		// Step 3: Set all priorities for the regions to the desired value.
+		//
+		// If no region is configured to have a positive priority, ensure that
+		// at least one region has a positive priority.
+		//
+		// Before changing priorities, we must ensure that all regions are
+		// usable.
+
+		maxCurrent := ""
+		maxNext := ""
+
+		for id, priority := range currentPriorities {
+			_, present := nextPriorities[id]
+			if !present {
+				nextPriorities[id] = -1
+			}
+			if maxCurrent == "" || currentPriorities[maxCurrent] < priority {
+				maxCurrent = id
+			}
+		}
+
+		for id, priority := range nextPriorities {
+			_, present := currentPriorities[id]
+			if !present {
+				currentPriorities[id] = -1
+			}
+			if maxNext == "" || nextPriorities[maxNext] < priority {
+				maxNext = id
+			}
+		}
+
+		if maxNext == "" || nextPriorities[maxNext] < 0 {
+			nextPriorities[maxCurrent] = currentPriorities[maxCurrent]
+		}
+
+		if !reflect.DeepEqual(currentPriorities, nextPriorities) {
+			if configuration.UsableRegions != len(configuration.Regions) {
+				result.UsableRegions = len(configuration.Regions)
+			} else {
+				for regionIndex, region := range result.Regions {
+					for dataCenterIndex, dataCenter := range region.DataCenters {
+						if dataCenter.Satellite == 0 {
+							result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = nextPriorities[dataCenter.ID]
+						}
+					}
+				}
+			}
+			return *result
+		}
+
+		// Step 4: Set the final region count.
+		if configuration.UsableRegions != finalConfiguration.UsableRegions {
+			result.UsableRegions = finalConfiguration.UsableRegions
+			return *result
+		}
+
+		// Step 5: Set the final region config.
+		result.Regions = finalConfiguration.Regions
+		return *result
+	}
+	return finalConfiguration
+}
+
+func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int {
+	priorities := make(map[string]int, len(configuration.Regions))
+
+	for _, region := range configuration.Regions {
+		for _, dataCenter := range region.DataCenters {
+			if dataCenter.Satellite == 0 {
+				priorities[dataCenter.ID] = dataCenter.Priority
+			}
+		}
+	}
+	return priorities
 }
 
 func init() {

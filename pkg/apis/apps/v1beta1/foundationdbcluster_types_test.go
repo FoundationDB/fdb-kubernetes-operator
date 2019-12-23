@@ -685,3 +685,1659 @@ func TestFeatureFlagsForFdbVersion(t *testing.T) {
 	g.Expect(version.HasInstanceIdInSidecarSubstitutions()).To(gomega.BeTrue())
 	g.Expect(version.PrefersCommandLineArgumentsInSidecar()).To(gomega.BeTrue())
 }
+
+func TestGetNextConfigurationChangeWithSimpleChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+	}
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "triple",
+	}
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "triple",
+	}))
+}
+
+func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}
+
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+	}
+
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testing.T) {
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T) {
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+	}))
+
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion(t *testing.T) {
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegions(t *testing.T) {
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 0,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}))
+
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T) {
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc4",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: -1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc4",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc4",
+						Priority: -1,
+					},
+				},
+			},
+		},
+	}))
+
+	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  2,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc3",
+						Priority: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc4",
+						Priority: 0,
+					},
+				},
+			},
+		},
+	}))
+
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestNormalizeConfigurationWithMissingLogRouters(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	spec := DatabaseConfiguration{}
+	spec.RemoteLogs = 9
+	normalized := spec.NormalizeConfiguration()
+	g.Expect(normalized.LogRouters).To(gomega.Equal(-1))
+	g.Expect(normalized.RemoteLogs).To(gomega.Equal(9))
+}
+
+func TestNormalizeConfigurationWithIncorrectDataCenterOrder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	spec := DatabaseConfiguration{
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc1a",
+						Priority:  1,
+						Satellite: 1,
+					},
+					DataCenter{
+						ID:        "dc1b",
+						Priority:  2,
+						Satellite: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:        "dc2a",
+						Priority:  2,
+						Satellite: 1,
+					},
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2b",
+						Priority:  0,
+						Satellite: 1,
+					},
+				},
+			},
+		},
+	}
+	normalized := spec.NormalizeConfiguration()
+	g.Expect(normalized.Regions).To(gomega.Equal([]Region{
+		Region{
+			DataCenters: []DataCenter{
+				DataCenter{
+					ID:       "dc1",
+					Priority: 1,
+				},
+				DataCenter{
+					ID:        "dc1b",
+					Priority:  2,
+					Satellite: 1,
+				},
+				DataCenter{
+					ID:        "dc1a",
+					Priority:  1,
+					Satellite: 1,
+				},
+			},
+		},
+		Region{
+			DataCenters: []DataCenter{
+				DataCenter{
+					ID:       "dc2",
+					Priority: 1,
+				},
+				DataCenter{
+					ID:        "dc2a",
+					Priority:  2,
+					Satellite: 1,
+				},
+				DataCenter{
+					ID:        "dc2b",
+					Priority:  0,
+					Satellite: 1,
+				},
+			},
+		},
+	}))
+}
+
+func TestNormalizeConfigurationWithIncorrectRegionOrder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	spec := DatabaseConfiguration{
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 0,
+					},
+					DataCenter{
+						ID:        "dc1a",
+						Priority:  2,
+						Satellite: 1,
+					},
+					DataCenter{
+						ID:        "dc1b",
+						Priority:  1,
+						Satellite: 1,
+					},
+				},
+			},
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc2",
+						Priority: 1,
+					},
+					DataCenter{
+						ID:        "dc2a",
+						Priority:  1,
+						Satellite: 1,
+					},
+					DataCenter{
+						ID:        "dc2b",
+						Priority:  0,
+						Satellite: 1,
+					},
+				},
+			},
+		},
+	}
+	normalized := spec.NormalizeConfiguration()
+	g.Expect(normalized.Regions).To(gomega.Equal([]Region{
+		Region{
+			DataCenters: []DataCenter{
+				DataCenter{
+					ID:       "dc2",
+					Priority: 1,
+				},
+				DataCenter{
+					ID:        "dc2a",
+					Priority:  1,
+					Satellite: 1,
+				},
+				DataCenter{
+					ID:        "dc2b",
+					Priority:  0,
+					Satellite: 1,
+				},
+			},
+		},
+		Region{
+			DataCenters: []DataCenter{
+				DataCenter{
+					ID:       "dc1",
+					Priority: 0,
+				},
+				DataCenter{
+					ID:        "dc1a",
+					Priority:  2,
+					Satellite: 1,
+				},
+				DataCenter{
+					ID:        "dc1b",
+					Priority:  1,
+					Satellite: 1,
+				},
+			},
+		},
+	}))
+}

@@ -61,7 +61,7 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 			processMap[address[0]] = append(processMap[address[0]], process)
 		}
 
-		status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.FillInDefaultsFromStatus()
+		status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
 	} else {
 		databaseStatus = nil
 	}

@@ -46,20 +46,38 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *ReconcileFoundationDBCluster, 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	needsChange := false
+	var currentConfiguration fdbtypes.DatabaseConfiguration
+	var healthy bool
 	if !cluster.Spec.Configured {
 		needsChange = true
+		healthy = true
 	} else {
 		status, err := adminClient.GetStatus()
 		if err != nil {
 			return false, err
 		}
 
-		needsChange = !reflect.DeepEqual(desiredConfiguration, status.Cluster.DatabaseConfiguration.FillInDefaultsFromStatus())
+		healthy = status.Client.DatabaseStatus.Healthy
+		currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
+		needsChange = !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
 	}
 
 	if needsChange {
-		configurationString, _ := desiredConfiguration.GetConfigurationString()
+		var nextConfiguration fdbtypes.DatabaseConfiguration
+		if initialConfig {
+			nextConfiguration = desiredConfiguration
+		} else {
+			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
+		}
+		configurationString, _ := nextConfiguration.GetConfigurationString()
 		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
+
+		if !healthy {
+			log.Info("Waiting for database to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			r.Recorder.Event(cluster, "Normal", "NeedsConfigurationChange",
+				fmt.Sprintf("Spec require configuration change to `%s`, but cluster is not healthy", configurationString))
+			return false, nil
+		}
 		if enabled != nil && !*enabled {
 			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			if err != nil {
@@ -79,7 +97,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *ReconcileFoundationDBCluster, 
 		r.Recorder.Event(cluster, "Normal", "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
-		err = adminClient.ConfigureDatabase(cluster.DesiredDatabaseConfiguration(), !cluster.Spec.Configured)
+		err = adminClient.ConfigureDatabase(nextConfiguration, !cluster.Spec.Configured)
 		if err != nil {
 			return false, err
 		}
@@ -91,6 +109,11 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *ReconcileFoundationDBCluster, 
 			}
 		}
 		log.Info("Configured database", "namespace", cluster.Namespace, "cluster", cluster.Name)
+
+		if !reflect.DeepEqual(nextConfiguration, desiredConfiguration) {
+			log.Info("Requeuing for next stage of database configuration change", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			return false, nil
+		}
 	}
 
 	return !initialConfig, nil
