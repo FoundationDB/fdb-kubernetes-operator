@@ -463,6 +463,6 @@ The replication strategies above all describe how data is replicated within a da
 					cpu: 2
 					memory: 8Gi
 
-The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html?highlight=region#configuring-regions) for more information on how to configure regions. 
+The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions. 
 
 Replicating across data centers will likely mean running your cluster across multiple Kubernetes clusters, even if you are using a single-Kubernetes replication strategy within each DC. This will mean taking on the operational challenges described in the "Multi-Kubernetes Replication" section above.
