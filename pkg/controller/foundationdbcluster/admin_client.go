@@ -162,7 +162,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	if err != nil {
 		exitError, canCast := err.(*exec.ExitError)
 		if canCast {
-			log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stderr", string(exitError.Stderr))
+			log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 		return "", err
 	}

@@ -283,6 +283,7 @@ func TestSettingProcessCountByName(t *testing.T) {
 }
 
 func TestClusterDesiredCoordinatorCounts(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -295,16 +296,13 @@ func TestClusterDesiredCoordinatorCounts(t *testing.T) {
 		},
 	}
 
-	count := cluster.DesiredCoordinatorCount()
-	if count != 3 {
-		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 3, count)
-	}
+	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(3))
 
 	cluster.Spec.RedundancyMode = "single"
-	count = cluster.DesiredCoordinatorCount()
-	if count != 1 {
-		t.Errorf("Incorrect coordinator count. Expected=%d, actual=%d", 1, count)
-	}
+	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(1))
+
+	cluster.Spec.DatabaseConfiguration.UsableRegions = 2
+	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(9))
 }
 
 func TestParsingClusterStatus(t *testing.T) {
