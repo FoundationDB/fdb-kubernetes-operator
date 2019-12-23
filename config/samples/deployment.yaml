@@ -567,7 +567,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: default
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -576,7 +575,6 @@ metadata:
     control-plane: controller-manager
     controller-tools.k8s.io: "1.0"
   name: fdb-kubernetes-operator-controller-manager
-  namespace: default
 spec:
   selector:
     matchLabels:
