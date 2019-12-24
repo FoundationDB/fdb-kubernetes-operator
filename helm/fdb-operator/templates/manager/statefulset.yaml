@@ -1,59 +1,33 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    control-plane: controller-manager
-    controller-tools.k8s.io: "1.0"
-  name: system
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: controller-manager-service
-  namespace: {{ .Release.Namespace }}
-  labels:
-    control-plane: controller-manager
-    controller-tools.k8s.io: "1.0"
-spec:
-  selector:
-    control-plane: controller-manager
-    controller-tools.k8s.io: "1.0"
-  ports:
-  - port: 443
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: controller-manager
   namespace: {{ .Release.Namespace }}
   labels:
-    control-plane: controller-manager
-    controller-tools.k8s.io: "1.0"
+    {{- include "chart.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
-      controller-tools.k8s.io: "1.0"
+      {{- include "chart.selectorLabels" . | nindent 6 }}
   serviceName: controller-manager-service
   template:
     metadata:
       labels:
-        control-plane: controller-manager
-        controller-tools.k8s.io: "1.0"
+        {{- include "chart.labels" . | nindent 8 }}
     spec:
       volumes:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: webhook-server-secret
+            secretName: {{ .Values.webhook.secret.name }}
         - name: fdb-certs
           secret:
-            secretName: fdb-kubernetes-operator-secrets
+            secretName: {{ .Values.secret.name }}
       serviceAccountName: default
       containers:
       - command:
         - /manager
-        image: viveksinghggits/fdb-kubernetes-operator:latest
+        image: "{{ .Values.operator.image }}:{{ .Values.operator.tag }}"
         imagePullPolicy: IfNotPresent
         name: manager
         volumeMounts:
@@ -90,9 +64,3 @@ spec:
           name: webhook-server
           protocol: TCP
       terminationGracePeriodSeconds: 10
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: webhook-server-secret
-  namespace: {{ .Release.Namespace }}
