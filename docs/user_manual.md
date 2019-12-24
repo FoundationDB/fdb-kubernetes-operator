@@ -1,15 +1,15 @@
 # Table of Contents
 
-1.	[Introduction](#introduction)
-2.	[Creating a Cluster](#creating-a-cluster)
-3.	[Managing Process Counts](#managing-process-counts)
-4.	[Growing a Cluster](#growing-a-cluster)
-5.	[Shrinking a Cluster](#shrinking-a-cluster)
-6.	[Replacing a Process](#replacing-a-process)
-7.	[Changing Database Configuration](#changing-database-configuration)
-8.	[Adding a Knob](#adding-a-knob)
-9.	[Upgrading a Cluster](#upgrading-a-cluster)
-10.	[Customizing Your Pods](#customizing-a-container)
+1.  [Introduction](#introduction)
+2.  [Creating a Cluster](#creating-a-cluster)
+3.  [Managing Process Counts](#managing-process-counts)
+4.  [Growing a Cluster](#growing-a-cluster)
+5.  [Shrinking a Cluster](#shrinking-a-cluster)
+6.  [Replacing a Process](#replacing-a-process)
+7.  [Changing Database Configuration](#changing-database-configuration)
+8.  [Adding a Knob](#adding-a-knob)
+9.  [Upgrading a Cluster](#upgrading-a-cluster)
+10. [Customizing Your Pods](#customizing-a-container)
 11. [Controlling Fault Domains](#controlling-fault-domains)
 
 # Introduction
@@ -57,15 +57,14 @@ To start with, we are going to be creating a cluster with the following configur
 
 This will create a cluster with 5 storage processes, 4 log processes, and 7 stateless processes. Each fdbserver process will be in a separate pod, and the pods will have names of the form `sample-cluster-$n`, where `$n` is the instance ID for the process.
 
-You can run `kubectl get foundationdbcluster sample-cluster` to check the progress of reconciliation. Once the reconciled generation appears in this output, the cluster should be up and ready. After creating the cluster, you can 
-You can connect to the cluster by running `kubectl exec -it sample-cluster-1 fdbcli`.
+You can run `kubectl get foundationdbcluster sample-cluster` to check the progress of reconciliation. Once the reconciled generation appears in this output, the cluster should be up and ready. After creating the cluster, you can connect to the cluster by running `kubectl exec -it sample-cluster-1 fdbcli`.
 
 This example requires non-trivial resources, based on what a process will need in a production environment. This means that is too large to run in a local testing environment. It also requires disk I/O features that are not present in Docker for Mac. If you want to run these tests in that kind of environment, you can try bringing in the resource requirements, knobs, and fault domain information from a [local testing example](../config/samples/cluster_local.yaml).
 
 In addition to the pods, the operator will create a Persistent Volume Claim for any stateful
 processes in the cluster. In this example, each volume will be 128 GB. 
 
-By default each pod will have two containers and one init container.. The `foundationdb` container will run fdbmonitor and fdbserver, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes. It is responsible for managing the fdbmonitor conf files and providing FDB binaries to the `foundationdb` container. The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume. The "Upgrading a Cluster" has more detail on we manage binaries.
+By default each pod will have two containers and one init container.. The `foundationdb` container will run fdbmonitor and fdbserver, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes. It is responsible for managing the fdbmonitor conf files and providing FDB binaries to the `foundationdb` container. The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume. The "Upgrading a Cluster" has more detail on we manage binaries. The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the fdbmonitor process starts.
 
 # Managing Process Counts
 
@@ -247,7 +246,7 @@ This will first update the sidecar image in the pod to match the new version, wh
 
 Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will be done in a rolling bounce, where at most one fault domain is bounced at a time. While a pod is being recreated, it is unavailable, so this will degrade the availability fault tolerance for the cluster. The operator will ensure that pods are not deleted unless the cluster is at full fault tolerance, so if all goes well this will not create an availability loss for clients.
 
-Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will not be considered unavailable when it comes back up. The operator will detect this condition after creating the new pod, and will change the coordinators automatically to ensure that we regain fault tolerance.
+Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will be considered unavailable when it comes back up. The operator will detect this condition after creating the new pod, and will change the coordinators automatically to ensure that we regain fault tolerance.
 
 # Customizing Your Pods
 
@@ -284,19 +283,19 @@ You can make the values from this secret available through a custom volume mount
                 cpu: 2
                 memory: 8Gi
         volumes:
-            -	name: fdb-certs
+            -   name: fdb-certs
                 secret:
                     secretName: fdb-kubernetes-operator-secrets
         mainContainer:
             env:
-                -	name: FDB_TLS_CERTIFICATE_FILE
+                -   name: FDB_TLS_CERTIFICATE_FILE
                     value: /tmp/fdb-certs/cert.pem
-                -	name: FDB_TLS_CA_FILE
+                -   name: FDB_TLS_CA_FILE
                     value: /tmp/fdb-certs/cert.pem
-                -	name: FDB_TLS_KEY_FILE
+                -   name: FDB_TLS_KEY_FILE
                     value: /tmp/fdb-certs/key.pem
             volumeMounts:
-                -	name: fdb-certs
+                -   name: fdb-certs
                     mountPath: /tmp/fdb-certs
 
 This will delete the pods in the cluster and recreate them with the new environment variables and volumes. The operator will follow the rolling bounce process described in "Upgrading a Cluster".
@@ -307,7 +306,7 @@ Note: The example above adds certificates to the environment, but it does not en
 
 # Controlling Fault Domains
 
-The operator provides multiple options for defining fault domains for your cluster. The fault domain defines how data is replicated and how processes are replicated across machines. Choosing a fault domain is an important process of managing your deployments.
+The operator provides multiple options for defining fault domains for your cluster. The fault domain defines how data is replicated and how processes are distributed across machines. Choosing a fault domain is an important process of managing your deployments.
 
 Fault domains are controlled through the `faultDomain` field in the cluster spec.
 
@@ -381,7 +380,7 @@ Our second strategy is to run multiple Kubernetes cluster, each as its own fault
                 cpu: 2
                 memory: 8Gi
 
-This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide processes across fault domains. For instance, this configuration has 7 stateless processes, which needs to be divided across 5 fault domains. The instances with zoneIndex 1 and 2 will allocate 2 stateless processes each. The instances with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
+This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide processes across fault domains. For instance, this configuration has 7 stateless processes, which need to be divided across 5 fault domains. The zones with zoneIndex 1 and 2 will allocate 2 stateless processes each. The zones with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
 
 When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration. You can set different flags in `automationOptions` to control what the operator can change about the cluster. You can use these fields to designate a master instance of the operator which will handle things like reconfiguring the database.
 
@@ -454,8 +453,8 @@ The replication strategies above all describe how data is replicated within a da
             redundancy_mode: double
             storage: 5
             regions:
-                -	datacenters:
-                        -	id: dc1
+                -   datacenters:
+                        -   id: dc1
                             priority: 1
         volumeSize: "128G"
         resources:
