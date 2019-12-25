@@ -21,8 +21,8 @@
 package foundationdbcluster
 
 import (
+	ctx "context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -30,15 +30,55 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// getInstanceId generates an ID for an instance.
+func getInstanceId(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (string, string) {
+	var instanceID string
+	if cluster.Spec.InstanceIDPrefix != "" {
+		instanceID = fmt.Sprintf("%s-%s-%d", cluster.Spec.InstanceIDPrefix, processClass, idNum)
+	} else {
+		instanceID = fmt.Sprintf("%s-%d", processClass, idNum)
+	}
+	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass, idNum), instanceID
+}
+
+// GetPod builds a pod for a new instance
+func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
+	name, id := getInstanceId(cluster, processClass, idNum)
+
+	owner, err := buildOwnerReference(context, cluster, kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	spec := GetPodSpec(cluster, processClass, idNum)
+	specHash, err := hashPodSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			Namespace:       cluster.Namespace,
+			Labels:          getPodLabels(cluster, processClass, id),
+			OwnerReferences: owner,
+			Annotations: map[string]string{
+				LastPodHashKey: specHash,
+			},
+		},
+		Spec: *spec,
+	}, nil
+}
+
 // GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podID string) *corev1.PodSpec {
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) *corev1.PodSpec {
+	podName, instanceID := getInstanceId(cluster, processClass, idNum)
 	imageName := cluster.Spec.MainContainer.ImageName
 	if imageName == "" {
 		imageName = "foundationdb/foundationdb"
 	}
-	podName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Name, podID)
 	mainContainer := corev1.Container{
 		Name:  "foundationdb",
 		Image: fmt.Sprintf("%s:%s", imageName, cluster.Spec.Version),
@@ -99,11 +139,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, podI
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
 			}})
 		}
-	}
-
-	instanceID := podID
-	if cluster.Spec.InstanceIDPrefix != "" {
-		instanceID = fmt.Sprintf("%s-%s", cluster.Spec.InstanceIDPrefix, instanceID)
 	}
 
 	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
@@ -229,11 +264,11 @@ func isStateful(processClass string) bool {
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB instance.
-func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, id int) (*corev1.PersistentVolumeClaim, error) {
+func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.PersistentVolumeClaim, error) {
 	if !usePvc(cluster, processClass) {
 		return nil, nil
 	}
-	name := fmt.Sprintf("%s-%d-data", cluster.ObjectMeta.Name, id)
+	name, id := getInstanceId(cluster, processClass, idNum)
 	size, err := resource.ParseQuantity(cluster.Spec.VolumeSize)
 	if err != nil {
 		return nil, err
@@ -246,18 +281,11 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, id int) 
 		StorageClassName: cluster.Spec.StorageClass,
 	}
 
-	var idLabel string
-	if id > 0 {
-		idLabel = strconv.Itoa(id)
-	} else {
-		idLabel = ""
-	}
-
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cluster.Namespace,
-			Name:      name,
-			Labels:    getPodLabels(cluster, processClass, idLabel),
+			Name:      fmt.Sprintf("%s-data", name),
+			Labels:    getPodLabels(cluster, processClass, id),
 		},
 		Spec: spec,
 	}, nil

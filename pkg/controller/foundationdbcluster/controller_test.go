@@ -46,6 +46,7 @@ var c client.Client
 const timeout = time.Second * 5
 
 var clusterID = 0
+var firstStorageIndex = 11
 
 func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 	clusterID += 1
@@ -169,7 +170,7 @@ func runReconciliationOnCluster(t *testing.T, cluster *appsv1beta1.FoundationDBC
 
 	expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-	g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{Reconciled: 5}))
+	g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{Reconciled: 4}))
 
 	err = c.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -185,13 +186,27 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
+		sortPodsByID(pods)
+
+		g.Expect(pods.Items[0].Name).To(gomega.Equal("operator-test-1-log-1"))
+		g.Expect(pods.Items[0].Labels["fdb-instance-id"]).To(gomega.Equal("log-1"))
+		g.Expect(pods.Items[3].Name).To(gomega.Equal("operator-test-1-log-4"))
+		g.Expect(pods.Items[3].Labels["fdb-instance-id"]).To(gomega.Equal("log-4"))
+		g.Expect(pods.Items[4].Name).To(gomega.Equal("operator-test-1-stateless-1"))
+		g.Expect(pods.Items[4].Labels["fdb-instance-id"]).To(gomega.Equal("stateless-1"))
+		g.Expect(pods.Items[10].Name).To(gomega.Equal("operator-test-1-stateless-7"))
+		g.Expect(pods.Items[10].Labels["fdb-instance-id"]).To(gomega.Equal("stateless-7"))
+		g.Expect(pods.Items[11].Name).To(gomega.Equal("operator-test-1-storage-1"))
+		g.Expect(pods.Items[11].Labels["fdb-instance-id"]).To(gomega.Equal("storage-1"))
+		g.Expect(pods.Items[14].Name).To(gomega.Equal("operator-test-1-storage-4"))
+		g.Expect(pods.Items[14].Labels["fdb-instance-id"]).To(gomega.Equal("storage-4"))
+
 		g.Eventually(func() error {
 			return c.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: cluster.Name}, cluster)
 		}, timeout).Should(gomega.Succeed())
 
 		g.Expect(cluster.Spec.RedundancyMode).To(gomega.Equal("double"))
 		g.Expect(cluster.Spec.StorageEngine).To(gomega.Equal("ssd"))
-		g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(16))
 		g.Expect(cluster.Spec.ConnectionString).NotTo(gomega.Equal(""))
 
 		configMap := &corev1.ConfigMap{}
@@ -213,7 +228,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			LogRouters: -1,
 		}))
 
-		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(5)))
+		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(4)))
 		g.Expect(cluster.Status.ProcessCounts).To(gomega.Equal(appsv1beta1.ProcessCounts{
 			Storage:   4,
 			Log:       4,
@@ -229,6 +244,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 			FullReplication:      true,
 			DataMovementPriority: 0,
 		}))
+
 	})
 }
 
@@ -271,7 +287,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		g.Expect(adminClient).NotTo(gomega.BeNil())
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
-		removedItem := originalPods.Items[3]
+		removedItem := originalPods.Items[14]
 		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{
 			cluster.GetFullAddress(mockPodIP(&removedItem)),
 		}))
@@ -282,14 +298,13 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalVersion := cluster.ObjectMeta.Generation
 
-		originalID := cluster.Spec.NextInstanceID
 		cluster.Spec.ProcessCounts.Storage = 5
 		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -300,8 +315,6 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 		g.Eventually(func() error {
 			return c.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: cluster.Name}, cluster)
 		}, timeout).Should(gomega.Succeed())
-
-		g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(originalID + 1))
 
 		configMap := &corev1.ConfigMap{}
 		configMapName := types.NamespacedName{Namespace: "default", Name: fmt.Sprintf("%s-config", cluster.Name)}
@@ -315,14 +328,13 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalVersion := cluster.ObjectMeta.Generation
 
-		originalID := cluster.Spec.NextInstanceID
 		cluster.Spec.ProcessCounts.Stateless = 10
 		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -333,8 +345,6 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 		g.Eventually(func() error {
 			return c.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: cluster.Name}, cluster)
 		}, timeout).Should(gomega.Succeed())
-
-		g.Expect(cluster.Spec.NextInstanceID).To(gomega.Equal(originalID + 3))
 
 		configMap := &corev1.ConfigMap{}
 		configMapName := types.NamespacedName{Namespace: "default", Name: fmt.Sprintf("%s-config", cluster.Name)}
@@ -370,7 +380,7 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 		}, timeout).Should(gomega.Equal(8))
 
 		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
-		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(8)))
+		g.Expect(cluster.Status.Generations.Reconciled).To(gomega.Equal(int64(7)))
 	})
 }
 
@@ -388,14 +398,14 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 		}, timeout).Should(gomega.Equal(15))
 
 		cluster.Spec.PendingRemovals = map[string]string{
-			originalPods.Items[0].Name: "",
+			originalPods.Items[firstStorageIndex].Name: "",
 		}
 		err := client.Update(context.TODO(), cluster)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 5))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 4))
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
@@ -403,8 +413,8 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
-		g.Expect(pods.Items[0].Name).To(gomega.Equal(originalPods.Items[1].Name))
-		g.Expect(pods.Items[1].Name).To(gomega.Equal(originalPods.Items[2].Name))
+		g.Expect(pods.Items[firstStorageIndex].Name).To(gomega.Equal(originalPods.Items[firstStorageIndex+1].Name))
+		g.Expect(pods.Items[firstStorageIndex+1].Name).To(gomega.Equal(originalPods.Items[firstStorageIndex+2].Name))
 
 		g.Expect(cluster.Spec.PendingRemovals).To(gomega.BeNil())
 
@@ -414,7 +424,7 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 		g.Expect(adminClient.ExcludedAddresses).To(gomega.Equal([]string{}))
 
 		g.Expect(adminClient.ReincludedAddresses).To(gomega.Equal([]string{
-			cluster.GetFullAddress(mockPodIP(&originalPods.Items[0])),
+			cluster.GetFullAddress(mockPodIP(&originalPods.Items[firstStorageIndex])),
 		}))
 		g.Expect(cluster.Spec.ConnectionString).NotTo(gomega.Equal(originalConnectionString))
 	})
@@ -502,7 +512,7 @@ func TestReconcileWithConfigurationChange(t *testing.T) {
 
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 3))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
 
 		g.Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(gomega.Equal("triple"))
 	})
@@ -526,7 +536,7 @@ func TestReconcileWithConfigurationChangeWithChangesDisabled(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{
 			Reconciled:               originalVersion,
-			NeedsConfigurationChange: originalVersion + 2,
+			NeedsConfigurationChange: originalVersion + 1,
 		}))
 
 		g.Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(gomega.Equal("double"))
@@ -839,12 +849,12 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 		err := c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		instance := newFdbInstance(pods.Items[0])
-		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		instance := newFdbInstance(pods.Items[firstStorageIndex])
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[firstStorageIndex]}
 		command, err := GetStartCommand(cluster, instance, podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		id := pods.Items[0].Labels["fdb-instance-id"]
+		id := pods.Items[firstStorageIndex].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
 			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
@@ -868,7 +878,7 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 		err := c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		pod := pods.Items[0]
+		pod := pods.Items[firstStorageIndex]
 		pod.Spec.NodeName = "machine1"
 		pod.Status.PodIP = "127.0.0.1"
 		cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
@@ -882,7 +892,7 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 			"--class=storage",
 			"--cluster_file=/var/fdb/data/fdb.cluster",
 			"--datadir=/var/fdb/data",
-			"--locality_instance_id=1",
+			"--locality_instance_id=storage-1",
 			"--locality_machineid=machine1",
 			"--locality_zoneid=machine1",
 			"--logdir=/var/log/fdb-trace-logs",
@@ -900,7 +910,7 @@ func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T
 		err := c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		pod := pods.Items[0]
+		pod := pods.Items[firstStorageIndex]
 		pod.Spec.NodeName = "machine1"
 		pod.Status.PodIP = "127.0.0.1"
 		cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
@@ -917,7 +927,7 @@ func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T
 			"--class=storage",
 			"--cluster_file=/var/fdb/data/fdb.cluster",
 			"--datadir=/var/fdb/data",
-			"--locality_instance_id=1",
+			"--locality_instance_id=storage-1",
 			"--locality_machineid=machine1",
 			"--locality_zoneid=kc2",
 			"--logdir=/var/log/fdb-trace-logs",
@@ -938,11 +948,11 @@ func TestGetStartCommandWithPeerVerificationRules(t *testing.T) {
 
 		cluster.Spec.MainContainer.PeerVerificationRules = "S.CN=foundationdb.org"
 
-		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
-		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]), podClient)
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[firstStorageIndex]}
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[firstStorageIndex]), podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		id := pods.Items[0].Labels["fdb-instance-id"]
+		id := pods.Items[firstStorageIndex].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
 			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
@@ -969,11 +979,11 @@ func TestGetStartCommandWithCustomLogGroup(t *testing.T) {
 		sortPodsByID(pods)
 
 		cluster.Spec.LogGroup = "test-fdb-cluster"
-		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
-		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[0]), podClient)
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[firstStorageIndex]}
+		command, err := GetStartCommand(cluster, newFdbInstance(pods.Items[firstStorageIndex]), podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		id := pods.Items[0].Labels["fdb-instance-id"]
+		id := pods.Items[firstStorageIndex].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
 			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
@@ -999,12 +1009,12 @@ func TestGetStartCommandWithDataCenter(t *testing.T) {
 
 		cluster.Spec.DataCenter = "dc01"
 
-		instance := newFdbInstance(pods.Items[0])
-		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		instance := newFdbInstance(pods.Items[firstStorageIndex])
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[firstStorageIndex]}
 		command, err := GetStartCommand(cluster, instance, podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		id := pods.Items[0].Labels["fdb-instance-id"]
+		id := pods.Items[firstStorageIndex].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
 			"/var/dynamic-conf/bin/6.1.8/fdbserver",
 			"--class=storage",
@@ -1022,76 +1032,34 @@ func TestGetStartCommandWithDataCenter(t *testing.T) {
 	})
 }
 
-func TestGetStartCommandWithInstanceIdPrefix(t *testing.T) {
-	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
-		pods := &corev1.PodList{}
-
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-
-		instance := newFdbInstance(pods.Items[0])
-		instance.Pod.ObjectMeta.Labels["fdb-full-instance-id"] = "dc1-1"
-		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
-		command, err := GetStartCommand(cluster, instance, podClient)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-
-		id := pods.Items[0].Labels["fdb-instance-id"]
-		g.Expect(command).To(gomega.Equal(strings.Join([]string{
-			"/var/dynamic-conf/bin/6.1.8/fdbserver",
-			"--class=storage",
-			"--cluster_file=/var/fdb/data/fdb.cluster",
-			"--datadir=/var/fdb/data",
-			fmt.Sprintf("--locality_instance_id=dc1-%s", id),
-			fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
-			fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
-			"--logdir=/var/log/fdb-trace-logs",
-			"--loggroup=" + cluster.Name,
-			"--public_address=:4501",
-			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-		}, " ")))
-	})
-}
-
-func TestGetPodForStorageInstance(t *testing.T) {
+func TestParseInstanceID(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	mgr, err := manager.New(cfg, manager.Options{})
+	prefix, id, err := ParseInstanceID("storage-12")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	c = mgr.GetClient()
+	g.Expect(prefix).To(gomega.Equal("storage"))
+	g.Expect(id).To(gomega.Equal(12))
 
-	cluster := createDefaultCluster()
-	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
+	prefix, id, err = ParseInstanceID("cluster_controller-3")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(prefix).To(gomega.Equal("cluster_controller"))
+	g.Expect(id).To(gomega.Equal(3))
 
-	g.Expect(pod.Namespace).To(gomega.Equal("default"))
-	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-1", cluster.Name)))
-	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
-		"fdb-cluster-name":     cluster.Name,
-		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "1",
-		"fdb-label":            "value2",
-	}))
-	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "storage", "1")))
-}
-
-func TestGetPodWithInstanceIDPrefix(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{})
+	prefix, id, err = ParseInstanceID("dc1-storage-12")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	c = mgr.GetClient()
+	g.Expect(prefix).To(gomega.Equal("dc1-storage"))
+	g.Expect(id).To(gomega.Equal(12))
 
-	cluster := createDefaultCluster()
-	cluster.Spec.InstanceIDPrefix = "dc1"
-	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
+	prefix, id, err = ParseInstanceID("6")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(prefix).To(gomega.Equal(""))
+	g.Expect(id).To(gomega.Equal(6))
 
-	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
-		"fdb-cluster-name":     cluster.Name,
-		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "dc1-1",
-		"fdb-label":            "value2",
-	}))
+	prefix, id, err = ParseInstanceID("storage")
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.Equal("Could not parse instance ID storage"))
+
+	prefix, id, err = ParseInstanceID("storage-bad")
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.Equal("Could not parse instance ID storage-bad"))
 }

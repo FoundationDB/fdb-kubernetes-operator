@@ -56,9 +56,6 @@ type FoundationDBClusterSpec struct {
 	// ConnectionString defines the contents of the cluster file.
 	ConnectionString string `json:"connectionString,omitempty"`
 
-	// NextInstanceID defines the ID to use when creating the next instance.
-	NextInstanceID int `json:"nextInstanceID,omitempty"`
-
 	// FaultDomain defines the rules for what fault domain to replicate across.
 	FaultDomain FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
 
@@ -130,8 +127,14 @@ type FoundationDBClusterSpec struct {
 	AutomountServiceAccountToken *bool `json:"automountServiceAccountToken,omitempty"`
 
 	// SidecarVersion defines the build version of the sidecar to use.
+	//
 	// Deprecated: Use SidecarVersions instead.
 	SidecarVersion int `json:"sidecarVersion,omitempty"`
+
+	// NextInstanceID defines the ID to use when creating the next instance.
+	//
+	// Deprecated: This is no longer used.
+	NextInstanceID int `json:"nextInstanceID,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

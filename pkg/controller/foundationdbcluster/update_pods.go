@@ -45,7 +45,16 @@ func (u UpdatePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Conte
 		if instance.Pod == nil {
 			continue
 		}
-		spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Metadata.Labels["fdb-instance-id"])
+		if instance.Pod.DeletionTimestamp != nil {
+			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
+		}
+
+		_, idNum, err := ParseInstanceID(instance.Metadata.Labels["fdb-instance-id"])
+		if err != nil {
+			return false, err
+		}
+
+		spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], idNum)
 		specHash, err := hashPodSpec(spec)
 		if err != nil {
 			return false, err

@@ -195,8 +195,8 @@ spec:
                   type: array
               type: object
             nextInstanceID:
-              description: NextInstanceID defines the ID to use when creating the
-                next instance.
+              description: 'NextInstanceID defines the ID to use when creating the
+                next instance.  Deprecated: This is no longer used.'
               format: int64
               type: integer
             pendingRemovals:
@@ -298,7 +298,7 @@ spec:
               type: array
             sidecarVersion:
               description: 'SidecarVersion defines the build version of the sidecar
-                to use. Deprecated: Use SidecarVersions instead.'
+                to use.  Deprecated: Use SidecarVersions instead.'
               format: int64
               type: integer
             sidecarVersions:
