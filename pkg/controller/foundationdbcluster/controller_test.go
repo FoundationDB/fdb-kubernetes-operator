@@ -587,7 +587,7 @@ func TestReconcileWithPodLabelChange(t *testing.T) {
 		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
-			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
 		}
 	})
 }
@@ -682,9 +682,7 @@ func TestReconcileWithPodAnnotationChange(t *testing.T) {
 		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
-			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
-				"fdb-annotation": "value1",
-			}))
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
 		}
 	})
 }
@@ -785,6 +783,106 @@ func TestReconcileWithPvcAnnotationChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
+		}
+	})
+}
+
+func TestReconcileWithConfigMapLabelChange(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		originalVersion := cluster.ObjectMeta.Generation
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(15))
+
+		cluster.Spec.ConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"fdb-label": "value3",
+				},
+			},
+		}
+		err := client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pods.Items {
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
+		}
+
+		pvcs := &corev1.PersistentVolumeClaimList{}
+		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pvcs.Items {
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
+		}
+
+		configMaps := &corev1.ConfigMapList{}
+		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range configMaps.Items {
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
+		}
+	})
+}
+
+func TestReconcileWithConfigMapAnnotationChange(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		originalVersion := cluster.ObjectMeta.Generation
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(15))
+
+		cluster.Spec.ConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"fdb-annotation": "value1",
+				},
+			},
+		}
+		err := client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pods.Items {
+			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], item.Labels["fdb-instance-id"], nil)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
+				"org.foundationdb/last-applied-pod-spec-hash": hash,
+			}))
+		}
+
+		pvcs := &corev1.PersistentVolumeClaimList{}
+		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pvcs.Items {
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
+		}
+
+		configMaps := &corev1.ConfigMapList{}
+		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range configMaps.Items {
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
+				"fdb-annotation": "value1",
+			}))
 		}
 	})
 }
@@ -952,6 +1050,7 @@ func TestGetConfigMap(t *testing.T) {
 	g.Expect(configMap.Labels).To(gomega.Equal(map[string]string{
 		"fdb-cluster-name": cluster.Name,
 	}))
+	g.Expect(configMap.Annotations).To(gomega.BeNil())
 
 	expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1061,6 +1160,58 @@ func TestGetConfigMapWithExplicitInstanceIdSubstitution(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FDB_INSTANCE_ID"}))
+}
+
+func TestGetConfigMapWithCustomLabel(t *testing.T) {
+
+	cluster.Spec.ConfigMap = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"fdb-label": "value1",
+			},
+		},
+	}
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(configMap.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name": cluster.Name,
+		"fdb-label":        "value1",
+	}))
+}
+
+func TestGetConfigMapWithCustomLabelWithDeprecatedField(t *testing.T) {
+
+	cluster.Spec.PodLabels = map[string]string{
+		"fdb-label": "value1",
+	}
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(configMap.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name": cluster.Name,
+		"fdb-label":        "value1",
+	}))
+}
+
+func TestGetConfigMapWithCustomAnnotation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.ConfigMap = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"fdb-annotation": "value1",
+			},
+		},
+	}
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(configMap.Annotations).To(gomega.Equal(map[string]string{
+		"fdb-annotation": "value1",
+	}))
 }
 
 func TestGetMonitorConfForStorageInstance(t *testing.T) {

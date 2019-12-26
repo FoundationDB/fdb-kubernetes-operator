@@ -295,6 +295,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = new(v1.PersistentVolumeClaim)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ConfigMap != nil {
+		in, out := &in.ConfigMap, &out.ConfigMap
+		*out = new(v1.ConfigMap)
+		(*in).DeepCopyInto(*out)
+	}
 	in.MainContainer.DeepCopyInto(&out.MainContainer)
 	in.SidecarContainer.DeepCopyInto(&out.SidecarContainer)
 	if in.TrustedCAs != nil {

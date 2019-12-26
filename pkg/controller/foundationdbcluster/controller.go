@@ -300,8 +300,8 @@ func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 }
 
 func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMeta {
-	if cluster.Spec.PodTemplate != nil {
-		return getObjectMetadata(cluster, &cluster.Spec.PodTemplate.ObjectMeta, "", "")
+	if cluster.Spec.ConfigMap != nil {
+		return getObjectMetadata(cluster, &cluster.Spec.ConfigMap.ObjectMeta, "", "")
 	} else {
 		return getObjectMetadata(cluster, nil, "", "")
 	}

@@ -77,6 +77,9 @@ type FoundationDBClusterSpec struct {
 	// FoundationDB pods.
 	VolumeClaim *corev1.PersistentVolumeClaim
 
+	// ConfigMap allows customizing the config map the operator creates.
+	ConfigMap *corev1.ConfigMap
+
 	// MainContainer defines customization for the foundationdb container.
 	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
 
