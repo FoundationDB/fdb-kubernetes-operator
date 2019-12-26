@@ -25,8 +25,6 @@ import (
 	"time"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // SetDefaultValues provides a reconciliation step for setting default values in
@@ -46,19 +44,6 @@ func (s SetDefaultValues) Reconcile(r *ReconcileFoundationDBCluster, context ctx
 	}
 	if cluster.Spec.UsableRegions == 0 {
 		cluster.Spec.UsableRegions = 1
-	}
-	if cluster.Spec.Resources == nil {
-		cluster.Spec.Resources = &corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				"memory": resource.MustParse("1Gi"),
-				"cpu":    resource.MustParse("1"),
-			},
-			Requests: corev1.ResourceList{
-				"memory": resource.MustParse("1Gi"),
-				"cpu":    resource.MustParse("1"),
-			},
-		}
-		changed = true
 	}
 	if cluster.Spec.RunningVersion == "" {
 		cluster.Spec.RunningVersion = cluster.Spec.Version

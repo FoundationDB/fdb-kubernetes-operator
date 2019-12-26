@@ -28,8 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -54,9 +52,6 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("operator-test-%d", clusterID),
 			Namespace: "default",
-			Labels: map[string]string{
-				"fdb-label": "value1",
-			},
 		},
 		Spec: appsv1beta1.FoundationDBClusterSpec{
 			Version:          "6.1.8",
@@ -68,19 +63,6 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 				Key: "foundationdb.org/none",
 			},
 			VolumeSize: "16G",
-			Resources: &corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					"memory": resource.MustParse("1Gi"),
-					"cpu":    resource.MustParse("1"),
-				},
-				Requests: corev1.ResourceList{
-					"memory": resource.MustParse("1Gi"),
-					"cpu":    resource.MustParse("1"),
-				},
-			},
-			PodLabels: map[string]string{
-				"fdb-label": "value2",
-			},
 		},
 	}
 }
@@ -564,7 +546,54 @@ func TestReconcileWithConfigurationChangeWithChangesDisabled(t *testing.T) {
 	})
 }
 
-func TestReconcileWithLabelChange(t *testing.T) {
+func TestReconcileWithPodLabelChange(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		originalVersion := cluster.ObjectMeta.Generation
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(15))
+
+		cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"fdb-label": "value3",
+				},
+			},
+		}
+		err := client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pods.Items {
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
+		}
+
+		pvcs := &corev1.PersistentVolumeClaimList{}
+		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pvcs.Items {
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
+		}
+
+		configMaps := &corev1.ConfigMapList{}
+		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range configMaps.Items {
+			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
+		}
+	})
+}
+
+func TestReconcileWithPodLabelChangeWithDeprecatedField(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
@@ -607,7 +636,148 @@ func TestReconcileWithLabelChange(t *testing.T) {
 	})
 }
 
+func TestReconcileWithPodAnnotationChange(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		pods := &corev1.PodList{}
+
+		originalVersion := cluster.ObjectMeta.Generation
+
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(15))
+
+		cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"fdb-annotation": "value1",
+				},
+			},
+		}
+		err := client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pods.Items {
+			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], item.Labels["fdb-instance-id"], nil)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
+				"org.foundationdb/last-applied-pod-spec-hash": hash,
+				"fdb-annotation": "value1",
+			}))
+		}
+
+		pvcs := &corev1.PersistentVolumeClaimList{}
+		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range pvcs.Items {
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
+				"fdb-annotation": "value1",
+			}))
+		}
+
+		configMaps := &corev1.ConfigMapList{}
+		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, item := range configMaps.Items {
+			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
+				"fdb-annotation": "value1",
+			}))
+		}
+	})
+}
+
 func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalVersion := cluster.ObjectMeta.Generation
+
+		pods := &corev1.PodList{}
+		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						Name: "foundationdb",
+						Env: []corev1.EnvVar{
+							corev1.EnvVar{
+								Name:  "TEST_CHANGE",
+								Value: "1",
+							},
+						},
+					},
+				},
+			},
+		}
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, 60).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 60).Should(gomega.Not(gomega.Equal(originalVersion)))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		for _, pod := range pods.Items {
+			g.Expect(len(pod.Spec.Containers[0].Env)).To(gomega.Equal(3))
+			g.Expect(pod.Spec.Containers[0].Env[0].Name).To(gomega.Equal("TEST_CHANGE"))
+			g.Expect(pod.Spec.Containers[0].Env[0].Value).To(gomega.Equal("1"))
+		}
+	})
+}
+
+func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabled(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalVersion := cluster.ObjectMeta.Generation
+
+		pods := &corev1.PodList{}
+		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						Name: "foundationdb",
+						Env: []corev1.EnvVar{
+							corev1.EnvVar{
+								Name:  "TEST_CHANGE",
+								Value: "1",
+							},
+						},
+					},
+				},
+			},
+		}
+		var flag = false
+		cluster.Spec.AutomationOptions.DeletePods = &flag
+
+		err = client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (appsv1beta1.GenerationStatus, error) { return reloadClusterGenerations(c, cluster) }, timeout).Should(gomega.Equal(appsv1beta1.GenerationStatus{
+			Reconciled:       originalVersion,
+			NeedsPodDeletion: originalVersion + 1,
+		}))
+
+		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, pod := range pods.Items {
+			g.Expect(len(pod.Spec.Containers[0].Env)).To(gomega.Equal(2))
+		}
+	})
+}
+
+func TestReconcileWithEnvironmentVariableChangeWithDeprecatedField(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalVersion := cluster.ObjectMeta.Generation
 
@@ -637,7 +807,7 @@ func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
 	})
 }
 
-func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabled(t *testing.T) {
+func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabledWithDeprecatedField(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalVersion := cluster.ObjectMeta.Generation
 
@@ -684,7 +854,6 @@ func TestGetConfigMap(t *testing.T) {
 	g.Expect(configMap.Name).To(gomega.Equal(fmt.Sprintf("%s-config", cluster.Name)))
 	g.Expect(configMap.Labels).To(gomega.Equal(map[string]string{
 		"fdb-cluster-name": cluster.Name,
-		"fdb-label":        "value2",
 	}))
 
 	expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)

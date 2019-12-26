@@ -274,14 +274,34 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 	return true, nil
 }
 
-func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
-	labels := getMinimalPodLabels(cluster, processClass, id)
+func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, specHash string) metav1.ObjectMeta {
+	var metadata *metav1.ObjectMeta
 
+	if cluster.Spec.PodTemplate != nil {
+		metadata = cluster.Spec.PodTemplate.ObjectMeta.DeepCopy()
+	} else {
+		metadata = &metav1.ObjectMeta{}
+	}
+	metadata.Namespace = cluster.Namespace
+
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
+	}
+	for label, value := range getMinimalPodLabels(cluster, processClass, id) {
+		metadata.Labels[label] = value
+	}
 	for label, value := range cluster.Spec.PodLabels {
-		labels[label] = value
+		metadata.Labels[label] = value
 	}
 
-	return labels
+	if specHash != "" {
+		if metadata.Annotations == nil {
+			metadata.Annotations = make(map[string]string)
+		}
+		metadata.Annotations[LastPodHashKey] = specHash
+	}
+
+	return *metadata
 }
 
 func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
@@ -399,14 +419,13 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		return nil, err
 	}
 
+	metadata := getPodMetadata(cluster, "", "", "")
+	metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	metadata.OwnerReferences = owner
+
 	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       cluster.Namespace,
-			Name:            fmt.Sprintf("%s-config", cluster.Name),
-			Labels:          getPodLabels(cluster, "", ""),
-			OwnerReferences: owner,
-		},
-		Data: data,
+		ObjectMeta: metadata,
+		Data:       data,
 	}, nil
 }
 
@@ -529,7 +548,11 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	return confLines, nil
 }
 
-func hashPodSpec(spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, spec *corev1.PodSpec) (string, error) {
+	if spec == nil {
+		spec = GetPodSpec(cluster, processClass, id)
+	}
+
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
 	err := encoder.Encode(spec)

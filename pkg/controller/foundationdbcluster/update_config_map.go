@@ -50,10 +50,20 @@ func (u UpdateConfigMap) Reconcile(r *ReconcileFoundationDBCluster, context ctx.
 		return false, err
 	}
 
-	if !reflect.DeepEqual(existing.Data, configMap.Data) || !reflect.DeepEqual(existing.Labels, configMap.Labels) {
+	metadataCorrect := true
+	if !reflect.DeepEqual(existing.ObjectMeta.Labels, configMap.ObjectMeta.Labels) {
+		existing.ObjectMeta.Labels = configMap.ObjectMeta.Labels
+		metadataCorrect = false
+	}
+
+	if !reflect.DeepEqual(existing.ObjectMeta.Annotations, configMap.ObjectMeta.Annotations) {
+		existing.ObjectMeta.Annotations = configMap.ObjectMeta.Annotations
+		metadataCorrect = false
+	}
+
+	if !reflect.DeepEqual(existing.Data, configMap.Data) || !metadataCorrect {
 		log.Info("Updating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
 		r.Recorder.Event(cluster, "Normal", "UpdatingConfigMap", "")
-		existing.ObjectMeta.Labels = configMap.ObjectMeta.Labels
 		existing.Data = configMap.Data
 		err = r.Update(context, existing)
 		if err != nil {

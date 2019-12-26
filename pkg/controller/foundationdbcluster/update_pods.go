@@ -26,6 +26,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	"github.com/prometheus/common/log"
 	"k8s.io/apimachinery/pkg/types"
 )
 

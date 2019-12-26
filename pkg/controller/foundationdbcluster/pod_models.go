@@ -65,16 +65,12 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 		return nil, err
 	}
 
+	metadata := getPodMetadata(cluster, processClass, strconv.Itoa(id), specHash)
+	metadata.Name = name
+	metadata.OwnerReferences = owner
+
 	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       cluster.Namespace,
-			Labels:          getPodLabels(cluster, processClass, id),
-			OwnerReferences: owner,
-			Annotations: map[string]string{
-				LastPodHashKey: specHash,
-			},
-		},
+		ObjectMeta: metadata,
 		Spec: *spec,
 	}, nil
 }
@@ -116,7 +112,13 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		},
 	}
 
-	customizeContainer(&mainContainer, cluster.Spec.MainContainer)
+	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+	)
+
+	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 
 	sidecarInitEnv := make([]corev1.EnvVar, 0, 4)
 
@@ -191,9 +193,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 
-	sidecarImageName := cluster.Spec.SidecarContainer.ImageName
-	if sidecarImageName == "" {
-		sidecarImageName = "foundationdb/foundationdb-kubernetes-sidecar"
+	if cluster.Spec.SidecarContainer.ImageName != "" {
+		initContainer.Image = cluster.Spec.SidecarContainer.ImageName
 	}
 
 	if version.PrefersCommandLineArgumentsInSidecar() {
@@ -210,6 +211,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 		},
 	}
+	initContainer.Image = fmt.Sprintf("%s:%s", initContainer.Image, cluster.GetFullSidecarVersion(true))
 
 	sidecarArgs := make([]string, 0, len(sidecarInitArgs))
 	sidecarEnv := make([]corev1.EnvVar, 0, len(sidecarInitEnv))
@@ -224,10 +226,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	customizeContainer(&initContainer, cluster.Spec.SidecarContainer)
 
-	sidecarEnv = append(sidecarEnv,
-		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: cluster.Spec.SidecarContainer.PeerVerificationRules})
-	sidecarEnv = append(sidecarEnv,
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
+	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
 
 	if cluster.Spec.SidecarContainer.EnableTLS {
 		sidecarArgs = append(sidecarArgs, "--tls")
@@ -248,7 +247,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 					Port: intstr.IntOrString{IntVal: 8080},
 				},
 			},
-		},
+		}
 	}
 
 	customizeContainer(&sidecarContainer, cluster.Spec.SidecarContainer)
@@ -307,8 +306,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		}
 	}
 
-	initContainers := []corev1.Container{initContainer}
-	initContainers = append(initContainers, cluster.Spec.InitContainers...)
+	replaceContainers(podSpec.InitContainers, initContainer)
+	podSpec.InitContainers = append(podSpec.InitContainers, cluster.Spec.InitContainers...)
+	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
+	podSpec.Containers = append(podSpec.Containers, cluster.Spec.Containers...)
+	podSpec.Volumes = append(podSpec.Volumes, volumes...)
+	podSpec.Affinity = affinity
 
 	containers := []corev1.Container{mainContainer, sidecarContainer}
 	containers = append(containers, cluster.Spec.Containers...)
@@ -361,10 +364,39 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 	}, nil
 }
 
+// replaceContainers overwrites the containers in a list with new containers
+// that have the same name.
+func replaceContainers(containers []corev1.Container, newContainers ...*corev1.Container) {
+	for index, container := range containers {
+		for _, newContainer := range newContainers {
+			if container.Name == newContainer.Name {
+				containers[index] = *newContainer
+			}
+		}
+	}
+}
+
+// extendEnv adds environment variables to an existing environment, unless
+// environment variables with the same name are already present.
+func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
+	existingVars := make(map[string]bool, len(container.Env))
+
+	for _, envVar := range container.Env {
+		existingVars[envVar.Name] = true
+	}
+
+	for _, envVar := range env {
+		if !existingVars[envVar.Name] {
+			container.Env = append(container.Env, envVar)
+		}
+	}
+}
+
 // customizeContainer adds container overrides from the cluster spec to a
 // container.
 func customizeContainer(container *corev1.Container, overrides fdbtypes.ContainerOverrides) {
 	envOverrides := make(map[string]bool)
+
 	fullEnv := []corev1.EnvVar{}
 
 	for _, envVar := range overrides.Env {
@@ -384,5 +416,7 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 		container.VolumeMounts = append(container.VolumeMounts, *volume.DeepCopy())
 	}
 
-	container.SecurityContext = overrides.SecurityContext
+	if overrides.SecurityContext != nil {
+		container.SecurityContext = overrides.SecurityContext
+	}
 }

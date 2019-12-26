@@ -283,6 +283,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.PodTemplate != nil {
+		in, out := &in.PodTemplate, &out.PodTemplate
+		*out = new(v1.PodTemplateSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
