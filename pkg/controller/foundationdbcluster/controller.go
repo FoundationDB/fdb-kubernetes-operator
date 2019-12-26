@@ -275,10 +275,43 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 }
 
 func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, specHash string) metav1.ObjectMeta {
-	var metadata *metav1.ObjectMeta
+	var metadata metav1.ObjectMeta
 
 	if cluster.Spec.PodTemplate != nil {
-		metadata = cluster.Spec.PodTemplate.ObjectMeta.DeepCopy()
+		metadata = getObjectMetadata(cluster, &cluster.Spec.PodTemplate.ObjectMeta, processClass, id)
+	} else {
+		metadata = getObjectMetadata(cluster, nil, processClass, id)
+	}
+
+	if metadata.Annotations == nil {
+		metadata.Annotations = make(map[string]string)
+	}
+	metadata.Annotations[LastPodHashKey] = specHash
+
+	return metadata
+}
+
+func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) metav1.ObjectMeta {
+	if cluster.Spec.VolumeClaim != nil {
+		return getObjectMetadata(cluster, &cluster.Spec.VolumeClaim.ObjectMeta, processClass, id)
+	} else {
+		return getObjectMetadata(cluster, nil, processClass, id)
+	}
+}
+
+func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMeta {
+	if cluster.Spec.PodTemplate != nil {
+		return getObjectMetadata(cluster, &cluster.Spec.PodTemplate.ObjectMeta, "", "")
+	} else {
+		return getObjectMetadata(cluster, nil, "", "")
+	}
+}
+
+func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass string, id string) metav1.ObjectMeta {
+	var metadata *metav1.ObjectMeta
+
+	if base != nil {
+		metadata = base.DeepCopy()
 	} else {
 		metadata = &metav1.ObjectMeta{}
 	}
@@ -292,13 +325,6 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	}
 	for label, value := range cluster.Spec.PodLabels {
 		metadata.Labels[label] = value
-	}
-
-	if specHash != "" {
-		if metadata.Annotations == nil {
-			metadata.Annotations = make(map[string]string)
-		}
-		metadata.Annotations[LastPodHashKey] = specHash
 	}
 
 	return *metadata
@@ -419,7 +445,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		return nil, err
 	}
 
-	metadata := getPodMetadata(cluster, "", "", "")
+	metadata := getConfigMapMetadata(cluster)
 	metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
 	metadata.OwnerReferences = owner
 

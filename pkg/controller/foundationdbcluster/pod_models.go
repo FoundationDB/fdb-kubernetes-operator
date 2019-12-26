@@ -328,7 +328,16 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 // usePvc determines whether we should attach a PVC to a pod.
 func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass string) bool {
-	return cluster.Spec.VolumeSize != "0" && isStateful(processClass)
+	var storage *resource.Quantity
+	if cluster.Spec.VolumeClaim != nil {
+		requests := cluster.Spec.VolumeClaim.Spec.Resources.Requests
+		if requests != nil {
+			storageCopy := requests["storage"]
+			storage = &storageCopy
+		}
+	}
+	return cluster.Spec.VolumeSize != "0" && isStateful(processClass) &&
+		(storage == nil || !storage.IsZero())
 }
 
 // isStateful determines whether a process class should store data.

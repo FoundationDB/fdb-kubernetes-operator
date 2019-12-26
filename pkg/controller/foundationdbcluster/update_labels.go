@@ -77,7 +77,7 @@ func (u UpdateLabels) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 		processClass := pvc.ObjectMeta.Labels["fdb-process-class"]
 		instanceId := pvc.ObjectMeta.Labels["fdb-instance-id"]
 
-		metadata := getPodMetadata(cluster, processClass, instanceId, "")
+		metadata := getPvcMetadata(cluster, processClass, instanceId)
 
 		metadataCorrect := true
 		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, metadata.Labels) {

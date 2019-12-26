@@ -321,8 +321,8 @@ spec:
                 version.
               type: object
             storageClass:
-              description: StorageClass defines the storage class for the volumes
-                in the cluster.
+              description: 'StorageClass defines the storage class for the volumes
+                in the cluster.  Deprecated: Use the VolumeClaim field instead.'
               type: string
             trustedCAs:
               description: TrustedCAs defines a list of root CAs the cluster should
@@ -335,8 +335,8 @@ spec:
                 should run.
               type: string
             volumeSize:
-              description: VolumeSize defines the size of the volume to use for stateful
-                processes.
+              description: 'VolumeSize defines the size of the volume to use for stateful
+                processes.  Deprecated: Use the VolumeClaim field instead.'
               type: string
             volumes:
               description: 'Volumes defines custom volumes for the FDB pods.  Deprecated:

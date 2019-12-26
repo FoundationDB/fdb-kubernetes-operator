@@ -1411,8 +1411,54 @@ func TestGetPvcForStorageInstance(t *testing.T) {
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				"storage": resource.MustParse("16G"),
+				"storage": resource.MustParse("128G"),
 			},
+		},
+	}))
+}
+
+func TestGetPvcWithCustomStorageSize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+		Spec: corev1.PersistentVolumeClaimSpec{
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"storage": resource.MustParse("64G"),
+				},
+			},
+		},
+	}
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pvc.Spec.Resources).To(gomega.Equal(corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			"storage": resource.MustParse("64G"),
+		},
+	}))
+}
+
+func TestGetPvcWithCustomStorageSizeWithDeprecatedField(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.VolumeSize = "64G"
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pvc.Spec.Resources).To(gomega.Equal(corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			"storage": resource.MustParse("64G"),
 		},
 	}))
 }
@@ -1425,7 +1471,7 @@ func TestGetPvcWithCustomMetadata(t *testing.T) {
 	c = mgr.GetClient()
 
 	cluster := createDefaultCluster()
-	cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+	cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				"fdb-annotation": "value1",
@@ -1437,6 +1483,7 @@ func TestGetPvcWithCustomMetadata(t *testing.T) {
 	}
 	pvc, err := GetPvc(cluster, "storage", 1)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(pvc).NotTo(gomega.BeNil())
 
 	g.Expect(pvc.Namespace).To(gomega.Equal("default"))
 	g.Expect(pvc.Name).To(gomega.Equal(fmt.Sprintf("%s-1-data", cluster.Name)))
@@ -1450,10 +1497,31 @@ func TestGetPvcWithCustomMetadata(t *testing.T) {
 		"fdb-full-instance-id": "1",
 		"fdb-label":            "value2",
 	}))
-
 }
 
 func TestGetPvcWithNoVolume(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+		Spec: corev1.PersistentVolumeClaimSpec{
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"storage": resource.MustParse("0"),
+				},
+			},
+		},
+	}
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(pvc).To(gomega.BeNil())
+}
+
+func TestGetPvcWithNoVolumeWithDeprecatedField(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -1468,6 +1536,25 @@ func TestGetPvcWithNoVolume(t *testing.T) {
 }
 
 func TestGetPvcWithStorageClass(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	class := "local"
+	cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+		Spec: corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &class,
+		},
+	}
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(pvc.Spec.StorageClassName).To(gomega.Equal(&class))
+}
+
+func TestGetPvcWithStorageClassWithDeprecatedField(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})

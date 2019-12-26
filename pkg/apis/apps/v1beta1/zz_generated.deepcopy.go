@@ -273,25 +273,10 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	in.DatabaseConfiguration.DeepCopyInto(&out.DatabaseConfiguration)
 	out.ProcessCounts = in.ProcessCounts
 	out.FaultDomain = in.FaultDomain
-	if in.StorageClass != nil {
-		in, out := &in.StorageClass, &out.StorageClass
-		*out = new(string)
-		**out = **in
-	}
 	if in.CustomParameters != nil {
 		in, out := &in.CustomParameters, &out.CustomParameters
 		*out = make([]string, len(*in))
 		copy(*out, *in)
-	}
-	if in.PodTemplate != nil {
-		in, out := &in.PodTemplate, &out.PodTemplate
-		*out = new(v1.PodTemplateSpec)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.Resources != nil {
-		in, out := &in.Resources, &out.Resources
-		*out = new(v1.ResourceRequirements)
-		(*in).DeepCopyInto(*out)
 	}
 	if in.PendingRemovals != nil {
 		in, out := &in.PendingRemovals, &out.PendingRemovals
@@ -299,6 +284,41 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.PodTemplate != nil {
+		in, out := &in.PodTemplate, &out.PodTemplate
+		*out = new(v1.PodTemplateSpec)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.VolumeClaim != nil {
+		in, out := &in.VolumeClaim, &out.VolumeClaim
+		*out = new(v1.PersistentVolumeClaim)
+		(*in).DeepCopyInto(*out)
+	}
+	in.MainContainer.DeepCopyInto(&out.MainContainer)
+	in.SidecarContainer.DeepCopyInto(&out.SidecarContainer)
+	if in.TrustedCAs != nil {
+		in, out := &in.TrustedCAs, &out.TrustedCAs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.SidecarVariables != nil {
+		in, out := &in.SidecarVariables, &out.SidecarVariables
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	in.AutomationOptions.DeepCopyInto(&out.AutomationOptions)
+	if in.PodLabels != nil {
+		in, out := &in.PodLabels, &out.PodLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Resources != nil {
+		in, out := &in.Resources, &out.Resources
+		*out = new(v1.ResourceRequirements)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.InitContainers != nil {
 		in, out := &in.InitContainers, &out.InitContainers
@@ -314,8 +334,6 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.MainContainer.DeepCopyInto(&out.MainContainer)
-	in.SidecarContainer.DeepCopyInto(&out.SidecarContainer)
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
 		*out = make([]v1.Volume, len(*in))
@@ -323,24 +341,6 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.TrustedCAs != nil {
-		in, out := &in.TrustedCAs, &out.TrustedCAs
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
-	if in.SidecarVariables != nil {
-		in, out := &in.SidecarVariables, &out.SidecarVariables
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
-	if in.PodLabels != nil {
-		in, out := &in.PodLabels, &out.PodLabels
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
-	in.AutomationOptions.DeepCopyInto(&out.AutomationOptions)
 	if in.PodSecurityContext != nil {
 		in, out := &in.PodSecurityContext, &out.PodSecurityContext
 		*out = new(v1.PodSecurityContext)
@@ -349,6 +349,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	if in.AutomountServiceAccountToken != nil {
 		in, out := &in.AutomountServiceAccountToken, &out.AutomountServiceAccountToken
 		*out = new(bool)
+		**out = **in
+	}
+	if in.StorageClass != nil {
+		in, out := &in.StorageClass, &out.StorageClass
+		*out = new(string)
 		**out = **in
 	}
 	return
