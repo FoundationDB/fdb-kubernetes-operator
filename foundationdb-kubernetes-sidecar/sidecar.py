@@ -37,7 +37,7 @@ input_dir = os.getenv('INPUT_DIR', '/var/input-files')
 output_dir = os.getenv('OUTPUT_DIR', '/var/output-files')
 
 substitutions = {}
-for key in ['FDB_PUBLIC_IP', 'FDB_MACHINE_ID', 'FDB_ZONE_ID']:
+for key in ['FDB_PUBLIC_IP', 'FDB_MACHINE_ID', 'FDB_ZONE_ID', 'FDB_INSTANCE_ID']:
     substitutions[key] = os.getenv(key, '')
 
 if substitutions['FDB_MACHINE_ID'] == '':

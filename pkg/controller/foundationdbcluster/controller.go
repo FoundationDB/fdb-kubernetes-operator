@@ -350,10 +350,31 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
+	versionString := cluster.Spec.RunningVersion
+	if versionString == "" {
+		versionString = cluster.Spec.Version
+	}
+	version, err := fdbtypes.ParseFdbVersion(versionString)
+	if err != nil {
+		return nil, err
+	}
+	needsInstanceIdSubstitution := !version.HasInstanceIdInSidecarSubstitutions()
+
 	substitutionCount := len(cluster.Spec.SidecarVariables)
-	substitutionKeys := make([]string, 0, 1+substitutionCount)
-	substitutionKeys = append(substitutionKeys, cluster.Spec.SidecarVariables...)
-	substitutionKeys = append(substitutionKeys, "FDB_INSTANCE_ID")
+	if needsInstanceIdSubstitution {
+		substitutionCount += 1
+	}
+
+	var substitutionKeys []string
+
+	if substitutionCount > 0 {
+		substitutionKeys = make([]string, 0, substitutionCount)
+		substitutionKeys = append(substitutionKeys, cluster.Spec.SidecarVariables...)
+
+		if needsInstanceIdSubstitution {
+			substitutionKeys = append(substitutionKeys, "FDB_INSTANCE_ID")
+		}
+	}
 
 	sidecarConf := map[string]interface{}{
 		"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},

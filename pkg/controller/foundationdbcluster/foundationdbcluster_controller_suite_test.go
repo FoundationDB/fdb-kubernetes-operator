@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/foundationdb/fdb-kubernetes-operator/pkg/apis"
+	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -102,4 +103,12 @@ func newTestReconciler(mgr manager.Manager) *ReconcileFoundationDBCluster {
 		PodClientProvider:   NewMockFdbPodClient,
 		AdminClientProvider: NewMockAdminClient,
 	}
+}
+
+var Versions = struct {
+	Default, WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution fdbtypes.FdbVersion
+}{
+	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithSidecarInstanceIdSubstitution:    fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	WithoutSidecarInstanceIdSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 }
