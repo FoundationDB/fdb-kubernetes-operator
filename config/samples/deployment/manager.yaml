@@ -23,7 +23,7 @@ spec:
       - command:
         - /manager
         image: foundationdb/fdb-kubernetes-operator:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: manager
         env:
           - name: POD_NAMESPACE

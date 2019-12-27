@@ -62,8 +62,9 @@ spec:
                   type: boolean
               type: object
             automountServiceAccountToken:
-              description: AutomountServiceAccountToken defines whether we should
-                automount the service account tokens in the FDB pods.
+              description: 'AutomountServiceAccountToken defines whether we should
+                automount the service account tokens in the FDB pods.  Deprecated:
+                Use the PodTemplate field instead.'
               type: boolean
             configured:
               description: Configured defines whether we have configured the database
@@ -73,7 +74,8 @@ spec:
               description: ConnectionString defines the contents of the cluster file.
               type: string
             containers:
-              description: Containers defines custom containers for the FDB pods.
+              description: 'Containers defines custom containers for the FDB pods.  Deprecated:
+                Use the PodTemplate field instead.'
               items:
                 type: object
               type: array
@@ -151,8 +153,8 @@ spec:
                   type: integer
               type: object
             initContainers:
-              description: InitContainers defines custom init containers for the FDB
-                pods.
+              description: 'InitContainers defines custom init containers for the
+                FDB pods.  Deprecated: Use the PodTemplate field instead.'
               items:
                 type: object
               type: array
@@ -173,23 +175,27 @@ spec:
                     a TLS connection.
                   type: boolean
                 env:
-                  description: Env provides environment variables.
+                  description: 'Env provides environment variables.  Deprecated: Use
+                    the PodTemplate field instead.'
                   items:
                     type: object
                   type: array
                 imageName:
-                  description: ImageName provides the name of the image to use for
-                    the container, without the version tag.
+                  description: 'ImageName provides the name of the image to use for
+                    the container, without the version tag.  Deprecated: Use the PodTemplate
+                    field instead.'
                   type: string
                 peerVerificationRules:
                   description: PeerVerificationRules provides the rules for what client
                     certificates the process should accept.
                   type: string
                 securityContext:
-                  description: SecurityContext provides the container's security context.
+                  description: 'SecurityContext provides the container''s security
+                    context.  Deprecated: Use the PodTemplate field instead.'
                   type: object
                 volumeMounts:
-                  description: VolumeMounts provides volume mounts.
+                  description: 'VolumeMounts provides volume mounts.  Deprecated:
+                    Use the PodTemplate field instead.'
                   items:
                     type: object
                   type: array
@@ -205,11 +211,15 @@ spec:
                 is left blank, the controller will provide the pod's current IP.
               type: object
             podLabels:
-              description: PodLabels defines custom labels to apply to the FDB pods.
+              description: 'PodLabels defines custom labels to apply to the FDB pods.  Deprecated:
+                Use the PodTemplate field instead.'
               type: object
             podSecurityContext:
-              description: PodSecurityContext defines the security context to apply
-                to the FDB pods.
+              description: 'PodSecurityContext defines the security context to apply
+                to the FDB pods.  Deprecated: Use the PodTemplate field instead.'
+              type: object
+            podTemplate:
+              description: PodTemplate allows customizing the FoundationDB pods.
               type: object
             processCounts:
               description: ProcessCounts defines the number of processes to configure
@@ -253,8 +263,8 @@ spec:
                   type: integer
               type: object
             resources:
-              description: Resources defines the resource requirements for the foundationdb
-                containers.
+              description: 'Resources defines the resource requirements for the foundationdb
+                containers.  Deprecated: Use the PodTemplate field instead.'
               type: object
             runningVersion:
               description: RunningVersion defines the version of FoundationDB that
@@ -269,23 +279,27 @@ spec:
                     a TLS connection.
                   type: boolean
                 env:
-                  description: Env provides environment variables.
+                  description: 'Env provides environment variables.  Deprecated: Use
+                    the PodTemplate field instead.'
                   items:
                     type: object
                   type: array
                 imageName:
-                  description: ImageName provides the name of the image to use for
-                    the container, without the version tag.
+                  description: 'ImageName provides the name of the image to use for
+                    the container, without the version tag.  Deprecated: Use the PodTemplate
+                    field instead.'
                   type: string
                 peerVerificationRules:
                   description: PeerVerificationRules provides the rules for what client
                     certificates the process should accept.
                   type: string
                 securityContext:
-                  description: SecurityContext provides the container's security context.
+                  description: 'SecurityContext provides the container''s security
+                    context.  Deprecated: Use the PodTemplate field instead.'
                   type: object
                 volumeMounts:
-                  description: VolumeMounts provides volume mounts.
+                  description: 'VolumeMounts provides volume mounts.  Deprecated:
+                    Use the PodTemplate field instead.'
                   items:
                     type: object
                   type: array
@@ -298,7 +312,7 @@ spec:
               type: array
             sidecarVersion:
               description: 'SidecarVersion defines the build version of the sidecar
-                to use. Deprecated: Use SidecarVersions instead.'
+                to use.  Deprecated: Use SidecarVersions instead.'
               format: int64
               type: integer
             sidecarVersions:
@@ -307,8 +321,8 @@ spec:
                 version.
               type: object
             storageClass:
-              description: StorageClass defines the storage class for the volumes
-                in the cluster.
+              description: 'StorageClass defines the storage class for the volumes
+                in the cluster.  Deprecated: Use the VolumeClaim field instead.'
               type: string
             trustedCAs:
               description: TrustedCAs defines a list of root CAs the cluster should
@@ -321,17 +335,17 @@ spec:
                 should run.
               type: string
             volumeSize:
-              description: VolumeSize defines the size of the volume to use for stateful
-                processes.
+              description: 'VolumeSize defines the size of the volume to use for stateful
+                processes.  Deprecated: Use the VolumeClaim field instead.'
               type: string
             volumes:
-              description: Volumes defines custom volumes for the FDB pods.
+              description: 'Volumes defines custom volumes for the FDB pods.  Deprecated:
+                Use the PodTemplate field instead.'
               items:
                 type: object
               type: array
           required:
           - version
-          - volumeSize
           type: object
         status:
           description: Status defines the current state of the cluster.
@@ -596,7 +610,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         image: foundationdb/fdb-kubernetes-operator:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: manager
         resources:
           limits:

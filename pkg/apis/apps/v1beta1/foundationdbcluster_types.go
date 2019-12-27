@@ -164,7 +164,7 @@ type FoundationDBClusterSpec struct {
 	// VolumeSize defines the size of the volume to use for stateful processes.
 	//
 	// Deprecated: Use the VolumeClaim field instead.
-	VolumeSize string `json:"volumeSize"`
+	VolumeSize string `json:"volumeSize,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

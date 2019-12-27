@@ -346,7 +346,6 @@ spec:
               type: array
           required:
           - version
-          - volumeSize
           type: object
         status:
           description: Status defines the current state of the cluster.

@@ -8,11 +8,12 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.11
-  databaseConfiguration:
-    redundancy_mode: double
-  volumeSize: "128G"
-  automountServiceAccountToken: false
-  resources:
-    requests:
-      cpu: 2
-      memory: 8Gi
+  podTemplate:
+    spec:
+      automountServiceAccountToken: false
+      containers:
+          - name: "foundationdb"
+            resources:
+              requests:
+                cpu: 2
+                memory: 8Gi
