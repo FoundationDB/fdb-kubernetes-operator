@@ -679,7 +679,9 @@ func TestFeatureFlagsForFdbVersion(t *testing.T) {
 
 	version := FdbVersion{Major: 6, Minor: 2, Patch: 0}
 	g.Expect(version.HasInstanceIdInSidecarSubstitutions()).To(gomega.BeFalse())
+	g.Expect(version.PrefersCommandLineArgumentsInSidecar()).To(gomega.BeFalse())
 
 	version = FdbVersion{Major: 7, Minor: 0, Patch: 0}
 	g.Expect(version.HasInstanceIdInSidecarSubstitutions()).To(gomega.BeTrue())
+	g.Expect(version.PrefersCommandLineArgumentsInSidecar()).To(gomega.BeTrue())
 }

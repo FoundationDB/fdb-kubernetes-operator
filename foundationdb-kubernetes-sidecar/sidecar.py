@@ -31,43 +31,15 @@ import stat
 import traceback
 from pathlib import Path
 
-with open(os.path.join(os.getenv('SIDECAR_CONF_DIR'), 'config.json')) as conf_file:
-    config = json.load(conf_file)
-input_dir = os.getenv('INPUT_DIR', '/var/input-files')
-output_dir = os.getenv('OUTPUT_DIR', '/var/output-files')
-
-substitutions = {}
-for key in ['FDB_PUBLIC_IP', 'FDB_MACHINE_ID', 'FDB_ZONE_ID', 'FDB_INSTANCE_ID']:
-    substitutions[key] = os.getenv(key, '')
-
-if substitutions['FDB_MACHINE_ID'] == '':
-    substitutions['FDB_MACHINE_ID'] = os.getenv('HOSTNAME', '')
-
-if substitutions['FDB_ZONE_ID'] == '':
-    substitutions['FDB_ZONE_ID'] = substitutions['FDB_MACHINE_ID']
-if substitutions['FDB_PUBLIC_IP'] == '':
-    address_info = socket.getaddrinfo(substitutions['FDB_MACHINE_ID'], 4500, family=socket.AddressFamily.AF_INET)
-    if len(address_info) > 0:
-        substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
-
-if 'ADDITIONAL_SUBSTITUTIONS' in config and config['ADDITIONAL_SUBSTITUTIONS']:
-    for key in config['ADDITIONAL_SUBSTITUTIONS']:
-        substitutions[key] = os.getenv(key, key)
-
-class Server(http.server.BaseHTTPRequestHandler):
-    options_cache = None
-    peer_verification_rules = None
-
-    @classmethod
-    def options(cls):
-        '''
-        This method gets the command-line options for the server.
-        '''
-        if cls.options_cache is not None:
-            return cls.options_cache
-        cls.options_cache = {}
-
-        parser = argparse.ArgumentParser(description='FoundationDB Kubernetes Sidecar')
+class Config(object):
+    def __init__(self):
+        parser = argparse.ArgumentParser(
+                            description='FoundationDB Kubernetes Sidecar')
+        parser.add_argument('--init-mode',
+                            help=('Whether to run the sidecar in init mode ',
+                                  'which causes it to copy the files once and '
+                                  'exit without starting a server.'),
+                            action='store_true')
         parser.add_argument('--bind-address', help='IP and port to bind on',
                             default='0.0.0.0:8080')
         parser.add_argument('--tls',
@@ -93,53 +65,141 @@ class Server(http.server.BaseHTTPRequestHandler):
                                   'variable.'))
         parser.add_argument('--tls-verify-peers',
                             help=('The peer verification rules for incoming '
-                                  'TLS  connections. If this is not provided we '
-                                  'will take the rules from the '
+                                  'TLS  connections. If this is not provided '
+                                  'we will take the rules from the '
                                   'FDB_TLS_VERIFY_PEERS environment variable. '
                                   'The format of this is the same as the TLS '
                                   'peer verification rules in FoundationDB.'))
-        cls.options_cache = parser.parse_args()
-        return cls.options_cache
+        parser.add_argument('--input-dir',
+                            help=('The directory containing the input files '
+                                  'the config map.'),
+                            default='/var/input-files')
+        parser.add_argument('--output-dir',
+                            help=('The directory into which the sidecar should '
+                                   'place the file it generates.'),
+                            default='/var/output-files')
+        parser.add_argument('--substitute-variable',
+                            help=('A custom environment variable that should '
+                                  'available for substitution in the monitor '
+                                  'conf.'),
+                            action='append')
+        parser.add_argument('--copy-file',
+                            help=('A file to copy from the config map to the '
+                                  'output directory.'),
+                            action='append')
+        parser.add_argument('--copy-binary',
+                            help=('A binary to copy from the to the output',
+                                  'directory.'),
+                            action='append')
+        parser.add_argument('--copy-library',
+                            help=('A version of the client library to copy '
+                                  'to the output directory.'),
+                            action='append')
+        parser.add_argument('--input-monitor-conf',
+                            help=('The name of a monitor conf template in the ',
+                                  'input files'))
+        args = parser.parse_args()
+
+        self.bind_address = args.bind_address
+        self.input_dir = args.input_dir
+        self.output_dir = args.output_dir
+
+        self.enable_tls = args.tls
+        self.copy_files = args.copy_file or []
+        self.copy_binaries = args.copy_binary or []
+        self.copy_libraries = args.copy_library or []
+        self.input_monitor_conf = args.input_monitor_conf
+        self.init_mode = args.init_mode
+
+        if self.enable_tls:
+            self.certificate_file = args.tls_certificate_file or os.getenv('FDB_TLS_CERTIFICATE_FILE')
+            assert self.certificate_file, (
+                "You must provide a certificate file, either through the "
+                "tls_certificate_file argument or the FDB_TLS_CERTIFICATE_FILE "
+                "environment variable")
+            self.ca_file = args.tls_ca_file or os.getenv('FDB_TLS_CA_FILE')
+            assert ca_file, (
+                "You must provide a CA file, either through the tls_ca_file "
+                "argument or the FDB_TLS_CA_FILE environment variable")
+            self.key_file = args.tls_key_file or os.getenv('FDB_TLS_KEY_FILE')
+            assert key_file, (
+                "You must provide a key file, either through the tls_key_file "
+                "argument or the FDB_TLS_KEY_FILE environment variable")
+            self.peer_verification_rules = args.tls_verify_peers or os.getenv('FDB_TLS_VERIFY_PEERS')
+
+        self.substitutions = {}
+        for key in ['FDB_PUBLIC_IP', 'FDB_MACHINE_ID', 'FDB_ZONE_ID', 'FDB_INSTANCE_ID']:
+            self.substitutions[key] = os.getenv(key, '')
+
+        if self.substitutions['FDB_MACHINE_ID'] == '':
+            self.substitutions['FDB_MACHINE_ID'] = os.getenv('HOSTNAME', '')
+
+        if self.substitutions['FDB_ZONE_ID'] == '':
+            self.substitutions['FDB_ZONE_ID'] = self.substitutions['FDB_MACHINE_ID']
+        if self.substitutions['FDB_PUBLIC_IP'] == '':
+            address_info = socket.getaddrinfo(self.substitutions['FDB_MACHINE_ID'], 4500, family=socket.AddressFamily.AF_INET)
+            if len(address_info) > 0:
+                self.substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
+
+        for variable in args.substitute_variable or []:
+            self.substitutions[variable] = os.getenv(variable)
+        
+        if os.getenv('SIDECAR_CONF_DIR'):
+            with open(os.path.join(os.getenv('SIDECAR_CONF_DIR'), 'config.json')) as conf_file:
+                config = json.load(conf_file)
+        else:
+            config = {}
+
+        if os.getenv('INPUT_DIR'):
+            self.input_dir = os.getenv('INPUT_DIR')
+
+        if os.getenv('OUTPUT_DIR'):
+            self.output_dir = os.getenv('OUTPUT_DIR')
+
+        if 'ADDITIONAL_SUBSTITUTIONS' in config and config['ADDITIONAL_SUBSTITUTIONS']:
+            for key in config['ADDITIONAL_SUBSTITUTIONS']:
+                self.substitutions[key] = os.getenv(key, key)
+
+        if 'COPY_FILES' in config and config['COPY_FILES']:
+            self.copy_files.extend(config['COPY_FILES'])
+
+        if 'COPY_BINARIES' in config and config['COPY_BINARIES']:
+            self.copy_binaries.extend(config['COPY_BINARIES'])
+
+        if 'COPY_LIBRARIES' in config and config['COPY_LIBRARIES']:
+            self.copy_libraries.extend(config['COPY_LIBRARIES'])
+
+        if 'INPUT_MONITOR_CONF' in config and config['INPUT_MONITOR_CONF']:
+            self.input_monitor_conf = config['INPUT_MONITOR_CONF']
+
+        if os.getenv('COPY_ONCE', '0') == '1':
+            self.init_mode = True
 
     @classmethod
-    def tls_args(cls):
-        '''
-        This method constructs the TLS file paths for a TLS session.
-        '''
-        options = cls.options()
-        certificate_file = options.tls_certificate_file or os.getenv('FDB_TLS_CERTIFICATE_FILE')
-        assert certificate_file, (
-            "You must provide a certificate file, either through the "
-            "tls_certificate_file argument or the FDB_TLS_CERTIFICATE_FILE "
-            "environment variable")
-        ca_file = options.tls_ca_file or os.getenv('FDB_TLS_CA_FILE')
-        assert ca_file, (
-            "You must provide a CA file, either through the tls_ca_file "
-            "argument or the FDB_TLS_CA_FILE environment variable")
-        key_file = options.tls_key_file or os.getenv('FDB_TLS_KEY_FILE')
-        assert key_file, (
-            "You must provide a key file, either through the tls_key_file "
-            "argument or the FDB_TLS_KEY_FILE environment variable")
-        return (certificate_file, ca_file, key_file)
+    def shared(cls):
+        if cls.shared_config:
+            return cls.shared_config
+        cls.shared_config = Config()
+        return cls.shared_config
 
+    shared_config = None
+
+class Server(http.server.BaseHTTPRequestHandler):
     @classmethod
     def start(cls):
         '''
         This method starts the server.
         '''
-        options = cls.options()
-        (address, port) = options.bind_address.split(':')
+        config = Config.shared()
+        (address, port) = config.bind_address.split(':')
         print('Listening on %s:%s' % (address, port))
         httpd = http.server.HTTPServer((address, int(port)), cls)
 
-        if options.tls:
-            (certificate_file, ca_file, key_file) = cls.tls_args()
-            context = ssl.create_default_context(cafile=ca_file)
+        if config.enable_tls:
+            context = ssl.create_default_context(cafile=config.ca_file)
             context.check_hostname = False
             context.verify_mode = ssl.CERT_REQUIRED
-            context.load_cert_chain(certificate_file, key_file)
-            cls.peer_verification_rules = options.tls_verify_peers \
-                or os.getenv('FDB_TLS_VERIFY_PEERS')
+            context.load_cert_chain(config.certificate_file, config.key_file)
             httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
         httpd.serve_forever()
 
@@ -159,7 +219,8 @@ class Server(http.server.BaseHTTPRequestHandler):
         self.wfile.write(response)
 
     def check_request_cert(self):
-        approved = not Server.options().tls or self.check_cert(self.connection.getpeercert(), Server.peer_verification_rules)
+        config = Config.shared()
+        approved = not config.enable_tls or self.check_cert(self.connection.getpeercert(), config.peer_verification_rules)
         if not approved:
             self.send_error(401, 'Client certificate was not approved')
         return approved
@@ -295,7 +356,7 @@ class Server(http.server.BaseHTTPRequestHandler):
 
 def check_hash(filename):
     try:
-        with open('%s/%s' % (output_dir, filename), 'rb') as contents:
+        with open('%s/%s' % (Config.shared().output_dir, filename), 'rb') as contents:
             m = hashlib.sha256()
             m.update(contents.read())
             return m.hexdigest()
@@ -303,16 +364,18 @@ def check_hash(filename):
         raise
 
 def copy_files():
-    for filename in config['COPY_FILES']:
-        shutil.copy('%s/%s' % (input_dir, filename), '%s/%s' % (output_dir, filename))
+    config = Config.shared()
+    for filename in config.copy_files:
+        shutil.copy('%s/%s' % (config.input_dir, filename), '%s/%s' % (config.output_dir, filename))
     return "OK"
 
 def copy_binaries():
+    config = Config.shared()
     with open('/var/fdb/version') as version_file:
         primary_version = version_file.read().strip()
-    for binary in config['COPY_BINARIES']:
+    for binary in config.copy_binaries:
         path = Path('/usr/bin/%s' % binary)
-        target_path = Path('%s/bin/%s/%s' % (output_dir, primary_version, binary))
+        target_path = Path('%s/bin/%s/%s' % (config.output_dir, primary_version, binary))
         if not target_path.exists():
             target_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(path, target_path)
@@ -320,29 +383,31 @@ def copy_binaries():
     return "OK"
 
 def copy_libraries():
-    for version in config['COPY_LIBRARIES']:
+    config = Config.shared()
+    for version in config.copy_libraries:
         path =  Path('/var/fdb/lib/libfdb_c_%s.so' % version)
-        if version == config['COPY_LIBRARIES'][0]:
-            target_path = Path('%s/lib/libfdb_c.so' % (output_dir))
+        if version == config.copy_libraries[0]:
+            target_path = Path('%s/lib/libfdb_c.so' % (config.output_dir))
         else:
-            target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (output_dir, version))
+            target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (config.output_dir, version))
         if not target_path.exists():
             target_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(path, target_path)
     return "OK"
 
 def copy_monitor_conf():
-    if 'INPUT_MONITOR_CONF' in config and config['INPUT_MONITOR_CONF']:
-        with open('%s/%s' % (input_dir, config['INPUT_MONITOR_CONF'])) as monitor_conf_file:
+    config = Config.shared()
+    if config.input_monitor_conf:
+        with open('%s/%s' % (config.input_dir, config.input_monitor_conf)) as monitor_conf_file:
             monitor_conf = monitor_conf_file.read()
-        for variable in substitutions:
-            monitor_conf = monitor_conf.replace('$' + variable, substitutions[variable])
-        with open('%s/fdbmonitor.conf' % output_dir, 'w') as output_conf_file:
+        for variable in config.substitutions:
+            monitor_conf = monitor_conf.replace('$' + variable, config.substitutions[variable])
+        with open('%s/fdbmonitor.conf' % config.output_dir, 'w') as output_conf_file:
             output_conf_file.write(monitor_conf)
     return "OK"
 
 def get_substitutions():
-    return json.dumps(substitutions)
+    return json.dumps(Config.shared().substitutions)
 
 def ready():
     return "OK"
@@ -353,5 +418,5 @@ if __name__ == '__main__':
     copy_libraries()
     copy_monitor_conf()
 
-    if os.getenv('COPY_ONCE') != '1':
+    if not Config.shared().init_mode:
         Server.start()

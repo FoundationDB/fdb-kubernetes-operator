@@ -1081,3 +1081,10 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 func (version FdbVersion) HasInstanceIdInSidecarSubstitutions() bool {
 	return version.IsAtLeast(FdbVersion{Major: 7, Minor: 0, Patch: 0})
 }
+
+// PrefersCommandLineArgumentsInSidecar determines if a version has
+// support for configuring the sidecar exclusively through command-line
+// arguments.
+func (version FdbVersion) PrefersCommandLineArgumentsInSidecar() bool {
+	return version.IsAtLeast(FdbVersion{Major: 7, Minor: 0, Patch: 0})
+}

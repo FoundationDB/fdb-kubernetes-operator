@@ -55,7 +55,11 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 	if err != nil {
 		return nil, err
 	}
-	spec := GetPodSpec(cluster, processClass, idNum)
+	spec, err := GetPodSpec(cluster, processClass, idNum)
+	if err != nil {
+		return nil, err
+	}
+
 	specHash, err := hashPodSpec(spec)
 	if err != nil {
 		return nil, err
@@ -76,12 +80,22 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) *corev1.PodSpec {
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.PodSpec, error) {
 	podName, instanceID := getInstanceId(cluster, processClass, idNum)
 	imageName := cluster.Spec.MainContainer.ImageName
 	if imageName == "" {
 		imageName = "foundationdb/foundationdb"
 	}
+
+	versionString := cluster.Spec.RunningVersion
+	if versionString == "" {
+		versionString = cluster.Spec.Version
+	}
+	version, err := fdbtypes.ParseFdbVersion(versionString)
+	if err != nil {
+		return nil, err
+	}
+
 	mainContainer := corev1.Container{
 		Name:  "foundationdb",
 		Image: fmt.Sprintf("%s:%s", imageName, cluster.Spec.Version),
@@ -104,12 +118,38 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	customizeContainer(&mainContainer, cluster.Spec.MainContainer)
 
-	sidecarEnv := make([]corev1.EnvVar, 0, 5)
-	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
-	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
+	sidecarEnv := make([]corev1.EnvVar, 0, 4)
+
+	var sidecarArgs []string
+	if version.PrefersCommandLineArgumentsInSidecar() {
+		sidecarArgs = []string{
+			"--copy-file", "fdb.cluster",
+			"--copy-file", "ca.pem",
+			"--copy-binary", "fdbserver",
+			"--copy-binary", "fdbcli",
+			"--input-monitor-conf", "fdbmonitor.conf",
+		}
+	} else {
+		sidecarArgs = make([]string, 0)
+	}
+
+	if !version.PrefersCommandLineArgumentsInSidecar() {
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
+	}
+
 	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 	}})
+
+	if version.PrefersCommandLineArgumentsInSidecar() {
+		for _, substitution := range cluster.Spec.SidecarVariables {
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
+		}
+		if !version.HasInstanceIdInSidecarSubstitutions() {
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_INSTANCE_ID")
+		}
+	}
 
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
@@ -151,14 +191,23 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		sidecarImageName = "foundationdb/foundationdb-kubernetes-sidecar"
 	}
 
+	if version.PrefersCommandLineArgumentsInSidecar() {
+		sidecarArgs = append(sidecarArgs, "--init-mode")
+	}
+
 	initContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-init",
 		Image: fmt.Sprintf("%s:%s", sidecarImageName, cluster.GetFullSidecarVersion(true)),
 		Env:   sidecarEnv,
+		Args:  sidecarArgs,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 		},
+	}
+
+	if version.PrefersCommandLineArgumentsInSidecar() {
+		sidecarArgs = sidecarArgs[:len(sidecarArgs)-1]
 	}
 
 	customizeContainer(&initContainer, cluster.Spec.SidecarContainer)
@@ -168,10 +217,19 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	sidecarEnv = append(sidecarEnv,
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
 
+	if cluster.Spec.SidecarContainer.EnableTLS {
+		sidecarArgs = append(sidecarArgs, "--tls")
+	}
+
+	if !version.PrefersCommandLineArgumentsInSidecar() {
+		sidecarEnv = sidecarEnv[1:]
+	}
+
 	sidecarContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-sidecar",
 		Image: initContainer.Image,
-		Env:   sidecarEnv[1:],
+		Env:   sidecarEnv,
+		Args:  sidecarArgs,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
@@ -185,10 +243,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		},
 	}
 
-	if cluster.Spec.SidecarContainer.EnableTLS {
-		sidecarContainer.Args = []string{"--tls"}
-	}
-
 	customizeContainer(&sidecarContainer, cluster.Spec.SidecarContainer)
 
 	var mainVolumeSource corev1.VolumeSource
@@ -200,17 +254,22 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
 	}
 
+	configMapItems := []corev1.KeyToPath{
+		corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
+		corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+		corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
+	}
+
+	if !version.PrefersCommandLineArgumentsInSidecar() {
+		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"})
+	}
+
 	volumes := []corev1.Volume{
 		corev1.Volume{Name: "data", VolumeSource: mainVolumeSource},
 		corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 			LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
-			Items: []corev1.KeyToPath{
-				corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
-				corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
-				corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
-				corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"},
-			},
+			Items:                configMapItems,
 		}}},
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
@@ -253,7 +312,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		Affinity:                     affinity,
 		SecurityContext:              cluster.Spec.PodSecurityContext,
 		AutomountServiceAccountToken: cluster.Spec.AutomountServiceAccountToken,
-	}
+	}, nil
 }
 
 // usePvc determines whether we should attach a PVC to a pod.
