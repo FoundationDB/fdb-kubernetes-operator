@@ -259,9 +259,16 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 		return synced, err
 	}
 
-	synced, err = CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
-	if !synced {
-		return synced, err
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false, err
+	}
+
+	if !version.SupportsUsingBinariesFromMainContainer() || cluster.IsBeingUpgraded() {
+		synced, err = CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
+		if !synced {
+			return synced, err
+		}
 	}
 
 	return true, nil
@@ -477,8 +484,21 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		zoneVariable = "$FDB_ZONE_ID"
 	}
 
+	var binaryDir string
+
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	if version.SupportsUsingBinariesFromMainContainer() {
+		binaryDir = "$BINARY_DIR"
+	} else {
+		binaryDir = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
+	}
+
 	confLines = append(confLines,
-		fmt.Sprintf("command = /var/dynamic-conf/bin/%s/fdbserver", cluster.Spec.Version),
+		fmt.Sprintf("command = %s/fdbserver", binaryDir),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 		fmt.Sprintf("public_address = %s", cluster.GetFullAddress("$FDB_PUBLIC_IP")),

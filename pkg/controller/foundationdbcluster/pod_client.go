@@ -352,6 +352,23 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 
 	substitutions["FDB_INSTANCE_ID"] = client.Pod.ObjectMeta.Labels["fdb-instance-id"]
 
+	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("JPB got version: %#v\n", version)
+
+	if version.SupportsUsingBinariesFromMainContainer() {
+		if client.Cluster.IsBeingUpgraded() {
+			substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", client.Cluster.Spec.Version)
+		} else {
+			substitutions["BINARY_DIR"] = "/usr/bin"
+		}
+	}
+
+	fmt.Printf("JPB got substitutions: %#v\n", substitutions)
+
 	return substitutions, nil
 }
 
