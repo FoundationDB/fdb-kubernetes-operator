@@ -795,47 +795,6 @@ func TestGetConfigMapWithExplicitInstanceIdSubstitution(t *testing.T) {
 	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FDB_INSTANCE_ID"}))
 }
 
-func TestGetConfigMapWithCommandLineVariablesForSidecar(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	c = mgr.GetClient()
-
-	cluster := createDefaultCluster()
-	cluster.Spec.Version = Versions.WithCommandLineVariablesForSidecar.String()
-	configMap, err := GetConfigMap(context.TODO(), cluster, c)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	g.Expect(configMap.Data["sidecar-confg"]).To(gomega.Equal(""))
-}
-
-func TestGetConfigMapWithEnvironmentVariablesForSidecar(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	c = mgr.GetClient()
-
-	cluster := createDefaultCluster()
-	cluster.Spec.Version = Versions.WithEnvironmentVariablesForSidecar.String()
-	cluster.Spec.SidecarVariables = []string{"FAULT_DOMAIN", "ZONE"}
-	configMap, err := GetConfigMap(context.TODO(), cluster, c)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	g.Expect(configMap.Data["sidecar-conf"]).NotTo(gomega.Equal(""))
-
-	sidecarConf := make(map[string]interface{})
-	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(len(sidecarConf)).To(gomega.Equal(5))
-	g.Expect(sidecarConf["COPY_FILES"]).To(gomega.Equal([]interface{}{"fdb.cluster", "ca.pem"}))
-	g.Expect(sidecarConf["COPY_BINARIES"]).To(gomega.Equal([]interface{}{"fdbserver", "fdbcli"}))
-	g.Expect(sidecarConf["COPY_LIBRARIES"]).To(gomega.Equal([]interface{}{}))
-	g.Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(gomega.Equal("fdbmonitor.conf"))
-	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FAULT_DOMAIN", "ZONE", "FDB_INSTANCE_ID"}))
-}
-
 func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()

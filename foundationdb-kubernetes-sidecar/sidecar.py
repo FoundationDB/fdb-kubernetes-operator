@@ -118,11 +118,11 @@ class Config(object):
                 "tls_certificate_file argument or the FDB_TLS_CERTIFICATE_FILE "
                 "environment variable")
             self.ca_file = args.tls_ca_file or os.getenv('FDB_TLS_CA_FILE')
-            assert ca_file, (
+            assert self.ca_file, (
                 "You must provide a CA file, either through the tls_ca_file "
                 "argument or the FDB_TLS_CA_FILE environment variable")
             self.key_file = args.tls_key_file or os.getenv('FDB_TLS_KEY_FILE')
-            assert key_file, (
+            assert self.key_file, (
                 "You must provide a key file, either through the tls_key_file "
                 "argument or the FDB_TLS_KEY_FILE environment variable")
             self.peer_verification_rules = args.tls_verify_peers or os.getenv('FDB_TLS_VERIFY_PEERS')

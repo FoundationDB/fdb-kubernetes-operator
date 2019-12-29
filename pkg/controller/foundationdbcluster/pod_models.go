@@ -118,11 +118,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	customizeContainer(&mainContainer, cluster.Spec.MainContainer)
 
-	sidecarEnv := make([]corev1.EnvVar, 0, 4)
+	sidecarInitEnv := make([]corev1.EnvVar, 0, 4)
 
-	var sidecarArgs []string
+	var sidecarInitArgs []string
 	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarArgs = []string{
+		sidecarInitArgs = []string{
 			"--copy-file", "fdb.cluster",
 			"--copy-file", "ca.pem",
 			"--copy-binary", "fdbserver",
@@ -130,24 +130,24 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 			"--input-monitor-conf", "fdbmonitor.conf",
 		}
 	} else {
-		sidecarArgs = make([]string, 0)
+		sidecarInitArgs = make([]string, 0)
 	}
 
 	if !version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
 	}
 
-	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+	sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 	}})
 
 	if version.PrefersCommandLineArgumentsInSidecar() {
 		for _, substitution := range cluster.Spec.SidecarVariables {
-			sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
+			sidecarInitArgs = append(sidecarInitArgs, "--substitute-variable", substitution)
 		}
 		if !version.HasInstanceIdInSidecarSubstitutions() {
-			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_INSTANCE_ID")
+			sidecarInitArgs = append(sidecarInitArgs, "--substitute-variable", "FDB_INSTANCE_ID")
 		}
 	}
 
@@ -162,29 +162,29 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	}
 
 	if faultDomainKey == "foundationdb.org/none" {
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}})
 	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
 	} else {
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}})
 		if !strings.HasPrefix(faultDomainSource, "$") {
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
 			}})
 		}
 	}
 
-	sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+	sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 
 	sidecarImageName := cluster.Spec.SidecarContainer.ImageName
 	if sidecarImageName == "" {
@@ -192,22 +192,29 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	}
 
 	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarArgs = append(sidecarArgs, "--init-mode")
+		sidecarInitArgs = append(sidecarInitArgs, "--init-mode")
 	}
 
 	initContainer := corev1.Container{
 		Name:  "foundationdb-kubernetes-init",
 		Image: fmt.Sprintf("%s:%s", sidecarImageName, cluster.GetFullSidecarVersion(true)),
-		Env:   sidecarEnv,
-		Args:  sidecarArgs,
+		Env:   sidecarInitEnv,
+		Args:  sidecarInitArgs,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 		},
 	}
 
+	sidecarArgs := make([]string, 0, len(sidecarInitArgs))
+	sidecarEnv := make([]corev1.EnvVar, 0, len(sidecarInitEnv))
+
 	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarArgs = sidecarArgs[:len(sidecarArgs)-1]
+		sidecarArgs = append(sidecarArgs, sidecarInitArgs[:len(sidecarInitArgs)-1]...)
+		sidecarEnv = append(sidecarEnv, sidecarInitEnv...)
+	} else {
+		sidecarArgs = append(sidecarArgs, sidecarInitArgs...)
+		sidecarEnv = append(sidecarEnv, sidecarInitEnv[1:]...)
 	}
 
 	customizeContainer(&initContainer, cluster.Spec.SidecarContainer)
@@ -219,10 +226,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	if cluster.Spec.SidecarContainer.EnableTLS {
 		sidecarArgs = append(sidecarArgs, "--tls")
-	}
-
-	if !version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarEnv = sidecarEnv[1:]
 	}
 
 	sidecarContainer := corev1.Container{
