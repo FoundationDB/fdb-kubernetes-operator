@@ -126,21 +126,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 			"--copy-file", "fdb.cluster",
 			"--copy-file", "ca.pem",
 			"--input-monitor-conf", "fdbmonitor.conf",
+			"--copy-binary", "fdbserver",
+			"--copy-binary", "fdbcli",
 		}
 		if version.SupportsUsingBinariesFromMainContainer() {
 			sidecarInitArgs = append(sidecarInitArgs,
 				"--main-container-version", version.String(),
-			)
-			if cluster.IsBeingUpgraded() {
-				sidecarInitArgs = append(sidecarInitArgs,
-					"--copy-binary", "fdbserver",
-					"--copy-binary", "fdbcli",
-				)
-			}
-		} else {
-			sidecarInitArgs = append(sidecarInitArgs,
-				"--copy-binary", "fdbserver",
-				"--copy-binary", "fdbcli",
 			)
 		}
 	} else {

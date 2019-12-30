@@ -390,13 +390,14 @@ def copy_files():
 
 def copy_binaries():
     config = Config.shared()
-    for binary in config.copy_binaries:
-        path = Path('/usr/bin/%s' % binary)
-        target_path = Path('%s/bin/%s/%s' % (config.output_dir, config.primary_version, binary))
-        if not target_path.exists():
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(path, target_path)
-            target_path.chmod(0o744)
+    if config.main_container_version != config.primary_version:
+        for binary in config.copy_binaries:
+            path = Path('/usr/bin/%s' % binary)
+            target_path = Path('%s/bin/%s/%s' % (config.output_dir, config.primary_version, binary))
+            if not target_path.exists():
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(path, target_path)
+                target_path.chmod(0o744)
     return "OK"
 
 def copy_libraries():

@@ -751,7 +751,9 @@ func TestGetPodSpecWithCommandLinesVariablesForSidecar(t *testing.T) {
 	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:7.0.0-1"))
 	g.Expect(initContainer.Args).To(gomega.Equal([]string{
 		"--copy-file", "fdb.cluster", "--copy-file", "ca.pem",
-		"--input-monitor-conf", "fdbmonitor.conf", "--main-container-version", "7.0.0",
+		"--input-monitor-conf", "fdbmonitor.conf",
+		"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
+		"--main-container-version", "7.0.0",
 		"--substitute-variable", "FAULT_DOMAIN", "--substitute-variable", "ZONE",
 		"--init-mode",
 	}))
@@ -774,7 +776,9 @@ func TestGetPodSpecWithCommandLinesVariablesForSidecar(t *testing.T) {
 
 	g.Expect(sidecarContainer.Args).To(gomega.Equal([]string{
 		"--copy-file", "fdb.cluster", "--copy-file", "ca.pem",
-		"--input-monitor-conf", "fdbmonitor.conf", "--main-container-version", "7.0.0",
+		"--input-monitor-conf", "fdbmonitor.conf",
+		"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
+		"--main-container-version", "7.0.0",
 		"--substitute-variable", "FAULT_DOMAIN", "--substitute-variable", "ZONE",
 	}))
 
@@ -829,8 +833,9 @@ func TestGetPodSpecWithCommandLinesVariablesForSidecarWithPendingUpgrade(t *test
 	g.Expect(initContainer.Image).To(gomega.Equal("foundationdb/foundationdb-kubernetes-sidecar:7.0.0-1"))
 	g.Expect(initContainer.Args).To(gomega.Equal([]string{
 		"--copy-file", "fdb.cluster", "--copy-file", "ca.pem",
-		"--input-monitor-conf", "fdbmonitor.conf", "--main-container-version", "7.0.0",
+		"--input-monitor-conf", "fdbmonitor.conf",
 		"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
+		"--main-container-version", "7.0.0",
 		"--init-mode",
 	}))
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
@@ -852,8 +857,9 @@ func TestGetPodSpecWithCommandLinesVariablesForSidecarWithPendingUpgrade(t *test
 
 	g.Expect(sidecarContainer.Args).To(gomega.Equal([]string{
 		"--copy-file", "fdb.cluster", "--copy-file", "ca.pem",
-		"--input-monitor-conf", "fdbmonitor.conf", "--main-container-version", "7.0.0",
+		"--input-monitor-conf", "fdbmonitor.conf",
 		"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
+		"--main-container-version", "7.0.0",
 	}))
 
 	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
