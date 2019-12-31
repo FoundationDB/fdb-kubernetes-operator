@@ -194,6 +194,10 @@ type FoundationDBClusterStatus struct {
 
 	// Health provides information about the health of the database.
 	Health ClusterHealth `json:"health,omitempty"`
+
+	// RequiredAddresses defines that addresses that we need to enable for the
+	// processes in the cluster.
+	RequiredAddresses RequiredAddressSet `json:"requiredAddresses,omitempty"`
 }
 
 // GenerationStatus stores information on which generations have reached
@@ -761,20 +765,91 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 	return nil
 }
 
+// ProcessAddress provides a structured address for a process.
+type ProcessAddress struct {
+	IPAddress string
+	Port      int
+	Flags     map[string]bool
+}
+
+// ParseProcessAddress parses a structured address from its string
+// representation.
+func ParseProcessAddress(address string) (ProcessAddress, error) {
+	result := ProcessAddress{}
+	components := strings.Split(address, ":")
+	result.IPAddress = components[0]
+
+	port, err := strconv.Atoi(components[1])
+	if err != nil {
+		return result, err
+	}
+	result.Port = port
+
+	if len(components) > 2 {
+		result.Flags = make(map[string]bool, len(components)-2)
+		for _, flag := range components[2:] {
+			result.Flags[flag] = true
+		}
+	}
+
+	return result, nil
+}
+
+// String gets the string representation of an address.
+func (address ProcessAddress) String() string {
+	result := address.IPAddress + ":" + strconv.Itoa(address.Port)
+
+	flags := make([]string, 0, len(address.Flags))
+	for flag, set := range address.Flags {
+		if set {
+			flags = append(flags, flag)
+		}
+	}
+
+	sort.Slice(flags, func(i int, j int) bool {
+		return flags[i] < flags[j]
+	})
+
+	for _, flag := range flags {
+		result = result + ":" + flag
+	}
+
+	return result
+}
+
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(address string) string {
-	var port int
-	var suffix string
+func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
+	return cluster.GetFullAddressList(ipAddress, true)
+}
 
-	if cluster.Spec.MainContainer.EnableTLS {
-		port = 4500
-		suffix = ":tls"
-	} else {
-		port = 4501
-		suffix = ""
+// GetFullAddress gets the full list of public address we should use for a
+//process.
+//
+// This will include the IP address, the port, and any additional flags.
+//
+// If a process needs multiple addresses, this will include all of them,
+// separated by commas. If you pass false for primaryOnly, this will return only
+// the primary address.
+func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool) string {
+	addressMap := make(map[string]bool)
+	if cluster.Status.RequiredAddresses.TLS {
+		addressMap[fmt.Sprintf("%s:4500:tls", ipAddress)] = cluster.Spec.MainContainer.EnableTLS
 	}
-	return fmt.Sprintf("%s:%d%s", address, port, suffix)
+	if cluster.Status.RequiredAddresses.NonTLS {
+		addressMap[fmt.Sprintf("%s:4501", ipAddress)] = !cluster.Spec.MainContainer.EnableTLS
+	}
+
+	addresses := make([]string, 1, len(addressMap))
+	for address, primary := range addressMap {
+		if primary {
+			addresses[0] = address
+		} else if !primaryOnly {
+			addresses = append(addresses, address)
+		}
+	}
+
+	return strings.Join(addresses, ",")
 }
 
 // GetFullSidecarVersion gets the version of the image for the sidecar,
@@ -1352,6 +1427,16 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 		}
 	}
 	return priorities
+}
+
+// RequiredAddressSet provides settings for which addresses we need to listen
+// on.
+type RequiredAddressSet struct {
+	// TLS defines whether we need to listen on a TLS address.
+	TLS bool `json:"tls,omitempty"`
+
+	// NonTLS defines whether we need to listen on a non-TLS address.
+	NonTLS bool `json:"nonTLS,omitempty"`
 }
 
 func init() {

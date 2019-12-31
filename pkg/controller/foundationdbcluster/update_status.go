@@ -46,6 +46,15 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
 
+	desiredAddressSet := fdbtypes.RequiredAddressSet{}
+	if cluster.Spec.MainContainer.EnableTLS {
+		desiredAddressSet.TLS = true
+	} else {
+		desiredAddressSet.NonTLS = true
+	}
+
+	status.RequiredAddresses = desiredAddressSet
+
 	if cluster.Spec.Configured {
 		adminClient, err := r.AdminClientProvider(cluster, r)
 		if err != nil {
@@ -70,6 +79,23 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 	if err != nil {
 		return false, err
 	}
+
+	if databaseStatus != nil {
+		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
+			address, err := fdbtypes.ParseProcessAddress(coordinator.Address)
+			if err != nil {
+				return false, err
+			}
+
+			if address.Flags["tls"] {
+				status.RequiredAddresses.TLS = true
+			} else {
+				status.RequiredAddresses.NonTLS = true
+			}
+		}
+	}
+
+	cluster.Status.RequiredAddresses = status.RequiredAddresses
 
 	hasIncorrectPodSpecs := false
 
@@ -166,7 +192,8 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 		!hasIncorrectPodSpecs &&
 		databaseStatus != nil &&
 		reflect.DeepEqual(status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration()) &&
-		configMapUpdated
+		configMapUpdated &&
+		status.RequiredAddresses == desiredAddressSet
 
 	if reconciled && s.UpdateGenerations {
 		status.Generations = fdbtypes.GenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
