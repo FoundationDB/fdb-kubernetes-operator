@@ -546,7 +546,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("command = %s/fdbserver", binaryDir),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s", cluster.GetFullAddress("$FDB_PUBLIC_IP")),
+		fmt.Sprintf("public_address = %s", cluster.GetFullAddressList("$FDB_PUBLIC_IP", false)),
 		fmt.Sprintf("class = %s", processClass),
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",

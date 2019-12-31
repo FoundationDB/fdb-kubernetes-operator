@@ -396,6 +396,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		ip := mockPodIP(&pod)
 		podClient := &mockFdbPodClient{Cluster: client.Cluster, Pod: &pod}
 		fullAddress := client.Cluster.GetFullAddress(ip)
+
 		_, ipExcluded := exclusionMap[ip]
 		_, addressExcluded := exclusionMap[fullAddress]
 		excluded := ipExcluded || addressExcluded

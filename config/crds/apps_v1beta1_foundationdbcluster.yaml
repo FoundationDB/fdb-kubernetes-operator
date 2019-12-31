@@ -482,6 +482,18 @@ spec:
                   format: int64
                   type: integer
               type: object
+            requiredAddresses:
+              description: RequiredAddresses defines that addresses that we need to
+                enable for the processes in the cluster.
+              properties:
+                nonTLS:
+                  description: NonTLS defines whether we need to listen on a non-TLS
+                    address.
+                  type: boolean
+                tls:
+                  description: TLS defines whether we need to listen on a TLS address.
+                  type: boolean
+              type: object
           type: object
   version: v1beta1
 status:

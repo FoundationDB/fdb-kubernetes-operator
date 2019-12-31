@@ -56,10 +56,21 @@ func (c ChangeCoordinators) Reconcile(r *ReconcileFoundationDBCluster, context c
 		return false, errors.New("Unable to get coordinator status")
 	}
 
+	allAddressesValid := true
+
 	for _, process := range status.Cluster.Processes {
 		_, isCoordinator := coordinatorStatus[process.Address]
 		if isCoordinator && !process.Excluded {
 			coordinatorStatus[process.Address] = true
+		}
+
+		address, err := fdbtypes.ParseProcessAddress(process.Address)
+		if err != nil {
+			return false, err
+		}
+
+		if address.Flags["tls"] != cluster.Spec.MainContainer.EnableTLS {
+			allAddressesValid = false
 		}
 	}
 
@@ -69,6 +80,12 @@ func (c ChangeCoordinators) Reconcile(r *ReconcileFoundationDBCluster, context c
 	}
 
 	if needsChange {
+		if !allAddressesValid {
+			log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			r.Recorder.Event(cluster, "Normal", "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
+			return true, nil
+		}
+
 		log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing new coordinators")
 		coordinatorCount := cluster.DesiredCoordinatorCount()
@@ -82,9 +99,11 @@ func (c ChangeCoordinators) Reconcile(r *ReconcileFoundationDBCluster, context c
 				break
 			}
 		}
+
 		if len(coordinators) < coordinatorCount {
 			return false, errors.New("Unable to recruit new coordinators")
 		}
+
 		connectionString, err := adminClient.ChangeCoordinators(coordinators)
 		if err != nil {
 			return false, err

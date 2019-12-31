@@ -2213,3 +2213,28 @@ func TestNormalizeConfigurationWithIncorrectRegionOrder(t *testing.T) {
 		},
 	}))
 }
+
+func TestParseProcessAddress(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	address, err := ParseProcessAddress("127.0.0.1:4500:tls")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(address).To(gomega.Equal(ProcessAddress{
+		IPAddress: "127.0.0.1",
+		Port:      4500,
+		Flags:     map[string]bool{"tls": true},
+	}))
+	g.Expect(address.String()).To(gomega.Equal("127.0.0.1:4500:tls"))
+
+	address, err = ParseProcessAddress("127.0.0.1:4501")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(address).To(gomega.Equal(ProcessAddress{
+		IPAddress: "127.0.0.1",
+		Port:      4501,
+	}))
+	g.Expect(address.String()).To(gomega.Equal("127.0.0.1:4501"))
+
+	address, err = ParseProcessAddress("127.0.0.1:bad")
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.Equal("strconv.Atoi: parsing \"bad\": invalid syntax"))
+}

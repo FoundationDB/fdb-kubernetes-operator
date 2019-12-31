@@ -63,6 +63,11 @@ func createDefaultCluster() *appsv1beta1.FoundationDBCluster {
 				Key: "foundationdb.org/none",
 			},
 		},
+		Status: appsv1beta1.FoundationDBClusterStatus{
+			RequiredAddresses: appsv1beta1.RequiredAddressSet{
+				NonTLS: true,
+			},
+		},
 	}
 }
 
@@ -1044,6 +1049,43 @@ func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabledWithDeprecate
 	})
 }
 
+func TestReconcileWithChangeToTLSSettings(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalVersion := cluster.ObjectMeta.Generation
+		cluster.Spec.MainContainer.EnableTLS = true
+		err := client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
+
+		pods := &corev1.PodList{}
+		client.List(context.TODO(), getPodListOptions(cluster, "", ""), pods)
+		addresses := make([]string, 0, len(pods.Items))
+		for _, pod := range pods.Items {
+			addresses = append(addresses, fmt.Sprintf("%s:4500:tls", mockPodIP(&pod)))
+		}
+
+		adminClient, err := newMockAdminClientUncast(cluster, client)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
+			return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
+		})
+		sort.Slice(addresses, func(i, j int) bool {
+			return strings.Compare(addresses[i], addresses[j]) < 0
+		})
+		g.Expect(adminClient.KilledAddresses).To(gomega.Equal(addresses))
+
+		connectionString, err := appsv1beta1.ParseConnectionString(cluster.Spec.ConnectionString)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		for _, coordinator := range connectionString.Coordinators {
+			g.Expect(strings.HasSuffix(coordinator, ":tls")).To(gomega.BeTrue())
+		}
+	})
+}
+
 func TestGetConfigMap(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -1260,10 +1302,12 @@ func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	}, "\n")))
 }
 
-func TestGetMonitorConfWithTls(t *testing.T) {
+func TestGetMonitorConfWithTLS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.MainContainer.EnableTLS = true
+	cluster.Status.RequiredAddresses.NonTLS = false
+	cluster.Status.RequiredAddresses.TLS = true
 	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
@@ -1275,6 +1319,60 @@ func TestGetMonitorConfWithTls(t *testing.T) {
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 		"public_address = $FDB_PUBLIC_IP:4500:tls",
+		"class = storage",
+		"datadir = /var/fdb/data",
+		"logdir = /var/log/fdb-trace-logs",
+		"loggroup = " + cluster.Name,
+		"locality_instance_id = $FDB_INSTANCE_ID",
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $FDB_ZONE_ID",
+	}, "\n")))
+}
+
+func TestGetMonitorConfWithTransitionToTLS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.MainContainer.EnableTLS = true
+	cluster.Status.RequiredAddresses.NonTLS = true
+	cluster.Status.RequiredAddresses.TLS = true
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
+		"[general]",
+		"kill_on_configuration_change = false",
+		"restart_delay = 60",
+		"[fdbserver.1]",
+		"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+		"cluster_file = /var/fdb/data/fdb.cluster",
+		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+		"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
+		"class = storage",
+		"datadir = /var/fdb/data",
+		"logdir = /var/log/fdb-trace-logs",
+		"loggroup = " + cluster.Name,
+		"locality_instance_id = $FDB_INSTANCE_ID",
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $FDB_ZONE_ID",
+	}, "\n")))
+}
+
+func TestGetMonitorConfWithTransitionToNonTLS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.MainContainer.EnableTLS = false
+	cluster.Status.RequiredAddresses.NonTLS = true
+	cluster.Status.RequiredAddresses.TLS = true
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
+		"[general]",
+		"kill_on_configuration_change = false",
+		"restart_delay = 60",
+		"[fdbserver.1]",
+		"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+		"cluster_file = /var/fdb/data/fdb.cluster",
+		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+		"public_address = $FDB_PUBLIC_IP:4501,$FDB_PUBLIC_IP:4500:tls",
 		"class = storage",
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",

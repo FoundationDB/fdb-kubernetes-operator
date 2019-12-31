@@ -73,8 +73,8 @@ type realFdbPodClient struct {
 	// Pod is the pod we are connecting to.
 	Pod *corev1.Pod
 
-	// useTls indicates whether this is using a TLS connection to the sidecar.
-	useTls bool
+	// useTLS indicates whether this is using a TLS connection to the sidecar.
+	useTLS bool
 
 	// tlsConfig contains the TLS configuration for the connection to the
 	// sidecar.
@@ -95,7 +95,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 	useTls := podHasSidecarTLS(pod)
 
 	var tlsConfig = &tls.Config{}
-	if useTls {
+	if useTLS {
 		cert, err := tls.LoadX509KeyPair(
 			os.Getenv("FDB_TLS_CERTIFICATE_FILE"),
 			os.Getenv("FDB_TLS_KEY_FILE"),
@@ -116,7 +116,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodClient{Cluster: cluster, Pod: pod, useTls: useTls, tlsConfig: tlsConfig}, nil
+	return &realFdbPodClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig}, nil
 }
 
 // GetCluster returns the cluster associated with a client
@@ -137,7 +137,7 @@ func (client *realFdbPodClient) GetPodIP() string {
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodClient) makeRequest(method string, path string) (string, error) {
 	var protocol string
-	if client.useTls {
+	if client.useTLS {
 		protocol = "https"
 	} else {
 		protocol = "http"
@@ -148,7 +148,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	var err error
 
 	httpClient := &http.Client{}
-	if client.useTls {
+	if client.useTLS {
 		httpClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
 	}
 

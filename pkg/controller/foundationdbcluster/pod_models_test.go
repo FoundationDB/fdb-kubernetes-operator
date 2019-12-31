@@ -662,7 +662,7 @@ func TestGetPodSpecWithCustomEnvironmentWithDeprecatedFields(t *testing.T) {
 	}))
 }
 
-func TestGetPodSpecWithSidecarTls(t *testing.T) {
+func TestGetPodSpecWithSidecarTLS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.SidecarContainer.EnableTLS = true
