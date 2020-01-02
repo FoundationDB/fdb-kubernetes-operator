@@ -414,6 +414,9 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			ProcessClass: pod.Labels["fdb-process-class"],
 			CommandLine:  command,
 			Excluded:     ipExcluded || addressExcluded,
+			Locality: map[string]string{
+				"instance_id": pod.Labels["fdb-instance-id"],
+			},
 		}
 	}
 

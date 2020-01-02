@@ -434,8 +434,8 @@ spec:
               type: object
             incorrectProcesses:
               description: IncorrectProcesses provides the processes that do not have
-                the correct configuration. This will map the names of the pod to the
-                timestamp when we observed the incorrect configuration.
+                the correct configuration.  This will map the instance ID to the timestamp
+                when we observed the incorrect configuration.
               type: object
             missingProcesses:
               description: MissingProcesses provides the processes that are not reporting

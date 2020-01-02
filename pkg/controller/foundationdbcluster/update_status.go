@@ -23,7 +23,6 @@ package foundationdbcluster
 import (
 	ctx "context"
 	"reflect"
-	"strings"
 	"time"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -66,8 +65,8 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 			return false, err
 		}
 		for _, process := range databaseStatus.Cluster.Processes {
-			address := strings.Split(process.Address, ":")
-			processMap[address[0]] = append(processMap[address[0]], process)
+			instanceID := process.Locality["instance_id"]
+			processMap[instanceID] = append(processMap[instanceID], process)
 		}
 
 		status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
@@ -101,31 +100,20 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 
 	for _, instance := range instances {
 		processClass := instance.Metadata.Labels["fdb-process-class"]
+		instanceID := instance.Metadata.Labels["fdb-instance-id"]
 
 		_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
 		if !pendingRemoval {
 			status.ProcessCounts.IncreaseCount(processClass, 1)
 		}
 
-		var processStatus []fdbtypes.FoundationDBStatusProcessInfo
-		if instance.Pod == nil {
-			processStatus = nil
-		} else {
-			podClient, err := r.getPodClient(context, cluster, instance)
-			if err != nil {
-				log.Error(err, "Error getting pod IP", "namespace", cluster.Namespace, "name", cluster.Name, "instance", instance.Metadata.Name)
-				processStatus = nil
-			} else {
-				ip := podClient.GetPodIP()
-				processStatus = processMap[ip]
-			}
-		}
+		processStatus := processMap[instanceID]
 		if len(processStatus) == 0 {
-			existingTime, exists := cluster.Status.MissingProcesses[instance.Metadata.Name]
+			existingTime, exists := cluster.Status.MissingProcesses[instanceID]
 			if exists {
-				status.MissingProcesses[instance.Metadata.Name] = existingTime
+				status.MissingProcesses[instanceID] = existingTime
 			} else {
-				status.MissingProcesses[instance.Metadata.Name] = time.Now().Unix()
+				status.MissingProcesses[instanceID] = time.Now().Unix()
 			}
 		} else {
 			podClient, err := r.getPodClient(context, cluster, instance)
@@ -144,11 +132,12 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 			}
 
 			if !correct {
-				existingTime, exists := cluster.Status.IncorrectProcesses[instance.Metadata.Name]
+				instanceID := instance.Metadata.Labels["fdb-instance-id"]
+				existingTime, exists := cluster.Status.IncorrectProcesses[instanceID]
 				if exists {
-					status.IncorrectProcesses[instance.Metadata.Name] = existingTime
+					status.IncorrectProcesses[instanceID] = existingTime
 				} else {
-					status.IncorrectProcesses[instance.Metadata.Name] = time.Now().Unix()
+					status.IncorrectProcesses[instanceID] = time.Now().Unix()
 				}
 			}
 		}

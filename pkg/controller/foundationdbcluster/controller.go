@@ -351,8 +351,8 @@ func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass strin
 	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingLabels(getMinimalPodLabels(cluster, processClass, id))
 }
 
-func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, name string) *client.ListOptions {
-	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", name)
+func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID string) *client.ListOptions {
+	return (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingLabels(map[string]string{"fdb-instance-id": instanceID})
 }
 
 func buildOwnerReference(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) ([]metav1.OwnerReference, error) {
@@ -773,7 +773,7 @@ func ParseInstanceID(id string) (string, int, error) {
 // MissingPodError creates an error that can be thrown when an instance does not
 // have an associated pod.
 func MissingPodError(instance FdbInstance, cluster *fdbtypes.FoundationDBCluster) error {
-	return MissingPodErrorByName(instance.Metadata.Name, cluster)
+	return MissingPodErrorByName(instance.Metadata.Labels["fdb-instance-id"], cluster)
 }
 
 // MissingPodErrorByName creates an error that can be thrown when an instance
