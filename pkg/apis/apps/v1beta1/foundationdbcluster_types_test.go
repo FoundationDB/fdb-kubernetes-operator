@@ -492,21 +492,41 @@ func TestParsingClusterStatus(t *testing.T) {
 					ProcessClass: "storage",
 					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-4 --locality_zoneid=foundationdbcluster-sample-4 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.6:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     true,
+					Locality: map[string]string{
+						"machineid": "foundationdbcluster-sample-4",
+						"processid": "c9eb35e25a364910fd77fdeec5c3a1f6",
+						"zoneid":    "foundationdbcluster-sample-4",
+					},
 				},
 				"d532d8cb1c23d002c4b97742f5195fdb": {
 					Address:      "172.17.0.7:4500",
 					ProcessClass: "storage",
 					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-3 --locality_zoneid=foundationdbcluster-sample-3 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.7:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Locality: map[string]string{
+						"machineid": "foundationdbcluster-sample-3",
+						"processid": "d532d8cb1c23d002c4b97742f5195fdb",
+						"zoneid":    "foundationdbcluster-sample-3",
+					},
 				},
 				"f7058e8bed0618a0533f6188e9e35cdb": {
 					Address:      "172.17.0.9:4500",
 					ProcessClass: "storage",
 					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-2 --locality_zoneid=foundationdbcluster-sample-2 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.9:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Locality: map[string]string{
+						"machineid": "foundationdbcluster-sample-2",
+						"processid": "f7058e8bed0618a0533f6188e9e35cdb",
+						"zoneid":    "foundationdbcluster-sample-2",
+					},
 				},
 				"6a5d5735fc8a58add63cceba1da46421": {
 					Address:      "172.17.0.8:4500",
 					ProcessClass: "storage",
 					CommandLine:  "/var/dynamic-conf/bin/6.0.18/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_machineid=foundationdbcluster-sample-1 --locality_zoneid=foundationdbcluster-sample-1 --logdir=/var/log/fdb-trace-logs --loggroup=foundationdbcluster-sample --public_address=172.17.0.8:4500 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Locality: map[string]string{
+						"machineid": "foundationdbcluster-sample-1",
+						"processid": "6a5d5735fc8a58add63cceba1da46421",
+						"zoneid":    "foundationdbcluster-sample-1",
+					},
 				},
 			},
 			Data: FoundationDBStatusDataStatistics{

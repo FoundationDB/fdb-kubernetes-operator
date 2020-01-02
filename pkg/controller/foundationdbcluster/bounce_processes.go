@@ -40,21 +40,32 @@ func (b BounceProcesses) Reconcile(r *ReconcileFoundationDBCluster, context ctx.
 	}
 	defer adminClient.Close()
 
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
+	}
+	addressMap := make(map[string]string, len(status.Cluster.Processes))
+	for _, process := range status.Cluster.Processes {
+		addressMap[process.Locality["instance_id"]] = process.Address
+	}
+
 	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
-	for instanceName := range cluster.Status.IncorrectProcesses {
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceName))
+
+	for instanceID := range cluster.Status.IncorrectProcesses {
+
+		if addressMap[instanceID] == "" {
+			return false, fmt.Errorf("Could not find address for instance %s", instanceID)
+		}
+
+		addresses = append(addresses, addressMap[instanceID])
+
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID))
 		if err != nil {
 			return false, err
 		}
 		if len(instances) == 0 {
-			return false, MissingPodErrorByName(instanceName, cluster)
+			return false, MissingPodErrorByName(instanceID, cluster)
 		}
-
-		podClient, err := r.getPodClient(context, cluster, instances[0])
-		if err != nil {
-			return false, err
-		}
-		addresses = append(addresses, cluster.GetFullAddress(podClient.GetPodIP()))
 
 		synced, err := r.updatePodDynamicConf(context, cluster, instances[0])
 		if !synced {

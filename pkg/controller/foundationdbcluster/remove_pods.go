@@ -56,8 +56,8 @@ func (u RemovePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Conte
 	return true, nil
 }
 
-func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) error {
-	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
+func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, podName string) error {
+	instanceListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", podName)
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions)
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 		}
 	}
 
-	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", instanceName))
+	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", podName))
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcListOptions, pvcs)
 	if err != nil {

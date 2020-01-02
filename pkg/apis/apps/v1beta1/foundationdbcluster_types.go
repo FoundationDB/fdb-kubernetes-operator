@@ -175,8 +175,9 @@ type FoundationDBClusterStatus struct {
 
 	// IncorrectProcesses provides the processes that do not have the correct
 	// configuration.
-	// This will map the names of the pod to the timestamp when we observed
-	// the incorrect configuration.
+	//
+	// This will map the instance ID to the timestamp when we observed the
+	// incorrect configuration.
 	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
 
 	// MissingProcesses provides the processes that are not reporting to the
@@ -685,6 +686,9 @@ type FoundationDBStatusProcessInfo struct {
 
 	// Excluded indicates whether the process has been excluded.
 	Excluded bool `json:"excluded,omitempty"`
+
+	// The locality information for the process.
+	Locality map[string]string `json:"locality,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in
