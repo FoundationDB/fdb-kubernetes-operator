@@ -1060,6 +1060,29 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 	return *result
 }
 
+func (configuration DatabaseConfiguration) getRegion(id string, priority int) Region {
+	var matchingRegion Region
+
+	for _, region := range configuration.Regions {
+		for dataCenterIndex, dataCenter := range region.DataCenters {
+			if dataCenter.Satellite == 0 && dataCenter.ID == id {
+				matchingRegion = *region.DeepCopy()
+				matchingRegion.DataCenters[dataCenterIndex].Priority = priority
+				break
+			}
+		}
+		if len(matchingRegion.DataCenters) > 0 {
+			break
+		}
+	}
+
+	if len(matchingRegion.DataCenters) == 0 {
+		matchingRegion.DataCenters = append(matchingRegion.DataCenters, DataCenter{ID: id, Priority: priority})
+	}
+
+	return matchingRegion
+}
+
 // GetNextConfigurationChange produces the next marginal change that should
 // be made to transform this configuration into another configuration.
 //
@@ -1074,7 +1097,18 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 		nextPriorities := finalConfiguration.getRegionPriorities()
 		finalPriorities := finalConfiguration.getRegionPriorities()
 
-		// Step 1: If we have a region that is in the final config that is not
+		// Step 1: Apply any changes to the satellites and satellite redundancy
+		// from the final configuration to the next configuration.
+		for regionIndex, region := range result.Regions {
+			for _, dataCenter := range region.DataCenters {
+				if dataCenter.Satellite == 0 {
+					result.Regions[regionIndex] = finalConfiguration.getRegion(dataCenter.ID, dataCenter.Priority)
+					break
+				}
+			}
+		}
+
+		// Step 2: If we have a region that is in the final config that is not
 		// in the current config, add it.
 		//
 		// We can currently only add a maximum of two regions at a time.
@@ -1096,14 +1130,7 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 				if len(configuration.Regions) == 0 {
 					priority = 1
 				}
-				result.Regions = append(result.Regions, Region{
-					DataCenters: []DataCenter{
-						DataCenter{
-							ID:       regionToAdd,
-							Priority: priority,
-						},
-					},
-				})
+				result.Regions = append(result.Regions, finalConfiguration.getRegion(regionToAdd, priority))
 				return *result
 			}
 		}
@@ -1117,7 +1144,7 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 			}
 		}
 
-		// Step 2: If we currently have multiple regions, and one of them is not
+		// Step 3: If we currently have multiple regions, and one of them is not
 		// in the final config, remove it.
 		//
 		// If that region has a positive priority, we must first give it a
@@ -1210,7 +1237,7 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 			}
 		}
 
-		// Step 3: Set all priorities for the regions to the desired value.
+		// Step 4: Set all priorities for the regions to the desired value.
 		//
 		// If no region is configured to have a positive priority, ensure that
 		// at least one region has a positive priority.
@@ -1253,6 +1280,7 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 					for dataCenterIndex, dataCenter := range region.DataCenters {
 						if dataCenter.Satellite == 0 {
 							result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = nextPriorities[dataCenter.ID]
+							break
 						}
 					}
 				}
@@ -1260,13 +1288,13 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 			return *result
 		}
 
-		// Step 4: Set the final region count.
+		// Step 5: Set the final region count.
 		if configuration.UsableRegions != finalConfiguration.UsableRegions {
 			result.UsableRegions = finalConfiguration.UsableRegions
 			return *result
 		}
 
-		// Step 5: Set the final region config.
+		// Step 6: Set the final region config.
 		result.Regions = finalConfiguration.Regions
 		return *result
 	}

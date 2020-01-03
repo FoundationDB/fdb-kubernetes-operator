@@ -765,7 +765,14 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 						ID:       "dc1",
 						Priority: 1,
 					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -773,10 +780,18 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 						ID:       "dc3",
 						Priority: -1,
 					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -789,7 +804,14 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 						ID:       "dc1",
 						Priority: 1,
 					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -797,34 +819,18 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 						ID:       "dc3",
 						Priority: -1,
 					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
-
-	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
-		RedundancyMode: "double",
-		UsableRegions:  2,
-		Regions: []Region{
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc1",
-						Priority: 1,
-					},
-				},
-			},
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc3",
-						Priority: 0,
-					},
-				},
-			},
-		},
-	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -920,10 +926,18 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 						ID:       "dc1",
 						Priority: 1,
 					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -936,7 +950,14 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 						ID:       "dc1",
 						Priority: 1,
 					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -944,10 +965,18 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 						ID:       "dc3",
 						Priority: -1,
 					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -960,7 +989,14 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 						ID:       "dc1",
 						Priority: 1,
 					},
+					DataCenter{
+						ID:        "dc2",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -968,34 +1004,18 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 						ID:       "dc3",
 						Priority: -1,
 					},
+					DataCenter{
+						ID:        "dc4",
+						Priority:  1,
+						Satellite: 1,
+					},
 				},
+				SatelliteLogs:           3,
+				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
-
-	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
-		RedundancyMode: "double",
-		UsableRegions:  2,
-		Regions: []Region{
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc1",
-						Priority: 1,
-					},
-				},
-			},
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc3",
-						Priority: 0,
-					},
-				},
-			},
-		},
-	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1048,14 +1068,7 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1102,14 +1115,7 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1117,17 +1123,11 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1155,40 +1155,11 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
-
-	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
-		RedundancyMode: "double",
-		UsableRegions:  1,
-		Regions: []Region{
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc1",
-						Priority: 1,
-					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
-				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
-			},
-		},
-	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1205,7 +1176,6 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 			},
 		},
 	}))
-
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
 
@@ -1274,14 +1244,7 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 						ID:       "dc1",
 						Priority: -1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1289,17 +1252,11 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 						ID:       "dc3",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1312,14 +1269,7 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 						ID:       "dc1",
 						Priority: -1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1327,40 +1277,11 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 						ID:       "dc3",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
-
-	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
-		RedundancyMode: "double",
-		UsableRegions:  1,
-		Regions: []Region{
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc3",
-						Priority: 1,
-					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
-				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
-			},
-		},
-	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1377,7 +1298,6 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 			},
 		},
 	}))
-
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
 
@@ -1392,14 +1312,7 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1436,14 +1349,7 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1451,17 +1357,11 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1489,24 +1389,17 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
-						ID:        "dc4",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
 		RedundancyMode: "double",
 		UsableRegions:  1,
 	}))
-
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
 
@@ -1565,6 +1458,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1589,6 +1483,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1613,6 +1508,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1637,6 +1533,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1653,7 +1550,6 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 			},
 		},
 	}))
-
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
 
@@ -1728,6 +1624,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1752,6 +1649,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1768,6 +1666,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1792,6 +1691,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1816,6 +1716,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1840,6 +1741,7 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1864,7 +1766,6 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 			},
 		},
 	}))
-
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
 
@@ -1939,6 +1840,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1963,6 +1865,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -1979,6 +1882,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2003,6 +1907,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2027,6 +1932,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2051,6 +1957,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2075,6 +1982,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2091,6 +1999,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2115,6 +2024,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2139,6 +2049,7 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
+	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
 
 	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
@@ -2163,7 +2074,6 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 			},
 		},
 	}))
-
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
 
