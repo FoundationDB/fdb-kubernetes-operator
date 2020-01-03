@@ -354,6 +354,27 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 	})
 }
 
+func TestReconcileWithExplicitClusterControllerProcessCount(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		originalVersion := cluster.ObjectMeta.Generation
+
+		cluster.Spec.ProcessCounts.ClusterController = 1
+		cluster.Spec.ProcessCounts.Stateless = 7
+		err := client.Update(context.TODO(), cluster)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: cluster.Name, Namespace: "default"}}
+		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
+
+		pods := &corev1.PodList{}
+		g.Eventually(func() (int, error) {
+			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			return len(pods.Items), err
+		}, timeout).Should(gomega.Equal(16))
+	})
+}
+
 func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		originalPods := &corev1.PodList{}

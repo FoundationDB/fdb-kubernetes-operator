@@ -113,7 +113,9 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 					if err != nil {
 						return false, err
 					}
-					if len(matchingInstances) == 0 {
+					podName := pvc.Name[0 : len(pvc.Name)-5]
+					_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
+					if len(matchingInstances) == 0 && !pendingRemoval {
 						reusablePvcs[index] = true
 					}
 				}
@@ -124,7 +126,8 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 				if newCount <= 0 {
 					break
 				}
-				_, idNum, err := ParseInstanceID(pvcs.Items[index].Labels["fdb-instance-id"])
+				instanceID := pvcs.Items[index].Labels["fdb-instance-id"]
+				_, idNum, err := ParseInstanceID(instanceID)
 				if err != nil {
 					return false, err
 				}
@@ -132,6 +135,9 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 				pod, err := GetPod(context, cluster, processClass, idNum, r)
 				if err != nil {
 					return false, err
+				}
+				if pod.Labels["fdb-instance-id"] != instanceID {
+					return false, fmt.Errorf("Failed to create new pod to match PVC %s", pvcs.Items[index].Name)
 				}
 
 				err = r.PodLifecycleManager.CreateInstance(r, context, pod)

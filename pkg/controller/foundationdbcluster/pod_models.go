@@ -23,6 +23,7 @@ package foundationdbcluster
 import (
 	ctx "context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -33,6 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
+
 // getInstanceId generates an ID for an instance.
 func getInstanceId(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (string, string) {
 	var instanceID string
@@ -41,7 +44,7 @@ func getInstanceId(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 	} else {
 		instanceID = fmt.Sprintf("%s-%d", processClass, idNum)
 	}
-	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClass, idNum), instanceID
+	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(processClass, "-"), idNum), instanceID
 }
 
 // GetPod builds a pod for a new instance

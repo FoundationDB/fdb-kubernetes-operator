@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-func TestGetPodForStorageInstance(t *testing.T) {
+func TestGetPodWithStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{})
@@ -55,6 +55,29 @@ func TestGetPodForStorageInstance(t *testing.T) {
 		"fdb-label":            "value2",
 	}))
 	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "storage", 1)))
+}
+
+func TestGetPodWithClusterControllerInstance(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	pod, err := GetPod(context.TODO(), cluster, "cluster_controller", 1, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pod.Namespace).To(gomega.Equal("default"))
+	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
+	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name":     cluster.Name,
+		"fdb-process-class":    "cluster_controller",
+		"fdb-full-instance-id": "cluster_controller-1",
+		"fdb-instance-id":      "cluster_controller-1",
+		"fdb-label":            "value2",
+	}))
+	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "cluster_controller", 1)))
 }
 
 func TestGetPodWithInstanceIDPrefix(t *testing.T) {
