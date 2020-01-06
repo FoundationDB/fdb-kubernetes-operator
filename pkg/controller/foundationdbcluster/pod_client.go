@@ -91,7 +91,8 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 			return nil, fdbPodClientErrorNotReady
 		}
 	}
-	useTls := cluster.Spec.SidecarContainer.EnableTLS
+
+	useTls := podHasSidecarTLS(pod)
 
 	var tlsConfig = &tls.Config{}
 	if useTls {
@@ -380,4 +381,20 @@ type failedResponse struct {
 // Error generates an error message.
 func (response failedResponse) Error() string {
 	return fmt.Sprintf("HTTP request failed. Status=%d; response=%s", response.response.StatusCode, response.body)
+}
+
+// podHasSidecarTLS determines whether a pod currently has TLS enabled for the
+// sidecar process.
+func podHasSidecarTLS(pod *corev1.Pod) bool {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "foundationdb-kubernetes-sidecar" {
+			for _, arg := range container.Args {
+				if arg == "--tls" {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
