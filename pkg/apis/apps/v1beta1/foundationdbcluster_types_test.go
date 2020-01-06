@@ -655,3 +655,31 @@ func TestGettingSidecarVersion(t *testing.T) {
 	cluster.Spec.SidecarVersion = 2
 	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.1.8-2"))
 }
+
+func TestParsingFdbVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	version, err := ParseFdbVersion("6.2.11")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(version).To(gomega.Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
+
+	version, err = ParseFdbVersion("6.2")
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.Equal("Could not parse FDB version from 6.2"))
+}
+
+func TestFormattingFdbVersionAsString(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	version := FdbVersion{Major: 6, Minor: 2, Patch: 11}
+	g.Expect(version.String()).To(gomega.Equal("6.2.11"))
+}
+
+func TestFeatureFlagsForFdbVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	version := FdbVersion{Major: 6, Minor: 2, Patch: 0}
+	g.Expect(version.HasInstanceIdInSidecarSubstitutions()).To(gomega.BeFalse())
+
+	version = FdbVersion{Major: 7, Minor: 0, Patch: 0}
+	g.Expect(version.HasInstanceIdInSidecarSubstitutions()).To(gomega.BeTrue())
+}

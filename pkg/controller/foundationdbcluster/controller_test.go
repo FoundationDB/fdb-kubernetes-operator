@@ -757,6 +757,45 @@ func TestGetConfigMapWithCustomSidecarSubstitutions(t *testing.T) {
 	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FAULT_DOMAIN", "ZONE", "FDB_INSTANCE_ID"}))
 }
 
+func TestGetConfigMapWithImplicitInstanceIdSubstitution(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.Version = Versions.WithSidecarInstanceIdSubstitution.String()
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	sidecarConf := make(map[string]interface{})
+	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.BeNil())
+}
+
+func TestGetConfigMapWithExplicitInstanceIdSubstitution(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.Version = Versions.WithoutSidecarInstanceIdSubstitution.String()
+	configMap, err := GetConfigMap(context.TODO(), cluster, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	sidecarConf := make(map[string]interface{})
+	err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FDB_INSTANCE_ID"}))
+
+}
+
 func TestGetMonitorConfForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()

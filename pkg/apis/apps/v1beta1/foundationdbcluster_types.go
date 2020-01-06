@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -1002,4 +1003,81 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
+}
+
+// FdbVersion represents a version of FoundationDB.
+//
+// This provides convenience methods for checking features available in
+// different versions.
+type FdbVersion struct {
+	// Major is the major version
+	Major int
+
+	// Minor is the major version
+	Minor int
+
+	// Patch is the major version
+	Patch int
+}
+
+var fdbVersionRegex = regexp.MustCompile("^(\\d+)\\.(\\d+)\\.(\\d+)$")
+
+// ParseFdbVersion parses a version from its string representation.
+func ParseFdbVersion(version string) (FdbVersion, error) {
+	matches := fdbVersionRegex.FindStringSubmatch(version)
+	if matches == nil {
+		return FdbVersion{}, fmt.Errorf("Could not parse FDB version from %s", version)
+	}
+
+	major, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return FdbVersion{}, err
+	}
+
+	minor, err := strconv.Atoi(matches[2])
+	if err != nil {
+		return FdbVersion{}, err
+	}
+
+	patch, err := strconv.Atoi(matches[3])
+	if err != nil {
+		return FdbVersion{}, err
+	}
+
+	return FdbVersion{Major: major, Minor: minor, Patch: patch}, nil
+}
+
+// String gets the string representation of an FDB version.
+func (version FdbVersion) String() string {
+	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
+}
+
+// IsAtLeast determines if a version is greater than or equal to another version.
+func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
+	if version.Major < other.Major {
+		return false
+	}
+	if version.Major > other.Major {
+		return true
+	}
+	if version.Minor < other.Minor {
+		return false
+	}
+	if version.Minor > other.Minor {
+		return true
+	}
+	if version.Patch < other.Patch {
+		return false
+	}
+	if version.Patch > other.Patch {
+		return true
+	}
+	return true
+}
+
+// HasInstanceIdInSidecarSubstitutions determines if a version has
+// FDB_INSTANCE_ID supported natively in the variable substitutions in the
+// sidecar.
+func (version FdbVersion) HasInstanceIdInSidecarSubstitutions() bool {
+	return version.IsAtLeast(FdbVersion{Major: 7, Minor: 0, Patch: 0})
 }
