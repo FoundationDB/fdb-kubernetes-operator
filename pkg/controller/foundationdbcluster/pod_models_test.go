@@ -21,6 +21,7 @@
 package foundationdbcluster
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -33,11 +34,83 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+func TestGetPodWithStorageInstance(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pod.Namespace).To(gomega.Equal("default"))
+	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name":     cluster.Name,
+		"fdb-process-class":    "storage",
+		"fdb-full-instance-id": "storage-1",
+		"fdb-instance-id":      "storage-1",
+		"fdb-label":            "value2",
+	}))
+	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "storage", 1)))
+}
+
+func TestGetPodWithClusterControllerInstance(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	pod, err := GetPod(context.TODO(), cluster, "cluster_controller", 1, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pod.Namespace).To(gomega.Equal("default"))
+	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
+	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name":     cluster.Name,
+		"fdb-process-class":    "cluster_controller",
+		"fdb-full-instance-id": "cluster_controller-1",
+		"fdb-instance-id":      "cluster_controller-1",
+		"fdb-label":            "value2",
+	}))
+	g.Expect(pod.Spec).To(gomega.Equal(*GetPodSpec(cluster, "cluster_controller", 1)))
+}
+
+func TestGetPodWithInstanceIDPrefix(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.InstanceIDPrefix = "dc1"
+	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name":     cluster.Name,
+		"fdb-process-class":    "storage",
+		"fdb-instance-id":      "dc1-storage-1",
+		"fdb-full-instance-id": "dc1-storage-1",
+		"fdb-label":            "value2",
+	}))
+
+	volumes := pod.Spec.Volumes
+	g.Expect(len(volumes)).To(gomega.Equal(4))
+	g.Expect(volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal(fmt.Sprintf("%s-data", pod.Name)))
+}
+
 func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -56,7 +129,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 	g.Expect(initContainer.VolumeMounts).To(gomega.Equal([]corev1.VolumeMount{
 		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
@@ -108,7 +181,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
@@ -125,7 +198,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
 		Name: "data",
 		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: fmt.Sprintf("%s-1-data", cluster.Name),
+			ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
 		}},
 	}))
 	g.Expect(spec.Volumes[1]).To(gomega.Equal(corev1.Volume{
@@ -175,7 +248,7 @@ func TestGetPodSpecForStorageInstanceWithNoVolume(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.VolumeSize = "0"
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
 		Name:         "data",
@@ -189,7 +262,7 @@ func TestGetPodSpecWithFaultDomainDisabled(t *testing.T) {
 	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
 		Key: "foundationdb.org/none",
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 	initContainer := spec.InitContainers[0]
 	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
@@ -204,7 +277,7 @@ func TestGetPodSpecWithFaultDomainDisabled(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	g.Expect(spec.Affinity).To(gomega.BeNil())
@@ -217,7 +290,7 @@ func TestGetPodSpecWithAlternativeFaultDomainVariable(t *testing.T) {
 		Key:       "rack",
 		ValueFrom: "$RACK",
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 	initContainer := spec.InitContainers[0]
 	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
@@ -229,7 +302,7 @@ func TestGetPodSpecWithAlternativeFaultDomainVariable(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	g.Expect(spec.Affinity).To(gomega.Equal(&corev1.Affinity{
@@ -259,7 +332,7 @@ func TestGetPodSpecWithCrossKubernetesReplication(t *testing.T) {
 		Key:   "foundationdb.org/kubernetes-cluster",
 		Value: "kc2",
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 	initContainer := spec.InitContainers[0]
 	g.Expect(initContainer.Name).To(gomega.Equal("foundationdb-kubernetes-init"))
 	g.Expect(initContainer.Env).To(gomega.Equal([]corev1.EnvVar{
@@ -272,7 +345,7 @@ func TestGetPodSpecWithCrossKubernetesReplication(t *testing.T) {
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
 		corev1.EnvVar{Name: "FDB_ZONE_ID", Value: "kc2"},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	g.Expect(spec.Affinity).To(gomega.BeNil())
@@ -291,7 +364,7 @@ func TestGetPodSpecWithCustomContainers(t *testing.T) {
 		Image:   "foundationdb/" + cluster.Name,
 		Command: []string{"echo", "test2"},
 	}}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(2))
 	initContainer := spec.InitContainers[0]
@@ -331,7 +404,7 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		corev1.EnvVar{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
 	}
 
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -350,7 +423,7 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
@@ -380,7 +453,7 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
@@ -397,7 +470,7 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 
 	cluster.Spec.SidecarContainer.PeerVerificationRules = "S.CN=foundationdb.org"
 
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -418,7 +491,7 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
@@ -450,7 +523,7 @@ func TestGetPodSpecWithSidecarTls(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: "S.CN=foundationdb.org"},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
@@ -469,7 +542,7 @@ func TestGetPodSpecWithCustomVolumes(t *testing.T) {
 		Name:      "test-secrets",
 		MountPath: "/var/secrets",
 	}}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -500,7 +573,7 @@ func TestGetPodSpecWithCustomVolumes(t *testing.T) {
 	g.Expect(spec.Volumes[0]).To(gomega.Equal(corev1.Volume{
 		Name: "data",
 		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: fmt.Sprintf("%s-1-data", cluster.Name),
+			ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
 		}},
 	}))
 	g.Expect(spec.Volumes[1]).To(gomega.Equal(corev1.Volume{
@@ -538,7 +611,7 @@ func TestGetPodSpecWithCustomSidecarVersion(t *testing.T) {
 		cluster.Spec.Version: 2,
 		"6.1.0":              3,
 	}
-	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -560,7 +633,7 @@ func TestGetPodSpecWithCustomDeprecatedSidecarVersion(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := createDefaultCluster()
 	cluster.Spec.SidecarVersion = 2
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -591,7 +664,7 @@ func TestGetPodSpecWithSecurityContext(t *testing.T) {
 	*cluster.Spec.SidecarContainer.SecurityContext.RunAsGroup = 1000
 	*cluster.Spec.SidecarContainer.SecurityContext.RunAsUser = 2000
 
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(*spec.SecurityContext.FSGroup).To(gomega.Equal(int64(5000)))
 
@@ -614,7 +687,7 @@ func TestGetPodSpecWithInstanceIDPrefix(t *testing.T) {
 	cluster := createDefaultCluster()
 	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
 	cluster.Spec.InstanceIDPrefix = "dc1"
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -630,7 +703,7 @@ func TestGetPodSpecWithInstanceIDPrefix(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "dc1-1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "dc1-storage-1"},
 	}))
 }
 
@@ -639,7 +712,7 @@ func TestGetPodSpecWithServiceAccountDisabled(t *testing.T) {
 	cluster := createDefaultCluster()
 	var automount = false
 	cluster.Spec.AutomountServiceAccountToken = &automount
-	spec := GetPodSpec(cluster, "storage", fmt.Sprintf("%s-1", cluster.Name))
+	spec := GetPodSpec(cluster, "storage", 1)
 
 	g.Expect(*spec.AutomountServiceAccountToken).To(gomega.BeFalse())
 }
@@ -656,12 +729,12 @@ func TestGetPvcForStorageInstance(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(pvc.Namespace).To(gomega.Equal("default"))
-	g.Expect(pvc.Name).To(gomega.Equal(fmt.Sprintf("%s-1-data", cluster.Name)))
+	g.Expect(pvc.Name).To(gomega.Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 	g.Expect(pvc.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
 		"fdb-cluster-name":     cluster.Name,
 		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "1",
+		"fdb-instance-id":      "storage-1",
+		"fdb-full-instance-id": "storage-1",
 		"fdb-label":            "value2",
 	}))
 	g.Expect(pvc.Spec).To(gomega.Equal(corev1.PersistentVolumeClaimSpec{
@@ -714,4 +787,27 @@ func TestGetPvcForStatelessInstance(t *testing.T) {
 	pvc, err := GetPvc(cluster, "stateless", 1)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(pvc).To(gomega.BeNil())
+}
+
+func TestGetPvcWithInstanceIDPrefix(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
+	cluster.Spec.InstanceIDPrefix = "dc1"
+	pvc, err := GetPvc(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(pvc.Name).To(gomega.Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+	g.Expect(pvc.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
+		"fdb-cluster-name":     cluster.Name,
+		"fdb-process-class":    "storage",
+		"fdb-instance-id":      "dc1-storage-1",
+		"fdb-full-instance-id": "dc1-storage-1",
+		"fdb-label":            "value2",
+	}))
+
 }

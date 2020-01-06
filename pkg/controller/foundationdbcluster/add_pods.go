@@ -23,7 +23,7 @@ package foundationdbcluster
 import (
 	ctx "context"
 	"fmt"
-	"strconv"
+	"reflect"
 	"time"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
@@ -36,9 +36,12 @@ import (
 type AddPods struct{}
 
 func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	hasNewPods := false
 	currentCounts := cluster.Status.ProcessCounts.Map()
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
+
+	if reflect.DeepEqual(currentCounts, desiredCounts) {
+		return true, nil
+	}
 
 	configMap, err := GetConfigMap(context, cluster, r)
 	if err != nil {
@@ -56,38 +59,28 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 		return false, err
 	}
 
-	err = r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", ""))
 	if err != nil {
 		return false, err
 	}
 
-	currentPods := &corev1.PodList{}
-	err = r.List(context, getPodListOptions(cluster, "", ""), currentPods)
-	if err != nil {
-		return false, err
-	}
-
-	maxInstanceId := 0
-	for _, pod := range currentPods.Items {
-		ownedByCluster := false
-		for _, reference := range pod.OwnerReferences {
-			if reference.UID == cluster.UID {
-				ownedByCluster = true
-			}
-		}
-		if !ownedByCluster {
-			continue
-		}
-		if pod.DeletionTimestamp != nil {
-			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
-		}
-		instanceId, err := strconv.Atoi(pod.Labels["fdb-instance-id"])
+	instanceIDs := make(map[string]map[int]bool)
+	for _, instance := range instances {
+		_, num, err := ParseInstanceID(instance.Metadata.Labels["fdb-instance-id"])
 		if err != nil {
 			return false, err
 		}
-		if instanceId > maxInstanceId {
-			maxInstanceId = instanceId
+
+		class := instance.Metadata.Labels["fdb-process-class"]
+		if instanceIDs[class] == nil {
+			instanceIDs[class] = make(map[int]bool)
 		}
+
+		if instance.Pod != nil && instance.Pod.DeletionTimestamp != nil {
+			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
+		}
+
+		instanceIDs[class][num] = true
 	}
 
 	for _, processClass := range fdbtypes.ProcessClasses {
@@ -102,6 +95,7 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 			pvcs := &corev1.PersistentVolumeClaimList{}
 			r.List(context, getPodListOptions(cluster, processClass, ""), pvcs)
 			reusablePvcs := make(map[int]bool, len(pvcs.Items))
+
 			for index, pvc := range pvcs.Items {
 				ownedByCluster := false
 				for _, ownerReference := range pvc.OwnerReferences {
@@ -111,7 +105,7 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 					}
 				}
 
-				if ownedByCluster && pvc.Status.Phase == "Bound" && pvc.ObjectMeta.DeletionTimestamp == nil {
+				if ownedByCluster && pvc.ObjectMeta.DeletionTimestamp == nil {
 					matchingInstances, err := r.PodLifecycleManager.GetInstances(
 						r, cluster, context,
 						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"]),
@@ -119,7 +113,9 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 					if err != nil {
 						return false, err
 					}
-					if len(matchingInstances) == 0 {
+					podName := pvc.Name[0 : len(pvc.Name)-5]
+					_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
+					if len(matchingInstances) == 0 && !pendingRemoval {
 						reusablePvcs[index] = true
 					}
 				}
@@ -130,42 +126,49 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 				if newCount <= 0 {
 					break
 				}
-				id, err := strconv.Atoi(pvcs.Items[index].Labels["fdb-instance-id"])
+				instanceID := pvcs.Items[index].Labels["fdb-instance-id"]
+				_, idNum, err := ParseInstanceID(instanceID)
 				if err != nil {
 					return false, err
 				}
 
-				pod, err := GetPod(context, cluster, processClass, id, r)
+				pod, err := GetPod(context, cluster, processClass, idNum, r)
 				if err != nil {
 					return false, err
+				}
+				if pod.Labels["fdb-instance-id"] != instanceID {
+					return false, fmt.Errorf("Failed to create new pod to match PVC %s", pvcs.Items[index].Name)
 				}
 
 				err = r.PodLifecycleManager.CreateInstance(r, context, pod)
 				if err != nil {
 					return false, err
 				}
+
+				if instanceIDs[processClass] == nil {
+					instanceIDs[processClass] = make(map[int]bool)
+				}
+				instanceIDs[processClass][idNum] = true
+
 				addedCount++
 				newCount--
 			}
 
-			id := cluster.Spec.NextInstanceID
-			if id < 1 {
-				id = 1
+			idNum := 1
+
+			if instanceIDs[processClass] == nil {
+				instanceIDs[processClass] = make(map[int]bool)
 			}
+
 			for i := 0; i < newCount; i++ {
-				for id > 0 {
-					conflictingPods := &corev1.PodList{}
-					err := r.List(context, getPodListOptions(cluster, "", strconv.Itoa(id)), conflictingPods)
-					if err != nil {
-						return false, err
-					}
-					if len(conflictingPods.Items) == 0 {
+				for idNum > 0 {
+					if !instanceIDs[processClass][idNum] {
 						break
 					}
-					id++
+					idNum++
 				}
 
-				pvc, err := GetPvc(cluster, processClass, id)
+				pvc, err := GetPvc(cluster, processClass, idNum)
 				if err != nil {
 					return false, err
 				}
@@ -183,7 +186,7 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 					}
 				}
 
-				pod, err := GetPod(context, cluster, processClass, id, r)
+				pod, err := GetPod(context, cluster, processClass, idNum, r)
 				if err != nil {
 					return false, err
 				}
@@ -193,25 +196,13 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 				}
 
 				addedCount++
-				id++
+				idNum++
 			}
-			cluster.Spec.NextInstanceID = id
 			cluster.Status.ProcessCounts.IncreaseCount(processClass, addedCount)
-			hasNewPods = true
 		}
 	}
 
-	if cluster.Spec.NextInstanceID < maxInstanceId {
-		cluster.Spec.NextInstanceID = maxInstanceId + 1
-		hasNewPods = true
-	}
-	if hasNewPods {
-		err := r.Update(context, cluster)
-		if err != nil {
-			return false, err
-		}
-	}
-	return !hasNewPods, nil
+	return true, nil
 }
 
 func (a AddPods) RequeueAfter() time.Duration {

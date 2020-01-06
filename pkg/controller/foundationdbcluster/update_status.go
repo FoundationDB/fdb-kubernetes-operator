@@ -128,7 +128,12 @@ func (s UpdateStatus) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 		}
 
 		if instance.Pod != nil {
-			spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Metadata.Labels["fdb-instance-id"])
+			_, idNum, err := ParseInstanceID(instance.Metadata.Labels["fdb-instance-id"])
+			if err != nil {
+				return false, err
+			}
+			spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], idNum)
+
 			specHash, err := hashPodSpec(spec)
 			if err != nil {
 				return false, err

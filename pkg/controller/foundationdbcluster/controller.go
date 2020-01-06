@@ -63,6 +63,8 @@ var hasStatusSubresource = os.Getenv("HAS_STATUS_SUBRESOURCE") != "0"
 
 const LastPodHashKey = "org.foundationdb/last-applied-pod-spec-hash"
 
+var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
+
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileFoundationDBCluster{
@@ -286,11 +288,7 @@ func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass str
 
 	if id != "" {
 		labels["fdb-instance-id"] = id
-		fullID := id
-		if cluster.Spec.InstanceIDPrefix != "" {
-			fullID = fmt.Sprintf("%s-%s", cluster.Spec.InstanceIDPrefix, fullID)
-		}
-		labels["fdb-full-instance-id"] = fullID
+		labels["fdb-full-instance-id"] = id
 	}
 
 	return labels
@@ -501,34 +499,6 @@ func hashPodSpec(spec *corev1.PodSpec) (string, error) {
 	return hex.EncodeToString(specHash), nil
 }
 
-// GetPod builds a pod for a new instance
-func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, id int, kubeClient client.Client) (*corev1.Pod, error) {
-	name := fmt.Sprintf("%s-%d", cluster.ObjectMeta.Name, id)
-
-	owner, err := buildOwnerReference(context, cluster, kubeClient)
-	if err != nil {
-		return nil, err
-	}
-	spec := GetPodSpec(cluster, processClass, strconv.Itoa(id))
-	specHash, err := hashPodSpec(spec)
-	if err != nil {
-		return nil, err
-	}
-
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       cluster.Namespace,
-			Labels:          getPodLabels(cluster, processClass, strconv.Itoa(id)),
-			OwnerReferences: owner,
-			Annotations: map[string]string{
-				LastPodHashKey: specHash,
-			},
-		},
-		Spec: *spec,
-	}, nil
-}
-
 func (r *ReconcileFoundationDBCluster) getPodClient(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, error) {
 	if instance.Pod == nil {
 		return nil, MissingPodError(instance, cluster)
@@ -558,15 +528,7 @@ func (r *ReconcileFoundationDBCluster) getPodClientAsync(context ctx.Context, cl
 func sortPodsByID(pods *corev1.PodList) error {
 	var err error
 	sort.Slice(pods.Items, func(i, j int) bool {
-		id1, err1 := strconv.Atoi(pods.Items[i].Labels["fdb-instance-id"])
-		id2, err2 := strconv.Atoi(pods.Items[j].Labels["fdb-instance-id"])
-		if err1 != nil {
-			err = err1
-		}
-		if err2 != nil {
-			err = err2
-		}
-		return id1 < id2
+		return pods.Items[i].Labels["fdb-instance-id"] < pods.Items[j].Labels["fdb-instance-id"]
 	})
 	return err
 }
@@ -574,13 +536,18 @@ func sortPodsByID(pods *corev1.PodList) error {
 func sortInstancesByID(instances []FdbInstance) error {
 	var err error
 	sort.Slice(instances, func(i, j int) bool {
-		id1, err1 := strconv.Atoi(instances[i].Metadata.Labels["fdb-instance-id"])
-		id2, err2 := strconv.Atoi(instances[j].Metadata.Labels["fdb-instance-id"])
+		prefix1, id1, err1 := ParseInstanceID(instances[i].Metadata.Labels["fdb-instance-id"])
+		prefix2, id2, err2 := ParseInstanceID(instances[j].Metadata.Labels["fdb-instance-id"])
 		if err1 != nil {
 			err = err1
+			return false
 		}
 		if err2 != nil {
 			err = err2
+			return false
+		}
+		if prefix1 != prefix2 {
+			return prefix1 < prefix2
 		}
 		return id1 < id2
 	})
@@ -690,6 +657,23 @@ func (manager StandardPodLifecycleManager) UpdatePods(r *ReconcileFoundationDBCl
 		return ReconciliationNotReadyError{message: "Need to restart reconciliation to recreate pods", retryable: true}
 	}
 	return nil
+}
+
+// ParseInstanceID extracts the components of an instance ID.
+func ParseInstanceID(id string) (string, int, error) {
+	result := instanceIDRegex.FindStringSubmatch(id)
+	if result == nil {
+		return "", 0, fmt.Errorf("Could not parse instance ID %s", id)
+	}
+	prefix := result[1]
+	number, err := strconv.Atoi(result[2])
+	if err != nil {
+		return "", 0, err
+	}
+	if len(prefix) > 0 {
+		prefix = prefix[:len(prefix)-1]
+	}
+	return prefix, number, nil
 }
 
 // MissingPodError creates an error that can be thrown when an instance does not

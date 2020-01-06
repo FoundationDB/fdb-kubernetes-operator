@@ -280,7 +280,13 @@ func (client *mockFdbPodClient) CopyFiles() error {
 
 // mockPodIp generates an IP address for a pod in the mock client.
 func mockPodIP(pod *corev1.Pod) string {
-	return fmt.Sprintf("1.1.1.%s", pod.Labels["fdb-instance-id"])
+	components := strings.Split(pod.Labels["fdb-instance-id"], "-")
+	for index, class := range fdbtypes.ProcessClasses {
+		if class == components[len(components)-2] {
+			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
+		}
+	}
+	return "0.0.0.0"
 }
 
 // UpdateDynamicFiles checks if the files in the dynamic conf volume match the
@@ -344,7 +350,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		}
 	}
 
-	substitutions["FDB_INSTANCE_ID"] = client.Pod.ObjectMeta.Labels["fdb-full-instance-id"]
+	substitutions["FDB_INSTANCE_ID"] = client.Pod.ObjectMeta.Labels["fdb-instance-id"]
 
 	return substitutions, nil
 }
