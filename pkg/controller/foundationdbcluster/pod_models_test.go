@@ -848,7 +848,7 @@ func TestGetPodSpecWithCommandLinesVariablesForSidecarWithPendingUpgrade(t *test
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	sidecarContainer := spec.Containers[1]
@@ -872,7 +872,7 @@ func TestGetPodSpecWithCommandLinesVariablesForSidecarWithPendingUpgrade(t *test
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))

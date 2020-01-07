@@ -1163,13 +1163,13 @@ func TestGetStartCommandForStoragePodWithBinariesFromSidecarContainer(t *testing
 		err := c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		instance := newFdbInstance(pods.Items[0])
-		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[0]}
+		instance := newFdbInstance(pods.Items[firstStorageIndex])
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[firstStorageIndex]}
 
 		command, err := GetStartCommand(cluster, instance, podClient)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		id := pods.Items[0].Labels["fdb-instance-id"]
+		id := pods.Items[firstStorageIndex].Labels["fdb-instance-id"]
 		g.Expect(command).To(gomega.Equal(strings.Join([]string{
 			"/var/dynamic-conf/bin/6.2.11/fdbserver",
 			"--class=storage",
