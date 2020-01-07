@@ -107,11 +107,16 @@ func newTestReconciler(mgr manager.Manager) *ReconcileFoundationDBCluster {
 
 var Versions = struct {
 	Default, WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
-	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar fdbtypes.FdbVersion
+	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
+	WithBinariesFromMainContainer, WithBinariesFromMainContainerNext,
+	WithoutBinariesFromMainContainer fdbtypes.FdbVersion
 }{
 	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithSidecarInstanceIdSubstitution:    fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
 	WithoutSidecarInstanceIdSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithCommandLineVariablesForSidecar:   fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
 	WithEnvironmentVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	WithBinariesFromMainContainerNext:    fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 1},
+	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 }

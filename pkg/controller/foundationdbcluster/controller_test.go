@@ -766,6 +766,7 @@ func TestGetConfigMapWithImplicitInstanceIdSubstitution(t *testing.T) {
 
 	cluster := createDefaultCluster()
 	cluster.Spec.Version = Versions.WithSidecarInstanceIdSubstitution.String()
+	cluster.Spec.RunningVersion = Versions.WithSidecarInstanceIdSubstitution.String()
 	configMap, err := GetConfigMap(context.TODO(), cluster, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -785,6 +786,7 @@ func TestGetConfigMapWithExplicitInstanceIdSubstitution(t *testing.T) {
 
 	cluster := createDefaultCluster()
 	cluster.Spec.Version = Versions.WithoutSidecarInstanceIdSubstitution.String()
+	cluster.Spec.RunningVersion = Versions.WithoutSidecarInstanceIdSubstitution.String()
 	configMap, err := GetConfigMap(context.TODO(), cluster, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -888,6 +890,66 @@ func TestGetMonitorConfWithAlternativeFaultDomainVariable(t *testing.T) {
 		"restart_delay = 60",
 		"[fdbserver.1]",
 		"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+		"cluster_file = /var/fdb/data/fdb.cluster",
+		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+		"public_address = $FDB_PUBLIC_IP:4501",
+		"class = storage",
+		"datadir = /var/fdb/data",
+		"logdir = /var/log/fdb-trace-logs",
+		"loggroup = " + cluster.Name,
+		"locality_instance_id = $FDB_INSTANCE_ID",
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $RACK",
+	}, "\n")))
+}
+
+func TestGetMonitorConfWithBinariesFromMainContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.Version = Versions.WithBinariesFromMainContainer.String()
+	cluster.Spec.RunningVersion = Versions.WithBinariesFromMainContainer.String()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+		Key:       "rack",
+		ValueFrom: "$RACK",
+	}
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
+		"[general]",
+		"kill_on_configuration_change = false",
+		"restart_delay = 60",
+		"[fdbserver.1]",
+		"command = $BINARY_DIR/fdbserver",
+		"cluster_file = /var/fdb/data/fdb.cluster",
+		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+		"public_address = $FDB_PUBLIC_IP:4501",
+		"class = storage",
+		"datadir = /var/fdb/data",
+		"logdir = /var/log/fdb-trace-logs",
+		"loggroup = " + cluster.Name,
+		"locality_instance_id = $FDB_INSTANCE_ID",
+		"locality_machineid = $FDB_MACHINE_ID",
+		"locality_zoneid = $RACK",
+	}, "\n")))
+}
+
+func TestGetMonitorConfWithBinariesFromSidecarContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := createDefaultCluster()
+	cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
+	cluster.Spec.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
+	cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+		Key:       "rack",
+		ValueFrom: "$RACK",
+	}
+	conf, err := GetMonitorConf(cluster, "storage", nil, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(conf).To(gomega.Equal(strings.Join([]string{
+		"[general]",
+		"kill_on_configuration_change = false",
+		"restart_delay = 60",
+		"[fdbserver.1]",
+		"command = /var/dynamic-conf/bin/6.2.11/fdbserver",
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 		"public_address = $FDB_PUBLIC_IP:4501",
@@ -1080,6 +1142,39 @@ func TestGetStartCommandWithDataCenter(t *testing.T) {
 			"--cluster_file=/var/fdb/data/fdb.cluster",
 			"--datadir=/var/fdb/data",
 			"--locality_dcid=dc01",
+			fmt.Sprintf("--locality_instance_id=%s", id),
+			fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+			fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
+			"--logdir=/var/log/fdb-trace-logs",
+			"--loggroup=" + cluster.Name,
+			"--public_address=:4501",
+			"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+		}, " ")))
+	})
+}
+
+func TestGetStartCommandForStoragePodWithBinariesFromSidecarContainer(t *testing.T) {
+	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
+		cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
+		cluster.Spec.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
+
+		pods := &corev1.PodList{}
+
+		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		instance := newFdbInstance(pods.Items[firstStorageIndex])
+		podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pods.Items[firstStorageIndex]}
+
+		command, err := GetStartCommand(cluster, instance, podClient)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		id := pods.Items[firstStorageIndex].Labels["fdb-instance-id"]
+		g.Expect(command).To(gomega.Equal(strings.Join([]string{
+			"/var/dynamic-conf/bin/6.2.11/fdbserver",
+			"--class=storage",
+			"--cluster_file=/var/fdb/data/fdb.cluster",
+			"--datadir=/var/fdb/data",
 			fmt.Sprintf("--locality_instance_id=%s", id),
 			fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
 			fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),

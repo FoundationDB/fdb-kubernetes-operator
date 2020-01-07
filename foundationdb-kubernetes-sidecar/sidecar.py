@@ -98,6 +98,14 @@ class Config(object):
         parser.add_argument('--input-monitor-conf',
                             help=('The name of a monitor conf template in the ',
                                   'input files'))
+        parser.add_argument('--main-container-version',
+                            help=('The version of the main foundationdb '
+                                  'container in the pod'))
+        parser.add_argument('--main-container-conf-dir',
+                            help=('The directory where the dynamic conf '
+                                  'written by the sidecar will be mounted in '
+                                  'the main container.'),
+                            default='/var/dynamic-conf')
         args = parser.parse_args()
 
         self.bind_address = args.bind_address
@@ -110,6 +118,10 @@ class Config(object):
         self.copy_libraries = args.copy_library or []
         self.input_monitor_conf = args.input_monitor_conf
         self.init_mode = args.init_mode
+        self.main_container_version = args.main_container_version
+
+        with open('/var/fdb/version') as version_file:
+            self.primary_version = version_file.read().strip()
 
         if self.enable_tls:
             self.certificate_file = args.tls_certificate_file or os.getenv('FDB_TLS_CERTIFICATE_FILE')
@@ -140,6 +152,12 @@ class Config(object):
             address_info = socket.getaddrinfo(self.substitutions['FDB_MACHINE_ID'], 4500, family=socket.AddressFamily.AF_INET)
             if len(address_info) > 0:
                 self.substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
+
+
+        if self.main_container_version == self.primary_version:
+            self.substitutions['BINARY_DIR'] = '/usr/bin'
+        else:
+            self.substitutions['BINARY_DIR'] = target_path = str(Path('%s/bin/%s' % (args.main_container_conf_dir, self.primary_version)))
 
         for variable in args.substitute_variable or []:
             self.substitutions[variable] = os.getenv(variable)
@@ -317,7 +335,11 @@ class Server(http.server.BaseHTTPRequestHandler):
             if not self.check_request_cert():
                 return
             if self.path.startswith('/check_hash/'):
-                self.send_text(check_hash(self.path[12:]), add_newline=False)
+                try:
+                    self.send_text(check_hash(self.path[12:]), add_newline=False)
+                except FileNotFoundError:
+                    self.send_error(404, "Path not found")
+                    self.end_headers()
             elif self.path == "/ready":
                 self.send_text(ready())
             elif self.path == '/substitutions':
@@ -355,13 +377,10 @@ class Server(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
 def check_hash(filename):
-    try:
-        with open('%s/%s' % (Config.shared().output_dir, filename), 'rb') as contents:
-            m = hashlib.sha256()
-            m.update(contents.read())
-            return m.hexdigest()
-    except FileNotFoundError:
-        raise
+    with open('%s/%s' % (Config.shared().output_dir, filename), 'rb') as contents:
+        m = hashlib.sha256()
+        m.update(contents.read())
+        return m.hexdigest()
 
 def copy_files():
     config = Config.shared()
@@ -371,15 +390,14 @@ def copy_files():
 
 def copy_binaries():
     config = Config.shared()
-    with open('/var/fdb/version') as version_file:
-        primary_version = version_file.read().strip()
-    for binary in config.copy_binaries:
-        path = Path('/usr/bin/%s' % binary)
-        target_path = Path('%s/bin/%s/%s' % (config.output_dir, primary_version, binary))
-        if not target_path.exists():
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(path, target_path)
-            target_path.chmod(0o744)
+    if config.main_container_version != config.primary_version:
+        for binary in config.copy_binaries:
+            path = Path('/usr/bin/%s' % binary)
+            target_path = Path('%s/bin/%s/%s' % (config.output_dir, config.primary_version, binary))
+            if not target_path.exists():
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(path, target_path)
+                target_path.chmod(0o744)
     return "OK"
 
 def copy_libraries():
