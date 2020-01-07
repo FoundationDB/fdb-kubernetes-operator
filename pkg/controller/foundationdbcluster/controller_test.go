@@ -793,7 +793,6 @@ func TestGetConfigMapWithExplicitInstanceIdSubstitution(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(gomega.Equal([]interface{}{"FDB_INSTANCE_ID"}))
-
 }
 
 func TestGetMonitorConfForStorageInstance(t *testing.T) {

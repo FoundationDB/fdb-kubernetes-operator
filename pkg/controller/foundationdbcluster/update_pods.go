@@ -54,7 +54,11 @@ func (u UpdatePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Conte
 			return false, err
 		}
 
-		spec := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], idNum)
+		spec, err := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], idNum)
+		if err != nil {
+			return false, err
+		}
+
 		specHash, err := hashPodSpec(spec)
 		if err != nil {
 			return false, err
