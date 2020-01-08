@@ -92,7 +92,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 		}
 	}
 
-	useTls := podHasSidecarTLS(pod)
+	useTLS := podHasSidecarTLS(pod)
 
 	var tlsConfig = &tls.Config{}
 	if useTLS {
