@@ -1115,7 +1115,7 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 		//
 		// The new region will join at a negative priority, unless it is the
 		// first region in the list.
-		if len(configuration.Regions) < 2 {
+		for len(result.Regions) < 2 {
 			regionToAdd := ""
 
 			for id, priority := range nextPriorities {
@@ -1127,12 +1127,15 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 
 			if regionToAdd != "" {
 				priority := -1
-				if len(configuration.Regions) == 0 {
+				if len(result.Regions) == 0 {
 					priority = 1
 				}
 				result.Regions = append(result.Regions, finalConfiguration.getRegion(regionToAdd, priority))
-				return *result
+				currentPriorities[regionToAdd] = priority
 			}
+		}
+		if len(result.Regions) != len(configuration.Regions) {
+			return *result
 		}
 
 		currentRegions := make([]string, 0, len(configuration.Regions))

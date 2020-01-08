@@ -935,30 +935,6 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-		},
-	}))
-	g.Expect(nextConfig).NotTo(gomega.Equal(finalConfig))
-
-	nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
-		RedundancyMode: "double",
-		UsableRegions:  1,
-		Regions: []Region{
-			Region{
-				DataCenters: []DataCenter{
-					DataCenter{
-						ID:       "dc1",
-						Priority: 1,
-					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
-				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
-			},
 			Region{
 				DataCenters: []DataCenter{
 					DataCenter{
@@ -1140,14 +1116,7 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
@@ -1374,14 +1343,7 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
-						ID:        "dc2",
-						Priority:  1,
-						Satellite: 1,
-					},
 				},
-				SatelliteLogs:           3,
-				SatelliteRedundancyMode: "one_satellite_double",
 			},
 			Region{
 				DataCenters: []DataCenter{
