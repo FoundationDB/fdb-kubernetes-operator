@@ -52,7 +52,6 @@ func TestGetPodWithStorageInstance(t *testing.T) {
 		"fdb-process-class":    "storage",
 		"fdb-full-instance-id": "storage-1",
 		"fdb-instance-id":      "storage-1",
-		"fdb-label":            "value2",
 	}))
 
 	spec, err := GetPodSpec(cluster, "storage", 1)
@@ -78,7 +77,6 @@ func TestGetPodWithClusterControllerInstance(t *testing.T) {
 		"fdb-process-class":    "cluster_controller",
 		"fdb-full-instance-id": "cluster_controller-1",
 		"fdb-instance-id":      "cluster_controller-1",
-		"fdb-label":            "value2",
 	}))
 
 	spec, err := GetPodSpec(cluster, "cluster_controller", 1)
@@ -104,7 +102,6 @@ func TestGetPodWithInstanceIDPrefix(t *testing.T) {
 		"fdb-process-class":    "storage",
 		"fdb-instance-id":      "dc1-storage-1",
 		"fdb-full-instance-id": "dc1-storage-1",
-		"fdb-label":            "value2",
 	}))
 
 	volumes := pod.Spec.Volumes
@@ -176,7 +173,7 @@ func TestGetPodSpecForStorageInstance(t *testing.T) {
 	sidecarContainer := spec.Containers[1]
 	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
 	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
-	g.Expect(sidecarContainer.Args).To(gomega.Equal([]string{}))
+	g.Expect(sidecarContainer.Args).To(gomega.BeNil())
 	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
 		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -273,7 +270,8 @@ func TestGetPodSpecWithCustomResources(t *testing.T) {
 			},
 		},
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec, err := GetPodSpec(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
 
 	mainContainer := spec.Containers[0]
@@ -297,7 +295,8 @@ func TestGetPodSpecWithCustomResourcesWithDeprecatedField(t *testing.T) {
 			"memory": resource.MustParse("16Gi"),
 		},
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec, err := GetPodSpec(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
 
 	mainContainer := spec.Containers[0]
@@ -435,7 +434,8 @@ func TestGetPodSpecWithCustomContainers(t *testing.T) {
 			}},
 		},
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec, err := GetPodSpec(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(2))
 
@@ -538,7 +538,8 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		},
 	}
 
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec, err := GetPodSpec(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -557,7 +558,7 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 	}))
 
 	g.Expect(len(spec.Containers)).To(gomega.Equal(2))
@@ -587,7 +588,7 @@ func TestGetPodSpecWithCustomEnvironment(t *testing.T) {
 		corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
 		}},
-		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "1"},
+		corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	}))
@@ -754,7 +755,8 @@ func TestGetPodSpecWithCustomVolumes(t *testing.T) {
 			},
 		},
 	}
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec, err := GetPodSpec(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(spec.InitContainers)).To(gomega.Equal(1))
 	initContainer := spec.InitContainers[0]
@@ -790,7 +792,7 @@ func TestGetPodSpecWithCustomVolumes(t *testing.T) {
 	}))
 	g.Expect(spec.Volumes[1]).To(gomega.Equal(corev1.Volume{
 		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: fmt.Sprintf("%s-1-data", cluster.Name),
+			ClaimName: fmt.Sprintf("%s-storage-1-data", cluster.Name),
 		}},
 		Name: "data",
 	}))
@@ -976,7 +978,8 @@ func TestGetPodSpecWithSecurityContext(t *testing.T) {
 		},
 	}
 
-	spec := GetPodSpec(cluster, "storage", "1")
+	spec, err := GetPodSpec(cluster, "storage", 1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(*spec.SecurityContext.FSGroup).To(gomega.Equal(int64(5000)))
 
@@ -1258,7 +1261,7 @@ func TestGetPodSpecWithEnvironmentVariablesForSidecar(t *testing.T) {
 	sidecarContainer := spec.Containers[1]
 	g.Expect(sidecarContainer.Name).To(gomega.Equal("foundationdb-kubernetes-sidecar"))
 	g.Expect(sidecarContainer.Image).To(gomega.Equal(initContainer.Image))
-	g.Expect(sidecarContainer.Args).To(gomega.Equal([]string{}))
+	g.Expect(sidecarContainer.Args).To(gomega.BeNil())
 	g.Expect(sidecarContainer.Env).To(gomega.Equal([]corev1.EnvVar{
 		corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
 		corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1291,24 +1294,6 @@ func TestGetPodSpecWithEnvironmentVariablesForSidecar(t *testing.T) {
 	}))
 }
 
-func TestGetPodWithInstanceIDPrefix(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
-		"fdb-cluster-name":     cluster.Name,
-		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "dc1-1",
-	}))
-
-	hash, err := GetPodSpecHash(cluster, pod.Labels["fdb-process-class"], pod.Labels["fdb-instance-id"], &pod.Spec)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(pod.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
-		"org.foundationdb/last-applied-pod-spec-hash": hash,
-	}))
-}
-
 func TestGetPodWithCustomAnnotations(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -1327,7 +1312,7 @@ func TestGetPodWithCustomAnnotations(t *testing.T) {
 	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	hash, err := GetPodSpecHash(cluster, pod.Labels["fdb-process-class"], pod.Labels["fdb-instance-id"], &pod.Spec)
+	hash, err := GetPodSpecHash(cluster, pod.Labels["fdb-process-class"], 1, &pod.Spec)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(pod.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
 		"fdb-annotation": "value1",
@@ -1354,12 +1339,12 @@ func TestGetPodWithCustomLabels(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(pod.Namespace).To(gomega.Equal("default"))
-	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-1", cluster.Name)))
+	g.Expect(pod.Name).To(gomega.Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
 		"fdb-cluster-name":     cluster.Name,
 		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "1",
+		"fdb-instance-id":      "storage-1",
+		"fdb-full-instance-id": "storage-1",
 		"fdb-label":            "value2",
 	}))
 }
@@ -1382,8 +1367,8 @@ func TestGetPodForWithCustomLabelsWithDeprecatedField(t *testing.T) {
 	g.Expect(pod.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
 		"fdb-cluster-name":     cluster.Name,
 		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "1",
+		"fdb-instance-id":      "storage-1",
+		"fdb-full-instance-id": "storage-1",
 		"fdb-label":            "value3",
 	}))
 }
@@ -1486,15 +1471,15 @@ func TestGetPvcWithCustomMetadata(t *testing.T) {
 	g.Expect(pvc).NotTo(gomega.BeNil())
 
 	g.Expect(pvc.Namespace).To(gomega.Equal("default"))
-	g.Expect(pvc.Name).To(gomega.Equal(fmt.Sprintf("%s-1-data", cluster.Name)))
+	g.Expect(pvc.Name).To(gomega.Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 	g.Expect(pvc.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
 		"fdb-annotation": "value1",
 	}))
 	g.Expect(pvc.ObjectMeta.Labels).To(gomega.Equal(map[string]string{
 		"fdb-cluster-name":     cluster.Name,
 		"fdb-process-class":    "storage",
-		"fdb-instance-id":      "1",
-		"fdb-full-instance-id": "1",
+		"fdb-instance-id":      "storage-1",
+		"fdb-full-instance-id": "storage-1",
 		"fdb-label":            "value2",
 	}))
 }
@@ -1600,7 +1585,6 @@ func TestGetPvcWithInstanceIDPrefix(t *testing.T) {
 		"fdb-process-class":    "storage",
 		"fdb-instance-id":      "dc1-storage-1",
 		"fdb-full-instance-id": "dc1-storage-1",
-		"fdb-label":            "value2",
 	}))
 
 }

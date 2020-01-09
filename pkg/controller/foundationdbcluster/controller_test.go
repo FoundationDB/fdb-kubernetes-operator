@@ -663,7 +663,10 @@ func TestReconcileWithPodAnnotationChange(t *testing.T) {
 		err = c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
-			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], item.Labels["fdb-instance-id"], nil)
+			_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
+			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
 				"org.foundationdb/last-applied-pod-spec-hash": hash,
@@ -762,7 +765,10 @@ func TestReconcileWithPvcAnnotationChange(t *testing.T) {
 		err = c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
-			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], item.Labels["fdb-instance-id"], nil)
+			_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
+			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
 				"org.foundationdb/last-applied-pod-spec-hash": hash,
@@ -862,7 +868,10 @@ func TestReconcileWithConfigMapAnnotationChange(t *testing.T) {
 		err = c.List(context.TODO(), getListOptions(cluster), pods)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
-			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], item.Labels["fdb-instance-id"], nil)
+			_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
+			hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
 				"org.foundationdb/last-applied-pod-spec-hash": hash,
@@ -1163,7 +1172,13 @@ func TestGetConfigMapWithExplicitInstanceIdSubstitution(t *testing.T) {
 }
 
 func TestGetConfigMapWithCustomLabel(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
 	cluster.Spec.ConfigMap = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -1180,6 +1195,13 @@ func TestGetConfigMapWithCustomLabel(t *testing.T) {
 }
 
 func TestGetConfigMapWithCustomLabelWithDeprecatedField(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	c = mgr.GetClient()
+
+	cluster := createDefaultCluster()
 
 	cluster.Spec.PodLabels = map[string]string{
 		"fdb-label": "value1",

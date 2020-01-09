@@ -574,14 +574,18 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	return confLines, nil
 }
 
-func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, id int, spec *corev1.PodSpec) (string, error) {
+	var err error
 	if spec == nil {
-		spec = GetPodSpec(cluster, processClass, id)
+		spec, err = GetPodSpec(cluster, processClass, id)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
-	err := encoder.Encode(spec)
+	err = encoder.Encode(spec)
 	if err != nil {
 		return "", err
 	}

@@ -60,56 +60,121 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 		return nil, err
 	}
 
-	specHash, err := hashPodSpec(spec)
+	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
 	if err != nil {
 		return nil, err
 	}
 
-	metadata := getPodMetadata(cluster, processClass, strconv.Itoa(id), specHash)
+	metadata := getPodMetadata(cluster, processClass, id, specHash)
 	metadata.Name = name
 	metadata.OwnerReferences = owner
 
 	return &corev1.Pod{
 		ObjectMeta: metadata,
-		Spec: *spec,
+		Spec:       *spec,
 	}, nil
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.PodSpec, error) {
+	var podSpec *corev1.PodSpec
+
+	if cluster.Spec.PodTemplate != nil {
+		podSpec = cluster.Spec.PodTemplate.Spec.DeepCopy()
+	} else {
+		podSpec = &corev1.PodSpec{}
+	}
+
+	var mainContainer *corev1.Container
+	var sidecarContainer *corev1.Container
+	var initContainer *corev1.Container
+
+	for index, container := range podSpec.Containers {
+		if container.Name == "foundationdb" {
+			mainContainer = &podSpec.Containers[index]
+		} else if container.Name == "foundationdb-kubernetes-sidecar" {
+			sidecarContainer = &podSpec.Containers[index]
+		}
+	}
+
+	for index, container := range podSpec.InitContainers {
+		if container.Name == "foundationdb-kubernetes-init" {
+			initContainer = &podSpec.InitContainers[index]
+		}
+	}
+	if mainContainer == nil {
+		containerCount := 1 + len(podSpec.Containers) + len(cluster.Spec.Containers)
+		if sidecarContainer == nil {
+			containerCount += 1
+		}
+		containers := make([]corev1.Container, 0, containerCount)
+		containers = append(containers, corev1.Container{
+			Name: "foundationdb",
+		})
+		containers = append(containers, podSpec.Containers...)
+		podSpec.Containers = containers
+		mainContainer = &podSpec.Containers[0]
+	}
+
+	if sidecarContainer == nil {
+		podSpec.Containers = append(podSpec.Containers, corev1.Container{
+			Name: "foundationdb-kubernetes-sidecar",
+		})
+		sidecarContainer = &podSpec.Containers[len(podSpec.Containers)-1]
+	}
+
+	if initContainer == nil {
+		podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{
+			Name: "foundationdb-kubernetes-init",
+		})
+		initContainer = &podSpec.InitContainers[len(podSpec.InitContainers)-1]
+	}
+
 	podName, instanceID := getInstanceId(cluster, processClass, idNum)
-	imageName := cluster.Spec.MainContainer.ImageName
-	if imageName == "" {
-		imageName = "foundationdb/foundationdb"
+
+	if cluster.Spec.MainContainer.ImageName != "" {
+		mainContainer.Image = cluster.Spec.MainContainer.ImageName
+	}
+	if mainContainer.Image == "" {
+		mainContainer.Image = "foundationdb/foundationdb"
 	}
 
 	versionString := cluster.Spec.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
+
+	mainContainer.Image = fmt.Sprintf("%s:%s", mainContainer.Image, versionString)
+
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return nil, err
 	}
 
-	mainContainer := corev1.Container{
-		Name:  "foundationdb",
-		Image: fmt.Sprintf("%s:%s", imageName, cluster.Spec.Version),
-		Env: []corev1.EnvVar{
-			corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-			corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
-		},
-		Command: []string{"sh", "-c"},
-		Args: []string{
-			"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-				" --lockfile /var/fdb/fdbmonitor.lockfile",
-		},
-		Resources: *cluster.Spec.Resources,
-		VolumeMounts: []corev1.VolumeMount{
-			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
-			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
-			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-		},
+	extendEnv(mainContainer,
+		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
+	)
+
+	mainContainer.Command = []string{"sh", "-c"}
+	mainContainer.Args = []string{
+		"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+			" --lockfile /var/fdb/fdbmonitor.lockfile",
+	}
+
+	if cluster.Spec.Resources != nil {
+		mainContainer.Resources = *cluster.Spec.Resources
+	}
+
+	if mainContainer.Resources.Requests == nil {
+		mainContainer.Resources.Requests = corev1.ResourceList{
+			"cpu":    resource.MustParse("1"),
+			"memory": resource.MustParse("1Gi"),
+		}
+	}
+
+	if mainContainer.Resources.Limits == nil {
+		mainContainer.Resources.Limits = mainContainer.Resources.Requests
 	}
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
@@ -201,16 +266,19 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		sidecarInitArgs = append(sidecarInitArgs, "--init-mode")
 	}
 
-	initContainer := corev1.Container{
-		Name:  "foundationdb-kubernetes-init",
-		Image: fmt.Sprintf("%s:%s", sidecarImageName, cluster.GetFullSidecarVersion(true)),
-		Env:   sidecarInitEnv,
-		Args:  sidecarInitArgs,
-		VolumeMounts: []corev1.VolumeMount{
-			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
-			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
-		},
+	if cluster.Spec.SidecarContainer.ImageName != "" {
+		initContainer.Image = cluster.Spec.SidecarContainer.ImageName
 	}
+	if initContainer.Image == "" {
+		initContainer.Image = "foundationdb/foundationdb-kubernetes-sidecar"
+	}
+
+	extendEnv(initContainer, sidecarInitEnv...)
+	initContainer.Args = sidecarInitArgs
+	initContainer.VolumeMounts = append(initContainer.VolumeMounts,
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
+	)
 	initContainer.Image = fmt.Sprintf("%s:%s", initContainer.Image, cluster.GetFullSidecarVersion(true))
 
 	sidecarArgs := make([]string, 0, len(sidecarInitArgs))
@@ -224,24 +292,33 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		sidecarEnv = append(sidecarEnv, sidecarInitEnv[1:]...)
 	}
 
-	customizeContainer(&initContainer, cluster.Spec.SidecarContainer)
-
 	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
 
-	if cluster.Spec.SidecarContainer.EnableTLS {
-		sidecarArgs = append(sidecarArgs, "--tls")
+	if cluster.Spec.SidecarContainer.ImageName != "" {
+		sidecarContainer.Image = cluster.Spec.SidecarContainer.ImageName
+	}
+	if sidecarContainer.Image == "" {
+		sidecarContainer.Image = "foundationdb/foundationdb-kubernetes-sidecar"
 	}
 
-	sidecarContainer := corev1.Container{
-		Name:  "foundationdb-kubernetes-sidecar",
-		Image: initContainer.Image,
-		Env:   sidecarEnv,
-		Args:  sidecarArgs,
-		VolumeMounts: []corev1.VolumeMount{
-			corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
-			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
-		},
-		ReadinessProbe: &corev1.Probe{
+	sidecarContainer.Image = fmt.Sprintf("%s:%s", sidecarContainer.Image, cluster.GetFullSidecarVersion(true))
+	extendEnv(sidecarContainer, sidecarEnv...)
+	extendEnv(sidecarContainer,
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: cluster.Spec.SidecarContainer.PeerVerificationRules},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
+	)
+
+	sidecarContainer.Args = append(sidecarContainer.Args, sidecarArgs...)
+	if cluster.Spec.SidecarContainer.EnableTLS {
+		sidecarContainer.Args = append(sidecarContainer.Args, "--tls")
+	}
+
+	sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
+	)
+	if sidecarContainer.ReadinessProbe == nil {
+		sidecarContainer.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				TCPSocket: &corev1.TCPSocketAction{
 					Port: intstr.IntOrString{IntVal: 8080},
@@ -250,7 +327,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		}
 	}
 
-	customizeContainer(&sidecarContainer, cluster.Spec.SidecarContainer)
+	customizeContainer(sidecarContainer, cluster.Spec.SidecarContainer)
 
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
@@ -313,17 +390,14 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)
 	podSpec.Affinity = affinity
 
-	containers := []corev1.Container{mainContainer, sidecarContainer}
-	containers = append(containers, cluster.Spec.Containers...)
+	if cluster.Spec.PodSecurityContext != nil {
+		podSpec.SecurityContext = cluster.Spec.PodSecurityContext
+	}
+	if cluster.Spec.AutomountServiceAccountToken != nil {
+		podSpec.AutomountServiceAccountToken = cluster.Spec.AutomountServiceAccountToken
+	}
 
-	return &corev1.PodSpec{
-		InitContainers:               initContainers,
-		Containers:                   containers,
-		Volumes:                      volumes,
-		Affinity:                     affinity,
-		SecurityContext:              cluster.Spec.PodSecurityContext,
-		AutomountServiceAccountToken: cluster.Spec.AutomountServiceAccountToken,
-	}, nil
+	return podSpec, nil
 }
 
 // usePvc determines whether we should attach a PVC to a pod.
@@ -351,26 +425,43 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 		return nil, nil
 	}
 	name, id := getInstanceId(cluster, processClass, idNum)
-	size, err := resource.ParseQuantity(cluster.Spec.VolumeSize)
-	if err != nil {
-		return nil, err
-	}
-	spec := corev1.PersistentVolumeClaimSpec{
-		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{"storage": size},
-		},
-		StorageClassName: cluster.Spec.StorageClass,
+
+	var pvc *corev1.PersistentVolumeClaim
+	if cluster.Spec.VolumeClaim == nil {
+		pvc = &corev1.PersistentVolumeClaim{}
+	} else {
+		pvc = cluster.Spec.VolumeClaim.DeepCopy()
 	}
 
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cluster.Namespace,
-			Name:      fmt.Sprintf("%s-data", name),
-			Labels:    getPodLabels(cluster, processClass, id),
-		},
-		Spec: spec,
-	}, nil
+	pvc.ObjectMeta = getPvcMetadata(cluster, processClass, id)
+	pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
+
+	if pvc.Spec.AccessModes == nil {
+		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+	}
+
+	if pvc.Spec.Resources.Requests == nil {
+		pvc.Spec.Resources.Requests = corev1.ResourceList{}
+	}
+
+	if cluster.Spec.VolumeSize != "" {
+		size, err := resource.ParseQuantity(cluster.Spec.VolumeSize)
+		if err != nil {
+			return nil, err
+		}
+		pvc.Spec.Resources.Requests["storage"] = size
+	}
+
+	storage := pvc.Spec.Resources.Requests["storage"]
+	if (&storage).IsZero() {
+		pvc.Spec.Resources.Requests["storage"] = resource.MustParse("128G")
+	}
+
+	if cluster.Spec.StorageClass != nil {
+		pvc.Spec.StorageClassName = cluster.Spec.StorageClass
+	}
+
+	return pvc, nil
 }
 
 // replaceContainers overwrites the containers in a list with new containers

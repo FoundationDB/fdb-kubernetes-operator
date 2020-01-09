@@ -26,7 +26,6 @@ import (
 	"time"
 
 	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
-	"github.com/prometheus/common/log"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -55,12 +54,7 @@ func (u UpdatePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Conte
 			return false, err
 		}
 
-		spec, err := GetPodSpec(cluster, instance.Metadata.Labels["fdb-process-class"], idNum)
-		if err != nil {
-			return false, err
-		}
-
-		specHash, err := hashPodSpec(spec)
+		specHash, err := GetPodSpecHash(cluster, instance.Metadata.Labels["fdb-process-class"], idNum, nil)
 		if err != nil {
 			return false, err
 		}
