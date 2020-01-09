@@ -274,14 +274,60 @@ func (r *ReconcileFoundationDBCluster) updatePodDynamicConf(context ctx.Context,
 	return true, nil
 }
 
-func getPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
-	labels := getMinimalPodLabels(cluster, processClass, id)
+func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, specHash string) metav1.ObjectMeta {
+	var metadata metav1.ObjectMeta
 
-	for label, value := range cluster.Spec.PodLabels {
-		labels[label] = value
+	if cluster.Spec.PodTemplate != nil {
+		metadata = getObjectMetadata(cluster, &cluster.Spec.PodTemplate.ObjectMeta, processClass, id)
+	} else {
+		metadata = getObjectMetadata(cluster, nil, processClass, id)
 	}
 
-	return labels
+	if metadata.Annotations == nil {
+		metadata.Annotations = make(map[string]string)
+	}
+	metadata.Annotations[LastPodHashKey] = specHash
+
+	return metadata
+}
+
+func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) metav1.ObjectMeta {
+	if cluster.Spec.VolumeClaim != nil {
+		return getObjectMetadata(cluster, &cluster.Spec.VolumeClaim.ObjectMeta, processClass, id)
+	} else {
+		return getObjectMetadata(cluster, nil, processClass, id)
+	}
+}
+
+func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMeta {
+	if cluster.Spec.ConfigMap != nil {
+		return getObjectMetadata(cluster, &cluster.Spec.ConfigMap.ObjectMeta, "", "")
+	} else {
+		return getObjectMetadata(cluster, nil, "", "")
+	}
+}
+
+func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass string, id string) metav1.ObjectMeta {
+	var metadata *metav1.ObjectMeta
+
+	if base != nil {
+		metadata = base.DeepCopy()
+	} else {
+		metadata = &metav1.ObjectMeta{}
+	}
+	metadata.Namespace = cluster.Namespace
+
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
+	}
+	for label, value := range getMinimalPodLabels(cluster, processClass, id) {
+		metadata.Labels[label] = value
+	}
+	for label, value := range cluster.Spec.PodLabels {
+		metadata.Labels[label] = value
+	}
+
+	return *metadata
 }
 
 func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
@@ -399,14 +445,13 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		return nil, err
 	}
 
+	metadata := getConfigMapMetadata(cluster)
+	metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	metadata.OwnerReferences = owner
+
 	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       cluster.Namespace,
-			Name:            fmt.Sprintf("%s-config", cluster.Name),
-			Labels:          getPodLabels(cluster, "", ""),
-			OwnerReferences: owner,
-		},
-		Data: data,
+		ObjectMeta: metadata,
+		Data:       data,
 	}, nil
 }
 
@@ -529,10 +574,18 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	return confLines, nil
 }
 
-func hashPodSpec(spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, id int, spec *corev1.PodSpec) (string, error) {
+	var err error
+	if spec == nil {
+		spec, err = GetPodSpec(cluster, processClass, id)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
-	err := encoder.Encode(spec)
+	err = encoder.Encode(spec)
 	if err != nil {
 		return "", err
 	}

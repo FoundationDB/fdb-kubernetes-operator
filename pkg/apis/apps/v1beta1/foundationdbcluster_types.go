@@ -61,30 +61,24 @@ type FoundationDBClusterSpec struct {
 	// FaultDomain defines the rules for what fault domain to replicate across.
 	FaultDomain FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
 
-	// StorageClass defines the storage class for the volumes in the cluster.
-	StorageClass *string `json:"storageClass,omitempty"`
-
-	// VolumeSize defines the size of the volume to use for stateful processes.
-	VolumeSize string `json:"volumeSize"`
-
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// processes.
 	CustomParameters []string `json:"customParameters,omitempty"`
-
-	// Resources defines the resource requirements for the foundationdb
-	// containers.
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the name of a pod to its IP address. If a value is left blank,
 	// the controller will provide the pod's current IP.
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
 
-	// InitContainers defines custom init containers for the FDB pods.
-	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+	// PodTemplate allows customizing the FoundationDB pods.
+	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 
-	// Containers defines custom containers for the FDB pods.
-	Containers []corev1.Container `json:"containers,omitempty"`
+	// VolumeClaim allows customizing the persistent volume claim for the
+	// FoundationDB pods.
+	VolumeClaim *corev1.PersistentVolumeClaim
+
+	// ConfigMap allows customizing the config map the operator creates.
+	ConfigMap *corev1.ConfigMap
 
 	// MainContainer defines customization for the foundationdb container.
 	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
@@ -92,9 +86,6 @@ type FoundationDBClusterSpec struct {
 	// SidecarContainer defines customization for the
 	// foundationdb-kubernetes-sidecar container.
 	SidecarContainer ContainerOverrides `json:"sidecarContainer,omitempty"`
-
-	// Volumes defines custom volumes for the FDB pods.
-	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
 	// TrustedCAs defines a list of root CAs the cluster should trust, in PEM
 	// format.
@@ -110,33 +101,70 @@ type FoundationDBClusterSpec struct {
 	// DataCenter defines the data center where these processes are running.
 	DataCenter string `json:"dataCenter,omitempty"`
 
-	// PodLabels defines custom labels to apply to the FDB pods.
-	PodLabels map[string]string `json:"podLabels,omitempty"`
-
 	// AutomationOptions defines customization for enabling or disabling certain
 	// operations in the operator.
 	AutomationOptions FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
 
-	// PodSecurityContext defines the security context to apply to the FDB pods.
-	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-
 	// InstanceIDPrefix defines a prefix to append to the instance IDs in the
 	// locality fields.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
-
-	// AutomountServiceAccountToken defines whether we should automount the
-	// service account tokens in the FDB pods.
-	AutomountServiceAccountToken *bool `json:"automountServiceAccountToken,omitempty"`
 
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.
 	SidecarVersion int `json:"sidecarVersion,omitempty"`
 
+	// PodLabels defines custom labels to apply to the FDB pods.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	PodLabels map[string]string `json:"podLabels,omitempty"`
+
+	// Resources defines the resource requirements for the foundationdb
+	// containers.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// InitContainers defines custom init containers for the FDB pods.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+
+	// Containers defines custom containers for the FDB pods.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	Containers []corev1.Container `json:"containers,omitempty"`
+
+	// Volumes defines custom volumes for the FDB pods.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// PodSecurityContext defines the security context to apply to the FDB pods.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+
+	// AutomountServiceAccountToken defines whether we should automount the
+	// service account tokens in the FDB pods.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	AutomountServiceAccountToken *bool `json:"automountServiceAccountToken,omitempty"`
+
 	// NextInstanceID defines the ID to use when creating the next instance.
 	//
 	// Deprecated: This is no longer used.
 	NextInstanceID int `json:"nextInstanceID,omitempty"`
+
+	// StorageClass defines the storage class for the volumes in the cluster.
+	//
+	// Deprecated: Use the VolumeClaim field instead.
+	StorageClass *string `json:"storageClass,omitempty"`
+
+	// VolumeSize defines the size of the volume to use for stateful processes.
+	//
+	// Deprecated: Use the VolumeClaim field instead.
+	VolumeSize string `json:"volumeSize,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -923,11 +951,6 @@ func (client FoundationDBStatusConnectedClient) Description() string {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	// Env provides environment variables.
-	Env []corev1.EnvVar `json:"env,omitempty"`
-
-	// VolumeMounts provides volume mounts.
-	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 
 	// EnableTLS controls whether we should be listening on a TLS connection.
 	EnableTLS bool `json:"enableTls,omitempty"`
@@ -936,11 +959,25 @@ type ContainerOverrides struct {
 	// the process should accept.
 	PeerVerificationRules string `json:"peerVerificationRules,omitempty"`
 
+	// Env provides environment variables.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// VolumeMounts provides volume mounts.
+	//
+	// Deprecated: Use the PodTemplate field instead.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
 	// ImageName provides the name of the image to use for the container,
 	// without the version tag.
+	//
+	// Deprecated: Use the PodTemplate field instead.
 	ImageName string `json:"imageName,omitempty"`
 
 	// SecurityContext provides the container's security context.
+	//
+	// Deprecated: Use the PodTemplate field instead.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 

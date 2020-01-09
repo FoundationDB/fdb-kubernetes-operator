@@ -42,9 +42,24 @@ func (u UpdateLabels) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 			processClass := instance.Metadata.Labels["fdb-process-class"]
 			instanceId := instance.Metadata.Labels["fdb-instance-id"]
 
-			labels := getPodLabels(cluster, processClass, instanceId)
-			if !reflect.DeepEqual(instance.Pod.ObjectMeta.Labels, labels) {
-				instance.Pod.ObjectMeta.Labels = labels
+			metadata := getPodMetadata(cluster, processClass, instanceId, "")
+			if metadata.Annotations == nil {
+				metadata.Annotations = make(map[string]string)
+			}
+			metadata.Annotations[LastPodHashKey] = instance.Pod.ObjectMeta.Annotations[LastPodHashKey]
+			metadataCorrect := true
+
+			if !reflect.DeepEqual(instance.Pod.ObjectMeta.Labels, metadata.Labels) {
+				instance.Pod.ObjectMeta.Labels = metadata.Labels
+				metadataCorrect = false
+			}
+
+			if !reflect.DeepEqual(instance.Pod.ObjectMeta.Annotations, metadata.Annotations) {
+				instance.Pod.ObjectMeta.Annotations = metadata.Annotations
+				metadataCorrect = false
+			}
+
+			if !metadataCorrect {
 				err = r.Update(context, instance.Pod)
 				if err != nil {
 					return false, err
@@ -62,9 +77,20 @@ func (u UpdateLabels) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 		processClass := pvc.ObjectMeta.Labels["fdb-process-class"]
 		instanceId := pvc.ObjectMeta.Labels["fdb-instance-id"]
 
-		labels := getPodLabels(cluster, processClass, instanceId)
-		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, labels) {
-			pvc.ObjectMeta.Labels = labels
+		metadata := getPvcMetadata(cluster, processClass, instanceId)
+
+		metadataCorrect := true
+		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, metadata.Labels) {
+			pvc.Labels = metadata.Labels
+			metadataCorrect = false
+		}
+
+		if !reflect.DeepEqual(pvc.ObjectMeta.Annotations, metadata.Annotations) {
+			pvc.Annotations = metadata.Annotations
+			metadataCorrect = false
+		}
+
+		if !metadataCorrect {
 			err = r.Update(context, &pvc)
 			if err != nil {
 				return false, err
