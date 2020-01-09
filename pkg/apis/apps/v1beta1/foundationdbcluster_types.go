@@ -1115,8 +1115,9 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 		//
 		// The new region will join at a negative priority, unless it is the
 		// first region in the list.
-		for len(result.Regions) < 2 {
-			regionToAdd := ""
+		regionToAdd := "none"
+		for len(result.Regions) < 2 && regionToAdd != "" {
+			regionToAdd = ""
 
 			for id, priority := range nextPriorities {
 				_, present := currentPriorities[id]

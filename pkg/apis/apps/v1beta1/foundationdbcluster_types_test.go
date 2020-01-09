@@ -871,6 +871,7 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 	}))
 	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
 }
+
 func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	currentConfig := DatabaseConfiguration{
@@ -1027,6 +1028,46 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 				},
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
+			},
+		},
+	}))
+	g.Expect(nextConfig).To(gomega.Equal(finalConfig))
+}
+
+func TestGetNextConfigurationChangeWhenEnablingSingleRegionWithNoInitialRegions(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	currentConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+	}
+
+	finalConfig := DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
+			},
+		},
+	}
+
+	nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
+	g.Expect(nextConfig).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		UsableRegions:  1,
+		Regions: []Region{
+			Region{
+				DataCenters: []DataCenter{
+					DataCenter{
+						ID:       "dc1",
+						Priority: 1,
+					},
+				},
 			},
 		},
 	}))
