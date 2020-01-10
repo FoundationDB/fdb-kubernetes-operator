@@ -196,7 +196,7 @@ type FoundationDBClusterStatus struct {
 	// Health provides information about the health of the database.
 	Health ClusterHealth `json:"health,omitempty"`
 
-	// RequiredAddresses defines that addresses that we need to enable for the
+	// RequiredAddresses define that addresses that we need to enable for the
 	// processes in the cluster.
 	RequiredAddresses RequiredAddressSet `json:"requiredAddresses,omitempty"`
 }

@@ -483,7 +483,7 @@ spec:
                   type: integer
               type: object
             requiredAddresses:
-              description: RequiredAddresses defines that addresses that we need to
+              description: RequiredAddresses define that addresses that we need to
                 enable for the processes in the cluster.
               properties:
                 nonTLS:
