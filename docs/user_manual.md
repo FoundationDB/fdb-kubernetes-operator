@@ -2,15 +2,16 @@
 
 1.  [Introduction](#introduction)
 2.  [Creating a Cluster](#creating-a-cluster)
-3.  [Managing Process Counts](#managing-process-counts)
-4.  [Growing a Cluster](#growing-a-cluster)
-5.  [Shrinking a Cluster](#shrinking-a-cluster)
-6.  [Replacing a Process](#replacing-a-process)
-7.  [Changing Database Configuration](#changing-database-configuration)
-8.  [Adding a Knob](#adding-a-knob)
-9.  [Upgrading a Cluster](#upgrading-a-cluster)
-10. [Customizing Your Pods](#customizing-a-container)
-11. [Controlling Fault Domains](#controlling-fault-domains)
+3.  [Accessing a Cluster](#accessing-a-cluster)
+4.  [Managing Process Counts](#managing-process-counts)
+5.  [Growing a Cluster](#growing-a-cluster)
+6.  [Shrinking a Cluster](#shrinking-a-cluster)
+7.  [Replacing a Process](#replacing-a-process)
+8.  [Changing Database Configuration](#changing-database-configuration)
+9.  [Adding a Knob](#adding-a-knob)
+10.  [Upgrading a Cluster](#upgrading-a-cluster)
+11. [Customizing Your Pods](#customizing-a-container)
+12. [Controlling Fault Domains](#controlling-fault-domains)
 
 # Introduction
 
@@ -59,6 +60,45 @@ In addition to the pods, the operator will create a Persistent Volume Claim for 
 processes in the cluster. In this example, each volume will be 128 GB. 
 
 By default each pod will have two containers and one init container.. The `foundationdb` container will run fdbmonitor and fdbserver, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes. It is responsible for managing the fdbmonitor conf files and providing FDB binaries to the `foundationdb` container. The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume. The "Upgrading a Cluster" has more detail on we manage binaries. The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the fdbmonitor process starts.
+
+# Accessing a cluster
+
+Now that your cluster is deployed, you can easily access the cluster. As an example, we are going to deploy a [Kubernetes Job](https://kubernetes.io/docs/tasks/job/) that will check the status of the cluster every minute. The `cluster file` is available through the exposed `config map` that can be mounted as follows:
+
+
+    apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: fdbcli-status-cronjob
+    spec:
+      schedule: "*/1 * * * *" # every minute
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              restartPolicy: OnFailure
+              containers:
+              - name: fdbcli-status-cronjob
+                image: foundationdb/foundationdb:6.2.11
+                args:
+                - /usr/bin/fdbcli
+                - --exec
+                - 'status'
+                env:
+                - name: FDB_CLUSTER_FILE
+                  value: /mnt/config-volume/cluster-file
+                volumeMounts:
+                - name: config-volume
+                  mountPath: /mnt/config-volume
+              volumes:
+              - name: config-volume
+                configMap:
+                  name: sample-cluster-config
+
+Be careful that:
+
+* the cluster-file is mutable,
+* the name of config map depends on the name of your cluster.
 
 # Managing Process Counts
 
