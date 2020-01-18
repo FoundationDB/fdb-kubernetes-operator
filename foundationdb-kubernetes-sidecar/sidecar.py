@@ -22,14 +22,22 @@
 import argparse
 import hashlib
 import http.server
+import logging
 import json
 import os
 import shutil
 import socket
 import ssl
 import stat
+import time
 import traceback
 from pathlib import Path
+
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 class Config(object):
     def __init__(self):
@@ -203,6 +211,8 @@ class Config(object):
     shared_config = None
 
 class Server(http.server.BaseHTTPRequestHandler):
+    ssl_context = None
+
     @classmethod
     def start(cls):
         '''
@@ -210,16 +220,29 @@ class Server(http.server.BaseHTTPRequestHandler):
         '''
         config = Config.shared()
         (address, port) = config.bind_address.split(':')
-        print('Listening on %s:%s' % (address, port))
+        log.info('Listening on %s:%s' % (address, port))
         httpd = http.server.HTTPServer((address, int(port)), cls)
 
         if config.enable_tls:
-            context = ssl.create_default_context(cafile=config.ca_file)
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_REQUIRED
-            context.load_cert_chain(config.certificate_file, config.key_file)
+            context = Server.load_ssl_context()
             httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+            observer = Observer()
+            event_handler = CertificateEventHandler()
+            for path in set([Path(config.certificate_file).parent.as_posix(), Path(config.key_file).parent.as_posix()]):
+                observer.schedule(event_handler, path)
+            observer.start()
+
         httpd.serve_forever()
+
+    @classmethod
+    def load_ssl_context(cls):
+        config = Config.shared()
+        if not cls.ssl_context:
+            cls.ssl_context = ssl.create_default_context(cafile=config.ca_file)
+            cls.ssl_context.check_hostname = False
+            cls.ssl_context.verify_mode = ssl.CERT_REQUIRED
+        cls.ssl_context.load_cert_chain(config.certificate_file, config.key_file)
+        return cls.ssl_context
 
     def send_text(self, text, code=200, content_type='text/plain',
                   add_newline=True):
@@ -347,8 +370,10 @@ class Server(http.server.BaseHTTPRequestHandler):
             else:
                 self.send_error(404, "Path not found")
                 self.end_headers()
+        except RequestException as e:
+            self.send_error(400, e.message)
         except:
-            traceback.print_exc()
+            log.error("Error processing request", exc_info=True)
             self.send_error(500)
             self.end_headers()
 
@@ -368,13 +393,32 @@ class Server(http.server.BaseHTTPRequestHandler):
                 self.send_text(copy_libraries())
             elif self.path == '/copy_monitor_conf':
                 self.send_text(copy_monitor_conf())
+            elif self.path == '/refresh_certs':
+                self.send_text(refresh_certs())
+            elif self.path == '/restart':
+                self.send_text('OK')
+                exit(1)
             else:
                 self.send_error(404, "Path not found")
                 self.end_headers()
-        except:
-            traceback.print_exc()
+        except SystemExit as e:
+            raise e
+        except RequestException as e:
+            self.send_error(400, e.message)
+        except e:
+            log.error("Error processing request", exc_info=True)
             self.send_error(500)
             self.end_headers()
+
+    def log_message(self, format, *args):
+        log.info(format % args)
+
+class CertificateEventHandler(FileSystemEventHandler):
+    def on_any_event(self, event):
+        log.info('Detected change to certificates')
+        time.sleep(10)
+        log.info('Reloading certificates')
+        Server.load_ssl_context()
 
 def check_hash(filename):
     with open('%s/%s' % (Config.shared().output_dir, filename), 'rb') as contents:
@@ -430,7 +474,19 @@ def get_substitutions():
 def ready():
     return "OK"
 
+def refresh_certs():
+    if not Config.shared().enable_tls:
+        raise RequestException("Server is not using TLS")
+    Server.load_ssl_context()
+    return "OK"
+
+class RequestException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
 if __name__ == '__main__':
+    logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
     copy_files()
     copy_binaries()
     copy_libraries()
