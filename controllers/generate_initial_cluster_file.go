@@ -18,28 +18,28 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"errors"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 // GenerateInitialClusterFile provides a reconciliation step for generating the
 // cluster file for a newly created cluster.
 type GenerateInitialClusterFile struct{}
 
-func (g GenerateInitialClusterFile) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if cluster.Spec.ConnectionString != "" {
 		return true, nil
 	}
 
 	log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "storage", ""))
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "storage", "")...)
 	if err != nil {
 		return false, err
 	}

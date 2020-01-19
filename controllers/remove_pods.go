@@ -18,14 +18,14 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"fmt"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,7 +34,7 @@ import (
 // shrink or replacement.
 type RemovePods struct{}
 
-func (u RemovePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if len(cluster.Spec.PendingRemovals) == 0 {
 		return true, nil
 	}
@@ -56,9 +56,8 @@ func (u RemovePods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Conte
 	return true, nil
 }
 
-func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, podName string) error {
-	instanceListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", podName)
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions)
+func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, podName string) error {
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingField("metadata.name", podName))
 	if err != nil {
 		return err
 	}
@@ -70,9 +69,8 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 		}
 	}
 
-	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", podName))
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcListOptions, pvcs)
+	err = r.List(context, pvcs, client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingField("metadata.name", fmt.Sprintf("%s-data", podName)))
 	if err != nil {
 		return err
 	}
@@ -86,10 +84,10 @@ func (r *ReconcileFoundationDBCluster) removePod(context ctx.Context, cluster *f
 	return nil
 }
 
-func (r *ReconcileFoundationDBCluster) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) (bool, error) {
+func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) (bool, error) {
 	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
 		return false, err
 	}
@@ -99,7 +97,7 @@ func (r *ReconcileFoundationDBCluster) confirmPodRemoval(context ctx.Context, cl
 	}
 
 	pods := &corev1.PodList{}
-	err = r.List(context, instanceListOptions, pods)
+	err = r.List(context, pods, instanceListOptions...)
 	if err != nil {
 		return false, err
 	}
@@ -108,9 +106,8 @@ func (r *ReconcileFoundationDBCluster) confirmPodRemoval(context ctx.Context, cl
 		return false, nil
 	}
 
-	pvcListOptions := (&client.ListOptions{}).InNamespace(cluster.ObjectMeta.Namespace).MatchingField("metadata.name", fmt.Sprintf("%s-data", instanceName))
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcListOptions, pvcs)
+	err = r.List(context, pvcs, client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingField("metadata.name", fmt.Sprintf("%s-data", instanceName)))
 	if err != nil {
 		return false, err
 	}

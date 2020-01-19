@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
@@ -26,7 +26,7 @@ import (
 	"regexp"
 	"strings"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

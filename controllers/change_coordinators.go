@@ -18,21 +18,21 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"errors"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 // ChangeCoordinators provides a reconciliation step for choosing new
 // coordinators.
 type ChangeCoordinators struct{}
 
-func (c ChangeCoordinators) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Spec.Configured {
 		return true, nil
 	}

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +35,7 @@ import (
 // AddPods provides a reconciliation step for adding new pods to a cluster.
 type AddPods struct{}
 
-func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	currentCounts := cluster.Status.ProcessCounts.Map()
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 
@@ -59,7 +59,7 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 		return false, err
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", ""))
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
 	}
@@ -93,7 +93,7 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 			r.Recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 
 			pvcs := &corev1.PersistentVolumeClaimList{}
-			r.List(context, getPodListOptions(cluster, processClass, ""), pvcs)
+			r.List(context, pvcs, getPodListOptions(cluster, processClass, "")...)
 			reusablePvcs := make(map[int]bool, len(pvcs.Items))
 
 			for index, pvc := range pvcs.Items {
@@ -108,7 +108,7 @@ func (a AddPods) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context,
 				if ownedByCluster && pvc.ObjectMeta.DeletionTimestamp == nil {
 					matchingInstances, err := r.PodLifecycleManager.GetInstances(
 						r, cluster, context,
-						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"]),
+						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"])...,
 					)
 					if err != nil {
 						return false, err

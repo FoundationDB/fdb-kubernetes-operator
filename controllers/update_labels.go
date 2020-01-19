@@ -18,22 +18,22 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"reflect"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // UpdateLabels provides a reconciliation step for updating the labels on pods.
 type UpdateLabels struct{}
 
-func (u UpdateLabels) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", ""))
+func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
 	}
@@ -69,7 +69,7 @@ func (u UpdateLabels) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Con
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, getPodListOptions(cluster, "", ""), pvcs)
+	err = r.List(context, pvcs, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
 	}

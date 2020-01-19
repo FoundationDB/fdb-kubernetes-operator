@@ -18,21 +18,21 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"fmt"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 // IncludeInstances provides a reconciliation step for re-including instances
 // after removing them.
 type IncludeInstances struct{}
 
-func (i IncludeInstances) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
 		return false, err

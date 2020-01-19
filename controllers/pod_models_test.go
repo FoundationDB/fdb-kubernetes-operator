@@ -18,14 +18,14 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

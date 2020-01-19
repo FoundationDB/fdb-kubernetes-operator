@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	"crypto/sha256"
@@ -32,7 +32,7 @@ import (
 	"os"
 	"strings"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 

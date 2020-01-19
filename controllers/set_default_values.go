@@ -18,13 +18,13 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 // SetDefaultValues provides a reconciliation step for setting default values in
@@ -32,7 +32,7 @@ import (
 type SetDefaultValues struct {
 }
 
-func (s SetDefaultValues) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (s SetDefaultValues) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	changed := false
 	if cluster.Spec.RedundancyMode == "" {
 		cluster.Spec.RedundancyMode = "double"

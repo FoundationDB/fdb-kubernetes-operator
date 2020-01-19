@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
@@ -26,14 +26,14 @@ import (
 	"strings"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 // CheckClientCompatibility confirms that all clients are compatible with the
 // version of FoundationDB configured on the cluster.
 type CheckClientCompatibility struct{}
 
-func (c CheckClientCompatibility) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Spec.Configured {
 		return true, nil
 	}

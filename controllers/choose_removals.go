@@ -18,21 +18,21 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"fmt"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ChooseRemovals chooses which processes will be removed during a shrink.
 type ChooseRemovals struct{}
 
-func (c ChooseRemovals) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
 	var removals = cluster.Spec.PendingRemovals
@@ -44,7 +44,7 @@ func (c ChooseRemovals) Reconcile(r *ReconcileFoundationDBCluster, context ctx.C
 	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, processClass, ""))
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, processClass, "")...)
 		if err != nil {
 			return false, err
 		}
@@ -77,7 +77,7 @@ func (c ChooseRemovals) Reconcile(r *ReconcileFoundationDBCluster, context ctx.C
 	if cluster.Spec.PendingRemovals != nil {
 		for podName := range cluster.Spec.PendingRemovals {
 			if removals[podName] == "" {
-				instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace).MatchingField("metadata.name", podName))
+				instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", podName))
 				if err != nil {
 					return false, err
 				}

@@ -1,3 +1,7 @@
-version: "0.2.0"
 domain: foundationdb.org
-repo: github.com/foundationdb/fdb-kubernetes-operator
+repo: github.com/FoundationDB/fdb-kubernetes-operator
+resources:
+- group: apps
+  kind: FoundationDBCluster
+  version: v1beta1
+version: "2"

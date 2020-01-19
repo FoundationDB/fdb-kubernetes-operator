@@ -19,17 +19,41 @@ package v1beta1
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"math/rand"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// +kubebuilder:object:root=true
+
+// FoundationDBCluster is the Schema for the foundationdbclusters API
+type FoundationDBCluster struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   FoundationDBClusterSpec   `json:"spec,omitempty"`
+	Status FoundationDBClusterStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// FoundationDBClusterList contains a list of FoundationDBCluster
+type FoundationDBClusterList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []FoundationDBCluster `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
+}
 
 // FoundationDBClusterSpec defines the desired state of a cluster.
 type FoundationDBClusterSpec struct {
@@ -75,10 +99,10 @@ type FoundationDBClusterSpec struct {
 
 	// VolumeClaim allows customizing the persistent volume claim for the
 	// FoundationDB pods.
-	VolumeClaim *corev1.PersistentVolumeClaim
+	VolumeClaim *corev1.PersistentVolumeClaim `json:"volumeClaim,omitempty"`
 
 	// ConfigMap allows customizing the config map the operator creates.
-	ConfigMap *corev1.ConfigMap
+	ConfigMap *corev1.ConfigMap `json:"configMap,omitempty"`
 
 	// MainContainer defines customization for the foundationdb container.
 	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
@@ -235,37 +259,6 @@ type ClusterHealth struct {
 	// DataMovementPriority reports the priority of the highest-priority data
 	// movement in the cluster.
 	DataMovementPriority int `json:"dataMovementPriority,omitempty"`
-}
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// FoundationDBCluster is the Schema for the foundationdbclusters API
-// +k8s:openapi-gen=true
-// +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
-// +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
-// +kubebuilder:printcolumn:name="Healthy",type="boolean",JSONPath=".status.health.healthy",description="Database health",priority=0
-type FoundationDBCluster struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec defines the desired state of the cluster.
-	Spec FoundationDBClusterSpec `json:"spec,omitempty"`
-
-	// Status defines the current state of the cluster.
-	Status FoundationDBClusterStatus `json:"status,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// FoundationDBClusterList contains a list of FoundationDBCluster
-type FoundationDBClusterList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-
-	// Items defines the clusters in the list.
-	Items []FoundationDBCluster `json:"items"`
 }
 
 // RoleCounts represents the roles whose counts can be customized.
@@ -939,7 +932,7 @@ type DatabaseConfiguration struct {
 
 	// RoleCounts defines how many processes the database should recruit for
 	// each role.
-	RoleCounts
+	RoleCounts `json:""`
 }
 
 // Region represents a region in the database configuration

@@ -18,14 +18,14 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
 	"fmt"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -33,7 +33,7 @@ import (
 // processes.
 type BounceProcesses struct{}
 
-func (b BounceProcesses) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
 		return false, err
@@ -59,7 +59,7 @@ func (b BounceProcesses) Reconcile(r *ReconcileFoundationDBCluster, context ctx.
 
 		addresses = append(addresses, addressMap[instanceID])
 
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID))
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return false, err
 		}

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 	"regexp"
 	"strings"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -371,7 +371,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		return client.frozenStatus, nil
 	}
 	pods := &corev1.PodList{}
-	err := client.KubeClient.List(context.TODO(), nil, pods)
+	err := client.KubeClient.List(context.TODO(), pods, nil)
 	if err != nil {
 		return nil, err
 	}

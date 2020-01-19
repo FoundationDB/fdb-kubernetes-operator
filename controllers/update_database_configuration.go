@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	ctx "context"
@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"time"
 
-	fdbtypes "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -34,7 +34,7 @@ import (
 // database configuration.
 type UpdateDatabaseConfiguration struct{}
 
-func (u UpdateDatabaseConfiguration) Reconcile(r *ReconcileFoundationDBCluster, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 
 	if err != nil {

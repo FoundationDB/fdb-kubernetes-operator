@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package foundationdbcluster
+package controllers
 
 import (
 	"encoding/json"
@@ -28,12 +28,14 @@ import (
 	"testing"
 	"time"
 
-	appsv1beta1 "github.com/foundationdb/fdb-kubernetes-operator/pkg/apis/apps/v1beta1"
+	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -84,10 +86,13 @@ func reloadClusterGenerations(client client.Client, cluster *appsv1beta1.Foundat
 	return cluster.Status.Generations, err
 }
 
-func getListOptions(cluster *appsv1beta1.FoundationDBCluster) *client.ListOptions {
-	return (&client.ListOptions{}).InNamespace("default").MatchingLabels(map[string]string{
-		"fdb-cluster-name": cluster.Name,
-	})
+func getListOptions(cluster *appsv1beta1.FoundationDBCluster) []client.ListOption {
+	return []client.ListOption{
+		client.InNamespace("default"),
+		client.MatchingLabels(map[string]string{
+			"fdb-cluster-name": cluster.Name,
+		}),
+	}
 }
 
 func cleanupCluster(cluster *appsv1beta1.FoundationDBCluster, g *gomega.GomegaWithT) {
@@ -95,7 +100,7 @@ func cleanupCluster(cluster *appsv1beta1.FoundationDBCluster, g *gomega.GomegaWi
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	pods := &corev1.PodList{}
-	err = c.List(context.TODO(), getListOptions(cluster), pods)
+	err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, item := range pods.Items {
@@ -104,7 +109,7 @@ func cleanupCluster(cluster *appsv1beta1.FoundationDBCluster, g *gomega.GomegaWi
 	}
 
 	configMaps := &corev1.ConfigMapList{}
-	err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+	err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, item := range configMaps.Items {
@@ -113,7 +118,7 @@ func cleanupCluster(cluster *appsv1beta1.FoundationDBCluster, g *gomega.GomegaWi
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+	err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, item := range pvcs.Items {
@@ -139,7 +144,10 @@ func runReconciliationOnCluster(t *testing.T, cluster *appsv1beta1.FoundationDBC
 	c = mgr.GetClient()
 
 	recFn, requests := SetupTestReconcile(t, newTestReconciler(mgr))
-	g.Expect(AddReconciler(mgr, recFn)).NotTo(gomega.HaveOccurred())
+	err = ctrl.NewControllerManagedBy(mgr).
+		For(&fdbtypes.FoundationDBCluster{}).
+		Complete(recFn)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	defer cleanupCluster(cluster, g)
 
@@ -168,7 +176,7 @@ func TestReconcileWithNewCluster(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -241,7 +249,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), originalPods)
+			err := c.List(context.TODO(), originalPods, getListOptions(cluster)...)
 			return len(originalPods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -257,7 +265,7 @@ func TestReconcileWithDecreasedProcessCount(t *testing.T) {
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(14))
 		sortPodsByID(pods)
@@ -294,7 +302,7 @@ func TestReconcileWithIncreasedProcessCount(t *testing.T) {
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(16))
 
@@ -324,7 +332,7 @@ func TestReconcileWithIncreasedStatelessProcessCount(t *testing.T) {
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(18))
 
@@ -355,7 +363,7 @@ func TestReconcileWithExplicitClusterControllerProcessCount(t *testing.T) {
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(16))
 	})
@@ -368,7 +376,7 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), originalPods)
+			err := c.List(context.TODO(), originalPods, getListOptions(cluster)...)
 			return len(originalPods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -382,7 +390,7 @@ func TestReconcileWithNoStatelessProcesses(t *testing.T) {
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(8))
 
@@ -400,7 +408,7 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 		originalConnectionString := cluster.Spec.ConnectionString
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), originalPods)
+			err := c.List(context.TODO(), originalPods, getListOptions(cluster)...)
 			return len(originalPods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -416,7 +424,7 @@ func TestReconcileWithCoordinatorReplacement(t *testing.T) {
 
 		pods := &corev1.PodList{}
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -444,7 +452,7 @@ func TestReconcileWithKnobChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), originalPods)
+			err := c.List(context.TODO(), originalPods, getListOptions(cluster)...)
 			return len(originalPods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -482,7 +490,7 @@ func TestReconcileWithKnobChangeWithBouncesDisabled(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), originalPods)
+			err := c.List(context.TODO(), originalPods, getListOptions(cluster)...)
 			return len(originalPods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -557,7 +565,7 @@ func TestReconcileWithPodLabelChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -575,21 +583,21 @@ func TestReconcileWithPodLabelChange(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
@@ -604,7 +612,7 @@ func TestReconcileWithPodLabelChangeWithDeprecatedField(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -618,21 +626,21 @@ func TestReconcileWithPodLabelChangeWithDeprecatedField(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
@@ -647,7 +655,7 @@ func TestReconcileWithPodAnnotationChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -665,7 +673,7 @@ func TestReconcileWithPodAnnotationChange(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
@@ -680,14 +688,14 @@ func TestReconcileWithPodAnnotationChange(t *testing.T) {
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
@@ -702,7 +710,7 @@ func TestReconcileWithPvcLabelChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -720,21 +728,21 @@ func TestReconcileWithPvcLabelChange(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
@@ -749,7 +757,7 @@ func TestReconcileWithPvcAnnotationChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -767,7 +775,7 @@ func TestReconcileWithPvcAnnotationChange(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
@@ -781,7 +789,7 @@ func TestReconcileWithPvcAnnotationChange(t *testing.T) {
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
@@ -790,7 +798,7 @@ func TestReconcileWithPvcAnnotationChange(t *testing.T) {
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
@@ -805,7 +813,7 @@ func TestReconcileWithConfigMapLabelChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -823,21 +831,21 @@ func TestReconcileWithConfigMapLabelChange(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal(""))
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Labels["fdb-label"]).To(gomega.Equal("value3"))
@@ -852,7 +860,7 @@ func TestReconcileWithConfigMapAnnotationChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		g.Eventually(func() (int, error) {
-			err := c.List(context.TODO(), getListOptions(cluster), pods)
+			err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 			return len(pods.Items), err
 		}, timeout).Should(gomega.Equal(15))
 
@@ -870,7 +878,7 @@ func TestReconcileWithConfigMapAnnotationChange(t *testing.T) {
 		g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 1))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pods.Items {
 			_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
@@ -884,14 +892,14 @@ func TestReconcileWithConfigMapAnnotationChange(t *testing.T) {
 		}
 
 		pvcs := &corev1.PersistentVolumeClaimList{}
-		err = c.List(context.TODO(), getListOptions(cluster), pvcs)
+		err = c.List(context.TODO(), pvcs, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range pvcs.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.BeNil())
 		}
 
 		configMaps := &corev1.ConfigMapList{}
-		err = c.List(context.TODO(), getListOptions(cluster), configMaps)
+		err = c.List(context.TODO(), configMaps, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, item := range configMaps.Items {
 			g.Expect(item.ObjectMeta.Annotations).To(gomega.Equal(map[string]string{
@@ -906,7 +914,7 @@ func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
 		originalVersion := cluster.ObjectMeta.Generation
 
 		pods := &corev1.PodList{}
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
@@ -931,7 +939,7 @@ func TestReconcileWithEnvironmentVariableChange(t *testing.T) {
 		g.Eventually(requests, 60).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 60).Should(gomega.Not(gomega.Equal(originalVersion)))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		for _, pod := range pods.Items {
@@ -947,7 +955,7 @@ func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabled(t *testing.T
 		originalVersion := cluster.ObjectMeta.Generation
 
 		pods := &corev1.PodList{}
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
@@ -978,7 +986,7 @@ func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabled(t *testing.T
 			NeedsPodDeletion: originalVersion + 1,
 		}))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, pod := range pods.Items {
 			g.Expect(len(pod.Spec.Containers[0].Env)).To(gomega.Equal(2))
@@ -991,7 +999,7 @@ func TestReconcileWithEnvironmentVariableChangeWithDeprecatedField(t *testing.T)
 		originalVersion := cluster.ObjectMeta.Generation
 
 		pods := &corev1.PodList{}
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.MainContainer.Env = append(cluster.Spec.MainContainer.Env, corev1.EnvVar{
@@ -1005,7 +1013,7 @@ func TestReconcileWithEnvironmentVariableChangeWithDeprecatedField(t *testing.T)
 		g.Eventually(requests, 60).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, 60).Should(gomega.Not(gomega.Equal(originalVersion)))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		for _, pod := range pods.Items {
@@ -1021,7 +1029,7 @@ func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabledWithDeprecate
 		originalVersion := cluster.ObjectMeta.Generation
 
 		pods := &corev1.PodList{}
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.MainContainer.Env = append(cluster.Spec.MainContainer.Env, corev1.EnvVar{
@@ -1041,7 +1049,7 @@ func TestReconcileWithEnvironmentVariableChangeWithDeletionDisabledWithDeprecate
 			NeedsPodDeletion: originalVersion + 1,
 		}))
 
-		err = c.List(context.TODO(), getListOptions(cluster), pods)
+		err = c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		for _, pod := range pods.Items {
 			g.Expect(len(pod.Spec.Containers[0].Env)).To(gomega.Equal(2))
@@ -1061,7 +1069,7 @@ func TestReconcileWithChangeToTLSSettings(t *testing.T) {
 		g.Eventually(func() (int64, error) { return reloadCluster(c, cluster) }, timeout).Should(gomega.Equal(originalVersion + 2))
 
 		pods := &corev1.PodList{}
-		client.List(context.TODO(), getPodListOptions(cluster, "", ""), pods)
+		client.List(context.TODO(), pods, getPodListOptions(cluster, "", "")...)
 		addresses := make([]string, 0, len(pods.Items))
 		for _, pod := range pods.Items {
 			addresses = append(addresses, fmt.Sprintf("%s:4500:tls", mockPodIP(&pod)))
@@ -1504,7 +1512,7 @@ func TestGetStartCommandForStoragePod(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		instance := newFdbInstance(pods.Items[firstStorageIndex])
@@ -1533,7 +1541,7 @@ func TestGetStartCommandForStoragePodWithHostReplication(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		pod := pods.Items[firstStorageIndex]
@@ -1565,7 +1573,7 @@ func TestGetStartCommandForStoragePodWithCrossKubernetesReplication(t *testing.T
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		pod := pods.Items[firstStorageIndex]
@@ -1600,7 +1608,7 @@ func TestGetStartCommandWithPeerVerificationRules(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		sortPodsByID(pods)
 
@@ -1632,7 +1640,7 @@ func TestGetStartCommandWithCustomLogGroup(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		sortPodsByID(pods)
 
@@ -1662,7 +1670,7 @@ func TestGetStartCommandWithDataCenter(t *testing.T) {
 	runReconciliation(t, func(g *gomega.GomegaWithT, cluster *appsv1beta1.FoundationDBCluster, client client.Client, requests chan reconcile.Request) {
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		cluster.Spec.DataCenter = "dc01"
@@ -1697,7 +1705,7 @@ func TestGetStartCommandForStoragePodWithBinariesFromSidecarContainer(t *testing
 
 		pods := &corev1.PodList{}
 
-		err := c.List(context.TODO(), getListOptions(cluster), pods)
+		err := c.List(context.TODO(), pods, getListOptions(cluster)...)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		instance := newFdbInstance(pods.Items[firstStorageIndex])
