@@ -122,6 +122,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		if err != nil {
 			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
 			return r.checkRetryableError(err)
+		} else if cluster.ObjectMeta.Generation != originalGeneration {
+			log.Info("Ending reconciliation early because cluster has been updated")
+			return ctrl.Result{}, nil
 		} else if !canContinue {
 			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
@@ -139,6 +142,14 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 }
 
 func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
+		return []string{o.(*corev1.Pod).Name}
+	})
+
+	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {
+		return []string{o.(*corev1.PersistentVolumeClaim).Name}
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBCluster{}).
 		Complete(r)

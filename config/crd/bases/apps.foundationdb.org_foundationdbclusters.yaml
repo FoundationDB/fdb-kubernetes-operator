@@ -8,6 +8,19 @@ metadata:
   creationTimestamp: null
   name: foundationdbclusters.apps.foundationdb.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.generation
+    description: Latest generation of the spec
+    name: Generation
+    type: integer
+  - JSONPath: .status.generations.reconciled
+    description: Last reconciled generation of the spec
+    name: Reconciled
+    type: integer
+  - JSONPath: .status.health.healthy
+    description: Database health
+    name: Healthy
+    type: boolean
   group: apps.foundationdb.org
   names:
     kind: FoundationDBCluster
@@ -15,6 +28,8 @@ spec:
     plural: foundationdbclusters
     singular: foundationdbcluster
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: FoundationDBCluster is the Schema for the foundationdbclusters

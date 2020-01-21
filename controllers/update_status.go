@@ -197,11 +197,20 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
 	}
 
-	cluster.Status = status
-	err = r.postStatusUpdate(context, cluster)
-	if err != nil {
-		log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		return false, err
+	if len(status.IncorrectProcesses) == 0 {
+		status.IncorrectProcesses = nil
+	}
+	if len(status.MissingProcesses) == 0 {
+		status.MissingProcesses = nil
+	}
+
+	if !reflect.DeepEqual(cluster.Status, status) {
+		cluster.Status = status
+		err = r.postStatusUpdate(context, cluster)
+		if err != nil {
+			log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			return false, err
+		}
 	}
 
 	return true, nil

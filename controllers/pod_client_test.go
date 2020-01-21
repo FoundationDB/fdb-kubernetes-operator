@@ -22,29 +22,40 @@ package controllers
 
 import (
 	"context"
-	"testing"
 
-	"github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func TestPodHasSidecarTLS(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+var _ = Describe("pod_client", func() {
+	var cluster *fdbtypes.FoundationDBCluster
 
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	c = mgr.GetClient()
+	BeforeEach(func() {
+		cluster = createDefaultCluster()
+	})
 
-	cluster := createDefaultCluster()
+	Context("with TLS disabled", func() {
+		BeforeEach(func() {
+			cluster.Spec.SidecarContainer.EnableTLS = false
+		})
 
-	cluster.Spec.SidecarContainer.EnableTLS = true
-	pod, err := GetPod(context.TODO(), cluster, "storage", 1, c)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(podHasSidecarTLS(pod)).To(gomega.BeTrue())
+		It("should not have TLS sidecar TLS", func() {
+			pod, err := GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(podHasSidecarTLS(pod)).To(BeFalse())
+		})
+	})
 
-	cluster.Spec.SidecarContainer.EnableTLS = false
-	pod, err = GetPod(context.TODO(), cluster, "storage", 1, c)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(podHasSidecarTLS(pod)).To(gomega.BeFalse())
+	Context("with TLS enabled", func() {
+		BeforeEach(func() {
+			cluster.Spec.SidecarContainer.EnableTLS = true
+		})
 
-}
+		It("should have TLS sidecar TLS", func() {
+			pod, err := GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(podHasSidecarTLS(pod)).To(BeTrue())
+		})
+	})
+})

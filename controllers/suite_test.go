@@ -1,5 +1,5 @@
 /*
- * foundationdbcluster_controller_suite_test.go
+ * suite_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,101 +21,132 @@
 package controllers
 
 import (
-	stdlog "log"
-	"os"
 	"path/filepath"
-	"sync"
 	"testing"
+	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/onsi/gomega"
+
+	"github.com/onsi/gomega/gexec"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	// +kubebuilder:scaffold:imports
 )
 
+// These tests use Ginkgo (BDD-style Go testing framework). Refer to
+// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+
 var cfg *rest.Config
+var k8sClient client.Client
+var k8sManager ctrl.Manager
+var testEnv *envtest.Environment
 
-// TestMain runs the test suite.
-func TestMain(m *testing.M) {
-	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
-	}
-	fdbtypes.AddToScheme(scheme.Scheme)
+func TestAPIs(t *testing.T) {
+	RegisterFailHandler(Fail)
 
-	var err error
-	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
-	}
-
-	code := m.Run()
-	t.Stop()
-	os.Exit(code)
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"Controller Suite",
+		[]Reporter{envtest.NewlineReporter{}})
 }
 
-// SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
-// writes the request to requests after Reconcile is finished.
-func SetupTestReconcile(t *testing.T, inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
-	requests := make(chan reconcile.Request)
-	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
-		result, err := inner.Reconcile(req)
-		if err != nil {
-			switch err.(type) {
-			case ReconciliationNotReadyError:
-				requests <- req
-				return reconcile.Result{}, nil
-			default:
-				t.Errorf("Reconcile function returned %T error %s", err, err.Error())
-				return reconcile.Result{Requeue: true}, nil
-			}
-		}
-		if !result.Requeue && result.RequeueAfter == 0 {
-			requests <- req
-		}
-		return result, err
+var _ = BeforeSuite(func(done Done) {
+	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+
+	By("bootstrapping test environment")
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+
+	err = scheme.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = fdbtypes.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	// +kubebuilder:scaffold:scheme
+
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
 	})
-	return fn, requests
-}
+	Expect(err).ToNot(HaveOccurred())
 
-// StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
-	}()
-	return stop, wg
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newTestReconciler(mgr manager.Manager) *FoundationDBClusterReconciler {
-	return &FoundationDBClusterReconciler{
-		Client:              mgr.GetClient(),
-		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster_controller"),
-		Scheme:              mgr.GetScheme(),
+	err = (&FoundationDBClusterReconciler{
+		Client:              k8sManager.GetClient(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("SecretScope"),
+		Recorder:            k8sManager.GetEventRecorderFor("secretscope-controller"),
 		InSimulation:        true,
 		PodLifecycleManager: StandardPodLifecycleManager{},
 		PodClientProvider:   NewMockFdbPodClient,
 		AdminClientProvider: NewMockAdminClient,
-	}
-}
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		Expect(err).ToNot(HaveOccurred())
+	}()
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
+
+	close(done)
+}, 60)
+
+var _ = AfterSuite(func() {
+	By("tearing down the test environment")
+	gexec.KillAndWait(5 * time.Second)
+	err := testEnv.Stop()
+	Expect(err).ToNot(HaveOccurred())
+})
 
 var Versions = struct {
-	Default, WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
+	Default, NextMajorVersion,
+	WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
-	WithBinariesFromMainContainer, WithBinariesFromMainContainerNext,
-	WithoutBinariesFromMainContainer fdbtypes.FdbVersion
+	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer fdbtypes.FdbVersion
 }{
 	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 8, Minor: 0, Patch: 0},
 	WithSidecarInstanceIdSubstitution:    fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
 	WithoutSidecarInstanceIdSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithCommandLineVariablesForSidecar:   fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
 	WithEnvironmentVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
-	WithBinariesFromMainContainerNext:    fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 1},
 	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
+}
+
+func createDefaultCluster() *fdbtypes.FoundationDBCluster {
+	return &fdbtypes.FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "operator-test-1",
+			Namespace: "my-ns",
+		},
+		Spec: fdbtypes.FoundationDBClusterSpec{
+			Version:          "6.1.8",
+			ConnectionString: "operator-test:asdfasf@127.0.0.1:4501",
+			ProcessCounts: fdbtypes.ProcessCounts{
+				Storage: 4,
+			},
+			FaultDomain: fdbtypes.FoundationDBClusterFaultDomain{
+				Key: "foundationdb.org/none",
+			},
+		},
+		Status: fdbtypes.FoundationDBClusterStatus{
+			RequiredAddresses: fdbtypes.RequiredAddressSet{
+				NonTLS: true,
+			},
+		},
+	}
 }

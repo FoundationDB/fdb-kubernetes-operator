@@ -335,7 +335,7 @@ type MockAdminClient struct {
 	KubeClient            client.Client
 	DatabaseConfiguration *fdbtypes.DatabaseConfiguration
 	ExcludedAddresses     []string
-	ReincludedAddresses   []string
+	ReincludedAddresses   map[string]bool
 	KilledAddresses       []string
 	frozenStatus          *fdbtypes.FoundationDBStatus
 }
@@ -352,7 +352,11 @@ func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client
 func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*MockAdminClient, error) {
 	client := adminClientCache[cluster.Name]
 	if client == nil {
-		client = &MockAdminClient{Cluster: cluster, KubeClient: kubeClient}
+		client = &MockAdminClient{
+			Cluster:             cluster,
+			KubeClient:          kubeClient,
+			ReincludedAddresses: make(map[string]bool),
+		}
 		adminClientCache[cluster.Name] = client
 	} else {
 		client.Cluster = cluster
@@ -371,7 +375,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		return client.frozenStatus, nil
 	}
 	pods := &corev1.PodList{}
-	err := client.KubeClient.List(context.TODO(), pods, nil)
+	err := client.KubeClient.List(context.TODO(), pods)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +482,7 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 		for _, address := range addresses {
 			if address == excludedAddress {
 				included = true
-				client.ReincludedAddresses = append(client.ReincludedAddresses, address)
+				client.ReincludedAddresses[address] = true
 				break
 			}
 		}

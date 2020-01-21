@@ -43,6 +43,11 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	if err != nil {
 		return false, err
 	}
+	err = sortInstancesByID(instances)
+	if err != nil {
+		return false, err
+	}
+
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
 		return false, errors.New("Cannot find enough pods to recruit coordinators")

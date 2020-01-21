@@ -32,6 +32,10 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Healthy",type="boolean",JSONPath=".status.health.healthy",description="Database health",priority=0
 
 // FoundationDBCluster is the Schema for the foundationdbclusters API
 type FoundationDBCluster struct {
@@ -837,7 +841,7 @@ func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primary
 		addressMap[fmt.Sprintf("%s:4501", ipAddress)] = !cluster.Spec.MainContainer.EnableTLS
 	}
 
-	addresses := make([]string, 1, len(addressMap))
+	addresses := make([]string, 1, 1+len(addressMap))
 	for address, primary := range addressMap {
 		if primary {
 			addresses[0] = address
