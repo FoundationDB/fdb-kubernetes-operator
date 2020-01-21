@@ -26,10 +26,10 @@ When you make a change to the cluster spec, it will increment the `generation` f
 To run the operator in your environment, you need to install the controller and
 the CRD:
 
-    kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+    kubectl create -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
 
 You can see logs from the operator by running
-`kubectl logs fdb-kubernetes-operator-controller-manager-0 --container=manager`. You will likely want to watch these logs as you make changes to get a better understanding of what the operator is doing.
+`kubectl logs -f app=fdb-kubernetes-operator-controller-manager --container=manager`. You will likely want to watch these logs as you make changes to get a better understanding of what the operator is doing.
 
 The example below will cover creating a cluster. All subsequent examples will assume that you have
 just created this cluster, and will cover an operation on this cluster.
