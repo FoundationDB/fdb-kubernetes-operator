@@ -36,12 +36,15 @@ RUN curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fd
 
 WORKDIR /
 
-COPY sidecar.py /
 COPY entrypoint.bash /
+COPY requirements.txt /
+COPY sidecar.py /
+
+RUN pip install -r /requirements.txt && rm /requirements.txt
+
 
 ENV COPY_ONCE 0
 ENV SIDECAR_CONF_DIR /var/sidecar-conf
-RUN mkdir $SIDECAR_CONF_DIR
 COPY default_config.json $SIDECAR_CONF_DIR/config.json
 
 VOLUME /var/input-files
