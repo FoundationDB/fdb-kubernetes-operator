@@ -21,14 +21,18 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: controller:latest
-        imagePullPolicy: IfNotPresent
+        image: foundationdb/fdb-kubernetes-operator:latest
         name: manager
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         resources:
           limits:
-            cpu: 100m
-            memory: 30Mi
+            cpu: 500m
+            memory: 256Mi
           requests:
-            cpu: 100m
-            memory: 20Mi
+            cpu: 500m
+            memory: 256Mi
       terminationGracePeriodSeconds: 10

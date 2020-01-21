@@ -65,10 +65,13 @@ func main() {
 	}
 
 	if err = (&controllers.FoundationDBClusterReconciler{
-		Client:   mgr.GetClient(),
-		Recorder: mgr.GetEventRecorderFor("foundationdbcluster-controller"),
-		Log:      ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Scheme:   mgr.GetScheme(),
+		Client:              mgr.GetClient(),
+		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Scheme:              mgr.GetScheme(),
+		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
+		PodClientProvider:   controllers.NewFdbPodClient,
+		AdminClientProvider: controllers.NewCliAdminClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 		os.Exit(1)

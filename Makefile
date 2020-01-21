@@ -1,8 +1,12 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= fdb-kubernetes-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
+
+ifneq "$(FDB_WEBSITE)" ""
+	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
+endif
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -11,7 +15,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager
+all: manager samples
 
 # Run tests
 test: generate fmt vet manifests
@@ -27,14 +31,14 @@ run: generate fmt vet manifests
 
 # Install CRDs into a cluster
 install: manifests
-	kustomize build config/crd | kubectl apply -f -
+	(kustomize build config/crd | kubectl replace -f -) || (kustomize build config/crd | kubectl create -f -)
 
 # Uninstall CRDs from a cluster
 uninstall: manifests
 	kustomize build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+deploy: install manifests
 	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default | kubectl apply -f -
 
@@ -56,11 +60,26 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker build ${docker_build_args} . -t ${IMG}
 
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+# Rebuilds, deploys, and bounces the operator
+rebuild-operator: docker-build deploy bounce
+
+bounce:
+	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager
+
+samples: config/samples/deployment.yaml
+
+config/samples/deployment/crd.yaml: config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+	cp config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/samples/deployment/crd.yaml
+
+config/samples/deployment.yaml: manifests config/samples/deployment/crd.yaml
+	kustomize build config/samples/deployment > config/samples/deployment.yaml
+
 
 # find or download controller-gen
 # download controller-gen if necessary

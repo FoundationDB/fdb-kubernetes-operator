@@ -1,0 +1,129 @@
+# This file provides an example of a cluster with backup agents running
+# alongside the cluster.
+#
+# Once the cluster and the backup agents are up, you can start a backup by
+# opening a shell one of the backup_agent pods and running the
+# `fdbbackup start` command.
+#
+# Note that this example contains placeholders for secrets. You will need to
+# fill in those placeholders with real values for your backup destination to
+# do a secure backup.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: sample-cluster
+spec:
+  version: 6.2.11
+  persistentVolumeClaim:
+    spec:
+      resources:
+        requests:
+          storage: "16G"
+  faultDomain:
+    key: foundationdb.org/none
+  processCounts:
+    stateless: -1
+  customParameters:
+    - "knob_disable_posix_kernel_aio=1"
+  podTemplate:
+    spec:
+      securityContext:
+        fsGroup: 0
+      containers:
+        - name: foundationdb
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+        - name: foundationdb-kubernetes-sidecar
+          securityContext:
+            runAsUser: 0
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          securityContext:
+            runAsUser: 0
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sample-cluster-backup-secrets
+type: Opaque
+stringData:
+  credentials: |
+    # Fill in your credentials
+  certificate: |
+    # Fill in your certificate
+  key: |
+    # Fill in your key
+  ca: |
+    # Fill in your trusted certs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-cluster-backup-agents
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-cluster-backup-agents
+  template:
+    metadata:
+      labels:
+        app: sample-cluster-backup-agents
+      name: sample-cluster-backup-agents
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: foundationdb
+          image: foundationdb/foundationdb:6.2.11
+          args:
+            - --log
+            - --logdir
+            - /var/log/fdb-trace-logs
+          command:
+            - backup_agent
+          env:
+            - name: FDB_CLUSTER_FILE
+              value: /var/dynamic-conf/fdb.cluster
+            - name: FDB_TLS_CA_FILE
+              value: /var/secrets/ca
+            - name: FDB_TLS_CERTIFICATE_FILE
+              value: /var/secrets/certificate
+            - name: FDB_TLS_KEY_FILE
+              value: /var/secrets/key
+            - name: FDB_BLOB_CREDENTIALS
+              value: /var/secrets/credentials
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/fdb-trace-logs
+            - name: dynamic-conf
+              mountPath: /var/dynamic-conf
+            - name: secrets
+              mountPath: /var/secrets
+      volumes:
+        - name: secrets
+          secret:
+            secretName: sample-cluster-backup-secrets
+        - name: dynamic-conf
+          configMap:
+            name: sample-cluster-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+        - name: logs
+          emptyDir: {}

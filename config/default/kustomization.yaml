@@ -1,19 +1,18 @@
 # Adds namespace to all resources.
-namespace: fdb-kubernetes-operator-module-rebuild-system
+# namespace: fdb-kubernetes-operator-system
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: fdb-kubernetes-operator-module-rebuild-
+namePrefix: fdb-kubernetes-operator-
 
 # Labels to add to all resources and selectors.
 #commonLabels:
 #  someName: someValue
 
 bases:
-- ../crd
 - ../rbac
 - ../manager
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in crd/kustomization.yaml
@@ -24,10 +23,11 @@ bases:
 #- ../prometheus
 
 patchesStrategicMerge:
+- test_certs.yaml
   # Protect the /metrics endpoint by putting it behind auth.
   # Only one of manager_auth_proxy_patch.yaml and
   # manager_prometheus_metrics_patch.yaml should be enabled.
-- manager_auth_proxy_patch.yaml
+#- manager_auth_proxy_patch.yaml
   # If you want your controller-manager to expose the /metrics
   # endpoint w/o any authn/z, uncomment the following line and
   # comment manager_auth_proxy_patch.yaml.

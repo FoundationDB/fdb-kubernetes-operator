@@ -69,6 +69,9 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 				return false, err
 			}
 			zone := substitutions["FDB_ZONE_ID"]
+			if r.InSimulation {
+				zone = "simulation"
+			}
 			if updates[zone] == nil {
 				updates[zone] = make([]FdbInstance, 0)
 			}
