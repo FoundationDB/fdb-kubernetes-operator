@@ -129,6 +129,9 @@ type FoundationDBClusterSpec struct {
 	// DataCenter defines the data center where these processes are running.
 	DataCenter string `json:"dataCenter,omitempty"`
 
+	// DataHall defines the data hall where these processes are running.
+	DataHall string `json:"dataHall,omitempty"`
+
 	// AutomationOptions defines customization for enabling or disabling certain
 	// operations in the operator.
 	AutomationOptions FoundationDBClusterAutomationOptions `json:"automationOptions,omitempty"`
