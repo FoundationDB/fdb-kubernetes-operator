@@ -5,7 +5,7 @@ secret:
     app: fdb-kubernetes-operator
 
 operator:
-  image: fdb-kubernetes-operator
+  image: viveksinghggits/fdb-kubernetes-operator
   tag: latest
 
 webhook:
