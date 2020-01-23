@@ -515,6 +515,10 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		confLines = append(confLines, fmt.Sprintf("locality_dcid = %s", cluster.Spec.DataCenter))
 	}
 
+	if cluster.Spec.DataHall != "" {
+		confLines = append(confLines, fmt.Sprintf("locality_data_hall = %s", cluster.Spec.DataHall))
+	}
+
 	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
 		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", cluster.Spec.MainContainer.PeerVerificationRules))
 	}

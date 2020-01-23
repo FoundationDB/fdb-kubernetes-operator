@@ -1165,6 +1165,10 @@ spec:
               description: DataCenter defines the data center where these processes
                 are running.
               type: string
+            dataHall:
+              description: DataHall defines the data hall where these processes are
+                running.
+              type: string
             databaseConfiguration:
               description: DatabaseConfiguration defines the database configuration.
               properties:
