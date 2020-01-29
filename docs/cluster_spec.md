@@ -68,10 +68,10 @@ ContainerOverrides provides options for customizing a container created by the o
 | ----- | ----------- | ------ | -------- |
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
-| env | Env provides environment variables.\n\nDeprecated: Use the PodTemplate field instead. | [][corev1.EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core) | false |
-| volumeMounts | VolumeMounts provides volume mounts.\n\nDeprecated: Use the PodTemplate field instead. | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
-| imageName | ImageName provides the name of the image to use for the container, without the version tag.\n\nDeprecated: Use the PodTemplate field instead. | string | false |
-| securityContext | SecurityContext provides the container's security context.\n\nDeprecated: Use the PodTemplate field instead. | *[corev1.SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core) | false |
+| env | Env provides environment variables.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core) | false |
+| volumeMounts | VolumeMounts provides volume mounts.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
+| imageName | ImageName provides the name of the image to use for the container, without the version tag.  **Deprecated: Use the PodTemplate field instead.** | string | false |
+| securityContext | SecurityContext provides the container's security context.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -103,7 +103,7 @@ DatabaseConfiguration represents the configuration of the database
 
 ## FdbVersion
 
-FdbVersion represents a version of FoundationDB.\n\nThis provides convenience methods for checking features available in different versions.
+FdbVersion represents a version of FoundationDB.  This provides convenience methods for checking features available in different versions.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -190,17 +190,17 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | dataHall | DataHall defines the data hall where these processes are running. | string | false |
 | automationOptions | AutomationOptions defines customization for enabling or disabling certain operations in the operator. | [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions) | false |
 | instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields. | string | false |
-| sidecarVersion | SidecarVersion defines the build version of the sidecar to use.\n\nDeprecated: Use SidecarVersions instead. | int | false |
-| podLabels | PodLabels defines custom labels to apply to the FDB pods.\n\nDeprecated: Use the PodTemplate field instead. | map[string]string | false |
-| resources | Resources defines the resource requirements for the foundationdb containers.\n\nDeprecated: Use the PodTemplate field instead. | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
-| initContainers | InitContainers defines custom init containers for the FDB pods.\n\nDeprecated: Use the PodTemplate field instead. | [][corev1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core) | false |
-| containers | Containers defines custom containers for the FDB pods.\n\nDeprecated: Use the PodTemplate field instead. | [][corev1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core) | false |
-| volumes | Volumes defines custom volumes for the FDB pods.\n\nDeprecated: Use the PodTemplate field instead. | []corev1.Volume | false |
-| podSecurityContext | PodSecurityContext defines the security context to apply to the FDB pods.\n\nDeprecated: Use the PodTemplate field instead. | *[corev1.PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core) | false |
-| automountServiceAccountToken | AutomountServiceAccountToken defines whether we should automount the service account tokens in the FDB pods.\n\nDeprecated: Use the PodTemplate field instead. | *bool | false |
-| nextInstanceID | NextInstanceID defines the ID to use when creating the next instance.\n\nDeprecated: This is no longer used. | int | false |
-| storageClass | StorageClass defines the storage class for the volumes in the cluster.\n\nDeprecated: Use the VolumeClaim field instead. | *string | false |
-| volumeSize | VolumeSize defines the size of the volume to use for stateful processes.\n\nDeprecated: Use the VolumeClaim field instead. | string | false |
+| sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
+| podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
+| resources | Resources defines the resource requirements for the foundationdb containers.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
+| initContainers | InitContainers defines custom init containers for the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core) | false |
+| containers | Containers defines custom containers for the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core) | false |
+| volumes | Volumes defines custom volumes for the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | []corev1.Volume | false |
+| podSecurityContext | PodSecurityContext defines the security context to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core) | false |
+| automountServiceAccountToken | AutomountServiceAccountToken defines whether we should automount the service account tokens in the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | *bool | false |
+| nextInstanceID | NextInstanceID defines the ID to use when creating the next instance.  **Deprecated: This is no longer used.** | int | false |
+| storageClass | StorageClass defines the storage class for the volumes in the cluster.  **Deprecated: Use the VolumeClaim field instead.** | *string | false |
+| volumeSize | VolumeSize defines the size of the volume to use for stateful processes.  **Deprecated: Use the VolumeClaim field instead.** | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -211,7 +211,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. | [ProcessCounts](#processcounts) | false |
-| incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.\n\nThis will map the instance ID to the timestamp when we observed the incorrect configuration. | map[string]int64 | false |
+| incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the instance ID to the timestamp when we observed the incorrect configuration. | map[string]int64 | false |
 | missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [GenerationStatus](#generationstatus) | false |
@@ -387,7 +387,7 @@ ProcessAddress provides a structured address for a process.
 
 ## ProcessCounts
 
-ProcessCounts represents the number of processes we have for each valid process class.\n\nIf one of the counts in the spec is set to 0, we will infer the process count for that class from the role counts. If one of the counts in the spec is set to -1, we will not create any processes for that class. See GetProcessCountsWithDefaults for more information on the rules for inferring process counts.
+ProcessCounts represents the number of processes we have for each valid process class.  If one of the counts in the spec is set to 0, we will infer the process count for that class from the role counts. If one of the counts in the spec is set to -1, we will not create any processes for that class. See GetProcessCountsWithDefaults for more information on the rules for inferring process counts.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

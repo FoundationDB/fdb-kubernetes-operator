@@ -191,9 +191,13 @@ func fmtRawDoc(rawDoc string) string {
 	postDoc := strings.TrimRight(buffer.String(), "\n")
 	postDoc = strings.Replace(postDoc, "\\\"", "\"", -1) // replace user's \" to "
 	postDoc = strings.Replace(postDoc, "\"", "\\\"", -1) // Escape "
-	postDoc = strings.Replace(postDoc, "\n", "\\n", -1)
+	postDoc = strings.Replace(postDoc, "\n", " ", -1)
 	postDoc = strings.Replace(postDoc, "\t", "\\t", -1)
 	postDoc = strings.Replace(postDoc, "|", "\\|", -1)
+	postDoc = strings.Replace(postDoc, "Deprecated:", "**Deprecated:", -1)
+	if strings.Contains(postDoc, "Deprecated") {
+		postDoc = postDoc + "**"
+	}
 
 	return postDoc
 }
