@@ -230,7 +230,7 @@ To upgrade a cluster, you can change the version in the cluster spec:
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.11
+      version: 6.2.15
       databaseConfiguration:
         storage: 5
 

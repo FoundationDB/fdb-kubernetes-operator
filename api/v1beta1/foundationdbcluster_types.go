@@ -1522,19 +1522,19 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 // FDB_INSTANCE_ID supported natively in the variable substitutions in the
 // sidecar.
 func (version FdbVersion) HasInstanceIdInSidecarSubstitutions() bool {
-	return version.IsAtLeast(FdbVersion{Major: 7, Minor: 0, Patch: 0})
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
 }
 
 // PrefersCommandLineArgumentsInSidecar determines if a version has
 // support for configuring the sidecar exclusively through command-line
 // arguments.
 func (version FdbVersion) PrefersCommandLineArgumentsInSidecar() bool {
-	return version.IsAtLeast(FdbVersion{Major: 7, Minor: 0, Patch: 0})
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
 }
 
 // SupportsUsingBinariesFromMainContainer determines if a version has
 // support for having the sidecar dynamically switch between using binaries
 // from the main container and binaries provided by the sidecar.
 func (version FdbVersion) SupportsUsingBinariesFromMainContainer() bool {
-	return version.IsAtLeast(FdbVersion{Major: 7, Minor: 0, Patch: 0})
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
 }

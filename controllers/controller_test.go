@@ -1032,7 +1032,7 @@ var _ = Describe("controller", func() {
 				Expect(sidecarConf["COPY_BINARIES"]).To(Equal([]interface{}{"fdbserver", "fdbcli"}))
 				Expect(sidecarConf["COPY_LIBRARIES"]).To(Equal([]interface{}{}))
 				Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(Equal("fdbmonitor.conf"))
-				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(Equal([]interface{}{"FDB_INSTANCE_ID"}))
+				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(BeNil())
 			})
 		})
 
@@ -1069,7 +1069,7 @@ var _ = Describe("controller", func() {
 				sidecarConf := make(map[string]interface{})
 				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(Equal([]interface{}{"FAULT_DOMAIN", "ZONE", "FDB_INSTANCE_ID"}))
+				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(Equal([]interface{}{"FAULT_DOMAIN", "ZONE"}))
 			})
 		})
 
@@ -1172,7 +1172,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
@@ -1202,7 +1202,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls",
@@ -1233,7 +1233,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
@@ -1264,7 +1264,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501,$FDB_PUBLIC_IP:4500:tls",
@@ -1294,7 +1294,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
@@ -1326,7 +1326,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
@@ -1413,7 +1413,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
@@ -1442,7 +1442,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
@@ -1470,7 +1470,7 @@ var _ = Describe("controller", func() {
 					"kill_on_configuration_change = false",
 					"restart_delay = 60",
 					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.1.8/fdbserver",
+					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
@@ -1529,7 +1529,7 @@ var _ = Describe("controller", func() {
 
 				id := instance.Metadata.Labels["fdb-instance-id"]
 				Expect(command).To(Equal(strings.Join([]string{
-					"/var/dynamic-conf/bin/6.1.8/fdbserver",
+					"/usr/bin/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data",
@@ -1558,7 +1558,7 @@ var _ = Describe("controller", func() {
 
 			It("should provide the host information in the start command", func() {
 				Expect(command).To(Equal(strings.Join([]string{
-					"/var/dynamic-conf/bin/6.1.8/fdbserver",
+					"/usr/bin/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data",
@@ -1591,7 +1591,7 @@ var _ = Describe("controller", func() {
 
 			It("should put the zone ID in the start command", func() {
 				Expect(command).To(Equal(strings.Join([]string{
-					"/var/dynamic-conf/bin/6.1.8/fdbserver",
+					"/usr/bin/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data",
