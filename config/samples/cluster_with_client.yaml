@@ -1,0 +1,105 @@
+# This file provides an example of a cluster with a client app connected.
+#
+# The client app will get its cluster file from a config map that is managed
+# by the operator. The app we are using also includes multiple client libraries
+# to support upgrades of FoundationDB.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: sample-cluster
+spec:
+  version: 6.2.11
+  faultDomain:
+    key: foundationdb.org/none
+  processCounts:
+    stateless: -1
+  customParameters:
+    - "knob_disable_posix_kernel_aio=1"
+  persistentVolumeClaim:
+    spec:
+      resources:
+        requests:
+          storage: "16G"
+  podTemplate:
+    spec:
+      securityContext:
+        fsGroup: 0
+      containers:
+        - name: foundationdb
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+        - name: foundationdb-kubernetes-sidecar
+          securityContext:
+            runAsUser: 0
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          securityContext:
+            runAsUser: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-cluster-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-cluster-client
+  template:
+    metadata:
+      labels:
+        app: sample-cluster-client
+      name: sample-cluster-client
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: client
+          image: foundationdb/foundationdb-sample-python-app:latest
+          imagePullPolicy: Always
+          env:
+            - name: FDB_CLUSTER_FILE
+              value: /var/dynamic-conf/fdb.cluster
+            - name: FDB_API_VERSION
+              value: "610"
+            - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+              value: sample-cluster-client
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          volumeMounts:
+            - name: dynamic-conf
+              mountPath: /var/dynamic-conf
+      volumes:
+        - name: dynamic-conf
+          configMap:
+            name: sample-cluster-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-cluster-client
+  labels:
+    app: sample-cluster-client
+spec:
+  selector:
+    app: sample-cluster-client
+  type: LoadBalancer
+  ports:
+    - port: 9562
+      targetPort: 5000
