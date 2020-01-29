@@ -663,17 +663,17 @@ func TestGettingSidecarVersion(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
-			Version: "6.1.8",
+			Version: "6.2.15",
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode: "double",
 			},
 		},
 	}
 
-	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.1.8-1"))
+	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.2.15-1"))
 
 	cluster.Spec.SidecarVersion = 2
-	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.1.8-2"))
+	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.2.15-2"))
 }
 
 func TestParsingFdbVersion(t *testing.T) {

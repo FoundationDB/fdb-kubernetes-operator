@@ -44,7 +44,7 @@ class Config(object):
         parser = argparse.ArgumentParser(
                             description='FoundationDB Kubernetes Sidecar')
         parser.add_argument('--init-mode',
-                            help=('Whether to run the sidecar in init mode ',
+                            help=('Whether to run the sidecar in init mode '
                                   'which causes it to copy the files once and '
                                   'exit without starting a server.'),
                             action='store_true')
@@ -96,7 +96,7 @@ class Config(object):
                                   'output directory.'),
                             action='append')
         parser.add_argument('--copy-binary',
-                            help=('A binary to copy from the to the output',
+                            help=('A binary to copy from the to the output'
                                   'directory.'),
                             action='append')
         parser.add_argument('--copy-library',
@@ -104,7 +104,7 @@ class Config(object):
                                   'to the output directory.'),
                             action='append')
         parser.add_argument('--input-monitor-conf',
-                            help=('The name of a monitor conf template in the ',
+                            help=('The name of a monitor conf template in the '
                                   'input files'))
         parser.add_argument('--main-container-version',
                             help=('The version of the main foundationdb '

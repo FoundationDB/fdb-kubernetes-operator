@@ -117,13 +117,13 @@ var Versions = struct {
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer fdbtypes.FdbVersion
 }{
-	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 8, Minor: 0, Patch: 0},
-	WithSidecarInstanceIdSubstitution:    fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	WithSidecarInstanceIdSubstitution:    fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutSidecarInstanceIdSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithCommandLineVariablesForSidecar:   fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	WithCommandLineVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithEnvironmentVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 }
 
@@ -134,7 +134,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			Namespace: "my-ns",
 		},
 		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version:          "6.1.8",
+			Version:          Versions.Default.String(),
 			ConnectionString: "operator-test:asdfasf@127.0.0.1:4501",
 			ProcessCounts: fdbtypes.ProcessCounts{
 				Storage: 4,
