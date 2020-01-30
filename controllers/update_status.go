@@ -174,9 +174,14 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	configMapUpdated = reflect.DeepEqual(existingConfigMap.Data, configMap.Data) && reflect.DeepEqual(existingConfigMap.Labels, configMap.Labels)
 
+	desiredCounts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return false, err
+	}
+
 	reconciled := cluster.Spec.Configured &&
 		len(cluster.Spec.PendingRemovals) == 0 &&
-		cluster.GetProcessCountsWithDefaults().CountsAreSatisfied(status.ProcessCounts) &&
+		desiredCounts.CountsAreSatisfied(status.ProcessCounts) &&
 		len(status.IncorrectProcesses) == 0 &&
 		!hasIncorrectPodSpecs &&
 		databaseStatus != nil &&

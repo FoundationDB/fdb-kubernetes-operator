@@ -112,10 +112,12 @@ var _ = AfterSuite(func() {
 })
 
 var Versions = struct {
-	Default, NextMajorVersion,
+	NextMajorVersion,
 	WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
-	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer fdbtypes.FdbVersion
+	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
+	WithRatekeeperRole, WithoutRatekeeperRole,
+	Default fdbtypes.FdbVersion
 }{
 	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
@@ -125,6 +127,8 @@ var Versions = struct {
 	WithEnvironmentVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithRatekeeperRole:                   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithoutRatekeeperRole:                fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 0},
 }
 
 func createDefaultCluster() *fdbtypes.FoundationDBCluster {

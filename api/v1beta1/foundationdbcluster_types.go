@@ -318,6 +318,8 @@ type ProcessCounts struct {
 	Proxy             int `json:"proxy,omitempty"`
 	Resolver          int `json:"resolver,omitempty"`
 	Router            int `json:"router,omitempty"`
+	Ratekeeper        int `json:"ratekeeper,omitempty"`
+	DataDistributor   int `json:"data_distributor,omitempty"`
 }
 
 // Map returns a map from process classes to the number of processes with that
@@ -507,7 +509,7 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 
 // GetProcessCountsWithDefaults gets the process counts from the cluster spec
 // and fills in default values for any counts that are 0.
-func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts {
+func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCounts, error) {
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
 
@@ -533,8 +535,13 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts
 	if isSatellite && !isMain {
 		if processCounts.Log == 0 {
 			processCounts.Log = 1 + satelliteLogs
-			return *processCounts
+			return *processCounts, nil
 		}
+	}
+
+	version, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return ProcessCounts{}, err
 	}
 
 	if processCounts.Storage == 0 {
@@ -548,15 +555,21 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() ProcessCounts
 		)
 	}
 	if processCounts.Stateless == 0 {
+		primaryStatelessCount := cluster.calculateProcessCountFromRole(1, processCounts.Master) +
+			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
+			cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy) +
+			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution, processCounts.Resolver)
+		if version.HasRatekeeperRole() {
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
+				cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
+		}
+
 		processCounts.Stateless = cluster.calculateProcessCount(true,
-			cluster.calculateProcessCountFromRole(1, processCounts.Master)+
-				cluster.calculateProcessCountFromRole(1, processCounts.ClusterController)+
-				cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)+
-				cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution, processCounts.Resolver),
+			primaryStatelessCount,
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
 		)
 	}
-	return *processCounts
+	return *processCounts, nil
 }
 
 // DesiredFaultTolerance returns the number of replicas we should be able to
@@ -1537,4 +1550,10 @@ func (version FdbVersion) PrefersCommandLineArgumentsInSidecar() bool {
 // from the main container and binaries provided by the sidecar.
 func (version FdbVersion) SupportsUsingBinariesFromMainContainer() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
+}
+
+// HasRatekeeperRole determines if a version has a dedicated role for
+// ratekeeper.
+func (version FdbVersion) HasRatekeeperRole() bool {
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
 }

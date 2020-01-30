@@ -340,7 +340,12 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 
 	data["ca-file"] = caFile
 
-	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
+	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return nil, err
+	}
+	desiredCounts := desiredCountStruct.Map()
+
 	for processClass, count := range desiredCounts {
 		if count > 0 {
 			filename := fmt.Sprintf("fdbmonitor-conf-%s", processClass)

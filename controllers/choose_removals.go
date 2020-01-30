@@ -41,7 +41,12 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	}
 
 	currentCounts := cluster.Status.ProcessCounts.Map()
-	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
+	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return false, err
+	}
+	desiredCounts := desiredCountStruct.Map()
+
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, processClass, "")...)

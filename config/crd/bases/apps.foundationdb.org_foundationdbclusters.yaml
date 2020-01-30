@@ -8450,11 +8450,15 @@ spec:
               properties:
                 cluster_controller:
                   type: integer
+                data_distributor:
+                  type: integer
                 log:
                   type: integer
                 master:
                   type: integer
                 proxy:
+                  type: integer
+                ratekeeper:
                   type: integer
                 resolution:
                   description: Resolution defines the number of resolution class processes.
@@ -10332,11 +10336,15 @@ spec:
               properties:
                 cluster_controller:
                   type: integer
+                data_distributor:
+                  type: integer
                 log:
                   type: integer
                 master:
                   type: integer
                 proxy:
+                  type: integer
+                ratekeeper:
                   type: integer
                 resolution:
                   description: Resolution defines the number of resolution class processes.
