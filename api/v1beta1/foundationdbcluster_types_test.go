@@ -1,5 +1,5 @@
 /*
-Copyright 2019 FoundationDB project authors.
+Copyright 2020 FoundationDB project authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -129,6 +129,7 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
+			Version: Versions.Default.String(),
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode: "double",
 				RoleCounts: RoleCounts{
@@ -141,69 +142,88 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 		},
 	}
 
-	counts := cluster.GetProcessCountsWithDefaults()
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       4,
-		Stateless: 7,
+		Stateless: 9,
 	}))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"storage":   5,
 		"log":       4,
-		"stateless": 7,
+		"stateless": 9,
 	}))
 	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Storage: 10,
 	}
-	counts = cluster.GetProcessCountsWithDefaults()
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts.Storage).To(gomega.Equal(10))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		ClusterController: 3,
 	}
-	counts = cluster.GetProcessCountsWithDefaults()
-	g.Expect(counts.Stateless).To(gomega.Equal(6))
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(counts.Stateless).To(gomega.Equal(8))
 	g.Expect(counts.ClusterController).To(gomega.Equal(3))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"storage":            5,
 		"log":                4,
-		"stateless":          6,
+		"stateless":          8,
 		"cluster_controller": 3,
 	}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Resolver: 1,
 	}
-	counts = cluster.GetProcessCountsWithDefaults()
-	g.Expect(counts.Stateless).To(gomega.Equal(6))
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(counts.Stateless).To(gomega.Equal(8))
 	g.Expect(counts.Resolver).To(gomega.Equal(1))
 	g.Expect(counts.Resolution).To(gomega.Equal(0))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Resolution: 1,
 	}
-	counts = cluster.GetProcessCountsWithDefaults()
-	g.Expect(counts.Stateless).To(gomega.Equal(6))
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(counts.Stateless).To(gomega.Equal(8))
 	g.Expect(counts.Resolution).To(gomega.Equal(1))
 	g.Expect(counts.Resolver).To(gomega.Equal(0))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
 		Log: 2,
 	}
-	counts = cluster.GetProcessCountsWithDefaults()
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts.Log).To(gomega.Equal(2))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{}
 	cluster.Spec.RoleCounts.RemoteLogs = 4
 	cluster.Spec.RoleCounts.LogRouters = 8
 
-	counts = cluster.GetProcessCountsWithDefaults()
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       5,
 		Stateless: 9,
+	}))
+
+	cluster.Spec.ProcessCounts = ProcessCounts{}
+	cluster.Spec.RoleCounts = RoleCounts{}
+	cluster.Spec.Version = Versions.WithoutRatekeeperRole.String()
+
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(counts).To(gomega.Equal(ProcessCounts{
+		Storage:   3,
+		Log:       4,
+		Stateless: 7,
 	}))
 }
 
@@ -215,6 +235,7 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
+			Version: Versions.Default.String(),
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode: "double",
 				RoleCounts: RoleCounts{
@@ -230,16 +251,18 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 		},
 	}
 
-	counts := cluster.GetProcessCountsWithDefaults()
+	counts, err := cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:   2,
 		Log:       2,
-		Stateless: 3,
+		Stateless: 4,
 	}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{}
 	cluster.Spec.FaultDomain.ZoneIndex = 2
-	counts = cluster.GetProcessCountsWithDefaults()
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:   1,
 		Log:       1,
@@ -249,7 +272,8 @@ func TestGettingDefaultProcessCountsWithCrossClusterReplication(t *testing.T) {
 	cluster.Spec.ProcessCounts = ProcessCounts{}
 	cluster.Spec.FaultDomain.ZoneIndex = 1
 	cluster.Spec.FaultDomain.ZoneCount = 5
-	counts = cluster.GetProcessCountsWithDefaults()
+	counts, err = cluster.GetProcessCountsWithDefaults()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts).To(gomega.Equal(ProcessCounts{
 		Storage:   1,
 		Log:       1,
@@ -265,6 +289,7 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: FoundationDBClusterSpec{
+			Version: Versions.Default.String(),
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode: "double",
 				RoleCounts: RoleCounts{
@@ -299,7 +324,7 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       4,
-		Stateless: 9,
+		Stateless: 11,
 	}))
 
 	cluster.Spec.DataCenter = "dc2"
@@ -311,7 +336,7 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       4,
-		Stateless: 9,
+		Stateless: 11,
 	}))
 
 	cluster.Spec.DataCenter = "dc4"
@@ -323,7 +348,7 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       4,
-		Stateless: 9,
+		Stateless: 11,
 	}))
 
 	cluster.Spec.DatabaseConfiguration.Regions = []Region{
@@ -351,7 +376,7 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       7,
-		Stateless: 9,
+		Stateless: 11,
 	}))
 
 	cluster.Spec.DataCenter = "dc2"
@@ -363,7 +388,7 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 	g.Expect(cluster.GetProcessCountsWithDefaults()).To(gomega.Equal(ProcessCounts{
 		Storage:   5,
 		Log:       8,
-		Stateless: 9,
+		Stateless: 11,
 	}))
 }
 

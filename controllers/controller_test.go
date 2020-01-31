@@ -39,7 +39,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-var firstStorageIndex = 11
+var firstStorageIndex = 13
 
 func reloadCluster(client client.Client, cluster *fdbtypes.FoundationDBCluster) (int64, error) {
 	generations, err := reloadClusterGenerations(client, cluster)
@@ -92,7 +92,7 @@ var _ = Describe("controller", func() {
 			Eventually(func() (int, error) {
 				err := k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 				return len(originalPods.Items), err
-			}, timeout).Should(Equal(15))
+			}, timeout).Should(Equal(17))
 
 			sortPodsByID(originalPods)
 
@@ -118,7 +118,7 @@ var _ = Describe("controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(15))
+				}, timeout).Should(Equal(17))
 
 				sortPodsByID(pods)
 
@@ -128,17 +128,17 @@ var _ = Describe("controller", func() {
 				Expect(pods.Items[3].Labels["fdb-instance-id"]).To(Equal("log-4"))
 				Expect(pods.Items[4].Name).To(Equal("operator-test-1-stateless-1"))
 				Expect(pods.Items[4].Labels["fdb-instance-id"]).To(Equal("stateless-1"))
-				Expect(pods.Items[10].Name).To(Equal("operator-test-1-stateless-7"))
-				Expect(pods.Items[10].Labels["fdb-instance-id"]).To(Equal("stateless-7"))
-				Expect(pods.Items[11].Name).To(Equal("operator-test-1-storage-1"))
-				Expect(pods.Items[11].Labels["fdb-instance-id"]).To(Equal("storage-1"))
-				Expect(pods.Items[14].Name).To(Equal("operator-test-1-storage-4"))
-				Expect(pods.Items[14].Labels["fdb-instance-id"]).To(Equal("storage-4"))
+				Expect(pods.Items[12].Name).To(Equal("operator-test-1-stateless-9"))
+				Expect(pods.Items[12].Labels["fdb-instance-id"]).To(Equal("stateless-9"))
+				Expect(pods.Items[13].Name).To(Equal("operator-test-1-storage-1"))
+				Expect(pods.Items[13].Labels["fdb-instance-id"]).To(Equal("storage-1"))
+				Expect(pods.Items[16].Name).To(Equal("operator-test-1-storage-4"))
+				Expect(pods.Items[16].Labels["fdb-instance-id"]).To(Equal("storage-4"))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":   4,
 					"log":       4,
-					"stateless": 7,
+					"stateless": 9,
 				}))
 			})
 
@@ -179,9 +179,12 @@ var _ = Describe("controller", func() {
 				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:   4,
 					Log:       4,
-					Stateless: 7,
+					Stateless: 9,
 				}))
-				Expect(cluster.Status.ProcessCounts).To(Equal(cluster.GetProcessCountsWithDefaults()))
+
+				desiredCounts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.ProcessCounts).To(Equal(desiredCounts))
 				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
 				Expect(cluster.Status.MissingProcesses).To(BeNil())
 				Expect(cluster.Status.DatabaseConfiguration).To(Equal(*adminClient.DatabaseConfiguration))
@@ -218,7 +221,7 @@ var _ = Describe("controller", func() {
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":   3,
 					"log":       4,
-					"stateless": 7,
+					"stateless": 9,
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
@@ -228,7 +231,7 @@ var _ = Describe("controller", func() {
 				Expect(adminClient).NotTo(BeNil())
 				Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
 
-				removedItem := originalPods.Items[14]
+				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
 					cluster.GetFullAddress(mockPodIP(&removedItem)): true,
 				}))
@@ -253,7 +256,7 @@ var _ = Describe("controller", func() {
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":   5,
 					"log":       4,
-					"stateless": 7,
+					"stateless": 9,
 				}))
 			})
 
@@ -299,7 +302,7 @@ var _ = Describe("controller", func() {
 		Context("with an explicit cluster controller process count", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessCounts.ClusterController = 1
-				cluster.Spec.ProcessCounts.Stateless = 7
+				cluster.Spec.ProcessCounts.Stateless = 9
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -309,12 +312,12 @@ var _ = Describe("controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(16))
+				}, timeout).Should(Equal(18))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":            4,
 					"log":                4,
-					"stateless":          7,
+					"stateless":          9,
 					"cluster_controller": 1,
 				}))
 			})
@@ -362,12 +365,12 @@ var _ = Describe("controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(15))
+				}, timeout).Should(Equal(17))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":   4,
 					"log":       4,
-					"stateless": 7,
+					"stateless": 9,
 				}))
 			})
 
@@ -376,7 +379,7 @@ var _ = Describe("controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(15))
+				}, timeout).Should(Equal(17))
 
 				sortPodsByID(pods)
 
@@ -1508,7 +1511,7 @@ var _ = Describe("controller", func() {
 			Eventually(func() (int, error) {
 				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				return len(pods.Items), err
-			}, timeout).Should(Equal(15))
+			}, timeout).Should(Equal(17))
 
 			sortPodsByID(pods)
 

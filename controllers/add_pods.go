@@ -37,7 +37,11 @@ type AddPods struct{}
 
 func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	currentCounts := cluster.Status.ProcessCounts.Map()
-	desiredCounts := cluster.GetProcessCountsWithDefaults().Map()
+	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return false, err
+	}
+	desiredCounts := desiredCountStruct.Map()
 
 	if reflect.DeepEqual(currentCounts, desiredCounts) {
 		return true, nil

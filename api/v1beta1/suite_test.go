@@ -1,0 +1,37 @@
+/*
+Copyright 2020 FoundationDB project authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1beta1
+
+var Versions = struct {
+	NextMajorVersion,
+	WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
+	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
+	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
+	WithRatekeeperRole, WithoutRatekeeperRole,
+	Default FdbVersion
+}{
+	Default:                              FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	NextMajorVersion:                     FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	WithSidecarInstanceIdSubstitution:    FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithoutSidecarInstanceIdSubstitution: FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithCommandLineVariablesForSidecar:   FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithEnvironmentVariablesForSidecar:   FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithBinariesFromMainContainer:        FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithoutBinariesFromMainContainer:     FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithRatekeeperRole:                   FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithoutRatekeeperRole:                FdbVersion{Major: 6, Minor: 1, Patch: 0},
+}
