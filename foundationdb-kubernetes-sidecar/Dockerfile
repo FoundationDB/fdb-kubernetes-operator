@@ -32,7 +32,9 @@ RUN curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fd
 	mv fdbbackup fdbcli fdbdr fdbmonitor fdbrestore fdbserver backup_agent dr_agent /usr/bin && \
 	echo ${FDB_VERSION} > /var/fdb/version && mkdir -p /var/fdb/lib && \
 	for version in $FDB_LIBRARY_VERSIONS; do curl $FDB_WEBSITE/downloads/$version/linux/libfdb_c_$version.so -o /var/fdb/lib/libfdb_c_${version%.*}.so; done && \
-	rm -r /var/fdb/tmp
+	rm -r /var/fdb/tmp && \
+	groupadd --gid 4059 fdb && \
+	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb
 
 WORKDIR /
 
@@ -40,8 +42,7 @@ COPY entrypoint.bash /
 COPY requirements.txt /
 COPY sidecar.py /
 
-RUN pip install -r /requirements.txt && rm /requirements.txt
-
+RUN pip install -r /requirements.txt && rm /requirements.txt && chmod a+x /entrypoint.bash
 
 ENV COPY_ONCE 0
 ENV SIDECAR_CONF_DIR /var/sidecar-conf
@@ -49,6 +50,8 @@ COPY default_config.json $SIDECAR_CONF_DIR/config.json
 
 VOLUME /var/input-files
 VOLUME /var/output-files
+
+USER fdb
 
 ENV LISTEN_PORT 8080
 ENTRYPOINT ["/entrypoint.bash"]
