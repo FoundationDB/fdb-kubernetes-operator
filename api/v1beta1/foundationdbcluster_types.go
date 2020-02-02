@@ -1013,6 +1013,10 @@ type FoundationDBStatusSupportedVersion struct {
 	// ConnectedClient provides the clients that are using this version.
 	ConnectedClients []FoundationDBStatusConnectedClient `json:"connected_clients"`
 
+	// MaxProtocolClients provides the clients that are using this version as
+	// their highest supported protocol version.
+	MaxProtocolClients []FoundationDBStatusConnectedClient `json:"max_protocol_clients"`
+
 	// ProtocolVersion is the version of the wire protocol the client is using.
 	ProtocolVersion string `json:"protocol_version,omitempty"`
 
@@ -1555,5 +1559,11 @@ func (version FdbVersion) SupportsUsingBinariesFromMainContainer() bool {
 // HasRatekeeperRole determines if a version has a dedicated role for
 // ratekeeper.
 func (version FdbVersion) HasRatekeeperRole() bool {
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
+}
+
+// HasMaxProtocolClients determines if a version has the max_protocol_clients
+// field in the cluster status.
+func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
 }
