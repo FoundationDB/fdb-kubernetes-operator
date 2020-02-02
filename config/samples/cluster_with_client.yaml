@@ -1,8 +1,16 @@
 # This file provides an example of a cluster with a client app connected.
 #
 # The client app will get its cluster file from a config map that is managed
-# by the operator. The app we are using also includes multiple client libraries
-# to support upgrades of FoundationDB.
+# by the operator. It will also use the sidecar to include multiple client
+# libraries to support upgrades of FoundationDB.
+#
+# Because the app depends on the config map created by the operator, it will
+# not be able to launch until the cluster gets far enough in reconciliation to
+# generate a cluster file. You can work around this by creating the cluster
+# first and then applying the rest of the file to create the app. As an
+# alternative, you can apply the entire file and then run
+# `kubectl delete pod -l app=sample-cluster-client` to bounce the clients and
+# pick up the final cluster file.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
@@ -10,7 +18,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
-  version: 6.2.11
+  version: 6.2.15
   faultDomain:
     key: foundationdb.org/none
   processCounts:
@@ -58,6 +66,22 @@ spec:
       name: sample-cluster-client
     spec:
       automountServiceAccountToken: false
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.15-1
+          args:
+            - "--copy-file"
+            - "fdb.cluster"
+            - "--copy-library"
+            - "6.1"
+            - "--copy-library"
+            - "6.2"
+            - "--init-mode"
+          volumeMounts:
+            - name: config-map
+              mountPath: /var/input-files
+            - name: dynamic-conf
+              mountPath: /var/output-files
       containers:
         - name: client
           image: foundationdb/foundationdb-sample-python-app:latest
@@ -69,6 +93,10 @@ spec:
               value: "610"
             - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
               value: sample-cluster-client
+            - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+              value: /var/dynamic-conf/lib/multiversion
+            - name: LD_LIBRARY_PATH
+              value: /var/dynamic-conf/lib
           resources:
             limits:
               cpu: 250m
@@ -83,12 +111,14 @@ spec:
             - name: dynamic-conf
               mountPath: /var/dynamic-conf
       volumes:
-        - name: dynamic-conf
+        - name: config-map
           configMap:
             name: sample-cluster-config
             items:
               - key: cluster-file
                 path: fdb.cluster
+        - name: dynamic-conf
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
