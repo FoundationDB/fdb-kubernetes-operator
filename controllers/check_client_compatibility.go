@@ -43,6 +43,11 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 		return false, err
 	}
 
+	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Spec.RunningVersion)
+	if err != nil {
+		return false, err
+	}
+
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
@@ -53,25 +58,42 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 		return false, err
 	}
 
-	clientsSupported := make(map[string]bool)
-	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-		if versionInfo.ProtocolVersion == "Unknown" {
-			continue
-		}
-		match := versionInfo.ProtocolVersion == protocolVersion
-		for _, client := range versionInfo.ConnectedClients {
-			description := client.Description()
-			if match {
-				clientsSupported[description] = true
-			} else if !clientsSupported[description] {
-				clientsSupported[description] = false
+	var unsupportedClients []string
+	if runningVersion.HasMaxProtocolClientsInStatus() {
+		unsupportedClients = make([]string, 0)
+		for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
+			if versionInfo.ProtocolVersion == "Unknown" {
+				continue
+			}
+			match := versionInfo.ProtocolVersion == protocolVersion
+
+			if !match {
+				for _, client := range versionInfo.MaxProtocolClients {
+					unsupportedClients = append(unsupportedClients, client.Description())
+				}
 			}
 		}
-	}
-	unsupportedClients := make([]string, 0, len(clientsSupported))
-	for client, supported := range clientsSupported {
-		if !supported {
-			unsupportedClients = append(unsupportedClients, client)
+	} else {
+		clientsSupported := make(map[string]bool)
+		for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
+			if versionInfo.ProtocolVersion == "Unknown" {
+				continue
+			}
+			match := versionInfo.ProtocolVersion == protocolVersion
+			for _, client := range versionInfo.ConnectedClients {
+				description := client.Description()
+				if match {
+					clientsSupported[description] = true
+				} else if !clientsSupported[description] {
+					clientsSupported[description] = false
+				}
+			}
+		}
+		unsupportedClients = make([]string, 0, len(clientsSupported))
+		for client, supported := range clientsSupported {
+			if !supported {
+				unsupportedClients = append(unsupportedClients, client)
+			}
 		}
 	}
 

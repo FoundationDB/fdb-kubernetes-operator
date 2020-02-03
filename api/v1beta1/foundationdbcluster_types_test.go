@@ -18,7 +18,6 @@ package v1beta1
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -440,7 +439,7 @@ func TestClusterDesiredCoordinatorCounts(t *testing.T) {
 	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(9))
 }
 
-func TestParsingClusterStatus(t *testing.T) {
+func TestParsingClusterStatusWithSixZeroCluster(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	statusFile, err := os.OpenFile(filepath.Join("testdata", "fdb_status_6_0.json"), os.O_RDONLY, os.ModePerm)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -567,6 +566,503 @@ func TestParsingClusterStatus(t *testing.T) {
 	}))
 }
 
+func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	statusFile, err := os.OpenFile(filepath.Join("testdata", "fdb_status_6_1.json"), os.O_RDONLY, os.ModePerm)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	defer statusFile.Close()
+	statusDecoder := json.NewDecoder(statusFile)
+	status := FoundationDBStatus{}
+	err = statusDecoder.Decode(&status)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(status).To(gomega.Equal(FoundationDBStatus{
+		Client: FoundationDBStatusLocalClientInfo{
+			Coordinators: FoundationDBStatusCoordinatorInfo{
+				Coordinators: []FoundationDBStatusCoordinator{
+					{
+						Address:   "10.1.38.82:4501",
+						Reachable: true,
+					},
+					{
+						Address:   "10.1.38.86:4501",
+						Reachable: true,
+					},
+					{
+						Address:   "10.1.38.91:4501",
+						Reachable: true,
+					},
+				},
+			},
+			DatabaseStatus: FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
+		},
+		Cluster: FoundationDBStatusClusterInfo{
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+				StorageEngine:  "ssd-2",
+				UsableRegions:  1,
+				Regions:        nil,
+				RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
+			},
+			Processes: map[string]FoundationDBStatusProcessInfo{
+				"c813e585043a7ab55a4905f465c4aa52": {
+					Address:      "10.1.38.91:4501",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.91:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "storage-3",
+						"machineid":   "sample-cluster-storage-3",
+						"processid":   "c813e585043a7ab55a4905f465c4aa52",
+						"zoneid":      "sample-cluster-storage-3",
+					},
+				},
+				"f9efa90fc104f4e277b140baf89aab66": {
+					Address:      "10.1.38.82:4501",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.82:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "storage-1",
+						"machineid":   "sample-cluster-storage-1",
+						"processid":   "f9efa90fc104f4e277b140baf89aab66",
+						"zoneid":      "sample-cluster-storage-1",
+					},
+				},
+				"5a633d7f4e98a6c938c84b97ec4aedbf": {
+					Address:      "10.1.38.89:4501",
+					ProcessClass: "log",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.89:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "log-2",
+						"machineid":   "sample-cluster-log-2",
+						"processid":   "5a633d7f4e98a6c938c84b97ec4aedbf",
+						"zoneid":      "sample-cluster-log-2",
+					},
+				},
+				"5c1b68147a0ef34ce005a38245851270": {
+					Address:      "10.1.38.88:4501",
+					ProcessClass: "log",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.88:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"machineid":   "sample-cluster-log-4",
+						"processid":   "5c1b68147a0ef34ce005a38245851270",
+						"zoneid":      "sample-cluster-log-4",
+						"instance_id": "log-4",
+					},
+				},
+				"653defde43cf1fdef131e2fb82bd192d": {
+					Address:      "10.1.38.87:4501",
+					ProcessClass: "log",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.87:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "log-1",
+						"machineid":   "sample-cluster-log-1",
+						"processid":   "653defde43cf1fdef131e2fb82bd192d",
+						"zoneid":      "sample-cluster-log-1",
+					},
+				},
+				"9c93d3b70118f16c72f7cb3f53e49f4c": {
+					Address:      "10.1.38.86:4501",
+					ProcessClass: "storage",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.86:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"processid":   "9c93d3b70118f16c72f7cb3f53e49f4c",
+						"zoneid":      "sample-cluster-storage-2",
+						"instance_id": "storage-2",
+						"machineid":   "sample-cluster-storage-2",
+					},
+				},
+				"b9c25278c0fa207bc2a73bda2300d0a9": {
+					Address:      "10.1.38.90:4501",
+					ProcessClass: "log",
+					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.90:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"processid":   "b9c25278c0fa207bc2a73bda2300d0a9",
+						"zoneid":      "sample-cluster-log-3",
+						"instance_id": "log-3",
+						"machineid":   "sample-cluster-log-3",
+					},
+				},
+			},
+			Data: FoundationDBStatusDataStatistics{
+				KVBytes:    0,
+				MovingData: FoundationDBStatusMovingData{HighestPriority: 0, InFlightBytes: 0, InQueueBytes: 0},
+			},
+			FullReplication: true,
+			Clients: FoundationDBStatusClusterClientInfo{
+				Count: 6,
+				SupportedVersions: []FoundationDBStatusSupportedVersion{
+					{
+						ClientVersion: "6.1.8",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							{
+								Address:  "10.1.38.83:47846",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.83:47958",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.84:43094",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.84:43180",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.85:53594",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.85:53626",
+								LogGroup: "sample-cluster-client",
+							},
+						},
+						ProtocolVersion: "fdb00b061060001",
+						SourceVersion:   "bd6b10cbcee08910667194e6388733acd3b80549",
+					},
+					{
+						ClientVersion: "6.2.15",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							{
+								Address:  "10.1.38.83:47846",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.83:47958",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.84:43094",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.84:43180",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.85:53594",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.85:53626",
+								LogGroup: "sample-cluster-client",
+							},
+						},
+						ProtocolVersion: "fdb00b062010001",
+						SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+					},
+				},
+			},
+		},
+	}))
+}
+
+func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	statusFile, err := os.OpenFile(filepath.Join("testdata", "fdb_status_6_2.json"), os.O_RDONLY, os.ModePerm)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	defer statusFile.Close()
+	statusDecoder := json.NewDecoder(statusFile)
+	status := FoundationDBStatus{}
+	err = statusDecoder.Decode(&status)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(status).To(gomega.Equal(FoundationDBStatus{
+		Client: FoundationDBStatusLocalClientInfo{
+			Coordinators: FoundationDBStatusCoordinatorInfo{
+				Coordinators: []FoundationDBStatusCoordinator{
+					{
+						Address:   "10.1.38.94:4501",
+						Reachable: true,
+					},
+					{
+						Address:   "10.1.38.102:4501",
+						Reachable: true,
+					},
+					{
+						Address:   "10.1.38.104:4501",
+						Reachable: true,
+					},
+				},
+			},
+			DatabaseStatus: FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
+		},
+		Cluster: FoundationDBStatusClusterInfo{
+			DatabaseConfiguration: DatabaseConfiguration{
+				RedundancyMode: "double",
+				StorageEngine:  "ssd-2",
+				UsableRegions:  1,
+				Regions:        nil,
+				RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
+			},
+			Processes: map[string]FoundationDBStatusProcessInfo{
+				"b9c25278c0fa207bc2a73bda2300d0a9": {
+					Address:      "10.1.38.93:4501",
+					ProcessClass: "log",
+					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.93:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"processid":   "b9c25278c0fa207bc2a73bda2300d0a9",
+						"zoneid":      "sample-cluster-log-3",
+						"instance_id": "log-3",
+						"machineid":   "sample-cluster-log-3",
+					},
+				},
+				"c813e585043a7ab55a4905f465c4aa52": {
+					Address:      "10.1.38.95:4501",
+					ProcessClass: "storage",
+					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.95:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "storage-3",
+						"machineid":   "sample-cluster-storage-3",
+						"processid":   "c813e585043a7ab55a4905f465c4aa52",
+						"zoneid":      "sample-cluster-storage-3",
+					},
+				},
+				"f9efa90fc104f4e277b140baf89aab66": {
+					Address:      "10.1.38.92:4501",
+					ProcessClass: "storage",
+					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.92:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "storage-1",
+						"machineid":   "sample-cluster-storage-1",
+						"processid":   "f9efa90fc104f4e277b140baf89aab66",
+						"zoneid":      "sample-cluster-storage-1",
+					},
+				},
+				"5a633d7f4e98a6c938c84b97ec4aedbf": {
+					Address:      "10.1.38.105:4501",
+					ProcessClass: "log",
+					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.105:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "log-2",
+						"machineid":   "sample-cluster-log-2",
+						"processid":   "5a633d7f4e98a6c938c84b97ec4aedbf",
+						"zoneid":      "sample-cluster-log-2",
+					},
+				},
+				"5c1b68147a0ef34ce005a38245851270": {
+					Address:      "10.1.38.102:4501",
+					ProcessClass: "log",
+					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.102:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"zoneid":      "sample-cluster-log-4",
+						"instance_id": "log-4",
+						"machineid":   "sample-cluster-log-4",
+						"processid":   "5c1b68147a0ef34ce005a38245851270",
+					},
+				},
+				"653defde43cf1fdef131e2fb82bd192d": {
+					Address:      "10.1.38.104:4501",
+					ProcessClass: "log",
+					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.104:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "log-1",
+						"machineid":   "sample-cluster-log-1",
+						"processid":   "653defde43cf1fdef131e2fb82bd192d",
+						"zoneid":      "sample-cluster-log-1",
+					},
+				},
+				"9c93d3b70118f16c72f7cb3f53e49f4c": {
+					Address:      "10.1.38.94:4501",
+					ProcessClass: "storage",
+					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.94:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					Excluded:     false,
+					Locality: map[string]string{
+						"instance_id": "storage-2",
+						"machineid":   "sample-cluster-storage-2",
+						"processid":   "9c93d3b70118f16c72f7cb3f53e49f4c",
+						"zoneid":      "sample-cluster-storage-2",
+					},
+				},
+			},
+			Data: FoundationDBStatusDataStatistics{
+				KVBytes:    0,
+				MovingData: FoundationDBStatusMovingData{HighestPriority: 0, InFlightBytes: 0, InQueueBytes: 0},
+			},
+			FullReplication: true,
+			Clients: FoundationDBStatusClusterClientInfo{
+				Count: 8,
+				SupportedVersions: []FoundationDBStatusSupportedVersion{
+					{
+						ClientVersion: "Unknown",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							{
+								Address:  "10.1.38.92:52762",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.92:56406",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:43346",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:43354",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:51458",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:51472",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:59442",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:59942",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:60222",
+								LogGroup: "default",
+							},
+							{
+								Address:  "10.1.38.103:60230",
+								LogGroup: "default",
+							},
+						},
+						MaxProtocolClients: nil,
+						ProtocolVersion:    "Unknown",
+						SourceVersion:      "Unknown",
+					},
+					{
+						ClientVersion: "6.1.8",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							{
+								Address:  "10.1.38.106:35640",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.106:36128",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.106:36802",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.107:42234",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.107:49684",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:47320",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:47388",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:58734",
+								LogGroup: "sample-cluster-client",
+							},
+						},
+						MaxProtocolClients: nil,
+						ProtocolVersion:    "fdb00b061060001",
+						SourceVersion:      "bd6b10cbcee08910667194e6388733acd3b80549",
+					},
+					{
+						ClientVersion: "6.2.15",
+						ConnectedClients: []FoundationDBStatusConnectedClient{
+							{
+								Address:  "10.1.38.106:35640",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.106:36128",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.106:36802",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.107:42234",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.107:49684",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:47320",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:47388",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:58734",
+								LogGroup: "sample-cluster-client",
+							},
+						},
+						MaxProtocolClients: []FoundationDBStatusConnectedClient{
+							{
+								Address:  "10.1.38.106:35640",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.106:36128",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.106:36802",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.107:42234",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.107:49684",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:47320",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:47388",
+								LogGroup: "sample-cluster-client",
+							},
+							{
+								Address:  "10.1.38.108:58734",
+								LogGroup: "sample-cluster-client",
+							},
+						},
+						ProtocolVersion: "fdb00b062010001",
+						SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+					},
+				},
+			},
+		},
+	}))
+}
+
 func TestParsingConnectionString(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -676,7 +1172,6 @@ func TestGettingConfigurationString(t *testing.T) {
 		}},
 		SatelliteLogs: 2,
 	}}
-	fmt.Println(configuration.GetConfigurationString())
 	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 }
 
