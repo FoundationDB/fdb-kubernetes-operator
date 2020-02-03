@@ -968,20 +968,19 @@ var _ = Describe("controller", func() {
 			})
 
 			It("should bounce the processes", func() {
-				addresses := make([]string, 0, len(originalPods.Items))
+				addresses := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					addresses = append(addresses, fmt.Sprintf("%s:4500:tls", mockPodIP(&pod)))
+					addresses[fmt.Sprintf("%s:4500:tls", mockPodIP(&pod))] = true
 				}
 
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
-					return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
-				})
-				sort.Slice(addresses, func(i, j int) bool {
-					return strings.Compare(addresses[i], addresses[j]) < 0
-				})
-				Expect(adminClient.KilledAddresses).To(Equal(addresses))
+
+				killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+				for _, address := range adminClient.KilledAddresses {
+					killedAddresses[address] = true
+				}
+				Expect(killedAddresses).To(Equal(addresses))
 			})
 
 			It("should change the coordinators to use TLS", func() {

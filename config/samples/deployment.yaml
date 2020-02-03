@@ -1163,6 +1163,10 @@ spec:
               description: DataCenter defines the data center where these processes
                 are running.
               type: string
+            dataHall:
+              description: DataHall defines the data hall where these processes are
+                running.
+              type: string
             databaseConfiguration:
               description: DatabaseConfiguration defines the database configuration.
               properties:
@@ -8444,11 +8448,15 @@ spec:
               properties:
                 cluster_controller:
                   type: integer
+                data_distributor:
+                  type: integer
                 log:
                   type: integer
                 master:
                   type: integer
                 proxy:
+                  type: integer
+                ratekeeper:
                   type: integer
                 resolution:
                   description: Resolution defines the number of resolution class processes.
@@ -10326,11 +10334,15 @@ spec:
               properties:
                 cluster_controller:
                   type: integer
+                data_distributor:
+                  type: integer
                 log:
                   type: integer
                 master:
                   type: integer
                 proxy:
+                  type: integer
+                ratekeeper:
                   type: integer
                 resolution:
                   description: Resolution defines the number of resolution class processes.
@@ -10498,7 +10510,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: foundationdb/fdb-kubernetes-operator:latest
+        image: foundationdb/fdb-kubernetes-operator:0.4.0
         name: manager
         resources:
           limits:

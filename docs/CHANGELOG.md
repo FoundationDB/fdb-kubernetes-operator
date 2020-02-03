@@ -1,3 +1,12 @@
+# v0.4.0
+
+*	Automatically reload certs in the Kubernetes sidecar when they are updated.
+*	Upgrade to Kubebuilder 2.
+*	Add a field to control the locality_data_hall parameter.
+*	Enable new features in the sidecar in FDB 6.2.15 rather than waiting for
+	7.0.0.
+*	Add additional stateless processes starting in FDB 6.2.0.
+
 # v0.3.0
 
 *	Fix 'user cannot patch resource "events" in API group'.
