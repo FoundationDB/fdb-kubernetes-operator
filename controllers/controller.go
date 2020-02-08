@@ -96,7 +96,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 
 	subReconcilers := []SubReconciler{
 		SetDefaultValues{},
-		UpdateStatus{UpdateGenerations: false},
+		UpdateStatus{},
 		CheckClientCompatibility{},
 		AddPods{},
 		GenerateInitialClusterFile{},
@@ -111,7 +111,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		UpdatePods{},
 		RemovePods{},
 		IncludeInstances{},
-		UpdateStatus{UpdateGenerations: true},
+		UpdateStatus{},
 	}
 
 	for _, subReconciler := range subReconcilers {

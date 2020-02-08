@@ -28,17 +28,18 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // UpdateStatus provides a reconciliation step for updating the status in the
 // CRD.
 type UpdateStatus struct {
-	UpdateGenerations bool
 }
 
 func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	status := fdbtypes.FoundationDBClusterStatus{}
+	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
 
@@ -142,17 +143,37 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 
 		if instance.Pod != nil {
-			_, idNum, err := ParseInstanceID(instance.Metadata.Labels["fdb-instance-id"])
+			id := instance.Metadata.Labels["fdb-instance-id"]
+			_, idNum, err := ParseInstanceID(id)
 			if err != nil {
 				return false, err
 			}
 
-			specHash, err := GetPodSpecHash(cluster, instance.Metadata.Labels["fdb-process-class"], idNum, nil)
+			processClass := instance.Metadata.Labels["fdb-process-class"]
+
+			specHash, err := GetPodSpecHash(cluster, processClass, idNum, nil)
 			if err != nil {
 				return false, err
 			}
 
-			if instance.Metadata.Annotations[LastPodHashKey] != specHash {
+			incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, id, specHash))
+
+			pvcs := &corev1.PersistentVolumeClaimList{}
+			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, id)...)
+			desiredPvc, err := GetPvc(cluster, processClass, idNum)
+			if err != nil {
+				return false, err
+			}
+
+			if (len(pvcs.Items) == 1) != (desiredPvc != nil) {
+				incorrectPod = true
+			}
+
+			if !incorrectPod && desiredPvc != nil {
+				incorrectPod = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
+			}
+
+			if incorrectPod {
 				status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
 			}
 		}
@@ -170,7 +191,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
-	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !reflect.DeepEqual(existingConfigMap.Labels, configMap.Labels)
+	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	if databaseStatus != nil {
 		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
@@ -190,13 +211,9 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	cluster.Status = status
 
-	if s.UpdateGenerations {
-		_, err := cluster.CheckReconciliation()
-		if err != nil {
-			return false, err
-		}
-	} else {
-		cluster.Status.Generations = originalStatus.Generations
+	_, err = cluster.CheckReconciliation()
+	if err != nil {
+		return false, err
 	}
 
 	if !reflect.DeepEqual(cluster.Status, *originalStatus) {
@@ -212,4 +229,21 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 func (s UpdateStatus) RequeueAfter() time.Duration {
 	return 0
+}
+
+// containsAll determines if one map contains all the keys and matching values
+// from another map.
+func containsAll(current map[string]string, desired map[string]string) bool {
+	for key, value := range desired {
+		if current[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+// metadataMatches determines if the current metadata on an object matches the
+// metadata specified by the cluster spec.
+func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
+	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
 }

@@ -459,8 +459,9 @@ var _ = Describe("controller", func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{
-						Reconciled:  originalVersion,
-						NeedsBounce: originalVersion + 1,
+						Reconciled:             originalVersion,
+						NeedsBounce:            originalVersion + 1,
+						NeedsMonitorConfUpdate: originalVersion + 1,
 					}))
 				})
 
@@ -848,7 +849,7 @@ var _ = Describe("controller", func() {
 					},
 				}
 
-				timeout = 60 * time.Second
+				timeout = 120 * time.Second
 			})
 
 			Context("with deletion enabled", func() {
