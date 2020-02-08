@@ -88,14 +88,25 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 				}
 				if len(instances) == 0 {
 					delete(removals, podName)
+					hasNewRemovals = true
 				} else {
-					podClient, err := r.getPodClient(context, cluster, instances[0])
-					if err != nil {
-						return false, err
+					pod := instances[0].Pod
+					if pod == nil {
+						return false, MissingPodError(instances[0], cluster)
 					}
-					removals[podName] = podClient.GetPodIP()
+
+					var ip string
+					if r.PodIPProvider == nil {
+						ip = pod.Status.PodIP
+					} else {
+						ip = r.PodIPProvider(pod)
+					}
+
+					if ip != "" {
+						removals[podName] = ip
+						hasNewRemovals = true
+					}
 				}
-				hasNewRemovals = true
 			}
 		}
 	}
