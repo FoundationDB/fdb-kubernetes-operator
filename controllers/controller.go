@@ -785,3 +785,7 @@ type SubReconciler interface {
 	*/
 	RequeueAfter() time.Duration
 }
+
+func MinimumFDBVersion() fdbtypes.FdbVersion {
+	return fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12}
+}

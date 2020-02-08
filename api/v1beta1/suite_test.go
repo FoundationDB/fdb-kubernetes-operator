@@ -33,5 +33,5 @@ var Versions = struct {
 	WithBinariesFromMainContainer:        FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutBinariesFromMainContainer:     FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithRatekeeperRole:                   FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutRatekeeperRole:                FdbVersion{Major: 6, Minor: 1, Patch: 0},
+	WithoutRatekeeperRole:                FdbVersion{Major: 6, Minor: 1, Patch: 12},
 }
