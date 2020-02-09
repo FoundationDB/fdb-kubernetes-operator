@@ -102,8 +102,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		processClass := instance.Metadata.Labels["fdb-process-class"]
 		instanceID := instance.Metadata.Labels["fdb-instance-id"]
 
-		_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
-		if pendingRemoval {
+		if cluster.InstanceIsBeingRemoved(instanceID) {
 			continue
 		}
 

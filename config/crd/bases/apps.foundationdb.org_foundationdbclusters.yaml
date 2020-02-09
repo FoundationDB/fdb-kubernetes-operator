@@ -2301,6 +2301,12 @@ spec:
               description: InstanceIDPrefix defines a prefix to append to the instance
                 IDs in the locality fields.
               type: string
+            instancesToRemove:
+              description: InstancesToRemove defines the instances that we should
+                remove from the cluster. This list contains the instance IDs.
+              items:
+                type: string
+              type: array
             logGroup:
               description: LogGroup defines the log group to use for the trace logs
                 for the cluster.
@@ -2598,9 +2604,11 @@ spec:
             pendingRemovals:
               additionalProperties:
                 type: string
-              description: PendingRemovals defines the processes that are pending
+              description: "PendingRemovals defines the processes that are pending
                 removal. This maps the name of a pod to its IP address. If a value
-                is left blank, the controller will provide the pod's current IP.
+                is left blank, the controller will provide the pod's current IP. \n
+                Deprecated: This is for internal use only. To tell the operator to
+                remove or replace a process, use InstancesToRemove."
               type: object
             podLabels:
               additionalProperties:

@@ -36,8 +36,33 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	hasNewRemovals := false
 
 	var removals = cluster.Spec.PendingRemovals
+
 	if removals == nil {
 		removals = make(map[string]string)
+	}
+
+	instancesToRemove := make(map[string]bool)
+
+	for _, instanceID := range cluster.Spec.InstancesToRemove {
+		instancesToRemove[instanceID] = true
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID}))
+		if err != nil {
+			return false, err
+		}
+		for _, instance := range instances {
+			if removals[instance.Metadata.Name] == "" {
+				if instance.Pod != nil {
+					var ip string
+					if r.PodIPProvider == nil {
+						ip = instance.Pod.Status.PodIP
+					} else {
+						ip = r.PodIPProvider(instance.Pod)
+					}
+					removals[instance.Metadata.Name] = ip
+					hasNewRemovals = true
+				}
+			}
+		}
 	}
 
 	currentCounts := cluster.Status.ProcessCounts.Map()
@@ -66,16 +91,24 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 			}
 
 			r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
-			for indexOfPod := 0; indexOfPod < removedCount; indexOfPod++ {
+
+			removalsChosen := 0
+			for indexOfPod := 0; indexOfPod < len(instances) && removalsChosen < removedCount; indexOfPod++ {
 				instance := instances[len(instances)-1-indexOfPod]
-				podClient, err := r.getPodClient(context, cluster, instance)
-				if err != nil {
-					return false, err
+				instanceID := instance.Metadata.Labels["fdb-instance-id"]
+				if !instancesToRemove[instanceID] {
+					podClient, err := r.getPodClient(context, cluster, instance)
+					if err != nil {
+						return false, err
+					}
+					removals[instance.Metadata.Name] = podClient.GetPodIP()
+					instancesToRemove[instanceID] = true
+					cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
+					removalsChosen += 1
 				}
-				removals[instance.Metadata.Name] = podClient.GetPodIP()
 			}
 			hasNewRemovals = true
-			cluster.Status.ProcessCounts.IncreaseCount(processClass, -1*removedCount)
+			cluster.Status.ProcessCounts.IncreaseCount(processClass, -1*removalsChosen)
 		}
 	}
 

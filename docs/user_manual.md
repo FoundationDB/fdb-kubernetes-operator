@@ -161,7 +161,7 @@ You can shrink a cluster by changing the database configuration or process count
       databaseConfiguration:
         storage: 4
 
-The operator will determine which processes to remove and store them in the `pendingRemovals` field in the cluster spec to make sure the choice of removal stays consistent across repeated runs of the reconciliation loop. Once the processes are in the `pendingRemovals` list, we will exclude them from the database, which moves all of the roles and data off of the process. Once the exclusion is complete, it is safe to remove the processes, and the operator will delete both the pods and the PVCs. Once the processes are shut down, the operator will re-include them to make sure the exclusion state doesn't get cluttered. It will also remove the process from the `pendingRemovals` list.
+The operator will determine which processes to remove and store them in the `instancesToRemove` field in the cluster spec to make sure the choice of removal stays consistent across repeated runs of the reconciliation loop. Once the processes are in the `instancesToRemove` list, we will exclude them from the database, which moves all of the roles and data off of the process. Once the exclusion is complete, it is safe to remove the processes, and the operator will delete both the pods and the PVCs. Once the processes are shut down, the operator will re-include them to make sure the exclusion state doesn't get cluttered. It will also remove the process from the `instancesToRemove` list.
 
 The exclusion can take a long time, and any changes that happen later in the reconciliation process will be blocked until the exclusion completes.
 
@@ -183,8 +183,8 @@ As an alternative, you can replace a pod by explicitly placing it in the pending
       version: 6.2.10
       databaseConfiguration:
         storage: 5
-      pendingRemovals:
-        sample-cluster-1: ""
+      instancesToRemove:
+        - storage-1
 
 When comparing the desired process count with the current pod count, any pods that are in the pending removal list are not counted. This means that the operator will only consider there to be 4 running storage pods, rather than 5, and will create a new one to fill the gap. Once this is done, it will go through the same removal process described above under "Shrinking a Cluster". The cluster will remain at full fault tolerance throughout the reconciliation. This allows you to replace an arbitrarily large number of processes in a cluster without any risk of availability loss.
 

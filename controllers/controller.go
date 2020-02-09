@@ -187,8 +187,7 @@ func (r *FoundationDBClusterReconciler) postStatusUpdate(context ctx.Context, cl
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
-	_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
-	if pendingRemoval {
+	if cluster.InstanceIsBeingRemoved(instance.Metadata.Labels["fdb-instance-id"]) {
 		return true, nil
 	}
 	client, err := r.getPodClient(context, cluster, instance)

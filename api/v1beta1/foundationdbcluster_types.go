@@ -93,9 +93,16 @@ type FoundationDBClusterSpec struct {
 	// processes.
 	CustomParameters []string `json:"customParameters,omitempty"`
 
+	// InstancesToRemove defines the instances that we should remove from the
+	// cluster. This list contains the instance IDs.
+	InstancesToRemove []string `json:"instancesToRemove,omitempty"`
+
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the name of a pod to its IP address. If a value is left blank,
 	// the controller will provide the pod's current IP.
+	//
+	// Deprecated: This is for internal use only. To tell the operator to remove
+	// or replace a process, use InstancesToRemove.
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
 
 	// PodTemplate allows customizing the FoundationDB pods.
@@ -1124,6 +1131,26 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 // IsBeingUpgraded determines whether the cluster has a pending upgrade.
 func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Spec.RunningVersion != "" && cluster.Spec.RunningVersion != cluster.Spec.Version
+}
+
+// InstanceIsBeingRemoved determines if an instance is pending removal.
+func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bool {
+	podName := fmt.Sprintf("%s-%s", cluster.Name, instanceID)
+
+	if cluster.Spec.PendingRemovals != nil {
+		_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
+		if pendingRemoval {
+			return true
+		}
+	}
+
+	for _, id := range cluster.Spec.InstancesToRemove {
+		if id == instanceID {
+			return true
+		}
+	}
+
+	return false
 }
 
 // FillInDefaultsFromStatus adds in missing fields from the database

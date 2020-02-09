@@ -111,16 +111,16 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				}
 
 				if ownedByCluster && pvc.ObjectMeta.DeletionTimestamp == nil {
+					instanceID := pvc.Labels["fdb-instance-id"]
+
 					matchingInstances, err := r.PodLifecycleManager.GetInstances(
 						r, cluster, context,
-						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"])...,
+						getPodListOptions(cluster, processClass, instanceID)...,
 					)
 					if err != nil {
 						return false, err
 					}
-					podName := pvc.Name[0 : len(pvc.Name)-5]
-					_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
-					if len(matchingInstances) == 0 && !pendingRemoval {
+					if len(matchingInstances) == 0 && !cluster.InstanceIsBeingRemoved(instanceID) {
 						reusablePvcs[index] = true
 					}
 				}

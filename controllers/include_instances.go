@@ -53,8 +53,19 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		return false, err
 	}
 
+	needsUpdate := false
+
 	if cluster.Spec.PendingRemovals != nil {
 		cluster.Spec.PendingRemovals = nil
+		needsUpdate = true
+	}
+
+	if cluster.Spec.InstancesToRemove != nil {
+		cluster.Spec.InstancesToRemove = nil
+		needsUpdate = true
+	}
+
+	if needsUpdate {
 		r.Update(context, cluster)
 		return false, nil
 	}
