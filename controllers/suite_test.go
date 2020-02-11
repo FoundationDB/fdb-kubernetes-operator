@@ -89,6 +89,7 @@ var _ = BeforeSuite(func(done Done) {
 		InSimulation:        true,
 		PodLifecycleManager: StandardPodLifecycleManager{},
 		PodClientProvider:   NewMockFdbPodClient,
+		PodIPProvider:       MockPodIP,
 		AdminClientProvider: NewMockAdminClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

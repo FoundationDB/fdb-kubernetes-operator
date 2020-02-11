@@ -242,6 +242,17 @@ func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod)
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
+// MockPodIP generates a mock IP for FDB pod
+func MockPodIP(pod *corev1.Pod) string {
+	components := strings.Split(pod.Labels["fdb-instance-id"], "-")
+	for index, class := range fdbtypes.ProcessClasses {
+		if class == components[len(components)-2] {
+			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
+		}
+	}
+	return "0.0.0.0"
+}
+
 // GetCluster returns the cluster associated with a client
 func (client *mockFdbPodClient) GetCluster() *fdbtypes.FoundationDBCluster {
 	return client.Cluster
@@ -254,7 +265,7 @@ func (client *mockFdbPodClient) GetPod() *corev1.Pod {
 
 // GetPodIP gets the IP address for a pod.
 func (client *mockFdbPodClient) GetPodIP() string {
-	return mockPodIP(client.Pod)
+	return MockPodIP(client.Pod)
 }
 
 // IsPresent checks whether a file in the sidecar is prsent.
@@ -276,17 +287,6 @@ func (client *mockFdbPodClient) GenerateMonitorConf() error {
 // volume
 func (client *mockFdbPodClient) CopyFiles() error {
 	return nil
-}
-
-// mockPodIp generates an IP address for a pod in the mock client.
-func mockPodIP(pod *corev1.Pod) string {
-	components := strings.Split(pod.Labels["fdb-instance-id"], "-")
-	for index, class := range fdbtypes.ProcessClasses {
-		if class == components[len(components)-2] {
-			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
-		}
-	}
-	return "0.0.0.0"
 }
 
 // UpdateDynamicFiles checks if the files in the dynamic conf volume match the

@@ -41,7 +41,9 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 	addresses := make([]string, 0, len(cluster.Spec.PendingRemovals))
 	for _, address := range cluster.Spec.PendingRemovals {
-		addresses = append(addresses, cluster.GetFullAddress(address))
+		if address != "" {
+			addresses = append(addresses, cluster.GetFullAddress(address))
+		}
 	}
 
 	if len(addresses) > 0 {
