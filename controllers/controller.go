@@ -108,10 +108,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		ChooseRemovals{},
 		ExcludeInstances{},
 		ChangeCoordinators{},
-		RemovePods{},
-		IncludeInstances{},
 		BounceProcesses{},
 		UpdatePods{},
+		RemovePods{},
+		IncludeInstances{},
 		UpdateStatus{UpdateGenerations: true},
 	}
 

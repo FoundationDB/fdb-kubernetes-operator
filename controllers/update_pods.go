@@ -45,7 +45,9 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		if instance.Pod == nil {
 			continue
 		}
-		if instance.Pod.DeletionTimestamp != nil {
+		_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
+
+		if instance.Pod.DeletionTimestamp != nil && !pendingRemoval {
 			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
 		}
 

@@ -80,7 +80,8 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			instanceIDs[class] = make(map[int]bool)
 		}
 
-		if instance.Pod != nil && instance.Pod.DeletionTimestamp != nil {
+		_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
+		if instance.Pod != nil && instance.Pod.DeletionTimestamp != nil && !pendingRemoval {
 			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
 		}
 
