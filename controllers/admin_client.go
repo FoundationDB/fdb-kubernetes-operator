@@ -291,8 +291,17 @@ func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, er
 
 // VersionSupported reports whether we can support a cluster with a given
 // version.
-func (client *CliAdminClient) VersionSupported(version string) (bool, error) {
-	_, err := os.Stat(getBinaryPath(version))
+func (client *CliAdminClient) VersionSupported(versionString string) (bool, error) {
+	version, err := fdbtypes.ParseFdbVersion(versionString)
+	if err != nil {
+		return false, err
+	}
+
+	if !version.IsAtLeast(MinimumFDBVersion()) {
+		return false, nil
+	}
+
+	_, err = os.Stat(getBinaryPath(versionString))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -520,7 +529,16 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 
 // VersionSupported reports whether we can support a cluster with a given
 // version.
-func (client *MockAdminClient) VersionSupported(version string) (bool, error) {
+func (client *MockAdminClient) VersionSupported(versionString string) (bool, error) {
+	version, err := fdbtypes.ParseFdbVersion(versionString)
+	if err != nil {
+		return false, err
+	}
+
+	if !version.IsAtLeast(MinimumFDBVersion()) {
+		return false, nil
+	}
+
 	return true, nil
 }
 
