@@ -434,7 +434,12 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 	}
 
 	pvc.ObjectMeta = getPvcMetadata(cluster, processClass, id)
-	pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
+	if pvc.ObjectMeta.Name == "" {
+		pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
+	} else {
+		pvc.ObjectMeta.Name = fmt.Sprintf("%s-%s", name, pvc.ObjectMeta.Name)
+	}
+
 
 	if pvc.Spec.AccessModes == nil {
 		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}

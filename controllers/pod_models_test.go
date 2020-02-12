@@ -23,7 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -1542,5 +1541,20 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with custom name in the suffix", func() {
+			BeforeEach(func() {
+				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},
+				}
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the prefix in the instance IDs with custom suffix", func() {
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-pvc1", cluster.Name)))
+			})
+		})
+
 	})
 })
