@@ -1551,10 +1551,20 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include the prefix in the instance IDs with custom suffix", func() {
+			It("should include claim name with custom suffix", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-pvc1", cluster.Name)))
 			})
 		})
 
+		Context("with default name in the suffix", func() {
+			BeforeEach(func() {
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include claim name with default suffix", func() {
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+			})
+		})
 	})
 })
