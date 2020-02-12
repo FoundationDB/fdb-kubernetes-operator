@@ -1343,6 +1343,28 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with custom pvc", func() {
+			BeforeEach(func() {
+				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{ Name: "claim1"}}
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("adds data volume that refers to custom pvc", func() {
+				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "claim1")))
+			})
+		})
+
+		Context("with no custom pvc", func() {
+			BeforeEach(func() {
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("adds data volume that refers to default pvc", func() {
+				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "data")))
+			})
+		})
 	})
 
 	Describe("GetPvc", func() {
