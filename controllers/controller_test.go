@@ -1156,6 +1156,27 @@ var _ = Describe("controller", func() {
 				}))
 			})
 		})
+
+		Context("with a custom configmap", func() {
+			BeforeEach(func() {
+				cluster.Spec.ConfigMap = &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "name1",
+					},
+				}
+			})
+
+			It("should use the configmap name as suffix", func() {
+				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "name1")))
+			})
+		})
+
+		Context("without a configmap", func() {
+
+			It("should use the default suffix", func() {
+				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
+			})
+		})
 	})
 
 	Describe("GetMonitorConf", func() {
