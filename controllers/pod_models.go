@@ -348,11 +348,18 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"})
 	}
 
+	var configMapRefName string
+	if cluster.Spec.ConfigMap != nil && cluster.Spec.ConfigMap.Name != "" {
+		configMapRefName = fmt.Sprintf("%s-%s", cluster.Name, cluster.Spec.ConfigMap.Name)
+	} else {
+		configMapRefName = fmt.Sprintf("%s-config", cluster.Name)
+	}
+
 	volumes := []corev1.Volume{
 		corev1.Volume{Name: "data", VolumeSource: mainVolumeSource},
 		corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-			LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+			LocalObjectReference: corev1.LocalObjectReference{Name: configMapRefName},
 			Items:                configMapItems,
 		}}},
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
