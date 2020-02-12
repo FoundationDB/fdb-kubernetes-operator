@@ -407,7 +407,11 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}
 
 	metadata := getConfigMapMetadata(cluster)
-	metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	if metadata.Name == "" {
+		metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	} else {
+		metadata.Name = fmt.Sprintf("%s-%s", cluster.Name, metadata.Name)
+	}
 	metadata.OwnerReferences = owner
 
 	return &corev1.ConfigMap{
