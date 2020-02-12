@@ -1,13 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   creationTimestamp: null
-  name: manager-rolebinding
+  name: {{ .Values.operator.rolebinding }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ template "chart.name" .}}-manager-role
+  kind: Role
+  name: {{ .Values.operator.role }}
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: {{ .Release.Namespace }}

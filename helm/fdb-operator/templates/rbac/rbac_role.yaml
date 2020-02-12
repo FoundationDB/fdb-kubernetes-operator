@@ -1,8 +1,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   creationTimestamp: null
-  name: {{ template "chart.name" .}}-manager-role
+  name: {{ .Values.operator.role }}
 rules:
 - apiGroups:
   - ""
@@ -17,6 +17,7 @@ rules:
   - list
   - create
   - update
+  - patch
   - delete
 - apiGroups:
   - apps.foundationdb.org
