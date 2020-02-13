@@ -233,7 +233,7 @@ var _ = Describe("controller", func() {
 
 				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					cluster.GetFullAddress(mockPodIP(&removedItem)): true,
+					cluster.GetFullAddress(MockPodIP(&removedItem)): true,
 				}))
 			})
 		})
@@ -394,7 +394,7 @@ var _ = Describe("controller", func() {
 				Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					cluster.GetFullAddress(mockPodIP(&originalPods.Items[firstStorageIndex])): true,
+					cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
 				}))
 			})
 
@@ -423,7 +423,7 @@ var _ = Describe("controller", func() {
 				It("should bounce the processes", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(mockPodIP(&pod)))
+						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod)))
 					}
 
 					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
@@ -970,7 +970,7 @@ var _ = Describe("controller", func() {
 			It("should bounce the processes", func() {
 				addresses := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					addresses[fmt.Sprintf("%s:4500:tls", mockPodIP(&pod))] = true
+					addresses[fmt.Sprintf("%s:4500:tls", MockPodIP(&pod))] = true
 				}
 
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
@@ -1154,6 +1154,27 @@ var _ = Describe("controller", func() {
 				Expect(configMap.Annotations).To(Equal(map[string]string{
 					"fdb-annotation": "value1",
 				}))
+			})
+		})
+
+		Context("with a custom configmap", func() {
+			BeforeEach(func() {
+				cluster.Spec.ConfigMap = &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "name1",
+					},
+				}
+			})
+
+			It("should use the configmap name as suffix", func() {
+				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "name1")))
+			})
+		})
+
+		Context("without a configmap", func() {
+
+			It("should use the default suffix", func() {
+				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
 			})
 		})
 	})

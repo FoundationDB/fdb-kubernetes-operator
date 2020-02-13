@@ -1344,6 +1344,28 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with custom map", func() {
+			BeforeEach(func() {
+				cluster.Spec.ConfigMap = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{ Name: "config1"}}
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("adds config-map volume that refers to custom map", func() {
+				Expect(spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config1")))
+			})
+		})
+
+		Context("with no custom map", func() {
+			BeforeEach(func() {
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("adds config-map volume that refers to custom map", func() {
+				Expect(spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
+			})
+		})
+		
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{ Name: "claim1"}}

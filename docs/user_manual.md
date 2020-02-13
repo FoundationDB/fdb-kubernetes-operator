@@ -37,6 +37,8 @@ just created this cluster, and will cover an operation on this cluster.
 For more information on the fields you can define on the cluster resource, see
 the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta1#FoundationDBCluster).
 
+For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
+
 # Creating a Cluster
 
 To start with, we are going to be creating a cluster with the following configuration:

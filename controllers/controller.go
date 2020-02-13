@@ -55,6 +55,7 @@ type FoundationDBClusterReconciler struct {
 	InSimulation        bool
 	PodLifecycleManager PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
+	PodIPProvider       func(*corev1.Pod) string
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
@@ -107,10 +108,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		ChooseRemovals{},
 		ExcludeInstances{},
 		ChangeCoordinators{},
-		RemovePods{},
-		IncludeInstances{},
 		BounceProcesses{},
 		UpdatePods{},
+		RemovePods{},
+		IncludeInstances{},
 		UpdateStatus{UpdateGenerations: true},
 	}
 
@@ -406,7 +407,11 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}
 
 	metadata := getConfigMapMetadata(cluster)
-	metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	if metadata.Name == "" {
+		metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	} else {
+		metadata.Name = fmt.Sprintf("%s-%s", cluster.Name, metadata.Name)
+	}
 	metadata.OwnerReferences = owner
 
 	return &corev1.ConfigMap{
@@ -572,15 +577,6 @@ func (r *FoundationDBClusterReconciler) getPodClient(context ctx.Context, cluste
 		return nil, err
 	}
 	return client, nil
-}
-
-func (r *FoundationDBClusterReconciler) getPodClientAsync(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, clientChan chan FdbPodClient, errorChan chan error) {
-	client, err := r.getPodClient(context, cluster, instance)
-	if err != nil {
-		errorChan <- err
-	} else {
-		clientChan <- client
-	}
 }
 
 func sortPodsByID(pods *corev1.PodList) error {
@@ -784,4 +780,8 @@ type SubReconciler interface {
 	again.
 	*/
 	RequeueAfter() time.Duration
+}
+
+func MinimumFDBVersion() fdbtypes.FdbVersion {
+	return fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12}
 }

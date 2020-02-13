@@ -26,6 +26,8 @@ Most of these examples are designed for doing local development on the operator,
 
 For more information about using the operator, see the [user manual](docs/user_manual.md).
 
+For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
+
 For more information on the fields you can define on the cluster resource, see
 the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta1#FoundationDBCluster).
 

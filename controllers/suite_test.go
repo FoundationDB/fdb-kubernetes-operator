@@ -89,6 +89,7 @@ var _ = BeforeSuite(func(done Done) {
 		InSimulation:        true,
 		PodLifecycleManager: StandardPodLifecycleManager{},
 		PodClientProvider:   NewMockFdbPodClient,
+		PodIPProvider:       MockPodIP,
 		AdminClientProvider: NewMockAdminClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -128,7 +129,7 @@ var Versions = struct {
 	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithRatekeeperRole:                   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutRatekeeperRole:                fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 0},
+	WithoutRatekeeperRole:                fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12},
 }
 
 func createDefaultCluster() *fdbtypes.FoundationDBCluster {
