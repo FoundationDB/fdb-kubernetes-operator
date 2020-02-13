@@ -331,8 +331,14 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
+		var volumeClaimSourceName string
+		if cluster.Spec.VolumeClaim != nil && cluster.Spec.VolumeClaim.Name != "" {
+			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, cluster.Spec.VolumeClaim.Name)
+		} else {
+			volumeClaimSourceName = fmt.Sprintf("%s-data", podName)
+		}
 		mainVolumeSource.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: fmt.Sprintf("%s-data", podName),
+			ClaimName: volumeClaimSourceName,
 		}
 	} else {
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
@@ -441,7 +447,12 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 	}
 
 	pvc.ObjectMeta = getPvcMetadata(cluster, processClass, id)
-	pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
+	if pvc.ObjectMeta.Name == "" {
+		pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
+	} else {
+		pvc.ObjectMeta.Name = fmt.Sprintf("%s-%s", name, pvc.ObjectMeta.Name)
+	}
+
 
 	if pvc.Spec.AccessModes == nil {
 		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}

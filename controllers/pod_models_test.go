@@ -23,7 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -1366,6 +1365,28 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Volumes[2].VolumeSource.ConfigMap.LocalObjectReference.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
 			})
 		})
+		
+		Context("with custom pvc", func() {
+			BeforeEach(func() {
+				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{ Name: "claim1"}}
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("adds data volume that refers to custom pvc", func() {
+				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "claim1")))
+			})
+		})
+
+		Context("with no custom pvc", func() {
+			BeforeEach(func() {
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("adds data volume that refers to default pvc", func() {
+				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "data")))
+			})
+		})
 	})
 
 	Describe("GetPvc", func() {
@@ -1562,6 +1583,31 @@ var _ = Describe("pod_models", func() {
 					"fdb-instance-id":      "dc1-storage-1",
 					"fdb-full-instance-id": "dc1-storage-1",
 				}))
+			})
+		})
+
+		Context("with custom name in the suffix", func() {
+			BeforeEach(func() {
+				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},
+				}
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include claim name with custom suffix", func() {
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-pvc1", cluster.Name)))
+			})
+		})
+
+		Context("with default name in the suffix", func() {
+			BeforeEach(func() {
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include claim name with default suffix", func() {
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 			})
 		})
 	})
