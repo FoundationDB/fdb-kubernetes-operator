@@ -424,11 +424,11 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		}
 		status.Cluster.Processes[pod.Name] = fdbtypes.FoundationDBStatusProcessInfo{
 			Address:      fullAddress,
-			ProcessClass: pod.Labels["fdb-process-class"],
+			ProcessClass: GetProcessClassFromMeta(pod.ObjectMeta),
 			CommandLine:  command,
 			Excluded:     ipExcluded || addressExcluded,
 			Locality: map[string]string{
-				"instance_id": pod.Labels["fdb-instance-id"],
+				"instance_id": instance.GetInstanceID(),
 			},
 		}
 	}

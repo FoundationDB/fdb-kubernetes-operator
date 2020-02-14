@@ -95,7 +95,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 			removalsChosen := 0
 			for indexOfPod := 0; indexOfPod < len(instances) && removalsChosen < removedCount; indexOfPod++ {
 				instance := instances[len(instances)-1-indexOfPod]
-				instanceID := instance.Metadata.Labels["fdb-instance-id"]
+				instanceID := instance.GetInstanceID()
 				if !instancesToRemove[instanceID] {
 					podClient, err := r.getPodClient(context, cluster, instance)
 					if err != nil {

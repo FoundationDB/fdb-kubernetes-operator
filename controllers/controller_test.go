@@ -1619,7 +1619,7 @@ var _ = Describe("controller", func() {
 				command, err = GetStartCommand(cluster, instance, podClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				id := instance.Metadata.Labels["fdb-instance-id"]
+				id := instance.GetInstanceID()
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",

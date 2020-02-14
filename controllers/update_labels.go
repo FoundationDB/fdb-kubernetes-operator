@@ -39,8 +39,8 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 	for _, instance := range instances {
 		if instance.Pod != nil {
-			processClass := instance.Metadata.Labels["fdb-process-class"]
-			instanceId := instance.Metadata.Labels["fdb-instance-id"]
+			processClass := instance.GetProcessClass()
+			instanceId := instance.GetInstanceID()
 
 			metadata := getPodMetadata(cluster, processClass, instanceId, "")
 			if metadata.Annotations == nil {
@@ -74,8 +74,8 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 	for _, pvc := range pvcs.Items {
-		processClass := pvc.ObjectMeta.Labels["fdb-process-class"]
-		instanceId := pvc.ObjectMeta.Labels["fdb-instance-id"]
+		processClass := GetProcessClassFromMeta(pvc.ObjectMeta)
+		instanceId := GetInstanceIDFromMeta(pvc.ObjectMeta)
 
 		metadata := getPvcMetadata(cluster, processClass, instanceId)
 
