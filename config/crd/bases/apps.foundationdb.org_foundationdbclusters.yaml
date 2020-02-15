@@ -26,6 +26,8 @@ spec:
     kind: FoundationDBCluster
     listKind: FoundationDBClusterList
     plural: foundationdbclusters
+    shortNames:
+    - fdb
     singular: foundationdbcluster
   scope: Namespaced
   subresources:
