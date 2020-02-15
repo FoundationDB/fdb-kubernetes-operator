@@ -2,12 +2,25 @@
 # alongside the cluster.
 #
 # Once the cluster and the backup agents are up, you can start a backup by
-# opening a shell one of the backup_agent pods and running the
-# `fdbbackup start` command.
+# opening a shell in one of the backup_agent pods and running the
+# fdbbackup commands command. Examples:
 #
-# Note that this example contains placeholders for secrets. You will need to
-# fill in those placeholders with real values for your backup destination to
-# do a secure backup.
+#     # Start a Backup:
+#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup start -d "blobstore://minio@minio-service:9000/sample-cluster-test-backup?sc=0&bucket=fdb-backups" -z
+#     # Check Status
+#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup status
+#
+# This example uses configuration for a local MinIO instance, which is set up as
+# part of the local testing environment for the operator. This instance has
+# TLS disabled, and credentials that are hardcoded in the YAML. This
+# configuration is for testing purposes only. You will need to determine the
+# appropriate way of managing TLS and credentials for your real environment and
+# endpoints, as well as the appropriate backup solution to use. We use MinIO in
+# our local tests due to its lightweight setup, but you can backup to any
+# S3-compatible object storage service.
+#
+# If you are testing this in Docker Desktop, you can browse the local MinIO
+# instance at http://localhost:9000.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
@@ -54,13 +67,13 @@ metadata:
 type: Opaque
 stringData:
   credentials: |
-    # Fill in your credentials
-  certificate: |
-    # Fill in your certificate
-  key: |
-    # Fill in your key
-  ca: |
-    # Fill in your trusted certs
+    {
+      "accounts": {
+        "minio@minio-service": {
+          "secret" : "minio123"
+        }
+      }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -90,12 +103,6 @@ spec:
           env:
             - name: FDB_CLUSTER_FILE
               value: /var/dynamic-conf/fdb.cluster
-            - name: FDB_TLS_CA_FILE
-              value: /var/secrets/ca
-            - name: FDB_TLS_CERTIFICATE_FILE
-              value: /var/secrets/certificate
-            - name: FDB_TLS_KEY_FILE
-              value: /var/secrets/key
             - name: FDB_BLOB_CREDENTIALS
               value: /var/secrets/credentials
           resources:

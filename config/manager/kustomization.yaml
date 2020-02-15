@@ -6,3 +6,4 @@ images:
 - name: controller
   newName: fdb-kubernetes-operator
   newTag: latest
+namePrefix: fdb-kubernetes-operator-

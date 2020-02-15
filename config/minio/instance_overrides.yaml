@@ -1,0 +1,10 @@
+apiVersion: miniocontroller.min.io/v1beta1
+kind: MinIOInstance
+metadata:
+  name: minio
+spec:
+  replicas: 1
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
