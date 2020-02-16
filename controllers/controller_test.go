@@ -83,7 +83,10 @@ var _ = Describe("controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout = time.Second * 5
-			Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{Reconciled: 4}))
+			Eventually(func() (int64, error) {
+				generations, err := reloadClusterGenerations(k8sClient, cluster)
+				return generations.Reconciled, err
+			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			originalVersion = cluster.ObjectMeta.Generation
@@ -113,6 +116,7 @@ var _ = Describe("controller", func() {
 			BeforeEach(func() {
 				generationGap = 0
 			})
+
 			It("should create pods", func() {
 				pods := &corev1.PodList{}
 				Eventually(func() (int, error) {
