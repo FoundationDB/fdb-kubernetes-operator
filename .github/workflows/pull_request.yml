@@ -20,11 +20,11 @@ jobs:
       run: |
         go get -v -t -d ./...
         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
-        mv kustomize /usr/bin/
+        sudo mv kustomize /usr/local/bin/
         os=$(go env GOOS)
         arch=$(go env GOARCH)
         curl -L https://go.kubebuilder.io/dl/2.2.0/${os}/${arch} | tar -xz -C /tmp/
-        mv /tmp/kubebuilder_2.2.0_${os}_${arch} /usr/local/kubebuilder
+        sudo mv /tmp/kubebuilder_2.2.0_${os}_${arch} /usr/local/kubebuilder
         export PATH=$PATH:/usr/local/kubebuilder/bin
 
     - name: Build
