@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"errors"
+	"fmt"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -43,10 +44,26 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	}
 	defer adminClient.Close()
 
+	connectionString, err := adminClient.GetConnectionString()
+	if err != nil {
+		return false, err
+	}
+
+	if connectionString != cluster.Spec.ConnectionString {
+		log.Info("Updating out-of-date connection string", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		r.Recorder.Event(cluster, "Normal", "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
+		cluster.Spec.ConnectionString = connectionString
+		err = r.Update(context, cluster)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
 	}
+
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range status.Client.Coordinators.Coordinators {
 		coordinatorStatus[coordinator.Address] = false
