@@ -54,9 +54,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		r.Recorder.Event(cluster, "Normal", "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Spec.ConnectionString = connectionString
 		err = r.Update(context, cluster)
-		if err != nil {
-			return false, err
-		}
+		return false, err
 	}
 
 	status, err := adminClient.GetStatus()
