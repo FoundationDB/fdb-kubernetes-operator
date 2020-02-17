@@ -142,7 +142,8 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			Version:          Versions.Default.String(),
 			ConnectionString: "operator-test:asdfasf@127.0.0.1:4501",
 			ProcessCounts: fdbtypes.ProcessCounts{
-				Storage: 4,
+				Storage:           4,
+				ClusterController: 1,
 			},
 			FaultDomain: fdbtypes.FoundationDBClusterFaultDomain{
 				Key: "foundationdb.org/none",
