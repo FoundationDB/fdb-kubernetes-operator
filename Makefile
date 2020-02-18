@@ -15,7 +15,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager samples documentation
+all: manager samples documentation lint
 
 # Run tests
 test: generate fmt vet manifests
@@ -89,6 +89,8 @@ docs/cluster_spec.md: bin/po-docgen api/v1beta1/foundationdbcluster_types.go
 
 documentation: docs/cluster_spec.md
 
+lint:
+	go run golang.org/x/lint/golint -set_exit_status ./...
 
 # find or download controller-gen
 # download controller-gen if necessary
