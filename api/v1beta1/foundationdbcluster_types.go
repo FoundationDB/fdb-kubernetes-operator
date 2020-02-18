@@ -211,6 +211,12 @@ type FoundationDBClusterStatus struct {
 	// incorrect configuration.
 	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
 
+	// IncorrectPods provides the pods that do not have the correct
+	// spec.
+	//
+	// This will contain the name of the pod.
+	IncorrectPods []string `json:"incorrectPods,omitempty"`
+
 	// MissingProcesses provides the processes that are not reporting to the
 	// cluster.
 	// This will map the names of the pod to the timestamp when we observed
@@ -230,6 +236,10 @@ type FoundationDBClusterStatus struct {
 	// RequiredAddresses define that addresses that we need to enable for the
 	// processes in the cluster.
 	RequiredAddresses RequiredAddressSet `json:"requiredAddresses,omitempty"`
+
+	// HasIncorrectConfigMap indicates whether the latest config map is out
+	// of date with the cluster spec.
+	HasIncorrectConfigMap bool `json:"hasIncorrectConfigMap,omitempty"`
 }
 
 // GenerationStatus stores information on which generations have reached
@@ -249,6 +259,27 @@ type GenerationStatus struct {
 	// NeedsPodDeletion provides the last generation that is pending pods being
 	// deleted and recreated.
 	NeedsPodDeletion int64 `json:"needsPodDeletion,omitempty"`
+
+	// NeedsShrink provides the last generation that is pending pods being
+	// excluded and removed.
+	NeedsShrink int64 `json:"needsShrink,omitempty"`
+
+	// NeedsGrow provides the last generation that is pending pods being
+	// added.
+	NeedsGrow int64 `json:"needsGrow,omitempty"`
+
+	// NeedsMonitorConfUpdate provides the last generation that needs an update
+	// through the fdbmonitor conf.
+	NeedsMonitorConfUpdate int64 `json:"needsMonitorConfUpdate,omitempty"`
+
+	// DatabaseUnavailable provides the last generation that could not
+	// complete reconciliation due to the database being unavailable.
+	DatabaseUnavailable int64 `json:"missingDatabaseStatus,omitempty"`
+
+	// HasExtraListeners provides the last generation that could not
+	// complete reconciliation because it has more listeners than it is supposed
+	// to.
+	HasExtraListeners int64 `json:"hasExtraListeners,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -611,19 +642,101 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 	return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
 }
 
+// CheckReconciliation compares the spec and the status to determine if
+// reconciliation is complete.
+func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
+	var reconciled = true
+	if !cluster.Spec.Configured {
+		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
+		return false, nil
+	}
+
+	if len(cluster.Spec.PendingRemovals) > 0 {
+		cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	desiredCounts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return false, err
+	}
+
+	diff := desiredCounts.diff(cluster.Status.ProcessCounts)
+
+	for _, delta := range diff {
+		if delta > 0 {
+			cluster.Status.Generations.NeedsGrow = cluster.ObjectMeta.Generation
+			reconciled = false
+		} else if delta < 0 {
+			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
+			reconciled = false
+		}
+	}
+
+	if len(cluster.Status.IncorrectProcesses) > 0 {
+		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if len(cluster.Status.IncorrectPods) > 0 {
+		cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if !cluster.Status.Health.Available {
+		cluster.Status.Generations.DatabaseUnavailable = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if !reflect.DeepEqual(cluster.Status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration()) {
+		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if cluster.Status.HasIncorrectConfigMap {
+		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	desiredAddressSet := RequiredAddressSet{}
+	if cluster.Spec.MainContainer.EnableTLS {
+		desiredAddressSet.TLS = true
+	} else {
+		desiredAddressSet.NonTLS = true
+	}
+
+	if cluster.Status.RequiredAddresses != desiredAddressSet {
+		cluster.Status.Generations.HasExtraListeners = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if reconciled {
+		cluster.Status.Generations = GenerationStatus{
+			Reconciled: cluster.ObjectMeta.Generation,
+		}
+	}
+	return reconciled, nil
+}
+
 // CountsAreSatisfied checks whether the current counts of processes satisfy
 // a desired set of counts.
 func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool {
+	return len(counts.diff(currentCounts)) == 0
+}
+
+// diff gets the diff between two sets of process counts.
+func (counts ProcessCounts) diff(currentCounts ProcessCounts) map[string]int64 {
+	diff := make(map[string]int64)
 	desiredValue := reflect.ValueOf(counts)
 	currentValue := reflect.ValueOf(currentCounts)
-	for _, index := range processClassIndices {
+	for label, index := range processClassIndices {
 		desired := desiredValue.Field(index).Int()
 		current := currentValue.Field(index).Int()
 		if (desired > 0 || current > 0) && desired != current {
-			return false
+			diff[label] = desired - current
 		}
 	}
-	return true
+	return diff
 }
 
 // FoundationDBStatus describes the status of the cluster as provided by
@@ -794,6 +907,11 @@ type ProcessAddress struct {
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
 	components := strings.Split(address, ":")
+
+	if len(components) < 2 {
+		return result, fmt.Errorf("Invalid address: %s", address)
+	}
+
 	result.IPAddress = components[0]
 
 	port, err := strconv.Atoi(components[1])

@@ -375,6 +375,11 @@ func (in *FoundationDBClusterStatus) DeepCopyInto(out *FoundationDBClusterStatus
 			(*out)[key] = val
 		}
 	}
+	if in.IncorrectPods != nil {
+		in, out := &in.IncorrectPods, &out.IncorrectPods
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.MissingProcesses != nil {
 		in, out := &in.MissingProcesses, &out.MissingProcesses
 		*out = make(map[string]int64, len(*in))
