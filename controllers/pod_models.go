@@ -354,6 +354,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"})
 	}
 
+	if cluster.Spec.ConfigMap != nil && len(cluster.Spec.ConfigMap.Data) > 0 {
+		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "items", Path: "items.json"})
+	}
+
 	var configMapRefName string
 	if cluster.Spec.ConfigMap != nil && cluster.Spec.ConfigMap.Name != "" {
 		configMapRefName = fmt.Sprintf("%s-%s", cluster.Name, cluster.Spec.ConfigMap.Name)
