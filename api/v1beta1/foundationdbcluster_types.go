@@ -1473,10 +1473,10 @@ type FdbVersion struct {
 	// Major is the major version
 	Major int
 
-	// Minor is the major version
+	// Minor is the minor version
 	Minor int
 
-	// Patch is the major version
+	// Patch is the patch version
 	Patch int
 }
 

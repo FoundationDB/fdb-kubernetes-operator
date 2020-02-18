@@ -108,8 +108,8 @@ FdbVersion represents a version of FoundationDB.  This provides convenience meth
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | Major | Major is the major version | int | false |
-| Minor | Minor is the major version | int | false |
-| Patch | Patch is the major version | int | false |
+| Minor | Minor is the minor version | int | false |
+| Patch | Patch is the patch version | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -355,6 +355,7 @@ FoundationDBStatusSupportedVersion provides information about a version of FDB s
 | ----- | ----------- | ------ | -------- |
 | client_version | ClientVersion provides the version of FDB the client is connecting through. | string | false |
 | connected_clients | ConnectedClient provides the clients that are using this version. | [][FoundationDBStatusConnectedClient](#foundationdbstatusconnectedclient) | true |
+| max_protocol_clients | MaxProtocolClients provides the clients that are using this version as their highest supported protocol version. | [][FoundationDBStatusConnectedClient](#foundationdbstatusconnectedclient) | true |
 | protocol_version | ProtocolVersion is the version of the wire protocol the client is using. | string | false |
 | source_version | SourceVersion is the version of the source code that the client library was built from. | string | false |
 
@@ -402,6 +403,8 @@ ProcessCounts represents the number of processes we have for each valid process 
 | proxy |  | int | false |
 | resolver |  | int | false |
 | router |  | int | false |
+| ratekeeper |  | int | false |
+| data_distributor |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
