@@ -87,7 +87,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			r.Recorder.Event(cluster, "Normal", "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
-			err = r.postStatusUpdate(context, cluster)
+			err = r.Status().Update(context, cluster)
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}

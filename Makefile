@@ -15,7 +15,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager samples
+all: manager samples documentation
 
 # Run tests
 test: generate fmt vet manifests
@@ -79,6 +79,15 @@ config/samples/deployment/crd.yaml: config/crd/bases/apps.foundationdb.org_found
 
 config/samples/deployment.yaml: manifests config/samples/deployment/crd.yaml
 	kustomize build config/samples/deployment > config/samples/deployment.yaml
+
+bin/po-docgen: cmd/po-docgen/main.go  cmd/po-docgen/api.go
+	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
+
+
+docs/cluster_spec.md: bin/po-docgen api/v1beta1/foundationdbcluster_types.go
+	bin/po-docgen api api/v1beta1/foundationdbcluster_types.go > docs/cluster_spec.md
+
+documentation: docs/cluster_spec.md
 
 
 # find or download controller-gen

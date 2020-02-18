@@ -10279,6 +10279,17 @@ spec:
                 to be reconciled, or to reach other stages at which reconciliation
                 can halt.
               properties:
+                hasExtraListeners:
+                  description: HasExtraListeners provides the last generation that
+                    could not complete reconciliation because it has more listeners
+                    than it is supposed to.
+                  format: int64
+                  type: integer
+                missingDatabaseStatus:
+                  description: DatabaseUnavailable provides the last generation that
+                    could not complete reconciliation due to the database being unavailable.
+                  format: int64
+                  type: integer
                 needsBounce:
                   description: NeedsBounce provides the last generation that is pending
                     a bounce of fdbserver.
@@ -10289,9 +10300,24 @@ spec:
                     that is pending a change to configuration.
                   format: int64
                   type: integer
+                needsGrow:
+                  description: NeedsGrow provides the last generation that is pending
+                    pods being added.
+                  format: int64
+                  type: integer
+                needsMonitorConfUpdate:
+                  description: NeedsMonitorConfUpdate provides the last generation
+                    that needs an update through the fdbmonitor conf.
+                  format: int64
+                  type: integer
                 needsPodDeletion:
                   description: NeedsPodDeletion provides the last generation that
                     is pending pods being deleted and recreated.
+                  format: int64
+                  type: integer
+                needsShrink:
+                  description: NeedsShrink provides the last generation that is pending
+                    pods being excluded and removed.
                   format: int64
                   type: integer
                 reconciled:
@@ -10300,6 +10326,10 @@ spec:
                   format: int64
                   type: integer
               type: object
+            hasIncorrectConfigMap:
+              description: HasIncorrectConfigMap indicates whether the latest config
+                map is out of date with the cluster spec.
+              type: boolean
             health:
               description: Health provides information about the health of the database.
               properties:
@@ -10320,6 +10350,12 @@ spec:
                     healthy state.
                   type: boolean
               type: object
+            incorrectPods:
+              description: "IncorrectPods provides the pods that do not have the correct
+                spec. \n This will contain the name of the pod."
+              items:
+                type: string
+              type: array
             incorrectProcesses:
               additionalProperties:
                 format: int64

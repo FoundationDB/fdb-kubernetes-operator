@@ -2839,5 +2839,168 @@ func TestInstanceIsBeingRemoved(t *testing.T) {
 	cluster.Spec.InstancesToRemove = []string{"log-1"}
 	g.Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(gomega.BeFalse())
 	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeTrue())
+}
+
+func TestCheckingReconciliation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	createCluster := func() *FoundationDBCluster {
+		return &FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "sample-cluster",
+				Namespace:  "default",
+				Generation: 2,
+			},
+			Spec: FoundationDBClusterSpec{
+				Configured: true,
+				Version:    Versions.Default.String(),
+				DatabaseConfiguration: DatabaseConfiguration{
+					RedundancyMode: "double",
+				},
+			},
+			Status: FoundationDBClusterStatus{
+				Health: ClusterHealth{
+					Available: true,
+					Healthy:   true,
+				},
+				RequiredAddresses: RequiredAddressSet{
+					NonTLS: true,
+				},
+				DatabaseConfiguration: DatabaseConfiguration{
+					RedundancyMode: "double",
+					RoleCounts: RoleCounts{
+						Logs:       3,
+						Proxies:    3,
+						Resolvers:  1,
+						LogRouters: -1,
+						RemoteLogs: -1,
+					},
+				},
+				Generations: GenerationStatus{
+					Reconciled: 1,
+				},
+				ProcessCounts: ProcessCounts{
+					Storage:   3,
+					Stateless: 9,
+					Log:       4,
+				},
+			},
+		}
+	}
+
+	cluster := createCluster()
+
+	result, err := cluster.CheckReconciliation()
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Spec.Configured = false
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:               1,
+		NeedsConfigurationChange: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Spec.PendingRemovals = map[string]string{
+		"sample-cluster-storage-1": "17.1.1.1",
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:  1,
+		NeedsShrink: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.ProcessCounts.Storage = 4
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:  1,
+		NeedsShrink: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.ProcessCounts.Log = 3
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled: 1,
+		NeedsGrow:  2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.IncorrectProcesses = map[string]int64{
+		"sample-cluster-storage-1": 123,
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:             1,
+		NeedsMonitorConfUpdate: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.IncorrectPods = []string{
+		"sample-cluster-storage-1",
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:       1,
+		NeedsPodDeletion: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.Health.Available = false
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:          1,
+		DatabaseUnavailable: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-1"
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:               1,
+		NeedsConfigurationChange: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.HasIncorrectConfigMap = true
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:             1,
+		NeedsMonitorConfUpdate: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.RequiredAddresses.TLS = true
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:        1,
+		HasExtraListeners: 2,
+	}))
 
 }

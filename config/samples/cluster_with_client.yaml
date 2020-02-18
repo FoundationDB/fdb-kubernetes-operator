@@ -1,0 +1,135 @@
+# This file provides an example of a cluster with a client app connected.
+#
+# The client app will get its cluster file from a config map that is managed
+# by the operator. It will also use the sidecar to include multiple client
+# libraries to support upgrades of FoundationDB.
+#
+# Because the app depends on the config map created by the operator, it will
+# not be able to launch until the cluster gets far enough in reconciliation to
+# generate a cluster file. You can work around this by creating the cluster
+# first and then applying the rest of the file to create the app. As an
+# alternative, you can apply the entire file and then run
+# `kubectl delete pod -l app=sample-cluster-client` to bounce the clients and
+# pick up the final cluster file.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: sample-cluster
+spec:
+  version: 6.2.15
+  faultDomain:
+    key: foundationdb.org/none
+  processCounts:
+    stateless: -1
+  customParameters:
+    - "knob_disable_posix_kernel_aio=1"
+  persistentVolumeClaim:
+    spec:
+      resources:
+        requests:
+          storage: "16G"
+  podTemplate:
+    spec:
+      securityContext:
+        fsGroup: 0
+      containers:
+        - name: foundationdb
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+        - name: foundationdb-kubernetes-sidecar
+          securityContext:
+            runAsUser: 0
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          securityContext:
+            runAsUser: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-cluster-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-cluster-client
+  template:
+    metadata:
+      labels:
+        app: sample-cluster-client
+      name: sample-cluster-client
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.15-1
+          args:
+            - "--copy-file"
+            - "fdb.cluster"
+            - "--copy-library"
+            - "6.1"
+            - "--copy-library"
+            - "6.2"
+            - "--init-mode"
+          volumeMounts:
+            - name: config-map
+              mountPath: /var/input-files
+            - name: dynamic-conf
+              mountPath: /var/output-files
+      containers:
+        - name: client
+          image: foundationdb/foundationdb-sample-python-app:latest
+          imagePullPolicy: Always
+          env:
+            - name: FDB_CLUSTER_FILE
+              value: /var/dynamic-conf/fdb.cluster
+            - name: FDB_API_VERSION
+              value: "610"
+            - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+              value: sample-cluster-client
+            - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+              value: /var/dynamic-conf/lib/multiversion
+            - name: LD_LIBRARY_PATH
+              value: /var/dynamic-conf/lib
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          volumeMounts:
+            - name: dynamic-conf
+              mountPath: /var/dynamic-conf
+      volumes:
+        - name: config-map
+          configMap:
+            name: sample-cluster-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+        - name: dynamic-conf
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-cluster-client
+  labels:
+    app: sample-cluster-client
+spec:
+  selector:
+    app: sample-cluster-client
+  type: LoadBalancer
+  ports:
+    - port: 9562
+      targetPort: 5000

@@ -84,7 +84,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
 				fmt.Sprintf("Spec require a bounce of some processes, but killing processes is disabled"))
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-			err = r.postStatusUpdate(context, cluster)
+			err = r.Status().Update(context, cluster)
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}

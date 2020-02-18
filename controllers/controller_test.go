@@ -83,7 +83,10 @@ var _ = Describe("controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout = time.Second * 5
-			Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{Reconciled: 4}))
+			Eventually(func() (int64, error) {
+				generations, err := reloadClusterGenerations(k8sClient, cluster)
+				return generations.Reconciled, err
+			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			originalVersion = cluster.ObjectMeta.Generation
@@ -113,6 +116,7 @@ var _ = Describe("controller", func() {
 			BeforeEach(func() {
 				generationGap = 0
 			})
+
 			It("should create pods", func() {
 				pods := &corev1.PodList{}
 				Eventually(func() (int, error) {
@@ -524,8 +528,9 @@ var _ = Describe("controller", func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{
-						Reconciled:  originalVersion,
-						NeedsBounce: originalVersion + 1,
+						Reconciled:             originalVersion,
+						NeedsBounce:            originalVersion + 1,
+						NeedsMonitorConfUpdate: originalVersion + 1,
 					}))
 				})
 
@@ -913,7 +918,7 @@ var _ = Describe("controller", func() {
 					},
 				}
 
-				timeout = 60 * time.Second
+				timeout = 120 * time.Second
 			})
 
 			Context("with deletion enabled", func() {
@@ -1061,6 +1066,22 @@ var _ = Describe("controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(address.Flags["tls"]).To(BeTrue())
 				}
+			})
+		})
+
+		Context("downgrade cluster", func() {
+			BeforeEach(func() {
+				generationGap = 0
+				IncompatibleVersion := Versions.Default
+				IncompatibleVersion.Patch--
+				cluster.Spec.Version = IncompatibleVersion.String()
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not downgrade cluster", func() {
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
+				Expect(cluster.Spec.RunningVersion).To(Equal(Versions.Default.String()))
 			})
 		})
 	})

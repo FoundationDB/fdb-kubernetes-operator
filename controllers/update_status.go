@@ -28,31 +28,23 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // UpdateStatus provides a reconciliation step for updating the status in the
 // CRD.
 type UpdateStatus struct {
-	UpdateGenerations bool
 }
 
 func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	status := fdbtypes.FoundationDBClusterStatus{}
+	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
-
-	desiredAddressSet := fdbtypes.RequiredAddressSet{}
-	if cluster.Spec.MainContainer.EnableTLS {
-		desiredAddressSet.TLS = true
-	} else {
-		desiredAddressSet.NonTLS = true
-	}
-
-	status.RequiredAddresses = desiredAddressSet
 
 	if cluster.Spec.Configured {
 		adminClient, err := r.AdminClientProvider(cluster, r)
@@ -79,6 +71,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
+	if cluster.Spec.MainContainer.EnableTLS {
+		status.RequiredAddresses.TLS = true
+	} else {
+		status.RequiredAddresses.NonTLS = true
+	}
+
 	if databaseStatus != nil {
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
 			address, err := fdbtypes.ParseProcessAddress(coordinator.Address)
@@ -96,7 +94,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	cluster.Status.RequiredAddresses = status.RequiredAddresses
 
-	hasIncorrectPodSpecs := false
+	status.IncorrectPods = make([]string, 0)
 
 	for _, instance := range instances {
 		processClass := instance.GetProcessClass()
@@ -154,8 +152,25 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				return false, err
 			}
 
-			if instance.Metadata.Annotations[LastPodHashKey] != specHash {
-				hasIncorrectPodSpecs = true
+			incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, id, specHash))
+
+			pvcs := &corev1.PersistentVolumeClaimList{}
+			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, id)...)
+			desiredPvc, err := GetPvc(cluster, processClass, idNum)
+			if err != nil {
+				return false, err
+			}
+
+			if (len(pvcs.Items) == 1) != (desiredPvc != nil) {
+				incorrectPod = true
+			}
+
+			if !incorrectPod && desiredPvc != nil {
+				incorrectPod = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
+			}
+
+			if incorrectPod {
+				status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
 			}
 		}
 	}
@@ -165,36 +180,14 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 	existingConfigMap := &corev1.ConfigMap{}
-	configMapUpdated := true
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
-		configMapUpdated = false
+		status.HasIncorrectConfigMap = true
 	} else if err != nil {
 		return false, err
 	}
 
-	configMapUpdated = reflect.DeepEqual(existingConfigMap.Data, configMap.Data) && reflect.DeepEqual(existingConfigMap.Labels, configMap.Labels)
-
-	desiredCounts, err := cluster.GetProcessCountsWithDefaults()
-	if err != nil {
-		return false, err
-	}
-
-	reconciled := cluster.Spec.Configured &&
-		len(cluster.Spec.PendingRemovals) == 0 &&
-		desiredCounts.CountsAreSatisfied(status.ProcessCounts) &&
-		len(status.IncorrectProcesses) == 0 &&
-		!hasIncorrectPodSpecs &&
-		databaseStatus != nil &&
-		reflect.DeepEqual(status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration()) &&
-		configMapUpdated &&
-		status.RequiredAddresses == desiredAddressSet
-
-	if reconciled && s.UpdateGenerations {
-		status.Generations = fdbtypes.GenerationStatus{Reconciled: cluster.ObjectMeta.Generation}
-	} else {
-		status.Generations = cluster.Status.Generations
-	}
+	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	if databaseStatus != nil {
 		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
@@ -210,9 +203,17 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.MissingProcesses = nil
 	}
 
-	if !reflect.DeepEqual(cluster.Status, status) {
-		cluster.Status = status
-		err = r.postStatusUpdate(context, cluster)
+	originalStatus := cluster.Status.DeepCopy()
+
+	cluster.Status = status
+
+	_, err = cluster.CheckReconciliation()
+	if err != nil {
+		return false, err
+	}
+
+	if !reflect.DeepEqual(cluster.Status, *originalStatus) {
+		err = r.Status().Update(context, cluster)
 		if err != nil {
 			log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			return false, err
@@ -224,4 +225,21 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 func (s UpdateStatus) RequeueAfter() time.Duration {
 	return 0
+}
+
+// containsAll determines if one map contains all the keys and matching values
+// from another map.
+func containsAll(current map[string]string, desired map[string]string) bool {
+	for key, value := range desired {
+		if current[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+// metadataMatches determines if the current metadata on an object matches the
+// metadata specified by the cluster spec.
+func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
+	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
 }
