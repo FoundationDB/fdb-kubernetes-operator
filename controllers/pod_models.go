@@ -36,8 +36,8 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
-// getInstanceId generates an ID for an instance.
-func getInstanceId(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (string, string) {
+// getInstanceID generates an ID for an instance.
+func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (string, string) {
 	var instanceID string
 	if cluster.Spec.InstanceIDPrefix != "" {
 		instanceID = fmt.Sprintf("%s-%s-%d", cluster.Spec.InstanceIDPrefix, processClass, idNum)
@@ -49,7 +49,7 @@ func getInstanceId(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 
 // GetPod builds a pod for a new instance
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
-	name, id := getInstanceId(cluster, processClass, idNum)
+	name, id := getInstanceID(cluster, processClass, idNum)
 
 	owner, err := buildOwnerReference(context, cluster, kubeClient)
 	if err != nil {
@@ -105,7 +105,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	if mainContainer == nil {
 		containerCount := 1 + len(podSpec.Containers) + len(cluster.Spec.Containers)
 		if sidecarContainer == nil {
-			containerCount += 1
+			containerCount++
 		}
 		containers := make([]corev1.Container, 0, containerCount)
 		containers = append(containers, corev1.Container{
@@ -130,7 +130,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		initContainer = &podSpec.InitContainers[len(podSpec.InitContainers)-1]
 	}
 
-	podName, instanceID := getInstanceId(cluster, processClass, idNum)
+	podName, instanceID := getInstanceID(cluster, processClass, idNum)
 
 	if cluster.Spec.MainContainer.ImageName != "" {
 		mainContainer.Image = cluster.Spec.MainContainer.ImageName
@@ -218,7 +218,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		for _, substitution := range cluster.Spec.SidecarVariables {
 			sidecarInitArgs = append(sidecarInitArgs, "--substitute-variable", substitution)
 		}
-		if !version.HasInstanceIdInSidecarSubstitutions() {
+		if !version.HasInstanceIDInSidecarSubstitutions() {
 			sidecarInitArgs = append(sidecarInitArgs, "--substitute-variable", "FDB_INSTANCE_ID")
 		}
 	}
@@ -437,7 +437,7 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 	if !usePvc(cluster, processClass) {
 		return nil, nil
 	}
-	name, id := getInstanceId(cluster, processClass, idNum)
+	name, id := getInstanceID(cluster, processClass, idNum)
 
 	var pvc *corev1.PersistentVolumeClaim
 	if cluster.Spec.VolumeClaim == nil {

@@ -35,6 +35,7 @@ import (
 // for a cluster.
 type UpdateConfigMap struct{}
 
+// Reconcile runs the reconciler's work.
 func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	configMap, err := GetConfigMap(context, cluster, r)
 	if err != nil {
@@ -86,6 +87,8 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (u UpdateConfigMap) RequeueAfter() time.Duration {
 	return time.Duration(30) * time.Second
 }

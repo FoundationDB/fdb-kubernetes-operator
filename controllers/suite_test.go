@@ -114,7 +114,7 @@ var _ = AfterSuite(func() {
 
 var Versions = struct {
 	NextMajorVersion,
-	WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
+	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
 	WithRatekeeperRole, WithoutRatekeeperRole,
@@ -122,8 +122,8 @@ var Versions = struct {
 }{
 	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
-	WithSidecarInstanceIdSubstitution:    fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutSidecarInstanceIdSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithSidecarInstanceIDSubstitution:    fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithoutSidecarInstanceIDSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithCommandLineVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithEnvironmentVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},

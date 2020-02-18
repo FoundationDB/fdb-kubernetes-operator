@@ -34,6 +34,7 @@ import (
 // database configuration.
 type UpdateDatabaseConfiguration struct{}
 
+// Reconcile runs the reconciler's work.
 func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 
@@ -119,6 +120,8 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 	return !initialConfig, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (u UpdateDatabaseConfiguration) RequeueAfter() time.Duration {
 	return 0
 }

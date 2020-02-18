@@ -33,6 +33,7 @@ import (
 // specs.
 type UpdatePods struct{}
 
+// Reconcile runs the reconciler's work.
 func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
@@ -119,6 +120,8 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (u UpdatePods) RequeueAfter() time.Duration {
 	return 0
 }

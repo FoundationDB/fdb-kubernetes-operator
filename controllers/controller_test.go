@@ -1167,8 +1167,8 @@ var _ = Describe("controller", func() {
 
 		Context("with implicit instance ID substitution", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithSidecarInstanceIdSubstitution.String()
-				cluster.Spec.RunningVersion = Versions.WithSidecarInstanceIdSubstitution.String()
+				cluster.Spec.Version = Versions.WithSidecarInstanceIDSubstitution.String()
+				cluster.Spec.RunningVersion = Versions.WithSidecarInstanceIDSubstitution.String()
 			})
 
 			It("should not include any substitutions in the sidecar conf", func() {
@@ -1182,8 +1182,8 @@ var _ = Describe("controller", func() {
 
 		Context("with explicit instance ID substitution", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithoutSidecarInstanceIdSubstitution.String()
-				cluster.Spec.RunningVersion = Versions.WithoutSidecarInstanceIdSubstitution.String()
+				cluster.Spec.Version = Versions.WithoutSidecarInstanceIDSubstitution.String()
+				cluster.Spec.RunningVersion = Versions.WithoutSidecarInstanceIDSubstitution.String()
 			})
 
 			It("should include the instance ID in the substitutions in the sidecar conf", func() {
@@ -1867,7 +1867,7 @@ func getProcessClassMap(pods []corev1.Pod) map[string]int {
 	counts := make(map[string]int)
 	for _, pod := range pods {
 		ProcessClass := pod.Labels["fdb-process-class"]
-		counts[ProcessClass] += 1
+		counts[ProcessClass]++
 	}
 	return counts
 }

@@ -32,6 +32,7 @@ import (
 type SetDefaultValues struct {
 }
 
+// Reconcile runs the reconciler's work.
 func (s SetDefaultValues) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	changed := false
 	if cluster.Spec.RedundancyMode == "" {
@@ -58,6 +59,8 @@ func (s SetDefaultValues) Reconcile(r *FoundationDBClusterReconciler, context ct
 	return !changed, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (s SetDefaultValues) RequeueAfter() time.Duration {
 	return 0
 }

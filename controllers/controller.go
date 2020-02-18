@@ -61,6 +61,7 @@ type FoundationDBClusterReconciler struct {
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
 
+// Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
 	// your logic here
 
@@ -141,6 +142,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager prepares a reconciler for use.
 func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
@@ -157,6 +159,8 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 var log = logf.Log.WithName("controller")
 
+// LastPodHashKey provides the annotation name we use to store the hash of the
+// pod spec.
 const LastPodHashKey = "org.foundationdb/last-applied-pod-spec-hash"
 
 var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
@@ -238,17 +242,15 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) metav1.ObjectMeta {
 	if cluster.Spec.VolumeClaim != nil {
 		return getObjectMetadata(cluster, &cluster.Spec.VolumeClaim.ObjectMeta, processClass, id)
-	} else {
-		return getObjectMetadata(cluster, nil, processClass, id)
 	}
+	return getObjectMetadata(cluster, nil, processClass, id)
 }
 
 func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMeta {
 	if cluster.Spec.ConfigMap != nil {
 		return getObjectMetadata(cluster, &cluster.Spec.ConfigMap.ObjectMeta, "", "")
-	} else {
-		return getObjectMetadata(cluster, nil, "", "")
 	}
+	return getObjectMetadata(cluster, nil, "", "")
 }
 
 func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass string, id string) metav1.ObjectMeta {
@@ -358,11 +360,11 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	if err != nil {
 		return nil, err
 	}
-	needsInstanceIdSubstitution := !version.HasInstanceIdInSidecarSubstitutions()
+	needsInstanceIDSubstitution := !version.HasInstanceIDInSidecarSubstitutions()
 
 	substitutionCount := len(cluster.Spec.SidecarVariables)
-	if needsInstanceIdSubstitution {
-		substitutionCount += 1
+	if needsInstanceIDSubstitution {
+		substitutionCount++
 	}
 
 	var substitutionKeys []string
@@ -371,7 +373,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		substitutionKeys = make([]string, 0, substitutionCount)
 		substitutionKeys = append(substitutionKeys, cluster.Spec.SidecarVariables...)
 
-		if needsInstanceIdSubstitution {
+		if needsInstanceIDSubstitution {
 			substitutionKeys = append(substitutionKeys, "FDB_INSTANCE_ID")
 		}
 	}
@@ -429,6 +431,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	return strings.Join(confLines, "\n"), nil
 }
 
+// GetStartCommand builds the expected start command for an instance.
 func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, podClient FdbPodClient) (string, error) {
 	if instance.Pod == nil {
 		return "", MissingPodError(instance, cluster)
@@ -523,7 +526,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
 
-	for index, _ := range confLines {
+	for index := range confLines {
 		for key, value := range substitutions {
 			confLines[index] = strings.Replace(confLines[index], "$"+key, value, -1)
 		}
@@ -531,6 +534,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	return confLines, nil
 }
 
+// GetPodSpecHash builds the hash of the expected spec for a pod.
 func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, id int, spec *corev1.PodSpec) (string, error) {
 	var err error
 	if spec == nil {
@@ -760,9 +764,7 @@ func (err ReconciliationNotReadyError) Error() string {
 	return err.message
 }
 
-/**
-This type describes a class that does part of the work of reconciliation.
-*/
+// SubReconciler describes a class that does part of the work of reconciliation.
 type SubReconciler interface {
 	/**
 	Reconcile runs the reconciler's work.
@@ -786,6 +788,7 @@ type SubReconciler interface {
 	RequeueAfter() time.Duration
 }
 
+// MinimumFDBVersion defines the minimum supported FDB version.
 func MinimumFDBVersion() fdbtypes.FdbVersion {
 	return fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12}
 }

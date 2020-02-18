@@ -18,7 +18,7 @@ package v1beta1
 
 var Versions = struct {
 	NextMajorVersion,
-	WithSidecarInstanceIdSubstitution, WithoutSidecarInstanceIdSubstitution,
+	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
 	WithRatekeeperRole, WithoutRatekeeperRole,
@@ -26,8 +26,8 @@ var Versions = struct {
 }{
 	Default:                              FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	NextMajorVersion:                     FdbVersion{Major: 7, Minor: 0, Patch: 0},
-	WithSidecarInstanceIdSubstitution:    FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutSidecarInstanceIdSubstitution: FdbVersion{Major: 6, Minor: 2, Patch: 11},
+	WithSidecarInstanceIDSubstitution:    FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	WithoutSidecarInstanceIDSubstitution: FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithCommandLineVariablesForSidecar:   FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithEnvironmentVariablesForSidecar:   FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithBinariesFromMainContainer:        FdbVersion{Major: 6, Minor: 2, Patch: 15},
