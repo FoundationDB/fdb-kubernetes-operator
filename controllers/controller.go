@@ -26,7 +26,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -158,8 +157,6 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 var log = logf.Log.WithName("controller")
 
-var hasStatusSubresource = os.Getenv("HAS_STATUS_SUBRESOURCE") != "0"
-
 const LastPodHashKey = "org.foundationdb/last-applied-pod-spec-hash"
 
 var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
@@ -176,14 +173,6 @@ func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Res
 	}
 
 	return ctrl.Result{}, err
-}
-
-func (r *FoundationDBClusterReconciler) postStatusUpdate(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
-	if hasStatusSubresource {
-		return r.Status().Update(context, cluster)
-	} else {
-		return r.Update(context, cluster)
-	}
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {

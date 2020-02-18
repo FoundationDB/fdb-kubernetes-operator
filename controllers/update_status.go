@@ -213,7 +213,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	if !reflect.DeepEqual(cluster.Status, status) {
 		cluster.Status = status
-		err = r.postStatusUpdate(context, cluster)
+		err = r.Status().Update(context, cluster)
 		if err != nil {
 			log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			return false, err
