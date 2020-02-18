@@ -998,6 +998,22 @@ var _ = Describe("controller", func() {
 				}
 			})
 		})
+
+		Context("downgrade cluster", func() {
+			BeforeEach(func() {
+				generationGap = 0
+				IncompatibleVersion := Versions.Default
+				IncompatibleVersion.Patch--
+				cluster.Spec.Version = IncompatibleVersion.String()
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should not downgrade cluster", func() {
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
+				Expect(cluster.Spec.RunningVersion).To(Equal(Versions.Default.String()))
+			})
+		})
 	})
 
 	Describe("GetConfigMap", func() {

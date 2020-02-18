@@ -48,6 +48,15 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 		return false, err
 	}
 
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false, err
+	}
+
+	if !version.IsAtLeast(runningVersion) {
+		return false, fmt.Errorf("cluster downgrade operation is not supported")
+	}
+
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
