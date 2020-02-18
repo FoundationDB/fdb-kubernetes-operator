@@ -176,8 +176,7 @@ func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Res
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
-	_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
-	if pendingRemoval {
+	if cluster.InstanceIsBeingRemoved(instance.GetInstanceID()) {
 		return true, nil
 	}
 	client, err := r.getPodClient(context, cluster, instance)
@@ -189,7 +188,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context
 		return false, MissingPodError(instance, cluster)
 	}
 
-	conf, err := GetMonitorConf(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, client)
+	conf, err := GetMonitorConf(cluster, instance.GetProcessClass(), instance.Pod, client)
 	if err != nil {
 		return false, err
 	}
@@ -435,7 +434,7 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 		return "", MissingPodError(instance, cluster)
 	}
 
-	lines, err := getStartCommandLines(cluster, instance.Metadata.Labels["fdb-process-class"], instance.Pod, podClient)
+	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), instance.Pod, podClient)
 	if err != nil {
 		return "", err
 	}
@@ -571,7 +570,7 @@ func (r *FoundationDBClusterReconciler) getPodClient(context ctx.Context, cluste
 func sortPodsByID(pods *corev1.PodList) error {
 	var err error
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].Labels["fdb-instance-id"] < pods.Items[j].Labels["fdb-instance-id"]
+		return GetInstanceIDFromMeta(pods.Items[i].ObjectMeta) < GetInstanceIDFromMeta(pods.Items[j].ObjectMeta)
 	})
 	return err
 }
@@ -579,8 +578,8 @@ func sortPodsByID(pods *corev1.PodList) error {
 func sortInstancesByID(instances []FdbInstance) error {
 	var err error
 	sort.Slice(instances, func(i, j int) bool {
-		prefix1, id1, err1 := ParseInstanceID(instances[i].Metadata.Labels["fdb-instance-id"])
-		prefix2, id2, err2 := ParseInstanceID(instances[j].Metadata.Labels["fdb-instance-id"])
+		prefix1, id1, err1 := ParseInstanceID(instances[i].GetInstanceID())
+		prefix2, id2, err2 := ParseInstanceID(instances[j].GetInstanceID())
 		if err1 != nil {
 			err = err1
 			return false
@@ -638,6 +637,22 @@ func newFdbInstance(pod corev1.Pod) FdbInstance {
 // NamespacedName gets the name of an instance along with its namespace
 func (instance FdbInstance) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Namespace: instance.Metadata.Namespace, Name: instance.Metadata.Name}
+}
+
+func (instance FdbInstance) GetInstanceID() string {
+	return GetInstanceIDFromMeta(*instance.Metadata)
+}
+
+func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
+	return metadata.Labels["fdb-instance-id"]
+}
+
+func (instance FdbInstance) GetProcessClass() string {
+	return GetProcessClassFromMeta(*instance.Metadata)
+}
+
+func GetProcessClassFromMeta(metadata metav1.ObjectMeta) string {
+	return metadata.Labels["fdb-process-class"]
 }
 
 // GetInstances returns a list of instances for FDB pods that have been
@@ -722,7 +737,7 @@ func ParseInstanceID(id string) (string, int, error) {
 // MissingPodError creates an error that can be thrown when an instance does not
 // have an associated pod.
 func MissingPodError(instance FdbInstance, cluster *fdbtypes.FoundationDBCluster) error {
-	return MissingPodErrorByName(instance.Metadata.Labels["fdb-instance-id"], cluster)
+	return MissingPodErrorByName(instance.GetInstanceID(), cluster)
 }
 
 // MissingPodErrorByName creates an error that can be thrown when an instance

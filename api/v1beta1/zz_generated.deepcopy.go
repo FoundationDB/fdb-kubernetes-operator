@@ -269,6 +269,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.InstancesToRemove != nil {
+		in, out := &in.InstancesToRemove, &out.InstancesToRemove
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.PendingRemovals != nil {
 		in, out := &in.PendingRemovals, &out.PendingRemovals
 		*out = make(map[string]string, len(*in))

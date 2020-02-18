@@ -2820,6 +2820,27 @@ func TestParseProcessAddress(t *testing.T) {
 	g.Expect(err.Error()).To(gomega.Equal("strconv.Atoi: parsing \"bad\": invalid syntax"))
 }
 
+func TestInstanceIsBeingRemoved(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cluster := &FoundationDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "sample-cluster",
+		},
+	}
+	g.Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(gomega.BeFalse())
+
+	cluster.Spec.PendingRemovals = map[string]string{
+		"sample-cluster-storage-1": "127.0.0.1",
+	}
+	g.Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(gomega.BeTrue())
+	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeFalse())
+	cluster.Spec.PendingRemovals = nil
+
+	cluster.Spec.InstancesToRemove = []string{"log-1"}
+	g.Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(gomega.BeFalse())
+	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeTrue())
+}
+
 func TestCheckingReconciliation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

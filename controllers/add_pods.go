@@ -70,18 +70,18 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 	instanceIDs := make(map[string]map[int]bool)
 	for _, instance := range instances {
-		_, num, err := ParseInstanceID(instance.Metadata.Labels["fdb-instance-id"])
+		instanceID := instance.GetInstanceID()
+		_, num, err := ParseInstanceID(instanceID)
 		if err != nil {
 			return false, err
 		}
 
-		class := instance.Metadata.Labels["fdb-process-class"]
+		class := instance.GetProcessClass()
 		if instanceIDs[class] == nil {
 			instanceIDs[class] = make(map[int]bool)
 		}
 
-		_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
-		if instance.Pod != nil && instance.Pod.DeletionTimestamp != nil && !pendingRemoval {
+		if instance.Pod != nil && instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {
 			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
 		}
 
@@ -111,16 +111,16 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				}
 
 				if ownedByCluster && pvc.ObjectMeta.DeletionTimestamp == nil {
+					instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
+
 					matchingInstances, err := r.PodLifecycleManager.GetInstances(
 						r, cluster, context,
-						getPodListOptions(cluster, processClass, pvc.Labels["fdb-instance-id"])...,
+						getPodListOptions(cluster, processClass, instanceID)...,
 					)
 					if err != nil {
 						return false, err
 					}
-					podName := pvc.Name[0 : len(pvc.Name)-5]
-					_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
-					if len(matchingInstances) == 0 && !pendingRemoval {
+					if len(matchingInstances) == 0 && !cluster.InstanceIsBeingRemoved(instanceID) {
 						reusablePvcs[index] = true
 					}
 				}
@@ -131,7 +131,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				if newCount <= 0 {
 					break
 				}
-				instanceID := pvcs.Items[index].Labels["fdb-instance-id"]
+				instanceID := GetInstanceIDFromMeta(pvcs.Items[index].ObjectMeta)
 				_, idNum, err := ParseInstanceID(instanceID)
 				if err != nil {
 					return false, err
@@ -141,7 +141,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				if err != nil {
 					return false, err
 				}
-				if pod.Labels["fdb-instance-id"] != instanceID {
+				if GetInstanceIDFromMeta(pod.ObjectMeta) != instanceID {
 					return false, fmt.Errorf("Failed to create new pod to match PVC %s", pvcs.Items[index].Name)
 				}
 

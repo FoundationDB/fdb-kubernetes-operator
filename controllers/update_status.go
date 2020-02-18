@@ -97,11 +97,10 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.IncorrectPods = make([]string, 0)
 
 	for _, instance := range instances {
-		processClass := instance.Metadata.Labels["fdb-process-class"]
-		instanceID := instance.Metadata.Labels["fdb-instance-id"]
+		processClass := instance.GetProcessClass()
+		instanceID := instance.GetInstanceID()
 
-		_, pendingRemoval := cluster.Spec.PendingRemovals[instance.Metadata.Name]
-		if pendingRemoval {
+		if cluster.InstanceIsBeingRemoved(instanceID) {
 			continue
 		}
 
@@ -132,7 +131,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 
 			if !correct {
-				instanceID := instance.Metadata.Labels["fdb-instance-id"]
+				instanceID := instance.GetInstanceID()
 				existingTime, exists := cluster.Status.IncorrectProcesses[instanceID]
 				if exists {
 					status.IncorrectProcesses[instanceID] = existingTime
@@ -143,15 +142,13 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 
 		if instance.Pod != nil {
-			id := instance.Metadata.Labels["fdb-instance-id"]
+			id := instance.GetInstanceID()
 			_, idNum, err := ParseInstanceID(id)
 			if err != nil {
 				return false, err
 			}
 
-			processClass := instance.Metadata.Labels["fdb-process-class"]
-
-			specHash, err := GetPodSpecHash(cluster, processClass, idNum, nil)
+			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 			if err != nil {
 				return false, err
 			}

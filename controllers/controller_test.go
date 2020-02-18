@@ -229,6 +229,7 @@ var _ = Describe("controller", func() {
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
+				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -348,6 +349,7 @@ var _ = Describe("controller", func() {
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
+				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 			})
 		})
 
@@ -357,53 +359,120 @@ var _ = Describe("controller", func() {
 			BeforeEach(func() {
 				generationGap = 4
 				originalConnectionString = cluster.Spec.ConnectionString
-				cluster.Spec.PendingRemovals = map[string]string{
-					originalPods.Items[firstStorageIndex].Name: "",
-				}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should keep the process counts the same", func() {
-				pods := &corev1.PodList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					return len(pods.Items), err
-				}, timeout).Should(Equal(17))
+			Context("with an entry in the pending removals map", func() {
+				BeforeEach(func() {
+					cluster.Spec.PendingRemovals = map[string]string{
+						originalPods.Items[firstStorageIndex].Name: "",
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage":   4,
-					"log":       4,
-					"stateless": 9,
-				}))
+				It("should keep the process counts the same", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}, timeout).Should(Equal(17))
+
+					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+						"storage":   4,
+						"log":       4,
+						"stateless": 9,
+					}))
+				})
+
+				It("should replace one of the pods", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}, timeout).Should(Equal(17))
+
+					sortPodsByID(pods)
+
+					Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+					Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+				})
+
+				It("should exclude and re-include the process", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient).NotTo(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
+						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+					}))
+				})
+
+				It("should change the connection string", func() {
+					Expect(cluster.Spec.ConnectionString).NotTo(Equal(originalConnectionString))
+				})
+
+				It("should clear the removal list", func() {
+					Expect(cluster.Spec.PendingRemovals).To(BeNil())
+					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
+				})
 			})
 
-			It("should replace one of the pods", func() {
-				pods := &corev1.PodList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					return len(pods.Items), err
-				}, timeout).Should(Equal(17))
+			Context("with an entry in the instances to remove list", func() {
+				BeforeEach(func() {
+					cluster.Spec.InstancesToRemove = []string{
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-				sortPodsByID(pods)
+				It("should keep the process counts the same", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}, timeout).Should(Equal(17))
 
-				Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
-				Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
-			})
+					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+						"storage":   4,
+						"log":       4,
+						"stateless": 9,
+					}))
+				})
 
-			It("should exclude and re-include the process", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(adminClient).NotTo(BeNil())
-				Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
+				It("should replace one of the pods", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}, timeout).Should(Equal(17))
 
-				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
-				}))
-			})
+					sortPodsByID(pods)
 
-			It("should change the connection string", func() {
-				Expect(cluster.Spec.ConnectionString).NotTo(Equal(originalConnectionString))
+					Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+					Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+				})
+
+				It("should exclude and re-include the process", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient).NotTo(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
+						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+					}))
+				})
+
+				It("should change the connection string", func() {
+					Expect(cluster.Spec.ConnectionString).NotTo(Equal(originalConnectionString))
+				})
+
+				It("should clear the removal list", func() {
+					Expect(cluster.Spec.PendingRemovals).To(BeNil())
+					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
+				})
 			})
 		})
 
@@ -1571,7 +1640,7 @@ var _ = Describe("controller", func() {
 				command, err = GetStartCommand(cluster, instance, podClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				id := instance.Metadata.Labels["fdb-instance-id"]
+				id := instance.GetInstanceID()
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",

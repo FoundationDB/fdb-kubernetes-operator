@@ -177,7 +177,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. | []string | false |
-| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP. | map[string]string | false |
+| instancesToRemove | InstancesToRemove defines the instances that we should remove from the cluster. This list contains the instance IDs. | []string | false |
+| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP.  **Deprecated: This is for internal use only. To tell the operator to remove or replace a process, use InstancesToRemove.** | map[string]string | false |
 | podTemplate | PodTemplate allows customizing the FoundationDB pods. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 | volumeClaim | VolumeClaim allows customizing the persistent volume claim for the FoundationDB pods. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
 | configMap | ConfigMap allows customizing the config map the operator creates. | *[corev1.ConfigMap](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#configmap-v1-core) | false |
