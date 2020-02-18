@@ -212,11 +212,13 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | ----- | ----------- | ------ | -------- |
 | processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. | [ProcessCounts](#processcounts) | false |
 | incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the instance ID to the timestamp when we observed the incorrect configuration. | map[string]int64 | false |
+| incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. | []string | false |
 | missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [GenerationStatus](#generationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
+| hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -371,6 +373,11 @@ GenerationStatus stores information on which generations have reached different 
 | needsConfigurationChange | NeedsConfigurationChange provides the last generation that is pending a change to configuration. | int64 | false |
 | needsBounce | NeedsBounce provides the last generation that is pending a bounce of fdbserver. | int64 | false |
 | needsPodDeletion | NeedsPodDeletion provides the last generation that is pending pods being deleted and recreated. | int64 | false |
+| needsShrink | NeedsShrink provides the last generation that is pending pods being excluded and removed. | int64 | false |
+| needsGrow | NeedsGrow provides the last generation that is pending pods being added. | int64 | false |
+| needsMonitorConfUpdate | NeedsMonitorConfUpdate provides the last generation that needs an update through the fdbmonitor conf. | int64 | false |
+| missingDatabaseStatus | DatabaseUnavailable provides the last generation that could not complete reconciliation due to the database being unavailable. | int64 | false |
+| hasExtraListeners | HasExtraListeners provides the last generation that could not complete reconciliation because it has more listeners than it is supposed to. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
