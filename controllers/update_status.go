@@ -142,7 +142,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 
 		if instance.Pod != nil {
-			_, idNum, err := ParseInstanceID(instance.GetInstanceID())
+			id := instance.GetInstanceID()
+			_, idNum, err := ParseInstanceID(id)
 			if err != nil {
 				return false, err
 			}
