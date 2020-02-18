@@ -105,7 +105,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 					removals[instance.Metadata.Name] = podClient.GetPodIP()
 					instancesToRemove[instanceID] = true
 					cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
-					removalsChosen += 1
+					removalsChosen++
 				}
 			}
 			hasNewRemovals = true

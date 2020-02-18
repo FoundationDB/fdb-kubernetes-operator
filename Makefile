@@ -15,7 +15,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager samples documentation lint
+all: manager samples documentation
 
 # Run tests
 test: generate fmt vet manifests

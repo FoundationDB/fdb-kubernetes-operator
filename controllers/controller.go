@@ -643,18 +643,22 @@ func (instance FdbInstance) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Namespace: instance.Metadata.Namespace, Name: instance.Metadata.Name}
 }
 
+// GetInstanceID fetches the instance ID from an instance's metadata.
 func (instance FdbInstance) GetInstanceID() string {
 	return GetInstanceIDFromMeta(*instance.Metadata)
 }
 
+// GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
 func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
 	return metadata.Labels["fdb-instance-id"]
 }
 
+// GetProcessClass fetches the process class from an instance's metadata.
 func (instance FdbInstance) GetProcessClass() string {
 	return GetProcessClassFromMeta(*instance.Metadata)
 }
 
+// GetProcessClassFromMeta fetches the process class from an object's metadata.
 func GetProcessClassFromMeta(metadata metav1.ObjectMeta) string {
 	return metadata.Labels["fdb-process-class"]
 }
