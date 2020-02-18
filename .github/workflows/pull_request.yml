@@ -32,3 +32,8 @@ jobs:
 
     - name: Check for uncommitted changes
       run: git diff --exit-code
+
+    - name: Run golint
+      run: |
+        go run golang.org/x/lint/golint -set_exit_status ./...
+
