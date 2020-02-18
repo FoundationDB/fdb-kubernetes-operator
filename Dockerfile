@@ -21,8 +21,7 @@ RUN \
 			rm /usr/bin/fdb/$minor/$binary; \
 		done && \
 		chmod u+x /usr/bin/fdb/$minor/fdb*; \
-	done && \
-	mkdir -p /var/log/fdb
+	done
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -40,12 +39,19 @@ COPY controllers/ controllers/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
-FROM ubuntu:latest
+FROM ubuntu:18.04
 WORKDIR /
 
 COPY --from=builder /workspace/manager .
 COPY --from=builder /usr/bin/fdb /usr/bin/fdb
-COPY --from=builder /var/log/fdb /var/log/fdb
+
+RUN groupadd --gid 4059 fdb && \
+	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb && \
+	mkdir -p /var/log/fdb && \
+	chown fdb:fdb /var/log/fdb && \
+	chmod -R a+x /usr/bin/fdb
+
+USER fdb
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
 ENV FDB_BINARY_DIR=/usr/bin/fdb
