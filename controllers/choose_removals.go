@@ -32,6 +32,7 @@ import (
 // ChooseRemovals chooses which processes will be removed during a shrink.
 type ChooseRemovals struct{}
 
+// Reconcile runs the reconciler's work.
 func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
@@ -104,7 +105,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 					removals[instance.Metadata.Name] = podClient.GetPodIP()
 					instancesToRemove[instanceID] = true
 					cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
-					removalsChosen += 1
+					removalsChosen++
 				}
 			}
 			hasNewRemovals = true
@@ -154,6 +155,8 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	return !hasNewRemovals, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (c ChooseRemovals) RequeueAfter() time.Duration {
 	return 0
 }

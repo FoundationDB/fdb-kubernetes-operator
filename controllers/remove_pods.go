@@ -34,6 +34,7 @@ import (
 // shrink or replacement.
 type RemovePods struct{}
 
+// Reconcile runs the reconciler's work.
 func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if len(cluster.Spec.PendingRemovals) == 0 {
 		return true, nil
@@ -119,6 +120,8 @@ func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, c
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (u RemovePods) RequeueAfter() time.Duration {
 	return 0
 }

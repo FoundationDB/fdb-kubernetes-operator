@@ -33,6 +33,7 @@ import (
 // processes.
 type BounceProcesses struct{}
 
+// Reconcile runs the reconciler's work.
 func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
@@ -110,6 +111,8 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (b BounceProcesses) RequeueAfter() time.Duration {
 	return 0
 }

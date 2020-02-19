@@ -32,6 +32,7 @@ import (
 // UpdateLabels provides a reconciliation step for updating the labels on pods.
 type UpdateLabels struct{}
 
+// Reconcile runs the reconciler's work.
 func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
@@ -40,9 +41,9 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	for _, instance := range instances {
 		if instance.Pod != nil {
 			processClass := instance.GetProcessClass()
-			instanceId := instance.GetInstanceID()
+			instanceID := instance.GetInstanceID()
 
-			metadata := getPodMetadata(cluster, processClass, instanceId, "")
+			metadata := getPodMetadata(cluster, processClass, instanceID, "")
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string)
 			}
@@ -75,9 +76,9 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 	for _, pvc := range pvcs.Items {
 		processClass := GetProcessClassFromMeta(pvc.ObjectMeta)
-		instanceId := GetInstanceIDFromMeta(pvc.ObjectMeta)
+		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
 
-		metadata := getPvcMetadata(cluster, processClass, instanceId)
+		metadata := getPvcMetadata(cluster, processClass, instanceID)
 
 		metadataCorrect := true
 		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, metadata.Labels) {
@@ -101,6 +102,8 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (u UpdateLabels) RequeueAfter() time.Duration {
 	return 0
 }

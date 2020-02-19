@@ -32,6 +32,7 @@ import (
 // after removing them.
 type IncludeInstances struct{}
 
+// Reconcile runs the reconciler's work.
 func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
@@ -73,6 +74,8 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (i IncludeInstances) RequeueAfter() time.Duration {
 	return 0
 }

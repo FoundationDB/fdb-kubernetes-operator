@@ -32,6 +32,7 @@ import (
 // coordinators.
 type ChangeCoordinators struct{}
 
+// Reconcile runs the reconciler's work.
 func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Spec.Configured {
 		return true, nil
@@ -118,6 +119,8 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	return !needsChange, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (c ChangeCoordinators) RequeueAfter() time.Duration {
 	return 0
 }

@@ -189,9 +189,8 @@ func (client *realFdbPodClient) IsPresent(filename string) (bool, error) {
 	response, isResponse := err.(failedResponse)
 	if isResponse && response.response.StatusCode == 404 {
 		return false, nil
-	} else {
-		return false, err
 	}
+	return false, err
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.

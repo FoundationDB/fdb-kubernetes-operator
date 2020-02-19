@@ -33,6 +33,7 @@ import (
 // version of FoundationDB configured on the cluster.
 type CheckClientCompatibility struct{}
 
+// Reconcile runs the reconciler's work.
 func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Spec.Configured {
 		return true, nil
@@ -119,6 +120,8 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (c CheckClientCompatibility) RequeueAfter() time.Duration {
 	return 1 * time.Minute
 }

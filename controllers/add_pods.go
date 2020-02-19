@@ -35,6 +35,7 @@ import (
 // AddPods provides a reconciliation step for adding new pods to a cluster.
 type AddPods struct{}
 
+// Reconcile runs the reconciler's work.
 func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	currentCounts := cluster.Status.ProcessCounts.Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
@@ -210,6 +211,8 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (a AddPods) RequeueAfter() time.Duration {
 	return 0
 }

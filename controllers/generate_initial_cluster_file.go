@@ -32,6 +32,7 @@ import (
 // cluster file for a newly created cluster.
 type GenerateInitialClusterFile struct{}
 
+// Reconcile runs the reconciler's work.
 func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if cluster.Spec.ConnectionString != "" {
 		return true, nil
@@ -73,6 +74,8 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	return false, err
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (g GenerateInitialClusterFile) RequeueAfter() time.Duration {
 	return 0
 }

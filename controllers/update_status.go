@@ -37,6 +37,7 @@ import (
 type UpdateStatus struct {
 }
 
+// Reconcile runs the reconciler's work.
 func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	status := fdbtypes.FoundationDBClusterStatus{}
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
@@ -224,6 +225,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	return true, nil
 }
 
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
 func (s UpdateStatus) RequeueAfter() time.Duration {
 	return 0
 }

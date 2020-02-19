@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var maxCommandOutput int = 20
+var maxCommandOutput = 20
 
 var protocolVersionRegex = regexp.MustCompile("(?m)^protocol (\\w+)$")
 
@@ -267,7 +267,7 @@ func (client *CliAdminClient) KillInstances(addresses []string) error {
 	return err
 }
 
-// SetConnectionString changes the coordinator set
+// ChangeCoordinators changes the coordinator set
 func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, error) {
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"coordinators %s",
@@ -305,9 +305,8 @@ func (client *CliAdminClient) VersionSupported(versionString string) (bool, erro
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
-		} else {
-			return false, err
 		}
+		return false, err
 	}
 	return true, nil
 }

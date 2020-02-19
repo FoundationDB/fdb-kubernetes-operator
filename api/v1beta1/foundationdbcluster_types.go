@@ -966,8 +966,8 @@ func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
 	return cluster.GetFullAddressList(ipAddress, true)
 }
 
-// GetFullAddress gets the full list of public address we should use for a
-//process.
+// GetFullAddressList gets the full list of public addresses we should use for a
+// process.
 //
 // This will include the IP address, the port, and any additional flags.
 //
@@ -1165,9 +1165,8 @@ type FoundationDBStatusConnectedClient struct {
 func (client FoundationDBStatusConnectedClient) Description() string {
 	if client.LogGroup == "default" || client.LogGroup == "" {
 		return client.Address
-	} else {
-		return fmt.Sprintf("%s (%s)", client.Address, client.LogGroup)
 	}
+	return fmt.Sprintf("%s (%s)", client.Address, client.LogGroup)
 }
 
 // ContainerOverrides provides options for customizing a container created by
@@ -1231,8 +1230,8 @@ func (configuration DatabaseConfiguration) GetConfigurationString() (string, err
 	return configurationString, nil
 }
 
-// DatabaseConfiguration builds the database configuration for the cluster based
-// on its spec.
+// DesiredDatabaseConfiguration builds the database configuration for the
+// cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
 	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
 
@@ -1331,9 +1330,8 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 		rightID, rightPriority := getMainDataCenter(result.Regions[rightIndex])
 		if leftPriority != rightPriority {
 			return leftPriority > rightPriority
-		} else {
-			return leftID < rightID
 		}
+		return leftID < rightID
 	})
 
 	return *result
@@ -1681,10 +1679,10 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 	return true
 }
 
-// HasInstanceIdInSidecarSubstitutions determines if a version has
+// HasInstanceIDInSidecarSubstitutions determines if a version has
 // FDB_INSTANCE_ID supported natively in the variable substitutions in the
 // sidecar.
-func (version FdbVersion) HasInstanceIdInSidecarSubstitutions() bool {
+func (version FdbVersion) HasInstanceIDInSidecarSubstitutions() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
 }
 
@@ -1708,8 +1706,8 @@ func (version FdbVersion) HasRatekeeperRole() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
 }
 
-// HasMaxProtocolClients determines if a version has the max_protocol_clients
-// field in the cluster status.
+// HasMaxProtocolClientsInStatus determines if a version has the
+// max_protocol_clients field in the cluster status.
 func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
 }
