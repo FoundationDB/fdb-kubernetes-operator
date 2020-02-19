@@ -74,10 +74,7 @@ bounce:
 
 samples: config/samples/deployment.yaml
 
-config/samples/deployment/crd.yaml: config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
-	cp config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/samples/deployment/crd.yaml
-
-config/samples/deployment.yaml: manifests config/samples/deployment/crd.yaml
+config/samples/deployment.yaml: manifests
 	kustomize build config/samples/deployment > config/samples/deployment.yaml
 
 bin/po-docgen: cmd/po-docgen/main.go  cmd/po-docgen/api.go
