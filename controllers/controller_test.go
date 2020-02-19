@@ -444,9 +444,10 @@ var _ = Describe("controller", func() {
 					}, timeout).Should(Equal(17))
 
 					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-						"storage":   4,
-						"log":       4,
-						"stateless": 9,
+						"storage":            4,
+						"log":                4,
+						"stateless":          8,
+						"cluster_controller": 1,
 					}))
 				})
 
