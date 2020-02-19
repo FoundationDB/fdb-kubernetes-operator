@@ -1200,18 +1200,14 @@ var _ = Describe("controller", func() {
 		Context("with configmap having items", func() {
 			BeforeEach(func() {
 				cluster.Spec.ConfigMap = &corev1.ConfigMap{
-					Data: map[string]string {
+					Data: map[string]string{
 						"itemKey": "itemVal",
 					},
 				}
 			})
 
 			It("should have items from the clusterSpec", func() {
-				items := make(map[string]string)
-				err = json.Unmarshal([]byte(configMap.Data["items"]), &items)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(items["itemKey"]).To(Equal("itemVal"))
+				Expect(configMap.Data["itemKey"]).To(Equal("itemVal"))
 			})
 		})
 	})

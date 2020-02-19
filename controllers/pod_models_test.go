@@ -1387,29 +1387,6 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "data")))
 			})
 		})
-
-		Context("with map having items", func() {
-			BeforeEach(func() {
-				cluster.Spec.ConfigMap = &corev1.ConfigMap{Data: map[string]string{"itemKey":"itemVal"}}
-				spec, err = GetPodSpec(cluster, "storage", 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("adds config-map volume that has items", func() {
-				Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
-					Name: "config-map",
-					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
-						Items: []corev1.KeyToPath{
-							corev1.KeyToPath{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
-							corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
-							corev1.KeyToPath{Key: "items", Path: "items.json"},
-						},
-					}},
-				}))
-			})
-		})
 	})
 
 	Describe("GetPvc", func() {
