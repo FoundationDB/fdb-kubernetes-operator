@@ -126,23 +126,26 @@ var _ = Describe("controller", func() {
 
 				sortPodsByID(pods)
 
-				Expect(pods.Items[0].Name).To(Equal("operator-test-1-log-1"))
-				Expect(pods.Items[0].Labels["fdb-instance-id"]).To(Equal("log-1"))
-				Expect(pods.Items[3].Name).To(Equal("operator-test-1-log-4"))
-				Expect(pods.Items[3].Labels["fdb-instance-id"]).To(Equal("log-4"))
-				Expect(pods.Items[4].Name).To(Equal("operator-test-1-stateless-1"))
-				Expect(pods.Items[4].Labels["fdb-instance-id"]).To(Equal("stateless-1"))
-				Expect(pods.Items[12].Name).To(Equal("operator-test-1-stateless-9"))
-				Expect(pods.Items[12].Labels["fdb-instance-id"]).To(Equal("stateless-9"))
+				Expect(pods.Items[0].Name).To(Equal("operator-test-1-cluster-controller-1"))
+				Expect(pods.Items[0].Labels["fdb-instance-id"]).To(Equal("cluster_controller-1"))
+				Expect(pods.Items[1].Name).To(Equal("operator-test-1-log-1"))
+				Expect(pods.Items[1].Labels["fdb-instance-id"]).To(Equal("log-1"))
+				Expect(pods.Items[4].Name).To(Equal("operator-test-1-log-4"))
+				Expect(pods.Items[4].Labels["fdb-instance-id"]).To(Equal("log-4"))
+				Expect(pods.Items[5].Name).To(Equal("operator-test-1-stateless-1"))
+				Expect(pods.Items[5].Labels["fdb-instance-id"]).To(Equal("stateless-1"))
+				Expect(pods.Items[12].Name).To(Equal("operator-test-1-stateless-8"))
+				Expect(pods.Items[12].Labels["fdb-instance-id"]).To(Equal("stateless-8"))
 				Expect(pods.Items[13].Name).To(Equal("operator-test-1-storage-1"))
 				Expect(pods.Items[13].Labels["fdb-instance-id"]).To(Equal("storage-1"))
 				Expect(pods.Items[16].Name).To(Equal("operator-test-1-storage-4"))
 				Expect(pods.Items[16].Labels["fdb-instance-id"]).To(Equal("storage-4"))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage":   4,
-					"log":       4,
-					"stateless": 9,
+					"storage":            4,
+					"log":                4,
+					"stateless":          8,
+					"cluster_controller": 1,
 				}))
 			})
 
@@ -181,9 +184,10 @@ var _ = Describe("controller", func() {
 
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(4)))
 				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
-					Storage:   4,
-					Log:       4,
-					Stateless: 9,
+					Storage:           4,
+					Log:               4,
+					Stateless:         8,
+					ClusterController: 1,
 				}))
 
 				desiredCounts, err := cluster.GetProcessCountsWithDefaults()
@@ -223,9 +227,10 @@ var _ = Describe("controller", func() {
 				Expect(pods.Items[2].Name).To(Equal(originalPods.Items[2].Name))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage":   3,
-					"log":       4,
-					"stateless": 9,
+					"storage":            3,
+					"log":                4,
+					"stateless":          8,
+					"cluster_controller": 1,
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
@@ -259,9 +264,10 @@ var _ = Describe("controller", func() {
 				}, timeout).Should(Equal(len(originalPods.Items) + 1))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage":   5,
-					"log":       4,
-					"stateless": 9,
+					"storage":            5,
+					"log":                4,
+					"stateless":          8,
+					"cluster_controller": 1,
 				}))
 			})
 
@@ -276,7 +282,7 @@ var _ = Describe("controller", func() {
 
 		Context("with an increased stateless process count", func() {
 			BeforeEach(func() {
-				cluster.Spec.ProcessCounts.Stateless = 10
+				cluster.Spec.ProcessCounts.Stateless = 9
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -289,9 +295,10 @@ var _ = Describe("controller", func() {
 				}, timeout).Should(Equal(18))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage":   4,
-					"log":       4,
-					"stateless": 10,
+					"storage":            4,
+					"log":                4,
+					"stateless":          9,
+					"cluster_controller": 1,
 				}))
 			})
 
@@ -341,11 +348,12 @@ var _ = Describe("controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(8))
+				}, timeout).Should(Equal(9))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage": 4,
-					"log":     4,
+					"storage":            4,
+					"log":                4,
+					"cluster_controller": 1,
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
@@ -378,9 +386,10 @@ var _ = Describe("controller", func() {
 					}, timeout).Should(Equal(17))
 
 					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-						"storage":   4,
-						"log":       4,
-						"stateless": 9,
+						"storage":            4,
+						"log":                4,
+						"stateless":          8,
+						"cluster_controller": 1,
 					}))
 				})
 
@@ -435,9 +444,10 @@ var _ = Describe("controller", func() {
 					}, timeout).Should(Equal(17))
 
 					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-						"storage":   4,
-						"log":       4,
-						"stateless": 9,
+						"storage":            4,
+						"log":                4,
+						"stateless":          8,
+						"cluster_controller": 1,
 					}))
 				})
 
@@ -1109,7 +1119,7 @@ var _ = Describe("controller", func() {
 				expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(len(configMap.Data)).To(Equal(6))
+				Expect(len(configMap.Data)).To(Equal(7))
 				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["ca-file"]).To(Equal(""))

@@ -12,6 +12,7 @@ spec:
     key: foundationdb.org/none
   processCounts:
     stateless: -1
+    cluster_controller: 1
   customParameters:
     - "knob_disable_posix_kernel_aio=1"
   persistentVolumeClaim:
