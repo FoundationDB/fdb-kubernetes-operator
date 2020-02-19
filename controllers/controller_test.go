@@ -1272,9 +1272,22 @@ var _ = Describe("controller", func() {
 		})
 
 		Context("without a configmap", func() {
-
 			It("should use the default suffix", func() {
 				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-%s", cluster.Name, "config")))
+			})
+		})
+
+		Context("with configmap having items", func() {
+			BeforeEach(func() {
+				cluster.Spec.ConfigMap = &corev1.ConfigMap{
+					Data: map[string]string{
+						"itemKey": "itemVal",
+					},
+				}
+			})
+
+			It("should have items from the clusterSpec", func() {
+				Expect(configMap.Data["itemKey"]).To(Equal("itemVal"))
 			})
 		})
 	})

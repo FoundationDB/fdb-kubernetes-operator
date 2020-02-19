@@ -396,6 +396,12 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}
 	data["sidecar-conf"] = string(sidecarConfData)
 
+	if cluster.Spec.ConfigMap != nil {
+		for k, v := range cluster.Spec.ConfigMap.Data {
+			data[k] = v
+		}
+	}
+
 	owner, err := buildOwnerReference(context, cluster, kubeClient)
 	if err != nil {
 		return nil, err
