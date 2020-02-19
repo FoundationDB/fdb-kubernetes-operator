@@ -119,9 +119,14 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		if !canContinue || err != nil {
 			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
+
 		if err != nil {
-			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
-			return r.checkRetryableError(err)
+			result, err := r.checkRetryableError(err)
+			if err != nil {
+				log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
+				return ctrl.Result{}, err
+			}
+			return result, nil
 		} else if cluster.ObjectMeta.Generation != originalGeneration {
 			log.Info("Ending reconciliation early because cluster has been updated")
 			return ctrl.Result{}, nil
