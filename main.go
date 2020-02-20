@@ -71,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.FoundationDBClusterReconciler{
+	reconciler := &controllers.FoundationDBClusterReconciler{
 		Client:              mgr.GetClient(),
 		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
@@ -79,10 +79,17 @@ func main() {
 		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
 		PodClientProvider:   controllers.NewFdbPodClient,
 		AdminClientProvider: controllers.NewCliAdminClient,
-	}).SetupWithManager(mgr); err != nil {
+	}
+
+	if err = (reconciler).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 		os.Exit(1)
 	}
+
+	if metricsAddr != "0" {
+		controllers.InitCustomMetrics(reconciler)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
