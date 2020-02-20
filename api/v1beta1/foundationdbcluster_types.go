@@ -148,6 +148,9 @@ type FoundationDBClusterSpec struct {
 	// locality fields.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
 
+	// Backup defines the backup configuration for the cluster.
+	Backup BackupSpec `json:"backup,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.
@@ -1713,4 +1716,14 @@ func (version FdbVersion) HasRatekeeperRole() bool {
 // max_protocol_clients field in the cluster status.
 func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
+}
+
+// BackupSpec describes the desired state of the backup for a cluster.
+type BackupSpec struct {
+	// AgentCount defines the number of backup agents to run.
+	AgentCount int `json:"agentCount,omitempty"`
+
+	// PodTemplateSpec allows customizing the pod template for the backup
+	// agents.
+	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
 }

@@ -23,10 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -414,7 +415,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a host-based fault domain", func() {
 			BeforeEach(func() {
-				cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{}
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
 				spec, err = GetPodSpec(cluster, "storage", 1)
 			})
 
@@ -461,7 +462,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a custom fault domain", func() {
 			BeforeEach(func() {
 
-				cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
@@ -507,7 +508,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with cross-Kubernetes replication", func() {
 			BeforeEach(func() {
-				cluster.Spec.FaultDomain = appsv1beta1.FoundationDBClusterFaultDomain{
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
 					Key:   "foundationdb.org/kubernetes-cluster",
 					Value: "kc2",
 				}
@@ -1290,7 +1291,7 @@ var _ = Describe("pod_models", func() {
 			It("adds the environment variables to the init container", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
-				Expect(initContainer.Args).To(Equal([]string{}))
+				Expect(initContainer.Args).To(BeNil())
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
 					corev1.EnvVar{Name: "COPY_ONCE", Value: "1"},
 					corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"},
@@ -1608,6 +1609,217 @@ var _ = Describe("pod_models", func() {
 
 			It("should include claim name with default suffix", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+			})
+		})
+	})
+
+	Describe("GetBackupDeployment", func() {
+		var deployment *appsv1.Deployment
+
+		Context("with a basic deployment", func() {
+			BeforeEach(func() {
+				deployment, err = GetBackupDeployment(context.TODO(), cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the metadata for the deployment", func() {
+				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
+				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
+				Expect(deployment.ObjectMeta.OwnerReferences[0].UID).To(Equal(cluster.ObjectMeta.UID))
+			})
+
+			It("should set the replication factor to the specified agent count", func() {
+				Expect(deployment.Spec.Replicas).NotTo(BeNil())
+				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
+			})
+
+			It("should set the labels for the pod selector", func() {
+				Expect(*deployment.Spec.Selector).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
+					"org.foundationdb/deployment-name": "operator-test-1-backup-agents",
+				}}))
+				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
+					"org.foundationdb/deployment-name": "operator-test-1-backup-agents",
+				}))
+			})
+
+			It("should have one container and one init container", func() {
+				Expect(len(deployment.Spec.Template.Spec.Containers)).To(Equal(1))
+				Expect(len(deployment.Spec.Template.Spec.InitContainers)).To(Equal(1))
+			})
+
+			It("should have the default volumes", func() {
+				Expect(deployment.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
+					{Name: "logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					{
+						Name: "config-map",
+						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							Items: []corev1.KeyToPath{
+								corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+								corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
+							},
+						}},
+					},
+				}))
+			})
+
+			Describe("the main container", func() {
+				var container corev1.Container
+
+				BeforeEach(func() {
+					container = deployment.Spec.Template.Spec.Containers[0]
+				})
+
+				It("should set the container name", func() {
+					Expect(container.Name).To(Equal("foundationdb"))
+				})
+
+				It("should set the image and command for the backup agent", func() {
+					Expect(container.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+					Expect(container.Command).To(Equal([]string{"backup_agent"}))
+					Expect(container.Args).To(Equal([]string{
+						"--log",
+						"--logdir",
+						"/var/log/fdb-trace-logs",
+					}))
+				})
+
+				It("should set the basic environment", func() {
+					Expect(container.Env).To(Equal([]corev1.EnvVar{
+						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
+					}))
+				})
+
+				It("should set the default volume mounts", func() {
+					Expect(container.VolumeMounts).To(Equal([]corev1.VolumeMount{
+						{Name: "logs", MountPath: "/var/log/fdb-trace-logs"},
+						{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+					}))
+				})
+
+				It("should set default resource limits", func() {
+					Expect(*container.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))
+					Expect(*container.Resources.Limits.Memory()).To(Equal(resource.MustParse("1Gi")))
+					Expect(*container.Resources.Requests.Cpu()).To(Equal(resource.MustParse("1")))
+					Expect(*container.Resources.Requests.Memory()).To(Equal(resource.MustParse("1Gi")))
+				})
+			})
+
+			Describe("the init container", func() {
+				var container corev1.Container
+
+				BeforeEach(func() {
+					container = deployment.Spec.Template.Spec.InitContainers[0]
+				})
+
+				It("should set the container name", func() {
+					Expect(container.Name).To(Equal("foundationdb-kubernetes-init"))
+				})
+
+				It("should set the image and command for the container", func() {
+					Expect(container.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
+					Expect(container.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--copy-file",
+						"ca.pem",
+						"--init-mode",
+					}))
+				})
+
+				It("should set the default volume mounts", func() {
+					Expect(container.VolumeMounts).To(Equal([]corev1.VolumeMount{
+						{Name: "config-map", MountPath: "/var/input-files"},
+						{Name: "dynamic-conf", MountPath: "/var/output-files"},
+					}))
+				})
+			})
+		})
+
+		Context("with a custom secret for the backup credentials", func() {
+			BeforeEach(func() {
+				cluster.Spec.Backup.PodTemplateSpec = &corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{Name: "secrets", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "backup-secrets"}}},
+						},
+						Containers: []corev1.Container{
+							{
+								Name: "foundationdb",
+								Env: []corev1.EnvVar{
+									{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{Name: "secrets", MountPath: "/var/secrets"},
+								},
+							},
+						},
+					},
+				}
+				deployment, err = GetBackupDeployment(context.TODO(), cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should customize the volumes", func() {
+				Expect(deployment.Spec.Template.Spec.Volumes).To(Equal([]corev1.Volume{
+					{Name: "secrets", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "backup-secrets"}}},
+					{Name: "logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					{
+						Name: "config-map",
+						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+							Items: []corev1.KeyToPath{
+								corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+								corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
+							},
+						}},
+					},
+				}))
+			})
+
+			Describe("the main container", func() {
+				var container corev1.Container
+
+				BeforeEach(func() {
+					container = deployment.Spec.Template.Spec.Containers[0]
+				})
+
+				It("should set the container name", func() {
+					Expect(container.Name).To(Equal("foundationdb"))
+				})
+
+				It("should customize the environment", func() {
+					Expect(container.Env).To(Equal([]corev1.EnvVar{
+						{Name: "FDB_BLOB_CREDENTIALS", Value: "/var/secrets/blob_credentials.json"},
+						{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+						{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
+					}))
+				})
+
+				It("should customize the volume mounts", func() {
+					Expect(container.VolumeMounts).To(Equal([]corev1.VolumeMount{
+						{Name: "secrets", MountPath: "/var/secrets"},
+						{Name: "logs", MountPath: "/var/log/fdb-trace-logs"},
+						{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+					}))
+				})
+			})
+		})
+
+		Context("with an agent count of 0", func() {
+			BeforeEach(func() {
+				cluster.Spec.Backup.AgentCount = 0
+				deployment, err = GetBackupDeployment(context.TODO(), cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should be nil", func() {
+				Expect(deployment).To(BeNil())
 			})
 		})
 	})

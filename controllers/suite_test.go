@@ -151,6 +151,9 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			FaultDomain: fdbtypes.FoundationDBClusterFaultDomain{
 				Key: "foundationdb.org/none",
 			},
+			Backup: fdbtypes.BackupSpec{
+				AgentCount: 3,
+			},
 		},
 		Status: fdbtypes.FoundationDBClusterStatus{
 			RequiredAddresses: fdbtypes.RequiredAddressSet{

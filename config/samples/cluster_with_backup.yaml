@@ -59,6 +59,32 @@ spec:
         - name: foundationdb-kubernetes-init
           securityContext:
             runAsUser: 0
+  backup:
+    agentCount: 2
+    podTemplateSpec:
+      spec:
+        containers:
+          - name: foundationdb
+            env:
+              - name: FDB_BLOB_CREDENTIALS
+                value: /var/secrets/credentials
+            resources:
+              limits:
+                cpu: 250m
+                memory: 128Mi
+              requests:
+                cpu: 250m
+                memory: 128Mi
+            securityContext:
+              runAsGroup: 0
+              runAsUser: 0
+            volumeMounts:
+              - name: secrets
+                mountPath: /var/secrets
+        volumes:
+          - name: secrets
+            secret:
+              secretName: sample-cluster-backup-secrets
 ---
 apiVersion: v1
 kind: Secret
@@ -74,63 +100,3 @@ stringData:
         }
       }
     }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: sample-cluster-backup-agents
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: sample-cluster-backup-agents
-  template:
-    metadata:
-      labels:
-        app: sample-cluster-backup-agents
-      name: sample-cluster-backup-agents
-    spec:
-      automountServiceAccountToken: false
-      containers:
-        - name: foundationdb
-          image: foundationdb/foundationdb:6.2.11
-          args:
-            - --log
-            - --logdir
-            - /var/log/fdb-trace-logs
-          command:
-            - backup_agent
-          env:
-            - name: FDB_CLUSTER_FILE
-              value: /var/dynamic-conf/fdb.cluster
-            - name: FDB_BLOB_CREDENTIALS
-              value: /var/secrets/credentials
-          resources:
-            limits:
-              cpu: 250m
-              memory: 128Mi
-            requests:
-              cpu: 250m
-              memory: 128Mi
-          securityContext:
-            runAsGroup: 0
-            runAsUser: 0
-          volumeMounts:
-            - name: logs
-              mountPath: /var/log/fdb-trace-logs
-            - name: dynamic-conf
-              mountPath: /var/dynamic-conf
-            - name: secrets
-              mountPath: /var/secrets
-      volumes:
-        - name: secrets
-          secret:
-            secretName: sample-cluster-backup-secrets
-        - name: dynamic-conf
-          configMap:
-            name: sample-cluster-config
-            items:
-              - key: cluster-file
-                path: fdb.cluster
-        - name: logs
-          emptyDir: {}

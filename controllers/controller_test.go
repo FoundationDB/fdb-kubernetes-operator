@@ -36,6 +36,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,6 +102,12 @@ var _ = Describe("controller", func() {
 				err := k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 				return len(originalPods.Items), err
 			}, timeout).Should(Equal(17))
+
+			deployments := &appsv1.DeploymentList{}
+			Eventually(func() (int, error) {
+				err := k8sClient.List(context.TODO(), deployments)
+				return len(deployments.Items), err
+			}, timeout).Should(Equal(1))
 
 			sortPodsByID(originalPods)
 
@@ -207,6 +214,15 @@ var _ = Describe("controller", func() {
 					FullReplication:      true,
 					DataMovementPriority: 0,
 				}))
+			})
+
+			It("should create the backup deployment", func() {
+				deployment := &appsv1.Deployment{}
+				deploymentName := fmt.Sprintf("%s-backup-agents", cluster.Name)
+
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName}, deployment)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
 			})
 		})
 

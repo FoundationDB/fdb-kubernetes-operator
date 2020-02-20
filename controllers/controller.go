@@ -34,6 +34,7 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,6 +110,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		ExcludeInstances{},
 		ChangeCoordinators{},
 		BounceProcesses{},
+		UpdateBackupAgents{},
 		UpdatePods{},
 		RemovePods{},
 		IncludeInstances{},
@@ -155,6 +157,10 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
+	})
+
+	mgr.GetFieldIndexer().IndexField(&appsv1.Deployment{}, "metadata.name", func(o runtime.Object) []string {
+		return []string{o.(*appsv1.Deployment).Name}
 	})
 
 	return ctrl.NewControllerManagedBy(mgr).
