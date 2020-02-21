@@ -66,6 +66,9 @@ type AdminClient interface {
 	// ChangeCoordinators changes the coordinator set
 	ChangeCoordinators(addresses []string) (string, error)
 
+	// GetConnectionString fetches the latest connection string.
+	GetConnectionString() (string, error)
+
 	// VersionSupported reports whether we can support a cluster with a given
 	// version.
 	VersionSupported(version string) (bool, error)
@@ -275,6 +278,29 @@ func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, er
 	)})
 	if err != nil {
 		return "", err
+	}
+
+	connectionStringBytes, err := ioutil.ReadFile(client.clusterFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	connectionString, err := fdbtypes.ParseConnectionString(string(connectionStringBytes))
+	if err != nil {
+		return "", err
+	}
+	return connectionString.String(), nil
+}
+
+// GetConnectionString fetches the latest connection string.
+func (client *CliAdminClient) GetConnectionString() (string, error) {
+	output, err := client.runCommand(cliCommand{command: "status minimal"})
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(output, "The database is available") {
+		return "", fmt.Errorf("Unable to fetch connection string: %s", output)
 	}
 
 	connectionStringBytes, err := ioutil.ReadFile(client.clusterFilePath)
@@ -524,6 +550,11 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 	connectionString.GenerateNewGenerationID()
 	connectionString.Coordinators = addresses
 	return connectionString.String(), err
+}
+
+// GetConnectionString fetches the latest connection string.
+func (client *MockAdminClient) GetConnectionString() (string, error) {
+	return client.Cluster.Spec.ConnectionString, nil
 }
 
 // VersionSupported reports whether we can support a cluster with a given
