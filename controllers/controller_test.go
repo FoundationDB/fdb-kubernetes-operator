@@ -1120,9 +1120,9 @@ var _ = Describe("controller", func() {
 						Expect(err).NotTo(HaveOccurred())
 					}
 				}
-				healthMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`,cluster.Name,cluster.Namespace,"health")
-				availMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`,cluster.Name,cluster.Namespace,"available")
-				replMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`,cluster.Name,cluster.Namespace,"replication")
+				healthMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "health")
+				availMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "available")
+				replMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "replication")
 				for _, re := range []*regexp.Regexp{
 					regexp.MustCompile(healthMetricOutput),
 					regexp.MustCompile(availMetricOutput),

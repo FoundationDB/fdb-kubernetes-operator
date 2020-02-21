@@ -29,7 +29,7 @@ type fdbClusterCollector struct {
 }
 
 func NewFDBClusterCollector(reconciler *FoundationDBClusterReconciler) *fdbClusterCollector {
-	return &fdbClusterCollector{reconciler:reconciler}
+	return &fdbClusterCollector{reconciler: reconciler}
 }
 
 // Describe implements the prometheus.Collector interface
@@ -41,7 +41,7 @@ func (c *fdbClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface
 func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
 	clusters := &v1beta1.FoundationDBClusterList{}
-	err := c.reconciler.List(context.Background(),clusters)
+	err := c.reconciler.List(context.Background(), clusters)
 	if err != nil {
 		return
 	}
@@ -60,10 +60,10 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *v1beta1.FoundationDBCl
 		addConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
 	addGauge(descClusterCreated, float64(cluster.CreationTimestamp.Unix()))
-	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy==true), "health")
-	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available==true), "available")
-	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication==true), "replication")
-	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority),"datamovementpriority")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy == true), "health")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available == true), "available")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication == true), "replication")
+	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
 }
 
 func InitCustomMetrics(reconciler *FoundationDBClusterReconciler) {
