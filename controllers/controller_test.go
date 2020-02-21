@@ -21,8 +21,12 @@
 package controllers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/common/expfmt"
+	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sort"
 	"strings"
 	"time"
@@ -1092,6 +1096,40 @@ var _ = Describe("controller", func() {
 			It("should not downgrade cluster", func() {
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
 				Expect(cluster.Spec.RunningVersion).To(Equal(Versions.Default.String()))
+			})
+		})
+
+		Context("custom metrics for a cluster", func() {
+			BeforeEach(func() {
+				generationGap = 0
+				metricFamilies, err := metrics.Registry.Gather()
+				Expect(err).NotTo(HaveOccurred())
+				for _, metricFamily := range metricFamilies {
+					metricFamily.Reset()
+				}
+				InitCustomMetrics(reconciler)
+			})
+
+			It("should update custom metrics in the registry", func() {
+				metricFamilies, err := metrics.Registry.Gather()
+				Expect(err).NotTo(HaveOccurred())
+				var buf bytes.Buffer
+				for _, mf := range metricFamilies {
+					if strings.HasPrefix(mf.GetName(), "fdb_cluster_status") {
+						_, err := expfmt.MetricFamilyToText(&buf, mf)
+						Expect(err).NotTo(HaveOccurred())
+					}
+				}
+				healthMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`,cluster.Name,cluster.Namespace,"health")
+				availMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`,cluster.Name,cluster.Namespace,"available")
+				replMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`,cluster.Name,cluster.Namespace,"replication")
+				for _, re := range []*regexp.Regexp{
+					regexp.MustCompile(healthMetricOutput),
+					regexp.MustCompile(availMetricOutput),
+					regexp.MustCompile(replMetricOutput),
+				} {
+					Expect(re.Match(buf.Bytes())).To(Equal(true))
+				}
 			})
 		})
 	})

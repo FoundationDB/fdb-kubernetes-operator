@@ -16,28 +16,10 @@ var (
 		descClusterDefaultLabels,
 		nil,
 	)
-	descClusterStatus_healthy = prometheus.NewDesc(
-		"fdb_cluster_status_healthy",
-		"Health of the Fdb Cluster.",
-		append(descClusterDefaultLabels, "heath"),
-		nil,
-	)
-	descClusterStatus_availability = prometheus.NewDesc(
-		"fdb_cluster_status_available",
-		"Availabilty of the Fdb Cluster for read/write operations",
-		append(descClusterDefaultLabels, "available"),
-		nil,
-	)
-	descClusterStatus_replication = prometheus.NewDesc(
-		"fdb_cluster_status_replication",
-		"Replication status as per defined replication policy for the Fdb Cluster",
-		append(descClusterDefaultLabels, "replication"),
-		nil,
-	)
-	descClusterStatus_dataMovementPri = prometheus.NewDesc(
-		"fdb_cluster_status_data_movement_priority",
-		"Data Movement Priority for the Fdb Cluster",
-		append(descClusterDefaultLabels, "datamovementpriority"),
+	descClusterStatus = prometheus.NewDesc(
+		"fdb_cluster_status",
+		"status of the Fdb Cluster.",
+		append(descClusterDefaultLabels, "status_type"),
 		nil,
 	)
 )
@@ -53,10 +35,7 @@ func NewFDBClusterCollector(reconciler *FoundationDBClusterReconciler) *fdbClust
 // Describe implements the prometheus.Collector interface
 func (c *fdbClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- descClusterCreated
-	ch <- descClusterStatus_healthy
-	ch <- descClusterStatus_availability
-	ch <- descClusterStatus_replication
-	ch <- descClusterStatus_dataMovementPri
+	ch <- descClusterStatus
 }
 
 // Collect implements the prometheus.Collector interface
@@ -81,9 +60,10 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *v1beta1.FoundationDBCl
 		addConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
 	addGauge(descClusterCreated, float64(cluster.CreationTimestamp.Unix()))
-	addGauge(descClusterStatus_healthy, boolFloat64(cluster.Status.Health.Healthy==true))
-	addGauge(descClusterStatus_availability, boolFloat64(cluster.Status.Health.Available==true))
-	addGauge(descClusterStatus_replication, float64(cluster.Status.Health.DataMovementPriority))
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy==true), "health")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available==true), "available")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication==true), "replication")
+	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority),"datamovementpriority")
 }
 
 func InitCustomMetrics(reconciler *FoundationDBClusterReconciler) {

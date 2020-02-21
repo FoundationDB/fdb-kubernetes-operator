@@ -49,6 +49,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+var reconciler *FoundationDBClusterReconciler
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -82,7 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&FoundationDBClusterReconciler{
+	reconciler = &FoundationDBClusterReconciler{
 		Client:              k8sManager.GetClient(),
 		Log:                 ctrl.Log.WithName("controllers").WithName("SecretScope"),
 		Recorder:            k8sManager.GetEventRecorderFor("secretscope-controller"),
@@ -91,7 +92,9 @@ var _ = BeforeSuite(func(done Done) {
 		PodClientProvider:   NewMockFdbPodClient,
 		PodIPProvider:       MockPodIP,
 		AdminClientProvider: NewMockAdminClient,
-	}).SetupWithManager(k8sManager)
+	}
+
+	err = (reconciler).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
