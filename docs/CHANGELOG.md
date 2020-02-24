@@ -1,3 +1,27 @@
+# v0.5.0
+
+*	Allow replacicng pods that are failing to launch.
+*	move the removal of pods in a shrink to the end of reconciliation.
+*	Drop support for FDB versions < 6.1.12.
+*	Allow customizing the name of the config map.
+*	Allow customizing the name of the volume claim name.
+*	Block cluster downgrades.
+*	Add an example of starting a client app connected to the cluster.
+*	Remove support for the HAS_STATUS_SUBRESOURCE flag.
+*	Add a default user to the images for the operator and the Kubernetes sidecar.
+*	Auto-generate API docs
+*	Refactor reconciliation to be based entirely on the spec and status of the cluster.
+*	Add a list of instances to remove as an alternative to the pendingRemovals map.
+*	Adds a shortname for the CRD.
+*	Improve logging when we convert a retryable error into a requeue.
+*	Fix golint issues.
+*	Set up a local MinIO instance for testing backups.
+*	Add a cluster controller process to some test cases.
+*	Add items to the config map in the cluster spec.
+*	Remove the CRD from the sample deployment because it is too large for kubectl apply.
+*	Sync coordinator changes when running across Kubernetes clusters.
+*	Update our Kubernetes client dependencies.
+
 # v0.4.0
 
 *	Automatically reload certs in the Kubernetes sidecar when they are updated.
