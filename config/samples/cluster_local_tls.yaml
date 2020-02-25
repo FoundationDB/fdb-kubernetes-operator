@@ -15,7 +15,7 @@ spec:
     cluster_controller: 1
   customParameters:
     - "knob_disable_posix_kernel_aio=1"
-  persistentVolumeClaim:
+  volumeClaim:
     spec:
       resources:
         requests:

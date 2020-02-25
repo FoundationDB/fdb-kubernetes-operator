@@ -29,7 +29,7 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.15
-  persistentVolumeClaim:
+  volumeClaim:
     spec:
       resources:
         requests:
