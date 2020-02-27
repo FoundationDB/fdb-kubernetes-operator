@@ -155,6 +155,13 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 
 			incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, id, specHash))
+			if !incorrectPod {
+				updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
+				if err != nil {
+					return false, err
+				}
+				incorrectPod = !updated
+			}
 
 			pvcs := &corev1.PersistentVolumeClaimList{}
 			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, id)...)

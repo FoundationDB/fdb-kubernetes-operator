@@ -638,6 +638,16 @@ type PodLifecycleManager interface {
 
 	// UpdatePods updates a list of pods to match the latest specs.
 	UpdatePods(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, []FdbInstance) error
+
+	// UpdateMetadata updates an instance's metadata.
+	UpdateMetadata(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) error
+
+	// InstanceIsUpdated determines whether an instance is up to date.
+	//
+	// This does not need to check the metadata or the pod spec hash. This only
+	// needs to check aspects of the rollout that are not available in the
+	// instance metadata.
+	InstanceIsUpdated(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error)
 }
 
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
@@ -734,6 +744,21 @@ func (manager StandardPodLifecycleManager) UpdatePods(r *FoundationDBClusterReco
 		return ReconciliationNotReadyError{message: "Need to restart reconciliation to recreate pods", retryable: true}
 	}
 	return nil
+}
+
+// UpdateMetadata updates an instance's metadata.
+func (manager StandardPodLifecycleManager) UpdateMetadata(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) error {
+	instance.Pod.ObjectMeta = *instance.Metadata
+	return r.Update(context, instance.Pod)
+}
+
+// InstanceIsUpdated determines whether an instance is up to date.
+//
+// This does not need to check the metadata or the pod spec hash. This only
+// needs to check aspects of the rollout that are not available in the
+// instance metadata.
+func (manager StandardPodLifecycleManager) InstanceIsUpdated(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error) {
+	return true, nil
 }
 
 // ParseInstanceID extracts the components of an instance ID.

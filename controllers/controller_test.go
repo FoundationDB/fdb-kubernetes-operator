@@ -25,12 +25,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/common/expfmt"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/prometheus/common/expfmt"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
