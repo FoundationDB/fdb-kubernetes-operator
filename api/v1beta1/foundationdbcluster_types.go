@@ -823,6 +823,9 @@ type FoundationDBStatusProcessInfo struct {
 
 	// The locality information for the process.
 	Locality map[string]string `json:"locality,omitempty"`
+
+	// The version of FoundationDB the process is running.
+	Version string `json:"version,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in

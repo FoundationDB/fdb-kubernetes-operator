@@ -347,6 +347,7 @@ FoundationDBStatusProcessInfo describes the \"processes\" portion of the cluster
 | command_line | CommandLine provides the command-line invocation for the process. | string | false |
 | excluded | Excluded indicates whether the process has been excluded. | bool | false |
 | locality | The locality information for the process. | map[string]string | false |
+| version | The version of FoundationDB the process is running. | string | false |
 
 [Back to TOC](#table-of-contents)
 

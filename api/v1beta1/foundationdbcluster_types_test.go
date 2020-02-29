@@ -521,6 +521,7 @@ func TestParsingClusterStatusWithSixZeroCluster(t *testing.T) {
 						"processid": "c9eb35e25a364910fd77fdeec5c3a1f6",
 						"zoneid":    "foundationdbcluster-sample-4",
 					},
+					Version: "6.0.18",
 				},
 				"d532d8cb1c23d002c4b97742f5195fdb": {
 					Address:      "172.17.0.7:4500",
@@ -531,6 +532,7 @@ func TestParsingClusterStatusWithSixZeroCluster(t *testing.T) {
 						"processid": "d532d8cb1c23d002c4b97742f5195fdb",
 						"zoneid":    "foundationdbcluster-sample-3",
 					},
+					Version: "6.0.18",
 				},
 				"f7058e8bed0618a0533f6188e9e35cdb": {
 					Address:      "172.17.0.9:4500",
@@ -541,6 +543,7 @@ func TestParsingClusterStatusWithSixZeroCluster(t *testing.T) {
 						"processid": "f7058e8bed0618a0533f6188e9e35cdb",
 						"zoneid":    "foundationdbcluster-sample-2",
 					},
+					Version: "6.0.18",
 				},
 				"6a5d5735fc8a58add63cceba1da46421": {
 					Address:      "172.17.0.8:4500",
@@ -551,6 +554,7 @@ func TestParsingClusterStatusWithSixZeroCluster(t *testing.T) {
 						"processid": "6a5d5735fc8a58add63cceba1da46421",
 						"zoneid":    "foundationdbcluster-sample-1",
 					},
+					Version: "6.0.18",
 				},
 			},
 			Data: FoundationDBStatusDataStatistics{
@@ -615,6 +619,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"processid":   "c813e585043a7ab55a4905f465c4aa52",
 						"zoneid":      "sample-cluster-storage-3",
 					},
+					Version: "6.1.12",
 				},
 				"f9efa90fc104f4e277b140baf89aab66": {
 					Address:      "10.1.38.82:4501",
@@ -627,6 +632,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"processid":   "f9efa90fc104f4e277b140baf89aab66",
 						"zoneid":      "sample-cluster-storage-1",
 					},
+					Version: "6.1.12",
 				},
 				"5a633d7f4e98a6c938c84b97ec4aedbf": {
 					Address:      "10.1.38.89:4501",
@@ -639,6 +645,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"processid":   "5a633d7f4e98a6c938c84b97ec4aedbf",
 						"zoneid":      "sample-cluster-log-2",
 					},
+					Version: "6.1.12",
 				},
 				"5c1b68147a0ef34ce005a38245851270": {
 					Address:      "10.1.38.88:4501",
@@ -651,6 +658,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"zoneid":      "sample-cluster-log-4",
 						"instance_id": "log-4",
 					},
+					Version: "6.1.12",
 				},
 				"653defde43cf1fdef131e2fb82bd192d": {
 					Address:      "10.1.38.87:4501",
@@ -663,6 +671,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"processid":   "653defde43cf1fdef131e2fb82bd192d",
 						"zoneid":      "sample-cluster-log-1",
 					},
+					Version: "6.1.12",
 				},
 				"9c93d3b70118f16c72f7cb3f53e49f4c": {
 					Address:      "10.1.38.86:4501",
@@ -675,6 +684,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"instance_id": "storage-2",
 						"machineid":   "sample-cluster-storage-2",
 					},
+					Version: "6.1.12",
 				},
 				"b9c25278c0fa207bc2a73bda2300d0a9": {
 					Address:      "10.1.38.90:4501",
@@ -687,6 +697,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						"instance_id": "log-3",
 						"machineid":   "sample-cluster-log-3",
 					},
+					Version: "6.1.12",
 				},
 			},
 			Data: FoundationDBStatusDataStatistics{
@@ -814,6 +825,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"instance_id": "log-3",
 						"machineid":   "sample-cluster-log-3",
 					},
+					Version: "6.2.15",
 				},
 				"c813e585043a7ab55a4905f465c4aa52": {
 					Address:      "10.1.38.95:4501",
@@ -826,6 +838,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"processid":   "c813e585043a7ab55a4905f465c4aa52",
 						"zoneid":      "sample-cluster-storage-3",
 					},
+					Version: "6.2.15",
 				},
 				"f9efa90fc104f4e277b140baf89aab66": {
 					Address:      "10.1.38.92:4501",
@@ -838,6 +851,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"processid":   "f9efa90fc104f4e277b140baf89aab66",
 						"zoneid":      "sample-cluster-storage-1",
 					},
+					Version: "6.2.15",
 				},
 				"5a633d7f4e98a6c938c84b97ec4aedbf": {
 					Address:      "10.1.38.105:4501",
@@ -850,6 +864,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"processid":   "5a633d7f4e98a6c938c84b97ec4aedbf",
 						"zoneid":      "sample-cluster-log-2",
 					},
+					Version: "6.2.15",
 				},
 				"5c1b68147a0ef34ce005a38245851270": {
 					Address:      "10.1.38.102:4501",
@@ -862,6 +877,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"machineid":   "sample-cluster-log-4",
 						"processid":   "5c1b68147a0ef34ce005a38245851270",
 					},
+					Version: "6.2.15",
 				},
 				"653defde43cf1fdef131e2fb82bd192d": {
 					Address:      "10.1.38.104:4501",
@@ -874,6 +890,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"processid":   "653defde43cf1fdef131e2fb82bd192d",
 						"zoneid":      "sample-cluster-log-1",
 					},
+					Version: "6.2.15",
 				},
 				"9c93d3b70118f16c72f7cb3f53e49f4c": {
 					Address:      "10.1.38.94:4501",
@@ -886,6 +903,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						"processid":   "9c93d3b70118f16c72f7cb3f53e49f4c",
 						"zoneid":      "sample-cluster-storage-2",
 					},
+					Version: "6.2.15",
 				},
 			},
 			Data: FoundationDBStatusDataStatistics{
