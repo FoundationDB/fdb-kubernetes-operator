@@ -559,8 +559,9 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 	deploymentName := fmt.Sprintf("%s-backup-agents", cluster.ObjectMeta.Name)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cluster.ObjectMeta.Namespace,
-			Name:      deploymentName,
+			Namespace:   cluster.ObjectMeta.Namespace,
+			Name:        deploymentName,
+			Annotations: map[string]string{},
 		},
 	}
 	agentCount := int32(cluster.Spec.Backup.AgentCount)
@@ -570,6 +571,9 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 		return nil, err
 	}
 	deployment.ObjectMeta.OwnerReferences = owner
+	deployment.ObjectMeta.Labels = map[string]string{
+		BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
+	}
 
 	var podTemplate *corev1.PodTemplateSpec
 	if cluster.Spec.Backup.PodTemplateSpec != nil {
@@ -642,9 +646,9 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 	if podTemplate.ObjectMeta.Labels == nil {
 		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
 	}
-	podTemplate.ObjectMeta.Labels["org.foundationdb/deployment-name"] = deployment.ObjectMeta.Name
+	podTemplate.ObjectMeta.Labels["foundationdb.org/deployment-name"] = deployment.ObjectMeta.Name
 	deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
-		"org.foundationdb/deployment-name": deployment.ObjectMeta.Name,
+		"foundationdb.org/deployment-name": deployment.ObjectMeta.Name,
 	}}
 
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
@@ -663,6 +667,13 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 	)
 
 	deployment.Spec.Template = *podTemplate
+
+	specHash, err := GetJSONHash(deployment.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	deployment.ObjectMeta.Annotations[LastSpecKey] = specHash
 
 	return deployment, nil
 }

@@ -251,6 +251,9 @@ type FoundationDBClusterStatus struct {
 	// HasIncorrectConfigMap indicates whether the latest config map is out
 	// of date with the cluster spec.
 	HasIncorrectConfigMap bool `json:"hasIncorrectConfigMap,omitempty"`
+
+	// Backup defines the current state of the cluster's backup.
+	Backup BackupStatus `json:"backup,omitempty"`
 }
 
 // GenerationStatus stores information on which generations have reached
@@ -291,6 +294,11 @@ type GenerationStatus struct {
 	// complete reconciliation because it has more listeners than it is supposed
 	// to.
 	HasExtraListeners int64 `json:"hasExtraListeners,omitempty"`
+
+	// NeedsBackupAgentUpdate provides the last generation that could not
+	// complete reconciliation because the backup agent deployment needs to be
+	// updated.
+	NeedsBackupAgentUpdate int64 `json:"needsBackupAgentUpdate,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -718,6 +726,11 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	if cluster.Status.RequiredAddresses != desiredAddressSet {
 		cluster.Status.Generations.HasExtraListeners = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if cluster.Status.Backup.AgentCount != cluster.Spec.Backup.AgentCount || !cluster.Status.Backup.DeploymentConfigured {
+		cluster.Status.Generations.NeedsBackupAgentUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
@@ -1726,4 +1739,15 @@ type BackupSpec struct {
 	// PodTemplateSpec allows customizing the pod template for the backup
 	// agents.
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
+}
+
+// BackupStatus describes the current status of the backup for a cluster.
+type BackupStatus struct {
+	// AgentCount provides the number of agents that are up-to-date, ready,
+	// and not terminated.
+	AgentCount int `json:"agentCount,omitempty"`
+
+	// DeploymentConfigured indicates whether the deployment is correctly
+	// configured.
+	DeploymentConfigured bool `json:"deploymentConfigured,omitempty"`
 }

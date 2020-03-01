@@ -16188,6 +16188,18 @@ spec:
         status:
           description: FoundationDBClusterStatus defines the observed state of FoundationDBCluster
           properties:
+            backup:
+              description: Backup defines the current state of the cluster's backup.
+              properties:
+                agentCount:
+                  description: AgentCount provides the number of agents that are up-to-date,
+                    ready, and not terminated.
+                  type: integer
+                deploymentConfigured:
+                  description: DeploymentConfigured indicates whether the deployment
+                    is correctly configured.
+                  type: boolean
+              type: object
             databaseConfiguration:
               description: DatabaseConfiguration provides the running configuration
                 of the database.
@@ -16268,6 +16280,12 @@ spec:
                 missingDatabaseStatus:
                   description: DatabaseUnavailable provides the last generation that
                     could not complete reconciliation due to the database being unavailable.
+                  format: int64
+                  type: integer
+                needsBackupAgentUpdate:
+                  description: NeedsBackupAgentUpdate provides the last generation
+                    that could not complete reconciliation because the backup agent
+                    deployment needs to be updated.
                   format: int64
                   type: integer
                 needsBounce:

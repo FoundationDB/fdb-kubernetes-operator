@@ -170,9 +170,13 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 var log = logf.Log.WithName("controller")
 
-// LastPodHashKey provides the annotation name we use to store the hash of the
+// LastSpecKey provides the annotation name we use to store the hash of the
 // pod spec.
-const LastPodHashKey = "org.foundationdb/last-applied-pod-spec-hash"
+const LastSpecKey = "foundationdb.org/last-applied-spec"
+
+// BackupDeploymentLabel probvides the label we use to connect backup
+// deployments to a cluster.
+const BackupDeploymentLabel = "foundationdb.org/backup-for"
 
 var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
 
@@ -245,7 +249,7 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[LastPodHashKey] = specHash
+	metadata.Annotations[LastSpecKey] = specHash
 
 	return metadata
 }
@@ -561,9 +565,15 @@ func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		}
 	}
 
+	return GetJSONHash(spec)
+}
+
+// GetJSONHash serializes an object to JSON and takes a hash of the resulting
+// JSON.
+func GetJSONHash(object interface{}) (string, error) {
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
-	err = encoder.Encode(spec)
+	err := encoder.Encode(object)
 	if err != nil {
 		return "", err
 	}

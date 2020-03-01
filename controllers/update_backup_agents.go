@@ -38,6 +38,7 @@ type UpdateBackupAgents struct{}
 func (u UpdateBackupAgents) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	deploymentName := fmt.Sprintf("%s-backup-agents", cluster.ObjectMeta.Name)
 	existingDeployments := &appsv1.DeploymentList{}
+
 	err := r.List(context, existingDeployments, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", deploymentName))
 	if err != nil {
 		return false, err
@@ -58,9 +59,11 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBClusterReconciler, context 
 		}
 	}
 	if len(existingDeployments.Items) != 0 && deployment != nil {
-		err = r.Update(context, deployment)
-		if err != nil {
-			return false, err
+		if existingDeployments.Items[0].ObjectMeta.Annotations[LastSpecKey] != deployment.ObjectMeta.Annotations[LastSpecKey] {
+			err = r.Update(context, deployment)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 	if len(existingDeployments.Items) != 0 && deployment == nil {

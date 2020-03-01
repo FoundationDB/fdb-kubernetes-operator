@@ -129,8 +129,8 @@ var _ = Describe("pod_models", func() {
 				hash, err := GetPodSpecHash(cluster, pod.Labels["fdb-process-class"], 1, &pod.Spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"fdb-annotation": "value1",
-					"org.foundationdb/last-applied-pod-spec-hash": hash,
+					"fdb-annotation":                     "value1",
+					"foundationdb.org/last-applied-spec": hash,
 				}))
 			})
 		})
@@ -1627,6 +1627,12 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
 				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
 				Expect(deployment.ObjectMeta.OwnerReferences[0].UID).To(Equal(cluster.ObjectMeta.UID))
+				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
+					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
+				}))
+				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
+					"foundationdb.org/last-applied-spec": "078203f9fcf33eedadee272309d65fab85dd8b06da20a54a670f63d2358bccea",
+				}))
 			})
 
 			It("should set the replication factor to the specified agent count", func() {
@@ -1636,10 +1642,10 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the labels for the pod selector", func() {
 				Expect(*deployment.Spec.Selector).To(Equal(metav1.LabelSelector{MatchLabels: map[string]string{
-					"org.foundationdb/deployment-name": "operator-test-1-backup-agents",
+					"foundationdb.org/deployment-name": "operator-test-1-backup-agents",
 				}}))
 				Expect(deployment.Spec.Template.ObjectMeta.Labels).To(Equal(map[string]string{
-					"org.foundationdb/deployment-name": "operator-test-1-backup-agents",
+					"foundationdb.org/deployment-name": "operator-test-1-backup-agents",
 				}))
 			})
 

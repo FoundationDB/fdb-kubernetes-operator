@@ -2875,6 +2875,9 @@ func TestCheckingReconciliation(t *testing.T) {
 				DatabaseConfiguration: DatabaseConfiguration{
 					RedundancyMode: "double",
 				},
+				Backup: BackupSpec{
+					AgentCount: 3,
+				},
 			},
 			Status: FoundationDBClusterStatus{
 				Health: ClusterHealth{
@@ -2901,6 +2904,10 @@ func TestCheckingReconciliation(t *testing.T) {
 					Storage:   3,
 					Stateless: 9,
 					Log:       4,
+				},
+				Backup: BackupStatus{
+					AgentCount:           3,
+					DeploymentConfigured: true,
 				},
 			},
 		}
@@ -3021,4 +3028,13 @@ func TestCheckingReconciliation(t *testing.T) {
 		HasExtraListeners: 2,
 	}))
 
+	cluster = createCluster()
+	cluster.Status.Backup.AgentCount = 5
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+		Reconciled:             1,
+		NeedsBackupAgentUpdate: 2,
+	}))
 }

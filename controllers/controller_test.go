@@ -223,6 +223,7 @@ var _ = Describe("controller", func() {
 				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: deploymentName}, deployment)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
 			})
 		})
 
@@ -731,8 +732,8 @@ var _ = Describe("controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"org.foundationdb/last-applied-pod-spec-hash": hash,
-						"fdb-annotation": "value1",
+						"foundationdb.org/last-applied-spec": hash,
+						"fdb-annotation":                     "value1",
 					}))
 				}
 			})
@@ -830,7 +831,7 @@ var _ = Describe("controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"org.foundationdb/last-applied-pod-spec-hash": hash,
+						"foundationdb.org/last-applied-spec": hash,
 					}))
 				}
 
@@ -918,7 +919,7 @@ var _ = Describe("controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"org.foundationdb/last-applied-pod-spec-hash": hash,
+						"foundationdb.org/last-applied-spec": hash,
 					}))
 				}
 
@@ -1184,6 +1185,22 @@ var _ = Describe("controller", func() {
 				} {
 					Expect(re.Match(buf.Bytes())).To(Equal(true))
 				}
+			})
+		})
+
+		Context("with no backup agents", func() {
+			BeforeEach(func() {
+				cluster.Spec.Backup.AgentCount = 0
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should remove the deployment", func() {
+				deployments := &appsv1.DeploymentList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), deployments)
+					return len(deployments.Items), err
+				}, timeout).Should(Equal(0))
 			})
 		})
 	})
@@ -1976,6 +1993,16 @@ func cleanupCluster(cluster *fdbtypes.FoundationDBCluster) {
 		err = k8sClient.Delete(context.TODO(), &item)
 		Expect(err).NotTo(HaveOccurred())
 	}
+
+	deployments := &appsv1.DeploymentList{}
+	err = k8sClient.List(context.TODO(), deployments)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, item := range deployments.Items {
+		err = k8sClient.Delete(context.TODO(), &item)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 }
 
 func getProcessClassMap(pods []corev1.Pod) map[string]int {
