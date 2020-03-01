@@ -1614,11 +1614,17 @@ var _ = Describe("pod_models", func() {
 	})
 
 	Describe("GetBackupDeployment", func() {
+		var backup *fdbtypes.FoundationDBBackup
 		var deployment *appsv1.Deployment
+
+		BeforeEach(func() {
+			backup = createDefaultBackup(cluster)
+			Expect(backup.Name).To(Equal("operator-test-1"))
+		})
 
 		Context("with a basic deployment", func() {
 			BeforeEach(func() {
-				deployment, err = GetBackupDeployment(context.TODO(), cluster, k8sClient)
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -1747,7 +1753,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a custom secret for the backup credentials", func() {
 			BeforeEach(func() {
-				cluster.Spec.Backup.PodTemplateSpec = &corev1.PodTemplateSpec{
+				backup.Spec.PodTemplateSpec = &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{
 							{Name: "secrets", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "backup-secrets"}}},
@@ -1765,7 +1771,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				deployment, err = GetBackupDeployment(context.TODO(), cluster, k8sClient)
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -1819,8 +1825,21 @@ var _ = Describe("pod_models", func() {
 
 		Context("with an agent count of 0", func() {
 			BeforeEach(func() {
-				cluster.Spec.Backup.AgentCount = 0
-				deployment, err = GetBackupDeployment(context.TODO(), cluster, k8sClient)
+				backup.Spec.AgentCount = 0
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should have 2 replicas", func() {
+				Expect(deployment).NotTo(BeNil())
+				Expect(*deployment.Spec.Replicas).To(Equal(int32(2)))
+			})
+		})
+
+		Context("with an agent count of -1", func() {
+			BeforeEach(func() {
+				backup.Spec.AgentCount = -1
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

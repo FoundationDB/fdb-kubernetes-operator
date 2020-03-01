@@ -90,6 +90,16 @@ func main() {
 		controllers.InitCustomMetrics(reconciler)
 	}
 
+	if err = (&controllers.FoundationDBBackupReconciler{
+		Client:   mgr.GetClient(),
+		Recorder: mgr.GetEventRecorderFor("foundationdbcluster-controller"),
+		Log:      ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Scheme:   mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

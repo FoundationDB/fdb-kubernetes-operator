@@ -26,12 +26,9 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // UpdateStatus provides a reconciliation step for updating the status in the
@@ -214,42 +211,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.MissingProcesses = nil
 	}
 
-	backupDeployments := &appsv1.DeploymentList{}
-	err = r.List(context, backupDeployments, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{BackupDeploymentLabel: string(cluster.ObjectMeta.UID)}))
-	if err != nil {
-		return false, err
-	}
-
-	desiredBackupDeployment, err := GetBackupDeployment(context, cluster, r)
-	if err != nil {
-		return false, err
-	}
-
-	if len(backupDeployments.Items) == 1 && desiredBackupDeployment != nil {
-		backupDeployment := backupDeployments.Items[0]
-		status.Backup.AgentCount = int(backupDeployment.Status.ReadyReplicas)
-		if status.Backup.AgentCount > int(backupDeployment.Status.UpdatedReplicas) {
-			status.Backup.AgentCount = int(backupDeployment.Status.UpdatedReplicas)
-		}
-		generationsMatch := backupDeployment.Status.ObservedGeneration == backupDeployment.ObjectMeta.Generation
-
-		specHash, err := GetJSONHash(desiredBackupDeployment.Spec)
-		if err != nil {
-			return false, err
-		}
-		specsMatch := backupDeployment.Annotations[LastSpecKey] == specHash
-		status.Backup.DeploymentConfigured = generationsMatch && specsMatch
-
-		if r.InSimulation {
-			status.Backup.AgentCount = int(*backupDeployment.Spec.Replicas)
-			status.Backup.DeploymentConfigured = specsMatch
-		}
-	} else if len(backupDeployments.Items) == 0 && desiredBackupDeployment == nil {
-		status.Backup.DeploymentConfigured = true
-	} else {
-		status.Backup.DeploymentConfigured = false
-	}
-
 	originalStatus := cluster.Status.DeepCopy()
 
 	cluster.Status = status
@@ -285,10 +246,4 @@ func containsAll(current map[string]string, desired map[string]string) bool {
 		}
 	}
 	return true
-}
-
-// metadataMatches determines if the current metadata on an object matches the
-// metadata specified by the cluster spec.
-func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
-	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
 }

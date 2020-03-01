@@ -1,9 +1,9 @@
 /*
- * controller.go
+ * cluster_controller.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,8 +42,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
 
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
@@ -96,7 +96,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, fmt.Errorf("Version %s is not supported", cluster.Spec.Version)
 	}
 
-	subReconcilers := []SubReconciler{
+	subReconcilers := []ClusterSubReconciler{
 		SetDefaultValues{},
 		UpdateStatus{},
 		CheckClientCompatibility{},
@@ -110,7 +110,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		ExcludeInstances{},
 		ChangeCoordinators{},
 		BounceProcesses{},
-		UpdateBackupAgents{},
 		UpdatePods{},
 		RemovePods{},
 		IncludeInstances{},
@@ -159,26 +158,10 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
 	})
 
-	mgr.GetFieldIndexer().IndexField(&appsv1.Deployment{}, "metadata.name", func(o runtime.Object) []string {
-		return []string{o.(*appsv1.Deployment).Name}
-	})
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBCluster{}).
 		Complete(r)
 }
-
-var log = logf.Log.WithName("controller")
-
-// LastSpecKey provides the annotation name we use to store the hash of the
-// pod spec.
-const LastSpecKey = "foundationdb.org/last-applied-spec"
-
-// BackupDeploymentLabel probvides the label we use to connect backup
-// deployments to a cluster.
-const BackupDeploymentLabel = "foundationdb.org/backup-for"
-
-var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
 
 func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Result, error) {
 	notReadyError, canCast := err.(ReconciliationNotReadyError)
@@ -316,15 +299,19 @@ func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID s
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID})}
 }
 
-func buildOwnerReference(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) ([]metav1.OwnerReference, error) {
+func buildOwnerReferenceForCluster(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) ([]metav1.OwnerReference, error) {
 	reloadedCluster := &fdbtypes.FoundationDBCluster{}
 	kubeClient.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, reloadedCluster)
+	return buildOwnerReference(context, reloadedCluster.TypeMeta, reloadedCluster.ObjectMeta, kubeClient)
+}
+
+func buildOwnerReference(context ctx.Context, ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta, kubeClient client.Client) ([]metav1.OwnerReference, error) {
 	var isController = true
 	return []metav1.OwnerReference{metav1.OwnerReference{
-		APIVersion: reloadedCluster.APIVersion,
-		Kind:       reloadedCluster.Kind,
-		Name:       reloadedCluster.Name,
-		UID:        reloadedCluster.UID,
+		APIVersion: ownerType.APIVersion,
+		Kind:       ownerType.Kind,
+		Name:       ownerMetadata.Name,
+		UID:        ownerMetadata.UID,
 		Controller: &isController,
 	}}, nil
 }
@@ -412,7 +399,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
-	owner, err := buildOwnerReference(context, cluster, kubeClient)
+	owner, err := buildOwnerReferenceForCluster(context, cluster, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -820,8 +807,9 @@ func (err ReconciliationNotReadyError) Error() string {
 	return err.message
 }
 
-// SubReconciler describes a class that does part of the work of reconciliation.
-type SubReconciler interface {
+// ClusterSubReconciler describes a class that does part of the work of
+// reconciliation for a cluster.
+type ClusterSubReconciler interface {
 	/**
 	Reconcile runs the reconciler's work.
 

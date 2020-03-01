@@ -52,7 +52,7 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
 
-	owner, err := buildOwnerReference(context, cluster, kubeClient)
+	owner, err := buildOwnerReferenceForCluster(context, cluster, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -187,10 +187,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 
 	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
-	configureSidecarContainer(cluster, initContainer, true, instanceID)
+	configureSidecarContainerForCluster(cluster, initContainer, true, instanceID)
 
 	customizeContainer(sidecarContainer, cluster.Spec.SidecarContainer)
-	configureSidecarContainer(cluster, sidecarContainer, false, instanceID)
+	configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID)
 
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
@@ -281,16 +281,38 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	return podSpec, nil
 }
 
-// configureSidecarContainer sets up a sidecar container.
-func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string) error {
+// configureSidecarContainerForCluster sets up a sidecar container for a sidecar
+// in the FDB cluster.
+func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string) error {
 	versionString := cluster.Spec.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
 
+	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster.Spec.SidecarVariables, cluster.Spec.FaultDomain, cluster.Spec.SidecarContainer, cluster.Spec.SidecarVersions, cluster.Spec.SidecarVersion)
+}
+
+// configureSidecarContainerForBackup sets up a sidecar container for the init
+// container for a backup process.
+func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
+	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, fdbtypes.FoundationDBClusterFaultDomain{}, fdbtypes.ContainerOverrides{}, nil, 0)
+}
+
+// configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
+// container.
+func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, sidecarVariables []string, faultDomain fdbtypes.FoundationDBClusterFaultDomain, overrides fdbtypes.ContainerOverrides, sidecarVersions map[string]int, deprecatedSidecarVersion int) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
+	}
+
+	var sidecarVersion string
+	if deprecatedSidecarVersion != 0 {
+		sidecarVersion = fmt.Sprintf("%s-%d", versionString, deprecatedSidecarVersion)
+	} else if sidecarVersions != nil && sidecarVersions[versionString] != 0 {
+		sidecarVersion = fmt.Sprintf("%s-%d", versionString, sidecarVersions[versionString])
+	} else {
+		sidecarVersion = fmt.Sprintf("%s-1", versionString)
 	}
 
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
@@ -332,7 +354,7 @@ func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container 
 		}})
 
 		if version.PrefersCommandLineArgumentsInSidecar() {
-			for _, substitution := range cluster.Spec.SidecarVariables {
+			for _, substitution := range sidecarVariables {
 				sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 			}
 			if !version.HasInstanceIDInSidecarSubstitutions() {
@@ -340,12 +362,12 @@ func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container 
 			}
 		}
 
-		faultDomainKey := cluster.Spec.FaultDomain.Key
+		faultDomainKey := faultDomain.Key
 		if faultDomainKey == "" {
 			faultDomainKey = "kubernetes.io/hostname"
 		}
 
-		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
+		faultDomainSource := faultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
 		}
@@ -361,7 +383,7 @@ func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container 
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 			}})
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: faultDomain.Value})
 		} else {
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
@@ -376,8 +398,8 @@ func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container 
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 	}
 
-	if cluster.Spec.SidecarContainer.ImageName != "" {
-		container.Image = cluster.Spec.SidecarContainer.ImageName
+	if overrides.ImageName != "" {
+		container.Image = overrides.ImageName
 	}
 
 	if version.PrefersCommandLineArgumentsInSidecar() && initMode {
@@ -390,7 +412,7 @@ func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container 
 
 	extendEnv(container, sidecarEnv...)
 
-	if cluster.Spec.SidecarContainer.EnableTLS && !initMode {
+	if overrides.EnableTLS && !initMode {
 		sidecarArgs = append(sidecarArgs, "--tls")
 	}
 
@@ -402,14 +424,14 @@ func configureSidecarContainer(cluster *fdbtypes.FoundationDBCluster, container 
 		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
-	container.Image = fmt.Sprintf("%s:%s", container.Image, cluster.GetFullSidecarVersion(fdbserverMode))
+	container.Image = fmt.Sprintf("%s:%s", container.Image, sidecarVersion)
 
 	if initMode {
 		return nil
 	}
 
 	extendEnv(container,
-		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: cluster.Spec.SidecarContainer.PeerVerificationRules},
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: overrides.PeerVerificationRules},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
 	)
 
@@ -552,32 +574,32 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 }
 
 // GetBackupDeployment builds a deployment for backup agents for a cluster.
-func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*appsv1.Deployment, error) {
-	if cluster.Spec.Backup.AgentCount == 0 {
+func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBackup, kubeClient client.Client) (*appsv1.Deployment, error) {
+	agentCount := int32(backup.GetDesiredAgentCount())
+	if agentCount == 0 {
 		return nil, nil
 	}
-	deploymentName := fmt.Sprintf("%s-backup-agents", cluster.ObjectMeta.Name)
+	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   cluster.ObjectMeta.Namespace,
+			Namespace:   backup.ObjectMeta.Namespace,
 			Name:        deploymentName,
 			Annotations: map[string]string{},
 		},
 	}
-	agentCount := int32(cluster.Spec.Backup.AgentCount)
 	deployment.Spec.Replicas = &agentCount
-	owner, err := buildOwnerReference(context, cluster, kubeClient)
+	owner, err := buildOwnerReference(context, backup.TypeMeta, backup.ObjectMeta, kubeClient)
 	if err != nil {
 		return nil, err
 	}
 	deployment.ObjectMeta.OwnerReferences = owner
 	deployment.ObjectMeta.Labels = map[string]string{
-		BackupDeploymentLabel: string(cluster.ObjectMeta.UID),
+		BackupDeploymentLabel: string(backup.ObjectMeta.UID),
 	}
 
 	var podTemplate *corev1.PodTemplateSpec
-	if cluster.Spec.Backup.PodTemplateSpec != nil {
-		podTemplate = cluster.Spec.Backup.PodTemplateSpec.DeepCopy()
+	if backup.Spec.PodTemplateSpec != nil {
+		podTemplate = backup.Spec.PodTemplateSpec.DeepCopy()
 	} else {
 		podTemplate = &corev1.PodTemplateSpec{}
 	}
@@ -608,7 +630,7 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 	if mainContainer.Image == "" {
 		mainContainer.Image = "foundationdb/foundationdb"
 	}
-	mainContainer.Image = fmt.Sprintf("%s:%s", mainContainer.Image, cluster.Spec.Version)
+	mainContainer.Image = fmt.Sprintf("%s:%s", mainContainer.Image, backup.Spec.Version)
 	mainContainer.Command = []string{"backup_agent"}
 	mainContainer.Args = []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
 	if mainContainer.Env == nil {
@@ -641,7 +663,7 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	configureSidecarContainer(cluster, initContainer, true, "")
+	configureSidecarContainerForBackup(backup, initContainer)
 
 	if podTemplate.ObjectMeta.Labels == nil {
 		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
@@ -657,7 +679,7 @@ func GetBackupDeployment(context ctx.Context, cluster *fdbtypes.FoundationDBClus
 		corev1.Volume{
 			Name: "config-map",
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
+				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
 				Items: []corev1.KeyToPath{
 					corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
 					corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},

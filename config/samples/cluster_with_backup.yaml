@@ -59,32 +59,38 @@ spec:
         - name: foundationdb-kubernetes-init
           securityContext:
             runAsUser: 0
-  backup:
-    agentCount: 2
-    podTemplateSpec:
-      spec:
-        containers:
-          - name: foundationdb
-            env:
-              - name: FDB_BLOB_CREDENTIALS
-                value: /var/secrets/credentials
-            resources:
-              limits:
-                cpu: 250m
-                memory: 128Mi
-              requests:
-                cpu: 250m
-                memory: 128Mi
-            securityContext:
-              runAsGroup: 0
-              runAsUser: 0
-            volumeMounts:
-              - name: secrets
-                mountPath: /var/secrets
-        volumes:
-          - name: secrets
-            secret:
-              secretName: sample-cluster-backup-secrets
+---
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.15
+  clusterName: sample-cluster
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: foundationdb
+          env:
+            - name: FDB_BLOB_CREDENTIALS
+              value: /var/secrets/credentials
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+          volumeMounts:
+            - name: secrets
+              mountPath: /var/secrets
+      volumes:
+        - name: secrets
+          secret:
+            secretName: sample-cluster-backup-secrets
 ---
 apiVersion: v1
 kind: Secret

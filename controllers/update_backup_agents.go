@@ -30,20 +30,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UpdateBackupAgents provides a reconciliation step for recreating pods with new pod
-// specs.
+// UpdateBackupAgents provides a reconciliation step for updating the
+// deployment for the backup agents.
 type UpdateBackupAgents struct{}
 
 // Reconcile runs the reconciler's work.
-func (u UpdateBackupAgents) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	deploymentName := fmt.Sprintf("%s-backup-agents", cluster.ObjectMeta.Name)
+func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployments := &appsv1.DeploymentList{}
 
-	err := r.List(context, existingDeployments, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", deploymentName))
+	err := r.List(context, existingDeployments, client.InNamespace(backup.Namespace), client.MatchingField("metadata.name", deploymentName))
 	if err != nil {
 		return false, err
 	}
-	deployment, err := GetBackupDeployment(context, cluster, r)
+	deployment, err := GetBackupDeployment(context, backup, r)
 	if err != nil {
 		return false, err
 	}
