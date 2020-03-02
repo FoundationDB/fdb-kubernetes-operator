@@ -21,6 +21,13 @@
 #
 # If you are testing this in Docker Desktop, you can browse the local MinIO
 # instance at http://localhost:9000.
+#
+# If you create all of the resources in one command, you may see the backup
+# agents get caught in a crash loop because they are trying to use the original,
+# invalid cluster file. You can resolve this by running
+# `kubectl delete pod -l foundationdb.org/deployment-name=sample-cluster-backup-agents`
+# to bounce the backup pods and get the correct cluster file. Once they are
+# connected they will automatically get cluster file updates from the cluster.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
