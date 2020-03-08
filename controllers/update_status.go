@@ -126,7 +126,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 					if err != nil {
 						return false, err
 					}
-					correct = commandLine == process.CommandLine
+					correct = commandLine == process.CommandLine && process.Version == cluster.Spec.Version
 					break
 				}
 			}

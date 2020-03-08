@@ -1100,6 +1100,43 @@ var _ = Describe("controller", func() {
 			})
 		})
 
+		Context("with an upgrade", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = Versions.NextMajorVersion.String()
+
+				timeout = 120 * time.Second
+				err = k8sClient.Update(context.TODO(), cluster)
+				generationGap = 2
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should bounce the processes", func() {
+				addresses := make(map[string]bool, len(originalPods.Items))
+				for _, pod := range originalPods.Items {
+					addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+				}
+
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+				for _, address := range adminClient.KilledAddresses {
+					killedAddresses[address] = true
+				}
+				Expect(killedAddresses).To(Equal(addresses))
+			})
+
+			It("should set the image on the pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+				}
+			})
+		})
+
 		Context("custom metrics for a cluster", func() {
 			BeforeEach(func() {
 				generationGap = 0

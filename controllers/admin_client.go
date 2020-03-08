@@ -455,6 +455,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			Locality: map[string]string{
 				"instance_id": instance.GetInstanceID(),
 			},
+			Version: client.Cluster.Spec.RunningVersion,
 		}
 	}
 
