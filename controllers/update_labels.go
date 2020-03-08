@@ -47,21 +47,21 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string)
 			}
-			metadata.Annotations[LastPodHashKey] = instance.Pod.ObjectMeta.Annotations[LastPodHashKey]
+			metadata.Annotations[LastPodHashKey] = instance.Metadata.Annotations[LastPodHashKey]
 			metadataCorrect := true
 
-			if !reflect.DeepEqual(instance.Pod.ObjectMeta.Labels, metadata.Labels) {
-				instance.Pod.ObjectMeta.Labels = metadata.Labels
+			if !reflect.DeepEqual(instance.Metadata.Labels, metadata.Labels) {
+				instance.Metadata.Labels = metadata.Labels
 				metadataCorrect = false
 			}
 
-			if !reflect.DeepEqual(instance.Pod.ObjectMeta.Annotations, metadata.Annotations) {
-				instance.Pod.ObjectMeta.Annotations = metadata.Annotations
+			if !reflect.DeepEqual(instance.Metadata.Annotations, metadata.Annotations) {
+				instance.Metadata.Annotations = metadata.Annotations
 				metadataCorrect = false
 			}
 
 			if !metadataCorrect {
-				err = r.Update(context, instance.Pod)
+				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 				if err != nil {
 					return false, err
 				}
