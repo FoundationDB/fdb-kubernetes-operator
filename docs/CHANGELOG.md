@@ -1,6 +1,16 @@
+# v0.6.0
+
+*	Add a Helm chart for the operator.
+*	Emit Prometheus metrics on reconciliation and cluster health.
+*	Fix the name of the volume claim customization in the sample clusters.
+*	Fix the logic for checking whether pods are up-to-date when using a custom
+	pod lifecycle manager.
+*	Fix false positives when checking for processes being up-to-date during
+	upgrades.
+
 # v0.5.0
 
-*	Allow replacicng pods that are failing to launch.
+*	Allow replacing pods that are failing to launch.
 *	move the removal of pods in a shrink to the end of reconciliation.
 *	Drop support for FDB versions < 6.1.12.
 *	Allow customizing the name of the config map.
