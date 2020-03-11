@@ -98,9 +98,9 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("with a backup agent count of 0", func() {
+		Context("with a nil backup agent count", func() {
 			BeforeEach(func() {
-				backup.Spec.AgentCount = 0
+				backup.Spec.AgentCount = nil
 				err = k8sClient.Update(context.TODO(), backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -115,9 +115,10 @@ var _ = Describe("backup_controller", func() {
 			})
 		})
 
-		Context("with no backup agents", func() {
+		Context("with backup agent count of zero", func() {
 			BeforeEach(func() {
-				backup.Spec.AgentCount = -1
+				agentCount := 0
+				backup.Spec.AgentCount = &agentCount
 				err = k8sClient.Update(context.TODO(), backup)
 				Expect(err).NotTo(HaveOccurred())
 			})

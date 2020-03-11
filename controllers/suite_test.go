@@ -172,6 +172,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 }
 
 func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
+	agentCount := 3
 	return &fdbtypes.FoundationDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Name,
@@ -180,7 +181,7 @@ func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Founda
 		Spec: fdbtypes.FoundationDBBackupSpec{
 			Version:     cluster.Spec.Version,
 			ClusterName: cluster.Name,
-			AgentCount:  3,
+			AgentCount:  &agentCount,
 		},
 		Status: fdbtypes.FoundationDBBackupStatus{},
 	}

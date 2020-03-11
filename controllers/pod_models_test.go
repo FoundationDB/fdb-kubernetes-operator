@@ -1823,9 +1823,9 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an agent count of 0", func() {
+		Context("with a nil agent count", func() {
 			BeforeEach(func() {
-				backup.Spec.AgentCount = 0
+				backup.Spec.AgentCount = nil
 				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1836,9 +1836,10 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an agent count of -1", func() {
+		Context("with an agent count of 0", func() {
 			BeforeEach(func() {
-				backup.Spec.AgentCount = -1
+				agentCount := 0
+				backup.Spec.AgentCount = &agentCount
 				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 			})

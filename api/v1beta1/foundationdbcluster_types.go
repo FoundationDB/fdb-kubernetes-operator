@@ -738,13 +738,10 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 // GetDesiredAgentCount determines how many backup agents we should run
 // for a cluster.
 func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
-	desiredAgentCount := backup.Spec.AgentCount
-	if desiredAgentCount < 0 {
-		return 0
-	} else if desiredAgentCount == 0 {
+	if backup.Spec.AgentCount == nil {
 		return 2
 	}
-	return desiredAgentCount
+	return *backup.Spec.AgentCount
 }
 
 // CheckReconciliation compares the spec and the status to determine if
@@ -1787,7 +1784,7 @@ type FoundationDBBackupSpec struct {
 	ClusterName string `json:"clusterName"`
 
 	// AgentCount defines the number of backup agents to run.
-	AgentCount int `json:"agentCount,omitempty"`
+	AgentCount *int `json:"agentCount,omitempty"`
 
 	// PodTemplateSpec allows customizing the pod template for the backup
 	// agents.

@@ -3024,6 +3024,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 
 func TestCheckingReconciliationForBackup(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	var agentCount = 3
 
 	createBackup := func() *FoundationDBBackup {
 		return &FoundationDBBackup{
@@ -3033,7 +3034,7 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 				Generation: 2,
 			},
 			Spec: FoundationDBBackupSpec{
-				AgentCount: 3,
+				AgentCount: &agentCount,
 			},
 			Status: FoundationDBBackupStatus{
 				Generations: BackupGenerationStatus{
@@ -3065,7 +3066,8 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 	}))
 
 	backup = createBackup()
-	backup.Spec.AgentCount = -1
+	agentCount = 0
+	backup.Spec.AgentCount = &agentCount
 	backup.Status.AgentCount = 0
 	result, err = backup.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
