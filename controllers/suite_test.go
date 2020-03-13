@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -31,6 +32,8 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 
 	"github.com/onsi/gomega/gexec"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -85,8 +88,8 @@ var _ = BeforeSuite(func(done Done) {
 
 	reconciler = &FoundationDBClusterReconciler{
 		Client:              k8sManager.GetClient(),
-		Log:                 ctrl.Log.WithName("controllers").WithName("SecretScope"),
-		Recorder:            k8sManager.GetEventRecorderFor("secretscope-controller"),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Recorder:            k8sManager.GetEventRecorderFor("foundationdbcluster-controller"),
 		InSimulation:        true,
 		PodLifecycleManager: StandardPodLifecycleManager{},
 		PodClientProvider:   NewMockFdbPodClient,
@@ -95,6 +98,14 @@ var _ = BeforeSuite(func(done Done) {
 	}
 
 	err = (reconciler).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&FoundationDBBackupReconciler{
+		Client:       k8sManager.GetClient(),
+		Log:          ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
+		Recorder:     k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
+		InSimulation: true,
+	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
@@ -158,4 +169,67 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			},
 		},
 	}
+}
+
+func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
+	agentCount := 3
+	return &fdbtypes.FoundationDBBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.Name,
+			Namespace: cluster.Namespace,
+		},
+		Spec: fdbtypes.FoundationDBBackupSpec{
+			Version:     cluster.Spec.Version,
+			ClusterName: cluster.Name,
+			AgentCount:  &agentCount,
+		},
+		Status: fdbtypes.FoundationDBBackupStatus{},
+	}
+}
+
+func cleanupCluster(cluster *fdbtypes.FoundationDBCluster) {
+	err := k8sClient.Delete(context.TODO(), cluster)
+	Expect(err).NotTo(HaveOccurred())
+
+	pods := &corev1.PodList{}
+	err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, item := range pods.Items {
+		err = k8sClient.Delete(context.TODO(), &item)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	configMaps := &corev1.ConfigMapList{}
+	err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, item := range configMaps.Items {
+		err = k8sClient.Delete(context.TODO(), &item)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, item := range pvcs.Items {
+		err = k8sClient.Delete(context.TODO(), &item)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
+	err := k8sClient.Delete(context.TODO(), backup)
+	Expect(err).NotTo(HaveOccurred())
+
+	deployments := &appsv1.DeploymentList{}
+	err = k8sClient.List(context.TODO(), deployments)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, item := range deployments.Items {
+		err = k8sClient.Delete(context.TODO(), &item)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 }

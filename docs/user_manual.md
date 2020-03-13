@@ -24,9 +24,11 @@ The core of the operator is a reconciliation loop. In this loop, the operator re
 When you make a change to the cluster spec, it will increment the `generation` field in the cluster metadata. Once reconciliation completes, the `generations.reconciled` field in the cluster status will be updated to reflect the last generation that we have reconciled. You can compare these two fields to determine whether your changes have been fully applied. You can also see the current generation and reconciled generation in the output of `kubectl get foundationdbcluster`.
 
 To run the operator in your environment, you need to install the controller and
-the CRD:
+the CRDs:
 
     kubectl create -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+    (kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml) || (kubectl replace -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml)
+    (kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml) || (kubectl replace -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml)
 
 You can see logs from the operator by running
 `kubectl logs -f app=fdb-kubernetes-operator-controller-manager --container=manager`. You will likely want to watch these logs as you make changes to get a better understanding of what the operator is doing.

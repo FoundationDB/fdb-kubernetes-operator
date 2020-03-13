@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +52,7 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
 
-	owner, err := buildOwnerReference(context, cluster, kubeClient)
+	owner, err := buildOwnerReferenceForCluster(context, cluster, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -185,149 +186,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 
-	sidecarInitEnv := make([]corev1.EnvVar, 0, 4)
-
-	var sidecarInitArgs []string
-	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarInitArgs = []string{
-			"--copy-file", "fdb.cluster",
-			"--copy-file", "ca.pem",
-			"--input-monitor-conf", "fdbmonitor.conf",
-			"--copy-binary", "fdbserver",
-			"--copy-binary", "fdbcli",
-		}
-		if version.SupportsUsingBinariesFromMainContainer() {
-			sidecarInitArgs = append(sidecarInitArgs,
-				"--main-container-version", version.String(),
-			)
-		}
-	} else {
-		sidecarInitArgs = make([]string, 0)
-	}
-
-	if !version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
-	}
-
-	sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-		FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-	}})
-
-	if version.PrefersCommandLineArgumentsInSidecar() {
-		for _, substitution := range cluster.Spec.SidecarVariables {
-			sidecarInitArgs = append(sidecarInitArgs, "--substitute-variable", substitution)
-		}
-		if !version.HasInstanceIDInSidecarSubstitutions() {
-			sidecarInitArgs = append(sidecarInitArgs, "--substitute-variable", "FDB_INSTANCE_ID")
-		}
-	}
-
-	faultDomainKey := cluster.Spec.FaultDomain.Key
-	if faultDomainKey == "" {
-		faultDomainKey = "kubernetes.io/hostname"
-	}
-
-	faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
-	if faultDomainSource == "" {
-		faultDomainSource = "spec.nodeName"
-	}
-
-	if faultDomainKey == "foundationdb.org/none" {
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-		}})
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-		}})
-	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-		}})
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
-	} else {
-		sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-		}})
-		if !strings.HasPrefix(faultDomainSource, "$") {
-			sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
-			}})
-		}
-	}
-
-	sidecarInitEnv = append(sidecarInitEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
-
-	if cluster.Spec.SidecarContainer.ImageName != "" {
-		initContainer.Image = cluster.Spec.SidecarContainer.ImageName
-	}
-
-	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarInitArgs = append(sidecarInitArgs, "--init-mode")
-	}
-
-	if cluster.Spec.SidecarContainer.ImageName != "" {
-		initContainer.Image = cluster.Spec.SidecarContainer.ImageName
-	}
-	if initContainer.Image == "" {
-		initContainer.Image = "foundationdb/foundationdb-kubernetes-sidecar"
-	}
-
-	extendEnv(initContainer, sidecarInitEnv...)
-	initContainer.Args = sidecarInitArgs
-	initContainer.VolumeMounts = append(initContainer.VolumeMounts,
-		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
-		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
-	)
-	initContainer.Image = fmt.Sprintf("%s:%s", initContainer.Image, cluster.GetFullSidecarVersion(true))
-
-	sidecarArgs := make([]string, 0, len(sidecarInitArgs))
-	sidecarEnv := make([]corev1.EnvVar, 0, len(sidecarInitEnv))
-
-	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarArgs = append(sidecarArgs, sidecarInitArgs[:len(sidecarInitArgs)-1]...)
-		sidecarEnv = append(sidecarEnv, sidecarInitEnv...)
-	} else {
-		sidecarArgs = append(sidecarArgs, sidecarInitArgs...)
-		sidecarEnv = append(sidecarEnv, sidecarInitEnv[1:]...)
-	}
-
 	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
-
-	if cluster.Spec.SidecarContainer.ImageName != "" {
-		sidecarContainer.Image = cluster.Spec.SidecarContainer.ImageName
-	}
-	if sidecarContainer.Image == "" {
-		sidecarContainer.Image = "foundationdb/foundationdb-kubernetes-sidecar"
-	}
-
-	sidecarContainer.Image = fmt.Sprintf("%s:%s", sidecarContainer.Image, cluster.GetFullSidecarVersion(true))
-	extendEnv(sidecarContainer, sidecarEnv...)
-	extendEnv(sidecarContainer,
-		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: cluster.Spec.SidecarContainer.PeerVerificationRules},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
-	)
-
-	sidecarContainer.Args = append(sidecarContainer.Args, sidecarArgs...)
-	if cluster.Spec.SidecarContainer.EnableTLS {
-		sidecarContainer.Args = append(sidecarContainer.Args, "--tls")
-	}
-
-	sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
-		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
-		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
-	)
-	if sidecarContainer.ReadinessProbe == nil {
-		sidecarContainer.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
-				TCPSocket: &corev1.TCPSocketAction{
-					Port: intstr.IntOrString{IntVal: 8080},
-				},
-			},
-		}
-	}
+	configureSidecarContainerForCluster(cluster, initContainer, true, instanceID)
 
 	customizeContainer(sidecarContainer, cluster.Spec.SidecarContainer)
+	configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID)
 
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
@@ -377,6 +240,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	var affinity *corev1.Affinity
 
+	faultDomainKey := cluster.Spec.FaultDomain.Key
+	if faultDomainKey == "" {
+		faultDomainKey = "kubernetes.io/hostname"
+	}
+
 	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
 		affinity = &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -411,6 +279,173 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	}
 
 	return podSpec, nil
+}
+
+// configureSidecarContainerForCluster sets up a sidecar container for a sidecar
+// in the FDB cluster.
+func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string) error {
+	versionString := cluster.Spec.RunningVersion
+	if versionString == "" {
+		versionString = cluster.Spec.Version
+	}
+
+	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster.Spec.SidecarVariables, cluster.Spec.FaultDomain, cluster.Spec.SidecarContainer, cluster.Spec.SidecarVersions, cluster.Spec.SidecarVersion)
+}
+
+// configureSidecarContainerForBackup sets up a sidecar container for the init
+// container for a backup process.
+func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
+	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, fdbtypes.FoundationDBClusterFaultDomain{}, fdbtypes.ContainerOverrides{}, nil, 0)
+}
+
+// configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
+// container.
+func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, sidecarVariables []string, faultDomain fdbtypes.FoundationDBClusterFaultDomain, overrides fdbtypes.ContainerOverrides, sidecarVersions map[string]int, deprecatedSidecarVersion int) error {
+	version, err := fdbtypes.ParseFdbVersion(versionString)
+	if err != nil {
+		return err
+	}
+
+	var sidecarVersion string
+	if deprecatedSidecarVersion != 0 {
+		sidecarVersion = fmt.Sprintf("%s-%d", versionString, deprecatedSidecarVersion)
+	} else if sidecarVersions != nil && sidecarVersions[versionString] != 0 {
+		sidecarVersion = fmt.Sprintf("%s-%d", versionString, sidecarVersions[versionString])
+	} else {
+		sidecarVersion = fmt.Sprintf("%s-1", versionString)
+	}
+
+	sidecarEnv := make([]corev1.EnvVar, 0, 4)
+
+	fdbserverMode := instanceID != ""
+
+	var sidecarArgs []string
+	if version.PrefersCommandLineArgumentsInSidecar() {
+		sidecarArgs = []string{
+			"--copy-file", "fdb.cluster",
+			"--copy-file", "ca.pem",
+		}
+		if fdbserverMode {
+			sidecarArgs = append(sidecarArgs,
+				"--input-monitor-conf", "fdbmonitor.conf",
+				"--copy-binary", "fdbserver",
+				"--copy-binary", "fdbcli",
+			)
+			if version.SupportsUsingBinariesFromMainContainer() {
+				sidecarArgs = append(sidecarArgs,
+					"--main-container-version", version.String(),
+				)
+			}
+		}
+	} else {
+		sidecarArgs = make([]string, 0)
+	}
+
+	if !version.PrefersCommandLineArgumentsInSidecar() {
+		if initMode {
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
+		}
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
+	}
+
+	if fdbserverMode {
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+		}})
+
+		if version.PrefersCommandLineArgumentsInSidecar() {
+			for _, substitution := range sidecarVariables {
+				sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
+			}
+			if !version.HasInstanceIDInSidecarSubstitutions() {
+				sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_INSTANCE_ID")
+			}
+		}
+
+		faultDomainKey := faultDomain.Key
+		if faultDomainKey == "" {
+			faultDomainKey = "kubernetes.io/hostname"
+		}
+
+		faultDomainSource := faultDomain.ValueFrom
+		if faultDomainSource == "" {
+			faultDomainSource = "spec.nodeName"
+		}
+
+		if faultDomainKey == "foundationdb.org/none" {
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+			}})
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+			}})
+		} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+			}})
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: faultDomain.Value})
+		} else {
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+			}})
+			if !strings.HasPrefix(faultDomainSource, "$") {
+				sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
+				}})
+			}
+		}
+
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+	}
+
+	if overrides.ImageName != "" {
+		container.Image = overrides.ImageName
+	}
+
+	if version.PrefersCommandLineArgumentsInSidecar() && initMode {
+		sidecarArgs = append(sidecarArgs, "--init-mode")
+	}
+
+	if container.Image == "" {
+		container.Image = "foundationdb/foundationdb-kubernetes-sidecar"
+	}
+
+	extendEnv(container, sidecarEnv...)
+
+	if overrides.EnableTLS && !initMode {
+		sidecarArgs = append(sidecarArgs, "--tls")
+	}
+
+	if len(sidecarArgs) > 0 {
+		container.Args = sidecarArgs
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts,
+		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
+	)
+	container.Image = fmt.Sprintf("%s:%s", container.Image, sidecarVersion)
+
+	if initMode {
+		return nil
+	}
+
+	extendEnv(container,
+		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: overrides.PeerVerificationRules},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
+	)
+
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Port: intstr.IntOrString{IntVal: 8080},
+				},
+			},
+		}
+	}
+
+	return nil
 }
 
 // usePvc determines whether we should attach a PVC to a pod.
@@ -536,4 +571,131 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 	if overrides.SecurityContext != nil {
 		container.SecurityContext = overrides.SecurityContext
 	}
+}
+
+// GetBackupDeployment builds a deployment for backup agents for a cluster.
+func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBackup, kubeClient client.Client) (*appsv1.Deployment, error) {
+	agentCount := int32(backup.GetDesiredAgentCount())
+	if agentCount == 0 {
+		return nil, nil
+	}
+	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   backup.ObjectMeta.Namespace,
+			Name:        deploymentName,
+			Annotations: map[string]string{},
+		},
+	}
+	deployment.Spec.Replicas = &agentCount
+	owner, err := buildOwnerReference(context, backup.TypeMeta, backup.ObjectMeta, kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	deployment.ObjectMeta.OwnerReferences = owner
+	deployment.ObjectMeta.Labels = map[string]string{
+		BackupDeploymentLabel: string(backup.ObjectMeta.UID),
+	}
+
+	var podTemplate *corev1.PodTemplateSpec
+	if backup.Spec.PodTemplateSpec != nil {
+		podTemplate = backup.Spec.PodTemplateSpec.DeepCopy()
+	} else {
+		podTemplate = &corev1.PodTemplateSpec{}
+	}
+
+	var mainContainer *corev1.Container
+	var initContainer *corev1.Container
+
+	for index, container := range podTemplate.Spec.Containers {
+		if container.Name == "foundationdb" {
+			mainContainer = &podTemplate.Spec.Containers[index]
+		}
+	}
+
+	for index, container := range podTemplate.Spec.InitContainers {
+		if container.Name == "foundationdb-kubernetes-init" {
+			initContainer = &podTemplate.Spec.InitContainers[index]
+		}
+	}
+
+	if mainContainer == nil {
+		containers := []corev1.Container{}
+		containers = append(containers, corev1.Container{Name: "foundationdb"})
+		containers = append(containers, podTemplate.Spec.Containers...)
+		mainContainer = &containers[0]
+		podTemplate.Spec.Containers = containers
+	}
+
+	if mainContainer.Image == "" {
+		mainContainer.Image = "foundationdb/foundationdb"
+	}
+	mainContainer.Image = fmt.Sprintf("%s:%s", mainContainer.Image, backup.Spec.Version)
+	mainContainer.Command = []string{"backup_agent"}
+	mainContainer.Args = []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
+	if mainContainer.Env == nil {
+		mainContainer.Env = make([]corev1.EnvVar, 0, 1)
+	}
+
+	mainContainer.Env = append(mainContainer.Env,
+		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
+	)
+
+	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+		corev1.VolumeMount{Name: "logs", MountPath: "/var/log/fdb-trace-logs"},
+		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+	)
+
+	if mainContainer.Resources.Requests == nil {
+		mainContainer.Resources.Requests = corev1.ResourceList{
+			"cpu":    resource.MustParse("1"),
+			"memory": resource.MustParse("1Gi"),
+		}
+	}
+
+	if mainContainer.Resources.Limits == nil {
+		mainContainer.Resources.Limits = mainContainer.Resources.Requests
+	}
+
+	if initContainer == nil {
+		podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, corev1.Container{Name: "foundationdb-kubernetes-init"})
+		initContainer = &podTemplate.Spec.InitContainers[0]
+	}
+
+	configureSidecarContainerForBackup(backup, initContainer)
+
+	if podTemplate.ObjectMeta.Labels == nil {
+		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
+	}
+	podTemplate.ObjectMeta.Labels["foundationdb.org/deployment-name"] = deployment.ObjectMeta.Name
+	deployment.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
+		"foundationdb.org/deployment-name": deployment.ObjectMeta.Name,
+	}}
+
+	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
+		corev1.Volume{Name: "logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+		corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+		corev1.Volume{
+			Name: "config-map",
+			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
+				Items: []corev1.KeyToPath{
+					corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+					corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
+				},
+			}},
+		},
+	)
+
+	deployment.Spec.Template = *podTemplate
+
+	specHash, err := GetJSONHash(deployment.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	deployment.ObjectMeta.Annotations[LastSpecKey] = specHash
+
+	return deployment, nil
 }

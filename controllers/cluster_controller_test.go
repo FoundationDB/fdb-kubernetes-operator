@@ -1,5 +1,5 @@
 /*
- * controller_test.go
+ * cluster_controller_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -51,10 +51,10 @@ func reloadCluster(client client.Client, cluster *fdbtypes.FoundationDBCluster) 
 	return generations.Reconciled, err
 }
 
-func reloadClusterGenerations(client client.Client, cluster *fdbtypes.FoundationDBCluster) (fdbtypes.GenerationStatus, error) {
+func reloadClusterGenerations(client client.Client, cluster *fdbtypes.FoundationDBCluster) (fdbtypes.ClusterGenerationStatus, error) {
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {
-		return fdbtypes.GenerationStatus{}, err
+		return fdbtypes.ClusterGenerationStatus{}, err
 	}
 	return cluster.Status.Generations, err
 }
@@ -68,7 +68,7 @@ func getListOptions(cluster *fdbtypes.FoundationDBCluster) []client.ListOption {
 	}
 }
 
-var _ = Describe("controller", func() {
+var _ = Describe("cluster_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	BeforeEach(func() {
 		ClearMockAdminClients()
@@ -542,7 +542,7 @@ var _ = Describe("controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:             originalVersion,
 						NeedsBounce:            originalVersion + 1,
 						NeedsMonitorConfUpdate: originalVersion + 1,
@@ -598,7 +598,7 @@ var _ = Describe("controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
 					}))
@@ -715,8 +715,8 @@ var _ = Describe("controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"org.foundationdb/last-applied-pod-spec-hash": hash,
-						"fdb-annotation": "value1",
+						"foundationdb.org/last-applied-spec": hash,
+						"fdb-annotation":                     "value1",
 					}))
 				}
 			})
@@ -814,7 +814,7 @@ var _ = Describe("controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"org.foundationdb/last-applied-pod-spec-hash": hash,
+						"foundationdb.org/last-applied-spec": hash,
 					}))
 				}
 
@@ -902,7 +902,7 @@ var _ = Describe("controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"org.foundationdb/last-applied-pod-spec-hash": hash,
+						"foundationdb.org/last-applied-spec": hash,
 					}))
 				}
 
@@ -967,7 +967,7 @@ var _ = Describe("controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:       originalVersion,
 						NeedsPodDeletion: originalVersion + 1,
 					}))
@@ -1028,7 +1028,7 @@ var _ = Describe("controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:       originalVersion,
 						NeedsPodDeletion: originalVersion + 1,
 					}))
@@ -1712,7 +1712,7 @@ var _ = Describe("controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.GenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.GenerationStatus{Reconciled: 4}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 4}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1929,38 +1929,6 @@ var _ = Describe("controller", func() {
 		})
 	})
 })
-
-func cleanupCluster(cluster *fdbtypes.FoundationDBCluster) {
-	err := k8sClient.Delete(context.TODO(), cluster)
-	Expect(err).NotTo(HaveOccurred())
-
-	pods := &corev1.PodList{}
-	err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range pods.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	configMaps := &corev1.ConfigMapList{}
-	err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range configMaps.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range pvcs.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-}
 
 func getProcessClassMap(pods []corev1.Pod) map[string]int {
 	counts := make(map[string]int)

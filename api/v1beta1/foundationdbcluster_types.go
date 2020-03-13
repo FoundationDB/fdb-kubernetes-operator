@@ -57,7 +57,10 @@ type FoundationDBClusterList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
+	SchemeBuilder.Register(
+		&FoundationDBCluster{}, &FoundationDBClusterList{},
+		&FoundationDBBackup{}, &FoundationDBBackupList{},
+	)
 }
 
 // FoundationDBClusterSpec defines the desired state of a cluster.
@@ -236,7 +239,7 @@ type FoundationDBClusterStatus struct {
 
 	// Generations provides information about the latest generation to be
 	// reconciled, or to reach other stages at which reconciliation can halt.
-	Generations GenerationStatus `json:"generations,omitempty"`
+	Generations ClusterGenerationStatus `json:"generations,omitempty"`
 
 	// Health provides information about the health of the database.
 	Health ClusterHealth `json:"health,omitempty"`
@@ -250,9 +253,9 @@ type FoundationDBClusterStatus struct {
 	HasIncorrectConfigMap bool `json:"hasIncorrectConfigMap,omitempty"`
 }
 
-// GenerationStatus stores information on which generations have reached
-// different stages in reconciliation.
-type GenerationStatus struct {
+// ClusterGenerationStatus stores information on which generations have reached
+// different stages in reconciliation for the cluster.
+type ClusterGenerationStatus struct {
 	// Reconciled provides the last generation that was fully reconciled.
 	Reconciled int64 `json:"reconciled,omitempty"`
 
@@ -288,6 +291,12 @@ type GenerationStatus struct {
 	// complete reconciliation because it has more listeners than it is supposed
 	// to.
 	HasExtraListeners int64 `json:"hasExtraListeners,omitempty"`
+
+	// NeedsBackupAgentUpdate provides the last generation that could not
+	// complete reconciliation because the backup agent deployment needs to be
+	// updated.
+	// Deprecated: This needs to get moved into FoundationDBBackup
+	NeedsBackupAgentUpdate int64 `json:"needsBackupAgentUpdate,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -719,10 +728,39 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	}
 
 	if reconciled {
-		cluster.Status.Generations = GenerationStatus{
+		cluster.Status.Generations = ClusterGenerationStatus{
 			Reconciled: cluster.ObjectMeta.Generation,
 		}
 	}
+	return reconciled, nil
+}
+
+// GetDesiredAgentCount determines how many backup agents we should run
+// for a cluster.
+func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
+	if backup.Spec.AgentCount == nil {
+		return 2
+	}
+	return *backup.Spec.AgentCount
+}
+
+// CheckReconciliation compares the spec and the status to determine if
+// reconciliation is complete.
+func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
+	var reconciled = true
+
+	desiredAgentCount := backup.GetDesiredAgentCount()
+	if backup.Status.AgentCount != desiredAgentCount || !backup.Status.DeploymentConfigured {
+		backup.Status.Generations.NeedsBackupAgentUpdate = backup.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if reconciled {
+		backup.Status.Generations = BackupGenerationStatus{
+			Reconciled: backup.ObjectMeta.Generation,
+		}
+	}
+
 	return reconciled, nil
 }
 
@@ -1713,4 +1751,69 @@ func (version FdbVersion) HasRatekeeperRole() bool {
 // max_protocol_clients field in the cluster status.
 func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=fdbbackup
+// +kubebuilder:subresource:status
+
+// FoundationDBBackup is the Schema for the FoundationDB Backup API
+type FoundationDBBackup struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   FoundationDBBackupSpec   `json:"spec,omitempty"`
+	Status FoundationDBBackupStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// FoundationDBBackupList contains a list of FoundationDBBackup
+type FoundationDBBackupList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []FoundationDBBackup `json:"items"`
+}
+
+// FoundationDBBackupSpec describes the desired state of the backup for a cluster.
+type FoundationDBBackupSpec struct {
+	// The version of FoundationDB that the backup agents should run.
+	Version string `json:"version"`
+
+	// The cluster this backup is for.
+	ClusterName string `json:"clusterName"`
+
+	// AgentCount defines the number of backup agents to run.
+	AgentCount *int `json:"agentCount,omitempty"`
+
+	// PodTemplateSpec allows customizing the pod template for the backup
+	// agents.
+	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
+}
+
+// FoundationDBBackupStatus describes the current status of the backup for a cluster.
+type FoundationDBBackupStatus struct {
+	// AgentCount provides the number of agents that are up-to-date, ready,
+	// and not terminated.
+	AgentCount int `json:"agentCount,omitempty"`
+
+	// DeploymentConfigured indicates whether the deployment is correctly
+	// configured.
+	DeploymentConfigured bool `json:"deploymentConfigured,omitempty"`
+
+	// Generations provides information about the latest generation to be
+	// reconciled, or to reach other stages in reconciliation.
+	Generations BackupGenerationStatus `json:"generations,omitempty"`
+}
+
+// BackupGenerationStatus stores information on which generations have reached
+// different stages in reconciliation for the backup.
+type BackupGenerationStatus struct {
+	// Reconciled provides the last generation that was fully reconciled.
+	Reconciled int64 `json:"reconciled,omitempty"`
+
+	// NeedsBackupAgentUpdate provides the last generation that could not
+	// complete reconciliation because the backup agent deployment needs to be
+	// updated.
+	NeedsBackupAgentUpdate int64 `json:"needsBackupAgentUpdate,omitempty"`
 }

@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/apps.foundationdb.org_foundationdbclusters.yaml
+- bases/apps.foundationdb.org_foundationdbbackups.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

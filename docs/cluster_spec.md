@@ -4,12 +4,18 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [BackupGenerationStatus](#backupgenerationstatus)
+* [ClusterGenerationStatus](#clustergenerationstatus)
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
 * [ContainerOverrides](#containeroverrides)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
 * [FdbVersion](#fdbversion)
+* [FoundationDBBackup](#foundationdbbackup)
+* [FoundationDBBackupList](#foundationdbbackuplist)
+* [FoundationDBBackupSpec](#foundationdbbackupspec)
+* [FoundationDBBackupStatus](#foundationdbbackupstatus)
 * [FoundationDBCluster](#foundationdbcluster)
 * [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
 * [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
@@ -28,12 +34,41 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBStatusMovingData](#foundationdbstatusmovingdata)
 * [FoundationDBStatusProcessInfo](#foundationdbstatusprocessinfo)
 * [FoundationDBStatusSupportedVersion](#foundationdbstatussupportedversion)
-* [GenerationStatus](#generationstatus)
 * [ProcessAddress](#processaddress)
 * [ProcessCounts](#processcounts)
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoleCounts](#rolecounts)
+
+## BackupGenerationStatus
+
+BackupGenerationStatus stores information on which generations have reached different stages in reconciliation for the backup.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
+| needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
+
+[Back to TOC](#table-of-contents)
+
+## ClusterGenerationStatus
+
+ClusterGenerationStatus stores information on which generations have reached different stages in reconciliation for the cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
+| needsConfigurationChange | NeedsConfigurationChange provides the last generation that is pending a change to configuration. | int64 | false |
+| needsBounce | NeedsBounce provides the last generation that is pending a bounce of fdbserver. | int64 | false |
+| needsPodDeletion | NeedsPodDeletion provides the last generation that is pending pods being deleted and recreated. | int64 | false |
+| needsShrink | NeedsShrink provides the last generation that is pending pods being excluded and removed. | int64 | false |
+| needsGrow | NeedsGrow provides the last generation that is pending pods being added. | int64 | false |
+| needsMonitorConfUpdate | NeedsMonitorConfUpdate provides the last generation that needs an update through the fdbmonitor conf. | int64 | false |
+| missingDatabaseStatus | DatabaseUnavailable provides the last generation that could not complete reconciliation due to the database being unavailable. | int64 | false |
+| hasExtraListeners | HasExtraListeners provides the last generation that could not complete reconciliation because it has more listeners than it is supposed to. | int64 | false |
+| needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. **Deprecated: This needs to get moved into FoundationDBBackup** | int64 | false |
+
+[Back to TOC](#table-of-contents)
 
 ## ClusterHealth
 
@@ -110,6 +145,54 @@ FdbVersion represents a version of FoundationDB.  This provides convenience meth
 | Major | Major is the major version | int | false |
 | Minor | Minor is the minor version | int | false |
 | Patch | Patch is the patch version | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackup
+
+FoundationDBBackup is the Schema for the FoundationDB Backup API
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
+| spec |  | [FoundationDBBackupSpec](#foundationdbbackupspec) | false |
+| status |  | [FoundationDBBackupStatus](#foundationdbbackupstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupList
+
+FoundationDBBackupList contains a list of FoundationDBBackup
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
+| items |  | [][FoundationDBBackup](#foundationdbbackup) | true |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupSpec
+
+FoundationDBBackupSpec describes the desired state of the backup for a cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| version | The version of FoundationDB that the backup agents should run. | string | true |
+| clusterName | The cluster this backup is for. | string | true |
+| agentCount | AgentCount defines the number of backup agents to run. | *int | false |
+| podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupStatus
+
+FoundationDBBackupStatus describes the current status of the backup for a cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| agentCount | AgentCount provides the number of agents that are up-to-date, ready, and not terminated. | int | false |
+| deploymentConfigured | DeploymentConfigured indicates whether the deployment is correctly configured. | bool | false |
+| generations | Generations provides information about the latest generation to be reconciled, or to reach other stages in reconciliation. | [BackupGenerationStatus](#backupgenerationstatus) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -216,7 +299,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. | []string | false |
 | missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [GenerationStatus](#generationstatus) | false |
+| generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
@@ -362,24 +445,6 @@ FoundationDBStatusSupportedVersion provides information about a version of FDB s
 | max_protocol_clients | MaxProtocolClients provides the clients that are using this version as their highest supported protocol version. | [][FoundationDBStatusConnectedClient](#foundationdbstatusconnectedclient) | true |
 | protocol_version | ProtocolVersion is the version of the wire protocol the client is using. | string | false |
 | source_version | SourceVersion is the version of the source code that the client library was built from. | string | false |
-
-[Back to TOC](#table-of-contents)
-
-## GenerationStatus
-
-GenerationStatus stores information on which generations have reached different stages in reconciliation.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
-| needsConfigurationChange | NeedsConfigurationChange provides the last generation that is pending a change to configuration. | int64 | false |
-| needsBounce | NeedsBounce provides the last generation that is pending a bounce of fdbserver. | int64 | false |
-| needsPodDeletion | NeedsPodDeletion provides the last generation that is pending pods being deleted and recreated. | int64 | false |
-| needsShrink | NeedsShrink provides the last generation that is pending pods being excluded and removed. | int64 | false |
-| needsGrow | NeedsGrow provides the last generation that is pending pods being added. | int64 | false |
-| needsMonitorConfUpdate | NeedsMonitorConfUpdate provides the last generation that needs an update through the fdbmonitor conf. | int64 | false |
-| missingDatabaseStatus | DatabaseUnavailable provides the last generation that could not complete reconciliation due to the database being unavailable. | int64 | false |
-| hasExtraListeners | HasExtraListeners provides the last generation that could not complete reconciliation because it has more listeners than it is supposed to. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 

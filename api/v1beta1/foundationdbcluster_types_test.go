@@ -2859,7 +2859,7 @@ func TestInstanceIsBeingRemoved(t *testing.T) {
 	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeTrue())
 }
 
-func TestCheckingReconciliation(t *testing.T) {
+func TestCheckingReconciliationForCluster(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	createCluster := func() *FoundationDBCluster {
@@ -2894,7 +2894,7 @@ func TestCheckingReconciliation(t *testing.T) {
 						RemoteLogs: -1,
 					},
 				},
-				Generations: GenerationStatus{
+				Generations: ClusterGenerationStatus{
 					Reconciled: 1,
 				},
 				ProcessCounts: ProcessCounts{
@@ -2911,7 +2911,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err := cluster.CheckReconciliation()
 	g.Expect(result).To(gomega.BeTrue())
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled: 2,
 	}))
 
@@ -2920,7 +2920,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:               1,
 		NeedsConfigurationChange: 2,
 	}))
@@ -2932,7 +2932,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:  1,
 		NeedsShrink: 2,
 	}))
@@ -2942,7 +2942,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:  1,
 		NeedsShrink: 2,
 	}))
@@ -2952,7 +2952,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled: 1,
 		NeedsGrow:  2,
 	}))
@@ -2964,7 +2964,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:             1,
 		NeedsMonitorConfUpdate: 2,
 	}))
@@ -2976,7 +2976,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:       1,
 		NeedsPodDeletion: 2,
 	}))
@@ -2986,7 +2986,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:          1,
 		DatabaseUnavailable: 2,
 	}))
@@ -2996,7 +2996,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:               1,
 		NeedsConfigurationChange: 2,
 	}))
@@ -3006,7 +3006,7 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:             1,
 		NeedsMonitorConfUpdate: 2,
 	}))
@@ -3016,9 +3016,63 @@ func TestCheckingReconciliation(t *testing.T) {
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(GenerationStatus{
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:        1,
 		HasExtraListeners: 2,
 	}))
+}
 
+func TestCheckingReconciliationForBackup(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var agentCount = 3
+
+	createBackup := func() *FoundationDBBackup {
+		return &FoundationDBBackup{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "sample-cluster",
+				Namespace:  "default",
+				Generation: 2,
+			},
+			Spec: FoundationDBBackupSpec{
+				AgentCount: &agentCount,
+			},
+			Status: FoundationDBBackupStatus{
+				Generations: BackupGenerationStatus{
+					Reconciled: 1,
+				},
+				AgentCount:           3,
+				DeploymentConfigured: true,
+			},
+		}
+	}
+
+	backup := createBackup()
+
+	result, err := backup.CheckReconciliation()
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled: 2,
+	}))
+
+	backup = createBackup()
+	backup.Status.AgentCount = 5
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:             1,
+		NeedsBackupAgentUpdate: 2,
+	}))
+
+	backup = createBackup()
+	agentCount = 0
+	backup.Spec.AgentCount = &agentCount
+	backup.Status.AgentCount = 0
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled: 2,
+	}))
 }

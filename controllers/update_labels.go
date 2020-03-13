@@ -47,7 +47,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string)
 			}
-			metadata.Annotations[LastPodHashKey] = instance.Metadata.Annotations[LastPodHashKey]
+			metadata.Annotations[LastSpecKey] = instance.Metadata.Annotations[LastSpecKey]
 			metadataCorrect := true
 
 			if !reflect.DeepEqual(instance.Metadata.Labels, metadata.Labels) {
