@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -96,9 +97,17 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 
 	var tlsConfig = &tls.Config{}
 	if useTLS {
+		certFile := os.Getenv("FDB_TLS_CERTIFICATE_FILE")
+		keyFile := os.Getenv("FDB_TLS_KEY_FILE")
+		caFile := os.Getenv("FDB_TLS_CA_FILE")
+
+		if certFile == "" || keyFile == "" || caFile == "" {
+			return nil, errors.New("missing one or more TLS env vars: FDB_TLS_CERTIFICATE_FILE, FDB_TLS_KEY_FILE or FDB_TLS_CA_FILE")
+		}
+
 		cert, err := tls.LoadX509KeyPair(
-			os.Getenv("FDB_TLS_CERTIFICATE_FILE"),
-			os.Getenv("FDB_TLS_KEY_FILE"),
+			certFile,
+			keyFile,
 		)
 		if err != nil {
 			return nil, err
@@ -108,7 +117,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 			tlsConfig.InsecureSkipVerify = true
 		}
 		certPool := x509.NewCertPool()
-		caList, err := ioutil.ReadFile(os.Getenv("FDB_TLS_CA_FILE"))
+		caList, err := ioutil.ReadFile(caFile)
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +385,7 @@ const (
 	fdbPodClientErrorNoIP fdbPodClientError = iota
 
 	// fdbPodClientErrorNotReady is returned when the pod is not ready to
-	// recieve requests.
+	// receive requests.
 	fdbPodClientErrorNotReady fdbPodClientError = iota
 )
 
