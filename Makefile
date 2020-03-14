@@ -18,18 +18,39 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager samples documentation
+GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
+GENERATED_GO=api/v1beta1/zz_generated.deepcopy.go
+GO_ALL=${GO_SRC} ${GENERATED_GO}
+MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml /Users/johnbrownlee/Code/fdb-kubernetes-operator/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+
+all: fmt vet manager manifests samples documentation test_if_changed
+
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-oeprator bounce lint
+
+clean:
+	find config/crd/bases -type f -name "*.yaml" -delete
+	find api -type f -name "zz_generated.*.go" -delete
+	find bin -type f -delete
+	find config/samples -type f -name deployment.yaml -delete
+	find . -name "cover.out" -delete
 
 # Run tests
-test: generate fmt vet manifests
+test: cover.out
 	go test ./... -coverprofile cover.out
 
+test_if_changed: cover.out
+
+cover.out: ${GO_ALL}
+	go test ./... -coverprofile cover.out -tags test
+
 # Build manager binary
-manager: generate fmt vet
+manager: bin/manager
+
+bin/manager: ${GO_SRC}
 	go build -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
+run: generate manifests
 	go run ./main.go
 
 # Install CRDs into a cluster
@@ -46,23 +67,33 @@ deploy: install manifests
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: ${MANIFESTS}
+
+${MANIFESTS}:
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
-fmt:
+fmt: bin/fmt_check
+
+bin/fmt_check: ${GO_ALL}
 	go fmt ./...
+	@touch bin/fmt_check
 
 # Run go vet against code
-vet:
+vet: bin/vet_check
+
+bin/vet_check: ${GO_ALL}
 	go vet ./...
+	@touch bin/vet_check
 
 # Generate code
-generate: controller-gen
+generate: ${GENERATED_GO}
+
+${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
 # Build the docker image
-docker-build: test
+docker-build: test_if_changed
 	docker build ${docker_build_args} . -t ${IMG}
 
 # Push the docker image
@@ -77,12 +108,11 @@ bounce:
 
 samples: config/samples/deployment.yaml
 
-config/samples/deployment.yaml: manifests
+config/samples/deployment.yaml: config/samples/deployment/*.yaml
 	kustomize build config/samples/deployment > config/samples/deployment.yaml
 
-bin/po-docgen: cmd/po-docgen/main.go  cmd/po-docgen/api.go
+bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
-
 
 docs/cluster_spec.md: bin/po-docgen api/v1beta1/foundationdbcluster_types.go
 	bin/po-docgen api api/v1beta1/foundationdbcluster_types.go > docs/cluster_spec.md

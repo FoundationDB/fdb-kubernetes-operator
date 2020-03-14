@@ -28,7 +28,7 @@ jobs:
         export PATH=$PATH:/usr/local/kubebuilder/bin
 
     - name: Build
-      run: make all test
+      run: make all
 
     - name: Check for uncommitted changes
       run: git diff --exit-code
