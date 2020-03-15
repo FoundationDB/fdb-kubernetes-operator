@@ -23,6 +23,7 @@ rules:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters
+  - foundationdbbackups
   verbs:
   - get
   - list
@@ -35,6 +36,7 @@ rules:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters/status
+  - foundationdbbackups/status
   verbs:
   - get
   - update

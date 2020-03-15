@@ -12,6 +12,7 @@
 10.  [Upgrading a Cluster](#upgrading-a-cluster)
 11. [Customizing Your Pods](#customizing-a-container)
 12. [Controlling Fault Domains](#controlling-fault-domains)
+13. [Using Multiple Namespaces](#using-multiple-namespaces)
 
 # Introduction
 
@@ -26,9 +27,9 @@ When you make a change to the cluster spec, it will increment the `generation` f
 To run the operator in your environment, you need to install the controller and
 the CRDs:
 
-    kubectl create -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
     (kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml) || (kubectl replace -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml)
     (kubectl create -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml) || (kubectl replace -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml)
+    kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
 
 You can see logs from the operator by running
 `kubectl logs -f app=fdb-kubernetes-operator-controller-manager --container=manager`. You will likely want to watch these logs as you make changes to get a better understanding of what the operator is doing.
@@ -446,3 +447,43 @@ The replication strategies above all describe how data is replicated within a da
 The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions. 
 
 Replicating across data centers will likely mean running your cluster across multiple Kubernetes clusters, even if you are using a single-Kubernetes replication strategy within each DC. This will mean taking on the operational challenges described in the "Multi-Kubernetes Replication" section above.
+
+# Using Multiple Namespaces
+
+Our [sample deployment](https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml) configures the operator to run in single-namespace mode, where it only manages resources in the namespace where the operator itself is running. If you want a single deployment of the operator to manage your FDB clusters across all of your namespaces, you will need to run it in global mode. Which mode is appropriate will depend on the constraints of your environment.
+
+## Single-Namespace Mode
+
+To use single-namespace mode, set the `WATCH_NAMESPACE` environment variable for the controller to be the namespace where your FDB clusters will run. It does not have to be the same namespace where the operator is running, though this is generally the simplest way to configure it. When you are running in single-namespace mode, the controller will ignore any clusters you try to create in namespaces other than the one you give it.
+
+The advantage of single-namespace mode is that it allows owners of different namespaces to run the operator themselves without needing access to other namespaces that may be managed by other tenants. The only cluster-level configuration it requires is the installation of the CRD. The disadvantage of single-namespace mode is that if you are running multiple namespaces for a single team, each namespace will need its own installation of the controller, which can make it more operationally challenging.
+
+
+To run the controller in single-namespace mode, you will need to configure the following things:
+
+* A service account for the controller
+* The serviceAccountName field in the controller's pod spec
+* A `WATCH_NAMESPACE` environment variable defined in the controller's pod spec
+* A Role that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/samples/deployment/rbac_role.yaml) for the list of those permissions.
+* A RoleBinding that binds that role to the service account for the controller
+
+The sample deployment provides all of this configuration.
+
+## Global Mode
+
+To use global mode, omit the `WATCH_NAMESPACE` environment variable for the controller. When you are running in global mode, the controller will watch for changes to FDB clusters in all namespaces, and will manage them all through a single instance of the controller.
+
+The advantage of global mode is that you can easily add new namespaces without needing to run a new instance of the controller, which limits the per-namespace operational load. The disadvantage of global mode is that it requires the controller to have extensive access to all namespaces in the Kubernetes cluster. In a multi-tenant environment, this means the controller would have to be managed by the team that is adminstering your Kubernetes environment, which may create its own operational 
+
+To run the controller in global mode, you will need to configure the following things:
+
+* A service account for the controller
+* The serviceAccountName field in the controller's pod spec
+* A ClusterRole that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/samples/deployment/rbac_role.yaml) for the list of those permissions.
+* A ClusterRoleBinding that binds that role to the service account for the controller
+
+You can build this kind of configuration easily from the sample deployment by changing the following things:
+
+* Delete the configuration for the `WATCH_NAMESPACE` variable
+* Change the Roles to ClusterRoles
+* Change the RoleBindings to ClusterRoleBindings
