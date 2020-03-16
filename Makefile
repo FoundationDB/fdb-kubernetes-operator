@@ -69,7 +69,7 @@ deploy: install manifests
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
 
-${MANIFESTS}:
+${MANIFESTS}: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
@@ -89,7 +89,7 @@ bin/vet_check: ${GO_ALL}
 # Generate code
 generate: ${GENERATED_GO}
 
-${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt
+${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
 # Build the docker image
