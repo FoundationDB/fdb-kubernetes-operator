@@ -30,7 +30,7 @@ all: fmt vet manager manifests samples documentation test_if_changed
 clean:
 	find config/crd/bases -type f -name "*.yaml" -delete
 	find api -type f -name "zz_generated.*.go" -delete
-	find bin -type f -delete
+	rm -r bin
 	find config/samples -type f -name deployment.yaml -delete
 	find . -name "cover.out" -delete
 
@@ -77,6 +77,7 @@ fmt: bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
 	go fmt ./...
+	mkdir -p bin
 	@touch bin/fmt_check
 
 # Run go vet against code
@@ -84,6 +85,7 @@ vet: bin/vet_check
 
 bin/vet_check: ${GO_ALL}
 	go vet ./...
+	mkdir -p bin
 	@touch bin/vet_check
 
 # Generate code
