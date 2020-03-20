@@ -1,3 +1,13 @@
+# v0.7.0
+
+*   Update documentation.
+*   Use a pointer for the backup account count to reduce confusion around the zero-value.
+*   Add instructions on installing the backup CRD to the manuals.
+*   Add a new CRD for managing backups.
+*   Add tracking of the backup agent deployment in the cluster status.
+*   Add an option in the cluster spec for configuring backup agents.
+*   Improve error message when TLS paths not set.
+
 # v0.6.0
 
 *	Add a Helm chart for the operator.

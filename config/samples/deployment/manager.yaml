@@ -21,7 +21,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: foundationdb/fdb-kubernetes-operator:0.6.0
+        image: foundationdb/fdb-kubernetes-operator:0.7.0
         name: manager
         env:
           - name: POD_NAMESPACE
