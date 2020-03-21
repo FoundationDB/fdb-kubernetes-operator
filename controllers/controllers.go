@@ -40,3 +40,25 @@ const BackupDeploymentLabel = "foundationdb.org/backup-for"
 func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
 	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
 }
+
+// mergeAnnotations merges the the annotations specified by the operator into
+// on object's metadata.
+//
+// This will return whether the target's annotations have changed.
+func mergeAnnotations(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool {
+	if desired.Annotations == nil {
+		return false
+	}
+	if target.Annotations == nil {
+		target.Annotations = desired.Annotations
+		return true
+	}
+	changed := false
+	for key, value := range desired.Annotations {
+		if target.Annotations[key] != value {
+			target.Annotations[key] = value
+			changed = true
+		}
+	}
+	return changed
+}

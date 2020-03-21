@@ -59,7 +59,11 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		}
 	}
 	if len(existingDeployments.Items) != 0 && deployment != nil {
-		if existingDeployments.Items[0].ObjectMeta.Annotations[LastSpecKey] != deployment.ObjectMeta.Annotations[LastSpecKey] {
+		existingDeployment := existingDeployments.Items[0]
+		if existingDeployment.ObjectMeta.Annotations[LastSpecKey] != deployment.ObjectMeta.Annotations[LastSpecKey] {
+			spec := deployment.ObjectMeta.Annotations[LastSpecKey]
+			deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
+			deployment.ObjectMeta.Annotations[LastSpecKey] = spec
 			err = r.Update(context, deployment)
 			if err != nil {
 				return false, err
