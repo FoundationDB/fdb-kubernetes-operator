@@ -179,6 +179,9 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
+| backupState | The desired state of the backup. | string | false |
+| backupName | The name for the backup. | string | false |
+| accountName | The account name to use with the backup destination. | string | true |
 | agentCount | AgentCount defines the number of backup agents to run. | *int | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 

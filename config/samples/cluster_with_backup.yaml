@@ -1,12 +1,8 @@
-# This file provides an example of a cluster with backup agents running
-# alongside the cluster.
+# This file provides an example of a cluster with a backup running.
 #
-# Once the cluster and the backup agents are up, you can start a backup by
-# opening a shell in one of the backup_agent pods and running the
-# fdbbackup commands command. Examples:
+# The backup resource will bring up backup agents and start a backup. Once it
+# is reconciled, you can run backup commands from the backup agent containers:
 #
-#     # Start a Backup:
-#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup start -d "blobstore://minio@minio-service:9000/sample-cluster-test-backup?sc=0&bucket=fdb-backups" -z
 #     # Check Status
 #     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup status
 #
@@ -74,6 +70,7 @@ metadata:
 spec:
   version: 6.2.15
   clusterName: sample-cluster
+  accountName: minio@minio-service
   podTemplateSpec:
     spec:
       containers:

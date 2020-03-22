@@ -39,9 +39,20 @@ spec:
           description: FoundationDBBackupSpec describes the desired state of the backup
             for a cluster.
           properties:
+            accountName:
+              description: The account name to use with the backup destination.
+              type: string
             agentCount:
               description: AgentCount defines the number of backup agents to run.
               type: integer
+            backupName:
+              description: The name for the backup.
+              type: string
+            backupState:
+              description: The desired state of the backup.
+              enum:
+              - Running
+              type: string
             clusterName:
               description: The cluster this backup is for.
               type: string
@@ -5764,6 +5775,7 @@ spec:
                 run.
               type: string
           required:
+          - accountName
           - clusterName
           - version
           type: object

@@ -1783,6 +1783,16 @@ type FoundationDBBackupSpec struct {
 	// The cluster this backup is for.
 	ClusterName string `json:"clusterName"`
 
+	// +kubebuilder:validation:Enum=Running
+	// The desired state of the backup.
+	BackupState string `json:"backupState,omitempty"`
+
+	// The name for the backup.
+	BackupName string `json:"backupName,omitempty"`
+
+	// The account name to use with the backup destination.
+	AccountName string `json:"accountName"`
+
 	// AgentCount defines the number of backup agents to run.
 	AgentCount *int `json:"agentCount,omitempty"`
 

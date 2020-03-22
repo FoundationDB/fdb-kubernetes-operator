@@ -179,6 +179,9 @@ func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Founda
 			Namespace: cluster.Namespace,
 		},
 		Spec: fdbtypes.FoundationDBBackupSpec{
+			AccountName: "test@test-service",
+			BackupName:  "test-backup",
+			BackupState: "Running",
 			Version:     cluster.Spec.Version,
 			ClusterName: cluster.Name,
 			AgentCount:  &agentCount,
@@ -231,5 +234,4 @@ func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
 		err = k8sClient.Delete(context.TODO(), &item)
 		Expect(err).NotTo(HaveOccurred())
 	}
-
 }
