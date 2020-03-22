@@ -11,11 +11,11 @@ spec:
         - name: DISABLE_SIDECAR_TLS_CHECK
           value: "1"
         - name: FDB_TLS_CERTIFICATE_FILE
-          value: /tmp/fdb-certs/cert.pem
+          value: /tmp/fdb-certs/tls.crt
         - name: FDB_TLS_CA_FILE
-          value: /tmp/fdb-certs/cert.pem
+          value: /tmp/fdb-certs/tls.crt
         - name: FDB_TLS_KEY_FILE
-          value: /tmp/fdb-certs/key.pem
+          value: /tmp/fdb-certs/tls.key
         volumeMounts:
         - mountPath: /tmp/fdb-certs
           name: fdb-certs

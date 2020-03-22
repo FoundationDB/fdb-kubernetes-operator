@@ -1848,5 +1848,31 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment).To(BeNil())
 			})
 		})
+
+		Context("with a custom TLS CA file", func() {
+			BeforeEach(func() {
+				backup.Spec.PodTemplateSpec = &corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "foundationdb",
+							Env: []corev1.EnvVar{{
+								Name:  "FDB_TLS_CA_FILE",
+								Value: "/tmp/ca.pem",
+							}},
+						}},
+					},
+				}
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should respect the custom CA", func() {
+				container := deployment.Spec.Template.Spec.Containers[0]
+				Expect(container.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_TLS_CA_FILE", Value: "/tmp/ca.pem"},
+					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
+				}))
+			})
+		})
 	})
 })

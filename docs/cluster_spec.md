@@ -179,10 +179,11 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
-| backupState | The desired state of the backup. | string | false |
-| backupName | The name for the backup. | string | false |
+| backupState | The desired state of the backup. The default is Running. | string | false |
+| backupName | The name for the backup. The default is to use the name from the backup metadata. | string | false |
 | accountName | The account name to use with the backup destination. | string | true |
-| agentCount | AgentCount defines the number of backup agents to run. | *int | false |
+| bucket | The backup bucket to write to. The default is to use \"fdb-backups\". | string | false |
+| agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 
 [Back to TOC](#table-of-contents)

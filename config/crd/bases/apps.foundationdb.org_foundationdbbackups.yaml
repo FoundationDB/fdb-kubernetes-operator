@@ -44,14 +44,19 @@ spec:
               type: string
             agentCount:
               description: AgentCount defines the number of backup agents to run.
+                The default is run 2 agents.
               type: integer
             backupName:
-              description: The name for the backup.
+              description: The name for the backup. The default is to use the name
+                from the backup metadata.
               type: string
             backupState:
-              description: The desired state of the backup.
+              description: The desired state of the backup. The default is Running.
               enum:
               - Running
+              type: string
+            bucket:
+              description: The backup bucket to write to. The default is to use "fdb-backups".
               type: string
             clusterName:
               description: The cluster this backup is for.

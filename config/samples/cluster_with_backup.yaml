@@ -6,6 +6,9 @@
 #     # Check Status
 #     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup status
 #
+#     # List Backups
+#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup list -b "blobstore://minio@minio-service:9000?bucket=fdb-backups"
+#
 # This example uses configuration for a local MinIO instance, which is set up as
 # part of the local testing environment for the operator. This instance has
 # TLS disabled, and credentials that are hardcoded in the YAML. This
@@ -16,7 +19,8 @@
 # S3-compatible object storage service.
 #
 # If you are testing this in Docker Desktop, you can browse the local MinIO
-# instance at http://localhost:9000.
+# instance at https://localhost:9000. Note: This will use a certificate that
+# is not in your browser's trust store, so you will get a security warning.
 #
 # If you create all of the resources in one command, you may see the backup
 # agents get caught in a crash loop because they are trying to use the original,
@@ -78,6 +82,17 @@ spec:
           env:
             - name: FDB_BLOB_CREDENTIALS
               value: /var/secrets/credentials
+            - name: FDB_TLS_CERTIFICATE_FILE
+              value: /tmp/fdb-certs/tls.crt
+            - name: FDB_TLS_CA_FILE
+              value: /tmp/fdb-certs/tls.crt
+            - name: FDB_TLS_KEY_FILE
+              value: /tmp/fdb-certs/tls.key
+          volumeMounts:
+            - name: fdb-certs
+              mountPath: /tmp/fdb-certs
+            - name: secrets
+              mountPath: /var/secrets
           resources:
             limits:
               cpu: 250m
@@ -88,13 +103,13 @@ spec:
           securityContext:
             runAsGroup: 0
             runAsUser: 0
-          volumeMounts:
-            - name: secrets
-              mountPath: /var/secrets
       volumes:
         - name: secrets
           secret:
             secretName: sample-cluster-backup-secrets
+        - name: fdb-certs
+          secret:
+            secretName: fdb-kubernetes-operator-secrets
 ---
 apiVersion: v1
 kind: Secret

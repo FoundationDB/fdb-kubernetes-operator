@@ -1785,15 +1785,22 @@ type FoundationDBBackupSpec struct {
 
 	// +kubebuilder:validation:Enum=Running
 	// The desired state of the backup.
+	// The default is Running.
 	BackupState string `json:"backupState,omitempty"`
 
 	// The name for the backup.
+	// The default is to use the name from the backup metadata.
 	BackupName string `json:"backupName,omitempty"`
 
 	// The account name to use with the backup destination.
 	AccountName string `json:"accountName"`
 
+	// The backup bucket to write to.
+	// The default is to use "fdb-backups".
+	Bucket string `json:"bucket,omitempty"`
+
 	// AgentCount defines the number of backup agents to run.
+	// The default is run 2 agents.
 	AgentCount *int `json:"agentCount,omitempty"`
 
 	// PodTemplateSpec allows customizing the pod template for the backup
