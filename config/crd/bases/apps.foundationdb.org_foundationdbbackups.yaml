@@ -5792,6 +5792,15 @@ spec:
               description: AgentCount provides the number of agents that are up-to-date,
                 ready, and not terminated.
               type: integer
+            backupDetails:
+              description: BackupDetails provides information about the state of the
+                backup in the cluster.
+              properties:
+                running:
+                  type: boolean
+                url:
+                  type: string
+              type: object
             deploymentConfigured:
               description: DeploymentConfigured indicates whether the deployment is
                 correctly configured.
@@ -5804,6 +5813,11 @@ spec:
                   description: NeedsBackupAgentUpdate provides the last generation
                     that could not complete reconciliation because the backup agent
                     deployment needs to be updated.
+                  format: int64
+                  type: integer
+                needsBackupStart:
+                  description: NeedsBackupStart provides the last generation that
+                    could not complete reconciliation because we need to start a backup.
                   format: int64
                   type: integer
                 reconciled:

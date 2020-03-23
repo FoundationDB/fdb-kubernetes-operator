@@ -174,7 +174,80 @@
             "transaction_start_seconds" : 0.00164485
         },
         "layers" : {
-            "_valid" : true
+            "_valid" : true,
+            "backup" : {
+                "blob_recent_io" : {
+                    "bytes_per_second" : 19.977430409632969,
+                    "bytes_sent" : 821,
+                    "requests_failed" : 0,
+                    "requests_successful" : 2
+                },
+                "instances" : {
+                    "251839437ba21342e6e66b1946ad8bce" : {
+                        "blob_stats" : {
+                            "recent" : {
+                                "bytes_per_second" : 19.977430409632969,
+                                "bytes_sent" : 821,
+                                "requests_failed" : 0,
+                                "requests_successful" : 2
+                            },
+                            "total" : {
+                                "bytes_sent" : 821,
+                                "requests_failed" : 0,
+                                "requests_successful" : 2
+                            }
+                        },
+                        "configured_workers" : 10,
+                        "id" : "251839437ba21342e6e66b1946ad8bce",
+                        "last_updated" : 1584902591.7021229,
+                        "main_thread_cpu_seconds" : 0.43237700000000001,
+                        "memory_usage" : 467623936,
+                        "process_cpu_seconds" : 0.46500600000000003,
+                        "resident_size" : 15470592,
+                        "version" : "6.2.15"
+                    },
+                    "9becdf29235a9d36e477941a3ec1dcb5" : {
+                        "blob_stats" : {
+                            "recent" : {
+                                "bytes_per_second" : 0,
+                                "bytes_sent" : 0,
+                                "requests_failed" : 0,
+                                "requests_successful" : 0
+                            },
+                            "total" : {
+                                "bytes_sent" : 0,
+                                "requests_failed" : 0,
+                                "requests_successful" : 0
+                            }
+                        },
+                        "configured_workers" : 10,
+                        "id" : "9becdf29235a9d36e477941a3ec1dcb5",
+                        "last_updated" : 1584902592.4618015,
+                        "main_thread_cpu_seconds" : 0.34967400000000004,
+                        "memory_usage" : 183402496,
+                        "process_cpu_seconds" : 0.37652000000000002,
+                        "resident_size" : 13209600,
+                        "version" : "6.2.15"
+                    }
+                },
+                "instances_running" : 2,
+                "last_updated" : 1584902592.4618015,
+                "paused" : false,
+                "tags" : {
+                    "default" : {
+                        "current_container" : "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
+                        "current_status" : "has been started",
+                        "last_restorable_seconds_behind" : 1019.591053,
+                        "last_restorable_version" : 0,
+                        "mutation_log_bytes_written" : 0,
+                        "mutation_stream_id" : "634a7ca041cd39f0ddcd73295dd0bc52",
+                        "range_bytes_written" : 13,
+                        "running_backup" : true,
+                        "running_backup_is_restorable" : false
+                    }
+                },
+                "total_workers" : 20
+            }
         },
         "machines" : {
             "sample-cluster-log-1" : {

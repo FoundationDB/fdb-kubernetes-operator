@@ -566,6 +566,17 @@ func TestParsingClusterStatusWithSixZeroCluster(t *testing.T) {
 				KVBytes: 215250,
 			},
 			FullReplication: true,
+			Layers: FoundationDBStatusLayerInfo{
+				Backup: FoundationDBStatusBackupInfo{
+					Tags: map[string]FoundationDBStatusBackupTag{
+						"default": FoundationDBStatusBackupTag{
+							CurrentContainer: "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
+							RunningBackup:    true,
+							Restorable:       false,
+						},
+					},
+				},
+			},
 		},
 	}))
 }
@@ -769,6 +780,17 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 						},
 						ProtocolVersion: "fdb00b062010001",
 						SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+					},
+				},
+			},
+			Layers: FoundationDBStatusLayerInfo{
+				Backup: FoundationDBStatusBackupInfo{
+					Tags: map[string]FoundationDBStatusBackupTag{
+						"default": FoundationDBStatusBackupTag{
+							CurrentContainer: "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
+							RunningBackup:    true,
+							Restorable:       false,
+						},
 					},
 				},
 			},
@@ -1074,6 +1096,17 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 						},
 						ProtocolVersion: "fdb00b062010001",
 						SourceVersion:   "20566f2ff06a7e822b30e8cfd91090fbd863a393",
+					},
+				},
+			},
+			Layers: FoundationDBStatusLayerInfo{
+				Backup: FoundationDBStatusBackupInfo{
+					Tags: map[string]FoundationDBStatusBackupTag{
+						"default": FoundationDBStatusBackupTag{
+							CurrentContainer: "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
+							RunningBackup:    true,
+							Restorable:       false,
+						},
 					},
 				},
 			},
@@ -3042,6 +3075,10 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 				},
 				AgentCount:           3,
 				DeploymentConfigured: true,
+				BackupDetails: &FoundationDBBackupStatusBackupDetails{
+					URL:     "blobstore://test@test-service/sample-cluster?bucket=fdb-backups",
+					Running: true,
+				},
 			},
 		}
 	}
@@ -3067,7 +3104,6 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 
 	backup = createBackup()
 	agentCount = 0
-	backup.Spec.AgentCount = &agentCount
 	backup.Status.AgentCount = 0
 	result, err = backup.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -3075,4 +3111,86 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
 		Reconciled: 2,
 	}))
+
+	backup = createBackup()
+	agentCount = 3
+	backup.Status.BackupDetails = nil
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:       1,
+		NeedsBackupStart: 2,
+	}))
+
+}
+
+func TestCheckingBackupStates(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	backup := FoundationDBBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sample-cluster",
+			Namespace: "default",
+		},
+		Spec: FoundationDBBackupSpec{},
+	}
+
+	g.Expect(backup.ShouldRun()).To(gomega.BeTrue())
+
+	backup.Spec.BackupState = "Running"
+	g.Expect(backup.ShouldRun()).To(gomega.BeTrue())
+
+	backup.Spec.BackupState = "Stopped"
+	g.Expect(backup.ShouldRun()).To(gomega.BeFalse())
+}
+
+func TestGettingBucketName(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+
+	backup := FoundationDBBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sample-cluster",
+			Namespace: "default",
+		},
+		Spec: FoundationDBBackupSpec{},
+	}
+
+	g.Expect(backup.Bucket()).To(gomega.Equal("fdb-backups"))
+	backup.Spec.Bucket = "fdb-backup-v2"
+	g.Expect(backup.Bucket()).To(gomega.Equal("fdb-backup-v2"))
+}
+
+func TestGettingBackupName(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+
+	backup := FoundationDBBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sample-cluster",
+			Namespace: "default",
+		},
+		Spec: FoundationDBBackupSpec{},
+	}
+
+	g.Expect(backup.BackupName()).To(gomega.Equal("sample-cluster"))
+	backup.Spec.BackupName = "sample_cluster_2020_03_22"
+	g.Expect(backup.BackupName()).To(gomega.Equal("sample_cluster_2020_03_22"))
+}
+
+func TestBuildingBackupURL(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	backup := FoundationDBBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sample-cluster",
+			Namespace: "default",
+		},
+		Spec: FoundationDBBackupSpec{
+			AccountName: "test@test-service",
+		},
+	}
+
+	g.Expect(backup.BackupURL()).To(gomega.Equal("blobstore://test@test-service/sample-cluster?bucket=fdb-backups"))
 }

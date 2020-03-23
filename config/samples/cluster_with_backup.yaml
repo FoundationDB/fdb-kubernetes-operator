@@ -21,13 +21,6 @@
 # If you are testing this in Docker Desktop, you can browse the local MinIO
 # instance at https://localhost:9000. Note: This will use a certificate that
 # is not in your browser's trust store, so you will get a security warning.
-#
-# If you create all of the resources in one command, you may see the backup
-# agents get caught in a crash loop because they are trying to use the original,
-# invalid cluster file. You can resolve this by running
-# `kubectl delete pod -l foundationdb.org/deployment-name=sample-cluster-backup-agents`
-# to bounce the backup pods and get the correct cluster file. Once they are
-# connected they will automatically get cluster file updates from the cluster.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
@@ -74,14 +67,14 @@ metadata:
 spec:
   version: 6.2.15
   clusterName: sample-cluster
-  accountName: minio@minio-service
+  accountName: minio@minio-service:9000
   podTemplateSpec:
     spec:
       containers:
         - name: foundationdb
           env:
             - name: FDB_BLOB_CREDENTIALS
-              value: /var/secrets/credentials
+              value: /var/backup-credentials/credentials
             - name: FDB_TLS_CERTIFICATE_FILE
               value: /tmp/fdb-certs/tls.crt
             - name: FDB_TLS_CA_FILE
@@ -91,8 +84,8 @@ spec:
           volumeMounts:
             - name: fdb-certs
               mountPath: /tmp/fdb-certs
-            - name: secrets
-              mountPath: /var/secrets
+            - name: backup-credentials
+              mountPath: /var/backup-credentials
           resources:
             limits:
               cpu: 250m
@@ -104,24 +97,9 @@ spec:
             runAsGroup: 0
             runAsUser: 0
       volumes:
-        - name: secrets
+        - name: backup-credentials
           secret:
-            secretName: sample-cluster-backup-secrets
+            secretName: minio-credentials
         - name: fdb-certs
           secret:
             secretName: fdb-kubernetes-operator-secrets
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sample-cluster-backup-secrets
-type: Opaque
-stringData:
-  credentials: |
-    {
-      "accounts": {
-        "minio@minio-service": {
-          "secret" : "minio123"
-        }
-      }
-    }

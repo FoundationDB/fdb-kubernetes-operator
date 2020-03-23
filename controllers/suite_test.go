@@ -101,10 +101,11 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&FoundationDBBackupReconciler{
-		Client:       k8sManager.GetClient(),
-		Log:          ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
-		Recorder:     k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
-		InSimulation: true,
+		Client:              k8sManager.GetClient(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
+		Recorder:            k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
+		InSimulation:        true,
+		AdminClientProvider: NewMockAdminClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -77,6 +78,9 @@ type AdminClient interface {
 	// version of FDB.
 	GetProtocolVersion(version string) (string, error)
 
+	// StartBackup starts a new backup.
+	StartBackup(url string) error
+
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
@@ -119,6 +123,9 @@ func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (
 
 // cliCommand describes a command that we are running against FDB.
 type cliCommand struct {
+	// binary is the binary to run.
+	binary string
+
 	// command is the command to execute.
 	command string
 
@@ -132,10 +139,22 @@ type cliCommand struct {
 	timeout int
 }
 
-// getBinaryPath generates the path to the fdbcli binary.
-func getBinaryPath(version string) string {
+// hasTimeoutArg determines whether a command accepts a timeout argument.
+func (command cliCommand) hasTimeoutArg() bool {
+	return command.binary == "" || command.binary == "fdbcli"
+}
+
+// hasDashInLogDir determines whether a command has a log-dir argument or a
+// logdir argument.
+func (command cliCommand) hasDashInLogDir() bool {
+	return command.binary == "" || command.binary == "fdbcli"
+}
+
+// getBinaryPath generates the path to an FDB binary.
+func getBinaryPath(binaryName string, version string) string {
+
 	shortVersion := version[:strings.LastIndex(version, ".")]
-	return fmt.Sprintf("%s/%s/fdbcli", os.Getenv("FDB_BINARY_DIR"), shortVersion)
+	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), shortVersion, binaryName)
 }
 
 // runCommand executes a command in the CLI.
@@ -144,20 +163,35 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	if version == "" {
 		version = client.Cluster.Spec.RunningVersion
 	}
-	binary := getBinaryPath(version)
+	binaryName := command.binary
+	if binaryName == "" {
+		binaryName = "fdbcli"
+	}
+
+	binary := getBinaryPath(binaryName, version)
 	timeout := command.timeout
 	if timeout == 0 {
 		timeout = 10
 	}
+	hardTimeout := timeout
 	args := make([]string, 0, 9)
 	args = append(args, command.args...)
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
 	}
-	args = append(args, "-C", client.clusterFilePath,
-		"--timeout", fmt.Sprintf("%d", timeout),
-		"--log", "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
-	execCommand := exec.Command(binary, args...)
+	args = append(args, "-C", client.clusterFilePath, "--log")
+	if command.hasTimeoutArg() {
+		args = append(args, "--timeout", fmt.Sprintf("%d", timeout))
+		hardTimeout += 10
+	}
+	if command.hasDashInLogDir() {
+		args = append(args, "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
+	} else {
+		args = append(args, "--logdir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
+	}
+	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Duration(1E9*(hardTimeout)))
+	defer cancelFunction()
+	execCommand := exec.CommandContext(timeoutContext, binary, args...)
 
 	log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
 
@@ -327,7 +361,7 @@ func (client *CliAdminClient) VersionSupported(versionString string) (bool, erro
 		return false, nil
 	}
 
-	_, err = os.Stat(getBinaryPath(versionString))
+	_, err = os.Stat(getBinaryPath("fdbcli", versionString))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -354,6 +388,20 @@ func (client *CliAdminClient) GetProtocolVersion(version string) (string, error)
 	return protocolVersionMatch[1], nil
 }
 
+// StartBackup starts a new backup.
+func (client *CliAdminClient) StartBackup(url string) error {
+	_, err := client.runCommand(cliCommand{
+		binary: "fdbbackup",
+		args: []string{
+			"start",
+			"-d",
+			url,
+			"-z",
+		},
+	})
+	return err
+}
+
 // Close cleans up any pending resources.
 func (client *CliAdminClient) Close() error {
 	err := os.Remove(client.clusterFilePath)
@@ -372,6 +420,7 @@ type MockAdminClient struct {
 	ReincludedAddresses   map[string]bool
 	KilledAddresses       []string
 	frozenStatus          *fdbtypes.FoundationDBStatus
+	Backups               map[string]string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -392,6 +441,7 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 			ReincludedAddresses: make(map[string]bool),
 		}
 		adminClientCache[cluster.Name] = client
+		client.Backups = make(map[string]string)
 	} else {
 		client.Cluster = cluster
 	}
@@ -476,6 +526,17 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	status.Cluster.FullReplication = true
+
+	if len(client.Backups) > 0 {
+		status.Cluster.Layers.Backup.Tags = make(map[string]fdbtypes.FoundationDBStatusBackupTag, len(client.Backups))
+		for tag, url := range client.Backups {
+			status.Cluster.Layers.Backup.Tags[tag] = fdbtypes.FoundationDBStatusBackupTag{
+				CurrentContainer: url,
+				RunningBackup:    true,
+				Restorable:       true,
+			}
+		}
+	}
 
 	return status, nil
 }
@@ -577,6 +638,12 @@ func (client *MockAdminClient) VersionSupported(versionString string) (bool, err
 // version of FDB.
 func (client *MockAdminClient) GetProtocolVersion(version string) (string, error) {
 	return version, nil
+}
+
+// StartBackup starts a new backup.
+func (client *MockAdminClient) StartBackup(url string) error {
+	client.Backups["default"] = url
+	return nil
 }
 
 // Close shuts down any resources for the client once it is no longer

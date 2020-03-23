@@ -30,6 +30,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,10 +39,11 @@ import (
 // FoundationDBBackupReconciler reconciles a FoundationDBCluster object
 type FoundationDBBackupReconciler struct {
 	client.Client
-	Recorder     record.EventRecorder
-	Log          logr.Logger
-	Scheme       *runtime.Scheme
-	InSimulation bool
+	Recorder            record.EventRecorder
+	Log                 logr.Logger
+	Scheme              *runtime.Scheme
+	InSimulation        bool
+	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -67,7 +69,9 @@ func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Res
 	}
 
 	subReconcilers := []BackupSubReconciler{
+		UpdateBackupStatus{},
 		UpdateBackupAgents{},
+		StartBackup{},
 		UpdateBackupStatus{},
 	}
 
@@ -97,6 +101,16 @@ func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Res
 	log.Info("Reconciliation complete", "namespace", backup.Namespace, "backup", backup.Name)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context, backup *fdbtypes.FoundationDBBackup) (AdminClient, error) {
+	cluster := &fdbtypes.FoundationDBCluster{}
+	err := r.Get(context, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.AdminClientProvider(cluster, r)
 }
 
 // SetupWithManager prepares a reconciler for use.

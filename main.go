@@ -87,10 +87,11 @@ func main() {
 	}
 
 	backupReconciler := &controllers.FoundationDBBackupReconciler{
-		Client:   mgr.GetClient(),
-		Recorder: mgr.GetEventRecorderFor("foundationdbcluster-controller"),
-		Log:      ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Scheme:   mgr.GetScheme(),
+		Client:              mgr.GetClient(),
+		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Scheme:              mgr.GetScheme(),
+		AdminClientProvider: controllers.NewCliAdminClient,
 	}
 
 	if err = backupReconciler.SetupWithManager(mgr); err != nil {

@@ -1,3 +1,23 @@
+/*
+ * backup_controller_test.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package controllers
 
 import (
@@ -31,15 +51,18 @@ func reloadBackupGenerations(client client.Client, backup *fdbtypes.FoundationDB
 var _ = Describe("backup_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var backup *fdbtypes.FoundationDBBackup
+	var adminClient *MockAdminClient
+	var err error
 
 	BeforeEach(func() {
 		ClearMockAdminClients()
 		cluster = createDefaultCluster()
 		backup = createDefaultBackup(cluster)
+		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Describe("Reconciliation", func() {
-		var err error
 		var originalVersion int64
 		var generationGap int64
 		var timeout time.Duration
@@ -95,6 +118,32 @@ var _ = Describe("backup_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(*deployment.Spec.Replicas).To(Equal(int32(3)))
 				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", cluster.Spec.Version)))
+			})
+
+			It("should update the status on the resource", func() {
+				Expect(backup.Status).To(Equal(fdbtypes.FoundationDBBackupStatus{
+					AgentCount:           3,
+					DeploymentConfigured: true,
+					BackupDetails: &fdbtypes.FoundationDBBackupStatusBackupDetails{
+						URL:     "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+						Running: true,
+					},
+					Generations: fdbtypes.BackupGenerationStatus{
+						Reconciled: 1,
+					},
+				}))
+			})
+
+			It("should start a backup", func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+					"default": {
+						CurrentContainer: "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+						RunningBackup:    true,
+						Restorable:       true,
+					},
+				}))
 			})
 		})
 

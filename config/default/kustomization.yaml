@@ -18,6 +18,7 @@ bases:
 
 patchesStrategicMerge:
 - test_certs.yaml
+- backup_credentials.yaml
   # Protect the /metrics endpoint by putting it behind auth.
   # Only one of manager_auth_proxy_patch.yaml and
   # manager_prometheus_metrics_patch.yaml should be enabled.
