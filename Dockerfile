@@ -3,7 +3,7 @@ FROM golang:1.13 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.15
-ARG FDB_ADDITIONAL_VERSIONS="6.1.8 6.0.18"
+ARG FDB_ADDITIONAL_VERSIONS="6.1.12"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
@@ -13,13 +13,14 @@ RUN \
 	dpkg -i fdb.deb && rm fdb.deb && \
 	for version in ${FDB_VERSION} ${FDB_ADDITIONAL_VERSIONS}; do \
 		minor=${version%.*} && \
-		mkdir -p /usr/bin/fdb/$minor && \
+		mkdir -p /usr/bin/fdb/$minor/tmp && \
 		curl $FDB_WEBSITE/downloads/$version/linux/fdb_$version.tar.gz -o /usr/bin/fdb/$minor/binaries.tar.gz && \
-		tar --strip-components=1 -C /usr/bin/fdb/$minor -xzf /usr/bin/fdb/$minor/binaries.tar.gz && \
+		tar --strip-components=1 -C /usr/bin/fdb/$minor/tmp -xzf /usr/bin/fdb/$minor/binaries.tar.gz && \
 		rm /usr/bin/fdb/$minor/binaries.tar.gz && \
-		for binary in fdbserver fdbmonitor backup_agent dr_agent; do \
-			rm /usr/bin/fdb/$minor/$binary; \
+		for binary in fdbcli fdbbackup fdbrestore; do \
+			mv /usr/bin/fdb/$minor/tmp/$binary /usr/bin/fdb/$minor/$binary; \
 		done && \
+		rm -r /usr/bin/fdb/$minor/tmp && \
 		chmod u+x /usr/bin/fdb/$minor/fdb*; \
 	done
 
