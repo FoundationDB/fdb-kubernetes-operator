@@ -73,8 +73,7 @@ var _ = Describe("backup_controller", func() {
 
 			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
-				generations, err := reloadClusterGenerations(k8sClient, cluster)
-				return generations.Reconciled, err
+				return reloadCluster(k8sClient, cluster)
 			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -82,8 +81,7 @@ var _ = Describe("backup_controller", func() {
 			err = k8sClient.Create(context.TODO(), backup)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() (int64, error) {
-				generations, err := reloadClusterGenerations(k8sClient, cluster)
-				return generations.Reconciled, err
+				return reloadBackup(k8sClient, backup)
 			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
