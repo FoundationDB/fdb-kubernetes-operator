@@ -55,8 +55,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				metadataCorrect = false
 			}
 
-			if !reflect.DeepEqual(instance.Metadata.Annotations, metadata.Annotations) {
-				instance.Metadata.Annotations = metadata.Annotations
+			if mergeAnnotations(instance.Metadata, metadata) {
 				metadataCorrect = false
 			}
 
@@ -86,8 +85,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			metadataCorrect = false
 		}
 
-		if !reflect.DeepEqual(pvc.ObjectMeta.Annotations, metadata.Annotations) {
-			pvc.Annotations = metadata.Annotations
+		if mergeAnnotations(&pvc.ObjectMeta, metadata) {
 			metadataCorrect = false
 		}
 

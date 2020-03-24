@@ -57,8 +57,7 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		metadataCorrect = false
 	}
 
-	if !reflect.DeepEqual(existing.ObjectMeta.Annotations, configMap.ObjectMeta.Annotations) {
-		existing.ObjectMeta.Annotations = configMap.ObjectMeta.Annotations
+	if mergeAnnotations(&existing.ObjectMeta, configMap.ObjectMeta) {
 		metadataCorrect = false
 	}
 

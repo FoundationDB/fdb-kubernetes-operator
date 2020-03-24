@@ -690,6 +690,13 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with annotations on pod", func() {
 			BeforeEach(func() {
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Annotations["foundationdb.org/existing-annotation"] = "test-value"
+				err = k8sClient.Update(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
+
 				cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -714,10 +721,18 @@ var _ = Describe("cluster_controller", func() {
 
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-spec": hash,
-						"fdb-annotation":                     "value1",
-					}))
+					if item.Labels["fdb-instance-id"] == "storage-1" {
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"foundationdb.org/last-applied-spec":   hash,
+							"foundationdb.org/existing-annotation": "test-value",
+							"fdb-annotation":                       "value1",
+						}))
+					} else {
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"foundationdb.org/last-applied-spec": hash,
+							"fdb-annotation":                     "value1",
+						}))
+					}
 				}
 			})
 
@@ -780,6 +795,14 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to PVC annotations", func() {
 			BeforeEach(func() {
+				pvc := &corev1.PersistentVolumeClaim{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
+				Expect(err).NotTo(HaveOccurred())
+				pvc.Annotations = make(map[string]string)
+				pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
+				err = k8sClient.Update(context.TODO(), pvc)
+				Expect(err).NotTo(HaveOccurred())
+
 				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -796,9 +819,17 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"fdb-annotation": "value1",
-					}))
+					if item.ObjectMeta.Labels["fdb-instance-id"] == "storage-1" {
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"fdb-annotation":                       "value1",
+							"foundationdb.org/existing-annotation": "test-value",
+						}))
+					} else {
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"fdb-annotation": "value1",
+						}))
+
+					}
 				}
 			})
 
@@ -869,6 +900,14 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to config map annotations", func() {
 			BeforeEach(func() {
+				configMap := &corev1.ConfigMap{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-config"}, configMap)
+				Expect(err).NotTo(HaveOccurred())
+				configMap.Annotations = make(map[string]string)
+				configMap.Annotations["foundationdb.org/existing-annotation"] = "test-value"
+				err = k8sClient.Update(context.TODO(), configMap)
+				Expect(err).NotTo(HaveOccurred())
+
 				cluster.Spec.ConfigMap = &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -886,7 +925,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range configMaps.Items {
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"fdb-annotation": "value1",
+						"fdb-annotation":                       "value1",
+						"foundationdb.org/existing-annotation": "test-value",
 					}))
 				}
 			})
