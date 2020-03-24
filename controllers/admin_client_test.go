@@ -34,8 +34,8 @@ var _ = Describe("admin_client_test", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
 		ClearMockAdminClients()
+		cluster = createDefaultCluster()
 		client, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
