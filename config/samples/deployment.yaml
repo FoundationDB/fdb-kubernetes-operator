@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fdb-kubernetes-operator-controller-manager
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -23,6 +28,7 @@ rules:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters
+  - foundationdbbackups
   verbs:
   - get
   - list
@@ -35,6 +41,7 @@ rules:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters/status
+  - foundationdbbackups/status
   verbs:
   - get
   - update
@@ -88,7 +95,7 @@ roleRef:
   name: fdb-kubernetes-operator-manager-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: fdb-kubernetes-operator-controller-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -114,7 +121,7 @@ spec:
         command:
         - /manager
         env:
-        - name: POD_NAMESPACE
+        - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
@@ -127,4 +134,5 @@ spec:
           requests:
             cpu: 500m
             memory: 256Mi
+      serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10

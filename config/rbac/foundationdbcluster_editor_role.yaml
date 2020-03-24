@@ -2,12 +2,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: foundationdbcluster-editor-role
+  name: foundationdb-editor-role
 rules:
 - apiGroups:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters
+  - foundationdbbackups
   verbs:
   - create
   - delete
@@ -20,6 +21,7 @@ rules:
   - apps.foundationdb.org
   resources:
   - foundationdbclusters/status
+  - foundationdbbackups/status
   verbs:
   - get
   - patch

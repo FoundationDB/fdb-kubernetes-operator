@@ -16,6 +16,7 @@ spec:
         control-plane: controller-manager
         app: fdb-kubernetes-operator-controller-manager
     spec:
+      serviceAccountName: fdb-kubernetes-operator-controller-manager
       containers:
       - command:
         - /manager
@@ -24,7 +25,7 @@ spec:
         image: foundationdb/fdb-kubernetes-operator:0.7.0
         name: manager
         env:
-          - name: POD_NAMESPACE
+          - name: WATCH_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
@@ -36,3 +37,8 @@ spec:
             cpu: 500m
             memory: 256Mi
       terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: controller-manager
