@@ -68,7 +68,6 @@ var _ = Describe("backup_controller", func() {
 		var timeout time.Duration
 
 		BeforeEach(func() {
-			cluster.Spec.ConnectionString = ""
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 

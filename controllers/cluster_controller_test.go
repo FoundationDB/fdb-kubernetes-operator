@@ -70,9 +70,12 @@ func getListOptions(cluster *fdbtypes.FoundationDBCluster) []client.ListOption {
 
 var _ = Describe("cluster_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
+	var fakeConnectionString string
+
 	BeforeEach(func() {
 		ClearMockAdminClients()
 		cluster = createDefaultCluster()
+		fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 	})
 
 	Describe("Reconciliation", func() {
@@ -83,7 +86,6 @@ var _ = Describe("cluster_controller", func() {
 		var timeout time.Duration
 
 		BeforeEach(func() {
-			cluster.Spec.ConnectionString = ""
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1216,6 +1218,10 @@ var _ = Describe("cluster_controller", func() {
 		var configMap *corev1.ConfigMap
 		var err error
 
+		BeforeEach(func() {
+			cluster.Spec.ConnectionString = fakeConnectionString
+		})
+
 		JustBeforeEach(func() {
 			configMap, err = GetConfigMap(context.TODO(), cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -1411,6 +1417,10 @@ var _ = Describe("cluster_controller", func() {
 	Describe("GetMonitorConf", func() {
 		var conf string
 		var err error
+
+		BeforeEach(func() {
+			cluster.Spec.ConnectionString = fakeConnectionString
+		})
 
 		Context("with a basic storage instance", func() {
 			BeforeEach(func() {
@@ -1740,14 +1750,11 @@ var _ = Describe("cluster_controller", func() {
 	})
 
 	Describe("GetStartCommand", func() {
-		var cluster *fdbtypes.FoundationDBCluster
 		var pods *corev1.PodList
 		var command string
 		var err error
 
 		BeforeEach(func() {
-			cluster = createDefaultCluster()
-			cluster.Spec.ConnectionString = ""
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 

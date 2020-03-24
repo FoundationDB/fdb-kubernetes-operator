@@ -154,8 +154,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			Namespace: "my-ns",
 		},
 		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version:          Versions.Default.String(),
-			ConnectionString: "operator-test:asdfasf@127.0.0.1:4501",
+			Version: Versions.Default.String(),
 			ProcessCounts: fdbtypes.ProcessCounts{
 				Storage:           4,
 				ClusterController: 1,

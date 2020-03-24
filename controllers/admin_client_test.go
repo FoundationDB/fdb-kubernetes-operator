@@ -43,8 +43,7 @@ var _ = Describe("admin_client_test", func() {
 
 		timeout := time.Second * 5
 		Eventually(func() (int64, error) {
-			generations, err := reloadClusterGenerations(k8sClient, cluster)
-			return generations.Reconciled, err
+			return reloadCluster(k8sClient, cluster)
 		}, timeout).ShouldNot(Equal(int64(0)))
 
 		client, err = newMockAdminClientUncast(cluster, k8sClient)
@@ -64,12 +63,10 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a basic cluster", func() {
 			It("should generate the status", func() {
-				Expect(status).To(Equal(&fdbtypes.FoundationDBStatus{
+				expectedStatus := &fdbtypes.FoundationDBStatus{
 					Client: fdbtypes.FoundationDBStatusLocalClientInfo{
 						Coordinators: fdbtypes.FoundationDBStatusCoordinatorInfo{
-							Coordinators: []fdbtypes.FoundationDBStatusCoordinator{
-								{Address: "127.0.0.1:4501", Reachable: false},
-							},
+							Coordinators: []fdbtypes.FoundationDBStatusCoordinator{},
 						},
 						DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
 					},
@@ -260,7 +257,19 @@ var _ = Describe("admin_client_test", func() {
 							},
 						},
 					},
-				}))
+				}
+
+				connectionString, err := fdbtypes.ParseConnectionString(cluster.Spec.ConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, address := range connectionString.Coordinators {
+					expectedStatus.Client.Coordinators.Coordinators = append(expectedStatus.Client.Coordinators.Coordinators,
+						fdbtypes.FoundationDBStatusCoordinator{Address: address, Reachable: true},
+					)
+				}
+
+				Expect(status).To(Equal(expectedStatus))
+
 			})
 		})
 
