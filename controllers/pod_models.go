@@ -160,7 +160,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	mainContainer.Command = []string{"sh", "-c"}
 	mainContainer.Args = []string{
 		"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-			" --lockfile /var/fdb/fdbmonitor.lockfile",
+			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile",
 	}
 
 	if cluster.Spec.Resources != nil {
@@ -183,6 +183,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
 		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 	)
+
+	var readOnlyRootFilesystem = true
+	if mainContainer.SecurityContext == nil {
+		mainContainer.SecurityContext = &corev1.SecurityContext{}
+	}
+	mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 
 	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 
@@ -425,6 +431,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 	container.Image = fmt.Sprintf("%s:%s", container.Image, sidecarVersion)
+
+	var readOnlyRootFilesystem = true
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{}
+	}
+	container.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 
 	if initMode {
 		return nil

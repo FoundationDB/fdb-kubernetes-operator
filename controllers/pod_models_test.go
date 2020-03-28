@@ -239,7 +239,7 @@ var _ = Describe("pod_models", func() {
 				Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
 				Expect(mainContainer.Args).To(Equal([]string{
 					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-						" --lockfile /var/fdb/fdbmonitor.lockfile",
+						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile",
 				}))
 
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
@@ -259,6 +259,8 @@ var _ = Describe("pod_models", func() {
 					corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
 					corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 				}))
+
+				Expect(*mainContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
 			})
 
 			It("should have the sidecar container", func() {
@@ -304,6 +306,8 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}))
+
+				Expect(*sidecarContainer.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
 			})
 
 			It("should have the built-in volumes", func() {
@@ -1637,7 +1641,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "078203f9fcf33eedadee272309d65fab85dd8b06da20a54a670f63d2358bccea",
+					"foundationdb.org/last-applied-spec": "b419ae651f1a3edde9c50747f05198dcfb16f042219514cab8bf6543d8876595",
 				}))
 			})
 
