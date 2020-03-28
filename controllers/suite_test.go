@@ -35,6 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,7 +53,8 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
-var reconciler *FoundationDBClusterReconciler
+var clusterReconciler *FoundationDBClusterReconciler
+var backupReconciler *FoundationDBBackupReconciler
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -86,7 +88,7 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	reconciler = &FoundationDBClusterReconciler{
+	clusterReconciler = &FoundationDBClusterReconciler{
 		Client:              k8sManager.GetClient(),
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
 		Recorder:            k8sManager.GetEventRecorderFor("foundationdbcluster-controller"),
@@ -97,15 +99,16 @@ var _ = BeforeSuite(func(done Done) {
 		AdminClientProvider: NewMockAdminClient,
 	}
 
-	err = (reconciler).SetupWithManager(k8sManager)
+	err = (clusterReconciler).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&FoundationDBBackupReconciler{
+	backupReconciler = &FoundationDBBackupReconciler{
 		Client:       k8sManager.GetClient(),
 		Log:          ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
 		Recorder:     k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
 		InSimulation: true,
-	}).SetupWithManager(k8sManager)
+	}
+	err = backupReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
@@ -171,6 +174,23 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 	}
 }
 
+func createReconciledCluster() *fdbtypes.FoundationDBCluster {
+	cluster := createDefaultCluster()
+	cluster.Spec.ConnectionString = ""
+	err := k8sClient.Create(context.TODO(), cluster)
+	Expect(err).NotTo(HaveOccurred())
+
+	timeout := time.Second * 5
+	Eventually(func() (int64, error) {
+		generations, err := reloadClusterGenerations(k8sClient, cluster)
+		return generations.Reconciled, err
+	}, timeout).ShouldNot(Equal(int64(0)))
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+	Expect(err).NotTo(HaveOccurred())
+
+	return cluster
+}
+
 func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
 	agentCount := 3
 	return &fdbtypes.FoundationDBBackup{
@@ -231,5 +251,13 @@ func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
 		err = k8sClient.Delete(context.TODO(), &item)
 		Expect(err).NotTo(HaveOccurred())
 	}
+}
 
+func runClusterReconciler(reconciler ClusterSubReconciler, cluster *fdbtypes.FoundationDBCluster, shouldContinue bool) error {
+	canContinue, err := reconciler.Reconcile(clusterReconciler, context.TODO(), cluster)
+	if shouldContinue {
+		Expect(err).To(BeNil())
+	}
+	Expect(canContinue).To(Equal(shouldContinue))
+	return err
 }
