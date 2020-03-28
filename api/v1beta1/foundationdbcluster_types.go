@@ -1901,7 +1901,7 @@ func (backup *FoundationDBBackup) BackupName() string {
 	return backup.Spec.BackupName
 }
 
-// ShouldRun determines whether a backup should be running.
+// BackupURL gets the destination url of the backup.
 func (backup *FoundationDBBackup) BackupURL() string {
 	return fmt.Sprintf("blobstore://%s/%s?bucket=%s", backup.Spec.AccountName, backup.BackupName(), backup.Bucket())
 }
