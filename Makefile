@@ -22,8 +22,9 @@ GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta1/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml /Users/johnbrownlee/Code/fdb-kubernetes-operator/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+CONTROLLER_GEN=$(GOBIN)/controller-gen
 
-all: fmt vet manager manifests samples documentation test_if_changed
+all: generate fmt vet manager manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-oeprator bounce lint
 
@@ -69,7 +70,7 @@ deploy: install manifests
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
 
-${MANIFESTS}: controller-gen
+${MANIFESTS}: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
@@ -91,7 +92,7 @@ bin/vet_check: ${GO_ALL}
 # Generate code
 generate: ${GENERATED_GO}
 
-${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt controller-gen
+${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
 # Build the docker image
@@ -126,8 +127,9 @@ lint:
 
 # find or download controller-gen
 # download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
+controller-gen: ${CONTROLLER_GEN}
+
+${CONTROLLER_GEN}:
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
@@ -136,7 +138,3 @@ ifeq (, $(shell which controller-gen))
 	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION} ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
