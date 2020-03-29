@@ -32,7 +32,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-var _ = Describe("add_pods_test", func() {
+var _ = Describe("AddPods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var originalPods *corev1.PodList
 	var shouldContinue bool

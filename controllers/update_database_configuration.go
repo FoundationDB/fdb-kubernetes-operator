@@ -105,9 +105,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		if initialConfig {
 			cluster.Spec.Configured = true
 			err = r.Update(context, cluster)
-			if err != nil {
-				return false, err
-			}
+			return false, err
 		}
 		log.Info("Configured database", "namespace", cluster.Namespace, "cluster", cluster.Name)
 
