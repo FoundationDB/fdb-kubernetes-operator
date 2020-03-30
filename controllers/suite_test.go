@@ -180,11 +180,7 @@ func createReconciledCluster() *fdbtypes.FoundationDBCluster {
 	err := k8sClient.Create(context.TODO(), cluster)
 	Expect(err).NotTo(HaveOccurred())
 
-	timeout := time.Second * 5
-	Eventually(func() (int64, error) {
-		generations, err := reloadClusterGenerations(k8sClient, cluster)
-		return generations.Reconciled, err
-	}, timeout).ShouldNot(Equal(int64(0)))
+	Eventually(func() (bool, error) { return checkClusterReconciled(k8sClient, cluster) }, 10*time.Second).Should(BeTrue())
 	err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	Expect(err).NotTo(HaveOccurred())
 
