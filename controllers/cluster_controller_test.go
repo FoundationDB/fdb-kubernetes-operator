@@ -51,11 +51,6 @@ func reloadCluster(client client.Client, cluster *fdbtypes.FoundationDBCluster) 
 	return generations.Reconciled, err
 }
 
-func checkClusterReconciled(client client.Client, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	generations, err := reloadClusterGenerations(client, cluster)
-	return generations == fdbtypes.ClusterGenerationStatus{Reconciled: cluster.ObjectMeta.Generation}, err
-}
-
 func reloadClusterGenerations(client client.Client, cluster *fdbtypes.FoundationDBCluster) (fdbtypes.ClusterGenerationStatus, error) {
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {

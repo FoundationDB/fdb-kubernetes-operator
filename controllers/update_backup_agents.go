@@ -60,7 +60,9 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 	}
 	if len(existingDeployments.Items) != 0 && deployment != nil {
 		existingDeployment := existingDeployments.Items[0]
+		fmt.Printf("JPB got deployment %#v\n", deployment)
 		if existingDeployment.ObjectMeta.Annotations[LastSpecKey] != deployment.ObjectMeta.Annotations[LastSpecKey] {
+			fmt.Printf("JPB updating deployment\n")
 			spec := deployment.ObjectMeta.Annotations[LastSpecKey]
 			deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
 			deployment.ObjectMeta.Annotations[LastSpecKey] = spec

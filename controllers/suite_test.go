@@ -187,6 +187,18 @@ func createReconciledCluster() *fdbtypes.FoundationDBCluster {
 	return cluster
 }
 
+func createReconciledBackup() (*fdbtypes.FoundationDBCluster, *fdbtypes.FoundationDBBackup) {
+	cluster := createReconciledCluster()
+
+	backup := createDefaultBackup(cluster)
+	err := k8sClient.Create(context.TODO(), backup)
+	Expect(err).NotTo(HaveOccurred())
+
+	Eventually(func() (bool, error) { return checkBackupReconciled(k8sClient, backup) }).Should(BeTrue())
+
+	return cluster, backup
+}
+
 func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
 	agentCount := 3
 	return &fdbtypes.FoundationDBBackup{
@@ -256,4 +268,23 @@ func runClusterReconciler(reconciler ClusterSubReconciler, cluster *fdbtypes.Fou
 	}
 	Expect(canContinue).To(Equal(shouldContinue))
 	return err
+}
+
+func runBackupReconciler(reconciler BackupSubReconciler, backup *fdbtypes.FoundationDBBackup, shouldContinue bool) error {
+	canContinue, err := reconciler.Reconcile(backupReconciler, context.TODO(), backup)
+	if shouldContinue {
+		Expect(err).To(BeNil())
+	}
+	Expect(canContinue).To(Equal(shouldContinue))
+	return err
+}
+
+func checkClusterReconciled(client client.Client, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	generations, err := reloadClusterGenerations(client, cluster)
+	return generations == fdbtypes.ClusterGenerationStatus{Reconciled: cluster.ObjectMeta.Generation}, err
+}
+
+func checkBackupReconciled(client client.Client, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+	generations, err := reloadBackupGenerations(client, backup)
+	return generations == fdbtypes.BackupGenerationStatus{Reconciled: backup.ObjectMeta.Generation}, err
 }

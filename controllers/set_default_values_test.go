@@ -36,7 +36,6 @@ var _ = Describe("SetDefaultValues", func() {
 	BeforeEach(func() {
 		ClearMockAdminClients()
 		cluster = createReconciledCluster()
-		Expect(err).NotTo(HaveOccurred())
 		shouldContinue = true
 
 		originalGeneration = cluster.ObjectMeta.Generation
