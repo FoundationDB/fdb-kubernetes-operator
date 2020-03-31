@@ -755,6 +755,11 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
+	if backup.ShouldRun() && backup.Status.BackupDetails == nil {
+		backup.Status.Generations.NeedsBackupStart = backup.ObjectMeta.Generation
+		reconciled = false
+	}
+
 	if reconciled {
 		backup.Status.Generations = BackupGenerationStatus{
 			Reconciled: backup.ObjectMeta.Generation,
@@ -841,7 +846,11 @@ type FoundationDBStatusClusterInfo struct {
 
 	// Clients provides information about clients that are connected to the
 	// database.
-	Clients FoundationDBStatusClusterClientInfo `json:"clients,omitemtpy"`
+	Clients FoundationDBStatusClusterClientInfo `json:"clients,omitempty"`
+
+	// Layers provides information about layers that are running against the
+	// cluster.
+	Layers FoundationDBStatusLayerInfo `json:"layers,omitempty"`
 }
 
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
@@ -1208,6 +1217,25 @@ func (client FoundationDBStatusConnectedClient) Description() string {
 		return client.Address
 	}
 	return fmt.Sprintf("%s (%s)", client.Address, client.LogGroup)
+}
+
+// FoundationDBStatusLayerInfo provides information about layers that are
+// running against the cluster.
+type FoundationDBStatusLayerInfo struct {
+	// Backup provides information about backups that have been started.
+	Backup FoundationDBStatusBackupInfo `json:"backup,omitempty"`
+}
+
+// FoundationDBStatusBackupInfo provides information about backups that have been started.
+type FoundationDBStatusBackupInfo struct {
+	// Tags provides information about specific backups.
+	Tags map[string]FoundationDBStatusBackupTag `json:"tags,omitempty"`
+}
+
+type FoundationDBStatusBackupTag struct {
+	CurrentContainer string `json:"current_container,omitempty"`
+	RunningBackup    bool   `json:"running_backup,omitempty"`
+	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
 }
 
 // ContainerOverrides provides options for customizing a container created by
@@ -1783,7 +1811,24 @@ type FoundationDBBackupSpec struct {
 	// The cluster this backup is for.
 	ClusterName string `json:"clusterName"`
 
+	// +kubebuilder:validation:Enum=Running
+	// The desired state of the backup.
+	// The default is Running.
+	BackupState string `json:"backupState,omitempty"`
+
+	// The name for the backup.
+	// The default is to use the name from the backup metadata.
+	BackupName string `json:"backupName,omitempty"`
+
+	// The account name to use with the backup destination.
+	AccountName string `json:"accountName"`
+
+	// The backup bucket to write to.
+	// The default is to use "fdb-backups".
+	Bucket string `json:"bucket,omitempty"`
+
 	// AgentCount defines the number of backup agents to run.
+	// The default is run 2 agents.
 	AgentCount *int `json:"agentCount,omitempty"`
 
 	// PodTemplateSpec allows customizing the pod template for the backup
@@ -1801,9 +1846,20 @@ type FoundationDBBackupStatus struct {
 	// configured.
 	DeploymentConfigured bool `json:"deploymentConfigured,omitempty"`
 
+	// BackupDetails provides information about the state of the backup in the
+	// cluster.
+	BackupDetails *FoundationDBBackupStatusBackupDetails `json:"backupDetails,omitempty"`
+
 	// Generations provides information about the latest generation to be
 	// reconciled, or to reach other stages in reconciliation.
 	Generations BackupGenerationStatus `json:"generations,omitempty"`
+}
+
+// FoundationDBBackupStatusBackupDetails provides information about the state
+// of the backup in the cluster.
+type FoundationDBBackupStatusBackupDetails struct {
+	URL     string `json:"url,omitempty"`
+	Running bool   `json:"running,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached
@@ -1816,4 +1872,36 @@ type BackupGenerationStatus struct {
 	// complete reconciliation because the backup agent deployment needs to be
 	// updated.
 	NeedsBackupAgentUpdate int64 `json:"needsBackupAgentUpdate,omitempty"`
+
+	// NeedsBackupStart provides the last generation that could not complete
+	// reconciliation because we need to start a backup.
+	NeedsBackupStart int64 `json:"needsBackupStart,omitempty"`
+}
+
+// ShouldRun determines whether a backup should be running.
+func (backup *FoundationDBBackup) ShouldRun() bool {
+	return backup.Spec.BackupState == "" || backup.Spec.BackupState == "Running"
+}
+
+// Bucket gets the bucket this backup will use.
+// This will fill in a default value if the bucket in the spec is empty.
+func (backup *FoundationDBBackup) Bucket() string {
+	if backup.Spec.Bucket == "" {
+		return "fdb-backups"
+	}
+	return backup.Spec.Bucket
+}
+
+// BackupName gets the name of the backup in the destination.
+// This will fill in a default value if the bucket name in the spec is empty.
+func (backup *FoundationDBBackup) BackupName() string {
+	if backup.Spec.BackupName == "" {
+		return backup.ObjectMeta.Name
+	}
+	return backup.Spec.BackupName
+}
+
+// BackupURL gets the destination url of the backup.
+func (backup *FoundationDBBackup) BackupURL() string {
+	return fmt.Sprintf("blobstore://%s/%s?bucket=%s", backup.Spec.AccountName, backup.BackupName(), backup.Bucket())
 }

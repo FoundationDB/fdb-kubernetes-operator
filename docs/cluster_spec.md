@@ -16,6 +16,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBBackupList](#foundationdbbackuplist)
 * [FoundationDBBackupSpec](#foundationdbbackupspec)
 * [FoundationDBBackupStatus](#foundationdbbackupstatus)
+* [FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails)
 * [FoundationDBCluster](#foundationdbcluster)
 * [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
 * [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
@@ -23,6 +24,8 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
 * [FoundationDBStatus](#foundationdbstatus)
+* [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo)
+* [FoundationDBStatusBackupTag](#foundationdbstatusbackuptag)
 * [FoundationDBStatusClientDBStatus](#foundationdbstatusclientdbstatus)
 * [FoundationDBStatusClusterClientInfo](#foundationdbstatusclusterclientinfo)
 * [FoundationDBStatusClusterInfo](#foundationdbstatusclusterinfo)
@@ -30,6 +33,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBStatusCoordinator](#foundationdbstatuscoordinator)
 * [FoundationDBStatusCoordinatorInfo](#foundationdbstatuscoordinatorinfo)
 * [FoundationDBStatusDataStatistics](#foundationdbstatusdatastatistics)
+* [FoundationDBStatusLayerInfo](#foundationdbstatuslayerinfo)
 * [FoundationDBStatusLocalClientInfo](#foundationdbstatuslocalclientinfo)
 * [FoundationDBStatusMovingData](#foundationdbstatusmovingdata)
 * [FoundationDBStatusProcessInfo](#foundationdbstatusprocessinfo)
@@ -48,6 +52,7 @@ BackupGenerationStatus stores information on which generations have reached diff
 | ----- | ----------- | ------ | -------- |
 | reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
+| needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -179,7 +184,11 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
-| agentCount | AgentCount defines the number of backup agents to run. | *int | false |
+| backupState | The desired state of the backup. The default is Running. | string | false |
+| backupName | The name for the backup. The default is to use the name from the backup metadata. | string | false |
+| accountName | The account name to use with the backup destination. | string | true |
+| bucket | The backup bucket to write to. The default is to use \"fdb-backups\". | string | false |
+| agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 
 [Back to TOC](#table-of-contents)
@@ -192,7 +201,19 @@ FoundationDBBackupStatus describes the current status of the backup for a cluste
 | ----- | ----------- | ------ | -------- |
 | agentCount | AgentCount provides the number of agents that are up-to-date, ready, and not terminated. | int | false |
 | deploymentConfigured | DeploymentConfigured indicates whether the deployment is correctly configured. | bool | false |
+| backupDetails | BackupDetails provides information about the state of the backup in the cluster. | *[FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages in reconciliation. | [BackupGenerationStatus](#backupgenerationstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBBackupStatusBackupDetails
+
+FoundationDBBackupStatusBackupDetails provides information about the state of the backup in the cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| url |  | string | false |
+| running |  | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -317,6 +338,28 @@ FoundationDBStatus describes the status of the cluster as provided by Foundation
 
 [Back to TOC](#table-of-contents)
 
+## FoundationDBStatusBackupInfo
+
+FoundationDBStatusBackupInfo provides information about backups that have been started.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| tags | Tags provides information about specific backups. | map[string][FoundationDBStatusBackupTag](#foundationdbstatusbackuptag) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBStatusBackupTag
+
+
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| current_container |  | string | false |
+| running_backup |  | bool | false |
+| running_backup_is_restorable |  | bool | false |
+
+[Back to TOC](#table-of-contents)
+
 ## FoundationDBStatusClientDBStatus
 
 FoundationDBStatusClientDBStatus represents the databaseStatus field in the JSON database status
@@ -349,7 +392,8 @@ FoundationDBStatusClusterInfo describes the \"cluster\" portion of the cluster s
 | processes | Processes provides details on the processes that are reporting to the cluster. | map[string][FoundationDBStatusProcessInfo](#foundationdbstatusprocessinfo) | false |
 | data | Data provides information about the data in the database. | [FoundationDBStatusDataStatistics](#foundationdbstatusdatastatistics) | false |
 | full_replication | FullReplication indicates whether the database is fully replicated. | bool | false |
-| clients | Clients provides information about clients that are connected to the database. | [FoundationDBStatusClusterClientInfo](#foundationdbstatusclusterclientinfo) | true |
+| clients | Clients provides information about clients that are connected to the database. | [FoundationDBStatusClusterClientInfo](#foundationdbstatusclusterclientinfo) | false |
+| layers | Layers provides information about layers that are running against the cluster. | [FoundationDBStatusLayerInfo](#foundationdbstatuslayerinfo) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -393,6 +437,16 @@ FoundationDBStatusDataStatistics provides information about the data in the data
 | ----- | ----------- | ------ | -------- |
 | total_kv_size_bytes | KVBytes provides the total Key Value Bytes in the database. | int | false |
 | moving_data | MovingData provides information about the current data movement. | [FoundationDBStatusMovingData](#foundationdbstatusmovingdata) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBStatusLayerInfo
+
+FoundationDBStatusLayerInfo provides information about layers that are running against the cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| backup | Backup provides information about backups that have been started. | [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo) | false |
 
 [Back to TOC](#table-of-contents)
 

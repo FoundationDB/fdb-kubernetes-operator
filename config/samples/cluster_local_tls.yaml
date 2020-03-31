@@ -36,11 +36,11 @@ spec:
                 memory: 128Mi
             env:
               - name: FDB_TLS_CERTIFICATE_FILE
-                value: /tmp/fdb-certs/cert.pem
+                value: /tmp/fdb-certs/tls.crt
               - name: FDB_TLS_CA_FILE
-                value: /tmp/fdb-certs/cert.pem
+                value: /tmp/fdb-certs/tls.crt
               - name: FDB_TLS_KEY_FILE
-                value: /tmp/fdb-certs/key.pem
+                value: /tmp/fdb-certs/tls.key
             volumeMounts:
               - name: fdb-certs
                 mountPath: /tmp/fdb-certs
@@ -49,11 +49,11 @@ spec:
           - name: foundationdb-kubernetes-sidecar
             env:
               - name: FDB_TLS_CERTIFICATE_FILE
-                value: /tmp/fdb-certs/cert.pem
+                value: /tmp/fdb-certs/tls.crt
               - name: FDB_TLS_CA_FILE
-                value: /tmp/fdb-certs/cert.pem
+                value: /tmp/fdb-certs/tls.crt
               - name: FDB_TLS_KEY_FILE
-                value: /tmp/fdb-certs/key.pem
+                value: /tmp/fdb-certs/tls.key
             volumeMounts:
               - name: fdb-certs
                 mountPath: /tmp/fdb-certs

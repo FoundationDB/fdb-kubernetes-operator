@@ -101,10 +101,11 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&FoundationDBBackupReconciler{
-		Client:       k8sManager.GetClient(),
-		Log:          ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
-		Recorder:     k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
-		InSimulation: true,
+		Client:              k8sManager.GetClient(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
+		Recorder:            k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
+		InSimulation:        true,
+		AdminClientProvider: NewMockAdminClient,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -153,8 +154,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			Namespace: "my-ns",
 		},
 		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version:          Versions.Default.String(),
-			ConnectionString: "operator-test:asdfasf@127.0.0.1:4501",
+			Version: Versions.Default.String(),
 			ProcessCounts: fdbtypes.ProcessCounts{
 				Storage:           4,
 				ClusterController: 1,
@@ -179,6 +179,9 @@ func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Founda
 			Namespace: cluster.Namespace,
 		},
 		Spec: fdbtypes.FoundationDBBackupSpec{
+			AccountName: "test@test-service",
+			BackupName:  "test-backup",
+			BackupState: "Running",
 			Version:     cluster.Spec.Version,
 			ClusterName: cluster.Name,
 			AgentCount:  &agentCount,
@@ -231,5 +234,4 @@ func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
 		err = k8sClient.Delete(context.TODO(), &item)
 		Expect(err).NotTo(HaveOccurred())
 	}
-
 }

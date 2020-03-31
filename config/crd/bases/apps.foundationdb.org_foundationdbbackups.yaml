@@ -39,9 +39,25 @@ spec:
           description: FoundationDBBackupSpec describes the desired state of the backup
             for a cluster.
           properties:
+            accountName:
+              description: The account name to use with the backup destination.
+              type: string
             agentCount:
               description: AgentCount defines the number of backup agents to run.
+                The default is run 2 agents.
               type: integer
+            backupName:
+              description: The name for the backup. The default is to use the name
+                from the backup metadata.
+              type: string
+            backupState:
+              description: The desired state of the backup. The default is Running.
+              enum:
+              - Running
+              type: string
+            bucket:
+              description: The backup bucket to write to. The default is to use "fdb-backups".
+              type: string
             clusterName:
               description: The cluster this backup is for.
               type: string
@@ -5764,6 +5780,7 @@ spec:
                 run.
               type: string
           required:
+          - accountName
           - clusterName
           - version
           type: object
@@ -5775,6 +5792,15 @@ spec:
               description: AgentCount provides the number of agents that are up-to-date,
                 ready, and not terminated.
               type: integer
+            backupDetails:
+              description: BackupDetails provides information about the state of the
+                backup in the cluster.
+              properties:
+                running:
+                  type: boolean
+                url:
+                  type: string
+              type: object
             deploymentConfigured:
               description: DeploymentConfigured indicates whether the deployment is
                 correctly configured.
@@ -5787,6 +5813,11 @@ spec:
                   description: NeedsBackupAgentUpdate provides the last generation
                     that could not complete reconciliation because the backup agent
                     deployment needs to be updated.
+                  format: int64
+                  type: integer
+                needsBackupStart:
+                  description: NeedsBackupStart provides the last generation that
+                    could not complete reconciliation because we need to start a backup.
                   format: int64
                   type: integer
                 reconciled:

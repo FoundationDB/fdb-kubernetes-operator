@@ -637,7 +637,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		mainContainer.Env = make([]corev1.EnvVar, 0, 1)
 	}
 
-	mainContainer.Env = append(mainContainer.Env,
+	extendEnv(mainContainer,
 		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
 	)

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-# generate_secrets.bash
+# generate_cert.bash
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -19,8 +19,8 @@
 # limitations under the License.
 #
 
-# This script generates secrets with test certs for use in local testing.
+# This script generates a self-signed cert for local testing.
+# The cert will be stored in the repository, so you do not need to run this
+# yourself unless the certificate has expired.
 
-kubectl delete secrets -l app=fdb-kubernetes-operator
-kubectl create secret tls fdb-kubernetes-operator-secrets --key=config/test-certs/key.pem --cert=config/test-certs/cert.pem
-kubectl patch secret fdb-kubernetes-operator-secrets --type='json' -p='[{"op": "add", "path": "/metadata/labels", "value":{"app":"fdb-kubernetes-operator"}}]'
+openssl req -x509 -newkey rsa:4096 -nodes -keyout config/test-certs/key.pem -out config/test-certs/cert.pem -days 365 -subj '/CN=localhost' -reqexts SAN -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:minio-service")) 
