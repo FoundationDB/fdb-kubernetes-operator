@@ -469,6 +469,8 @@ var _ = Describe("cluster_controller", func() {
 
 					Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
 					Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+					Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
+					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
 				})
 
 				It("should exclude and re-include the process", func() {
@@ -490,6 +492,33 @@ var _ = Describe("cluster_controller", func() {
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 				})
+			})
+		})
+
+		Context("with multiple replacements", func() {
+			BeforeEach(func() {
+				generationGap = 4
+				cluster.Spec.InstancesToRemove = []string{
+					originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
+					"storage-5",
+				}
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should replace one of the pods", func() {
+				pods := &corev1.PodList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return len(pods.Items), err
+				}, timeout).Should(Equal(17))
+
+				sortPodsByID(pods)
+
+				Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+				Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+				Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
+				Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-6"))
 			})
 		})
 

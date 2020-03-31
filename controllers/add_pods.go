@@ -69,6 +69,11 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return false, err
 	}
 
+	instancesPendingRemoval := make(map[string]bool, 0)
+	for _, id := range cluster.Spec.InstancesToRemove {
+		instancesPendingRemoval[id] = true
+	}
+
 	instanceIDs := make(map[string]map[int]bool)
 	for _, instance := range instances {
 		instanceID := instance.GetInstanceID()
@@ -113,6 +118,9 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 				if ownedByCluster && pvc.ObjectMeta.DeletionTimestamp == nil {
 					instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
+					if instancesPendingRemoval[instanceID] {
+						continue
+					}
 
 					matchingInstances, err := r.PodLifecycleManager.GetInstances(
 						r, cluster, context,
@@ -168,9 +176,12 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 			for i := 0; i < newCount; i++ {
 				for idNum > 0 {
-					if !instanceIDs[processClass][idNum] {
+					_, instanceID := getInstanceID(cluster, processClass, idNum)
+
+					if !instancesPendingRemoval[instanceID] && !instanceIDs[processClass][idNum] {
 						break
 					}
+
 					idNum++
 				}
 
