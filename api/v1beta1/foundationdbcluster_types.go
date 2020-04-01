@@ -489,7 +489,7 @@ func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	}
 	if counts.LogRouters == 0 {
 		if cluster.Spec.UsableRegions > 1 {
-			counts.LogRouters = 3 * counts.Logs
+			counts.LogRouters = counts.Logs
 		} else {
 			counts.LogRouters = -1
 		}

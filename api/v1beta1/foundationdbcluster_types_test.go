@@ -67,14 +67,14 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 		Proxies:    3,
 		Resolvers:  1,
 		RemoteLogs: 3,
-		LogRouters: 9,
+		LogRouters: 3,
 	}))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
 		"logs":        3,
 		"proxies":     3,
 		"resolvers":   1,
 		"remote_logs": 3,
-		"log_routers": 9,
+		"log_routers": 3,
 	}))
 
 	cluster.Spec.RoleCounts = RoleCounts{
@@ -88,7 +88,7 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 		Proxies:    3,
 		Resolvers:  1,
 		RemoteLogs: 3,
-		LogRouters: 9,
+		LogRouters: 3,
 	}))
 
 	cluster.Spec.RoleCounts = RoleCounts{
@@ -101,7 +101,7 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 		Proxies:    3,
 		Resolvers:  1,
 		RemoteLogs: 8,
-		LogRouters: 24,
+		LogRouters: 8,
 	}))
 
 	cluster.Spec.RoleCounts = RoleCounts{
