@@ -565,6 +565,9 @@ func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
 			newExclusions = append(newExclusions, address)
 		}
 	}
+	if len(newExclusions) == 0 {
+		newExclusions = nil
+	}
 	client.ExcludedAddresses = newExclusions
 	return nil
 }
@@ -585,6 +588,9 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 		if !included {
 			newExclusions = append(newExclusions, excludedAddress)
 		}
+	}
+	if len(newExclusions) == 0 {
+		newExclusions = nil
 	}
 	client.ExcludedAddresses = newExclusions
 	return nil

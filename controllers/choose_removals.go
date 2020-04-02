@@ -148,11 +148,9 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	if hasNewRemovals {
 		cluster.Spec.PendingRemovals = removals
 		err := r.Update(context, cluster)
-		if err != nil {
-			return false, err
-		}
+		return false, err
 	}
-	return !hasNewRemovals, nil
+	return true, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

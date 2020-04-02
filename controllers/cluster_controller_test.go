@@ -246,7 +246,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
-				Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
+				Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
@@ -417,7 +417,7 @@ var _ = Describe("cluster_controller", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
-					Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
 						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
@@ -477,7 +477,7 @@ var _ = Describe("cluster_controller", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
-					Expect(adminClient.ExcludedAddresses).To(Equal([]string{}))
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
 						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
@@ -1216,7 +1216,7 @@ var _ = Describe("cluster_controller", func() {
 				for _, metricFamily := range metricFamilies {
 					metricFamily.Reset()
 				}
-				InitCustomMetrics(reconciler)
+				InitCustomMetrics(clusterReconciler)
 			})
 
 			It("should update custom metrics in the registry", func() {
