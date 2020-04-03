@@ -1175,6 +1175,10 @@ spec:
               properties:
                 log_routers:
                   type: integer
+                log_spill:
+                  type: integer
+                log_version:
+                  type: integer
                 logs:
                   type: integer
                 proxies:
@@ -10211,6 +10215,10 @@ spec:
                 of the database.
               properties:
                 log_routers:
+                  type: integer
+                log_spill:
+                  type: integer
+                log_version:
                   type: integer
                 logs:
                   type: integer

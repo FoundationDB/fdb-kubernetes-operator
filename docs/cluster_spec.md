@@ -43,6 +43,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoleCounts](#rolecounts)
+* [VersionFlags](#versionflags)
 
 ## BackupGenerationStatus
 
@@ -138,6 +139,7 @@ DatabaseConfiguration represents the configuration of the database
 | usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
 | RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
+| VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
 
 [Back to TOC](#table-of-contents)
 
@@ -571,5 +573,16 @@ RoleCounts represents the roles whose counts can be customized.
 | resolvers |  | int | false |
 | log_routers |  | int | false |
 | remote_logs |  | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## VersionFlags
+
+VersionFlags defines internal flags for new features in the database.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| log_spill |  | int | false |
+| log_version |  | int | false |
 
 [Back to TOC](#table-of-contents)

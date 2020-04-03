@@ -617,6 +617,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				UsableRegions:  1,
 				Regions:        nil,
 				RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
+				VersionFlags:   VersionFlags{LogSpill: 1},
 			},
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"c813e585043a7ab55a4905f465c4aa52": {
@@ -834,6 +835,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				UsableRegions:  1,
 				Regions:        nil,
 				RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
+				VersionFlags:   VersionFlags{LogSpill: 2},
 			},
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"b9c25278c0fa207bc2a73bda2300d0a9": {
@@ -1224,6 +1226,10 @@ func TestGettingConfigurationString(t *testing.T) {
 		SatelliteLogs: 2,
 	}}
 	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
+	configuration.Regions = nil
+
+	configuration.VersionFlags.LogSpill = 3
+	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 log_spill:=3 regions=[]"))
 }
 
 func TestGettingSidecarVersion(t *testing.T) {

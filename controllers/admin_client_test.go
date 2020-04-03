@@ -74,6 +74,9 @@ var _ = Describe("admin_client_test", func() {
 						LogRouters: -1,
 						RemoteLogs: -1,
 					},
+					VersionFlags: fdbtypes.VersionFlags{
+						LogSpill: 2,
+					},
 				}))
 
 				Expect(status.Cluster.Processes["operator-test-1-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
