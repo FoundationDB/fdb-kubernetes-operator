@@ -126,12 +126,10 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		}
 		cluster.Spec.ConnectionString = connectionString
 		err = r.Update(context, cluster)
-		if err != nil {
-			return false, err
-		}
+		return false, err
 	}
 
-	return !needsChange, nil
+	return true, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

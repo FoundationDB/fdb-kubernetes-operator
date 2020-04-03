@@ -140,6 +140,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 
 	if cluster.Status.Generations.Reconciled < originalGeneration {
 		log.Info("Cluster was not fully reconciled by reconciliation process")
+
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -743,7 +744,7 @@ func (manager StandardPodLifecycleManager) UpdatePods(r *FoundationDBClusterReco
 			return err
 		}
 	}
-	if len(instances) > 0 {
+	if len(instances) > 0 && !r.InSimulation {
 		return ReconciliationNotReadyError{message: "Need to restart reconciliation to recreate pods", retryable: true}
 	}
 	return nil
