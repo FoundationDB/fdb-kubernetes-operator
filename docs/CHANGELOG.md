@@ -1,3 +1,14 @@
+# v0.8.0
+
+*	Set the WATCH_NAMESPACE field in more example deployments.
+*	Avoid overwriting existing annotations that are set outside the operator.
+*	Remove unnecessary binaries from the docker image.
+*	Prevent unnecesarily rebuilding packages in the Makefile.
+*	Skip over instance IDs in the instancesToRemove list when adding new instances.
+*	Reduce the default log router count.
+*	Allow starting backups through the operator.
+*	Use a read-only root file system for the FDB containers.
+
 # v0.7.0
 
 *   Update documentation.
