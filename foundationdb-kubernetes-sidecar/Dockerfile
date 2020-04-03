@@ -20,8 +20,8 @@
 FROM python:3.6
 
 WORKDIR /var/fdb/tmp
-ARG FDB_VERSION=6.2.7
-ARG FDB_LIBRARY_VERSIONS="6.2.7 6.1.8 6.0.18 5.2.8 5.1.7"
+ARG FDB_VERSION=6.2.15
+ARG FDB_LIBRARY_VERSIONS="6.2.15 6.1.8"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 ADD website /mnt/website
@@ -43,10 +43,6 @@ COPY requirements.txt /
 COPY sidecar.py /
 
 RUN pip install -r /requirements.txt && rm /requirements.txt && chmod a+x /entrypoint.bash
-
-ENV COPY_ONCE 0
-ENV SIDECAR_CONF_DIR /var/sidecar-conf
-COPY default_config.json $SIDECAR_CONF_DIR/config.json
 
 VOLUME /var/input-files
 VOLUME /var/output-files

@@ -131,6 +131,12 @@ class Config(object):
         with open('/var/fdb/version') as version_file:
             self.primary_version = version_file.read().strip()
 
+        
+        version_split = self.primary_version.split('.')
+        self.minor_version = [int(version_split[0]), int(version_split[1])]
+
+        forbid_deprecated_environment_variables = self.is_at_least([6,3])
+
         if self.enable_tls:
             self.certificate_file = args.tls_certificate_file or os.getenv('FDB_TLS_CERTIFICATE_FILE')
             assert self.certificate_file, (
@@ -170,6 +176,12 @@ class Config(object):
         for variable in args.substitute_variable or []:
             self.substitutions[variable] = os.getenv(variable)
         
+        if forbid_deprecated_environment_variables:
+            for variable in ['SIDECAR_CONF_DIR', 'INPUT_DIR', 'OUTPUT_DIR', 'COPY_ONCE']:
+                if os.getenv(variable):
+                    print('Environment variable %s is not supported in this version of FoundationDB. Please use the command-line arguments instead.' % variable)
+                    exit(1)
+
         if os.getenv('SIDECAR_CONF_DIR'):
             with open(os.path.join(os.getenv('SIDECAR_CONF_DIR'), 'config.json')) as conf_file:
                 config = json.load(conf_file)
@@ -208,7 +220,11 @@ class Config(object):
         cls.shared_config = Config()
         return cls.shared_config
 
+
     shared_config = None
+
+    def is_at_least(self, target_version):
+        return self.minor_version[0] > target_version[0] or (self.minor_version[0] == target_version[0] and self.minor_version[1] >= target_version[1])
 
 class Server(http.server.BaseHTTPRequestHandler):
     ssl_context = None
