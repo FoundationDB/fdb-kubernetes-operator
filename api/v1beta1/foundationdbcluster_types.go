@@ -339,6 +339,23 @@ func (counts RoleCounts) Map() map[string]int {
 	return countMap
 }
 
+// VersionFlags defines internal flags for new features in the database.
+type VersionFlags struct {
+	LogSpill   int `json:"log_spill,omitempty"`
+	LogVersion int `json:"log_version,omitempty"`
+}
+
+// Map returns a map from process classes to the desired count for that role
+func (flags VersionFlags) Map() map[string]int {
+	flagMap := make(map[string]int, len(versionFlagIndices))
+	flagValue := reflect.ValueOf(flags)
+	for flag, index := range versionFlagIndices {
+		value := int(flagValue.Field(index).Int())
+		flagMap[flag] = value
+	}
+	return flagMap
+}
+
 // ProcessCounts represents the number of processes we have for each valid
 // process class.
 //
@@ -430,6 +447,10 @@ var roleNames = fieldNames(RoleCounts{})
 
 // roleIndices provides the indices of each role in the list of roles.
 var roleIndices = fieldIndices(RoleCounts{})
+
+// versionFlagIndices provides the indices of each flag in the list of supported
+// version flags..
+var versionFlagIndices = fieldIndices(VersionFlags{})
 
 // FoundationDBClusterAutomationOptions provides flags for enabling or disabling
 // operations that can be performed on a cluster.
@@ -705,7 +726,9 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	if !reflect.DeepEqual(cluster.Status.DatabaseConfiguration, cluster.DesiredDatabaseConfiguration()) {
+	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
+	desiredConfiguration.FillInDefaultVersionFlags(cluster.Status.DatabaseConfiguration)
+	if !reflect.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
@@ -1129,6 +1152,10 @@ type DatabaseConfiguration struct {
 	// RoleCounts defines how many processes the database should recruit for
 	// each role.
 	RoleCounts `json:""`
+
+	// VersionFlags defines internal flags for testing new features in the
+	// database.
+	VersionFlags `json:""`
 }
 
 // Region represents a region in the database configuration
@@ -1283,6 +1310,13 @@ func (configuration DatabaseConfiguration) GetConfigurationString() (string, err
 		}
 	}
 
+	flags := configuration.VersionFlags.Map()
+	for flag, value := range flags {
+		if value != 0 {
+			configurationString += fmt.Sprintf(" %s:=%d", flag, value)
+		}
+	}
+
 	var regionString string
 	if configuration.Regions == nil {
 		regionString = "[]"
@@ -1355,6 +1389,14 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 		result.LogRouters = -1
 	}
 	return *result
+}
+
+// FillInDefaultVersionFlags adds in missing version flags so they match the
+// running configuration.
+func (configuration *DatabaseConfiguration) FillInDefaultVersionFlags(liveConfiguration DatabaseConfiguration) {
+	if configuration.LogSpill == 0 {
+		configuration.LogSpill = liveConfiguration.LogSpill
+	}
 }
 
 func getMainDataCenter(region Region) (string, int) {

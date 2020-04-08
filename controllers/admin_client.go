@@ -525,6 +525,10 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		status.Cluster.DatabaseConfiguration = client.Cluster.DesiredDatabaseConfiguration()
 	}
 
+	if status.Cluster.DatabaseConfiguration.LogSpill == 0 {
+		status.Cluster.DatabaseConfiguration.VersionFlags.LogSpill = 2
+	}
+
 	status.Cluster.FullReplication = true
 
 	if len(client.Backups) > 0 {

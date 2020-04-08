@@ -202,7 +202,11 @@ var _ = Describe("cluster_controller", func() {
 				Expect(cluster.Status.ProcessCounts).To(Equal(desiredCounts))
 				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
 				Expect(cluster.Status.MissingProcesses).To(BeNil())
-				Expect(cluster.Status.DatabaseConfiguration).To(Equal(*adminClient.DatabaseConfiguration))
+
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.DatabaseConfiguration).To(Equal(status.Cluster.DatabaseConfiguration))
+
 				Expect(cluster.Status.Health).To(Equal(fdbtypes.ClusterHealth{
 					Available:            true,
 					Healthy:              true,
