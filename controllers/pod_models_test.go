@@ -198,8 +198,6 @@ var _ = Describe("pod_models", func() {
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
-					"--copy-file",
-					"ca.pem",
 					"--input-monitor-conf",
 					"fdbmonitor.conf",
 					"--copy-binary",
@@ -270,8 +268,6 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
-					"--copy-file",
-					"ca.pem",
 					"--input-monitor-conf",
 					"fdbmonitor.conf",
 					"--copy-binary",
@@ -794,8 +790,6 @@ var _ = Describe("pod_models", func() {
 				Expect(initContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
-					"--copy-file",
-					"ca.pem",
 					"--input-monitor-conf",
 					"fdbmonitor.conf",
 					"--copy-binary",
@@ -830,8 +824,6 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
 					"fdb.cluster",
-					"--copy-file",
-					"ca.pem",
 					"--input-monitor-conf",
 					"fdbmonitor.conf",
 					"--copy-binary",
@@ -1205,8 +1197,7 @@ var _ = Describe("pod_models", func() {
 				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
 				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(initContainer.Args).To(Equal([]string{
-					"--copy-file", "fdb.cluster", "--copy-file", "ca.pem",
-					"--input-monitor-conf", "fdbmonitor.conf",
+					"--copy-file", "fdb.cluster", "--input-monitor-conf", "fdbmonitor.conf",
 					"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
 					"--main-container-version", cluster.Spec.Version,
 					"--substitute-variable", "FAULT_DOMAIN", "--substitute-variable", "ZONE",
@@ -1232,8 +1223,7 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 
 				Expect(sidecarContainer.Args).To(Equal([]string{
-					"--copy-file", "fdb.cluster", "--copy-file", "ca.pem",
-					"--input-monitor-conf", "fdbmonitor.conf",
+					"--copy-file", "fdb.cluster", "--input-monitor-conf", "fdbmonitor.conf",
 					"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
 					"--main-container-version", cluster.Spec.Version,
 					"--substitute-variable", "FAULT_DOMAIN", "--substitute-variable", "ZONE",
@@ -1389,8 +1379,42 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
+			It("should pass the CA file to the init container", func() {
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--copy-file",
+					"ca.pem",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.15",
+					"--init-mode",
+				}))
+			})
+
 			It("should pass the CA to the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
+
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--copy-file",
+					"ca.pem",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.15",
+				}))
 
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -1672,7 +1696,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "63e224c49943b79438974656b5d64a02cf36b94a9900a149b063b1dd4d76a880",
+					"foundationdb.org/last-applied-spec": "930784c79792aa8f1d329e086986389a293ecb7ca70278dbee43d1fa527cbd1b",
 				}))
 			})
 
@@ -1769,8 +1793,6 @@ var _ = Describe("pod_models", func() {
 					Expect(container.Args).To(Equal([]string{
 						"--copy-file",
 						"fdb.cluster",
-						"--copy-file",
-						"ca.pem",
 						"--init-mode",
 					}))
 				})

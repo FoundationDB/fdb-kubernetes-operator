@@ -383,9 +383,15 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
+	filesToCopy := []string{"fdb.cluster"}
+
+	if len(cluster.Spec.TrustedCAs) > 0 {
+		filesToCopy = append(filesToCopy, "ca.pem")
+	}
+
 	sidecarConf := map[string]interface{}{
 		"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},
-		"COPY_FILES":               []string{"fdb.cluster", "ca.pem"},
+		"COPY_FILES":               filesToCopy,
 		"COPY_LIBRARIES":           []string{},
 		"INPUT_MONITOR_CONF":       "fdbmonitor.conf",
 		"ADDITIONAL_SUBSTITUTIONS": substitutionKeys,

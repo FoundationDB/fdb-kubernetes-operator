@@ -1282,7 +1282,7 @@ var _ = Describe("cluster_controller", func() {
 				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(sidecarConf)).To(Equal(5))
-				Expect(sidecarConf["COPY_FILES"]).To(Equal([]interface{}{"fdb.cluster", "ca.pem"}))
+				Expect(sidecarConf["COPY_FILES"]).To(Equal([]interface{}{"fdb.cluster"}))
 				Expect(sidecarConf["COPY_BINARIES"]).To(Equal([]interface{}{"fdbserver", "fdbcli"}))
 				Expect(sidecarConf["COPY_LIBRARIES"]).To(Equal([]interface{}{}))
 				Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(Equal("fdbmonitor.conf"))
@@ -1300,6 +1300,13 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should populate the CA file", func() {
 				Expect(configMap.Data["ca-file"]).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
+			})
+
+			It("should copy the CA file in the sidecar conf", func() {
+				sidecarConf := make(map[string]interface{})
+				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(sidecarConf["COPY_FILES"]).To(Equal([]interface{}{"fdb.cluster", "ca.pem"}))
 			})
 		})
 

@@ -334,7 +334,9 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 	if version.PrefersCommandLineArgumentsInSidecar() {
 		sidecarArgs = []string{
 			"--copy-file", "fdb.cluster",
-			"--copy-file", "ca.pem",
+		}
+		if hasTrustedCAs {
+			sidecarArgs = append(sidecarArgs, "--copy-file", "ca.pem")
 		}
 		if fdbserverMode {
 			sidecarArgs = append(sidecarArgs,
