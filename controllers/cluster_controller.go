@@ -300,12 +300,6 @@ func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID s
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID})}
 }
 
-func buildOwnerReferenceForCluster(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) ([]metav1.OwnerReference, error) {
-	reloadedCluster := &fdbtypes.FoundationDBCluster{}
-	kubeClient.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, reloadedCluster)
-	return buildOwnerReference(context, reloadedCluster.TypeMeta, reloadedCluster.ObjectMeta, kubeClient)
-}
-
 func buildOwnerReference(context ctx.Context, ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta, kubeClient client.Client) ([]metav1.OwnerReference, error) {
 	var isController = true
 	return []metav1.OwnerReference{metav1.OwnerReference{
@@ -400,7 +394,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
-	owner, err := buildOwnerReferenceForCluster(context, cluster, kubeClient)
+	owner, err := buildOwnerReference(context, cluster.TypeMeta, cluster.ObjectMeta, kubeClient)
 	if err != nil {
 		return nil, err
 	}

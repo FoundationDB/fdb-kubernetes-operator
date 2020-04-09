@@ -191,7 +191,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				}
 
 				if pvc != nil {
-					owner, err := buildOwnerReferenceForCluster(context, cluster, r)
+					owner, err := buildOwnerReference(context, cluster.TypeMeta, cluster.ObjectMeta, r)
 					if err != nil {
 						return false, err
 					}
