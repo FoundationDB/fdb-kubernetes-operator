@@ -347,6 +347,11 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		sidecarArgs = make([]string, 0)
 	}
 
+	if version.HasSidecarCrashOnEmpty() && !fdbserverMode {
+		sidecarArgs = append(sidecarArgs, "--require-not-empty")
+		sidecarArgs = append(sidecarArgs, "fdb.cluster")
+	}
+
 	if !version.PrefersCommandLineArgumentsInSidecar() {
 		if initMode {
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})

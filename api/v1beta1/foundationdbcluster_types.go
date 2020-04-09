@@ -1823,6 +1823,12 @@ func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
 }
 
+// HasSidecarCrashOnEmpty determines if a version has the flag to have the
+// sidecar crash on a file being empty.
+func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 0})
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbbackup
 // +kubebuilder:subresource:status

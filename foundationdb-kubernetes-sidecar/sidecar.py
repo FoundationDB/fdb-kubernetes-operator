@@ -114,6 +114,10 @@ class Config(object):
                                   'written by the sidecar will be mounted in '
                                   'the main container.'),
                             default='/var/dynamic-conf')
+        parser.add_argument('--require-not-empty',
+                            help=('A file that must be present and non-empty '
+                                  'in the input directory'),
+                            action='append')
         args = parser.parse_args()
 
         self.bind_address = args.bind_address
@@ -127,6 +131,7 @@ class Config(object):
         self.input_monitor_conf = args.input_monitor_conf
         self.init_mode = args.init_mode
         self.main_container_version = args.main_container_version
+        self.require_not_empty = args.require_not_empty
 
         with open('/var/fdb/version') as version_file:
             self.primary_version = version_file.read().strip()
@@ -444,6 +449,11 @@ def check_hash(filename):
 
 def copy_files():
     config = Config.shared()
+    if config.require_not_empty:
+        for filename in config.require_not_empty:
+            path = '%s/%s' % (config.input_dir, filename)
+            if not os.path.isfile(path) or os.path.getsize(path) == 0:
+                raise Exception("No contents for file %s" % path)
     for filename in config.copy_files:
         shutil.copy('%s/%s' % (config.input_dir, filename), '%s/%s' % (config.output_dir, filename))
     return "OK"

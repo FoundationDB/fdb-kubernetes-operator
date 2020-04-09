@@ -1878,5 +1878,61 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with the sidecar require-not-empty field", func() {
+			BeforeEach(func() {
+				backup.Spec.Version = Versions.WithSidecarCrashOnEmpty.String()
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			Describe("the init container", func() {
+				var container corev1.Container
+
+				BeforeEach(func() {
+					container = deployment.Spec.Template.Spec.InitContainers[0]
+				})
+
+				It("should have a flag to require the cluster file is present", func() {
+					Expect(container.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--copy-file",
+						"ca.pem",
+						"--require-not-empty",
+						"fdb.cluster",
+						"--init-mode",
+					}))
+				})
+			})
+		})
+
+		Context("without the sidecar require-not-empty field", func() {
+			BeforeEach(func() {
+				backup.Spec.Version = Versions.WithoutSidecarCrashOnEmpty.String()
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			Describe("the init container", func() {
+				var container corev1.Container
+
+				BeforeEach(func() {
+					container = deployment.Spec.Template.Spec.InitContainers[0]
+				})
+
+				It("should have a flag to require the cluster file is present", func() {
+					Expect(container.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--copy-file",
+						"ca.pem",
+						"--init-mode",
+					}))
+				})
+			})
+		})
 	})
 })

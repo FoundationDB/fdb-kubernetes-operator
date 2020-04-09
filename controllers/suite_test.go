@@ -136,6 +136,7 @@ var Versions = struct {
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
 	WithRatekeeperRole, WithoutRatekeeperRole,
+	WithSidecarCrashOnEmpty, WithoutSidecarCrashOnEmpty,
 	Default fdbtypes.FdbVersion
 }{
 	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
@@ -148,6 +149,8 @@ var Versions = struct {
 	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithRatekeeperRole:                   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutRatekeeperRole:                fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12},
+	WithSidecarCrashOnEmpty:              fdbtypes.FdbVersion{Major: 6, Minor: 3, Patch: 0},
+	WithoutSidecarCrashOnEmpty:           fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 }
 
 func createDefaultCluster() *fdbtypes.FoundationDBCluster {
