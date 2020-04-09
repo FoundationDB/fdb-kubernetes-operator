@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -125,7 +126,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 					if err != nil {
 						return false, err
 					}
-					correct = commandLine == process.CommandLine && process.Version == cluster.Spec.Version
+					correct = commandLine == process.CommandLine && (process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version))
 					break
 				}
 			}
