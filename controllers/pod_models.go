@@ -152,10 +152,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		return nil, err
 	}
 
-	extendEnv(mainContainer,
-		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
-	)
+	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
+
+	useCustomCAs := len(cluster.Spec.TrustedCAs) > 0
+	if useCustomCAs {
+		extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
+	}
 
 	mainContainer.Command = []string{"sh", "-c"}
 	mainContainer.Args = []string{
@@ -216,7 +218,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	configMapItems := []corev1.KeyToPath{
 		corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
 		corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
-		corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
+	}
+
+	if useCustomCAs {
+		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"})
 	}
 
 	if !version.PrefersCommandLineArgumentsInSidecar() {
@@ -295,18 +300,18 @@ func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, 
 		versionString = cluster.Spec.Version
 	}
 
-	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster.Spec.SidecarVariables, cluster.Spec.FaultDomain, cluster.Spec.SidecarContainer, cluster.Spec.SidecarVersions, cluster.Spec.SidecarVersion)
+	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster.Spec.SidecarVariables, cluster.Spec.FaultDomain, cluster.Spec.SidecarContainer, cluster.Spec.SidecarVersions, cluster.Spec.SidecarVersion, len(cluster.Spec.TrustedCAs) > 0)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, fdbtypes.FoundationDBClusterFaultDomain{}, fdbtypes.ContainerOverrides{}, nil, 0)
+	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, fdbtypes.FoundationDBClusterFaultDomain{}, fdbtypes.ContainerOverrides{}, nil, 0, false)
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, sidecarVariables []string, faultDomain fdbtypes.FoundationDBClusterFaultDomain, overrides fdbtypes.ContainerOverrides, sidecarVersions map[string]int, deprecatedSidecarVersion int) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, sidecarVariables []string, faultDomain fdbtypes.FoundationDBClusterFaultDomain, overrides fdbtypes.ContainerOverrides, sidecarVersions map[string]int, deprecatedSidecarVersion int, hasTrustedCAs bool) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
@@ -442,10 +447,11 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		return nil
 	}
 
-	extendEnv(container,
-		corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: overrides.PeerVerificationRules},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
-	)
+	extendEnv(container, corev1.EnvVar{Name: "FDB_TLS_VERIFY_PEERS", Value: overrides.PeerVerificationRules})
+
+	if hasTrustedCAs {
+		extendEnv(container, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
+	}
 
 	if container.ReadinessProbe == nil {
 		container.ReadinessProbe = &corev1.Probe{
@@ -649,10 +655,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		mainContainer.Env = make([]corev1.EnvVar, 0, 1)
 	}
 
-	extendEnv(mainContainer,
-		corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-		corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"},
-	)
+	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
 		corev1.VolumeMount{Name: "logs", MountPath: "/var/log/fdb-trace-logs"},
@@ -694,7 +697,6 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
 				Items: []corev1.KeyToPath{
 					corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
-					corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"},
 				},
 			}},
 		},

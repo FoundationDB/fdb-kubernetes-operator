@@ -332,7 +332,9 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		caFile += ca
 	}
 
-	data["ca-file"] = caFile
+	if caFile != "" {
+		data["ca-file"] = caFile
+	}
 
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {

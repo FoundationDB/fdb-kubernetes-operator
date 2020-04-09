@@ -1023,7 +1023,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(3))
+						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
 						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("TEST_CHANGE"))
 						Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
 					}
@@ -1054,9 +1054,8 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
+						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(1))
 						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("FDB_CLUSTER_FILE"))
-						Expect(pod.Spec.Containers[0].Env[1].Name).To(Equal("FDB_TLS_CA_FILE"))
 					}
 				})
 			})
@@ -1084,7 +1083,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(3))
+						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
 						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("TEST_CHANGE"))
 						Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
 					}
@@ -1115,9 +1114,8 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
+						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(1))
 						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("FDB_CLUSTER_FILE"))
-						Expect(pod.Spec.Containers[0].Env[1].Name).To(Equal("FDB_TLS_CA_FILE"))
 					}
 				})
 			})
@@ -1274,10 +1272,9 @@ var _ = Describe("cluster_controller", func() {
 				expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(len(configMap.Data)).To(Equal(7))
+				Expect(len(configMap.Data)).To(Equal(6))
 				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
-				Expect(configMap.Data["ca-file"]).To(Equal(""))
 			})
 
 			It("should have the sidecar conf", func() {
