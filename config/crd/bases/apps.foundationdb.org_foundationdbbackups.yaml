@@ -54,6 +54,7 @@ spec:
               description: The desired state of the backup. The default is Running.
               enum:
               - Running
+              - Stopped
               type: string
             bucket:
               description: The backup bucket to write to. The default is to use "fdb-backups".

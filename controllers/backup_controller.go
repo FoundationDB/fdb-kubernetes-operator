@@ -72,6 +72,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Res
 		UpdateBackupStatus{},
 		UpdateBackupAgents{},
 		StartBackup{},
+		StopBackup{},
 		UpdateBackupStatus{},
 	}
 
