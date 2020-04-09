@@ -52,7 +52,7 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
 
-	owner, err := buildOwnerReferenceForCluster(context, cluster, kubeClient)
+	owner, err := buildOwnerReference(context, cluster.TypeMeta, cluster.ObjectMeta, kubeClient)
 	if err != nil {
 		return nil, err
 	}
