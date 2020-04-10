@@ -538,6 +538,16 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 		pvc.Spec.StorageClassName = cluster.Spec.StorageClass
 	}
 
+	specHash, err := GetJSONHash(pvc.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	if pvc.ObjectMeta.Annotations == nil {
+		pvc.ObjectMeta.Annotations = make(map[string]string, 1)
+	}
+	pvc.ObjectMeta.Annotations[LastSpecKey] = specHash
+
 	return pvc, nil
 }
 

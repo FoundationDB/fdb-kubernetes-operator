@@ -78,6 +78,10 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
 
 		metadata := getPvcMetadata(cluster, processClass, instanceID)
+		if metadata.Annotations == nil {
+			metadata.Annotations = make(map[string]string, 1)
+		}
+		metadata.Annotations[LastSpecKey] = pvc.ObjectMeta.Annotations[LastSpecKey]
 
 		metadataCorrect := true
 		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, metadata.Labels) {
