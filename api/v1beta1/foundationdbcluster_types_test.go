@@ -3129,6 +3129,35 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 		NeedsBackupStart: 2,
 	}))
 
+	backup = createBackup()
+	backup.Spec.BackupState = "Stopped"
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:      1,
+		NeedsBackupStop: 2,
+	}))
+
+	backup = createBackup()
+	backup.Status.BackupDetails = nil
+	backup.Spec.BackupState = "Stopped"
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled: 2,
+	}))
+
+	backup = createBackup()
+	backup.Status.BackupDetails.Running = false
+	backup.Spec.BackupState = "Stopped"
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled: 2,
+	}))
 }
 
 func TestCheckingBackupStates(t *testing.T) {
@@ -3152,7 +3181,6 @@ func TestCheckingBackupStates(t *testing.T) {
 }
 
 func TestGettingBucketName(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	backup := FoundationDBBackup{
@@ -3169,7 +3197,6 @@ func TestGettingBucketName(t *testing.T) {
 }
 
 func TestGettingBackupName(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	backup := FoundationDBBackup{

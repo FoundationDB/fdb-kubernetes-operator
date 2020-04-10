@@ -1947,8 +1947,6 @@ var _ = Describe("pod_models", func() {
 					Expect(container.Args).To(Equal([]string{
 						"--copy-file",
 						"fdb.cluster",
-						"--copy-file",
-						"ca.pem",
 						"--require-not-empty",
 						"fdb.cluster",
 						"--init-mode",
@@ -1972,12 +1970,10 @@ var _ = Describe("pod_models", func() {
 					container = deployment.Spec.Template.Spec.InitContainers[0]
 				})
 
-				It("should have a flag to require the cluster file is present", func() {
+				It("should not have a flag to require the cluster file is present", func() {
 					Expect(container.Args).To(Equal([]string{
 						"--copy-file",
 						"fdb.cluster",
-						"--copy-file",
-						"ca.pem",
 						"--init-mode",
 					}))
 				})

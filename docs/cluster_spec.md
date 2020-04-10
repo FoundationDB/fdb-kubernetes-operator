@@ -54,6 +54,7 @@ BackupGenerationStatus stores information on which generations have reached diff
 | reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
 | needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |
+| needsBackupStop | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to stop a backup. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 

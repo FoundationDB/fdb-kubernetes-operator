@@ -177,5 +177,25 @@ var _ = Describe("backup_controller", func() {
 				}, timeout).Should(Equal(0))
 			})
 		})
+
+		Context("when stopping a new backup", func() {
+			BeforeEach(func() {
+				backup.Spec.BackupState = "Stopped"
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should stop the backup", func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+					"default": {
+						CurrentContainer: "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+						RunningBackup:    false,
+						Restorable:       true,
+					},
+				}))
+			})
+		})
 	})
 })

@@ -81,6 +81,9 @@ type AdminClient interface {
 	// StartBackup starts a new backup.
 	StartBackup(url string) error
 
+	// StopBackup stops a backup.
+	StopBackup(url string) error
+
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
@@ -402,6 +405,17 @@ func (client *CliAdminClient) StartBackup(url string) error {
 	return err
 }
 
+// StopBackup starts a new backup.
+func (client *CliAdminClient) StopBackup(url string) error {
+	_, err := client.runCommand(cliCommand{
+		binary: "fdbbackup",
+		args: []string{
+			"discontinue",
+		},
+	})
+	return err
+}
+
 // Close cleans up any pending resources.
 func (client *CliAdminClient) Close() error {
 	err := os.Remove(client.clusterFilePath)
@@ -421,6 +435,7 @@ type MockAdminClient struct {
 	KilledAddresses       []string
 	frozenStatus          *fdbtypes.FoundationDBStatus
 	Backups               map[string]string
+	BackupStates          map[string]string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -442,6 +457,7 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 		}
 		adminClientCache[cluster.Name] = client
 		client.Backups = make(map[string]string)
+		client.BackupStates = make(map[string]string)
 	} else {
 		client.Cluster = cluster
 	}
@@ -534,9 +550,10 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	if len(client.Backups) > 0 {
 		status.Cluster.Layers.Backup.Tags = make(map[string]fdbtypes.FoundationDBStatusBackupTag, len(client.Backups))
 		for tag, url := range client.Backups {
+			state := client.BackupStates[tag]
 			status.Cluster.Layers.Backup.Tags[tag] = fdbtypes.FoundationDBStatusBackupTag{
 				CurrentContainer: url,
-				RunningBackup:    true,
+				RunningBackup:    state != "Stopped",
 				Restorable:       true,
 			}
 		}
@@ -653,7 +670,19 @@ func (client *MockAdminClient) GetProtocolVersion(version string) (string, error
 // StartBackup starts a new backup.
 func (client *MockAdminClient) StartBackup(url string) error {
 	client.Backups["default"] = url
+	client.BackupStates["default"] = "Running"
 	return nil
+}
+
+// StopBackup stops a backup.
+func (client *MockAdminClient) StopBackup(url string) error {
+	for tag, backupURL := range client.Backups {
+		if url == backupURL {
+			client.BackupStates[tag] = "Stopped"
+			return nil
+		}
+	}
+	return fmt.Errorf("No backup found for URL %s", url)
 }
 
 // Close shuts down any resources for the client once it is no longer

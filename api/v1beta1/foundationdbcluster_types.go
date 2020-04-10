@@ -778,8 +778,15 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
-	if backup.ShouldRun() && backup.Status.BackupDetails == nil {
+	isRunning := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running
+
+	if backup.ShouldRun() && !isRunning {
 		backup.Status.Generations.NeedsBackupStart = backup.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if !backup.ShouldRun() && isRunning {
+		backup.Status.Generations.NeedsBackupStop = backup.ObjectMeta.Generation
 		reconciled = false
 	}
 
@@ -1859,7 +1866,7 @@ type FoundationDBBackupSpec struct {
 	// The cluster this backup is for.
 	ClusterName string `json:"clusterName"`
 
-	// +kubebuilder:validation:Enum=Running
+	// +kubebuilder:validation:Enum=Running;Stopped
 	// The desired state of the backup.
 	// The default is Running.
 	BackupState string `json:"backupState,omitempty"`
@@ -1924,6 +1931,10 @@ type BackupGenerationStatus struct {
 	// NeedsBackupStart provides the last generation that could not complete
 	// reconciliation because we need to start a backup.
 	NeedsBackupStart int64 `json:"needsBackupStart,omitempty"`
+
+	// NeedsBackupStart provides the last generation that could not complete
+	// reconciliation because we need to stop a backup.
+	NeedsBackupStop int64 `json:"needsBackupStop,omitempty"`
 }
 
 // ShouldRun determines whether a backup should be running.

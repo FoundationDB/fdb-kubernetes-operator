@@ -1,5 +1,5 @@
 /*
- * start_backup.go
+ * stop_backup.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,13 +27,13 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// StartBackup provides a reconciliation step for starting a new backup.
-type StartBackup struct {
+// Stop provides a reconciliation step for stopping backup.
+type StopBackup struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
-	if !backup.ShouldRun() || (backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running) {
+func (s StopBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+	if backup.ShouldRun() || backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
 		return true, nil
 	}
 
@@ -42,7 +42,7 @@ func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Cont
 		return false, err
 	}
 
-	err = adminClient.StartBackup(backup.BackupURL())
+	err = adminClient.StopBackup(backup.BackupURL())
 	if err != nil {
 		return false, err
 	}
@@ -52,6 +52,6 @@ func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Cont
 
 // RequeueAfter returns the delay before we should run the reconciliation
 // again.
-func (s StartBackup) RequeueAfter() time.Duration {
+func (s StopBackup) RequeueAfter() time.Duration {
 	return 0
 }

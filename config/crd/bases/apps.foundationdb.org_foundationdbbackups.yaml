@@ -54,6 +54,7 @@ spec:
               description: The desired state of the backup. The default is Running.
               enum:
               - Running
+              - Stopped
               type: string
             bucket:
               description: The backup bucket to write to. The default is to use "fdb-backups".
@@ -5818,6 +5819,11 @@ spec:
                 needsBackupStart:
                   description: NeedsBackupStart provides the last generation that
                     could not complete reconciliation because we need to start a backup.
+                  format: int64
+                  type: integer
+                needsBackupStop:
+                  description: NeedsBackupStart provides the last generation that
+                    could not complete reconciliation because we need to stop a backup.
                   format: int64
                   type: integer
                 reconciled:
