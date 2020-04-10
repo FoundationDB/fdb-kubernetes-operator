@@ -5821,6 +5821,11 @@ spec:
                     could not complete reconciliation because we need to start a backup.
                   format: int64
                   type: integer
+                needsBackupStop:
+                  description: NeedsBackupStart provides the last generation that
+                    could not complete reconciliation because we need to stop a backup.
+                  format: int64
+                  type: integer
                 reconciled:
                   description: Reconciled provides the last generation that was fully
                     reconciled.
