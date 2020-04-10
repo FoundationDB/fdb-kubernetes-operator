@@ -1036,6 +1036,40 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
+			Context("with the replacement strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.UpdatePodsByReplacement = true
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap = 5
+					timeout = 10 * time.Second
+				})
+
+				It("should set the environment variable on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
+						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("TEST_CHANGE"))
+						Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
+					}
+				})
+
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					}
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
+			})
+
 			Context("with deletion disabled", func() {
 				BeforeEach(func() {
 					var flag = false
@@ -1182,37 +1216,89 @@ var _ = Describe("cluster_controller", func() {
 		Context("with an upgrade", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.NextMajorVersion.String()
-
-				timeout = 120 * time.Second
-				err = k8sClient.Update(context.TODO(), cluster)
-				generationGap = 2
-				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should bounce the processes", func() {
-				addresses := make(map[string]bool, len(originalPods.Items))
-				for _, pod := range originalPods.Items {
-					addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
-				}
+			Context("with the default strategy", func() {
+				BeforeEach(func() {
+					timeout = 120 * time.Second
+					err = k8sClient.Update(context.TODO(), cluster)
+					generationGap = 2
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
+				It("should bounce the processes", func() {
+					addresses := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+					}
 
-				killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
-				for _, address := range adminClient.KilledAddresses {
-					killedAddresses[address] = true
-				}
-				Expect(killedAddresses).To(Equal(addresses))
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+					for _, address := range adminClient.KilledAddresses {
+						killedAddresses[address] = true
+					}
+					Expect(killedAddresses).To(Equal(addresses))
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+					}
+				})
 			})
 
-			It("should set the image on the pods", func() {
-				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+			Context("with the replacement strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.UpdatePodsByReplacement = true
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap = 6
+					timeout = 10 * time.Second
+				})
 
-				for _, pod := range pods.Items {
-					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
-				}
+				It("should bounce the processes", func() {
+					addresses := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+					}
+
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+					for _, address := range adminClient.KilledAddresses {
+						killedAddresses[address] = true
+					}
+					Expect(killedAddresses).To(Equal(addresses))
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+					}
+				})
+
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					}
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
 			})
 		})
 

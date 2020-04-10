@@ -151,6 +151,10 @@ type FoundationDBClusterSpec struct {
 	// locality fields.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
 
+	// UpdatePodsByReplacement determines whether we should update pod config
+	// by replacing the pods rather than deleting htem.
+	UpdatePodsByReplacement bool `json:"updatePodsByReplacement,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.

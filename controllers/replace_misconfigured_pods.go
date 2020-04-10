@@ -62,13 +62,46 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		desiredPVC, err := GetPvc(cluster, processClass, idNum)
 		pvcHash, err := GetJSONHash(desiredPVC.Spec)
 		if pvc.Annotations[LastSpecKey] != pvcHash {
-			log.Info("JPB adding removal for bad PVC", "instanceID", instanceID, "pvcHash", pvcHash, "current", pvc.Annotations[LastSpecKey])
 			instancesToRemove[instanceID] = true
 			cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
 			hasNewRemovals = true
 		}
 		if err != nil {
 			return false, err
+		}
+	}
+
+	if cluster.Spec.UpdatePodsByReplacement {
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+		if err != nil {
+			return false, err
+		}
+
+		for _, instance := range instances {
+			if instance.Pod == nil {
+				continue
+			}
+
+			instanceID := instance.GetInstanceID()
+			if instancesToRemove[instanceID] {
+				continue
+			}
+
+			_, idNum, err := ParseInstanceID(instanceID)
+			if err != nil {
+				return false, err
+			}
+
+			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+			if err != nil {
+				return false, err
+			}
+
+			if instance.Metadata.Annotations[LastSpecKey] != specHash {
+				instancesToRemove[instanceID] = true
+				cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
+				hasNewRemovals = true
+			}
 		}
 	}
 

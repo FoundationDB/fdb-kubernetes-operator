@@ -42,12 +42,22 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	updates := make(map[string][]FdbInstance)
 
+	pendingRemovals := make(map[string]bool, len(cluster.Spec.InstancesToRemove))
+
+	for _, instanceID := range cluster.Spec.InstancesToRemove {
+		pendingRemovals[instanceID] = true
+	}
+
 	for _, instance := range instances {
 		if instance.Pod == nil {
 			continue
 		}
 
 		instanceID := instance.GetInstanceID()
+
+		if pendingRemovals[instanceID] {
+			continue
+		}
 
 		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {
 			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
@@ -84,6 +94,11 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	}
 
 	if len(updates) > 0 {
+		if cluster.Spec.UpdatePodsByReplacement {
+			log.Info("Requeuing reconciliation to replace pods", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			return false, nil
+		}
+
 		var enabled = cluster.Spec.AutomationOptions.DeletePods
 		if enabled != nil && !*enabled {
 			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
