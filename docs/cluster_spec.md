@@ -55,6 +55,7 @@ BackupGenerationStatus stores information on which generations have reached diff
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
 | needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |
 | needsBackupStop | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to stop a backup. | int64 | false |
+| needsBackupPauseToggle | NeedsBackupPauseToggle provides the last generation that needs to have a backup paused or resumed. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -217,6 +218,7 @@ FoundationDBBackupStatusBackupDetails provides information about the state of th
 | ----- | ----------- | ------ | -------- |
 | url |  | string | false |
 | running |  | bool | false |
+| paused |  | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -347,6 +349,7 @@ FoundationDBStatusBackupInfo provides information about backups that have been s
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
+| paused | Paused tells whether the backups are paused. | bool | false |
 | tags | Tags provides information about specific backups. | map[string][FoundationDBStatusBackupTag](#foundationdbstatusbackuptag) | false |
 
 [Back to TOC](#table-of-contents)

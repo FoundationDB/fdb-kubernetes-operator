@@ -84,6 +84,12 @@ type AdminClient interface {
 	// StopBackup stops a backup.
 	StopBackup(url string) error
 
+	// PauseBackups pauses the backups.
+	PauseBackups() error
+
+	// ResumeBackups resumes the backups.
+	ResumeBackups() error
+
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
@@ -405,12 +411,34 @@ func (client *CliAdminClient) StartBackup(url string) error {
 	return err
 }
 
-// StopBackup starts a new backup.
+// StopBackup stops a backup.
 func (client *CliAdminClient) StopBackup(url string) error {
 	_, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
 		args: []string{
 			"discontinue",
+		},
+	})
+	return err
+}
+
+// PauseBackups pauses the backups.
+func (client *CliAdminClient) PauseBackups() error {
+	_, err := client.runCommand(cliCommand{
+		binary: "fdbbackup",
+		args: []string{
+			"pause",
+		},
+	})
+	return err
+}
+
+// ResumeBackups resumes the backups.
+func (client *CliAdminClient) ResumeBackups() error {
+	_, err := client.runCommand(cliCommand{
+		binary: "fdbbackup",
+		args: []string{
+			"resume",
 		},
 	})
 	return err
@@ -436,6 +464,7 @@ type MockAdminClient struct {
 	frozenStatus          *fdbtypes.FoundationDBStatus
 	Backups               map[string]string
 	BackupStates          map[string]string
+	BackupsPaused         bool
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -558,6 +587,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			}
 		}
 	}
+	status.Cluster.Layers.Backup.Paused = client.BackupsPaused
 
 	return status, nil
 }
@@ -671,6 +701,18 @@ func (client *MockAdminClient) GetProtocolVersion(version string) (string, error
 func (client *MockAdminClient) StartBackup(url string) error {
 	client.Backups["default"] = url
 	client.BackupStates["default"] = "Running"
+	return nil
+}
+
+// PauseBackups pauses backups.
+func (client *MockAdminClient) PauseBackups() error {
+	client.BackupsPaused = true
+	return nil
+}
+
+// ResumeBackups resumes backups.
+func (client *MockAdminClient) ResumeBackups() error {
+	client.BackupsPaused = false
 	return nil
 }
 

@@ -22,9 +22,10 @@ package controllers
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -99,6 +100,7 @@ var _ = Describe("admin_client_test", func() {
 			})
 
 			It("should put the backup in the layer status", func() {
+				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
 				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
 					"default": {
 						CurrentContainer: "blobstore://test@test-service/test-backup",
@@ -106,6 +108,47 @@ var _ = Describe("admin_client_test", func() {
 						Restorable:       true,
 					},
 				}))
+			})
+
+			Context("with a paused backup", func() {
+				BeforeEach(func() {
+					err = client.PauseBackups()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as paused", func() {
+					Expect(status.Cluster.Layers.Backup.Paused).To(BeTrue())
+				})
+			})
+
+			Context("with an resume backup", func() {
+				BeforeEach(func() {
+					err = client.PauseBackups()
+					Expect(err).NotTo(HaveOccurred())
+					err = client.ResumeBackups()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as not paused", func() {
+					Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
+				})
+			})
+
+			Context("with a stopped backup", func() {
+				BeforeEach(func() {
+					err = client.StopBackup("blobstore://test@test-service/test-backup")
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as stopped", func() {
+					Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+						"default": {
+							CurrentContainer: "blobstore://test@test-service/test-backup",
+							RunningBackup:    false,
+							Restorable:       true,
+						},
+					}))
+				})
 			})
 		})
 	})

@@ -93,6 +93,7 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 			status.BackupDetails = &fdbtypes.FoundationDBBackupStatusBackupDetails{
 				URL:     tagStatus.CurrentContainer,
 				Running: tagStatus.RunningBackup,
+				Paused:  clusterBackupStatus.Paused,
 			}
 		}
 	}

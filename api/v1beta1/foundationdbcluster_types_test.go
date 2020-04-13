@@ -3158,6 +3158,48 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
 		Reconciled: 2,
 	}))
+
+	backup = createBackup()
+	backup.Spec.BackupState = "Paused"
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:             1,
+		NeedsBackupPauseToggle: 2,
+	}))
+
+	backup = createBackup()
+	backup.Spec.BackupState = "Paused"
+	backup.Status.BackupDetails = nil
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:             1,
+		NeedsBackupStart:       2,
+		NeedsBackupPauseToggle: 2,
+	}))
+
+	backup = createBackup()
+	backup.Spec.BackupState = "Paused"
+	backup.Status.BackupDetails.Paused = true
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled: 2,
+	}))
+
+	backup = createBackup()
+	backup.Status.BackupDetails.Paused = true
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:             1,
+		NeedsBackupPauseToggle: 2,
+	}))
 }
 
 func TestCheckingBackupStates(t *testing.T) {
@@ -3172,12 +3214,19 @@ func TestCheckingBackupStates(t *testing.T) {
 	}
 
 	g.Expect(backup.ShouldRun()).To(gomega.BeTrue())
+	g.Expect(backup.ShouldBePaused()).To(gomega.BeFalse())
 
 	backup.Spec.BackupState = "Running"
 	g.Expect(backup.ShouldRun()).To(gomega.BeTrue())
+	g.Expect(backup.ShouldBePaused()).To(gomega.BeFalse())
 
 	backup.Spec.BackupState = "Stopped"
 	g.Expect(backup.ShouldRun()).To(gomega.BeFalse())
+	g.Expect(backup.ShouldBePaused()).To(gomega.BeFalse())
+
+	backup.Spec.BackupState = "Paused"
+	g.Expect(backup.ShouldRun()).To(gomega.BeTrue())
+	g.Expect(backup.ShouldBePaused()).To(gomega.BeTrue())
 }
 
 func TestGettingBucketName(t *testing.T) {

@@ -55,6 +55,7 @@ spec:
               enum:
               - Running
               - Stopped
+              - Paused
               type: string
             bucket:
               description: The backup bucket to write to. The default is to use "fdb-backups".
@@ -5797,6 +5798,8 @@ spec:
               description: BackupDetails provides information about the state of the
                 backup in the cluster.
               properties:
+                paused:
+                  type: boolean
                 running:
                   type: boolean
                 url:
@@ -5814,6 +5817,11 @@ spec:
                   description: NeedsBackupAgentUpdate provides the last generation
                     that could not complete reconciliation because the backup agent
                     deployment needs to be updated.
+                  format: int64
+                  type: integer
+                needsBackupPauseToggle:
+                  description: NeedsBackupPauseToggle provides the last generation
+                    that needs to have a backup paused or resumed.
                   format: int64
                   type: integer
                 needsBackupStart:
