@@ -141,6 +141,7 @@ var _ = Describe("backup_controller", func() {
 						Restorable:       true,
 					},
 				}))
+				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
 			})
 		})
 
@@ -195,6 +196,37 @@ var _ = Describe("backup_controller", func() {
 						Restorable:       true,
 					},
 				}))
+			})
+		})
+
+		Context("when pausing a backup", func() {
+			BeforeEach(func() {
+				backup.Spec.BackupState = "Paused"
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should pause the backup", func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.Cluster.Layers.Backup.Paused).To(BeTrue())
+			})
+		})
+
+		Context("when resuming a backup", func() {
+			BeforeEach(func() {
+				err = adminClient.PauseBackups()
+				Expect(err).NotTo(HaveOccurred())
+
+				backup.Spec.BackupState = ""
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should resume the backup", func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
 			})
 		})
 	})

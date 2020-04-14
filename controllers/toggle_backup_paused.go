@@ -1,5 +1,5 @@
 /*
- * stop_backup.go
+ * toggle_backup_paused.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,24 +27,33 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// StopBackup provides a reconciliation step for stopping backup.
-type StopBackup struct {
+// ToggleBackupPaused provides a reconciliation step for pausing an unpausing
+// backups.
+type ToggleBackupPaused struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (s StopBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
-	if backup.ShouldRun() || backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
-		return true, nil
+func (s ToggleBackupPaused) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+	if backup.Status.BackupDetails == nil {
+		return !backup.ShouldRun(), nil
 	}
 
-	adminClient, err := r.AdminClientForBackup(context, backup)
-	if err != nil {
-		return false, err
-	}
+	if backup.ShouldBePaused() && !backup.Status.BackupDetails.Paused {
+		adminClient, err := r.AdminClientForBackup(context, backup)
+		if err != nil {
+			return false, err
+		}
 
-	err = adminClient.StopBackup(backup.BackupURL())
-	if err != nil {
-		return false, err
+		err = adminClient.PauseBackups()
+		return err == nil, err
+	} else if !backup.ShouldBePaused() && backup.Status.BackupDetails.Paused {
+		adminClient, err := r.AdminClientForBackup(context, backup)
+		if err != nil {
+			return false, err
+		}
+
+		err = adminClient.ResumeBackups()
+		return err == nil, err
 	}
 
 	return true, nil
@@ -52,6 +61,6 @@ func (s StopBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Conte
 
 // RequeueAfter returns the delay before we should run the reconciliation
 // again.
-func (s StopBackup) RequeueAfter() time.Duration {
+func (s ToggleBackupPaused) RequeueAfter() time.Duration {
 	return 0
 }

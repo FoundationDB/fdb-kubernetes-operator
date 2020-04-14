@@ -779,6 +779,7 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 	}
 
 	isRunning := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running
+	isPaused := backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Paused
 
 	if backup.ShouldRun() && !isRunning {
 		backup.Status.Generations.NeedsBackupStart = backup.ObjectMeta.Generation
@@ -787,6 +788,11 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 
 	if !backup.ShouldRun() && isRunning {
 		backup.Status.Generations.NeedsBackupStop = backup.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if backup.ShouldBePaused() != isPaused {
+		backup.Status.Generations.NeedsBackupPauseToggle = backup.ObjectMeta.Generation
 		reconciled = false
 	}
 
@@ -1262,6 +1268,9 @@ type FoundationDBStatusLayerInfo struct {
 
 // FoundationDBStatusBackupInfo provides information about backups that have been started.
 type FoundationDBStatusBackupInfo struct {
+	// Paused tells whether the backups are paused.
+	Paused bool `json:"paused,omitempty"`
+
 	// Tags provides information about specific backups.
 	Tags map[string]FoundationDBStatusBackupTag `json:"tags,omitempty"`
 }
@@ -1866,7 +1875,7 @@ type FoundationDBBackupSpec struct {
 	// The cluster this backup is for.
 	ClusterName string `json:"clusterName"`
 
-	// +kubebuilder:validation:Enum=Running;Stopped
+	// +kubebuilder:validation:Enum=Running;Stopped;Paused
 	// The desired state of the backup.
 	// The default is Running.
 	BackupState string `json:"backupState,omitempty"`
@@ -1915,6 +1924,7 @@ type FoundationDBBackupStatus struct {
 type FoundationDBBackupStatusBackupDetails struct {
 	URL     string `json:"url,omitempty"`
 	Running bool   `json:"running,omitempty"`
+	Paused  bool   `json:"paused,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached
@@ -1935,11 +1945,20 @@ type BackupGenerationStatus struct {
 	// NeedsBackupStart provides the last generation that could not complete
 	// reconciliation because we need to stop a backup.
 	NeedsBackupStop int64 `json:"needsBackupStop,omitempty"`
+
+	// NeedsBackupPauseToggle provides the last generation that needs to have
+	// a backup paused or resumed.
+	NeedsBackupPauseToggle int64 `json:"needsBackupPauseToggle,omitempty"`
 }
 
 // ShouldRun determines whether a backup should be running.
 func (backup *FoundationDBBackup) ShouldRun() bool {
-	return backup.Spec.BackupState == "" || backup.Spec.BackupState == "Running"
+	return backup.Spec.BackupState == "" || backup.Spec.BackupState == "Running" || backup.Spec.BackupState == "Paused"
+}
+
+// ShouldBePaused determines whether the backups should be paused.
+func (backup *FoundationDBBackup) ShouldBePaused() bool {
+	return backup.Spec.BackupState == "Paused"
 }
 
 // Bucket gets the bucket this backup will use.
