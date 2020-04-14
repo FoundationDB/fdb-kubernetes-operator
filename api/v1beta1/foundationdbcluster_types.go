@@ -1899,6 +1899,10 @@ type FoundationDBBackupSpec struct {
 	// The default is run 2 agents.
 	AgentCount *int `json:"agentCount,omitempty"`
 
+	// The time window between new snapshots.
+	// This is measured in seconds. The default is 864,000, or 10 days.
+	SnapshotPeriodSeconds *int `json:"snapshotPeriodSeconds,omitempty"`
+
 	// PodTemplateSpec allows customizing the pod template for the backup
 	// agents.
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
@@ -1986,4 +1990,13 @@ func (backup *FoundationDBBackup) BackupName() string {
 // BackupURL gets the destination url of the backup.
 func (backup *FoundationDBBackup) BackupURL() string {
 	return fmt.Sprintf("blobstore://%s/%s?bucket=%s", backup.Spec.AccountName, backup.BackupName(), backup.Bucket())
+}
+
+// SnapshotPeriodSeconds gets the period between snapshots for a backup.
+func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
+	if backup.Spec.SnapshotPeriodSeconds != nil {
+		return *backup.Spec.SnapshotPeriodSeconds
+	} else {
+		return 864000
+	}
 }

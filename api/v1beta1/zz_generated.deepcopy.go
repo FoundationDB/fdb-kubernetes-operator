@@ -245,6 +245,11 @@ func (in *FoundationDBBackupSpec) DeepCopyInto(out *FoundationDBBackupSpec) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.SnapshotPeriodSeconds != nil {
+		in, out := &in.SnapshotPeriodSeconds, &out.SnapshotPeriodSeconds
+		*out = new(int)
+		**out = **in
+	}
 	if in.PodTemplateSpec != nil {
 		in, out := &in.PodTemplateSpec, &out.PodTemplateSpec
 		*out = new(v1.PodTemplateSpec)

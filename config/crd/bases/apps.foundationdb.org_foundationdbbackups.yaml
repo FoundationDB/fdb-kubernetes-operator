@@ -5777,6 +5777,10 @@ spec:
                   - containers
                   type: object
               type: object
+            snapshotPeriodSeconds:
+              description: The time window between new snapshots. This is measured
+                in seconds. The default is 864,000, or 10 days.
+              type: integer
             version:
               description: The version of FoundationDB that the backup agents should
                 run.

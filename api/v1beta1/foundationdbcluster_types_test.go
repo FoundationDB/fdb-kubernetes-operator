@@ -3276,3 +3276,23 @@ func TestBuildingBackupURL(t *testing.T) {
 
 	g.Expect(backup.BackupURL()).To(gomega.Equal("blobstore://test@test-service/sample-cluster?bucket=fdb-backups"))
 }
+
+func TestGettingSnapshotTime(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	backup := FoundationDBBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sample-cluster",
+			Namespace: "default",
+		},
+		Spec: FoundationDBBackupSpec{
+			AccountName: "test@test-service",
+		},
+	}
+
+	g.Expect(backup.SnapshotPeriodSeconds()).To(gomega.Equal(864000))
+
+	period := 60
+	backup.Spec.SnapshotPeriodSeconds = &period
+	g.Expect(backup.SnapshotPeriodSeconds()).To(gomega.Equal(60))
+}
