@@ -8826,7 +8826,7 @@ spec:
               type: array
             updatePodsByReplacement:
               description: UpdatePodsByReplacement determines whether we should update
-                pod config by replacing the pods rather than deleting htem.
+                pod config by replacing the pods rather than deleting them.
               type: boolean
             version:
               description: Version defines the version of FoundationDB the cluster
