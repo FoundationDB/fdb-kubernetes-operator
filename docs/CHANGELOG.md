@@ -1,3 +1,15 @@
+# v0.9.0
+
+*	Adds ability to resize volumes.
+*	Adds an option for pausing backups.
+*	Adds an option for stopping backups.
+*	Documents new migration behavior.
+*	Remove unused code.
+*	Omits TLS CA file when no trusted CA's are given.
+*	Adds an option to crash the sidecar when the cluster file is empty.
+*	Adds an option to configure version flags.
+*	Drops support for old sidecar environment variables in newer versions of FDB.
+
 # v0.8.0
 
 *	Set the WATCH_NAMESPACE field in more example deployments.
