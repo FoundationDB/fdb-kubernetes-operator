@@ -100,6 +100,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		SetDefaultValues{},
 		UpdateStatus{},
 		CheckClientCompatibility{},
+		ReplaceMisconfiguredPods{},
 		AddPods{},
 		GenerateInitialClusterFile{},
 		UpdateSidecarVersions{},

@@ -41,7 +41,7 @@ test: cover.out
 
 test_if_changed: cover.out
 
-cover.out: ${GO_ALL}
+cover.out: ${GO_ALL} ${MANIFESTS}
 	go test ./... -coverprofile cover.out -tags test
 
 # Build manager binary
@@ -70,7 +70,7 @@ deploy: install manifests
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
 
-${MANIFESTS}: ${CONTROLLER_GEN}
+${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code

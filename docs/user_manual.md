@@ -241,9 +241,7 @@ To upgrade a cluster, you can change the version in the cluster spec:
 
 This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver processes.
 
-Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will be done in a rolling bounce, where at most one fault domain is bounced at a time. While a pod is being recreated, it is unavailable, so this will degrade the availability fault tolerance for the cluster. The operator will ensure that pods are not deleted unless the cluster is at full fault tolerance, so if all goes well this will not create an availability loss for clients.
-
-Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will be considered unavailable when it comes back up. The operator will detect this condition after creating the new pod, and will change the coordinators automatically to ensure that we regain fault tolerance.
+Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will use the strategies described in [Pod Update Strategy](#pod-update-strategy).
 
 # Customizing Your Pods
 
@@ -292,7 +290,7 @@ You can make the values from this secret available through a custom volume mount
                 - name: fdb-certs
                   mountPath: /tmp/fdb-certs
 
-This will delete the pods in the cluster and recreate them with the new environment variables and volumes. The operator will follow the rolling bounce process described in "Upgrading a Cluster".
+This will delete the pods in the cluster and recreate them with the new environment variables and volumes.
 
 You can customize the same kind of fields on the sidecar container by adding them under the `sidecarContainer` section of the spec.
 
@@ -318,6 +316,18 @@ The `podTemplate` field allows you to customize nearly every part of the pods th
 You should be careful when changing images, environment variables, commands, or arguments for the built-in containers. Your custom values may interfere with how the operator is using them. Even if you can make your usage work with the current version of the operator, subsequent releases of the operator may change its behavior in a way that introduces conflicts.
 
 Other than the above, you can make any modifications to the pod definition you need to suit your requirements. 
+
+## Pod Update Strategy
+
+When you need to update your pods in a way that requires recreating them, there are two strategies you can use.
+
+The default strategy is to do a rolling bounce, where at most one fault domain is bounced at a time. While a pod is being recreated, it is unavailable, so this will degrade the availability fault tolerance for the cluster. The operator will ensure that pods are not deleted unless the cluster is at full fault tolerance, so if all goes well this will not create an availability loss for clients.
+
+Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will be considered unavailable when it comes back up. The operator will detect this condition after creating the new pod, and will change the coordinators automatically to ensure that we regain fault tolerance.
+
+The other strategy you can use is to do a migration, where we replace all of the instances in the cluster. If you want to opt in to this strategy, you can set the field `updatePodsByReplacement` in the cluster spec to `true`. This strategy will temporarily use more resources, and requires moving all of the data to a new set of pods, but it will not degrade fault tolerance, and will require fewer recoveries and coordinator changes.
+
+There are some changes that require a migration regardless of the value for the `updatePodsByReplacement` section. For instance, changing the volume size or any other part of the volume spec is always done through a migration.
 
 # Controlling Fault Domains
 

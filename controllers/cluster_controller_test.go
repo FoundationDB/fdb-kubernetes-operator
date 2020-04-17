@@ -37,6 +37,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -776,7 +777,9 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(BeNil())
+					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+						"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+					}))
 				}
 
 				configMaps := &corev1.ConfigMapList{}
@@ -833,7 +836,6 @@ var _ = Describe("cluster_controller", func() {
 				pvc := &corev1.PersistentVolumeClaim{}
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
 				Expect(err).NotTo(HaveOccurred())
-				pvc.Annotations = make(map[string]string)
 				pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
 				err = k8sClient.Update(context.TODO(), pvc)
 				Expect(err).NotTo(HaveOccurred())
@@ -858,10 +860,12 @@ var _ = Describe("cluster_controller", func() {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"fdb-annotation":                       "value1",
 							"foundationdb.org/existing-annotation": "test-value",
+							"foundationdb.org/last-applied-spec":   "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 						}))
 					} else {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"fdb-annotation": "value1",
+							"fdb-annotation":                     "value1",
+							"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 						}))
 
 					}
@@ -985,7 +989,9 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Annotations).To(BeNil())
+					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+						"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+					}))
 				}
 			})
 		})
@@ -1027,6 +1033,40 @@ var _ = Describe("cluster_controller", func() {
 						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("TEST_CHANGE"))
 						Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
 					}
+				})
+			})
+
+			Context("with the replacement strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.UpdatePodsByReplacement = true
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap = 5
+					timeout = 10 * time.Second
+				})
+
+				It("should set the environment variable on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
+						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("TEST_CHANGE"))
+						Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
+					}
+				})
+
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					}
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
 				})
 			})
 
@@ -1176,36 +1216,131 @@ var _ = Describe("cluster_controller", func() {
 		Context("with an upgrade", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.NextMajorVersion.String()
+			})
 
-				timeout = 120 * time.Second
+			Context("with the default strategy", func() {
+				BeforeEach(func() {
+					timeout = 120 * time.Second
+					err = k8sClient.Update(context.TODO(), cluster)
+					generationGap = 2
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+					}
+
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+					for _, address := range adminClient.KilledAddresses {
+						killedAddresses[address] = true
+					}
+					Expect(killedAddresses).To(Equal(addresses))
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+					}
+				})
+			})
+
+			Context("with the replacement strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.UpdatePodsByReplacement = true
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap = 6
+					timeout = 10 * time.Second
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+					}
+
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+					for _, address := range adminClient.KilledAddresses {
+						killedAddresses[address] = true
+					}
+					Expect(killedAddresses).To(Equal(addresses))
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+					}
+				})
+
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					}
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
+			})
+		})
+
+		Context("with a change to the volume size", func() {
+			BeforeEach(func() {
+				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								"storage": resource.MustParse("32Gi"),
+							},
+						},
+					},
+				}
+
 				err = k8sClient.Update(context.TODO(), cluster)
-				generationGap = 2
+				generationGap = 5
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should bounce the processes", func() {
-				addresses := make(map[string]bool, len(originalPods.Items))
-				for _, pod := range originalPods.Items {
-					addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
-				}
-
+			It("should replace the processes", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
-				for _, address := range adminClient.KilledAddresses {
-					killedAddresses[address] = true
+				replacements := make(map[string]bool, len(originalPods.Items))
+				for _, pod := range originalPods.Items {
+					processClass := GetProcessClassFromMeta(pod.ObjectMeta)
+					if isStateful(processClass) {
+						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					}
 				}
-				Expect(killedAddresses).To(Equal(addresses))
+
+				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
 			})
 
-			It("should set the image on the pods", func() {
-				pods := &corev1.PodList{}
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+			It("should set the new volume size on the PVCs", func() {
+				pvcs := &corev1.PersistentVolumeClaimList{}
+				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				for _, pod := range pods.Items {
-					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+				for _, pvc := range pvcs.Items {
+					Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(resource.MustParse("32Gi")))
 				}
 			})
 		})

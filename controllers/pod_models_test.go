@@ -1541,7 +1541,8 @@ var _ = Describe("pod_models", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"fdb-annotation": "value1",
+					"fdb-annotation":                     "value1",
+					"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 				}))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
 					"fdb-cluster-name":     cluster.Name,
