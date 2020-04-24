@@ -31,10 +31,10 @@ all: generate fmt vet manager manifests samples documentation test_if_changed
 clean:
 	find config/crd/bases -type f -name "*.yaml" -delete
 	find api -type f -name "zz_generated.*.go" -delete
+	mkdir -p bin
 	rm -r bin
 	find config/samples -type f -name deployment.yaml -delete
 	find . -name "cover.out" -delete
-
 # Run tests
 test: cover.out
 	go test ./... -coverprofile cover.out
