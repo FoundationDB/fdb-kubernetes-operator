@@ -646,6 +646,9 @@ type PodLifecycleManager interface {
 	// UpdatePods updates a list of pods to match the latest specs.
 	UpdatePods(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, []FdbInstance) error
 
+	// UpdateImageVersion updates a container's image.
+	UpdateImageVersion(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance, int, string) error
+
 	// UpdateMetadata updates an instance's metadata.
 	UpdateMetadata(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) error
 
@@ -751,6 +754,12 @@ func (manager StandardPodLifecycleManager) UpdatePods(r *FoundationDBClusterReco
 		return ReconciliationNotReadyError{message: "Need to restart reconciliation to recreate pods", retryable: true}
 	}
 	return nil
+}
+
+// UpdateImageVersion updates a container's image.
+func (manager StandardPodLifecycleManager) UpdateImageVersion(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, containerIndex int, image string) error {
+	instance.Pod.Spec.Containers[containerIndex].Image = image
+	return r.Update(context, instance.Pod)
 }
 
 // UpdateMetadata updates an instance's metadata.

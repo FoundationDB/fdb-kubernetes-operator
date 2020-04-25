@@ -59,8 +59,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 		for containerIndex, container := range instance.Pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
 				log.Info("Upgrading sidecar", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instance.Pod.Name, "oldImage", container.Image, "newImage", image)
-				instance.Pod.Spec.Containers[containerIndex].Image = image
-				err := r.Update(context, instance.Pod)
+				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, instance, containerIndex, image)
 				if err != nil {
 					return false, err
 				}
