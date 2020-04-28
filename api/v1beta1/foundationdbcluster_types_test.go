@@ -1116,6 +1116,24 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 	}))
 }
 
+func TestParsingBackupStatusWithSixTwoCluster(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	statusFile, err := os.OpenFile(filepath.Join("testdata", "fdbbackup_status_6_2.json"), os.O_RDONLY, os.ModePerm)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	defer statusFile.Close()
+	statusDecoder := json.NewDecoder(statusFile)
+	status := FoundationDBLiveBackupStatus{}
+	err = statusDecoder.Decode(&status)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(status).To(gomega.Equal(FoundationDBLiveBackupStatus{
+		DestinationURL:          "blobstore://minio@minio-service:9000/sample-cluster?bucket=fdb-backups",
+		SnapshotIntervalSeconds: 864000,
+		Status: FoundationDBLiveBackupStatusState{
+			Running: true,
+		},
+	}))
+}
+
 func TestParsingConnectionString(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -3082,8 +3100,9 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 				AgentCount:           3,
 				DeploymentConfigured: true,
 				BackupDetails: &FoundationDBBackupStatusBackupDetails{
-					URL:     "blobstore://test@test-service/sample-cluster?bucket=fdb-backups",
-					Running: true,
+					URL:                   "blobstore://test@test-service/sample-cluster?bucket=fdb-backups",
+					Running:               true,
+					SnapshotPeriodSeconds: 864000,
 				},
 			},
 		}
@@ -3200,6 +3219,18 @@ func TestCheckingReconciliationForBackup(t *testing.T) {
 		Reconciled:             1,
 		NeedsBackupPauseToggle: 2,
 	}))
+
+	backup = createBackup()
+	var time = 100000
+	backup.Spec.SnapshotPeriodSeconds = &time
+	result, err = backup.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+		Reconciled:                 1,
+		NeedsBackupReconfiguration: 2,
+	}))
+	backup.Spec.SnapshotPeriodSeconds = nil
 }
 
 func TestCheckingBackupStates(t *testing.T) {

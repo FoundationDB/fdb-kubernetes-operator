@@ -79,7 +79,7 @@ type AdminClient interface {
 	GetProtocolVersion(version string) (string, error)
 
 	// StartBackup starts a new backup.
-	StartBackup(url string) error
+	StartBackup(url string, snapshotPeriodSeconds int) error
 
 	// StopBackup stops a backup.
 	StopBackup(url string) error
@@ -89,6 +89,12 @@ type AdminClient interface {
 
 	// ResumeBackups resumes the backups.
 	ResumeBackups() error
+
+	// ModifyBackup modifies the configuration of the backup.
+	ModifyBackup(int) error
+
+	// GetBackupStatus gets the status of the current backup.
+	GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error)
 
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
@@ -398,13 +404,15 @@ func (client *CliAdminClient) GetProtocolVersion(version string) (string, error)
 }
 
 // StartBackup starts a new backup.
-func (client *CliAdminClient) StartBackup(url string) error {
+func (client *CliAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
 		args: []string{
 			"start",
 			"-d",
 			url,
+			"-s",
+			fmt.Sprintf("%d", snapshotPeriodSeconds),
 			"-z",
 		},
 	})
@@ -444,6 +452,42 @@ func (client *CliAdminClient) ResumeBackups() error {
 	return err
 }
 
+// ModifyBackup updates the backup aparameters.
+func (client *CliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+	_, err := client.runCommand(cliCommand{
+		binary: "fdbbackup",
+		args: []string{
+			"modify",
+			"-s",
+			fmt.Sprintf("%d", snapshotPeriodSeconds),
+		},
+	})
+	return err
+}
+
+// GetBackupStatus gets the status of the current backup.
+func (client *CliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+	statusString, err := client.runCommand(cliCommand{
+		binary: "fdbbackup",
+		args: []string{
+			"status",
+			"--json",
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	status := &fdbtypes.FoundationDBLiveBackupStatus{}
+	err = json.Unmarshal([]byte(statusString), &status)
+	if err != nil {
+		return nil, err
+	}
+
+	return status, nil
+}
+
 // Close cleans up any pending resources.
 func (client *CliAdminClient) Close() error {
 	err := os.Remove(client.clusterFilePath)
@@ -462,9 +506,7 @@ type MockAdminClient struct {
 	ReincludedAddresses   map[string]bool
 	KilledAddresses       []string
 	frozenStatus          *fdbtypes.FoundationDBStatus
-	Backups               map[string]string
-	BackupStates          map[string]string
-	BackupsPaused         bool
+	Backups               map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -485,8 +527,7 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 			ReincludedAddresses: make(map[string]bool),
 		}
 		adminClientCache[cluster.Name] = client
-		client.Backups = make(map[string]string)
-		client.BackupStates = make(map[string]string)
+		client.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
 	} else {
 		client.Cluster = cluster
 	}
@@ -578,16 +619,15 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 	if len(client.Backups) > 0 {
 		status.Cluster.Layers.Backup.Tags = make(map[string]fdbtypes.FoundationDBStatusBackupTag, len(client.Backups))
-		for tag, url := range client.Backups {
-			state := client.BackupStates[tag]
+		for tag, tagStatus := range client.Backups {
 			status.Cluster.Layers.Backup.Tags[tag] = fdbtypes.FoundationDBStatusBackupTag{
-				CurrentContainer: url,
-				RunningBackup:    state != "Stopped",
+				CurrentContainer: tagStatus.URL,
+				RunningBackup:    tagStatus.Running,
 				Restorable:       true,
 			}
+			status.Cluster.Layers.Backup.Paused = tagStatus.Paused
 		}
 	}
-	status.Cluster.Layers.Backup.Paused = client.BackupsPaused
 
 	return status, nil
 }
@@ -698,33 +738,67 @@ func (client *MockAdminClient) GetProtocolVersion(version string) (string, error
 }
 
 // StartBackup starts a new backup.
-func (client *MockAdminClient) StartBackup(url string) error {
-	client.Backups["default"] = url
-	client.BackupStates["default"] = "Running"
+func (client *MockAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
+	client.Backups["default"] = fdbtypes.FoundationDBBackupStatusBackupDetails{
+		URL:                   url,
+		Running:               true,
+		SnapshotPeriodSeconds: snapshotPeriodSeconds,
+	}
 	return nil
 }
 
 // PauseBackups pauses backups.
 func (client *MockAdminClient) PauseBackups() error {
-	client.BackupsPaused = true
+	for tag, backup := range client.Backups {
+		backup.Paused = true
+		client.Backups[tag] = backup
+	}
 	return nil
 }
 
 // ResumeBackups resumes backups.
 func (client *MockAdminClient) ResumeBackups() error {
-	client.BackupsPaused = false
+	for tag, backup := range client.Backups {
+		backup.Paused = false
+		client.Backups[tag] = backup
+	}
+	return nil
+}
+
+// ModifyBackup reconfigures the backup.
+func (client *MockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+	backup := client.Backups["default"]
+	backup.SnapshotPeriodSeconds = snapshotPeriodSeconds
+	client.Backups["default"] = backup
 	return nil
 }
 
 // StopBackup stops a backup.
 func (client *MockAdminClient) StopBackup(url string) error {
-	for tag, backupURL := range client.Backups {
-		if url == backupURL {
-			client.BackupStates[tag] = "Stopped"
+	for tag, backup := range client.Backups {
+		if backup.URL == url {
+			backup.Running = false
+			client.Backups[tag] = backup
 			return nil
 		}
 	}
 	return fmt.Errorf("No backup found for URL %s", url)
+}
+
+// GetBackupStatus gets the status of the current backup.
+func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+	status := &fdbtypes.FoundationDBLiveBackupStatus{}
+
+	tag := "default"
+	backup, present := client.Backups[tag]
+	if present {
+		status.DestinationURL = backup.URL
+		status.Status.Running = backup.Running
+		status.BackupAgentsPaused = backup.Paused
+		status.SnapshotIntervalSeconds = backup.SnapshotPeriodSeconds
+	}
+
+	return status, nil
 }
 
 // Close shuts down any resources for the client once it is no longer

@@ -122,8 +122,9 @@ var _ = Describe("backup_controller", func() {
 					AgentCount:           3,
 					DeploymentConfigured: true,
 					BackupDetails: &fdbtypes.FoundationDBBackupStatusBackupDetails{
-						URL:     "blobstore://test@test-service/test-backup?bucket=fdb-backups",
-						Running: true,
+						URL:                   "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+						Running:               true,
+						SnapshotPeriodSeconds: 864000,
 					},
 					Generations: fdbtypes.BackupGenerationStatus{
 						Reconciled: 1,
@@ -132,16 +133,11 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should start a backup", func() {
-				status, err := adminClient.GetStatus()
+				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
-					"default": {
-						CurrentContainer: "blobstore://test@test-service/test-backup?bucket=fdb-backups",
-						RunningBackup:    true,
-						Restorable:       true,
-					},
-				}))
-				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
+				Expect(status.DestinationURL).To(Equal("blobstore://test@test-service/test-backup?bucket=fdb-backups"))
+				Expect(status.Status.Running).To(BeTrue())
+				Expect(status.BackupAgentsPaused).To(BeFalse())
 			})
 		})
 
@@ -187,15 +183,9 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should stop the backup", func() {
-				status, err := adminClient.GetStatus()
+				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
-					"default": {
-						CurrentContainer: "blobstore://test@test-service/test-backup?bucket=fdb-backups",
-						RunningBackup:    false,
-						Restorable:       true,
-					},
-				}))
+				Expect(status.Status.Running).To(BeFalse())
 			})
 		})
 
@@ -207,9 +197,9 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should pause the backup", func() {
-				status, err := adminClient.GetStatus()
+				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.Layers.Backup.Paused).To(BeTrue())
+				Expect(status.BackupAgentsPaused).To(BeTrue())
 			})
 		})
 
@@ -224,9 +214,24 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should resume the backup", func() {
-				status, err := adminClient.GetStatus()
+				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
+				Expect(status.BackupAgentsPaused).To(BeFalse())
+			})
+		})
+
+		Context("when changing a backup snapshot time", func() {
+			BeforeEach(func() {
+				period := 100000
+				backup.Spec.SnapshotPeriodSeconds = &period
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should modify the backup", func() {
+				status, err := adminClient.GetBackupStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.SnapshotIntervalSeconds).To(Equal(100000))
 			})
 		})
 	})

@@ -800,6 +800,11 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
+	if isRunning && backup.SnapshotPeriodSeconds() != backup.Status.BackupDetails.SnapshotPeriodSeconds {
+		backup.Status.Generations.NeedsBackupReconfiguration = backup.ObjectMeta.Generation
+		reconciled = false
+	}
+
 	if reconciled {
 		backup.Status.Generations = BackupGenerationStatus{
 			Reconciled: backup.ObjectMeta.Generation,
@@ -1930,9 +1935,10 @@ type FoundationDBBackupStatus struct {
 // FoundationDBBackupStatusBackupDetails provides information about the state
 // of the backup in the cluster.
 type FoundationDBBackupStatusBackupDetails struct {
-	URL     string `json:"url,omitempty"`
-	Running bool   `json:"running,omitempty"`
-	Paused  bool   `json:"paused,omitempty"`
+	URL                   string `json:"url,omitempty"`
+	Running               bool   `json:"running,omitempty"`
+	Paused                bool   `json:"paused,omitempty"`
+	SnapshotPeriodSeconds int    `json:"snapshotTime,omitempty"`
 }
 
 // BackupGenerationStatus stores information on which generations have reached
@@ -1957,6 +1963,10 @@ type BackupGenerationStatus struct {
 	// NeedsBackupPauseToggle provides the last generation that needs to have
 	// a backup paused or resumed.
 	NeedsBackupPauseToggle int64 `json:"needsBackupPauseToggle,omitempty"`
+
+	// NeedsBackupReconfiguration provides the last generation that could not
+	// complete reconciliation because we need to modify backup parameters.
+	NeedsBackupReconfiguration int64 `json:"needsBackupModification,omitempty"`
 }
 
 // ShouldRun determines whether a backup should be running.
@@ -1999,4 +2009,17 @@ func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	} else {
 		return 864000
 	}
+}
+
+// FoundationDBLiveBackupStatus describes the live status of the backup for a
+// cluster, as provided by the backup status command.
+type FoundationDBLiveBackupStatus struct {
+	DestinationURL          string                            `json:"DestinationURL,omitempty"`
+	SnapshotIntervalSeconds int                               `json:"SnapshotIntervalSeconds,omitempty"`
+	Status                  FoundationDBLiveBackupStatusState `json:"Status,omitempty"`
+	BackupAgentsPaused      bool                              `json:"BackupAgentsPaused,omitempty"`
+}
+
+type FoundationDBLiveBackupStatusState struct {
+	Running bool `json:"Running,omitempty"`
 }

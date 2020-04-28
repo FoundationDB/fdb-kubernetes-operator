@@ -5806,6 +5806,8 @@ spec:
                   type: boolean
                 running:
                   type: boolean
+                snapshotTime:
+                  type: integer
                 url:
                   type: string
               type: object
@@ -5821,6 +5823,12 @@ spec:
                   description: NeedsBackupAgentUpdate provides the last generation
                     that could not complete reconciliation because the backup agent
                     deployment needs to be updated.
+                  format: int64
+                  type: integer
+                needsBackupModification:
+                  description: NeedsBackupReconfiguration provides the last generation
+                    that could not complete reconciliation because we need to modify
+                    backup parameters.
                   format: int64
                   type: integer
                 needsBackupPauseToggle:

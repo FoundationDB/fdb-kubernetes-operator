@@ -81,21 +81,16 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 		return false, err
 	}
 
-	clusterStatus, err := adminClient.GetStatus()
+	liveStatus, err := adminClient.GetBackupStatus()
 	if err != nil {
 		return false, err
 	}
 
-	clusterBackupStatus := clusterStatus.Cluster.Layers.Backup
-	if clusterBackupStatus.Tags != nil {
-		tagStatus, present := clusterBackupStatus.Tags["default"]
-		if present {
-			status.BackupDetails = &fdbtypes.FoundationDBBackupStatusBackupDetails{
-				URL:     tagStatus.CurrentContainer,
-				Running: tagStatus.RunningBackup,
-				Paused:  clusterBackupStatus.Paused,
-			}
-		}
+	status.BackupDetails = &fdbtypes.FoundationDBBackupStatusBackupDetails{
+		URL:                   liveStatus.DestinationURL,
+		Running:               liveStatus.Status.Running,
+		Paused:                liveStatus.BackupAgentsPaused,
+		SnapshotPeriodSeconds: liveStatus.SnapshotIntervalSeconds,
 	}
 
 	originalStatus := backup.Status.DeepCopy()

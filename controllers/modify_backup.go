@@ -1,5 +1,5 @@
 /*
- * start_backup.go
+ * modify_backup.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,24 +27,28 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// StartBackup provides a reconciliation step for starting a new backup.
-type StartBackup struct {
+// ModifyBackup provides a reconciliation step for modifying a backup's
+// configuration.
+type ModifyBackup struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
-	if !backup.ShouldRun() || (backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running) {
+func (s ModifyBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+	if backup.Status.BackupDetails == nil || !backup.ShouldRun() {
 		return true, nil
 	}
 
-	adminClient, err := r.AdminClientForBackup(context, backup)
-	if err != nil {
-		return false, err
-	}
+	snapshotPeriod := backup.SnapshotPeriodSeconds()
+	if backup.Status.BackupDetails.SnapshotPeriodSeconds != snapshotPeriod {
+		adminClient, err := r.AdminClientForBackup(context, backup)
+		if err != nil {
+			return false, err
+		}
 
-	err = adminClient.StartBackup(backup.BackupURL(), backup.SnapshotPeriodSeconds())
-	if err != nil {
-		return false, err
+		err = adminClient.ModifyBackup(snapshotPeriod)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil
@@ -52,6 +56,6 @@ func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Cont
 
 // RequeueAfter returns the delay before we should run the reconciliation
 // again.
-func (s StartBackup) RequeueAfter() time.Duration {
+func (s ModifyBackup) RequeueAfter() time.Duration {
 	return 0
 }
