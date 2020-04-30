@@ -2123,11 +2123,10 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("with no prefix", func() {
-			It("leaves the prefix blank", func() {
-				prefix, id, err := ParseInstanceID("6")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(""))
-				Expect(id).To(Equal(6))
+			It("gives a parsing error", func() {
+				_, _, err := ParseInstanceID("6")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Could not parse instance ID 6"))
 			})
 		})
 

@@ -54,10 +54,9 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.Namespace).To(Equal("my-ns"))
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-full-instance-id": "storage-1",
-					"fdb-instance-id":      "storage-1",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
 				}))
 			})
 
@@ -77,10 +76,9 @@ var _ = Describe("pod_models", func() {
 			It("should contain the instance's metadata", func() {
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "cluster_controller",
-					"fdb-full-instance-id": "cluster_controller-1",
-					"fdb-instance-id":      "cluster_controller-1",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "cluster_controller",
+					"fdb-instance-id":   "cluster_controller-1",
 				}))
 			})
 
@@ -104,10 +102,9 @@ var _ = Describe("pod_models", func() {
 
 			It("should contain the prefix in the instance labels labels", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-full-instance-id": "dc1-storage-1",
-					"fdb-instance-id":      "dc1-storage-1",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "dc1-storage-1",
 				}))
 			})
 		})
@@ -150,11 +147,10 @@ var _ = Describe("pod_models", func() {
 
 			It("should add the labels to the metadata", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-instance-id":      "storage-1",
-					"fdb-full-instance-id": "storage-1",
-					"fdb-label":            "value2",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
+					"fdb-label":         "value2",
 				}))
 			})
 		})
@@ -171,11 +167,10 @@ var _ = Describe("pod_models", func() {
 
 			It("should put the labels on the pod", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-instance-id":      "storage-1",
-					"fdb-full-instance-id": "storage-1",
-					"fdb-label":            "value3",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
+					"fdb-label":         "value3",
 				}))
 
 			})
@@ -1462,10 +1457,9 @@ var _ = Describe("pod_models", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-instance-id":      "storage-1",
-					"fdb-full-instance-id": "storage-1",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
 				}))
 			})
 
@@ -1545,11 +1539,10 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 				}))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-instance-id":      "storage-1",
-					"fdb-full-instance-id": "storage-1",
-					"fdb-label":            "value2",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
+					"fdb-label":         "value2",
 				}))
 			})
 		})
@@ -1639,10 +1632,9 @@ var _ = Describe("pod_models", func() {
 			It("should include the prefix in the instance IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-cluster-name":     cluster.Name,
-					"fdb-process-class":    "storage",
-					"fdb-instance-id":      "dc1-storage-1",
-					"fdb-full-instance-id": "dc1-storage-1",
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "dc1-storage-1",
 				}))
 			})
 		})
