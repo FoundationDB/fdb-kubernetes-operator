@@ -44,7 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var instanceIDRegex = regexp.MustCompile("^([\\w-]+-)?(\\d+)")
+var instanceIDRegex = regexp.MustCompile("^([\\w-]+)-(\\d+)")
 
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
@@ -287,7 +287,6 @@ func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass str
 
 	if id != "" {
 		labels["fdb-instance-id"] = id
-		labels["fdb-full-instance-id"] = id
 	}
 
 	return labels
@@ -787,9 +786,6 @@ func ParseInstanceID(id string) (string, int, error) {
 	number, err := strconv.Atoi(result[2])
 	if err != nil {
 		return "", 0, err
-	}
-	if len(prefix) > 0 {
-		prefix = prefix[:len(prefix)-1]
 	}
 	return prefix, number, nil
 }
