@@ -8,6 +8,15 @@ metadata:
   creationTimestamp: null
   name: foundationdbbackups.apps.foundationdb.org
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.generation
+    description: Latest generation of the spec
+    name: Generation
+    type: integer
+  - JSONPath: .status.generations.reconciled
+    description: Last reconciled generation of the spec
+    name: Reconciled
+    type: integer
   group: apps.foundationdb.org
   names:
     kind: FoundationDBBackup
