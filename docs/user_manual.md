@@ -51,7 +51,7 @@ To start with, we are going to be creating a cluster with the following configur
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
 
@@ -84,7 +84,7 @@ Now that your cluster is deployed, you can easily access the cluster. As an exam
               restartPolicy: OnFailure
               containers:
               - name: fdbcli-status-cronjob
-                image: foundationdb/foundationdb:6.2.11
+                image: foundationdb/foundationdb:6.2.20
                 args:
                 - /usr/bin/fdbcli
                 - --exec
@@ -116,7 +116,7 @@ To explicitly set process counts, you could configure the cluster as follows:
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       processCounts:
         storage: 6
         log: 5
@@ -142,7 +142,7 @@ Instead of setting the counts directly, let's update the counts of recruited rol
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 6
         logs: 4 # default is 3
@@ -160,7 +160,7 @@ You can shrink a cluster by changing the database configuration or process count
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 4
 
@@ -183,7 +183,7 @@ As an alternative, you can replace a pod by explicitly placing it in the pending
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       instancesToRemove:
@@ -200,7 +200,7 @@ You can reconfigure the database by changing the fields in the database configur
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         redundancy_mode: triple
         storage: 5
@@ -216,7 +216,7 @@ To add a knob, you can change the customParameters in the cluster spec:
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       customParameters:
@@ -235,7 +235,7 @@ To upgrade a cluster, you can change the version in the cluster spec:
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.15
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
 
@@ -268,7 +268,7 @@ You can make the values from this secret available through a custom volume mount
     metadata:
         name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       podTemplate:
@@ -345,7 +345,7 @@ The default fault domain strategy is to replicate across nodes in a single Kuber
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       faultDomain:
@@ -362,7 +362,7 @@ If you have some other mechanism to make this information available in your pod'
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       faultDomain:
@@ -378,7 +378,7 @@ Our second strategy is to run multiple Kubernetes cluster, each as its own fault
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       volumeSize: "128G"
@@ -401,7 +401,7 @@ Example with automation options disabled:
     metadata:
         name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       automationOptions:
@@ -422,7 +422,7 @@ In local test environments, you may not having any real fault domains to use, an
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       databaseConfiguration:
         storage: 5
       automationOptions:
@@ -443,7 +443,7 @@ The replication strategies above all describe how data is replicated within a da
     metadata:
       name: sample-cluster
     spec:
-      version: 6.2.10
+      version: 6.2.20
       dataCenter: dc1
       processCounts:
         stateless: -1
