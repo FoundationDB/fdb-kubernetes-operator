@@ -1,3 +1,10 @@
+# v0.10.0
+
+*	Adds an option for the backup snapshot time.
+*	Add print columns to the backup resource.
+*	Remove tests for older versions of FDB.
+*	Drop support for older instance ID labels.
+
 # v0.9.0
 
 *	Adds ability to resize volumes.

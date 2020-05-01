@@ -20,8 +20,8 @@
 FROM python:3.6
 
 WORKDIR /var/fdb/tmp
-ARG FDB_VERSION=6.2.15
-ARG FDB_LIBRARY_VERSIONS="6.2.15 6.1.8"
+ARG FDB_VERSION=6.2.19
+ARG FDB_LIBRARY_VERSIONS="6.2.19 6.1.12"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 ADD website /mnt/website
