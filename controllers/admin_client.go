@@ -452,7 +452,7 @@ func (client *CliAdminClient) ResumeBackups() error {
 	return err
 }
 
-// ModifyBackup updates the backup aparameters.
+// ModifyBackup updates the backup parameters.
 func (client *CliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
