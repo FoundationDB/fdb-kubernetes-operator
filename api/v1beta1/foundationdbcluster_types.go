@@ -1852,6 +1852,8 @@ func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=fdbbackup
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 
 // FoundationDBBackup is the Schema for the FoundationDB Backup API
 type FoundationDBBackup struct {
