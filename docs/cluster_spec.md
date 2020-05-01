@@ -23,6 +23,8 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
+* [FoundationDBLiveBackupStatus](#foundationdblivebackupstatus)
+* [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate)
 * [FoundationDBStatus](#foundationdbstatus)
 * [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo)
 * [FoundationDBStatusBackupTag](#foundationdbstatusbackuptag)
@@ -56,6 +58,7 @@ BackupGenerationStatus stores information on which generations have reached diff
 | needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |
 | needsBackupStop | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to stop a backup. | int64 | false |
 | needsBackupPauseToggle | NeedsBackupPauseToggle provides the last generation that needs to have a backup paused or resumed. | int64 | false |
+| needsBackupModification | NeedsBackupReconfiguration provides the last generation that could not complete reconciliation because we need to modify backup parameters. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -193,6 +196,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | accountName | The account name to use with the backup destination. | string | true |
 | bucket | The backup bucket to write to. The default is to use \"fdb-backups\". | string | false |
 | agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
+| snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 
 [Back to TOC](#table-of-contents)
@@ -219,6 +223,7 @@ FoundationDBBackupStatusBackupDetails provides information about the state of th
 | url |  | string | false |
 | running |  | bool | false |
 | paused |  | bool | false |
+| snapshotTime |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -330,6 +335,29 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBLiveBackupStatus
+
+FoundationDBLiveBackupStatus describes the live status of the backup for a cluster, as provided by the backup status command.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| DestinationURL |  | string | false |
+| SnapshotIntervalSeconds |  | int | false |
+| Status |  | [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate) | false |
+| BackupAgentsPaused |  | bool | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBLiveBackupStatusState
+
+
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| Running |  | bool | false |
 
 [Back to TOC](#table-of-contents)
 

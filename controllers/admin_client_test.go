@@ -95,7 +95,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a backup running", func() {
 			BeforeEach(func() {
-				err = client.StartBackup("blobstore://test@test-service/test-backup")
+				err = client.StartBackup("blobstore://test@test-service/test-backup", 10)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -148,6 +148,82 @@ var _ = Describe("admin_client_test", func() {
 							Restorable:       true,
 						},
 					}))
+				})
+			})
+		})
+	})
+
+	Describe("backup status", func() {
+		var status *fdbtypes.FoundationDBLiveBackupStatus
+		JustBeforeEach(func() {
+			status, err = client.GetBackupStatus()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("with a basic cluster", func() {
+			It("should mark the backup as not running", func() {
+				Expect(status.DestinationURL).To(Equal(""))
+				Expect(status.Status.Running).To(BeFalse())
+				Expect(status.BackupAgentsPaused).To(BeFalse())
+			})
+		})
+
+		Context("with a backup running", func() {
+			BeforeEach(func() {
+				err = client.StartBackup("blobstore://test@test-service/test-backup", 10)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should put the backup in the status", func() {
+				Expect(status.DestinationURL).To(Equal("blobstore://test@test-service/test-backup"))
+				Expect(status.Status.Running).To(BeTrue())
+				Expect(status.BackupAgentsPaused).To(BeFalse())
+				Expect(status.SnapshotIntervalSeconds).To(Equal(10))
+			})
+
+			Context("with a paused backup", func() {
+				BeforeEach(func() {
+					err = client.PauseBackups()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as paused", func() {
+					Expect(status.BackupAgentsPaused).To(BeTrue())
+				})
+			})
+
+			Context("with a resumed backup", func() {
+				BeforeEach(func() {
+					err = client.PauseBackups()
+					Expect(err).NotTo(HaveOccurred())
+					err = client.ResumeBackups()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as not paused", func() {
+					Expect(status.BackupAgentsPaused).To(BeFalse())
+				})
+			})
+
+			Context("with a stopped backup", func() {
+				BeforeEach(func() {
+					err = client.StopBackup("blobstore://test@test-service/test-backup")
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as stopped", func() {
+					Expect(status.Status.Running).To(BeFalse())
+				})
+			})
+
+			Context("with a modification to the snapshot time", func() {
+				BeforeEach(func() {
+					err = client.ModifyBackup(20)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should mark the backup as stopped", func() {
+					Expect(status.SnapshotIntervalSeconds).To(Equal(20))
 				})
 			})
 		})

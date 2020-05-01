@@ -5786,6 +5786,10 @@ spec:
                   - containers
                   type: object
               type: object
+            snapshotPeriodSeconds:
+              description: The time window between new snapshots. This is measured
+                in seconds. The default is 864,000, or 10 days.
+              type: integer
             version:
               description: The version of FoundationDB that the backup agents should
                 run.
@@ -5811,6 +5815,8 @@ spec:
                   type: boolean
                 running:
                   type: boolean
+                snapshotTime:
+                  type: integer
                 url:
                   type: string
               type: object
@@ -5826,6 +5832,12 @@ spec:
                   description: NeedsBackupAgentUpdate provides the last generation
                     that could not complete reconciliation because the backup agent
                     deployment needs to be updated.
+                  format: int64
+                  type: integer
+                needsBackupModification:
+                  description: NeedsBackupReconfiguration provides the last generation
+                    that could not complete reconciliation because we need to modify
+                    backup parameters.
                   format: int64
                   type: integer
                 needsBackupPauseToggle:
