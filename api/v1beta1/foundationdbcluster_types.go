@@ -1284,6 +1284,8 @@ type FoundationDBStatusBackupInfo struct {
 	Tags map[string]FoundationDBStatusBackupTag `json:"tags,omitempty"`
 }
 
+// FoundationDBStatusBackupTag provides information about a backup under a tag
+// in the cluster status.
 type FoundationDBStatusBackupTag struct {
 	CurrentContainer string `json:"current_container,omitempty"`
 	RunningBackup    bool   `json:"running_backup,omitempty"`
@@ -2008,20 +2010,67 @@ func (backup *FoundationDBBackup) BackupURL() string {
 func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
 	if backup.Spec.SnapshotPeriodSeconds != nil {
 		return *backup.Spec.SnapshotPeriodSeconds
-	} else {
-		return 864000
 	}
+	return 864000
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
 // cluster, as provided by the backup status command.
 type FoundationDBLiveBackupStatus struct {
-	DestinationURL          string                            `json:"DestinationURL,omitempty"`
-	SnapshotIntervalSeconds int                               `json:"SnapshotIntervalSeconds,omitempty"`
-	Status                  FoundationDBLiveBackupStatusState `json:"Status,omitempty"`
-	BackupAgentsPaused      bool                              `json:"BackupAgentsPaused,omitempty"`
+	// DestinationURL provides the URL that the backup is being written to.
+	DestinationURL string `json:"DestinationURL,omitempty"`
+
+	// SnapshotIntervalSeconds provides the interval of the snapshots.
+	SnapshotIntervalSeconds int `json:"SnapshotIntervalSeconds,omitempty"`
+
+	// Status provides the current state of the backup.
+	Status FoundationDBLiveBackupStatusState `json:"Status,omitempty"`
+
+	// BackupAgentsPaused describes whether the backup agents are paused.
+	BackupAgentsPaused bool `json:"BackupAgentsPaused,omitempty"`
 }
 
+// FoundationDBLiveBackupStatusState provides the state of a backup in the
+// backup status.
 type FoundationDBLiveBackupStatusState struct {
+	// Running determines whether the backup is currently running.
 	Running bool `json:"Running,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=fdbrestore
+// +kubebuilder:subresource:status
+
+// FoundationDBRestore is the Schema for the FoundationDB Restore API
+type FoundationDBRestore struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   FoundationDBRestoreSpec   `json:"spec,omitempty"`
+	Status FoundationDBRestoreStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// FoundationDBRestoreList contains a list of FoundationDBRestore objects.
+type FoundationDBRestoreList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []FoundationDBRestore `json:"items"`
+}
+
+// FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
+type FoundationDBRestoreSpec struct {
+	// DestinationClusterName provides the name of the cluster that the data is
+	// being restored into.
+	DestinationClusterName string `json:"clusterName"`
+
+	// BackupURL provides the URL for the backup.
+	BackupURL string `json:"backupURL"`
+}
+
+// FoundationDBRestoreStatus describes the current status of the restore for a cluster.
+type FoundationDBRestoreStatus struct {
+	// Running describes whether the restore is currently running.
+	Running bool `json:"running,omitempty"`
 }

@@ -25,6 +25,10 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
 * [FoundationDBLiveBackupStatus](#foundationdblivebackupstatus)
 * [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate)
+* [FoundationDBRestore](#foundationdbrestore)
+* [FoundationDBRestoreList](#foundationdbrestorelist)
+* [FoundationDBRestoreSpec](#foundationdbrestorespec)
+* [FoundationDBRestoreStatus](#foundationdbrestorestatus)
 * [FoundationDBStatus](#foundationdbstatus)
 * [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo)
 * [FoundationDBStatusBackupTag](#foundationdbstatusbackuptag)
@@ -344,20 +348,64 @@ FoundationDBLiveBackupStatus describes the live status of the backup for a clust
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| DestinationURL |  | string | false |
-| SnapshotIntervalSeconds |  | int | false |
-| Status |  | [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate) | false |
-| BackupAgentsPaused |  | bool | false |
+| DestinationURL | DestinationURL provides the URL that the backup is being written to. | string | false |
+| SnapshotIntervalSeconds | SnapshotIntervalSeconds provides the interval of the snapshots. | int | false |
+| Status | Status provides the current state of the backup. | [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate) | false |
+| BackupAgentsPaused | BackupAgentsPaused describes whether the backup agents are paused. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
 ## FoundationDBLiveBackupStatusState
 
-
+FoundationDBLiveBackupStatusState provides the state of a backup in the backup status.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| Running |  | bool | false |
+| Running | Running determines whether the backup is currently running. | bool | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBRestore
+
+FoundationDBRestore is the Schema for the FoundationDB Restore API
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
+| spec |  | [FoundationDBRestoreSpec](#foundationdbrestorespec) | false |
+| status |  | [FoundationDBRestoreStatus](#foundationdbrestorestatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBRestoreList
+
+FoundationDBRestoreList contains a list of FoundationDBRestore objects.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
+| items |  | [][FoundationDBRestore](#foundationdbrestore) | true |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBRestoreSpec
+
+FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| clusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
+| backupURL | BackupURL provides the URL for the backup. | string | true |
+
+[Back to TOC](#table-of-contents)
+
+## FoundationDBRestoreStatus
+
+FoundationDBRestoreStatus describes the current status of the restore for a cluster.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| running | Running describes whether the restore is currently running. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -385,7 +433,7 @@ FoundationDBStatusBackupInfo provides information about backups that have been s
 
 ## FoundationDBStatusBackupTag
 
-
+FoundationDBStatusBackupTag provides information about a backup under a tag in the cluster status.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

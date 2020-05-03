@@ -106,6 +106,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Res
 	return ctrl.Result{}, nil
 }
 
+// AdminClientForBackup provides an admin client for a backup reconciler.
 func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context, backup *fdbtypes.FoundationDBBackup) (AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
 	err := r.Get(context, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
