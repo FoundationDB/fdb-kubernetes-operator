@@ -43,13 +43,13 @@ spec:
             backupURL:
               description: BackupURL provides the URL for the backup.
               type: string
-            clusterName:
+            destinationClusterName:
               description: DestinationClusterName provides the name of the cluster
                 that the data is being restored into.
               type: string
           required:
           - backupURL
-          - clusterName
+          - destinationClusterName
           type: object
         status:
           description: FoundationDBRestoreStatus describes the current status of the

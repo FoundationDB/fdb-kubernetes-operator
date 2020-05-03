@@ -394,7 +394,7 @@ FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| clusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
+| destinationClusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
 | backupURL | BackupURL provides the URL for the backup. | string | true |
 
 [Back to TOC](#table-of-contents)

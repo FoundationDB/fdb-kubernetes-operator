@@ -171,6 +171,15 @@ func (command cliCommand) hasDashInLogDir() bool {
 	return command.binary == "" || command.binary == "fdbcli"
 }
 
+// getClusterFileFlag gets the flag this command uses for its cluster file
+// argument.
+func (command cliCommand) getClusterFileFlag() string {
+	if command.binary == "fdbrestore" {
+		return "--dest_cluster_file"
+	}
+	return "-C"
+}
+
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
 
@@ -200,7 +209,8 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
 	}
-	args = append(args, "-C", client.clusterFilePath, "--log")
+
+	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", fmt.Sprintf("%d", timeout))
 		hardTimeout += 10

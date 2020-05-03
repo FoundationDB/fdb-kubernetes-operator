@@ -4,6 +4,7 @@
 resources:
 - bases/apps.foundationdb.org_foundationdbclusters.yaml
 - bases/apps.foundationdb.org_foundationdbbackups.yaml
+- bases/apps.foundationdb.org_foundationdbrestores.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

@@ -99,6 +99,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	restoreReconciler := &controllers.FoundationDBRestoreReconciler{
+		Client:              mgr.GetClient(),
+		Recorder:            mgr.GetEventRecorderFor("foundationdbrestore-controller"),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
+		Scheme:              mgr.GetScheme(),
+		AdminClientProvider: controllers.NewCliAdminClient,
+	}
+
+	if err = restoreReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
+		os.Exit(1)
+	}
+
 	if metricsAddr != "0" {
 		controllers.InitCustomMetrics(clusterReconciler)
 	}

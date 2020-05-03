@@ -60,6 +60,7 @@ func init() {
 	SchemeBuilder.Register(
 		&FoundationDBCluster{}, &FoundationDBClusterList{},
 		&FoundationDBBackup{}, &FoundationDBBackupList{},
+		&FoundationDBRestore{}, &FoundationDBRestoreList{},
 	)
 }
 
@@ -1743,10 +1744,6 @@ type RequiredAddressSet struct {
 	NonTLS bool `json:"nonTLS,omitempty"`
 }
 
-func init() {
-	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
-}
-
 // FdbVersion represents a version of FoundationDB.
 //
 // This provides convenience methods for checking features available in
@@ -2063,7 +2060,7 @@ type FoundationDBRestoreList struct {
 type FoundationDBRestoreSpec struct {
 	// DestinationClusterName provides the name of the cluster that the data is
 	// being restored into.
-	DestinationClusterName string `json:"clusterName"`
+	DestinationClusterName string `json:"destinationClusterName"`
 
 	// BackupURL provides the URL for the backup.
 	BackupURL string `json:"backupURL"`
