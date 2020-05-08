@@ -46,3 +46,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbrestores/status
+  verbs:
+  - get
+  - patch
+  - update

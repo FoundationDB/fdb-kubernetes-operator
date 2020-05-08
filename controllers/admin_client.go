@@ -96,6 +96,12 @@ type AdminClient interface {
 	// GetBackupStatus gets the status of the current backup.
 	GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error)
 
+	// StartRestore starts a new restore.
+	StartRestore(url string) error
+
+	// GetRestoreStatus gets the status of the current restore.
+	GetRestoreStatus() (string, error)
+
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
@@ -165,6 +171,15 @@ func (command cliCommand) hasDashInLogDir() bool {
 	return command.binary == "" || command.binary == "fdbcli"
 }
 
+// getClusterFileFlag gets the flag this command uses for its cluster file
+// argument.
+func (command cliCommand) getClusterFileFlag() string {
+	if command.binary == "fdbrestore" {
+		return "--dest_cluster_file"
+	}
+	return "-C"
+}
+
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
 
@@ -194,7 +209,8 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
 	}
-	args = append(args, "-C", client.clusterFilePath, "--log")
+
+	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", fmt.Sprintf("%d", timeout))
 		hardTimeout += 10
@@ -488,6 +504,29 @@ func (client *CliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 	return status, nil
 }
 
+// StartRestore starts a new restore.
+func (client *CliAdminClient) StartRestore(url string) error {
+	_, err := client.runCommand(cliCommand{
+		binary: "fdbrestore",
+		args: []string{
+			"start",
+			"-r",
+			url,
+		},
+	})
+	return err
+}
+
+// GetRestoreStatus gets the status of the current restore.
+func (client *CliAdminClient) GetRestoreStatus() (string, error) {
+	return client.runCommand(cliCommand{
+		binary: "fdbrestore",
+		args: []string{
+			"status",
+		},
+	})
+}
+
 // Close cleans up any pending resources.
 func (client *CliAdminClient) Close() error {
 	err := os.Remove(client.clusterFilePath)
@@ -507,6 +546,7 @@ type MockAdminClient struct {
 	KilledAddresses       []string
 	frozenStatus          *fdbtypes.FoundationDBStatus
 	Backups               map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
+	restoreURL            string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -799,6 +839,17 @@ func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBack
 	}
 
 	return status, nil
+}
+
+// StartRestore starts a new restore.
+func (client *MockAdminClient) StartRestore(url string) error {
+	client.restoreURL = url
+	return nil
+}
+
+// GetRestoreStatus gets the status of the current restore.
+func (client *MockAdminClient) GetRestoreStatus() (string, error) {
+	return fmt.Sprintf("%s\n", client.restoreURL), nil
 }
 
 // Close shuts down any resources for the client once it is no longer

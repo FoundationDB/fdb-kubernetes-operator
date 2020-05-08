@@ -1,5 +1,5 @@
 /*
- * backup_controller.go
+ * restore_controller.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,7 +27,6 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,8 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// FoundationDBBackupReconciler reconciles a FoundationDBCluster object
-type FoundationDBBackupReconciler struct {
+// FoundationDBRestoreReconciler reconciles a FoundationDBRestore object
+type FoundationDBRestoreReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
@@ -46,17 +45,19 @@ type FoundationDBBackupReconciler struct {
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
-// +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores/status,verbs=get;update;patch
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
-	backup := &fdbtypes.FoundationDBBackup{}
+func (r *FoundationDBRestoreReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+	fmt.Printf("JPB in reconciliation\n")
+
+	restore := &fdbtypes.FoundationDBRestore{}
 	context := ctx.Background()
 
-	err := r.Get(context, request.NamespacedName, backup)
+	err := r.Get(context, request.NamespacedName, restore)
 
-	originalGeneration := backup.ObjectMeta.Generation
+	originalGeneration := restore.ObjectMeta.Generation
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -68,48 +69,37 @@ func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Res
 		return ctrl.Result{}, err
 	}
 
-	subReconcilers := []BackupSubReconciler{
-		UpdateBackupStatus{},
-		UpdateBackupAgents{},
-		StartBackup{},
-		StopBackup{},
-		ToggleBackupPaused{},
-		ModifyBackup{},
-		UpdateBackupStatus{},
+	subReconcilers := []RestoreSubReconciler{
+		StartRestore{},
 	}
 
 	for _, subReconciler := range subReconcilers {
-		canContinue, err := subReconciler.Reconcile(r, context, backup)
+		canContinue, err := subReconciler.Reconcile(r, context, restore)
 		if !canContinue || err != nil {
-			log.Info("Reconciliation terminated early", "namespace", backup.Namespace, "backup", backup.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+			log.Info("Reconciliation terminated early", "namespace", restore.Namespace, "restore", restore.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
 
 		if err != nil {
-			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", backup.Namespace, "backup", backup.Name)
+			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
 			return ctrl.Result{}, err
-		} else if backup.ObjectMeta.Generation != originalGeneration {
-			log.Info("Ending reconciliation early because backup has been updated")
+		} else if restore.ObjectMeta.Generation != originalGeneration {
+			log.Info("Ending reconciliation early because restore has been updated")
 			return ctrl.Result{}, nil
 		} else if !canContinue {
-			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", backup.Namespace, "backup", backup.Name)
+			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
 		}
 	}
 
-	if backup.Status.Generations.Reconciled < originalGeneration {
-		log.Info("Backup was not fully reconciled by reconciliation process")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	log.Info("Reconciliation complete", "namespace", backup.Namespace, "backup", backup.Name)
+	log.Info("Reconciliation complete", "namespace", restore.Namespace, "restore", restore.Name)
 
 	return ctrl.Result{}, nil
 }
 
-// AdminClientForBackup provides an admin client for a backup reconciler.
-func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context, backup *fdbtypes.FoundationDBBackup) (AdminClient, error) {
+// AdminClientForRestore provides an admin client for a restore reconciler.
+func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
-	err := r.Get(context, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
+	err := r.Get(context, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -118,19 +108,15 @@ func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context,
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	mgr.GetFieldIndexer().IndexField(&appsv1.Deployment{}, "metadata.name", func(o runtime.Object) []string {
-		return []string{o.(*appsv1.Deployment).Name}
-	})
-
+func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&fdbtypes.FoundationDBBackup{}).
+		For(&fdbtypes.FoundationDBRestore{}).
 		Complete(r)
 }
 
-// BackupSubReconciler describes a class that does part of the work of
-// reconciliation for a cluster.
-type BackupSubReconciler interface {
+// RestoreSubReconciler describes a class that does part of the work of
+// reconciliation for a restore.
+type RestoreSubReconciler interface {
 	/**
 	Reconcile runs the reconciler's work.
 
@@ -139,11 +125,11 @@ type BackupSubReconciler interface {
 	If reconciliation encounters an error, this should return (false, err).
 
 	If reconciliation cannot proceed, or if this method has to make a change
-	to the cluster spec, this should return (false, nil).
+	to the restore spec, this should return (false, nil).
 
 	This method will only be called once for a given instance of the reconciler.
 	*/
-	Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error)
+	Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) (bool, error)
 
 	/**
 	RequeueAfter returns the delay before we should run the reconciliation

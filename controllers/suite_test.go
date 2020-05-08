@@ -55,6 +55,7 @@ var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
 var clusterReconciler *FoundationDBClusterReconciler
 var backupReconciler *FoundationDBBackupReconciler
+var restoreReconciler *FoundationDBRestoreReconciler
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -110,6 +111,16 @@ var _ = BeforeSuite(func(done Done) {
 		AdminClientProvider: NewMockAdminClient,
 	}
 	err = backupReconciler.SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	restoreReconciler = &FoundationDBRestoreReconciler{
+		Client:              k8sManager.GetClient(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
+		Recorder:            k8sManager.GetEventRecorderFor("foundationdbrestore-controller"),
+		InSimulation:        true,
+		AdminClientProvider: NewMockAdminClient,
+	}
+	err = restoreReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
@@ -221,6 +232,20 @@ func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Founda
 	}
 }
 
+func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBRestore {
+	return &fdbtypes.FoundationDBRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.Name,
+			Namespace: cluster.Namespace,
+		},
+		Spec: fdbtypes.FoundationDBRestoreSpec{
+			BackupURL:              "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+			DestinationClusterName: cluster.Name,
+		},
+		Status: fdbtypes.FoundationDBRestoreStatus{},
+	}
+}
+
 func cleanupCluster(cluster *fdbtypes.FoundationDBCluster) {
 	err := k8sClient.Delete(context.TODO(), cluster)
 	Expect(err).NotTo(HaveOccurred())
@@ -265,6 +290,11 @@ func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
 		err = k8sClient.Delete(context.TODO(), &item)
 		Expect(err).NotTo(HaveOccurred())
 	}
+}
+
+func cleanupRestore(restore *fdbtypes.FoundationDBRestore) {
+	err := k8sClient.Delete(context.TODO(), restore)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func checkClusterReconciled(client client.Client, cluster *fdbtypes.FoundationDBCluster) (bool, error) {

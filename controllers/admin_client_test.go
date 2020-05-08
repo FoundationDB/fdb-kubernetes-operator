@@ -228,4 +228,33 @@ var _ = Describe("admin_client_test", func() {
 			})
 		})
 	})
+
+	Describe("restore status", func() {
+		var status string
+
+		Context("with no restore running", func() {
+			BeforeEach(func() {
+				status, err = client.GetRestoreStatus()
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should be empty", func() {
+				Expect(status).To(Equal("\n"))
+			})
+		})
+
+		Context("with a restore running", func() {
+			BeforeEach(func() {
+				err = client.StartRestore("blobstore://test@test-service/test-backup")
+				Expect(err).NotTo(HaveOccurred())
+
+				status, err = client.GetRestoreStatus()
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should contain the backup URL", func() {
+				Expect(status).To(Equal("blobstore://test@test-service/test-backup\n"))
+			})
+		})
+	})
 })
