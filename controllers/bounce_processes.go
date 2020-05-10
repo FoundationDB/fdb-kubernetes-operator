@@ -100,10 +100,12 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 	}
 
-	if cluster.Spec.RunningVersion != cluster.Spec.Version {
-		cluster.Spec.RunningVersion = cluster.Spec.Version
-		err = r.Update(context, cluster)
-		return false, err
+	if cluster.Status.RunningVersion != cluster.Spec.Version {
+		cluster.Status.RunningVersion = cluster.Spec.Version
+		err = r.Status().Update(context, cluster)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil

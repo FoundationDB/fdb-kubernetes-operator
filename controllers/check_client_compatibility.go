@@ -44,7 +44,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 		return false, err
 	}
 
-	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Spec.RunningVersion)
+	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return false, err
 	}

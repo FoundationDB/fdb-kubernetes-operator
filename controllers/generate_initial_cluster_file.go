@@ -34,7 +34,7 @@ type GenerateInitialClusterFile struct{}
 
 // Reconcile runs the reconciler's work.
 func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	if cluster.Spec.ConnectionString != "" {
+	if cluster.Status.ConnectionString != "" {
 		return true, nil
 	}
 
@@ -68,10 +68,10 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 		}
 		connectionString.Coordinators = append(connectionString.Coordinators, cluster.GetFullAddress(client.GetPodIP()))
 	}
-	cluster.Spec.ConnectionString = connectionString.String()
+	cluster.Status.ConnectionString = connectionString.String()
 
-	err = r.Update(context, cluster)
-	return false, err
+	err = r.Status().Update(context, cluster)
+	return err != nil, err
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

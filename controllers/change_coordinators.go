@@ -50,11 +50,11 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return false, err
 	}
 
-	if connectionString != cluster.Spec.ConnectionString {
+	if connectionString != cluster.Status.ConnectionString {
 		log.Info("Updating out-of-date connection string", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
-		cluster.Spec.ConnectionString = connectionString
-		err = r.Update(context, cluster)
+		cluster.Status.ConnectionString = connectionString
+		err = r.Status().Update(context, cluster)
 		return false, err
 	}
 
@@ -124,9 +124,11 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		if err != nil {
 			return false, err
 		}
-		cluster.Spec.ConnectionString = connectionString
-		err = r.Update(context, cluster)
-		return false, err
+		cluster.Status.ConnectionString = connectionString
+		err = r.Status().Update(context, cluster)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil

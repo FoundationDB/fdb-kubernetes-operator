@@ -130,7 +130,7 @@ func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (
 	if err != nil {
 		return nil, err
 	}
-	_, err = clusterFile.WriteString(cluster.Spec.ConnectionString)
+	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +191,12 @@ func getBinaryPath(binaryName string, version string) string {
 func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	version := command.version
 	if version == "" {
-		version = client.Cluster.Spec.RunningVersion
+		version = client.Cluster.Status.RunningVersion
 	}
+	if version == "" {
+		version = client.Cluster.Spec.Version
+	}
+
 	binaryName := command.binary
 	if binaryName == "" {
 		binaryName = "fdbcli"
@@ -596,7 +600,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	coordinators := make(map[string]bool)
-	coordinatorAddresses := strings.Split(strings.Split(client.Cluster.Spec.ConnectionString, "@")[1], ",")
+	coordinatorAddresses := strings.Split(strings.Split(client.Cluster.Status.ConnectionString, "@")[1], ",")
 	for _, address := range coordinatorAddresses {
 		coordinators[address] = false
 	}
@@ -631,7 +635,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			Locality: map[string]string{
 				"instance_id": instance.GetInstanceID(),
 			},
-			Version: client.Cluster.Spec.RunningVersion,
+			Version: client.Cluster.Status.RunningVersion,
 		}
 	}
 
@@ -742,7 +746,7 @@ func (client *MockAdminClient) KillInstances(addresses []string) error {
 
 // ChangeCoordinators changes the coordinator set
 func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, error) {
-	connectionString, err := fdbtypes.ParseConnectionString(client.Cluster.Spec.ConnectionString)
+	connectionString, err := fdbtypes.ParseConnectionString(client.Cluster.Status.ConnectionString)
 	if err != nil {
 		return "", err
 	}
@@ -753,7 +757,7 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 
 // GetConnectionString fetches the latest connection string.
 func (client *MockAdminClient) GetConnectionString() (string, error) {
-	return client.Cluster.Spec.ConnectionString, nil
+	return client.Cluster.Status.ConnectionString, nil
 }
 
 // VersionSupported reports whether we can support a cluster with a given

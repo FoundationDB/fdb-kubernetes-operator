@@ -160,7 +160,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should fill in the required fields in the configuration", func() {
 				Expect(cluster.Spec.RedundancyMode).To(Equal("double"))
 				Expect(cluster.Spec.StorageEngine).To(Equal("ssd"))
-				Expect(cluster.Spec.ConnectionString).NotTo(Equal(""))
+				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
 			})
 
 			It("should create a config map for the cluster", func() {
@@ -190,7 +190,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(4)))
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(3)))
 				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
@@ -377,8 +377,8 @@ var _ = Describe("cluster_controller", func() {
 			var originalConnectionString string
 
 			BeforeEach(func() {
-				generationGap = 4
-				originalConnectionString = cluster.Spec.ConnectionString
+				generationGap = 3
+				originalConnectionString = cluster.Status.ConnectionString
 			})
 
 			Context("with an entry in the pending removals map", func() {
@@ -430,7 +430,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should change the connection string", func() {
-					Expect(cluster.Spec.ConnectionString).NotTo(Equal(originalConnectionString))
+					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
 				})
 
 				It("should clear the removal list", func() {
@@ -490,7 +490,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should change the connection string", func() {
-					Expect(cluster.Spec.ConnectionString).NotTo(Equal(originalConnectionString))
+					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
 				})
 
 				It("should clear the removal list", func() {
@@ -502,7 +502,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with multiple replacements", func() {
 			BeforeEach(func() {
-				generationGap = 4
+				generationGap = 3
 				cluster.Spec.InstancesToRemove = []string{
 					originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
 					"storage-5",
@@ -611,7 +611,6 @@ var _ = Describe("cluster_controller", func() {
 			Context("with changes enabled", func() {
 
 				BeforeEach(func() {
-					generationGap = 2
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1041,7 +1040,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-					generationGap = 5
+					generationGap = 4
 					timeout = 10 * time.Second
 				})
 
@@ -1164,7 +1163,6 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to TLS settings", func() {
 			BeforeEach(func() {
 				cluster.Spec.MainContainer.EnableTLS = true
-				generationGap = 2
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1186,7 +1184,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should change the coordinators to use TLS", func() {
-				connectionString, err := fdbtypes.ParseConnectionString(cluster.Spec.ConnectionString)
+				connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
 
 				Expect(err).NotTo(HaveOccurred())
 				for _, coordinator := range connectionString.Coordinators {
@@ -1209,7 +1207,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should not downgrade cluster", func() {
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
-				Expect(cluster.Spec.RunningVersion).To(Equal(Versions.Default.String()))
+				Expect(cluster.Status.RunningVersion).To(Equal(Versions.Default.String()))
 			})
 		})
 
@@ -1222,7 +1220,6 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					timeout = 120 * time.Second
 					err = k8sClient.Update(context.TODO(), cluster)
-					generationGap = 2
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -1251,6 +1248,10 @@ var _ = Describe("cluster_controller", func() {
 						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
 					}
 				})
+
+				It("should update the running version", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+				})
 			})
 
 			Context("with the replacement strategy", func() {
@@ -1258,7 +1259,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-					generationGap = 6
+					generationGap = 4
 					timeout = 10 * time.Second
 				})
 
@@ -1315,7 +1316,7 @@ var _ = Describe("cluster_controller", func() {
 				}
 
 				err = k8sClient.Update(context.TODO(), cluster)
-				generationGap = 5
+				generationGap = 4
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1385,7 +1386,8 @@ var _ = Describe("cluster_controller", func() {
 		var err error
 
 		BeforeEach(func() {
-			cluster.Spec.ConnectionString = fakeConnectionString
+			cluster.Status.ConnectionString = fakeConnectionString
+			cluster.Status.RunningVersion = cluster.Spec.Version
 		})
 
 		JustBeforeEach(func() {
@@ -1407,9 +1409,9 @@ var _ = Describe("cluster_controller", func() {
 				expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(len(configMap.Data)).To(Equal(6))
 				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
+				Expect(configMap.Data["running-version"]).To(Equal(Versions.Default.String()))
 			})
 
 			It("should have the sidecar conf", func() {
@@ -1447,7 +1449,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with an empty connection string", func() {
 			BeforeEach(func() {
-				cluster.Spec.ConnectionString = ""
+				cluster.Status.ConnectionString = ""
 			})
 
 			It("should empty the monitor conf and cluster file", func() {
@@ -1472,7 +1474,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with implicit instance ID substitution", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithSidecarInstanceIDSubstitution.String()
-				cluster.Spec.RunningVersion = Versions.WithSidecarInstanceIDSubstitution.String()
+				cluster.Status.RunningVersion = Versions.WithSidecarInstanceIDSubstitution.String()
 			})
 
 			It("should not include any substitutions in the sidecar conf", func() {
@@ -1487,7 +1489,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with explicit instance ID substitution", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithoutSidecarInstanceIDSubstitution.String()
-				cluster.Spec.RunningVersion = Versions.WithoutSidecarInstanceIDSubstitution.String()
+				cluster.Status.RunningVersion = Versions.WithoutSidecarInstanceIDSubstitution.String()
 			})
 
 			It("should include the instance ID in the substitutions in the sidecar conf", func() {
@@ -1591,7 +1593,7 @@ var _ = Describe("cluster_controller", func() {
 		var err error
 
 		BeforeEach(func() {
-			cluster.Spec.ConnectionString = fakeConnectionString
+			cluster.Status.ConnectionString = fakeConnectionString
 		})
 
 		Context("with a basic storage instance", func() {
@@ -1778,7 +1780,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a version that can use binaries from the main container", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithBinariesFromMainContainer.String()
-				cluster.Spec.RunningVersion = Versions.WithBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
 				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1808,7 +1810,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a version with binaries from the sidecar container", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Spec.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
 				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1931,7 +1933,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 4}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 3}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -2040,7 +2042,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with binaries from the main container", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithBinariesFromMainContainer.String()
-				cluster.Spec.RunningVersion = Versions.WithBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
 				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient)
@@ -2068,7 +2070,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with binaries from the sidecar container", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Spec.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
 				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient)

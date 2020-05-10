@@ -73,10 +73,6 @@ type FoundationDBClusterSpec struct {
 	// maps an FDB version to the corresponding sidecar build version.
 	SidecarVersions map[string]int `json:"sidecarVersions,omitempty"`
 
-	// RunningVersion defines the version of FoundationDB that the cluster is
-	// currently running.
-	RunningVersion string `json:"runningVersion,omitempty"`
-
 	// DatabaseConfiguration defines the database configuration.
 	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
@@ -88,8 +84,11 @@ type FoundationDBClusterSpec struct {
 	// infer the process counts based on the database configuration.
 	ProcessCounts `json:"processCounts,omitempty"`
 
-	// ConnectionString defines the contents of the cluster file.
-	ConnectionString string `json:"connectionString,omitempty"`
+	// SeedConnectionString provides a connection string for the initial
+	// reconciliation.
+	//
+	// After the initial reconciliation, this will not be used.
+	SeedConnectionString string `json:"seedConnectionString,omitempty"`
 
 	// FaultDomain defines the rules for what fault domain to replicate across.
 	FaultDomain FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
@@ -212,6 +211,19 @@ type FoundationDBClusterSpec struct {
 	//
 	// Deprecated: Use the VolumeClaim field instead.
 	VolumeSize string `json:"volumeSize,omitempty"`
+
+	// RunningVersion defines the version of FoundationDB that the cluster is
+	// currently running.
+	//
+	// Deprecated: Consult the running version in the status instead.
+	RunningVersion string `json:"runningVersion,omitempty"`
+
+	// ConnectionString defines the contents of the cluster file.
+	//
+	// Deprecated: You can use SeedConnectionString for bootstrapping, and
+	// you can use the ConnectionString in the status to get the latest
+	// connection string.
+	ConnectionString string `json:"connectionString,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -256,6 +268,13 @@ type FoundationDBClusterStatus struct {
 	// HasIncorrectConfigMap indicates whether the latest config map is out
 	// of date with the cluster spec.
 	HasIncorrectConfigMap bool `json:"hasIncorrectConfigMap,omitempty"`
+
+	// RunningVersion defines the version of FoundationDB that the cluster is
+	// currently running.
+	RunningVersion string `json:"runningVersion,omitempty"`
+
+	// ConnectionString defines the contents of the cluster file.
+	ConnectionString string `json:"connectionString,omitempty"`
 }
 
 // ClusterGenerationStatus stores information on which generations have reached
@@ -1096,7 +1115,7 @@ func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primary
 func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool) string {
 	version := ""
 	if useRunningVersion {
-		version = cluster.Spec.RunningVersion
+		version = cluster.Status.RunningVersion
 	}
 	if version == "" {
 		version = cluster.Spec.Version
@@ -1379,7 +1398,7 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 
 // IsBeingUpgraded determines whether the cluster has a pending upgrade.
 func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
-	return cluster.Spec.RunningVersion != "" && cluster.Spec.RunningVersion != cluster.Spec.Version
+	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
 // InstanceIsBeingRemoved determines if an instance is pending removal.

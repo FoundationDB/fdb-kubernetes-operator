@@ -196,6 +196,27 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
+	status.RunningVersion = cluster.Status.RunningVersion
+
+	if status.RunningVersion == "" {
+		version, present := existingConfigMap.Data["running-version"]
+		if present {
+			status.RunningVersion = version
+		}
+	}
+
+	if status.RunningVersion == "" {
+		status.RunningVersion = cluster.Spec.Version
+	}
+
+	status.ConnectionString = cluster.Status.ConnectionString
+	if status.ConnectionString == "" {
+		status.ConnectionString = existingConfigMap.Data["cluster-file"]
+	}
+	if status.ConnectionString == "" {
+		status.ConnectionString = cluster.Spec.SeedConnectionString
+	}
+
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	if databaseStatus != nil {
