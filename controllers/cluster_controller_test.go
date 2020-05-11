@@ -190,7 +190,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(3)))
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(2)))
 				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
@@ -605,11 +605,18 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+
 				cluster.Spec.DatabaseConfiguration.RedundancyMode = "triple"
+
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
 			})
 
 			Context("with changes enabled", func() {
-
 				BeforeEach(func() {
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -618,7 +625,6 @@ var _ = Describe("cluster_controller", func() {
 				It("should configure the database", func() {
 					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("triple"))
 				})
-
 			})
 
 			Context("with changes disabled", func() {
@@ -1933,7 +1939,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 3}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 2}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 

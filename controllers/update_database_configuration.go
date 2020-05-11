@@ -43,26 +43,23 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 	}
 	defer adminClient.Close()
 
-	initialConfig := !cluster.Spec.Configured
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	needsChange := false
 	var currentConfiguration fdbtypes.DatabaseConfiguration
 	var healthy bool
-	if !cluster.Spec.Configured {
-		needsChange = true
-		healthy = true
-	} else {
-		status, err := adminClient.GetStatus()
-		if err != nil {
-			return false, err
-		}
 
-		healthy = status.Client.DatabaseStatus.Healthy
-		currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
-		desiredConfiguration.FillInDefaultVersionFlags(currentConfiguration)
-		needsChange = !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
 	}
+
+	initialConfig := status.Cluster.Layers.Error == "configurationMissing"
+
+	healthy = initialConfig || status.Client.DatabaseStatus.Healthy
+	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
+	desiredConfiguration.FillInDefaultVersionFlags(currentConfiguration)
+	needsChange = initialConfig || !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
 
 	if needsChange {
 		var nextConfiguration fdbtypes.DatabaseConfiguration
@@ -99,14 +96,14 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		r.Recorder.Event(cluster, "Normal", "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
-		err = adminClient.ConfigureDatabase(nextConfiguration, !cluster.Spec.Configured)
+		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)
 		if err != nil {
 			return false, err
 		}
 		if initialConfig {
-			cluster.Spec.Configured = true
-			err = r.Update(context, cluster)
-			return false, err
+			cluster.Status.Configured = true
+			err = r.Status().Update(context, cluster)
+			return err != nil, err
 		}
 		log.Info("Configured database", "namespace", cluster.Namespace, "cluster", cluster.Name)
 
@@ -116,7 +113,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		}
 	}
 
-	return !initialConfig, nil
+	return true, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

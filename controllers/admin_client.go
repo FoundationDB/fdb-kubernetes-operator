@@ -600,7 +600,13 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	coordinators := make(map[string]bool)
-	coordinatorAddresses := strings.Split(strings.Split(client.Cluster.Status.ConnectionString, "@")[1], ",")
+	var coordinatorAddresses []string
+	if client.Cluster.Status.ConnectionString != "" {
+		coordinatorAddresses = strings.Split(strings.Split(client.Cluster.Status.ConnectionString, "@")[1], ",")
+	} else {
+		coordinatorAddresses = []string{}
+	}
+
 	for _, address := range coordinatorAddresses {
 		coordinators[address] = false
 	}
@@ -649,10 +655,10 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	status.Client.DatabaseStatus.Available = true
 	status.Client.DatabaseStatus.Healthy = true
 
-	if client.DatabaseConfiguration != nil {
-		status.Cluster.DatabaseConfiguration = *client.DatabaseConfiguration
+	if client.DatabaseConfiguration == nil {
+		status.Cluster.Layers.Error = "configurationMissing"
 	} else {
-		status.Cluster.DatabaseConfiguration = client.Cluster.DesiredDatabaseConfiguration()
+		status.Cluster.DatabaseConfiguration = *client.DatabaseConfiguration
 	}
 
 	if status.Cluster.DatabaseConfiguration.LogSpill == 0 {

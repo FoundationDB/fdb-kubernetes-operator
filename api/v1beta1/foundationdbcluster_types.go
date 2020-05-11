@@ -77,6 +77,7 @@ type FoundationDBClusterSpec struct {
 	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Configured defines whether we have configured the database yet.
+	// Deprecated: This field has been moved to the status.
 	Configured bool `json:"configured,omitempty"`
 
 	// ProcessCounts defines the number of processes to configure for each
@@ -275,6 +276,9 @@ type FoundationDBClusterStatus struct {
 
 	// ConnectionString defines the contents of the cluster file.
 	ConnectionString string `json:"connectionString,omitempty"`
+
+	// Configured defines whether we have configured the database yet.
+	Configured bool `json:"configured,omitempty"`
 }
 
 // ClusterGenerationStatus stores information on which generations have reached
@@ -708,7 +712,7 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 // reconciliation is complete.
 func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	var reconciled = true
-	if !cluster.Spec.Configured {
+	if !cluster.Status.Configured {
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		return false, nil
 	}
@@ -1293,6 +1297,9 @@ func (client FoundationDBStatusConnectedClient) Description() string {
 type FoundationDBStatusLayerInfo struct {
 	// Backup provides information about backups that have been started.
 	Backup FoundationDBStatusBackupInfo `json:"backup,omitempty"`
+
+	// The error from the layer status.
+	Error string `json:"_error,omitempty"`
 }
 
 // FoundationDBStatusBackupInfo provides information about backups that have been started.

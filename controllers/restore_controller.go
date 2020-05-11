@@ -50,8 +50,6 @@ type FoundationDBRestoreReconciler struct {
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBRestoreReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
-	fmt.Printf("JPB in reconciliation\n")
-
 	restore := &fdbtypes.FoundationDBRestore{}
 	context := ctx.Background()
 

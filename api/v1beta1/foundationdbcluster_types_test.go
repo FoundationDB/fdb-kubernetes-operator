@@ -2785,8 +2785,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 				Generation: 2,
 			},
 			Spec: FoundationDBClusterSpec{
-				Configured: true,
-				Version:    Versions.Default.String(),
+				Version: Versions.Default.String(),
 				DatabaseConfiguration: DatabaseConfiguration{
 					RedundancyMode: "double",
 				},
@@ -2817,6 +2816,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 					Stateless: 9,
 					Log:       4,
 				},
+				Configured: true,
 			},
 		}
 	}
@@ -2831,7 +2831,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Spec.Configured = false
+	cluster.Status.Configured = false
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())

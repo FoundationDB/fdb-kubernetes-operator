@@ -47,7 +47,15 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
 
-	if cluster.Spec.Configured {
+	if cluster.Status.ConnectionString == "" {
+		databaseStatus = &fdbtypes.FoundationDBStatus{
+			Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+				Layers: fdbtypes.FoundationDBStatusLayerInfo{
+					Error: "configurationMissing",
+				},
+			},
+		}
+	} else {
 		adminClient, err := r.AdminClientProvider(cluster, r)
 		if err != nil {
 			return false, err
@@ -57,15 +65,15 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		if err != nil {
 			return false, err
 		}
-		for _, process := range databaseStatus.Cluster.Processes {
-			instanceID := process.Locality["instance_id"]
-			processMap[instanceID] = append(processMap[instanceID], process)
-		}
-
-		status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
-	} else {
-		databaseStatus = nil
 	}
+
+	for _, process := range databaseStatus.Cluster.Processes {
+		instanceID := process.Locality["instance_id"]
+		processMap[instanceID] = append(processMap[instanceID], process)
+	}
+
+	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
+	status.Configured = databaseStatus.Cluster.Layers.Error != "configurationMissing"
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {

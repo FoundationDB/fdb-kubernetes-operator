@@ -35,7 +35,7 @@ type ChangeCoordinators struct{}
 
 // Reconcile runs the reconciler's work.
 func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	if !cluster.Spec.Configured {
+	if !cluster.Status.Configured {
 		return true, nil
 	}
 

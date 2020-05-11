@@ -115,8 +115,8 @@ spec:
                   type: object
               type: object
             configured:
-              description: Configured defines whether we have configured the database
-                yet.
+              description: 'Configured defines whether we have configured the database
+                yet. Deprecated: This field has been moved to the status.'
               type: boolean
             connectionString:
               description: "ConnectionString defines the contents of the cluster file.
@@ -10223,6 +10223,10 @@ spec:
         status:
           description: FoundationDBClusterStatus defines the observed state of FoundationDBCluster
           properties:
+            configured:
+              description: Configured defines whether we have configured the database
+                yet.
+              type: boolean
             connectionString:
               description: ConnectionString defines the contents of the cluster file.
               type: string
