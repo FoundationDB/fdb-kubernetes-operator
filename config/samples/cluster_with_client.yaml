@@ -3,14 +3,6 @@
 # The client app will get its cluster file from a config map that is managed
 # by the operator. It will also use the sidecar to include multiple client
 # libraries to support upgrades of FoundationDB.
-#
-# Because the app depends on the config map created by the operator, it will
-# not be able to launch until the cluster gets far enough in reconciliation to
-# generate a cluster file. You can work around this by creating the cluster
-# first and then applying the rest of the file to create the app. As an
-# alternative, you can apply the entire file and then run
-# `kubectl delete pod -l app=sample-cluster-client` to bounce the clients and
-# pick up the final cluster file.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
@@ -18,7 +10,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
-  version: 6.2.15
+  version: 6.2.20
   faultDomain:
     key: foundationdb.org/none
   processCounts:
@@ -68,7 +60,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: foundationdb-kubernetes-init
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.15-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1
           args:
             - "--copy-file"
             - "fdb.cluster"
@@ -77,6 +69,8 @@ spec:
             - "--copy-library"
             - "6.2"
             - "--init-mode"
+            - "--require-not-empty"
+            - "fdb.cluster"
           volumeMounts:
             - name: config-map
               mountPath: /var/input-files

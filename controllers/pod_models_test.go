@@ -200,7 +200,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.15",
+					"6.2.20",
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
@@ -270,7 +270,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.15",
+					"6.2.20",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
@@ -792,7 +792,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.15",
+					"6.2.20",
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
@@ -1388,7 +1388,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.15",
+					"6.2.20",
 					"--init-mode",
 				}))
 			})
@@ -1408,7 +1408,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.15",
+					"6.2.20",
 				}))
 
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
@@ -1689,7 +1689,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "930784c79792aa8f1d329e086986389a293ecb7ca70278dbee43d1fa527cbd1b",
+					"foundationdb.org/last-applied-spec": "53bf93c896578af51723c0db12e884751be4ee702c7487a1a57108fa111a23d6",
 				}))
 			})
 
@@ -1785,6 +1785,8 @@ var _ = Describe("pod_models", func() {
 					Expect(container.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 					Expect(container.Args).To(Equal([]string{
 						"--copy-file",
+						"fdb.cluster",
+						"--require-not-empty",
 						"fdb.cluster",
 						"--init-mode",
 					}))

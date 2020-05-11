@@ -28,7 +28,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
-  version: 6.2.15
+  version: 6.2.20
   volumeClaim:
     spec:
       resources:
@@ -65,7 +65,7 @@ kind: FoundationDBBackup
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.15
+  version: 6.2.20
   clusterName: sample-cluster
   accountName: minio@minio-service:9000
   snapshotPeriodSeconds: 60

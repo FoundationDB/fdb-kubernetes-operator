@@ -150,7 +150,7 @@ var Versions = struct {
 	WithSidecarCrashOnEmpty, WithoutSidecarCrashOnEmpty,
 	Default fdbtypes.FdbVersion
 }{
-	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 20},
 	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
 	WithSidecarInstanceIDSubstitution:    fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutSidecarInstanceIDSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
@@ -160,7 +160,7 @@ var Versions = struct {
 	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithRatekeeperRole:                   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutRatekeeperRole:                fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12},
-	WithSidecarCrashOnEmpty:              fdbtypes.FdbVersion{Major: 6, Minor: 3, Patch: 0},
+	WithSidecarCrashOnEmpty:              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 20},
 	WithoutSidecarCrashOnEmpty:           fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 }
 

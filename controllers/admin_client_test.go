@@ -88,7 +88,7 @@ var _ = Describe("admin_client_test", func() {
 					Locality: map[string]string{
 						"instance_id": "storage-1",
 					},
-					Version: "6.2.15",
+					Version: "6.2.20",
 				}))
 			})
 		})
