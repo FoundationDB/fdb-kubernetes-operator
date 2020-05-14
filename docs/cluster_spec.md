@@ -289,7 +289,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. | map[string]int | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| configured | Configured defines whether we have configured the database yet. | bool | false |
+| configured | Configured defines whether we have configured the database yet. **Deprecated: This field has been moved to the status.** | bool | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
@@ -342,6 +342,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
+| configured | Configured defines whether we have configured the database yet. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -533,6 +534,7 @@ FoundationDBStatusLayerInfo provides information about layers that are running a
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | backup | Backup provides information about backups that have been started. | [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo) | false |
+| _error | The error from the layer status. | string | false |
 
 [Back to TOC](#table-of-contents)
 
