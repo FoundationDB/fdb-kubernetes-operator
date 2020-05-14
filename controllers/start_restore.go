@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -41,13 +40,11 @@ func (s StartRestore) Reconcile(r *FoundationDBRestoreReconciler, context ctx.Co
 	}
 
 	status, err := adminClient.GetRestoreStatus()
-	fmt.Printf("JPB got restore status -%s-, -%s-\n", status, strings.TrimSpace(status))
 	if err != nil {
 		return false, err
 	}
 
 	if len(strings.TrimSpace(status)) == 0 {
-		fmt.Printf("JPB starting restore for url %s\n", restore.Spec.BackupURL)
 		err = adminClient.StartRestore(restore.Spec.BackupURL)
 		if err != nil {
 			return false, err
@@ -59,7 +56,6 @@ func (s StartRestore) Reconcile(r *FoundationDBRestoreReconciler, context ctx.Co
 			return false, err
 		}
 	}
-	fmt.Printf("JPB done with StartRestore\n")
 
 	return true, nil
 }

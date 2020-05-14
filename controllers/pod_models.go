@@ -140,7 +140,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		mainContainer.Image = "foundationdb/foundationdb"
 	}
 
-	versionString := cluster.Spec.RunningVersion
+	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
@@ -295,7 +295,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
 func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string) error {
-	versionString := cluster.Spec.RunningVersion
+	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}

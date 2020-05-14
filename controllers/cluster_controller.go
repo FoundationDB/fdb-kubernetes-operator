@@ -197,7 +197,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context
 		return false, err
 	}
 
-	synced, err := UpdateDynamicFiles(client, "fdb.cluster", cluster.Spec.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
+	synced, err := UpdateDynamicFiles(client, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
 	if !synced {
 		return synced, err
 	}
@@ -315,8 +315,9 @@ func buildOwnerReference(context ctx.Context, ownerType metav1.TypeMeta, ownerMe
 func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
-	connectionString := cluster.Spec.ConnectionString
+	connectionString := cluster.Status.ConnectionString
 	data["cluster-file"] = connectionString
+	data["running-version"] = cluster.Status.RunningVersion
 
 	caFile := ""
 	for _, ca := range cluster.Spec.TrustedCAs {
@@ -351,7 +352,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
-	versionString := cluster.Spec.RunningVersion
+	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
@@ -423,7 +424,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 
 // GetMonitorConf builds the monitor conf template
 func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod, podClient FdbPodClient) (string, error) {
-	if cluster.Spec.ConnectionString == "" {
+	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
 

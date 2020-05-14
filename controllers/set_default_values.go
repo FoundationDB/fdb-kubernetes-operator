@@ -47,10 +47,6 @@ func (s SetDefaultValues) Reconcile(r *FoundationDBClusterReconciler, context ct
 		cluster.Spec.UsableRegions = 1
 		changed = true
 	}
-	if cluster.Spec.RunningVersion == "" {
-		cluster.Spec.RunningVersion = cluster.Spec.Version
-		changed = true
-	}
 	if changed {
 		err := r.Update(context, cluster)
 		return false, err

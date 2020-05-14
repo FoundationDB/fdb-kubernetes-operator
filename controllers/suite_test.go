@@ -190,7 +190,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 
 func createReconciledCluster() *fdbtypes.FoundationDBCluster {
 	cluster := createDefaultCluster()
-	cluster.Spec.ConnectionString = ""
+	cluster.Status.ConnectionString = ""
 	err := k8sClient.Create(context.TODO(), cluster)
 	Expect(err).NotTo(HaveOccurred())
 

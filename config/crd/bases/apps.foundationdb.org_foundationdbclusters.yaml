@@ -115,11 +115,14 @@ spec:
                   type: object
               type: object
             configured:
-              description: Configured defines whether we have configured the database
-                yet.
+              description: 'Configured defines whether we have configured the database
+                yet. Deprecated: This field has been moved to the status.'
               type: boolean
             connectionString:
-              description: ConnectionString defines the contents of the cluster file.
+              description: "ConnectionString defines the contents of the cluster file.
+                \n Deprecated: You can use SeedConnectionString for bootstrapping,
+                and you can use the ConnectionString in the status to get the latest
+                connection string."
               type: string
             containers:
               description: "Containers defines custom containers for the FDB pods.
@@ -8508,8 +8511,14 @@ spec:
                   type: object
               type: object
             runningVersion:
-              description: RunningVersion defines the version of FoundationDB that
-                the cluster is currently running.
+              description: "RunningVersion defines the version of FoundationDB that
+                the cluster is currently running. \n Deprecated: Consult the running
+                version in the status instead."
+              type: string
+            seedConnectionString:
+              description: "SeedConnectionString provides a connection string for
+                the initial reconciliation. \n After the initial reconciliation, this
+                will not be used."
               type: string
             sidecarContainer:
               description: SidecarContainer defines customization for the foundationdb-kubernetes-sidecar
@@ -10214,6 +10223,13 @@ spec:
         status:
           description: FoundationDBClusterStatus defines the observed state of FoundationDBCluster
           properties:
+            configured:
+              description: Configured defines whether we have configured the database
+                yet.
+              type: boolean
+            connectionString:
+              description: ConnectionString defines the contents of the cluster file.
+              type: string
             databaseConfiguration:
               description: DatabaseConfiguration provides the running configuration
                 of the database.
@@ -10437,6 +10453,10 @@ spec:
                   description: TLS defines whether we need to listen on a TLS address.
                   type: boolean
               type: object
+            runningVersion:
+              description: RunningVersion defines the version of FoundationDB that
+                the cluster is currently running.
+              type: string
           type: object
       type: object
   version: v1beta1

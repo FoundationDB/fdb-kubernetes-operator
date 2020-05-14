@@ -35,7 +35,7 @@ type CheckClientCompatibility struct{}
 
 // Reconcile runs the reconciler's work.
 func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	if !cluster.Spec.Configured {
+	if !cluster.Status.Configured {
 		return true, nil
 	}
 
@@ -44,7 +44,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 		return false, err
 	}
 
-	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Spec.RunningVersion)
+	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return false, err
 	}

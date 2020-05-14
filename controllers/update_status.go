@@ -47,7 +47,15 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
 
-	if cluster.Spec.Configured {
+	if cluster.Status.ConnectionString == "" {
+		databaseStatus = &fdbtypes.FoundationDBStatus{
+			Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+				Layers: fdbtypes.FoundationDBStatusLayerInfo{
+					Error: "configurationMissing",
+				},
+			},
+		}
+	} else {
 		adminClient, err := r.AdminClientProvider(cluster, r)
 		if err != nil {
 			return false, err
@@ -57,15 +65,15 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		if err != nil {
 			return false, err
 		}
-		for _, process := range databaseStatus.Cluster.Processes {
-			instanceID := process.Locality["instance_id"]
-			processMap[instanceID] = append(processMap[instanceID], process)
-		}
-
-		status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
-	} else {
-		databaseStatus = nil
 	}
+
+	for _, process := range databaseStatus.Cluster.Processes {
+		instanceID := process.Locality["instance_id"]
+		processMap[instanceID] = append(processMap[instanceID], process)
+	}
+
+	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
+	status.Configured = databaseStatus.Cluster.Layers.Error != "configurationMissing"
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
@@ -194,6 +202,27 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.HasIncorrectConfigMap = true
 	} else if err != nil {
 		return false, err
+	}
+
+	status.RunningVersion = cluster.Status.RunningVersion
+
+	if status.RunningVersion == "" {
+		version, present := existingConfigMap.Data["running-version"]
+		if present {
+			status.RunningVersion = version
+		}
+	}
+
+	if status.RunningVersion == "" {
+		status.RunningVersion = cluster.Spec.Version
+	}
+
+	status.ConnectionString = cluster.Status.ConnectionString
+	if status.ConnectionString == "" {
+		status.ConnectionString = existingConfigMap.Data["cluster-file"]
+	}
+	if status.ConnectionString == "" {
+		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)

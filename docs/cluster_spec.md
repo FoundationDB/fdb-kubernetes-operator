@@ -288,11 +288,10 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. | map[string]int | false |
-| runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| configured | Configured defines whether we have configured the database yet. | bool | false |
+| configured | Configured defines whether we have configured the database yet. **Deprecated: This field has been moved to the status.** | bool | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
-| connectionString | ConnectionString defines the contents of the cluster file. | string | false |
+| seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. | []string | false |
 | instancesToRemove | InstancesToRemove defines the instances that we should remove from the cluster. This list contains the instance IDs. | []string | false |
@@ -321,6 +320,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | nextInstanceID | NextInstanceID defines the ID to use when creating the next instance.  **Deprecated: This is no longer used.** | int | false |
 | storageClass | StorageClass defines the storage class for the volumes in the cluster.  **Deprecated: Use the VolumeClaim field instead.** | *string | false |
 | volumeSize | VolumeSize defines the size of the volume to use for stateful processes.  **Deprecated: Use the VolumeClaim field instead.** | string | false |
+| runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running.  **Deprecated: Consult the running version in the status instead.** | string | false |
+| connectionString | ConnectionString defines the contents of the cluster file.  **Deprecated: You can use SeedConnectionString for bootstrapping, and you can use the ConnectionString in the status to get the latest connection string.** | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -339,6 +340,9 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
+| runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
+| connectionString | ConnectionString defines the contents of the cluster file. | string | false |
+| configured | Configured defines whether we have configured the database yet. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -530,6 +534,7 @@ FoundationDBStatusLayerInfo provides information about layers that are running a
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | backup | Backup provides information about backups that have been started. | [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo) | false |
+| _error | The error from the layer status. | string | false |
 
 [Back to TOC](#table-of-contents)
 
