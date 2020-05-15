@@ -71,7 +71,13 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	cluster.Status.ConnectionString = connectionString.String()
 
 	err = r.Status().Update(context, cluster)
-	return err != nil, err
+	if err != nil {
+		return false, err
+	}
+
+	cluster.Spec.ConnectionString = cluster.Status.ConnectionString
+	err = r.Update(context, cluster)
+	return false, err
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

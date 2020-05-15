@@ -190,7 +190,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(2)))
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(3)))
 				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
@@ -377,7 +377,7 @@ var _ = Describe("cluster_controller", func() {
 			var originalConnectionString string
 
 			BeforeEach(func() {
-				generationGap = 3
+				generationGap = 4
 				originalConnectionString = cluster.Status.ConnectionString
 			})
 
@@ -502,7 +502,8 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with multiple replacements", func() {
 			BeforeEach(func() {
-				generationGap = 3
+				generationGap = 4
+
 				cluster.Spec.InstancesToRemove = []string{
 					originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
 					"storage-5",
@@ -614,6 +615,8 @@ var _ = Describe("cluster_controller", func() {
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+
+				generationGap = 2
 			})
 
 			Context("with changes enabled", func() {
@@ -1046,7 +1049,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-					generationGap = 4
+					generationGap = 5
 					timeout = 10 * time.Second
 				})
 
@@ -1171,6 +1174,8 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.MainContainer.EnableTLS = true
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
+
+				generationGap = 2
 			})
 
 			It("should bounce the processes", func() {
@@ -1265,7 +1270,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-					generationGap = 4
+					generationGap = 5
 					timeout = 10 * time.Second
 				})
 
@@ -1322,7 +1327,7 @@ var _ = Describe("cluster_controller", func() {
 				}
 
 				err = k8sClient.Update(context.TODO(), cluster)
-				generationGap = 4
+				generationGap = 5
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1939,7 +1944,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 2}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 3}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 

@@ -55,6 +55,14 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		r.Recorder.Event(cluster, "Normal", "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Status.ConnectionString = connectionString
 		err = r.Status().Update(context, cluster)
+
+		if err != nil {
+			return false, err
+		}
+
+		cluster.Spec.ConnectionString = cluster.Status.ConnectionString
+		err = r.Update(context, cluster)
+
 		return false, err
 	}
 
@@ -129,6 +137,10 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		if err != nil {
 			return false, err
 		}
+
+		cluster.Spec.ConnectionString = cluster.Status.ConnectionString
+		err = r.Update(context, cluster)
+		return false, err
 	}
 
 	return true, nil
