@@ -1,3 +1,9 @@
+# v0.11.0
+
+*	Move fields from spec to status.
+*	Bump FDB version used in examples.
+*	Initial support for restore.
+
 # v0.10.0
 
 *	Adds an option for the backup snapshot time.
