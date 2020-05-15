@@ -2,7 +2,7 @@
 FROM golang:1.13 as builder
 
 # Install FDB
-ARG FDB_VERSION=6.2.19
+ARG FDB_VERSION=6.2.20
 ARG FDB_ADDITIONAL_VERSIONS="6.1.12"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
