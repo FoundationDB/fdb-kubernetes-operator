@@ -1474,6 +1474,24 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 	return false
 }
 
+// ShouldUseLocks determine whether we should use locks to coordinator global
+// operations.
+func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
+	return true
+}
+
+// GetLockPrefix gets the prefix for the keys where we store locking
+// information.
+func (cluster *FoundationDBCluster) GetLockPrefix() string {
+	return "\xff\x02/org.foundationdb.kubernetes-operator"
+}
+
+// GetLockID gets the identifier for this instance of the operator when taking
+// locks.
+func (cluster *FoundationDBCluster) GetLockID() string {
+	return cluster.Spec.InstanceIDPrefix
+}
+
 // FillInDefaultsFromStatus adds in missing fields from the database
 // configuration in the database status to make sure they match the fields that
 // will appear in the cluster spec.

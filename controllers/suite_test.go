@@ -98,6 +98,7 @@ var _ = BeforeSuite(func(done Done) {
 		PodClientProvider:   NewMockFdbPodClient,
 		PodIPProvider:       MockPodIP,
 		AdminClientProvider: NewMockAdminClient,
+		LockClientProvider:  NewMockLockClient,
 	}
 
 	err = (clusterReconciler).SetupWithManager(k8sManager)

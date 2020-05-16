@@ -57,6 +57,7 @@ type FoundationDBClusterReconciler struct {
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
 	PodIPProvider       func(*corev1.Pod) string
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
+	LockClientProvider  LockClientProvider
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete

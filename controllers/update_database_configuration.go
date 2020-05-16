@@ -92,6 +92,26 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			}
 			return false, ReconciliationNotReadyError{message: "Database configuration changes are disabled"}
 		}
+
+		if !initialConfig {
+			lockClient, err := r.LockClientProvider(cluster)
+			if err != nil {
+				return false, err
+			}
+
+			defer lockClient.Close()
+
+			hasLock, err := lockClient.TakeLock()
+			if err != nil {
+				return false, err
+			}
+			if !hasLock {
+				log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
+				r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before reconfiguring the database")
+				return false, nil
+			}
+		}
+
 		log.Info("Configuring database", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),

@@ -104,6 +104,23 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	}
 
 	if needsChange {
+		lockClient, err := r.LockClientProvider(cluster)
+		if err != nil {
+			return false, err
+		}
+
+		defer lockClient.Close()
+
+		hasLock, err := lockClient.TakeLock()
+		if err != nil {
+			return false, err
+		}
+		if !hasLock {
+			log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before changing coordinators")
+			return false, nil
+		}
+
 		if !allAddressesValid {
 			log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			r.Recorder.Event(cluster, "Normal", "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
