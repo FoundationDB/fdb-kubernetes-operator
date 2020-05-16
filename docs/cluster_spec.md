@@ -46,6 +46,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBStatusSupportedVersion](#foundationdbstatussupportedversion)
 * [ProcessAddress](#processaddress)
 * [ProcessCounts](#processcounts)
+* [ProcessSettings](#processsettings)
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoleCounts](#rolecounts)
@@ -289,15 +290,12 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. | map[string]int | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| configured | Configured defines whether we have configured the database yet. **Deprecated: This field has been moved to the status.** | bool | false |
+| processes | Processes defines process-level settings. | map[string][ProcessSettings](#processsettings) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
-| customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. | []string | false |
 | instancesToRemove | InstancesToRemove defines the instances that we should remove from the cluster. This list contains the instance IDs. | []string | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP.  **Deprecated: This is for internal use only. To tell the operator to remove or replace a process, use InstancesToRemove.** | map[string]string | false |
-| podTemplate | PodTemplate allows customizing the FoundationDB pods. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
-| volumeClaim | VolumeClaim allows customizing the persistent volume claim for the FoundationDB pods. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
 | configMap | ConfigMap allows customizing the config map the operator creates. | *[corev1.ConfigMap](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#configmap-v1-core) | false |
 | mainContainer | MainContainer defines customization for the foundationdb container. | [ContainerOverrides](#containeroverrides) | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | [ContainerOverrides](#containeroverrides) | false |
@@ -322,6 +320,10 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | volumeSize | VolumeSize defines the size of the volume to use for stateful processes.  **Deprecated: Use the VolumeClaim field instead.** | string | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running.  **Deprecated: Consult the running version in the status instead.** | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file.  **Deprecated: You can use SeedConnectionString for bootstrapping, and you can use the ConnectionString in the status to get the latest connection string.** | string | false |
+| configured | Configured defines whether we have configured the database yet. **Deprecated: This field has been moved to the status.** | bool | false |
+| podTemplate | PodTemplate allows customizing the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
+| volumeClaim | VolumeClaim allows customizing the persistent volume claim for the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
+| customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. **Deprecated: use the Processes field instead.** | []string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -621,6 +623,18 @@ ProcessCounts represents the number of processes we have for each valid process 
 | router |  | int | false |
 | ratekeeper |  | int | false |
 | data_distributor |  | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## ProcessSettings
+
+ProcessSettings defines process-level settings.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| podTemplate | PodTemplate allows customizing the pod. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
+| volumeClaim | VolumeClaim allows customizing the persistent volume claim for the pod. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
+| customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | *[]string | false |
 
 [Back to TOC](#table-of-contents)
 

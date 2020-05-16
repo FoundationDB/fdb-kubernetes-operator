@@ -8,12 +8,14 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.20
-  podTemplate:
-    spec:
-      automountServiceAccountToken: false
-      containers:
-          - name: "foundationdb"
-            resources:
-              requests:
-                cpu: 2
-                memory: 8Gi
+  processes:
+    general:
+      podTemplate:
+        spec:
+          automountServiceAccountToken: false
+          containers:
+              - name: "foundationdb"
+                resources:
+                  requests:
+                    cpu: 2
+                    memory: 8Gi

@@ -21,42 +21,26 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: FoundationDBRestore is the Schema for the FoundationDB Restore
-        API
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
-          description: FoundationDBRestoreSpec describes the desired state of the
-            backup for a cluster.
           properties:
             backupURL:
-              description: BackupURL provides the URL for the backup.
               type: string
             destinationClusterName:
-              description: DestinationClusterName provides the name of the cluster
-                that the data is being restored into.
               type: string
           required:
           - backupURL
           - destinationClusterName
           type: object
         status:
-          description: FoundationDBRestoreStatus describes the current status of the
-            restore for a cluster.
           properties:
             running:
-              description: Running describes whether the restore is currently running.
               type: boolean
           type: object
       type: object

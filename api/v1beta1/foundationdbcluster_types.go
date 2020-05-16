@@ -76,9 +76,8 @@ type FoundationDBClusterSpec struct {
 	// DatabaseConfiguration defines the database configuration.
 	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
-	// Configured defines whether we have configured the database yet.
-	// Deprecated: This field has been moved to the status.
-	Configured bool `json:"configured,omitempty"`
+	// Processes defines process-level settings.
+	Processes map[string]ProcessSettings `json:"processes,omitempty"`
 
 	// ProcessCounts defines the number of processes to configure for each
 	// process class. You can generally omit this, to allow the operator to
@@ -94,10 +93,6 @@ type FoundationDBClusterSpec struct {
 	// FaultDomain defines the rules for what fault domain to replicate across.
 	FaultDomain FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
 
-	// CustomParameters defines additional parameters to pass to the fdbserver
-	// processes.
-	CustomParameters []string `json:"customParameters,omitempty"`
-
 	// InstancesToRemove defines the instances that we should remove from the
 	// cluster. This list contains the instance IDs.
 	InstancesToRemove []string `json:"instancesToRemove,omitempty"`
@@ -109,13 +104,6 @@ type FoundationDBClusterSpec struct {
 	// Deprecated: This is for internal use only. To tell the operator to remove
 	// or replace a process, use InstancesToRemove.
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
-
-	// PodTemplate allows customizing the FoundationDB pods.
-	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
-
-	// VolumeClaim allows customizing the persistent volume claim for the
-	// FoundationDB pods.
-	VolumeClaim *corev1.PersistentVolumeClaim `json:"volumeClaim,omitempty"`
 
 	// ConfigMap allows customizing the config map the operator creates.
 	ConfigMap *corev1.ConfigMap `json:"configMap,omitempty"`
@@ -225,6 +213,24 @@ type FoundationDBClusterSpec struct {
 	// you can use the ConnectionString in the status to get the latest
 	// connection string.
 	ConnectionString string `json:"connectionString,omitempty"`
+
+	// Configured defines whether we have configured the database yet.
+	// Deprecated: This field has been moved to the status.
+	Configured bool `json:"configured,omitempty"`
+
+	// PodTemplate allows customizing the FoundationDB pods.
+	// Deprecated: use the Processes field instead.
+	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+
+	// VolumeClaim allows customizing the persistent volume claim for the
+	// FoundationDB pods.
+	// Deprecated: use the Processes field instead.
+	VolumeClaim *corev1.PersistentVolumeClaim `json:"volumeClaim,omitempty"`
+
+	// CustomParameters defines additional parameters to pass to the fdbserver
+	// processes.
+	// Deprecated: use the Processes field instead.
+	CustomParameters []string `json:"customParameters,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -494,6 +500,46 @@ type FoundationDBClusterAutomationOptions struct {
 	// DeletePods defines whether the operator is allowed to delete pods in
 	// order to recreate them.
 	DeletePods *bool `json:"deletePods,omitempty"`
+}
+
+// ProcessSettings defines process-level settings.
+type ProcessSettings struct {
+	// PodTemplate allows customizing the pod.
+	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+
+	// VolumeClaim allows customizing the persistent volume claim for the
+	// pod.
+	VolumeClaim *corev1.PersistentVolumeClaim `json:"volumeClaim,omitempty"`
+
+	// CustomParameters defines additional parameters to pass to the fdbserver
+	// process.
+	CustomParameters *[]string `json:"customParameters,omitempty"`
+}
+
+// GetProcessSettings gets settings for a process.
+func (cluster *FoundationDBCluster) GetProcessSettings(processClass string) ProcessSettings {
+	merged := ProcessSettings{}
+	entries := make([]ProcessSettings, 0, 2)
+
+	entry, present := cluster.Spec.Processes[processClass]
+	if present {
+		entries = append(entries, entry)
+	}
+
+	entries = append(entries, cluster.Spec.Processes["general"])
+
+	for _, entry := range entries {
+		if merged.PodTemplate == nil {
+			merged.PodTemplate = entry.PodTemplate
+		}
+		if merged.VolumeClaim == nil {
+			merged.VolumeClaim = entry.VolumeClaim
+		}
+		if merged.CustomParameters == nil {
+			merged.CustomParameters = entry.CustomParameters
+		}
+	}
+	return merged
 }
 
 // GetRoleCountsWithDefaults gets the role counts from the cluster spec and

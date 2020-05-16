@@ -536,7 +536,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.FreezeStatus()
-				cluster.Spec.CustomParameters = []string{"knob_disable_posix_kernel_aio=1"}
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
 			})
 
 			Context("with bounces enabled", func() {
@@ -659,7 +659,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to pod labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"fdb-label": "value3",
@@ -668,7 +668,7 @@ var _ = Describe("cluster_controller", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{},
 					},
-				}
+				}}}
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -741,7 +741,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Update(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"fdb-annotation": "value1",
@@ -750,7 +750,7 @@ var _ = Describe("cluster_controller", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{},
 					},
-				}
+				}}}
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1006,7 +1006,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to environment variables", func() {
 			BeforeEach(func() {
-				cluster.Spec.PodTemplate = &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							corev1.Container{
@@ -1020,7 +1020,7 @@ var _ = Describe("cluster_controller", func() {
 							},
 						},
 					},
-				}
+				}}}
 
 				timeout = 120 * time.Second
 			})
@@ -1727,33 +1727,105 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("with custom parameters", func() {
-			BeforeEach(func() {
-				cluster.Spec.CustomParameters = []string{
-					"knob_disable_posix_kernel_aio = 1",
-				}
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
-				Expect(err).NotTo(HaveOccurred())
+			Context("with general parameters", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {CustomParameters: &[]string{
+						"knob_disable_posix_kernel_aio = 1",
+					}}}
+					conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should include the custom parameters", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"datadir = /var/fdb/data",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+						"knob_disable_posix_kernel_aio = 1",
+					}, "\n")))
+				})
 			})
 
-			It("should include the custom parameters", func() {
-				Expect(conf).To(Equal(strings.Join([]string{
-					"[general]",
-					"kill_on_configuration_change = false",
-					"restart_delay = 60",
-					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
-					"cluster_file = /var/fdb/data/fdb.cluster",
-					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
-					"class = storage",
-					"datadir = /var/fdb/data",
-					"logdir = /var/log/fdb-trace-logs",
-					"loggroup = " + cluster.Name,
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
-					"knob_disable_posix_kernel_aio = 1",
-				}, "\n")))
+			Context("with process-class parameters", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{
+						"general": {CustomParameters: &[]string{
+							"knob_disable_posix_kernel_aio = 1",
+						}},
+						"storage": {CustomParameters: &[]string{
+							"knob_test = test1",
+						}},
+						"stateless": {CustomParameters: &[]string{
+							"knob_test = test2",
+						}},
+					}
+					conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should include the custom parameters", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"datadir = /var/fdb/data",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+						"knob_test = test1",
+					}, "\n")))
+				})
+			})
+
+			Context("with the deprecated custom parameters field", func() {
+				BeforeEach(func() {
+					cluster.Spec.CustomParameters = []string{
+						"knob_disable_posix_kernel_aio = 1",
+					}
+					conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should include the custom parameters", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"datadir = /var/fdb/data",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+						"knob_disable_posix_kernel_aio = 1",
+					}, "\n")))
+				})
 			})
 		})
 

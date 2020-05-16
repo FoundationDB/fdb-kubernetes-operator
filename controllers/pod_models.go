@@ -80,8 +80,11 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.PodSpec, error) {
 	var podSpec *corev1.PodSpec
 
+	processSettings := cluster.GetProcessSettings(processClass)
 	if cluster.Spec.PodTemplate != nil {
 		podSpec = cluster.Spec.PodTemplate.Spec.DeepCopy()
+	} else if processSettings.PodTemplate != nil {
+		podSpec = processSettings.PodTemplate.Spec.DeepCopy()
 	} else {
 		podSpec = &corev1.PodSpec{}
 	}
@@ -205,6 +208,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		var volumeClaimSourceName string
 		if cluster.Spec.VolumeClaim != nil && cluster.Spec.VolumeClaim.Name != "" {
 			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, cluster.Spec.VolumeClaim.Name)
+		} else if processSettings.VolumeClaim != nil && processSettings.VolumeClaim.Name != "" {
+			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, processSettings.VolumeClaim.Name)
 		} else {
 			volumeClaimSourceName = fmt.Sprintf("%s-data", podName)
 		}
@@ -476,8 +481,16 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 // usePvc determines whether we should attach a PVC to a pod.
 func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass string) bool {
 	var storage *resource.Quantity
+	processSettings := cluster.GetProcessSettings(processClass)
 	if cluster.Spec.VolumeClaim != nil {
 		requests := cluster.Spec.VolumeClaim.Spec.Resources.Requests
+		if requests != nil {
+			storageCopy := requests["storage"]
+			storage = &storageCopy
+		}
+	}
+	if processSettings.VolumeClaim != nil {
+		requests := processSettings.VolumeClaim.Spec.Resources.Requests
 		if requests != nil {
 			storageCopy := requests["storage"]
 			storage = &storageCopy
@@ -499,11 +512,14 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 	}
 	name, id := getInstanceID(cluster, processClass, idNum)
 
+	processSettings := cluster.GetProcessSettings(processClass)
 	var pvc *corev1.PersistentVolumeClaim
-	if cluster.Spec.VolumeClaim == nil {
-		pvc = &corev1.PersistentVolumeClaim{}
-	} else {
+	if cluster.Spec.VolumeClaim != nil {
 		pvc = cluster.Spec.VolumeClaim.DeepCopy()
+	} else if processSettings.VolumeClaim != nil {
+		pvc = processSettings.VolumeClaim.DeepCopy()
+	} else {
+		pvc = &corev1.PersistentVolumeClaim{}
 	}
 
 	pvc.ObjectMeta = getPvcMetadata(cluster, processClass, id)

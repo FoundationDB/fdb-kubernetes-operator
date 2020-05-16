@@ -223,13 +223,18 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context
 }
 
 func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, specHash string) metav1.ObjectMeta {
-	var metadata metav1.ObjectMeta
+	var customMetadata *metav1.ObjectMeta
 
+	processSettings := cluster.GetProcessSettings(processClass)
 	if cluster.Spec.PodTemplate != nil {
-		metadata = getObjectMetadata(cluster, &cluster.Spec.PodTemplate.ObjectMeta, processClass, id)
+		customMetadata = &cluster.Spec.PodTemplate.ObjectMeta
+	} else if processSettings.PodTemplate != nil {
+		customMetadata = &processSettings.PodTemplate.ObjectMeta
 	} else {
-		metadata = getObjectMetadata(cluster, nil, processClass, id)
+		customMetadata = nil
 	}
+
+	metadata := getObjectMetadata(cluster, customMetadata, processClass, id)
 
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
@@ -240,10 +245,17 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 }
 
 func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) metav1.ObjectMeta {
+	var customMetadata *metav1.ObjectMeta
+
+	processSettings := cluster.GetProcessSettings(processClass)
 	if cluster.Spec.VolumeClaim != nil {
-		return getObjectMetadata(cluster, &cluster.Spec.VolumeClaim.ObjectMeta, processClass, id)
+		customMetadata = &cluster.Spec.VolumeClaim.ObjectMeta
+	} else if processSettings.VolumeClaim != nil {
+		customMetadata = &processSettings.VolumeClaim.ObjectMeta
+	} else {
+		customMetadata = nil
 	}
-	return getObjectMetadata(cluster, nil, processClass, id)
+	return getObjectMetadata(cluster, customMetadata, processClass, id)
 }
 
 func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMeta {
@@ -534,6 +546,12 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 
 	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
 		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", cluster.Spec.MainContainer.PeerVerificationRules))
+	}
+
+	podSettings := cluster.GetProcessSettings(processClass)
+
+	if podSettings.CustomParameters != nil {
+		confLines = append(confLines, *podSettings.CustomParameters...)
 	}
 
 	confLines = append(confLines, cluster.Spec.CustomParameters...)
