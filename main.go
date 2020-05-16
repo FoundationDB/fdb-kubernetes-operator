@@ -17,6 +17,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"os"
 
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -44,13 +45,29 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var logFile string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
 	flag.Parse()
+
+	var logWriter io.Writer
+	if logFile != "" {
+		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			os.Stderr.WriteString(err.Error())
+			os.Exit(1)
+		}
+		defer file.Close()
+		logWriter = io.MultiWriter(os.Stdout, file)
+	} else {
+		logWriter = os.Stdout
+	}
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
 		o.Development = true
+		o.DestWritter = logWriter
 	}))
 
 	options := ctrl.Options{
