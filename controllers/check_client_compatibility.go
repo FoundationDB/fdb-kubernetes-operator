@@ -43,6 +43,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 	if err != nil {
 		return false, err
 	}
+	defer adminClient.Close()
 
 	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {

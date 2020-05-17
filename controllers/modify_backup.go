@@ -44,6 +44,7 @@ func (s ModifyBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Con
 		if err != nil {
 			return false, err
 		}
+		defer adminClient.Close()
 
 		err = adminClient.ModifyBackup(snapshotPeriod)
 		if err != nil {

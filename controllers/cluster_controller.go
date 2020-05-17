@@ -88,6 +88,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	defer adminClient.Close()
 
 	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
 	if err != nil {
@@ -754,6 +755,8 @@ func (manager StandardPodLifecycleManager) CanDeletePods(r *FoundationDBClusterR
 	if err != nil {
 		return false, err
 	}
+	defer adminClient.Close()
+
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
