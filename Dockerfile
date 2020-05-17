@@ -53,7 +53,7 @@ COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
 COPY --from=builder /usr/lib/fdb /usr/lib/
 
 RUN groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb && \
+	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
 	mkdir -p /var/log/fdb && \
 	chown fdb:fdb /var/log/fdb && \
 	chmod -R a+x /usr/bin/fdb

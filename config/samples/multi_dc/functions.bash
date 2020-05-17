@@ -1,10 +1,14 @@
 function applyFile() {
 	path=$1
-	zone=$2
+	dc=$2
 	connectionString=$3
-	zoneIndex=${zone:2:1}
+	if [[ $dataCenter == "dc3" ]]; then
+		logCount=0
+	else
+		logCount=-1
+	fi
 	
-	cat $path | sed -e "s/\$zoneIndex/$zoneIndex/" | sed -e "s/\$zone/$zone/" | sed -e "s/\$connectionString/$connectionString/" | kubectl apply -f -
+	cat $path | sed -e "s/\$dc/$dc/" | sed -e "s/\$logCount/$logCount/" | sed -e "s/\$connectionString/$connectionString/" | kubectl apply -f -
 }
 
 function checkReconciliation() {

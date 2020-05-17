@@ -3233,3 +3233,22 @@ func TestVersionsAreProtocolCompatible(t *testing.T) {
 	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(gomega.BeFalse())
 	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(gomega.BeFalse())
 }
+
+func TestGettingLockOptions(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cluster := &FoundationDBCluster{}
+
+	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeTrue())
+	g.Expect(cluster.GetLockPrefix()).To(gomega.Equal("\xff\x02/org.foundationdb.kubernetes-operator"))
+
+	var disabled = true
+	cluster.Spec.LockOptions.DisableLocks = &disabled
+	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeFalse())
+	disabled = false
+	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeTrue())
+	cluster.Spec.LockOptions.DisableLocks = nil
+
+	cluster.Spec.LockOptions.LockKeyPrefix = "\xfe/locks"
+	g.Expect(cluster.GetLockPrefix()).To(gomega.Equal("\xfe/locks"))
+}

@@ -1,30 +1,34 @@
 # This file provides an example of a cluster you can run in a local testing
-# environment to create a simultation of a multi-KC cluster.
+# environment to create a simultation of a multi-DC cluster.
 #
-# This requires variables to be interpolated for $zone, $zoneIndex,
-# and $connectionString.
+# This requires variables to be interpolated for $dc, $logCount,
+# and $connectionString
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
     cluster-group: sample-cluster
-  name: sample-cluster-$zone
+  name: sample-cluster-$dc
 spec:
   version: 6.2.20
   faultDomain:
-    key: foundationdb.org/kubernetes-cluster
-    value: $zone
-    zoneIndex: $zoneIndex
-    zoneCount: 3
-  instanceIDPrefix: $zone
+    key: foundationdb.org/none
+  instanceIDPrefix: $dc
+  dataCenter: $dc
   processCounts:
     stateless: -1
+    log: $logCount
   seedConnectionString: $connectionString
   customParameters:
     - "knob_disable_posix_kernel_aio=1"
   databaseConfiguration:
     redundancy_mode: "double"
+    usable_regions: 1
+    regions:
+      - datacenters:
+          - id: dc1
+        priority: 1
   volumeClaim:
     spec:
       resources:

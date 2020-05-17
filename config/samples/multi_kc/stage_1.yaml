@@ -1,8 +1,8 @@
 # This file provides an example of a cluster you can run in a local testing
 # environment to create a simultation of a multi-KC cluster.
 #
-# This requires variables to be interpolated for $zone, $zoneIndex, $logCount,
-# and $connectionString
+# This requires variables to be interpolated for $zone, $zoneIndex,
+# and $connectionString.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
