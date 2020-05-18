@@ -233,7 +233,9 @@ var _ = Describe("pod_models", func() {
 				Expect(mainContainer.Command).To(Equal([]string{"sh", "-c"}))
 				Expect(mainContainer.Args).To(Equal([]string{
 					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile",
+						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+						" --loggroup operator-test-1" +
+						" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
 				}))
 
 				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
