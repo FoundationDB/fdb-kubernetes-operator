@@ -1,3 +1,7 @@
+# v0.11.1
+
+*	Restore the behavior of writing the connection string into the spec as a temporary bridge.
+
 # v0.11.0
 
 *	Move fields from spec to status.
