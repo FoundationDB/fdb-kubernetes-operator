@@ -159,10 +159,17 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/dynamic-conf/ca.pem"})
 	}
 
+	logGroup := cluster.Spec.LogGroup
+	if logGroup == "" {
+		logGroup = cluster.Name
+	}
+
 	mainContainer.Command = []string{"sh", "-c"}
 	mainContainer.Args = []string{
 		"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile",
+			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+			" --loggroup " + logGroup +
+			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
 	}
 
 	if cluster.Spec.Resources != nil {
