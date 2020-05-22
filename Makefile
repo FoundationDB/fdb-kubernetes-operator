@@ -21,7 +21,7 @@ endif
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta1/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
-MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml /Users/johnbrownlee/Code/fdb-kubernetes-operator/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml /Users/johnbrownlee/Code/fdb-kubernetes-operator/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 
 all: generate fmt vet manager manifests samples documentation test_if_changed
@@ -35,8 +35,9 @@ clean:
 	rm -r bin
 	find config/samples -type f -name deployment.yaml -delete
 	find . -name "cover.out" -delete
+
 # Run tests
-test: cover.out
+test:
 	go test ./... -coverprofile cover.out
 
 test_if_changed: cover.out
