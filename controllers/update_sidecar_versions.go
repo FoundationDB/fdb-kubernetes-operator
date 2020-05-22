@@ -40,22 +40,33 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 		return false, err
 	}
 	upgraded := false
-	image := cluster.Spec.SidecarContainer.ImageName
-	if cluster.Spec.PodTemplate != nil {
-		for _, container := range cluster.Spec.PodTemplate.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
-				image = container.Image
-			}
-		}
-	}
-	if image == "" {
-		image = "foundationdb/foundationdb-kubernetes-sidecar"
-	}
-	image = fmt.Sprintf("%s:%s", image, cluster.GetFullSidecarVersion(false))
 	for _, instance := range instances {
 		if instance.Pod == nil {
 			return false, MissingPodError(instance, cluster)
 		}
+
+		settings := cluster.GetProcessSettings(instance.GetProcessClass())
+
+		image := cluster.Spec.SidecarContainer.ImageName
+		if settings.PodTemplate != nil {
+			for _, container := range settings.PodTemplate.Spec.Containers {
+				if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+					image = container.Image
+				}
+			}
+		}
+		if cluster.Spec.PodTemplate != nil {
+			for _, container := range cluster.Spec.PodTemplate.Spec.Containers {
+				if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+					image = container.Image
+				}
+			}
+		}
+		if image == "" {
+			image = "foundationdb/foundationdb-kubernetes-sidecar"
+		}
+		image = fmt.Sprintf("%s:%s", image, cluster.GetFullSidecarVersion(false))
+
 		for containerIndex, container := range instance.Pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
 				log.Info("Upgrading sidecar", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instance.Pod.Name, "oldImage", container.Image, "newImage", image)

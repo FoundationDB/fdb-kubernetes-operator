@@ -24,6 +24,7 @@ import (
 
 	"github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -3184,4 +3185,40 @@ func TestGettingSnapshotTime(t *testing.T) {
 	period := 60
 	backup.Spec.SnapshotPeriodSeconds = &period
 	g.Expect(backup.SnapshotPeriodSeconds()).To(gomega.Equal(60))
+}
+
+func TestGettingProcessSettings(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cluster := &FoundationDBCluster{
+		Spec: FoundationDBClusterSpec{
+			Processes: map[string]ProcessSettings{
+				"general": {
+					PodTemplate: &corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test-label": "label1"},
+						},
+					},
+					CustomParameters: &[]string{"test_knob=value1"},
+				},
+				"storage": {
+					PodTemplate: &corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test-label": "label2"},
+						},
+					},
+				},
+				"stateless": {
+					PodTemplate: &corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test-label": "label3"},
+						},
+					},
+				},
+			},
+		},
+	}
+	settings := cluster.GetProcessSettings("storage")
+	g.Expect(settings.PodTemplate.ObjectMeta.Labels).To(gomega.Equal(map[string]string{"test-label": "label2"}))
+	g.Expect(settings.CustomParameters).To(gomega.Equal(&[]string{"test_knob=value1"}))
 }

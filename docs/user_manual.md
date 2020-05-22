@@ -271,24 +271,26 @@ You can make the values from this secret available through a custom volume mount
       version: 6.2.20
       databaseConfiguration:
         storage: 5
-      podTemplate:
-        spec:
-          volumes:
-            - name: fdb-certs
-              secret:
-                secretName: fdb-kubernetes-operator-secrets
-          containers:
-            - name: foundationdb
-              env:
-                - name: FDB_TLS_CERTIFICATE_FILE
-                  value: /tmp/fdb-certs/tls.crt
-                - name: FDB_TLS_CA_FILE
-                  value: /tmp/fdb-certs/tls.crt
-                - name: FDB_TLS_KEY_FILE
-                  value: /tmp/fdb-certs/tls.key
-              volumeMounts:
+      processes:
+        general:
+          podTemplate:
+            spec:
+              volumes:
                 - name: fdb-certs
-                  mountPath: /tmp/fdb-certs
+                  secret:
+                    secretName: fdb-kubernetes-operator-secrets
+              containers:
+                - name: foundationdb
+                  env:
+                    - name: FDB_TLS_CERTIFICATE_FILE
+                      value: /tmp/fdb-certs/tls.crt
+                    - name: FDB_TLS_CA_FILE
+                      value: /tmp/fdb-certs/tls.crt
+                    - name: FDB_TLS_KEY_FILE
+                      value: /tmp/fdb-certs/tls.key
+                  volumeMounts:
+                    - name: fdb-certs
+                      mountPath: /tmp/fdb-certs
 
 This will delete the pods in the cluster and recreate them with the new environment variables and volumes.
 
