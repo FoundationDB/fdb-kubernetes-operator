@@ -1189,16 +1189,10 @@ spec:
                 type: string
               type: array
             lockOptions:
-              description: LockOptions allows customizing how we manage locks for
-                global operations.
               properties:
                 disableLocks:
-                  description: DisableLocks determines whether we should disable locking
-                    entirely.
                   type: boolean
                 lockKeyPrefix:
-                  description: LockKeyPrefix provides a custom prefix for the keys
-                    in the database we use to store locks.
                   type: string
               type: object
             logGroup:
