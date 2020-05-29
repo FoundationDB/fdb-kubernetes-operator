@@ -1,3 +1,9 @@
+# v0.12.0
+
+*	Improve logging for the operator
+*	Improve logging for fdbmonitor
+*	Allow customizing pod configuration for different processes based on process class.
+
 # v0.11.1
 
 *	Restore the behavior of writing the connection string into the spec as a temporary bridge.
