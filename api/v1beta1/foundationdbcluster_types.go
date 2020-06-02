@@ -1886,6 +1886,12 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 	return true
 }
 
+// IsProtocolCompatible determines whether two versions of FDB are protocol
+// compatible.
+func (version FdbVersion) IsProtocolCompatible(other FdbVersion) bool {
+	return version.Major == other.Major && version.Minor == other.Minor
+}
+
 // HasInstanceIDInSidecarSubstitutions determines if a version has
 // FDB_INSTANCE_ID supported natively in the variable substitutions in the
 // sidecar.
