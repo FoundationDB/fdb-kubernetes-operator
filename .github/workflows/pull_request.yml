@@ -27,7 +27,7 @@ jobs:
         sudo mv /tmp/kubebuilder_2.2.0_${os}_${arch} /usr/local/kubebuilder
         export PATH=$PATH:/usr/local/kubebuilder/bin
         curl https://www.foundationdb.org/downloads/6.2.20/ubuntu/installers/foundationdb-clients_6.2.20-1_amd64.deb -o fdb.deb
-        dpkg -i fdb.deb
+        sudo dpkg -i fdb.deb
 
     - name: Build
       run: make all
