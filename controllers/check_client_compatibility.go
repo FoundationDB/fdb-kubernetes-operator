@@ -58,6 +58,10 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 		return false, fmt.Errorf("cluster downgrade operation is not supported")
 	}
 
+	if version.IsProtocolCompatible(runningVersion) {
+		return true, nil
+	}
+
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err

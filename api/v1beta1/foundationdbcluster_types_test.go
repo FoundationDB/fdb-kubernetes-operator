@@ -3222,3 +3222,14 @@ func TestGettingProcessSettings(t *testing.T) {
 	g.Expect(settings.PodTemplate.ObjectMeta.Labels).To(gomega.Equal(map[string]string{"test-label": "label2"}))
 	g.Expect(settings.CustomParameters).To(gomega.Equal(&[]string{"test_knob=value1"}))
 }
+
+func TestVersionsAreProtocolCompatible(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
+	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 20})).To(gomega.BeTrue())
+	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 22})).To(gomega.BeTrue())
+	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 0})).To(gomega.BeFalse())
+	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(gomega.BeFalse())
+	g.Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(gomega.BeFalse())
+}
