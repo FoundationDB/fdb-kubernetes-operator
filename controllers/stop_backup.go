@@ -41,6 +41,7 @@ func (s StopBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Conte
 	if err != nil {
 		return false, err
 	}
+	defer adminClient.Close()
 
 	err = adminClient.StopBackup(backup.BackupURL())
 	if err != nil {

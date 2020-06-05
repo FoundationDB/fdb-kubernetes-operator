@@ -22,6 +22,7 @@ import (
 
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -46,6 +47,9 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var logFile string
+
+	fdb.MustAPIVersion(610)
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -96,6 +100,7 @@ func main() {
 		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
 		PodClientProvider:   controllers.NewFdbPodClient,
 		AdminClientProvider: controllers.NewCliAdminClient,
+		LockClientProvider:  controllers.NewRealLockClient,
 	}
 
 	if err = clusterReconciler.SetupWithManager(mgr); err != nil {

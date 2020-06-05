@@ -44,6 +44,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBStatusMovingData](#foundationdbstatusmovingdata)
 * [FoundationDBStatusProcessInfo](#foundationdbstatusprocessinfo)
 * [FoundationDBStatusSupportedVersion](#foundationdbstatussupportedversion)
+* [LockOptions](#lockoptions)
 * [ProcessAddress](#processaddress)
 * [ProcessCounts](#processcounts)
 * [ProcessSettings](#processsettings)
@@ -307,6 +308,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | automationOptions | AutomationOptions defines customization for enabling or disabling certain operations in the operator. | [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions) | false |
 | instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields. | string | false |
 | updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. | bool | false |
+| lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
 | podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
 | resources | Resources defines the resource requirements for the foundationdb containers.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
@@ -589,6 +591,17 @@ FoundationDBStatusSupportedVersion provides information about a version of FDB s
 | max_protocol_clients | MaxProtocolClients provides the clients that are using this version as their highest supported protocol version. | [][FoundationDBStatusConnectedClient](#foundationdbstatusconnectedclient) | true |
 | protocol_version | ProtocolVersion is the version of the wire protocol the client is using. | string | false |
 | source_version | SourceVersion is the version of the source code that the client library was built from. | string | false |
+
+[Back to TOC](#table-of-contents)
+
+## LockOptions
+
+LockOptions provides customization for locking global operations.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| disableLocks | DisableLocks determines whether we should disable locking entirely. | *bool | false |
+| lockKeyPrefix | LockKeyPrefix provides a custom prefix for the keys in the database we use to store locks. | string | false |
 
 [Back to TOC](#table-of-contents)
 

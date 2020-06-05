@@ -41,6 +41,7 @@ func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Cont
 	if err != nil {
 		return false, err
 	}
+	defer adminClient.Close()
 
 	err = adminClient.StartBackup(backup.BackupURL(), backup.SnapshotPeriodSeconds())
 	if err != nil {

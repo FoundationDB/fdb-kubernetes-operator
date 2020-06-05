@@ -144,6 +144,9 @@ type FoundationDBClusterSpec struct {
 	// by replacing the pods rather than deleting them.
 	UpdatePodsByReplacement bool `json:"updatePodsByReplacement,omitempty"`
 
+	// LockOptions allows customizing how we manage locks for global operations.
+	LockOptions LockOptions `json:"lockOptions,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.
@@ -1474,6 +1477,29 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 	return false
 }
 
+// ShouldUseLocks determine whether we should use locks to coordinator global
+// operations.
+func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
+	disabled := cluster.Spec.LockOptions.DisableLocks
+	return disabled == nil || !*disabled
+}
+
+// GetLockPrefix gets the prefix for the keys where we store locking
+// information.
+func (cluster *FoundationDBCluster) GetLockPrefix() string {
+	if cluster.Spec.LockOptions.LockKeyPrefix != "" {
+		return cluster.Spec.LockOptions.LockKeyPrefix
+	}
+
+	return "\xff\x02/org.foundationdb.kubernetes-operator"
+}
+
+// GetLockID gets the identifier for this instance of the operator when taking
+// locks.
+func (cluster *FoundationDBCluster) GetLockID() string {
+	return cluster.Spec.InstanceIDPrefix
+}
+
 // FillInDefaultsFromStatus adds in missing fields from the database
 // configuration in the database status to make sure they match the fields that
 // will appear in the cluster spec.
@@ -1804,6 +1830,16 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 		}
 	}
 	return priorities
+}
+
+// LockOptions provides customization for locking global operations.
+type LockOptions struct {
+	// DisableLocks determines whether we should disable locking entirely.
+	DisableLocks *bool `json:"disableLocks,omitempty"`
+
+	// LockKeyPrefix provides a custom prefix for the keys in the database we
+	// use to store locks.
+	LockKeyPrefix string `json:"lockKeyPrefix,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen

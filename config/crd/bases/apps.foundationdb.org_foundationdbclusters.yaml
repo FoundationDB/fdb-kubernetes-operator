@@ -1188,6 +1188,13 @@ spec:
               items:
                 type: string
               type: array
+            lockOptions:
+              properties:
+                disableLocks:
+                  type: boolean
+                lockKeyPrefix:
+                  type: string
+              type: object
             logGroup:
               type: string
             mainContainer:

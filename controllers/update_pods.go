@@ -127,6 +127,24 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		if !ready {
 			return false, ReconciliationNotReadyError{message: "Reconciliation requires deleting pods, but deletion is not currently safe"}
 		}
+
+		lockClient, err := r.LockClientProvider(cluster)
+		if err != nil {
+			return false, err
+		}
+
+		defer lockClient.Close()
+
+		hasLock, err := lockClient.TakeLock()
+		if err != nil {
+			return false, err
+		}
+		if !hasLock {
+			log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before updating pods")
+			return false, nil
+		}
+
 		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances)
 		if err != nil {
 			return false, err

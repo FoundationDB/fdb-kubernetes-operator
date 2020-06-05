@@ -3,6 +3,7 @@ module github.com/FoundationDB/fdb-kubernetes-operator
 go 1.12
 
 require (
+	github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c
 	github.com/go-logr/logr v0.1.0
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0

@@ -80,6 +80,7 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 	if err != nil {
 		return false, err
 	}
+	defer adminClient.Close()
 
 	liveStatus, err := adminClient.GetBackupStatus()
 	if err != nil {

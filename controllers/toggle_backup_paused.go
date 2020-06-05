@@ -43,6 +43,7 @@ func (s ToggleBackupPaused) Reconcile(r *FoundationDBBackupReconciler, context c
 		if err != nil {
 			return false, err
 		}
+		defer adminClient.Close()
 
 		err = adminClient.PauseBackups()
 		return err == nil, err
@@ -51,6 +52,7 @@ func (s ToggleBackupPaused) Reconcile(r *FoundationDBBackupReconciler, context c
 		if err != nil {
 			return false, err
 		}
+		defer adminClient.Close()
 
 		err = adminClient.ResumeBackups()
 		return err == nil, err

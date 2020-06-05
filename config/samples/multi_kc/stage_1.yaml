@@ -1,0 +1,51 @@
+# This file provides an example of a cluster you can run in a local testing
+# environment to create a simultation of a multi-KC cluster.
+#
+# This requires variables to be interpolated for $zone, $zoneIndex,
+# and $connectionString.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+    cluster-group: sample-cluster
+  name: sample-cluster-$zone
+spec:
+  version: 6.2.20
+  faultDomain:
+    key: foundationdb.org/kubernetes-cluster
+    value: $zone
+    zoneIndex: $zoneIndex
+    zoneCount: 1
+  instanceIDPrefix: $zone
+  processCounts:
+    stateless: -1
+  seedConnectionString: $connectionString
+  customParameters:
+    - "knob_disable_posix_kernel_aio=1"
+  databaseConfiguration:
+    redundancy_mode: "single"
+  volumeClaim:
+    spec:
+      resources:
+        requests:
+          storage: "16G"
+  podTemplate:
+    spec:
+      securityContext:
+        fsGroup: 0
+      containers:
+        - name: foundationdb
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+        - name: foundationdb-kubernetes-sidecar
+          securityContext:
+            runAsUser: 0
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          securityContext:
+            runAsUser: 0
