@@ -54,7 +54,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		return false, err
 	}
 
-	initialConfig := status.Cluster.Layers.Error == "configurationMissing"
+	initialConfig := !cluster.Status.Configured
 
 	healthy = initialConfig || status.Client.DatabaseStatus.Healthy
 	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
