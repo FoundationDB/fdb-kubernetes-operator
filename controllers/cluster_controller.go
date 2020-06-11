@@ -58,6 +58,7 @@ type FoundationDBClusterReconciler struct {
 	PodIPProvider       func(*corev1.Pod) string
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 	LockClientProvider  LockClientProvider
+	lockClients         map[string]LockClient
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -605,6 +606,25 @@ func (r *FoundationDBClusterReconciler) getPodClient(context ctx.Context, cluste
 		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name), retryable: true}
 	} else if err != nil {
 		return nil, err
+	}
+	return client, nil
+}
+
+func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
+	if r.lockClients == nil {
+		r.lockClients = make(map[string]LockClient)
+	}
+
+	cacheKey := fmt.Sprintf("%s/%s", cluster.ObjectMeta.Namespace, cluster.ObjectMeta.Name)
+	client, present := r.lockClients[cacheKey]
+	var err error
+	if !present {
+		client, err = r.LockClientProvider(cluster)
+		if err != nil {
+			return nil, err
+		}
+
+		r.lockClients[cacheKey] = client
 	}
 	return client, nil
 }

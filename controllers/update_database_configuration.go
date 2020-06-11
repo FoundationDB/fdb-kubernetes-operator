@@ -94,12 +94,10 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		}
 
 		if !initialConfig {
-			lockClient, err := r.LockClientProvider(cluster)
+			lockClient, err := r.getLockClient(cluster)
 			if err != nil {
 				return false, err
 			}
-
-			defer lockClient.Close()
 
 			hasLock, err := lockClient.TakeLock()
 			if err != nil {
