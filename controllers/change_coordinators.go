@@ -104,12 +104,10 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	}
 
 	if needsChange {
-		lockClient, err := r.LockClientProvider(cluster)
+		lockClient, err := r.getLockClient(cluster)
 		if err != nil {
 			return false, err
 		}
-
-		defer lockClient.Close()
 
 		hasLock, err := lockClient.TakeLock()
 		if err != nil {
