@@ -1,3 +1,10 @@
+# v0.13.0
+
+*	Sync coordinator changes across KCs.
+*	Only check client compatibility when we are doing a protocal-incompatible upgrade.
+*	Prevent reconfiguration an already configured database.
+*	Adds a cache for the connections from the lock client.
+
 # v0.12.0
 
 *	Improve logging for the operator
