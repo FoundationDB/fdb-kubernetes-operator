@@ -552,6 +552,7 @@ type MockAdminClient struct {
 	frozenStatus          *fdbtypes.FoundationDBStatus
 	Backups               map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
 	restoreURL            string
+	clientVersions        map[string][]string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -646,6 +647,30 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			},
 			Version: client.Cluster.Status.RunningVersion,
 		}
+	}
+
+	if client.clientVersions != nil {
+		supportedVersions := make([]fdbtypes.FoundationDBStatusSupportedVersion, 0, len(client.clientVersions))
+		for version, addresses := range client.clientVersions {
+			protocolVersion, err := client.GetProtocolVersion(version)
+			if err != nil {
+				return nil, err
+			}
+
+			protocolClients := make([]fdbtypes.FoundationDBStatusConnectedClient, 0, len(addresses))
+			for _, address := range addresses {
+				protocolClients = append(protocolClients, fdbtypes.FoundationDBStatusConnectedClient{
+					Address: address,
+				})
+			}
+
+			supportedVersions = append(supportedVersions, fdbtypes.FoundationDBStatusSupportedVersion{
+				ClientVersion:      version,
+				ProtocolVersion:    protocolVersion,
+				MaxProtocolClients: protocolClients,
+			})
+		}
+		status.Cluster.Clients.SupportedVersions = supportedVersions
 	}
 
 	for address, reachable := range coordinators {
@@ -883,6 +908,13 @@ func (client *MockAdminClient) StartRestore(url string) error {
 // GetRestoreStatus gets the status of the current restore.
 func (client *MockAdminClient) GetRestoreStatus() (string, error) {
 	return fmt.Sprintf("%s\n", client.restoreURL), nil
+}
+
+func (client *MockAdminClient) MockClientVersion(version string, clients []string) {
+	if client.clientVersions == nil {
+		client.clientVersions = make(map[string][]string)
+	}
+	client.clientVersions[version] = clients
 }
 
 // Close shuts down any resources for the client once it is no longer
