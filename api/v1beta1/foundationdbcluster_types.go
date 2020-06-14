@@ -305,6 +305,11 @@ type FoundationDBClusterStatus struct {
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the instance ID to its removal state.
 	PendingRemovals map[string]PendingRemovalState `json:"pendingRemovals,omitempty"`
+
+	// NeedsSidecarConfInConfigMap determines whether we need to include the
+	// sidecar conf in the config map even when the latest version should not
+	// require it.
+	NeedsSidecarConfInConfigMap bool `json:"needsSidecarConfInConfigMap,omitempty"`
 }
 
 // ClusterGenerationStatus stores information on which generations have reached

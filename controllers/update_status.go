@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -190,6 +191,19 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 			if incorrectPod {
 				status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
+			}
+
+			for _, container := range instance.Pod.Spec.Containers {
+				if container.Name == "foundationdb" {
+					image := strings.Split(container.Image, ":")
+					version, err := fdbtypes.ParseFdbVersion(image[len(image)-1])
+					if err != nil {
+						return false, err
+					}
+					if !version.PrefersCommandLineArgumentsInSidecar() {
+						status.NeedsSidecarConfInConfigMap = true
+					}
+				}
 			}
 		}
 	}
