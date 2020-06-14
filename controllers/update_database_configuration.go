@@ -58,7 +58,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 	healthy = initialConfig || status.Client.DatabaseStatus.Healthy
 	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
-	desiredConfiguration.FillInDefaultVersionFlags(currentConfiguration)
+	cluster.ClearMissingVersionFlags(&currentConfiguration)
 	needsChange = initialConfig || !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
 
 	if needsChange {

@@ -804,7 +804,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	}
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
-	desiredConfiguration.FillInDefaultVersionFlags(cluster.Status.DatabaseConfiguration)
 	if !reflect.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		reconciled = false
@@ -1452,6 +1451,20 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	return configuration
 }
 
+// This method clears any version flags in the given configuration that are not
+// set in the configuration in the cluster spec.
+//
+// This allows us to compare the spec to the live configuration while ignoring
+// version flags that are unset in the spec.
+func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *DatabaseConfiguration) {
+	if cluster.Spec.DatabaseConfiguration.LogVersion == 0 {
+		configuration.LogVersion = 0
+	}
+	if cluster.Spec.DatabaseConfiguration.LogSpill == 0 {
+		configuration.LogSpill = 0
+	}
+}
+
 // IsBeingUpgraded determines whether the cluster has a pending upgrade.
 func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
@@ -1519,6 +1532,9 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 
 // FillInDefaultVersionFlags adds in missing version flags so they match the
 // running configuration.
+//
+// Deprecated: Use ClearMissingVersionFlags instead on the live configuration
+// instead.
 func (configuration *DatabaseConfiguration) FillInDefaultVersionFlags(liveConfiguration DatabaseConfiguration) {
 	if configuration.LogSpill == 0 {
 		configuration.LogSpill = liveConfiguration.LogSpill
