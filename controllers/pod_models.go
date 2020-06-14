@@ -653,6 +653,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 			Namespace:   backup.ObjectMeta.Namespace,
 			Name:        deploymentName,
 			Annotations: map[string]string{},
+			Labels:      map[string]string{},
 		},
 	}
 	deployment.Spec.Replicas = &agentCount
@@ -661,9 +662,16 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		return nil, err
 	}
 	deployment.ObjectMeta.OwnerReferences = owner
-	deployment.ObjectMeta.Labels = map[string]string{
-		BackupDeploymentLabel: string(backup.ObjectMeta.UID),
+
+	if backup.Spec.DeploymentMetadata != nil {
+		for key, value := range backup.Spec.DeploymentMetadata.Labels {
+			deployment.ObjectMeta.Labels[key] = value
+		}
+		for key, value := range backup.Spec.DeploymentMetadata.Annotations {
+			deployment.ObjectMeta.Annotations[key] = value
+		}
 	}
+	deployment.ObjectMeta.Labels[BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
 
 	var podTemplate *corev1.PodTemplateSpec
 	if backup.Spec.PodTemplateSpec != nil {

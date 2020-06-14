@@ -55,6 +55,8 @@ spec:
               type: string
             clusterName:
               type: string
+            deploymentMetadata:
+              type: object
             podTemplateSpec:
               properties:
                 metadata:

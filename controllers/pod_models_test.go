@@ -2402,6 +2402,26 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with a custom label", func() {
+			BeforeEach(func() {
+				backup.Spec.DeploymentMetadata = &metav1.ObjectMeta{
+					Labels: map[string]string{
+						"fdb-test": "test-value",
+					},
+				}
+				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should add the labels", func() {
+				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
+					"foundationdb.org/backup-for": "",
+					"fdb-test":                    "test-value",
+				}))
+			})
+		})
+
 		Context("with a nil agent count", func() {
 			BeforeEach(func() {
 				backup.Spec.AgentCount = nil
