@@ -528,6 +528,35 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		Context("with a pod that gets deleted", func() {
+			var pod corev1.Pod
+			BeforeEach(func() {
+				generationGap = 0
+
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-1")...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(1))
+				pod = pods.Items[0]
+
+				err := k8sClient.Delete(context.TODO(), &pod)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should replace the pod", func() {
+				pods := &corev1.PodList{}
+				Eventually(func() (bool, error) {
+					err := k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-1")...)
+					if err != nil {
+						return false, err
+					}
+					return len(pods.Items) == 1 && pods.Items[0].ObjectMeta.UID != pod.ObjectMeta.UID, nil
+				}, timeout).Should(BeTrue())
+
+				Expect(pods.Items[0].Name).To(Equal("operator-test-1-storage-1"))
+			})
+		})
+
 		Context("with a knob change", func() {
 			var adminClient *MockAdminClient
 
