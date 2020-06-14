@@ -250,8 +250,13 @@ func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod)
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
+var mockMissingPodIPs map[string]bool
+
 // MockPodIP generates a mock IP for FDB pod
 func MockPodIP(pod *corev1.Pod) string {
+	if mockMissingPodIPs != nil && mockMissingPodIPs[pod.ObjectMeta.Name] {
+		return ""
+	}
 	components := strings.Split(GetInstanceIDFromMeta(pod.ObjectMeta), "-")
 	for index, class := range fdbtypes.ProcessClasses {
 		if class == components[len(components)-2] {

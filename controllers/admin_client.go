@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"regexp"
@@ -697,6 +698,10 @@ func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
 	exclusionMap := make(map[string]bool, count)
 	newExclusions := make([]string, 0, count)
 	for _, address := range addresses {
+		if !isValidAddress(address) {
+			return fmt.Errorf("Invalid exclusion address %s", address)
+		}
+
 		if !exclusionMap[address] {
 			exclusionMap[address] = true
 			newExclusions = append(newExclusions, address)
@@ -715,10 +720,26 @@ func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
 	return nil
 }
 
+func isValidAddress(address string) bool {
+	host, _, error := net.SplitHostPort(address)
+	if error != nil {
+		return false
+	}
+	if host == "" {
+		return false
+	}
+	return true
+}
+
 // IncludeInstances removes processes from the exclusion list and allows
 // them to take on roles again.
 func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 	newExclusions := make([]string, 0, len(client.ExcludedAddresses))
+	for _, address := range addresses {
+		if !isValidAddress(address) {
+			return fmt.Errorf("Invalid exclusion address %s", address)
+		}
+	}
 	for _, excludedAddress := range client.ExcludedAddresses {
 		included := false
 		for _, address := range addresses {
