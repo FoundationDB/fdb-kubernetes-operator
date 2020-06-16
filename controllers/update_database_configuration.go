@@ -47,7 +47,6 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 	desiredConfiguration.RoleCounts.Storage = 0
 	needsChange := false
 	var currentConfiguration fdbtypes.DatabaseConfiguration
-	var healthy bool
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
@@ -56,7 +55,14 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 	initialConfig := !cluster.Status.Configured
 
-	healthy = initialConfig || status.Client.DatabaseStatus.Healthy
+	healthy := initialConfig || status.Client.DatabaseStatus.Healthy
+	available := initialConfig || status.Client.DatabaseStatus.Available
+
+	if !available {
+		log.Info("Skipping database configuration change because database is unavailable", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		return true, nil
+	}
+
 	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
 	desiredConfiguration.FillInDefaultVersionFlags(currentConfiguration)
 	needsChange = initialConfig || !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
