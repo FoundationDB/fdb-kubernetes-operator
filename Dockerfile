@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.13 as builder
+FROM golang:1.13.11 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.20
@@ -7,8 +7,7 @@ ARG FDB_ADDITIONAL_VERSIONS="6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
-
-RUN \
+RUN set -eux && \
 	curl $FDB_WEBSITE/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
 	for version in ${FDB_VERSION} ${FDB_ADDITIONAL_VERSIONS}; do \
@@ -24,7 +23,7 @@ RUN \
 		chmod u+x /usr/bin/fdb/$minor/fdb*; \
 	done && \
 	mkdir -p /usr/lib/fdb && \
-	for version in ${FDB_ADDITIONAL_VERSIONS}; do \
+	for VERSION in ${FDB_ADDITIONAL_VERSIONS}; do \
 		curl $FDB_WEBSITE/downloads/$VERSION/linux/libfdb_c_$VERSION.so -o /usr/lib/fdb/libfdb_c_$VERSION.so; \
 	done
 
