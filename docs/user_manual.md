@@ -296,7 +296,7 @@ This will delete the pods in the cluster and recreate them with the new environm
 
 You can customize the same kind of fields on the sidecar container by adding them under the `sidecarContainer` section of the spec.
 
-Note: The example above adds certificates to the environment, but it does not enable TLS for the cluster. We do not currently have a way to enable TLS once a cluster is running. If you set the `enableTLS` flag on the container when you create the cluster, it will be created with TLS enabled. See the [example TLS cluster](../config/samples/cluster_local_tls.yaml) for more details on this configuration.
+Note: The example above adds certificates to the environment, but it does not enable TLS for the cluster. We do not currently have a way to enable TLS once a cluster is running. If you set the `enableTls` flag on the container when you create the cluster, it will be created with TLS enabled. See the [example TLS cluster](../config/samples/cluster_local_tls.yaml) for more details on this configuration.
 
 The `podTemplate` field allows you to customize nearly every part of the pods this cluster creates. There are some limitations on what you can configure:
 
