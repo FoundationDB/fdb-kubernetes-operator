@@ -103,6 +103,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		SetDefaultValues{},
 		UpdateStatus{},
 		CheckClientCompatibility{},
+		CheckInstancesToRemove{},
 		ReplaceMisconfiguredPods{},
 		AddPods{},
 		GenerateInitialClusterFile{},
@@ -262,10 +263,20 @@ func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 }
 
 func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMeta {
+	var metadata metav1.ObjectMeta
 	if cluster.Spec.ConfigMap != nil {
-		return getObjectMetadata(cluster, &cluster.Spec.ConfigMap.ObjectMeta, "", "")
+		metadata = getObjectMetadata(cluster, &cluster.Spec.ConfigMap.ObjectMeta, "", "")
+	} else {
+		metadata = getObjectMetadata(cluster, nil, "", "")
 	}
-	return getObjectMetadata(cluster, nil, "", "")
+
+	if metadata.Name == "" {
+		metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
+	} else {
+		metadata.Name = fmt.Sprintf("%s-%s", cluster.Name, metadata.Name)
+	}
+
+	return metadata
 }
 
 func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass string, id string) metav1.ObjectMeta {
@@ -412,6 +423,14 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}
 	data["sidecar-conf"] = string(sidecarConfData)
 
+	if cluster.Status.PendingRemovals != nil {
+		pendingRemovalData, err := json.Marshal(cluster.Status.PendingRemovals)
+		if err != nil {
+			return nil, err
+		}
+		data["pending-removals"] = string(pendingRemovalData)
+	}
+
 	if cluster.Spec.ConfigMap != nil {
 		for k, v := range cluster.Spec.ConfigMap.Data {
 			data[k] = v
@@ -424,11 +443,6 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}
 
 	metadata := getConfigMapMetadata(cluster)
-	if metadata.Name == "" {
-		metadata.Name = fmt.Sprintf("%s-config", cluster.Name)
-	} else {
-		metadata.Name = fmt.Sprintf("%s-%s", cluster.Name, metadata.Name)
-	}
 	metadata.OwnerReferences = owner
 
 	return &corev1.ConfigMap{
@@ -627,6 +641,62 @@ func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.Foundati
 		r.lockClients[cacheKey] = client
 	}
 	return client, nil
+}
+
+// getPendingRemovalState builds pending removal state for an instance we want
+// to remove.
+func (r *FoundationDBClusterReconciler) getPendingRemovalState(instance FdbInstance) fdbtypes.PendingRemovalState {
+	state := fdbtypes.PendingRemovalState{
+		PodName: instance.Metadata.Name,
+	}
+	if instance.Pod != nil {
+		var ip string
+		if r.PodIPProvider == nil {
+			ip = instance.Pod.Status.PodIP
+		} else {
+			ip = r.PodIPProvider(instance.Pod)
+		}
+		state.Address = ip
+	}
+	return state
+}
+
+// updatePendingRemovals processes an update to the pending removals for the
+// cluster.
+//
+// This will update both the status and the config map.
+func (r *FoundationDBClusterReconciler) updatePendingRemovals(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+	err := r.Status().Update(context, cluster)
+	if err != nil {
+		return err
+	}
+
+	metadata := getConfigMapMetadata(cluster)
+	configMap := &corev1.ConfigMap{}
+
+	err = r.Get(context, types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}, configMap)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		if cluster.Status.PendingRemovals == nil {
+			configMap.Data["pending-removals"] = ""
+		} else {
+			pendingRemovalData, err := json.Marshal(cluster.Status.PendingRemovals)
+			if err != nil {
+				return err
+			}
+			configMap.Data["pending-removals"] = string(pendingRemovalData)
+		}
+
+		err = r.Update(context, configMap)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func sortPodsByID(pods *corev1.PodList) error {

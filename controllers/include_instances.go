@@ -40,9 +40,11 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Spec.PendingRemovals))
-	for _, address := range cluster.Spec.PendingRemovals {
-		addresses = append(addresses, cluster.GetFullAddress(address))
+	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
+	for _, state := range cluster.Status.PendingRemovals {
+		if state.Address != "" {
+			addresses = append(addresses, cluster.GetFullAddress(state.Address))
+		}
 	}
 
 	if len(addresses) > 0 {
@@ -55,23 +57,33 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	needsUpdate := false
+	needsSpecUpdate := false
 
 	if cluster.Spec.PendingRemovals != nil {
 		cluster.Spec.PendingRemovals = nil
+		needsSpecUpdate = true
+	}
+
+	if cluster.Status.PendingRemovals != nil {
+		cluster.Status.PendingRemovals = nil
 		needsUpdate = true
 	}
 
-	if cluster.Spec.InstancesToRemove != nil {
-		cluster.Spec.InstancesToRemove = nil
-		needsUpdate = true
+	if needsSpecUpdate {
+		err := r.Update(context, cluster)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	if needsUpdate {
-		r.Update(context, cluster)
-		return false, nil
+		err := r.updatePendingRemovals(context, cluster)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return true, nil
+	return needsSpecUpdate, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

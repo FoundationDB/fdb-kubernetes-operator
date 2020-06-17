@@ -97,14 +97,6 @@ type FoundationDBClusterSpec struct {
 	// cluster. This list contains the instance IDs.
 	InstancesToRemove []string `json:"instancesToRemove,omitempty"`
 
-	// PendingRemovals defines the processes that are pending removal.
-	// This maps the name of a pod to its IP address. If a value is left blank,
-	// the controller will provide the pod's current IP.
-	//
-	// Deprecated: This is for internal use only. To tell the operator to remove
-	// or replace a process, use InstancesToRemove.
-	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
-
 	// ConfigMap allows customizing the config map the operator creates.
 	ConfigMap *corev1.ConfigMap `json:"configMap,omitempty"`
 
@@ -234,6 +226,15 @@ type FoundationDBClusterSpec struct {
 	// processes.
 	// Deprecated: use the Processes field instead.
 	CustomParameters []string `json:"customParameters,omitempty"`
+
+	// PendingRemovals defines the processes that are pending removal.
+	// This maps the name of a pod to its IP address. If a value is left blank,
+	// the controller will provide the pod's current IP.
+	//
+	// Deprecated: To indicate that a process should be removed, use the
+	// InstancesToRemove field. To get information about pending removals,
+	// use the PendingRemovals field in the status.
+	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -288,6 +289,10 @@ type FoundationDBClusterStatus struct {
 
 	// Configured defines whether we have configured the database yet.
 	Configured bool `json:"configured,omitempty"`
+
+	// PendingRemovals defines the processes that are pending removal.
+	// This maps the instance ID to its removal state.
+	PendingRemovals map[string]PendingRemovalState `json:"pendingRemovals,omitempty"`
 }
 
 // ClusterGenerationStatus stores information on which generations have reached
@@ -334,6 +339,14 @@ type ClusterGenerationStatus struct {
 	// updated.
 	// Deprecated: This needs to get moved into FoundationDBBackup
 	NeedsBackupAgentUpdate int64 `json:"needsBackupAgentUpdate,omitempty"`
+
+	// HasPendingRemoval provides the last generation that has pods that have
+	// been excluded but are pending being removed.
+	//
+	// A cluster in this state is considered reconciled, but we track this in
+	// the status to allow users of the operator to track when the removal
+	// is fully complete.
+	HasPendingRemoval int64 `json:"hasPendingRemoval,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -351,6 +364,21 @@ type ClusterHealth struct {
 	// DataMovementPriority reports the priority of the highest-priority data
 	// movement in the cluster.
 	DataMovementPriority int `json:"dataMovementPriority,omitempty"`
+}
+
+// PendingRemovalState holds information about a process that is being removed.
+type PendingRemovalState struct {
+	// The name of the pod that is being removed.
+	PodName string `json:"podName,omitempty"`
+
+	// The public address of the process.
+	Address string `json:"address,omitempty"`
+
+	// Whether we have started the exclusion.
+	ExclusionStarted bool `json:"exclusionStarted,omitempty"`
+
+	// Whether we have completed the exclusion.
+	ExclusionComplete bool `json:"exclusionComplete,omitempty"`
 }
 
 // RoleCounts represents the roles whose counts can be customized.
@@ -766,7 +794,22 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		return false, nil
 	}
 
-	if len(cluster.Spec.PendingRemovals) > 0 {
+	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
+
+	if len(cluster.Status.PendingRemovals) > 0 {
+		needsShrink := false
+		for _, state := range cluster.Status.PendingRemovals {
+			if !state.ExclusionComplete {
+				needsShrink = true
+			}
+		}
+		if needsShrink {
+			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
+			reconciled = false
+		} else {
+			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
+		}
+	} else if len(cluster.Spec.PendingRemovals) > 0 {
 		cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
@@ -828,9 +871,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	}
 
 	if reconciled {
-		cluster.Status.Generations = ClusterGenerationStatus{
-			Reconciled: cluster.ObjectMeta.Generation,
-		}
+		cluster.Status.Generations.Reconciled = cluster.ObjectMeta.Generation
 	}
 	return reconciled, nil
 }
@@ -1459,9 +1500,16 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 
 // InstanceIsBeingRemoved determines if an instance is pending removal.
 func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bool {
-	podName := fmt.Sprintf("%s-%s", cluster.Name, instanceID)
+
+	if cluster.Status.PendingRemovals != nil {
+		_, present := cluster.Status.PendingRemovals[instanceID]
+		if present {
+			return true
+		}
+	}
 
 	if cluster.Spec.PendingRemovals != nil {
+		podName := fmt.Sprintf("%s-%s", cluster.Name, instanceID)
 		_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
 		if pendingRemoval {
 			return true

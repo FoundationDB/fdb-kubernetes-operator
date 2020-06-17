@@ -50,6 +50,11 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return false, err
 	}
 
+	removals := cluster.Status.PendingRemovals
+	if removals == nil {
+		removals = make(map[string]fdbtypes.PendingRemovalState)
+	}
+
 	if connectionString != cluster.Status.ConnectionString {
 		log.Info("Updating out-of-date connection string", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
@@ -84,7 +89,10 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	for _, process := range status.Cluster.Processes {
 		_, isCoordinator := coordinatorStatus[process.Address]
-		if isCoordinator && !process.Excluded {
+
+		_, pendingRemoval := removals[process.Locality["fdb-instance-id"]]
+
+		if isCoordinator && !process.Excluded && !pendingRemoval {
 			coordinatorStatus[process.Address] = true
 		}
 
@@ -130,7 +138,8 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		coordinatorCount := cluster.DesiredCoordinatorCount()
 		coordinators := make([]string, 0, coordinatorCount)
 		for _, process := range status.Cluster.Processes {
-			eligible := !process.Excluded && isStateful(process.ProcessClass)
+			_, pendingRemoval := removals[process.Locality["fdb-instance-id"]]
+			eligible := !process.Excluded && isStateful(process.ProcessClass) && !pendingRemoval
 			if eligible {
 				coordinators = append(coordinators, process.Address)
 			}

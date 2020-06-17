@@ -7687,6 +7687,9 @@ spec:
                 hasExtraListeners:
                   format: int64
                   type: integer
+                hasPendingRemoval:
+                  format: int64
+                  type: integer
                 missingDatabaseStatus:
                   format: int64
                   type: integer
@@ -7741,6 +7744,19 @@ spec:
               additionalProperties:
                 format: int64
                 type: integer
+              type: object
+            pendingRemovals:
+              additionalProperties:
+                properties:
+                  address:
+                    type: string
+                  exclusionComplete:
+                    type: boolean
+                  exclusionStarted:
+                    type: boolean
+                  podName:
+                    type: string
+                type: object
               type: object
             processCounts:
               properties:
