@@ -83,7 +83,7 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		}
 	}
 
-	return needsSpecUpdate, nil
+	return !needsSpecUpdate, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

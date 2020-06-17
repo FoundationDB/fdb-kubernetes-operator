@@ -64,11 +64,6 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		if err != nil {
 			return false, err
 		}
-
-		cluster.Spec.ConnectionString = cluster.Status.ConnectionString
-		err = r.Update(context, cluster)
-
-		return false, err
 	}
 
 	status, err := adminClient.GetStatus()
@@ -161,10 +156,6 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		if err != nil {
 			return false, err
 		}
-
-		cluster.Spec.ConnectionString = cluster.Status.ConnectionString
-		err = r.Update(context, cluster)
-		return false, err
 	}
 
 	return true, nil
