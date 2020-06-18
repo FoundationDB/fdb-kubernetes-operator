@@ -133,7 +133,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		coordinatorCount := cluster.DesiredCoordinatorCount()
 		coordinators := make([]string, 0, coordinatorCount)
 		for _, process := range status.Cluster.Processes {
-			_, pendingRemoval := removals[process.Locality["fdb-instance-id"]]
+			_, pendingRemoval := removals[process.Locality["instance_id"]]
 			eligible := !process.Excluded && isStateful(process.ProcessClass) && !pendingRemoval
 			if eligible {
 				coordinators = append(coordinators, process.Address)
