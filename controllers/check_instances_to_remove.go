@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CheckInstancesToRemove chooses updates the pending removal state based on the
+// CheckInstancesToRemove updates the pending removal state based on the
 // instances to remove.
 type CheckInstancesToRemove struct{}
 
