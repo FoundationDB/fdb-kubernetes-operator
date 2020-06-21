@@ -258,6 +258,20 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
+	service, err := GetHeadlessService(cluster)
+	if err != nil {
+		return false, err
+	}
+	existingService := &corev1.Service{}
+	err = r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
+	if err != nil && k8serrors.IsNotFound(err) {
+		existingService = nil
+	} else if err != nil {
+		return false, err
+	}
+
+	status.HasIncorrectServiceConfig = (service == nil) != (existingService == nil)
+
 	if databaseStatus != nil {
 		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
 		status.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy

@@ -105,6 +105,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		CheckClientCompatibility{},
 		CheckInstancesToRemove{},
 		ReplaceMisconfiguredPods{},
+		AddServices{},
 		AddPods{},
 		GenerateInitialClusterFile{},
 		UpdateSidecarVersions{},
@@ -116,6 +117,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		ExcludeInstances{},
 		BounceProcesses{},
 		UpdatePods{},
+		RemoveServices{},
 		RemovePods{},
 		IncludeInstances{},
 		UpdateStatus{},
@@ -158,6 +160,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
+	})
+
+	mgr.GetFieldIndexer().IndexField(&corev1.Service{}, "metadata.name", func(o runtime.Object) []string {
+		return []string{o.(*corev1.Service).Name}
 	})
 
 	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {

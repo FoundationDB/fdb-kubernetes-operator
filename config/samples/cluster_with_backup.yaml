@@ -33,6 +33,8 @@ spec:
     key: foundationdb.org/none
   processCounts:
     stateless: -1
+  services:
+    headless: true
   processes:
     general:
       customParameters:

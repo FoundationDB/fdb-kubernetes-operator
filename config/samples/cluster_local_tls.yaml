@@ -13,6 +13,8 @@ spec:
   processCounts:
     stateless: -1
     cluster_controller: 1
+  services:
+    headless: true
   processes:
     general:
       customParameters:
