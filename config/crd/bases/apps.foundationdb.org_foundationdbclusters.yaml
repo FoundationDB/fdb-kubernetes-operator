@@ -7707,6 +7707,9 @@ spec:
                 needsConfigurationChange:
                   format: int64
                   type: integer
+                needsCoordinatorChange:
+                  format: int64
+                  type: integer
                 needsGrow:
                   format: int64
                   type: integer
@@ -7768,6 +7771,8 @@ spec:
                     type: string
                 type: object
               type: object
+            needsNewCoordinators:
+              type: boolean
             processCounts:
               properties:
                 cluster_controller:

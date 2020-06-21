@@ -337,7 +337,7 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 // instance will substitute into its monitor conf.
 func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	substitutions := map[string]string{}
-	substitutions["FDB_PUBLIC_IP"] = client.Pod.Status.PodIP
+	substitutions["FDB_PUBLIC_IP"] = MockPodIP(client.Pod)
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name

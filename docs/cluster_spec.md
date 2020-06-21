@@ -78,6 +78,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | ----- | ----------- | ------ | -------- |
 | reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
 | needsConfigurationChange | NeedsConfigurationChange provides the last generation that is pending a change to configuration. | int64 | false |
+| needsCoordinatorChange | NeedsCoordinatorChange provides the last generation that is pending a change to its coordinators. | int64 | false |
 | needsBounce | NeedsBounce provides the last generation that is pending a bounce of fdbserver. | int64 | false |
 | needsPodDeletion | NeedsPodDeletion provides the last generation that is pending pods being deleted and recreated. | int64 | false |
 | needsShrink | NeedsShrink provides the last generation that is pending pods being excluded and removed. | int64 | false |
@@ -350,6 +351,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
 | hasIncorrectServiceConfig | HasIncorrectServiceConfig indicates whether the cluster has service config that is out of date with the cluster spec. | bool | false |
+| needsNewCoordinators | NeedsNewCoordinators indicates whether the cluster needs to recruit new coordinators to fulfill its fault tolerance requirements. | bool | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |

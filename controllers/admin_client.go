@@ -640,6 +640,8 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			Excluded:     ipExcluded || addressExcluded,
 			Locality: map[string]string{
 				"instance_id": instance.GetInstanceID(),
+				"zoneid":      pod.Name,
+				"dcid":        client.Cluster.Spec.DataCenter,
 			},
 			Version: client.Cluster.Status.RunningVersion,
 		}

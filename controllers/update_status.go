@@ -286,6 +286,15 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.MissingProcesses = nil
 	}
 
+	if status.Configured && cluster.Status.ConnectionString != "" {
+		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus)
+		if err != nil {
+			return false, err
+		}
+
+		status.NeedsNewCoordinators = !coordinatorsValid
+	}
+
 	originalStatus := cluster.Status.DeepCopy()
 
 	cluster.Status = status

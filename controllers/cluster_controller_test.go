@@ -663,6 +663,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
+						NeedsCoordinatorChange:   originalVersion + 1,
 					}))
 				})
 
@@ -2124,7 +2125,7 @@ var _ = Describe("cluster_controller", func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=:4501",
+					"--public_address=1.1.0.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -2134,7 +2135,6 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				pod := pods.Items[firstStorageIndex]
 				pod.Spec.NodeName = "machine1"
-				pod.Status.PodIP = "127.0.0.1"
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
 
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
@@ -2153,7 +2153,7 @@ var _ = Describe("cluster_controller", func() {
 					"--locality_zoneid=machine1",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=127.0.0.1:4501",
+					"--public_address=1.1.0.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -2163,7 +2163,6 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				pod := pods.Items[firstStorageIndex]
 				pod.Spec.NodeName = "machine1"
-				pod.Status.PodIP = "127.0.0.1"
 
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
 					Key:   "foundationdb.org/kubernetes-cluster",
@@ -2186,7 +2185,7 @@ var _ = Describe("cluster_controller", func() {
 					"--locality_zoneid=kc2",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=127.0.0.1:4501",
+					"--public_address=1.1.0.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -2214,7 +2213,7 @@ var _ = Describe("cluster_controller", func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=:4501",
+					"--public_address=1.1.0.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -2242,7 +2241,7 @@ var _ = Describe("cluster_controller", func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=:4501",
+					"--public_address=1.1.0.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -2298,6 +2297,257 @@ var _ = Describe("cluster_controller", func() {
 				_, _, err := ParseInstanceID("storage-bad")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Could not parse instance ID storage-bad"))
+			})
+		})
+	})
+
+	Describe("chooseDistributedProcesses", func() {
+		var candidates []localityInfo
+		var result []localityInfo
+		var err error
+
+		Context("with a flat set of processes", func() {
+			BeforeEach(func() {
+				candidates = []localityInfo{
+					{ID: "p1", LocalityData: map[string]string{"zoneid": "z1"}},
+					{ID: "p2", LocalityData: map[string]string{"zoneid": "z1"}},
+					{ID: "p3", LocalityData: map[string]string{"zoneid": "z2"}},
+					{ID: "p4", LocalityData: map[string]string{"zoneid": "z3"}},
+					{ID: "p5", LocalityData: map[string]string{"zoneid": "z2"}},
+					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4"}},
+					{ID: "p7", LocalityData: map[string]string{"zoneid": "z5"}},
+				}
+				result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should recruit the processes across multiple zones", func() {
+				Expect(len(result)).To(Equal(5))
+				Expect(result[0].ID).To(Equal("p1"))
+				Expect(result[1].ID).To(Equal("p3"))
+				Expect(result[2].ID).To(Equal("p4"))
+				Expect(result[3].ID).To(Equal("p6"))
+				Expect(result[4].ID).To(Equal("p7"))
+			})
+		})
+
+		Context("with fewer zones than desired processes", func() {
+			BeforeEach(func() {
+				candidates = []localityInfo{
+					{ID: "p1", LocalityData: map[string]string{"zoneid": "z1"}},
+					{ID: "p2", LocalityData: map[string]string{"zoneid": "z1"}},
+					{ID: "p3", LocalityData: map[string]string{"zoneid": "z2"}},
+					{ID: "p4", LocalityData: map[string]string{"zoneid": "z3"}},
+					{ID: "p5", LocalityData: map[string]string{"zoneid": "z2"}},
+					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4"}},
+				}
+			})
+
+			Context("with no hard limit", func() {
+				It("should only re-use zones as necessary", func() {
+					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(len(result)).To(Equal(5))
+					Expect(result[0].ID).To(Equal("p1"))
+					Expect(result[1].ID).To(Equal("p3"))
+					Expect(result[2].ID).To(Equal("p4"))
+					Expect(result[3].ID).To(Equal("p6"))
+					Expect(result[4].ID).To(Equal("p2"))
+				})
+			})
+
+			Context("with a hard limit", func() {
+				It("should give an error", func() {
+					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{
+						HardLimits: map[string]int{"zoneid": 1},
+					})
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal("Could only select 4 processes, but 5 are required"))
+				})
+			})
+		})
+
+		Context("with multiple data centers", func() {
+			BeforeEach(func() {
+				candidates = []localityInfo{
+					{ID: "p1", LocalityData: map[string]string{"zoneid": "z1", "dcid": "dc1"}},
+					{ID: "p2", LocalityData: map[string]string{"zoneid": "z1", "dcid": "dc1"}},
+					{ID: "p3", LocalityData: map[string]string{"zoneid": "z2", "dcid": "dc1"}},
+					{ID: "p4", LocalityData: map[string]string{"zoneid": "z3", "dcid": "dc1"}},
+					{ID: "p5", LocalityData: map[string]string{"zoneid": "z2", "dcid": "dc1"}},
+					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4", "dcid": "dc1"}},
+					{ID: "p7", LocalityData: map[string]string{"zoneid": "z5", "dcid": "dc1"}},
+					{ID: "p8", LocalityData: map[string]string{"zoneid": "z6", "dcid": "dc2"}},
+					{ID: "p9", LocalityData: map[string]string{"zoneid": "z7", "dcid": "dc2"}},
+					{ID: "p10", LocalityData: map[string]string{"zoneid": "z8", "dcid": "dc2"}},
+				}
+			})
+
+			Context("with the default constraints", func() {
+				BeforeEach(func() {
+					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should recruit the processes across multiple zones and data centers", func() {
+					Expect(len(result)).To(Equal(5))
+					Expect(result[0].ID).To(Equal("p1"))
+					Expect(result[1].ID).To(Equal("p8"))
+					Expect(result[2].ID).To(Equal("p3"))
+					Expect(result[3].ID).To(Equal("p9"))
+					Expect(result[4].ID).To(Equal("p4"))
+				})
+			})
+
+			Context("when only distributing across data centers", func() {
+
+				BeforeEach(func() {
+					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{
+						Fields: []string{"dcid"},
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should recruit the processes across data centers", func() {
+					Expect(len(result)).To(Equal(5))
+					Expect(result[0].ID).To(Equal("p1"))
+					Expect(result[1].ID).To(Equal("p8"))
+					Expect(result[2].ID).To(Equal("p2"))
+					Expect(result[3].ID).To(Equal("p9"))
+					Expect(result[4].ID).To(Equal("p3"))
+				})
+			})
+		})
+	})
+
+	Describe("checkCoordinatorValidity", func() {
+		var status *fdbtypes.FoundationDBStatus
+		var adminClient AdminClient
+		var err error
+
+		BeforeEach(func() {
+			err = k8sClient.Create(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() (int64, error) {
+				generations, err := reloadClusterGenerations(k8sClient, cluster)
+				return generations.Reconciled, err
+			}, time.Second*5).ShouldNot(Equal(int64(0)))
+
+			adminClient, err = NewMockAdminClient(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			status, err = adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("with the default configuration", func() {
+			It("should report the coordinators as valid", func() {
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+				Expect(coordinatorsValid).To(BeTrue())
+				Expect(addressesValid).To(BeTrue())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		AfterEach(func() {
+			cleanupCluster(cluster)
+		})
+
+		Context("with too few coordinators", func() {
+			BeforeEach(func() {
+				status.Client.Coordinators.Coordinators = status.Client.Coordinators.Coordinators[0:2]
+			})
+
+			It("should report the coordinators as not valid", func() {
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+				Expect(coordinatorsValid).To(BeFalse())
+				Expect(addressesValid).To(BeTrue())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("with too few zones", func() {
+			BeforeEach(func() {
+				zone := ""
+				for _, process := range status.Cluster.Processes {
+					if process.Address == status.Client.Coordinators.Coordinators[0].Address {
+						zone = process.Locality["zoneid"]
+					}
+				}
+				for _, process := range status.Cluster.Processes {
+					if process.Address == status.Client.Coordinators.Coordinators[1].Address {
+						process.Locality["zoneid"] = zone
+					}
+				}
+			})
+
+			It("should report the coordinators as not valid", func() {
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+				Expect(coordinatorsValid).To(BeFalse())
+				Expect(addressesValid).To(BeTrue())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("with multiple regions", func() {
+			BeforeEach(func() {
+				coordinatorCount := 9
+				cluster.Spec.ProcessCounts.Storage = coordinatorCount
+
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() (int64, error) {
+					generations, err := reloadClusterGenerations(k8sClient, cluster)
+					return generations.Reconciled, err
+				}, time.Second*5).Should(Equal(int64(4)))
+
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.UsableRegions = 2
+
+				coordinators := make([]fdbtypes.FoundationDBStatusCoordinator, 0, coordinatorCount)
+				dc := 0
+				for _, process := range status.Cluster.Processes {
+					if process.ProcessClass == "storage" {
+						coordinators = append(coordinators, fdbtypes.FoundationDBStatusCoordinator{
+							Address:   process.Address,
+							Reachable: true,
+						})
+						dc++
+						process.Locality["dcid"] = fmt.Sprintf("dc%d", dc)
+						dc = dc % 3
+					}
+				}
+				status.Client.Coordinators.Coordinators = coordinators
+			})
+
+			Context("with coordinators divided across three DCs", func() {
+				It("should report the coordinators as valid", func() {
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+					Expect(coordinatorsValid).To(BeTrue())
+					Expect(addressesValid).To(BeTrue())
+					Expect(err).To(BeNil())
+				})
+			})
+
+			Context("with coordinators divided across two DCs", func() {
+				BeforeEach(func() {
+					for _, process := range status.Cluster.Processes {
+						if process.Locality["dcid"] == "dc3" {
+							process.Locality["dcid"] = "dc1"
+						}
+					}
+				})
+				It("should report the coordinators as not valid", func() {
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+					Expect(coordinatorsValid).To(BeFalse())
+					Expect(addressesValid).To(BeTrue())
+					Expect(err).To(BeNil())
+				})
 			})
 		})
 	})
