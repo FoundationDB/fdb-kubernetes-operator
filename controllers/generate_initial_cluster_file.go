@@ -75,8 +75,6 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 		return false, err
 	}
 
-	cluster.Spec.ConnectionString = cluster.Status.ConnectionString
-	err = r.Update(context, cluster)
 	return false, err
 }
 

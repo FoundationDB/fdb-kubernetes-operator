@@ -2770,9 +2770,20 @@ func TestInstanceIsBeingRemoved(t *testing.T) {
 	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeFalse())
 	cluster.Spec.PendingRemovals = nil
 
+	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
+		"log-1": {
+			PodName: "sample-cluster-log-1",
+			Address: "127.0.0.2",
+		},
+	}
+	g.Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(gomega.BeFalse())
+	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeTrue())
+	cluster.Status.PendingRemovals = nil
+
 	cluster.Spec.InstancesToRemove = []string{"log-1"}
 	g.Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(gomega.BeFalse())
 	g.Expect(cluster.InstanceIsBeingRemoved("log-1")).To(gomega.BeTrue())
+	cluster.Spec.InstancesToRemove = nil
 }
 
 func TestCheckingReconciliationForCluster(t *testing.T) {
@@ -2935,6 +2946,51 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:        1,
 		HasExtraListeners: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
+		"storage-1": {
+			ExclusionStarted:  false,
+			ExclusionComplete: false,
+		},
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:  1,
+		NeedsShrink: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
+		"storage-1": {
+			ExclusionStarted:  true,
+			ExclusionComplete: false,
+		},
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:  1,
+		NeedsShrink: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
+		"storage-1": {
+			ExclusionStarted:  true,
+			ExclusionComplete: true,
+		},
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:        2,
+		HasPendingRemoval: 2,
 	}))
 }
 

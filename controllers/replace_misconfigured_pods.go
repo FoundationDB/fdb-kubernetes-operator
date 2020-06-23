@@ -36,10 +36,10 @@ type ReplaceMisconfiguredPods struct{}
 func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
-	instancesToRemove := make(map[string]bool)
+	var removals = cluster.Status.PendingRemovals
 
-	for _, instanceID := range cluster.Spec.InstancesToRemove {
-		instancesToRemove[instanceID] = true
+	if removals == nil {
+		removals = make(map[string]fdbtypes.PendingRemovalState)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -50,7 +50,8 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 	for _, pvc := range pvcs.Items {
 		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
-		if instancesToRemove[instanceID] {
+		_, pendingRemoval := removals[instanceID]
+		if pendingRemoval {
 			continue
 		}
 		_, idNum, err := ParseInstanceID(instanceID)
@@ -62,9 +63,15 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		desiredPVC, err := GetPvc(cluster, processClass, idNum)
 		pvcHash, err := GetJSONHash(desiredPVC.Spec)
 		if pvc.Annotations[LastSpecKey] != pvcHash {
-			instancesToRemove[instanceID] = true
-			cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
-			hasNewRemovals = true
+			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
+			if err != nil {
+				return false, err
+			}
+			if len(instances) > 0 {
+				removalState := r.getPendingRemovalState(instances[0])
+				removals[instanceID] = removalState
+				hasNewRemovals = true
+			}
 		}
 		if err != nil {
 			return false, err
@@ -83,7 +90,8 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			}
 
 			instanceID := instance.GetInstanceID()
-			if instancesToRemove[instanceID] {
+			_, pendingRemoval := removals[instanceID]
+			if pendingRemoval {
 				continue
 			}
 
@@ -98,16 +106,21 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			}
 
 			if instance.Metadata.Annotations[LastSpecKey] != specHash {
-				instancesToRemove[instanceID] = true
-				cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
+				removalState := r.getPendingRemovalState(instance)
+				removals[instanceID] = removalState
 				hasNewRemovals = true
 			}
 		}
 	}
 
 	if hasNewRemovals {
+		cluster.Status.PendingRemovals = removals
 		err = r.Update(context, cluster)
-		return false, err
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
 	}
 
 	return true, nil

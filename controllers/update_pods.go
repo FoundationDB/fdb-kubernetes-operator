@@ -42,11 +42,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	updates := make(map[string][]FdbInstance)
 
-	pendingRemovals := make(map[string]bool, len(cluster.Spec.InstancesToRemove))
-
-	for _, instanceID := range cluster.Spec.InstancesToRemove {
-		pendingRemovals[instanceID] = true
-	}
+	removals := cluster.Status.PendingRemovals
 
 	for _, instance := range instances {
 		if instance.Pod == nil {
@@ -55,8 +51,11 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 		instanceID := instance.GetInstanceID()
 
-		if pendingRemovals[instanceID] {
-			continue
+		if removals != nil {
+			_, pendingRemoval := removals[instanceID]
+			if pendingRemoval {
+				continue
+			}
 		}
 
 		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {

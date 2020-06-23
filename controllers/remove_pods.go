@@ -36,21 +36,25 @@ type RemovePods struct{}
 
 // Reconcile runs the reconciler's work.
 func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	if len(cluster.Spec.PendingRemovals) == 0 {
+	if len(cluster.Status.PendingRemovals) == 0 {
 		return true, nil
 	}
-	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", cluster.Spec.PendingRemovals))
-	for id := range cluster.Spec.PendingRemovals {
-		err := r.removePod(context, cluster, id)
-		if err != nil {
-			return false, err
+	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", cluster.Status.PendingRemovals))
+	for _, state := range cluster.Status.PendingRemovals {
+		if state.PodName != "" {
+			err := r.removePod(context, cluster, state.PodName)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 
-	for id := range cluster.Spec.PendingRemovals {
-		removed, err := r.confirmPodRemoval(context, cluster, id)
-		if !removed {
-			return removed, err
+	for _, state := range cluster.Status.PendingRemovals {
+		if state.PodName != "" {
+			removed, err := r.confirmPodRemoval(context, cluster, state.PodName)
+			if !removed {
+				return removed, err
+			}
 		}
 	}
 

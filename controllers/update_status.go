@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -30,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // UpdateStatus provides a reconciliation step for updating the status in the
@@ -223,6 +225,35 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 	if status.ConnectionString == "" {
 		status.ConnectionString = cluster.Spec.SeedConnectionString
+	}
+
+	status.PendingRemovals = cluster.Status.PendingRemovals
+
+	if status.PendingRemovals == nil {
+		if existingConfigMap.Data["pending-removals"] != "" {
+			removals := map[string]fdbtypes.PendingRemovalState{}
+			err = json.Unmarshal([]byte(existingConfigMap.Data["pending-removals"]), &removals)
+			if err != nil {
+				return false, err
+			}
+			status.PendingRemovals = removals
+		} else if cluster.Spec.PendingRemovals != nil {
+			status.PendingRemovals = make(map[string]fdbtypes.PendingRemovalState)
+			for podName, address := range cluster.Spec.PendingRemovals {
+				pods := &corev1.PodList{}
+				err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", podName))
+				if err != nil {
+					return false, err
+				}
+				if len(pods.Items) > 0 {
+					instanceID := pods.Items[0].ObjectMeta.Labels["fdb-instance-id"]
+					status.PendingRemovals[instanceID] = fdbtypes.PendingRemovalState{
+						PodName: podName,
+						Address: address,
+					}
+				}
+			}
+		}
 	}
 
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)

@@ -26,7 +26,6 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ChooseRemovals chooses which processes will be removed during a shrink.
@@ -36,34 +35,10 @@ type ChooseRemovals struct{}
 func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
-	var removals = cluster.Spec.PendingRemovals
+	var removals = cluster.Status.PendingRemovals
 
 	if removals == nil {
-		removals = make(map[string]string)
-	}
-
-	instancesToRemove := make(map[string]bool)
-
-	for _, instanceID := range cluster.Spec.InstancesToRemove {
-		instancesToRemove[instanceID] = true
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID}))
-		if err != nil {
-			return false, err
-		}
-		for _, instance := range instances {
-			if removals[instance.Metadata.Name] == "" {
-				if instance.Pod != nil {
-					var ip string
-					if r.PodIPProvider == nil {
-						ip = instance.Pod.Status.PodIP
-					} else {
-						ip = r.PodIPProvider(instance.Pod)
-					}
-					removals[instance.Metadata.Name] = ip
-					hasNewRemovals = true
-				}
-			}
-		}
+		removals = make(map[string]fdbtypes.PendingRemovalState)
 	}
 
 	currentCounts := cluster.Status.ProcessCounts.Map()
@@ -97,14 +72,12 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 			for indexOfPod := 0; indexOfPod < len(instances) && removalsChosen < removedCount; indexOfPod++ {
 				instance := instances[len(instances)-1-indexOfPod]
 				instanceID := instance.GetInstanceID()
-				if !instancesToRemove[instanceID] {
-					podClient, err := r.getPodClient(context, cluster, instance)
-					if err != nil {
-						return false, err
-					}
-					removals[instance.Metadata.Name] = podClient.GetPodIP()
-					instancesToRemove[instanceID] = true
-					cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
+				_, beingRemoved := removals[instanceID]
+				if !beingRemoved {
+					removalState := r.getPendingRemovalState(instance)
+
+					removals[instanceID] = removalState
+
 					removalsChosen++
 				}
 			}
@@ -113,42 +86,12 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 	}
 
-	if cluster.Spec.PendingRemovals != nil {
-		for podName := range cluster.Spec.PendingRemovals {
-			if removals[podName] == "" {
-				instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", podName))
-				if err != nil {
-					return false, err
-				}
-				if len(instances) == 0 {
-					delete(removals, podName)
-					hasNewRemovals = true
-				} else {
-					pod := instances[0].Pod
-					if pod == nil {
-						return false, MissingPodError(instances[0], cluster)
-					}
-
-					var ip string
-					if r.PodIPProvider == nil {
-						ip = pod.Status.PodIP
-					} else {
-						ip = r.PodIPProvider(pod)
-					}
-
-					if ip != "" {
-						removals[podName] = ip
-						hasNewRemovals = true
-					}
-				}
-			}
-		}
-	}
-
 	if hasNewRemovals {
-		cluster.Spec.PendingRemovals = removals
-		err := r.Update(context, cluster)
-		return false, err
+		cluster.Status.PendingRemovals = removals
+		err := r.updatePendingRemovals(context, cluster)
+		if err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
