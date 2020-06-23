@@ -1192,7 +1192,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 	allHealthy := true
 	for address, healthy := range coordinatorStatus {
-		allHealthy = allHealthy || !healthy
+		allHealthy = allHealthy && healthy
 
 		if !healthy {
 			log.Info("Cluster has an unhealthy coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "address", address)
