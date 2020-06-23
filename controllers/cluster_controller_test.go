@@ -625,7 +625,9 @@ var _ = Describe("cluster_controller", func() {
 
 				It("should clear the removal list", func() {
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
-					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
+					Expect(cluster.Spec.InstancesToRemove).To(Equal([]string{
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
+					}))
 				})
 			})
 		})
