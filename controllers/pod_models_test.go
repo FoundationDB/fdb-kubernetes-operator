@@ -381,6 +381,32 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with a headless service", func() {
+			BeforeEach(func() {
+				var enabled = true
+				cluster.Spec.Services.Headless = &enabled
+				spec, err = GetPodSpec(cluster, "storage", 1)
+			})
+
+			It("should have the hostname and subdomain set", func() {
+				Expect(spec.Hostname).To(Equal("operator-test-1-storage-1"))
+				Expect(spec.Subdomain).To(Equal("operator-test-1"))
+			})
+		})
+
+		Context("with no headless service", func() {
+			BeforeEach(func() {
+				var enabled = false
+				cluster.Spec.Services.Headless = &enabled
+				spec, err = GetPodSpec(cluster, "storage", 1)
+			})
+
+			It("should have the hostname and subdomain set", func() {
+				Expect(spec.Hostname).To(Equal(""))
+				Expect(spec.Subdomain).To(Equal(""))
+			})
+		})
+
 		Context("with custom resources", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
@@ -2114,6 +2140,58 @@ var _ = Describe("pod_models", func() {
 
 			It("should include claim name with default suffix", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+			})
+		})
+	})
+
+	Describe("GetHeadlessService", func() {
+		var service *corev1.Service
+		var enabled = true
+
+		BeforeEach(func() {
+			cluster.Spec.Services.Headless = &enabled
+		})
+
+		JustBeforeEach(func() {
+			service, err = GetHeadlessService(cluster)
+		})
+
+		Context("with the default config", func() {
+			It("should set the metadata on the service", func() {
+				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
+				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-cluster-name": "operator-test-1",
+				}))
+			})
+
+			It("should use the default service spec", func() {
+				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
+					ClusterIP: "None",
+					Selector: map[string]string{
+						"fdb-cluster-name": "operator-test-1",
+					},
+				}))
+			})
+		})
+
+		Context("with the headless service disabled", func() {
+			BeforeEach(func() {
+				enabled = false
+			})
+
+			It("should return nil", func() {
+				Expect(service).To(BeNil())
+			})
+		})
+
+		Context("with a nil headless flag", func() {
+			BeforeEach(func() {
+				cluster.Spec.Services.Headless = nil
+			})
+
+			It("should return nil", func() {
+				Expect(service).To(BeNil())
 			})
 		})
 	})

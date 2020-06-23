@@ -10,6 +10,8 @@ spec:
   version: 6.2.20
   faultDomain:
     key: foundationdb.org/none
+  services:
+    headless: true
   processCounts:
     stateless: -1
     cluster_controller: 1

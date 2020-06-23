@@ -8,6 +8,8 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.20
+  services:
+    headless: true
   processes:
     general:
       podTemplate:

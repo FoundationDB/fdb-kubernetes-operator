@@ -139,6 +139,10 @@ type FoundationDBClusterSpec struct {
 	// LockOptions allows customizing how we manage locks for global operations.
 	LockOptions LockOptions `json:"lockOptions,omitempty"`
 
+	// Services defines the configuration for services that sit in front of our
+	// pods.
+	Services ServiceConfig `json:"services,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.
@@ -280,6 +284,10 @@ type FoundationDBClusterStatus struct {
 	// of date with the cluster spec.
 	HasIncorrectConfigMap bool `json:"hasIncorrectConfigMap,omitempty"`
 
+	// HasIncorrectServiceConfig indicates whether the cluster has service
+	// config that is out of date with the cluster spec.
+	HasIncorrectServiceConfig bool `json:"hasIncorrectServiceConfig,omitempty"`
+
 	// RunningVersion defines the version of FoundationDB that the cluster is
 	// currently running.
 	RunningVersion string `json:"runningVersion,omitempty"`
@@ -333,6 +341,10 @@ type ClusterGenerationStatus struct {
 	// complete reconciliation because it has more listeners than it is supposed
 	// to.
 	HasExtraListeners int64 `json:"hasExtraListeners,omitempty"`
+
+	// NeedsServiceUpdate provides the last generation that needs an update
+	// to the service config.
+	NeedsServiceUpdate int64 `json:"needsServiceUpdate,omitempty"`
 
 	// NeedsBackupAgentUpdate provides the last generation that could not
 	// complete reconciliation because the backup agent deployment needs to be
@@ -855,6 +867,11 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	if cluster.Status.HasIncorrectConfigMap {
 		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if cluster.Status.HasIncorrectServiceConfig {
+		cluster.Status.Generations.NeedsServiceUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
@@ -1888,6 +1905,13 @@ type LockOptions struct {
 	// LockKeyPrefix provides a custom prefix for the keys in the database we
 	// use to store locks.
 	LockKeyPrefix string `json:"lockKeyPrefix,omitempty"`
+}
+
+// ServiceConfig allows configuring services that sit in front of our pods.
+type ServiceConfig struct {
+	// Headless determines whether we want to run a headless service for the
+	// cluster.
+	Headless *bool `json:"headless,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen

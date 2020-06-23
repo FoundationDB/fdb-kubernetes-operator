@@ -37,6 +37,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -158,6 +159,13 @@ var _ = Describe("cluster_controller", func() {
 					"stateless":          8,
 					"cluster_controller": 1,
 				}))
+			})
+
+			It("should not create any services", func() {
+				services := &corev1.ServiceList{}
+				err := k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(services.Items)).To(Equal(0))
 			})
 
 			It("should fill in the required fields in the configuration", func() {
@@ -1359,6 +1367,50 @@ var _ = Describe("cluster_controller", func() {
 				for _, pvc := range pvcs.Items {
 					Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(resource.MustParse("32Gi")))
 				}
+			})
+		})
+
+		Context("when enabling a headless service", func() {
+			BeforeEach(func() {
+				var flag = true
+				cluster.Spec.Services.Headless = &flag
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should create a service", func() {
+				service := &corev1.Service{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, service)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(service.Spec.ClusterIP).To(Equal("None"))
+				Expect(len(service.OwnerReferences)).To(Equal(1))
+			})
+		})
+
+		Context("when disabling a headless service", func() {
+			BeforeEach(func() {
+				var flag = true
+				cluster.Spec.Services.Headless = &flag
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() (int64, error) {
+					generations, err := reloadClusterGenerations(k8sClient, cluster)
+					return generations.Reconciled, err
+				}, timeout).Should(Equal(originalVersion + 1))
+
+				*cluster.Spec.Services.Headless = false
+				generationGap = 2
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should remove a service", func() {
+				service := &corev1.Service{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, service)
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 

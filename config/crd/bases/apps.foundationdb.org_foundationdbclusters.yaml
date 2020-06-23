@@ -6787,6 +6787,11 @@ spec:
               type: string
             seedConnectionString:
               type: string
+            services:
+              properties:
+                headless:
+                  type: boolean
+              type: object
             sidecarContainer:
               properties:
                 enableTls:
@@ -7711,6 +7716,9 @@ spec:
                 needsPodDeletion:
                   format: int64
                   type: integer
+                needsServiceUpdate:
+                  format: int64
+                  type: integer
                 needsShrink:
                   format: int64
                   type: integer
@@ -7719,6 +7727,8 @@ spec:
                   type: integer
               type: object
             hasIncorrectConfigMap:
+              type: boolean
+            hasIncorrectServiceConfig:
               type: boolean
             health:
               properties:

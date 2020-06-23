@@ -52,6 +52,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoleCounts](#rolecounts)
+* [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
 
 ## BackupGenerationStatus
@@ -84,6 +85,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | needsMonitorConfUpdate | NeedsMonitorConfUpdate provides the last generation that needs an update through the fdbmonitor conf. | int64 | false |
 | missingDatabaseStatus | DatabaseUnavailable provides the last generation that could not complete reconciliation due to the database being unavailable. | int64 | false |
 | hasExtraListeners | HasExtraListeners provides the last generation that could not complete reconciliation because it has more listeners than it is supposed to. | int64 | false |
+| needsServiceUpdate | NeedsServiceUpdate provides the last generation that needs an update to the service config. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. **Deprecated: This needs to get moved into FoundationDBBackup** | int64 | false |
 | hasPendingRemoval | HasPendingRemoval provides the last generation that has pods that have been excluded but are pending being removed.  A cluster in this state is considered reconciled, but we track this in the status to allow users of the operator to track when the removal is fully complete. | int64 | false |
 
@@ -310,6 +312,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields. | string | false |
 | updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. | bool | false |
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
+| services | Services defines the configuration for services that sit in front of our pods. | [ServiceConfig](#serviceconfig) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
 | podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
 | resources | Resources defines the resource requirements for the foundationdb containers.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
@@ -346,6 +349,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
 | hasIncorrectConfigMap | HasIncorrectConfigMap indicates whether the latest config map is out of date with the cluster spec. | bool | false |
+| hasIncorrectServiceConfig | HasIncorrectServiceConfig indicates whether the cluster has service config that is out of date with the cluster spec. | bool | false |
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
@@ -702,6 +706,16 @@ RoleCounts represents the roles whose counts can be customized.
 | resolvers |  | int | false |
 | log_routers |  | int | false |
 | remote_logs |  | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## ServiceConfig
+
+ServiceConfig allows configuring services that sit in front of our pods.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| headless | Headless determines whether we want to run a headless service for the cluster. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
