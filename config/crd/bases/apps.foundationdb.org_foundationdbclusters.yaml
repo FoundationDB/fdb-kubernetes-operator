@@ -7758,6 +7758,8 @@ spec:
                 format: int64
                 type: integer
               type: object
+            needsNewCoordinators:
+              type: boolean
             pendingRemovals:
               additionalProperties:
                 properties:
@@ -7771,8 +7773,6 @@ spec:
                     type: string
                 type: object
               type: object
-            needsNewCoordinators:
-              type: boolean
             processCounts:
               properties:
                 cluster_controller:

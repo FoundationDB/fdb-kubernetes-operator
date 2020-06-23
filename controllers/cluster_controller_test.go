@@ -2502,7 +2502,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int64, error) {
 					generations, err := reloadClusterGenerations(k8sClient, cluster)
 					return generations.Reconciled, err
-				}, time.Second*5).Should(Equal(int64(4)))
+				}, time.Second*5).Should(Equal(int64(3)))
 
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())

@@ -1139,9 +1139,15 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
 
+	removals := cluster.Status.PendingRemovals
+	if removals == nil {
+		removals = make(map[string]fdbtypes.PendingRemovalState)
+	}
+
 	for _, process := range status.Cluster.Processes {
 		_, isCoordinator := coordinatorStatus[process.Address]
-		if isCoordinator && !process.Excluded {
+		_, pendingRemoval := removals[process.Locality["instance_id"]]
+		if isCoordinator && !process.Excluded && !pendingRemoval {
 			coordinatorStatus[process.Address] = true
 		}
 
