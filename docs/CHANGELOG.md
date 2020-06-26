@@ -1,3 +1,13 @@
+# v0.14.0
+
+*	Avoid trying to make configuration changes when the database is unavailable.
+*	Move the pendingRemovals field to the cluster status.
+*	Mark the cluster as fully reconciled when we are waiting for pods to be
+	deleted.
+*	Add an option to configure a headless service to generate DNS records for
+	pods.
+*	Ensure fault tolerance when recruiting coordinators.
+
 # v0.13.0
 
 *	Sync coordinator changes across KCs.

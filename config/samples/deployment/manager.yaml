@@ -22,7 +22,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: foundationdb/fdb-kubernetes-operator:0.13.0
+        image: foundationdb/fdb-kubernetes-operator:0.14.0
         name: manager
         env:
           - name: WATCH_NAMESPACE
