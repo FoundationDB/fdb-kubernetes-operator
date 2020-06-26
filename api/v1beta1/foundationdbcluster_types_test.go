@@ -3003,6 +3003,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 		NeedsServiceUpdate: 2,
 	}))
 
+	cluster = createCluster()
 	cluster.Status.NeedsNewCoordinators = true
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
