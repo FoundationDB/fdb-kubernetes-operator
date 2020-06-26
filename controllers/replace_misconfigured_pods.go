@@ -115,7 +115,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 	if hasNewRemovals {
 		cluster.Status.PendingRemovals = removals
-		err = r.Update(context, cluster)
+		err = r.Status().Update(context, cluster)
 		if err != nil {
 			return false, err
 		}
