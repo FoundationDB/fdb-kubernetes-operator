@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -71,42 +70,12 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return false, err
 	}
 
-	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
-	for _, coordinator := range status.Client.Coordinators.Coordinators {
-		coordinatorStatus[coordinator.Address] = false
+	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status)
+	if err != nil {
+		return false, err
 	}
 
-	if len(coordinatorStatus) == 0 {
-		return false, errors.New("Unable to get coordinator status")
-	}
-
-	allAddressesValid := true
-
-	for _, process := range status.Cluster.Processes {
-		_, isCoordinator := coordinatorStatus[process.Address]
-
-		_, pendingRemoval := removals[process.Locality["instance_id"]]
-
-		if isCoordinator && !process.Excluded && !pendingRemoval {
-			coordinatorStatus[process.Address] = true
-		}
-
-		address, err := fdbtypes.ParseProcessAddress(process.Address)
-		if err != nil {
-			return false, err
-		}
-
-		if address.Flags["tls"] != cluster.Spec.MainContainer.EnableTLS {
-			allAddressesValid = false
-		}
-	}
-
-	needsChange := len(coordinatorStatus) != cluster.DesiredCoordinatorCount()
-	for _, healthy := range coordinatorStatus {
-		needsChange = needsChange || !healthy
-	}
-
-	if needsChange {
+	if !hasValidCoordinators {
 		lockClient, err := r.getLockClient(cluster)
 		if err != nil {
 			return false, err
@@ -130,24 +99,30 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 		log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing new coordinators")
-		coordinatorCount := cluster.DesiredCoordinatorCount()
-		coordinators := make([]string, 0, coordinatorCount)
+
+		candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 		for _, process := range status.Cluster.Processes {
 			_, pendingRemoval := removals[process.Locality["instance_id"]]
 			eligible := !process.Excluded && isStateful(process.ProcessClass) && !pendingRemoval
 			if eligible {
-				coordinators = append(coordinators, process.Address)
-			}
-			if len(coordinators) >= coordinatorCount {
-				break
+				candidates = append(candidates, localityInfoForProcess(process))
 			}
 		}
 
-		if len(coordinators) < coordinatorCount {
-			return false, errors.New("Unable to recruit new coordinators")
+		coordinatorCount := cluster.DesiredCoordinatorCount()
+		coordinators, err := chooseDistributedProcesses(candidates, coordinatorCount, processSelectionConstraint{
+			HardLimits: map[string]int{"zoneid": 1},
+		})
+		if err != nil {
+			return false, err
 		}
 
-		connectionString, err := adminClient.ChangeCoordinators(coordinators)
+		coordinatorAddresses := make([]string, len(coordinators))
+		for index, process := range coordinators {
+			coordinatorAddresses[index] = process.Address
+		}
+
+		connectionString, err := adminClient.ChangeCoordinators(coordinatorAddresses)
 		if err != nil {
 			return false, err
 		}

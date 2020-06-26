@@ -61,13 +61,28 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 		return false, err
 	}
 
-	for i := 0; i < count; i++ {
-		client, err := r.getPodClient(context, cluster, instances[i])
+	processLocality := make([]localityInfo, len(instances))
+	for indexOfProcess := range instances {
+		client, err := r.getPodClient(context, cluster, instances[indexOfProcess])
 		if err != nil {
 			return false, err
 		}
-		connectionString.Coordinators = append(connectionString.Coordinators, cluster.GetFullAddress(client.GetPodIP()))
+		locality, err := localityInfoFromSidecar(cluster, client)
+		if err != nil {
+			return false, err
+		}
+		processLocality[indexOfProcess] = locality
 	}
+
+	coordinators, err := chooseDistributedProcesses(processLocality, count, processSelectionConstraint{})
+	if err != nil {
+		return false, err
+	}
+
+	for _, locality := range coordinators {
+		connectionString.Coordinators = append(connectionString.Coordinators, locality.Address)
+	}
+
 	cluster.Status.ConnectionString = connectionString.String()
 
 	err = r.Status().Update(context, cluster)

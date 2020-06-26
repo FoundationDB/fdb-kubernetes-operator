@@ -7707,6 +7707,9 @@ spec:
                 needsConfigurationChange:
                   format: int64
                   type: integer
+                needsCoordinatorChange:
+                  format: int64
+                  type: integer
                 needsGrow:
                   format: int64
                   type: integer
@@ -7755,6 +7758,8 @@ spec:
                 format: int64
                 type: integer
               type: object
+            needsNewCoordinators:
+              type: boolean
             pendingRemovals:
               additionalProperties:
                 properties:

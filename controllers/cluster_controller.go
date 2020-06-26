@@ -25,7 +25,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -963,4 +965,241 @@ type ClusterSubReconciler interface {
 // MinimumFDBVersion defines the minimum supported FDB version.
 func MinimumFDBVersion() fdbtypes.FdbVersion {
 	return fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12}
+}
+
+// localityInfo captures information about a process for the purposes of
+// choosing diverse locality.
+type localityInfo struct {
+	// The instance ID
+	ID string
+
+	// The process's public address.
+	Address string
+
+	// The locality map.
+	LocalityData map[string]string
+}
+
+// localityInfoForProcess converts the process information from the JSON status
+// into locality info for selecting processes.
+func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo) localityInfo {
+	return localityInfo{
+		ID:           process.Locality["instance_id"],
+		Address:      process.Address,
+		LocalityData: process.Locality,
+	}
+}
+
+// localityInfoForProcess converts the process information from the sidecar's
+// context into locality info for selecting processes.
+func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client FdbPodClient) (localityInfo, error) {
+	substitutions, err := client.GetVariableSubstitutions()
+	if err != nil {
+		return localityInfo{}, err
+	}
+
+	address := cluster.GetFullAddress(substitutions["FDB_PUBLIC_IP"])
+	return localityInfo{
+		ID:      substitutions["FDB_INSTANCE_ID"],
+		Address: address,
+		LocalityData: map[string]string{
+			"zoneid": substitutions["FDB_ZONE_ID"],
+		},
+	}, nil
+}
+
+// notEnoughProcessesError is returned when we cannot recruit enough processes.
+type notEnoughProcessesError struct {
+	// desired defines the number of processes we wanted to recruit.
+	Desired int
+
+	// chosen defines the number of processes we were able to recruit.
+	Chosen int
+
+	// options defines the processes that we were selecting from.
+	Options []localityInfo
+}
+
+// Error formats an error message.
+func (err notEnoughProcessesError) Error() string {
+	return fmt.Sprintf("Could only select %d processes, but %d are required", err.Chosen, err.Desired)
+}
+
+// processSelectionConstraint defines constraints on how we choose processes
+// in chooseDistributedProcesses
+type processSelectionConstraint struct {
+	// Fields defines the locality fields we should consider when selecting
+	// processes.
+	Fields []string
+
+	// HardLimits defines a maximum number of processes to recruit on any single
+	// value for a given locality field.
+	HardLimits map[string]int
+}
+
+// chooseDistributedProcesses recruits a maximally well-distributed set
+// of processes from a set of potential workers.
+func chooseDistributedProcesses(processes []localityInfo, count int, constraint processSelectionConstraint) ([]localityInfo, error) {
+	chosen := make([]localityInfo, 0, count)
+	chosenIDs := make(map[string]bool, count)
+
+	fields := constraint.Fields
+	if len(fields) == 0 {
+		fields = []string{"zoneid", "dcid"}
+	}
+
+	chosenCounts := make(map[string]map[string]int, len(fields))
+	hardLimits := make(map[string]int, len(fields))
+	currentLimits := make(map[string]int, len(fields))
+
+	if constraint.HardLimits != nil {
+		for field, limit := range constraint.HardLimits {
+			hardLimits[field] = limit
+		}
+	}
+
+	for _, field := range fields {
+		chosenCounts[field] = make(map[string]int)
+		if hardLimits[field] == 0 {
+			hardLimits[field] = count
+		}
+		currentLimits[field] = 1
+	}
+
+	for len(chosen) < count {
+		choseAny := false
+
+		for _, process := range processes {
+			if !chosenIDs[process.ID] {
+				eligible := true
+				for _, field := range fields {
+					value := process.LocalityData[field]
+					if chosenCounts[field][value] >= currentLimits[field] {
+						eligible = false
+						break
+					}
+				}
+				if eligible {
+					chosen = append(chosen, process)
+					chosenIDs[process.ID] = true
+
+					choseAny = true
+
+					for _, field := range fields {
+						value := process.LocalityData[field]
+						chosenCounts[field][value]++
+					}
+
+					if len(chosen) == count {
+						break
+					}
+				}
+			}
+		}
+
+		if !choseAny {
+			incrementedLimits := false
+			for indexOfField := len(fields) - 1; indexOfField >= 0; indexOfField-- {
+				field := fields[indexOfField]
+				if currentLimits[field] < hardLimits[field] {
+					currentLimits[field]++
+					incrementedLimits = true
+					break
+				}
+			}
+			if !incrementedLimits {
+				return nil, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
+			}
+		}
+	}
+
+	return chosen, nil
+}
+
+// checkCoordinatorValidity determines if the cluster's current coordinators
+// meet the fault tolerance requirements.
+//
+// The first return value will be whether the coordinators are valid.
+// The second return value will be whether the processes have their TLS flags
+// matching the cluster spec.
+// The third return value will hold any errors encountered when checking the
+// coordinators.
+func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) (bool, bool, error) {
+	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+	for _, coordinator := range status.Client.Coordinators.Coordinators {
+		coordinatorStatus[coordinator.Address] = false
+	}
+
+	if len(coordinatorStatus) == 0 {
+		return false, false, errors.New("Unable to get coordinator status")
+	}
+
+	allAddressesValid := true
+
+	coordinatorZones := make(map[string]int, len(coordinatorStatus))
+	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
+
+	removals := cluster.Status.PendingRemovals
+	if removals == nil {
+		removals = make(map[string]fdbtypes.PendingRemovalState)
+	}
+
+	for _, process := range status.Cluster.Processes {
+		_, isCoordinator := coordinatorStatus[process.Address]
+		_, pendingRemoval := removals[process.Locality["instance_id"]]
+		if isCoordinator && !process.Excluded && !pendingRemoval {
+			coordinatorStatus[process.Address] = true
+		}
+
+		if isCoordinator {
+			coordinatorZones[process.Locality["zoneid"]]++
+			coordinatorDCs[process.Locality["dcid"]]++
+		}
+
+		if process.Address == "" {
+			continue
+		}
+		address, err := fdbtypes.ParseProcessAddress(process.Address)
+		if err != nil {
+			return false, false, err
+		}
+
+		if address.Flags["tls"] != cluster.Spec.MainContainer.EnableTLS {
+			allAddressesValid = false
+		}
+	}
+
+	desiredCount := cluster.DesiredCoordinatorCount()
+	hasEnoughZones := len(coordinatorZones) == desiredCount
+	if !hasEnoughZones {
+		log.Info("Cluster does not have coordinators in the correct number of zones", "namespace", cluster.Namespace, "name", cluster.Name, "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
+	}
+
+	maxCoordinatorsPerDC := desiredCount
+
+	hasEnoughDCs := true
+
+	if cluster.Spec.UsableRegions > 1 {
+		maxCoordinatorsPerDC = int(math.Floor(float64(desiredCount) / 2.0))
+
+		for dc, count := range coordinatorDCs {
+			if count > maxCoordinatorsPerDC {
+				log.Info("Cluster has too many coordinators in a single DC", "namespace", cluster.Namespace, "name", cluster.Name, "DC", dc, "count", count, "max", maxCoordinatorsPerDC)
+				hasEnoughDCs = false
+			}
+		}
+	}
+
+	allHealthy := true
+	for address, healthy := range coordinatorStatus {
+		allHealthy = allHealthy && healthy
+
+		if !healthy {
+			log.Info("Cluster has an unhealthy coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "address", address)
+		}
+	}
+
+	coordinatorsValid := hasEnoughZones && hasEnoughDCs && allHealthy
+
+	return coordinatorsValid, allAddressesValid, nil
 }

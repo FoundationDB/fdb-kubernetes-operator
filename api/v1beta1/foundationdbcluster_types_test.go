@@ -3002,6 +3002,16 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 		Reconciled:         1,
 		NeedsServiceUpdate: 2,
 	}))
+
+	cluster = createCluster()
+	cluster.Status.NeedsNewCoordinators = true
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:             1,
+		NeedsCoordinatorChange: 2,
+	}))
 }
 
 func TestCheckingReconciliationForBackup(t *testing.T) {

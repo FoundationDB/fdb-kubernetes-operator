@@ -288,6 +288,10 @@ type FoundationDBClusterStatus struct {
 	// config that is out of date with the cluster spec.
 	HasIncorrectServiceConfig bool `json:"hasIncorrectServiceConfig,omitempty"`
 
+	// NeedsNewCoordinators indicates whether the cluster needs to recruit
+	// new coordinators to fulfill its fault tolerance requirements.
+	NeedsNewCoordinators bool `json:"needsNewCoordinators,omitempty"`
+
 	// RunningVersion defines the version of FoundationDB that the cluster is
 	// currently running.
 	RunningVersion string `json:"runningVersion,omitempty"`
@@ -312,6 +316,10 @@ type ClusterGenerationStatus struct {
 	// NeedsConfigurationChange provides the last generation that is pending
 	// a change to configuration.
 	NeedsConfigurationChange int64 `json:"needsConfigurationChange,omitempty"`
+
+	// NeedsCoordinatorChange provides the last generation that is pending
+	// a change to its coordinators.
+	NeedsCoordinatorChange int64 `json:"needsCoordinatorChange,omitempty"`
 
 	// NeedsBounce provides the last generation that is pending a bounce of
 	// fdbserver.
@@ -872,6 +880,11 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	if cluster.Status.HasIncorrectServiceConfig {
 		cluster.Status.Generations.NeedsServiceUpdate = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if cluster.Status.NeedsNewCoordinators {
+		cluster.Status.Generations.NeedsCoordinatorChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
