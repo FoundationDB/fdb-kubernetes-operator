@@ -417,26 +417,32 @@ func TestSettingProcessCountByName(t *testing.T) {
 	g.Expect(counts.ClusterController).To(gomega.Equal(1))
 }
 
-func TestClusterDesiredCoordinatorCounts(t *testing.T) {
+func TestClusterDesiredFaultTolerance(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cluster := &FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
 		},
-		Spec: FoundationDBClusterSpec{
-			DatabaseConfiguration: DatabaseConfiguration{
-				RedundancyMode: "double",
-			},
-		},
 	}
 
+	g.Expect(cluster.DesiredFaultTolerance()).To(gomega.Equal(1))
+	g.Expect(cluster.MinimumFaultDomains()).To(gomega.Equal(2))
 	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(3))
 
 	cluster.Spec.RedundancyMode = "single"
+	g.Expect(cluster.DesiredFaultTolerance()).To(gomega.Equal(0))
+	g.Expect(cluster.MinimumFaultDomains()).To(gomega.Equal(1))
 	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(1))
 
+	cluster.Spec.RedundancyMode = "double"
+	g.Expect(cluster.DesiredFaultTolerance()).To(gomega.Equal(1))
+	g.Expect(cluster.MinimumFaultDomains()).To(gomega.Equal(2))
+	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(3))
+
 	cluster.Spec.DatabaseConfiguration.UsableRegions = 2
+	g.Expect(cluster.DesiredFaultTolerance()).To(gomega.Equal(1))
+	g.Expect(cluster.MinimumFaultDomains()).To(gomega.Equal(2))
 	g.Expect(cluster.DesiredCoordinatorCount()).To(gomega.Equal(9))
 }
 
@@ -1072,6 +1078,7 @@ func TestGettingClusterDatabaseConfiguration(t *testing.T) {
 	g.Expect(cluster.DesiredDatabaseConfiguration()).To(gomega.Equal(DatabaseConfiguration{
 		RedundancyMode: "double",
 		StorageEngine:  "ssd-2",
+		UsableRegions:  1,
 		RoleCounts: RoleCounts{
 			Logs:       4,
 			Proxies:    5,
@@ -1080,6 +1087,22 @@ func TestGettingClusterDatabaseConfiguration(t *testing.T) {
 			RemoteLogs: -1,
 		},
 	}))
+
+	cluster.Spec = FoundationDBClusterSpec{}
+
+	g.Expect(cluster.DesiredDatabaseConfiguration()).To(gomega.Equal(DatabaseConfiguration{
+		RedundancyMode: "double",
+		StorageEngine:  "ssd-2",
+		UsableRegions:  1,
+		RoleCounts: RoleCounts{
+			Logs:       3,
+			Proxies:    3,
+			Resolvers:  1,
+			LogRouters: -1,
+			RemoteLogs: -1,
+		},
+	}))
+
 }
 
 func TestGettingConfigurationString(t *testing.T) {
@@ -2797,10 +2820,8 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 				Generation: 2,
 			},
 			Spec: FoundationDBClusterSpec{
-				Version: Versions.Default.String(),
-				DatabaseConfiguration: DatabaseConfiguration{
-					RedundancyMode: "double",
-				},
+				Version:               Versions.Default.String(),
+				DatabaseConfiguration: DatabaseConfiguration{},
 			},
 			Status: FoundationDBClusterStatus{
 				Health: ClusterHealth{
@@ -2812,6 +2833,8 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 				},
 				DatabaseConfiguration: DatabaseConfiguration{
 					RedundancyMode: "double",
+					StorageEngine:  "ssd-2",
+					UsableRegions:  1,
 					RoleCounts: RoleCounts{
 						Logs:       3,
 						Proxies:    3,

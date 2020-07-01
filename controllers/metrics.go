@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -28,7 +29,7 @@ type fdbClusterCollector struct {
 	reconciler *FoundationDBClusterReconciler
 }
 
-func NewFDBClusterCollector(reconciler *FoundationDBClusterReconciler) *fdbClusterCollector {
+func newFDBClusterCollector(reconciler *FoundationDBClusterReconciler) *fdbClusterCollector {
 	return &fdbClusterCollector{reconciler: reconciler}
 }
 
@@ -66,9 +67,10 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *v1beta1.FoundationDBCl
 	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
 }
 
+// InitCustomMetrics initializes the metrics collectors for the operator.
 func InitCustomMetrics(reconciler *FoundationDBClusterReconciler) {
 	metrics.Registry.MustRegister(
-		NewFDBClusterCollector(reconciler),
+		newFDBClusterCollector(reconciler),
 	)
 }
 
