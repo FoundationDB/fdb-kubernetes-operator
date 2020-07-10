@@ -26,7 +26,7 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 
 all: generate fmt vet manager manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-oeprator bounce lint
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-operator bounce lint
 
 clean:
 	find config/crd/bases -type f -name "*.yaml" -delete

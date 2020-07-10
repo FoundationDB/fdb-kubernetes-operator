@@ -772,7 +772,7 @@ func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
 	switch cluster.Spec.RedundancyMode {
 	case "single":
 		return 0
-	case "double":
+	case "double", "":
 		return 1
 	case "triple":
 		return 2
@@ -787,7 +787,7 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 	switch cluster.Spec.RedundancyMode {
 	case "single":
 		return 1
-	case "double":
+	case "double", "":
 		return 2
 	case "triple":
 		return 3
@@ -1626,6 +1626,18 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 	}
 	if result.LogRouters == 0 {
 		result.LogRouters = -1
+	}
+
+	if result.UsableRegions < 1 {
+		result.UsableRegions = 1
+	}
+
+	if result.RedundancyMode == "" {
+		result.RedundancyMode = "double"
+	}
+
+	if result.StorageEngine == "" {
+		result.StorageEngine = "ssd-2"
 	}
 
 	for _, region := range result.Regions {

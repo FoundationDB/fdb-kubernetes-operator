@@ -102,7 +102,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	}
 
 	subReconcilers := []ClusterSubReconciler{
-		SetDefaultValues{},
 		UpdateStatus{},
 		CheckClientCompatibility{},
 		CheckInstancesToRemove{},
@@ -667,6 +666,19 @@ func (r *FoundationDBClusterReconciler) getPendingRemovalState(instance FdbInsta
 		state.Address = ip
 	}
 	return state
+}
+
+// clearPendingRemovalsFromSpec removes the pending removals from the cluster
+// spec.
+func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+	modifiedCluster := &fdbtypes.FoundationDBCluster{}
+	err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, modifiedCluster)
+	if err != nil {
+		return err
+	}
+	modifiedCluster.Spec.PendingRemovals = nil
+	err = r.Update(context, modifiedCluster)
+	return err
 }
 
 // updatePendingRemovals processes an update to the pending removals for the

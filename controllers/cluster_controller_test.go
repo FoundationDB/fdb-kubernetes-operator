@@ -169,8 +169,8 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should fill in the required fields in the configuration", func() {
-				Expect(cluster.Spec.RedundancyMode).To(Equal("double"))
-				Expect(cluster.Spec.StorageEngine).To(Equal("ssd"))
+				Expect(cluster.Status.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+				Expect(cluster.Status.DatabaseConfiguration.StorageEngine).To(Equal("ssd-2"))
 				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
 			})
 
@@ -201,7 +201,7 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(2)))
+				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
 				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
@@ -467,6 +467,69 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.SeedConnectionString = "touch"
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should keep the process counts the same", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}, timeout).Should(Equal(17))
+
+					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+						"storage":            4,
+						"log":                4,
+						"stateless":          8,
+						"cluster_controller": 1,
+					}))
+				})
+
+				It("should replace one of the pods", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}, timeout).Should(Equal(17))
+
+					sortPodsByID(pods)
+
+					Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+					Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+					Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
+					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
+				})
+
+				It("should exclude and re-include the process", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient).NotTo(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
+						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+					}))
+				})
+
+				It("should change the connection string", func() {
+					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
+				})
+
+				It("should clear the removal list", func() {
+					Expect(cluster.Spec.PendingRemovals).To(BeNil())
+					Expect(cluster.Status.PendingRemovals).To(BeNil())
+					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
+				})
+			})
+
+			Context("with an entry in the pendingRemovals in the spec", func() {
+				BeforeEach(func() {
+					pod := originalPods.Items[firstStorageIndex]
+					cluster.Spec.PendingRemovals = map[string]string{
+						pod.Name: MockPodIP(&pod),
+					}
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap = 2
 				})
 
 				It("should keep the process counts the same", func() {
@@ -2087,7 +2150,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 2}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 1}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -2502,7 +2565,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int64, error) {
 					generations, err := reloadClusterGenerations(k8sClient, cluster)
 					return generations.Reconciled, err
-				}, time.Second*5).Should(Equal(int64(3)))
+				}, time.Second*5).Should(Equal(int64(2)))
 
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
