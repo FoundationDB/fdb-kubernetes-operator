@@ -1,3 +1,8 @@
+# v0.15.0
+
+*	Remove step to set default values in the cluster spec.
+*	Use the status call when updating teh status in replace_misconfigured_pods.
+
 # v0.14.0
 
 *	Avoid trying to make configuration changes when the database is unavailable.
