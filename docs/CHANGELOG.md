@@ -1,3 +1,7 @@
+# v0.15.1
+
+*	Previous deployment had problems, bumping version as a fix.
+
 # v0.15.0
 
 *	Remove step to set default values in the cluster spec.
