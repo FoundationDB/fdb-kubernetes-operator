@@ -417,18 +417,23 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		filesToCopy = append(filesToCopy, "ca.pem")
 	}
 
-	sidecarConf := map[string]interface{}{
-		"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},
-		"COPY_FILES":               filesToCopy,
-		"COPY_LIBRARIES":           []string{},
-		"INPUT_MONITOR_CONF":       "fdbmonitor.conf",
-		"ADDITIONAL_SUBSTITUTIONS": substitutionKeys,
+	needsSidecarConf := !version.PrefersCommandLineArgumentsInSidecar() ||
+		cluster.Status.NeedsSidecarConfInConfigMap
+
+	if needsSidecarConf {
+		sidecarConf := map[string]interface{}{
+			"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},
+			"COPY_FILES":               filesToCopy,
+			"COPY_LIBRARIES":           []string{},
+			"INPUT_MONITOR_CONF":       "fdbmonitor.conf",
+			"ADDITIONAL_SUBSTITUTIONS": substitutionKeys,
+		}
+		sidecarConfData, err := json.Marshal(sidecarConf)
+		if err != nil {
+			return nil, err
+		}
+		data["sidecar-conf"] = string(sidecarConfData)
 	}
-	sidecarConfData, err := json.Marshal(sidecarConf)
-	if err != nil {
-		return nil, err
-	}
-	data["sidecar-conf"] = string(sidecarConfData)
 
 	if cluster.Status.PendingRemovals != nil {
 		pendingRemovalData, err := json.Marshal(cluster.Status.PendingRemovals)

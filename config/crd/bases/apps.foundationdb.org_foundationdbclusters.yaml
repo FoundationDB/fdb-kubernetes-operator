@@ -7760,6 +7760,8 @@ spec:
               type: object
             needsNewCoordinators:
               type: boolean
+            needsSidecarConfInConfigMap:
+              type: boolean
             pendingRemovals:
               additionalProperties:
                 properties:
