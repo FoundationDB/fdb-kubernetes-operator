@@ -4020,6 +4020,8 @@ spec:
                   type: integer
                 data_distributor:
                   type: integer
+                fast_restore:
+                  type: integer
                 log:
                   type: integer
                 master:
@@ -7782,6 +7784,8 @@ spec:
                 cluster_controller:
                   type: integer
                 data_distributor:
+                  type: integer
+                fast_restore:
                   type: integer
                 log:
                   type: integer

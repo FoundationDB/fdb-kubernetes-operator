@@ -660,6 +660,7 @@ ProcessCounts represents the number of processes we have for each valid process 
 | router |  | int | false |
 | ratekeeper |  | int | false |
 | data_distributor |  | int | false |
+| fast_restore |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
