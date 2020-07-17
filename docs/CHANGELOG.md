@@ -1,7 +1,12 @@
+# v0.15.1
+
+*	Prevent errors when encountering pods in replace_misconfigured_pods that are
+	not owned by the operator.
+
 # v0.15.0
 
 *	Remove step to set default values in the cluster spec.
-*	Use the status call when updating teh status in replace_misconfigured_pods.
+*	Use the status call when updating the status in replace_misconfigured_pods.
 
 # v0.14.0
 
