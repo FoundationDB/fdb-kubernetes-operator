@@ -356,6 +356,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. | map[string][PendingRemovalState](#pendingremovalstate) | false |
+| needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
