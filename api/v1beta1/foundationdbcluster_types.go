@@ -143,6 +143,10 @@ type FoundationDBClusterSpec struct {
 	// pods.
 	Services ServiceConfig `json:"services,omitempty"`
 
+	// IgnoreUpgradabilityChecks determines whether we should skip the check for
+	// client compatibility when performing an upgrade.
+	IgnoreUpgradabilityChecks bool `json:"ignoreUpgradabilityChecks,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.

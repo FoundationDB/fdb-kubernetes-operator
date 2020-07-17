@@ -1378,8 +1378,13 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("with an upgrade", func() {
+			var adminClient *MockAdminClient
+
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.NextMajorVersion.String()
+
+				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			Context("with the default strategy", func() {
@@ -1464,6 +1469,95 @@ var _ = Describe("cluster_controller", func() {
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
+			})
+
+			Context("with all upgradable clients", func() {
+				BeforeEach(func() {
+					adminClient.MockClientVersion(Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
+					timeout = 120 * time.Second
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+
+				})
+
+				It("should not set a message about the client upgradability", func() {
+					events := &corev1.EventList{}
+					k8sClient.List(context.TODO(), events)
+					matchingEvents := []corev1.Event{}
+					for _, event := range events.Items {
+						if event.InvolvedObject.UID == cluster.ObjectMeta.UID && event.Reason == "UnsupportedClient" {
+							matchingEvents = append(matchingEvents, event)
+						}
+					}
+					Expect(matchingEvents).To(BeEmpty())
+				})
+
+				It("should update the running version", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+				})
+			})
+
+			Context("with a non-upgradable client", func() {
+				BeforeEach(func() {
+					adminClient.MockClientVersion(Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
+					adminClient.MockClientVersion(Versions.Default.String(), []string{"127.0.0.3:85891"})
+				})
+
+				Context("with the check enabled", func() {
+					BeforeEach(func() {
+						timeout = 120 * time.Second
+						err = k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						generationGap = 0
+					})
+
+					It("should set a message about the client upgradability", func() {
+						events := &corev1.EventList{}
+						matchingEvents := []corev1.Event{}
+
+						Eventually(func() (int, error) {
+							err = k8sClient.List(context.TODO(), events)
+							if err != nil {
+								return 0, err
+							}
+							for _, event := range events.Items {
+								if event.InvolvedObject.UID == cluster.ObjectMeta.UID && event.Reason == "UnsupportedClient" {
+									matchingEvents = append(matchingEvents, event)
+								}
+							}
+							return len(matchingEvents), nil
+						}).ShouldNot(Equal(0))
+
+						Expect(matchingEvents[0].Message).To(Equal(
+							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891", Versions.NextMajorVersion),
+						))
+					})
+				})
+
+				Context("with the check disabled", func() {
+					BeforeEach(func() {
+						timeout = 120 * time.Second
+						cluster.Spec.IgnoreUpgradabilityChecks = true
+						err = k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should not set a message about the client upgradability", func() {
+						events := &corev1.EventList{}
+						k8sClient.List(context.TODO(), events)
+						matchingEvents := []corev1.Event{}
+						for _, event := range events.Items {
+							if event.InvolvedObject.UID == cluster.ObjectMeta.UID && event.Reason == "UnsupportedClient" {
+								matchingEvents = append(matchingEvents, event)
+							}
+						}
+						Expect(matchingEvents).To(BeEmpty())
+					})
+
+					It("should update the running version", func() {
+						Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+					})
 				})
 			})
 		})

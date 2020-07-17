@@ -662,6 +662,8 @@ spec:
                 zoneIndex:
                   type: integer
               type: object
+            ignoreUpgradabilityChecks:
+              type: boolean
             initContainers:
               items:
                 properties:
