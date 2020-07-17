@@ -1,4 +1,4 @@
-# v0.15.1
+# v0.15.2
 
 *	Prevent errors when encountering pods in replace_misconfigured_pods that are
 	not owned by the operator.
