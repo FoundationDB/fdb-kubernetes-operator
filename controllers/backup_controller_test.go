@@ -238,7 +238,7 @@ var _ = Describe("backup_controller", func() {
 
 		Context("when changing labels", func() {
 			BeforeEach(func() {
-				backup.Spec.DeploymentMetadata = &metav1.ObjectMeta{
+				backup.Spec.BackupDeploymentMetadata = &metav1.ObjectMeta{
 					Labels: map[string]string{"fdb-test": "test-value"},
 				}
 				err = k8sClient.Update(context.TODO(), backup)
@@ -269,7 +269,7 @@ var _ = Describe("backup_controller", func() {
 				err = k8sClient.Update(context.TODO(), &deployment)
 				Expect(err).NotTo(HaveOccurred())
 
-				backup.Spec.DeploymentMetadata = &metav1.ObjectMeta{
+				backup.Spec.BackupDeploymentMetadata = &metav1.ObjectMeta{
 					Annotations: map[string]string{"fdb-test-2": "test-value-2"},
 				}
 				err = k8sClient.Update(context.TODO(), backup)

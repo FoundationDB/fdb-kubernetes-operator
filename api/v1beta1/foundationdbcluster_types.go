@@ -2130,9 +2130,9 @@ type FoundationDBBackupSpec struct {
 	// This is measured in seconds. The default is 864,000, or 10 days.
 	SnapshotPeriodSeconds *int `json:"snapshotPeriodSeconds,omitempty"`
 
-	// DeploymentMetadata allows customizing labels and annotations on the
+	// BackupDeploymentMetadata allows customizing labels and annotations on the
 	// deployment for the backup agents.
-	DeploymentMetadata *metav1.ObjectMeta `json:"deploymentMetadata,omitempty"`
+	BackupDeploymentMetadata *metav1.ObjectMeta `json:"backupDeploymentMetadata,omitempty"`
 
 	// PodTemplateSpec allows customizing the pod template for the backup
 	// agents.

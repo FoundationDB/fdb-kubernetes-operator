@@ -251,8 +251,8 @@ func (in *FoundationDBBackupSpec) DeepCopyInto(out *FoundationDBBackupSpec) {
 		*out = new(int)
 		**out = **in
 	}
-	if in.DeploymentMetadata != nil {
-		in, out := &in.DeploymentMetadata, &out.DeploymentMetadata
+	if in.BackupDeploymentMetadata != nil {
+		in, out := &in.BackupDeploymentMetadata, &out.BackupDeploymentMetadata
 		*out = new(metav1.ObjectMeta)
 		(*in).DeepCopyInto(*out)
 	}

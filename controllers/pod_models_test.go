@@ -2404,7 +2404,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a custom label", func() {
 			BeforeEach(func() {
-				backup.Spec.DeploymentMetadata = &metav1.ObjectMeta{
+				backup.Spec.BackupDeploymentMetadata = &metav1.ObjectMeta{
 					Labels: map[string]string{
 						"fdb-test": "test-value",
 					},

@@ -663,11 +663,11 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 	}
 	deployment.ObjectMeta.OwnerReferences = owner
 
-	if backup.Spec.DeploymentMetadata != nil {
-		for key, value := range backup.Spec.DeploymentMetadata.Labels {
+	if backup.Spec.BackupDeploymentMetadata != nil {
+		for key, value := range backup.Spec.BackupDeploymentMetadata.Labels {
 			deployment.ObjectMeta.Labels[key] = value
 		}
-		for key, value := range backup.Spec.DeploymentMetadata.Annotations {
+		for key, value := range backup.Spec.BackupDeploymentMetadata.Annotations {
 			deployment.ObjectMeta.Annotations[key] = value
 		}
 	}
