@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"reflect"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -60,10 +61,10 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 	}
 	if len(existingDeployments.Items) != 0 && deployment != nil {
 		existingDeployment := existingDeployments.Items[0]
-		if existingDeployment.ObjectMeta.Annotations[LastSpecKey] != deployment.ObjectMeta.Annotations[LastSpecKey] {
-			spec := deployment.ObjectMeta.Annotations[LastSpecKey]
-			deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
-			deployment.ObjectMeta.Annotations[LastSpecKey] = spec
+		annotationChange := mergeAnnotations(&existingDeployment.ObjectMeta, deployment.ObjectMeta)
+		deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
+
+		if annotationChange || !reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
 			err = r.Update(context, deployment)
 			if err != nil {
 				return false, err

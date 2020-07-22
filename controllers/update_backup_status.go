@@ -59,16 +59,16 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 		}
 		generationsMatch := backupDeployment.Status.ObservedGeneration == backupDeployment.ObjectMeta.Generation
 
-		specHash, err := GetJSONHash(desiredBackupDeployment.Spec)
-		if err != nil {
-			return false, err
-		}
-		specsMatch := backupDeployment.Annotations[LastSpecKey] == specHash
-		status.DeploymentConfigured = generationsMatch && specsMatch
+		annotationChange := mergeAnnotations(&backupDeployment.ObjectMeta, desiredBackupDeployment.ObjectMeta)
+
+		metadataMatch := !annotationChange &&
+			reflect.DeepEqual(backupDeployment.ObjectMeta.Labels, desiredBackupDeployment.ObjectMeta.Labels)
+
+		status.DeploymentConfigured = generationsMatch && metadataMatch
 
 		if r.InSimulation {
 			status.AgentCount = int(*backupDeployment.Spec.Replicas)
-			status.DeploymentConfigured = specsMatch
+			status.DeploymentConfigured = metadataMatch
 		}
 	} else if len(backupDeployments.Items) == 0 && desiredBackupDeployment == nil {
 		status.DeploymentConfigured = true

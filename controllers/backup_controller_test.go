@@ -29,6 +29,7 @@ import (
 
 	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -232,6 +233,60 @@ var _ = Describe("backup_controller", func() {
 				status, err := adminClient.GetBackupStatus()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status.SnapshotIntervalSeconds).To(Equal(100000))
+			})
+		})
+
+		Context("when changing labels", func() {
+			BeforeEach(func() {
+				backup.Spec.BackupDeploymentMetadata = &metav1.ObjectMeta{
+					Labels: map[string]string{"fdb-test": "test-value"},
+				}
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should modify the deployment", func() {
+				deployments := &appsv1.DeploymentList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), deployments)
+					return len(deployments.Items), err
+				}, timeout).Should(Equal(1))
+				Expect(deployments.Items[0].ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-test":                    "test-value",
+					"foundationdb.org/backup-for": string(backup.ObjectMeta.UID),
+				}))
+			})
+		})
+
+		Context("when changing annotations", func() {
+			BeforeEach(func() {
+				deployments := &appsv1.DeploymentList{}
+				err = k8sClient.List(context.TODO(), deployments)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deployments.Items)).To(Equal(1))
+				deployment := deployments.Items[0]
+				deployment.ObjectMeta.Annotations["fdb-test-1"] = "test-value-1"
+				err = k8sClient.Update(context.TODO(), &deployment)
+				Expect(err).NotTo(HaveOccurred())
+
+				backup.Spec.BackupDeploymentMetadata = &metav1.ObjectMeta{
+					Annotations: map[string]string{"fdb-test-2": "test-value-2"},
+				}
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should modify the deployment", func() {
+				deployments := &appsv1.DeploymentList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), deployments)
+					return len(deployments.Items), err
+				}, timeout).Should(Equal(1))
+				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
+					"fdb-test-1":                         "test-value-1",
+					"fdb-test-2":                         "test-value-2",
+					"foundationdb.org/last-applied-spec": "53bf93c896578af51723c0db12e884751be4ee702c7487a1a57108fa111a23d6",
+				}))
 			})
 		})
 	})

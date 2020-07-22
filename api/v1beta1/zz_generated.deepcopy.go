@@ -22,6 +22,7 @@ package v1beta1
 
 import (
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -249,6 +250,11 @@ func (in *FoundationDBBackupSpec) DeepCopyInto(out *FoundationDBBackupSpec) {
 		in, out := &in.SnapshotPeriodSeconds, &out.SnapshotPeriodSeconds
 		*out = new(int)
 		**out = **in
+	}
+	if in.BackupDeploymentMetadata != nil {
+		in, out := &in.BackupDeploymentMetadata, &out.BackupDeploymentMetadata
+		*out = new(metav1.ObjectMeta)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.PodTemplateSpec != nil {
 		in, out := &in.PodTemplateSpec, &out.PodTemplateSpec
