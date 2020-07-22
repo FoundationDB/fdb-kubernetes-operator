@@ -217,7 +217,10 @@ var _ = Describe("cluster_controller", func() {
 
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(cluster.Status.DatabaseConfiguration).To(Equal(status.Cluster.DatabaseConfiguration))
+
+				configuration := status.Cluster.DatabaseConfiguration.DeepCopy()
+				configuration.LogSpill = 0
+				Expect(cluster.Status.DatabaseConfiguration).To(Equal(*configuration))
 
 				Expect(cluster.Status.Health).To(Equal(fdbtypes.ClusterHealth{
 					Available:            true,
@@ -784,6 +787,41 @@ var _ = Describe("cluster_controller", func() {
 
 				It("should configure the database", func() {
 					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("triple"))
+				})
+			})
+
+			Context("with a change to the log version", func() {
+				BeforeEach(func() {
+					cluster.Spec.DatabaseConfiguration.LogVersion = 3
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = "double"
+					generationGap = 1
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should configure the database", func() {
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+					Expect(adminClient.DatabaseConfiguration.LogVersion).To(Equal(3))
+				})
+			})
+
+			Context("with a change to the log version that is not set in the spec", func() {
+				BeforeEach(func() {
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = "double"
+					cluster.Spec.SeedConnectionString = "touch"
+
+					configuration := cluster.DesiredDatabaseConfiguration()
+					configuration.LogVersion = 3
+					err = adminClient.ConfigureDatabase(configuration, false)
+					Expect(err).NotTo(HaveOccurred())
+
+					generationGap = 1
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should not reconfigure the database", func() {
+					Expect(adminClient.DatabaseConfiguration.LogVersion).To(Equal(3))
 				})
 			})
 
