@@ -31,6 +31,10 @@ var log = logf.Log.WithName("controller")
 // pod spec.
 const LastSpecKey = "foundationdb.org/last-applied-spec"
 
+// LastConfigMapKey provides the annotation name we use to store the hash of the
+// config map.
+const LastConfigMapKey = "foundationdb.org/last-applied-config-map"
+
 // BackupDeploymentLabel probvides the label we use to connect backup
 // deployments to a cluster.
 const BackupDeploymentLabel = "foundationdb.org/backup-for"

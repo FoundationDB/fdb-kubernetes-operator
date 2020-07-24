@@ -463,6 +463,15 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 	}, nil
 }
 
+// GetConfigMapHash gets the hash of the data for a cluster's dynamic config.
+func GetConfigMapHash(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (string, error) {
+	configMap, err := GetConfigMap(context, cluster, kubeClient)
+	if err != nil {
+		return "", err
+	}
+	return GetJSONHash(configMap.Data)
+}
+
 // GetMonitorConf builds the monitor conf template
 func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod, podClient FdbPodClient) (string, error) {
 	if cluster.Status.ConnectionString == "" {
@@ -617,6 +626,20 @@ func GetJSONHash(object interface{}) (string, error) {
 	}
 	specHash := hash.Sum(make([]byte, 0))
 	return hex.EncodeToString(specHash), nil
+}
+
+// GetDynamicConfHash gets a hash of the data from the config map holding the
+// cluster's dynamic conf.
+//
+// This will omit keys that we do not expect the pods to reference.
+func GetDynamicConfHash(configMap *corev1.ConfigMap) (string, error) {
+	var data = make(map[string]string, len(configMap.Data))
+	for key, value := range configMap.Data {
+		if key != "pending-removals" {
+			data[key] = value
+		}
+	}
+	return GetJSONHash(data)
 }
 
 func (r *FoundationDBClusterReconciler) getPodClient(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, error) {
