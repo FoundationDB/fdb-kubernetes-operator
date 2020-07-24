@@ -4,7 +4,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
-* [BackupGenerationStatus](#backupgenerationstatus)
 * [ClusterGenerationStatus](#clustergenerationstatus)
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
@@ -12,23 +11,12 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
 * [FdbVersion](#fdbversion)
-* [FoundationDBBackup](#foundationdbbackup)
-* [FoundationDBBackupList](#foundationdbbackuplist)
-* [FoundationDBBackupSpec](#foundationdbbackupspec)
-* [FoundationDBBackupStatus](#foundationdbbackupstatus)
-* [FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails)
 * [FoundationDBCluster](#foundationdbcluster)
 * [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
 * [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
-* [FoundationDBLiveBackupStatus](#foundationdblivebackupstatus)
-* [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate)
-* [FoundationDBRestore](#foundationdbrestore)
-* [FoundationDBRestoreList](#foundationdbrestorelist)
-* [FoundationDBRestoreSpec](#foundationdbrestorespec)
-* [FoundationDBRestoreStatus](#foundationdbrestorestatus)
 * [FoundationDBStatus](#foundationdbstatus)
 * [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo)
 * [FoundationDBStatusBackupTag](#foundationdbstatusbackuptag)
@@ -54,21 +42,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [RoleCounts](#rolecounts)
 * [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
-
-## BackupGenerationStatus
-
-BackupGenerationStatus stores information on which generations have reached different stages in reconciliation for the backup.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| reconciled | Reconciled provides the last generation that was fully reconciled. | int64 | false |
-| needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. | int64 | false |
-| needsBackupStart | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to start a backup. | int64 | false |
-| needsBackupStop | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to stop a backup. | int64 | false |
-| needsBackupPauseToggle | NeedsBackupPauseToggle provides the last generation that needs to have a backup paused or resumed. | int64 | false |
-| needsBackupModification | NeedsBackupReconfiguration provides the last generation that could not complete reconciliation because we need to modify backup parameters. | int64 | false |
-
-[Back to TOC](#table-of-contents)
 
 ## ClusterGenerationStatus
 
@@ -168,74 +141,6 @@ FdbVersion represents a version of FoundationDB.  This provides convenience meth
 | Major | Major is the major version | int | false |
 | Minor | Minor is the minor version | int | false |
 | Patch | Patch is the patch version | int | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBBackup
-
-FoundationDBBackup is the Schema for the FoundationDB Backup API
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
-| spec |  | [FoundationDBBackupSpec](#foundationdbbackupspec) | false |
-| status |  | [FoundationDBBackupStatus](#foundationdbbackupstatus) | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBBackupList
-
-FoundationDBBackupList contains a list of FoundationDBBackup
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
-| items |  | [][FoundationDBBackup](#foundationdbbackup) | true |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBBackupSpec
-
-FoundationDBBackupSpec describes the desired state of the backup for a cluster.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| version | The version of FoundationDB that the backup agents should run. | string | true |
-| clusterName | The cluster this backup is for. | string | true |
-| backupState | The desired state of the backup. The default is Running. | string | false |
-| backupName | The name for the backup. The default is to use the name from the backup metadata. | string | false |
-| accountName | The account name to use with the backup destination. | string | true |
-| bucket | The backup bucket to write to. The default is to use \"fdb-backups\". | string | false |
-| agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
-| snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |
-| backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
-| podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBBackupStatus
-
-FoundationDBBackupStatus describes the current status of the backup for a cluster.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| agentCount | AgentCount provides the number of agents that are up-to-date, ready, and not terminated. | int | false |
-| deploymentConfigured | DeploymentConfigured indicates whether the deployment is correctly configured. | bool | false |
-| backupDetails | BackupDetails provides information about the state of the backup in the cluster. | *[FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails) | false |
-| generations | Generations provides information about the latest generation to be reconciled, or to reach other stages in reconciliation. | [BackupGenerationStatus](#backupgenerationstatus) | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBBackupStatusBackupDetails
-
-FoundationDBBackupStatusBackupDetails provides information about the state of the backup in the cluster.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| url |  | string | false |
-| running |  | bool | false |
-| paused |  | bool | false |
-| snapshotTime |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -359,73 +264,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBLiveBackupStatus
-
-FoundationDBLiveBackupStatus describes the live status of the backup for a cluster, as provided by the backup status command.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| DestinationURL | DestinationURL provides the URL that the backup is being written to. | string | false |
-| SnapshotIntervalSeconds | SnapshotIntervalSeconds provides the interval of the snapshots. | int | false |
-| Status | Status provides the current state of the backup. | [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate) | false |
-| BackupAgentsPaused | BackupAgentsPaused describes whether the backup agents are paused. | bool | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBLiveBackupStatusState
-
-FoundationDBLiveBackupStatusState provides the state of a backup in the backup status.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| Running | Running determines whether the backup is currently running. | bool | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBRestore
-
-FoundationDBRestore is the Schema for the FoundationDB Restore API
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
-| spec |  | [FoundationDBRestoreSpec](#foundationdbrestorespec) | false |
-| status |  | [FoundationDBRestoreStatus](#foundationdbrestorestatus) | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBRestoreList
-
-FoundationDBRestoreList contains a list of FoundationDBRestore objects.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
-| items |  | [][FoundationDBRestore](#foundationdbrestore) | true |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBRestoreSpec
-
-FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| destinationClusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
-| backupURL | BackupURL provides the URL for the backup. | string | true |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBRestoreStatus
-
-FoundationDBRestoreStatus describes the current status of the restore for a cluster.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| running | Running describes whether the restore is currently running. | bool | false |
 
 [Back to TOC](#table-of-contents)
 

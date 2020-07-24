@@ -121,7 +121,13 @@ bin/po-docgen: cmd/po-docgen/*.go
 docs/cluster_spec.md: bin/po-docgen api/v1beta1/foundationdbcluster_types.go
 	bin/po-docgen api api/v1beta1/foundationdbcluster_types.go > docs/cluster_spec.md
 
-documentation: docs/cluster_spec.md
+docs/backup_spec.md: bin/po-docgen api/v1beta1/foundationdbbackup_types.go
+	bin/po-docgen api api/v1beta1/foundationdbbackup_types.go > docs/backup_spec.md
+
+docs/restore_spec.md: bin/po-docgen api/v1beta1/foundationdbrestore_types.go
+	bin/po-docgen api api/v1beta1/foundationdbrestore_types.go > docs/restore_spec.md
+
+documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 
 lint:
 	go run golang.org/x/lint/golint -set_exit_status ./...

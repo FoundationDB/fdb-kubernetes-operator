@@ -21,8 +21,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -96,21 +96,21 @@ func (in *ContainerOverrides) DeepCopyInto(out *ContainerOverrides) {
 	*out = *in
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
-		*out = make([]v1.EnvVar, len(*in))
+		*out = make([]corev1.EnvVar, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.VolumeMounts != nil {
 		in, out := &in.VolumeMounts, &out.VolumeMounts
-		*out = make([]v1.VolumeMount, len(*in))
+		*out = make([]corev1.VolumeMount, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.SecurityContext != nil {
 		in, out := &in.SecurityContext, &out.SecurityContext
-		*out = new(v1.SecurityContext)
+		*out = new(corev1.SecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -253,12 +253,12 @@ func (in *FoundationDBBackupSpec) DeepCopyInto(out *FoundationDBBackupSpec) {
 	}
 	if in.BackupDeploymentMetadata != nil {
 		in, out := &in.BackupDeploymentMetadata, &out.BackupDeploymentMetadata
-		*out = new(metav1.ObjectMeta)
+		*out = new(v1.ObjectMeta)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.PodTemplateSpec != nil {
 		in, out := &in.PodTemplateSpec, &out.PodTemplateSpec
-		*out = new(v1.PodTemplateSpec)
+		*out = new(corev1.PodTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -440,7 +440,7 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	}
 	if in.ConfigMap != nil {
 		in, out := &in.ConfigMap, &out.ConfigMap
-		*out = new(v1.ConfigMap)
+		*out = new(corev1.ConfigMap)
 		(*in).DeepCopyInto(*out)
 	}
 	in.MainContainer.DeepCopyInto(&out.MainContainer)
@@ -467,33 +467,33 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
-		*out = new(v1.ResourceRequirements)
+		*out = new(corev1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.InitContainers != nil {
 		in, out := &in.InitContainers, &out.InitContainers
-		*out = make([]v1.Container, len(*in))
+		*out = make([]corev1.Container, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Containers != nil {
 		in, out := &in.Containers, &out.Containers
-		*out = make([]v1.Container, len(*in))
+		*out = make([]corev1.Container, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
-		*out = make([]v1.Volume, len(*in))
+		*out = make([]corev1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.PodSecurityContext != nil {
 		in, out := &in.PodSecurityContext, &out.PodSecurityContext
-		*out = new(v1.PodSecurityContext)
+		*out = new(corev1.PodSecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.AutomountServiceAccountToken != nil {
@@ -508,12 +508,12 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	}
 	if in.PodTemplate != nil {
 		in, out := &in.PodTemplate, &out.PodTemplate
-		*out = new(v1.PodTemplateSpec)
+		*out = new(corev1.PodTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.VolumeClaim != nil {
 		in, out := &in.VolumeClaim, &out.VolumeClaim
-		*out = new(v1.PersistentVolumeClaim)
+		*out = new(corev1.PersistentVolumeClaim)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.CustomParameters != nil {
@@ -1061,12 +1061,12 @@ func (in *ProcessSettings) DeepCopyInto(out *ProcessSettings) {
 	*out = *in
 	if in.PodTemplate != nil {
 		in, out := &in.PodTemplate, &out.PodTemplate
-		*out = new(v1.PodTemplateSpec)
+		*out = new(corev1.PodTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.VolumeClaim != nil {
 		in, out := &in.VolumeClaim, &out.VolumeClaim
-		*out = new(v1.PersistentVolumeClaim)
+		*out = new(corev1.PersistentVolumeClaim)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.CustomParameters != nil {
