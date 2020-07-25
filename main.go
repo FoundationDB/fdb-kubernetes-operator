@@ -47,6 +47,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var logFile string
+	var cliTimeout int
 
 	fdb.MustAPIVersion(610)
 
@@ -54,6 +55,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
+	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
 	flag.Parse()
 
 	var logWriter io.Writer
@@ -73,6 +75,8 @@ func main() {
 		o.Development = true
 		o.DestWritter = logWriter
 	}))
+
+	controllers.DefaultCLITimeout = cliTimeout
 
 	options := ctrl.Options{
 		Scheme:             scheme,

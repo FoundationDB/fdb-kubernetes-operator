@@ -206,7 +206,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	binary := getBinaryPath(binaryName, version)
 	timeout := command.timeout
 	if timeout == 0 {
-		timeout = 10
+		timeout = DefaultCLITimeout
 	}
 	hardTimeout := timeout
 	args := make([]string, 0, 9)
@@ -218,7 +218,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", fmt.Sprintf("%d", timeout))
-		hardTimeout += 10
+		hardTimeout += DefaultCLITimeout
 	}
 	if command.hasDashInLogDir() {
 		args = append(args, "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
