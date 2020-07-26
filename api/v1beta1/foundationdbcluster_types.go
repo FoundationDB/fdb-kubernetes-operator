@@ -2040,6 +2040,9 @@ func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 
 // HasNonBlockingExcludes determines if a version has support for non-blocking
 // exclude commands.
+//
+// This is currently set to false across the board, pending investigation into
+// potential bugs with non-blocking excludes.
 func (version FdbVersion) HasNonBlockingExcludes() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 0})
+	return false
 }
