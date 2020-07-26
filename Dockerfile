@@ -49,7 +49,7 @@ WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /usr/bin/fdb /usr/bin/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
-COPY --from=builder /usr/lib/fdb /usr/lib/
+COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
 
 RUN groupadd --gid 4059 fdb && \
 	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \

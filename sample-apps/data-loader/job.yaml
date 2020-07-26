@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fdb-data-loader
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      containers:
+      - image: fdb-data-loader
+        imagePullPolicy: IfNotPresent
+        name: fdb-data-loader
+        env:
+          - name: FDB_CLUSTER_FILE
+            value: /var/dynamic-conf/fdb.cluster
+          - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+            value: fdb-data-loader
+          - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+            value: /var/dynamic-conf/lib/multiversion
+          - name: LD_LIBRARY_PATH
+            value: /var/dynamic-conf/lib
+        volumeMounts:
+          - name: dynamic-conf
+            mountPath: /var/dynamic-conf
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.3-1
+          args:
+            - "--copy-file"
+            - "fdb.cluster"
+            - "--copy-library"
+            - "6.3"
+            - "--copy-library"
+            - "6.1"
+            - "--copy-library"
+            - "6.2"
+            - "--init-mode"
+            - "--require-not-empty"
+            - "fdb.cluster"
+          volumeMounts:
+            - name: config-map
+              mountPath: /var/input-files
+            - name: dynamic-conf
+              mountPath: /var/output-files
+      restartPolicy: Never
+      volumes:
+        - name: config-map
+          configMap:
+            name: sample-cluster-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+        - name: dynamic-conf
+          emptyDir: {}

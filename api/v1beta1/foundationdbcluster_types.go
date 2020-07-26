@@ -2037,3 +2037,9 @@ func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
 func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 20})
 }
+
+// HasNonBlockingExcludes determines if a version has support for non-blocking
+// exclude commands.
+func (version FdbVersion) HasNonBlockingExcludes() bool {
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 0})
+}

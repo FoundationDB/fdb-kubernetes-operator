@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,9 +38,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var maxCommandOutput = 20
+var maxCommandOutput int = parseMaxCommandOutput()
 
 var protocolVersionRegex = regexp.MustCompile("(?m)^protocol (\\w+)$")
+
+func parseMaxCommandOutput() int {
+	flag := os.Getenv("MAX_FDB_CLI_OUTPUT_LENGTH")
+	if flag == "" {
+		return 20
+	} else {
+		result, err := strconv.Atoi(flag)
+		if err != nil {
+			panic(err)
+		}
+		return result
+	}
+}
 
 // AdminClient describes an interface for running administrative commands on a
 // cluster
@@ -59,7 +73,10 @@ type AdminClient interface {
 	IncludeInstances(addresses []string) error
 
 	// CanSafelyRemove checks whether it is safe to remove processes from the
-	// cluster
+	// cluster.
+	//
+	// The list returned by this method will be the addresses that are *not*
+	// safe to remove.
 	CanSafelyRemove(addresses []string) ([]string, error)
 
 	// KillProcesses restarts processes
@@ -242,7 +259,8 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	outputString := string(output)
 	debugOutput := outputString
-	if len(debugOutput) > maxCommandOutput {
+
+	if len(debugOutput) > maxCommandOutput && maxCommandOutput > 0 {
 		debugOutput = debugOutput[0:maxCommandOutput] + "..."
 	}
 	log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
@@ -296,11 +314,24 @@ func (client *CliAdminClient) ExcludeInstances(addresses []string) error {
 		return nil
 	}
 
-	_, err := client.runCommand(cliCommand{
-		command: fmt.Sprintf(
-			"exclude %s",
-			strings.Join(removeAddressFlags(addresses), " "),
-		)})
+	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
+	if err != nil {
+		return err
+	}
+
+	if version.HasNonBlockingExcludes() {
+		_, err = client.runCommand(cliCommand{
+			command: fmt.Sprintf(
+				"exclude no_wait %s",
+				strings.Join(removeAddressFlags(addresses), " "),
+			)})
+	} else {
+		_, err = client.runCommand(cliCommand{
+			command: fmt.Sprintf(
+				"exclude %s",
+				strings.Join(removeAddressFlags(addresses), " "),
+			)})
+	}
 	return err
 }
 
@@ -319,12 +350,61 @@ func (client *CliAdminClient) IncludeInstances(addresses []string) error {
 
 // CanSafelyRemove checks whether it is safe to remove processes from the
 // cluster
+//
+// The list returned by this method will be the addresses that are *not*
+// safe to remove.
 func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
-		"exclude %s",
-		strings.Join(removeAddressFlags(addresses), " "),
-	)})
-	return nil, err
+	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	if version.HasNonBlockingExcludes() {
+		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+			"exclude no_wait %s",
+			strings.Join(removeAddressFlags(addresses), " "),
+		)})
+		if err != nil {
+			return nil, err
+		}
+		exclusionResults := parseExclusionOutput(output)
+		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", addresses, "results", exclusionResults)
+		remaining := make([]string, 0, len(addresses))
+		for _, address := range addresses {
+			if exclusionResults[address] != "Success" && exclusionResults[address] != "Missing" {
+				remaining = append(remaining, address)
+			}
+		}
+		return remaining, nil
+	} else {
+		_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
+			"exclude %s",
+			strings.Join(removeAddressFlags(addresses), " "),
+		)})
+		return nil, err
+	}
+}
+
+// parseExclusionOutput extracts the exclusion status for each address from
+// the output of an exclusion command.
+func parseExclusionOutput(output string) map[string]string {
+	results := make(map[string]string)
+	var regex = regexp.MustCompile("\\s*([\\w.:]+)\\s*-+(.*)")
+	matches := regex.FindAllStringSubmatch(output, -1)
+	for _, match := range matches {
+		address := match[1]
+		status := match[2]
+		if strings.Contains(status, "Successfully excluded") {
+			results[address] = "Success"
+		} else if strings.Contains(status, "WARNING: Missing from cluster") {
+			results[address] = "Missing"
+		} else if strings.Contains(status, "Exclusion in progress") {
+			results[address] = "In Progress"
+		} else {
+			results[address] = "Unknown"
+		}
+	}
+	return results
 }
 
 // KillInstances restarts processes
@@ -787,6 +867,9 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 
 // CanSafelyRemove checks whether it is safe to remove processes from the
 // cluster
+//
+// The list returned by this method will be the addresses that are *not*
+// safe to remove.
 func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
 	return nil, nil
 }
