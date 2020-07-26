@@ -1019,6 +1019,9 @@ type FoundationDBStatusProcessInfo struct {
 
 	// The version of FoundationDB the process is running.
 	Version string `json:"version,omitempty"`
+
+	// The time that the process has been up for.
+	UptimeSeconds float64 `json:"uptime_seconds,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in
