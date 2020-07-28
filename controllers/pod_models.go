@@ -38,6 +38,8 @@ import (
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
 // getInstanceID generates an ID for an instance.
+//
+// This will return the pod name and the instance ID.
 func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (string, string) {
 	var instanceID string
 	if cluster.Spec.InstanceIDPrefix != "" {

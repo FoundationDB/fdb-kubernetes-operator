@@ -90,38 +90,54 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 	}
 
-	if cluster.Spec.UpdatePodsByReplacement {
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	if err != nil {
+		return false, err
+	}
+
+	for _, instance := range instances {
+		if instance.Pod == nil {
+			continue
+		}
+
+		instanceID := instance.GetInstanceID()
+		_, pendingRemoval := removals[instanceID]
+		if pendingRemoval {
+			continue
+		}
+
+		_, idNum, err := ParseInstanceID(instanceID)
 		if err != nil {
 			return false, err
 		}
 
-		for _, instance := range instances {
-			if instance.Pod == nil {
-				continue
-			}
+		needsRemoval := false
 
-			instanceID := instance.GetInstanceID()
-			_, pendingRemoval := removals[instanceID]
-			if pendingRemoval {
-				continue
-			}
+		_, desiredInstanceID := getInstanceID(cluster, instance.GetProcessClass(), idNum)
+		if err != nil {
+			return false, err
+		}
 
-			_, idNum, err := ParseInstanceID(instanceID)
-			if err != nil {
-				return false, err
-			}
+		if instanceID != desiredInstanceID {
+			log.Info("JPB removing pod", "instanceID", instanceID, "desiredInstanceID", desiredInstanceID)
+			needsRemoval = true
+		}
 
+		if cluster.Spec.UpdatePodsByReplacement {
 			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 			if err != nil {
 				return false, err
 			}
 
 			if instance.Metadata.Annotations[LastSpecKey] != specHash {
-				removalState := r.getPendingRemovalState(instance)
-				removals[instanceID] = removalState
-				hasNewRemovals = true
+				needsRemoval = true
 			}
+		}
+
+		if needsRemoval {
+			removalState := r.getPendingRemovalState(instance)
+			removals[instanceID] = removalState
+			hasNewRemovals = true
 		}
 	}
 
