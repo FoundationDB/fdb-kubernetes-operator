@@ -109,6 +109,15 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.IncorrectPods = make([]string, 0)
 
+	configMap, err := GetConfigMap(context, cluster, r)
+	if err != nil {
+		return false, err
+	}
+	configMapHash, err := GetDynamicConfHash(configMap)
+	if err != nil {
+		return false, err
+	}
+
 	for _, instance := range instances {
 		processClass := instance.GetProcessClass()
 		instanceID := instance.GetInstanceID()
@@ -175,6 +184,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				incorrectPod = !updated
 			}
 
+			incorrectPod = incorrectPod || instance.Metadata.Annotations[LastConfigMapKey] != configMapHash
+
 			pvcs := &corev1.PersistentVolumeClaimList{}
 			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, id)...)
 			desiredPvc, err := GetPvc(cluster, processClass, idNum)
@@ -209,10 +220,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 	}
 
-	configMap, err := GetConfigMap(context, cluster, r)
-	if err != nil {
-		return false, err
-	}
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {

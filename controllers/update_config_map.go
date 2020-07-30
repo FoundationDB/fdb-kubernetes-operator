@@ -71,15 +71,29 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 	}
 
+	configMapHash, err := GetDynamicConfHash(configMap)
+	if err != nil {
+		return false, err
+	}
+
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
 	}
 
 	for index := range instances {
-		synced, err := r.updatePodDynamicConf(context, cluster, instances[index])
-		if !synced {
-			return synced, err
+		instance := instances[index]
+		if instance.Metadata.Annotations[LastConfigMapKey] != configMapHash {
+			synced, err := r.updatePodDynamicConf(context, cluster, instance)
+			if !synced {
+				return synced, err
+			}
+
+			instance.Metadata.Annotations[LastConfigMapKey] = configMapHash
+			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 

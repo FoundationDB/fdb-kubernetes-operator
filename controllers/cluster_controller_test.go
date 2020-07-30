@@ -159,6 +159,11 @@ var _ = Describe("cluster_controller", func() {
 					"stateless":          8,
 					"cluster_controller": 1,
 				}))
+
+				configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pods.Items[0].ObjectMeta.Annotations[LastConfigMapKey]).To(Equal(configMapHash))
 			})
 
 			It("should not create any services", func() {
@@ -961,16 +966,22 @@ var _ = Describe("cluster_controller", func() {
 
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
+
+					configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
 					if item.Labels["fdb-instance-id"] == "storage-1" {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"foundationdb.org/last-applied-spec":   hash,
-							"foundationdb.org/existing-annotation": "test-value",
-							"fdb-annotation":                       "value1",
+							"foundationdb.org/last-applied-config-map": configMapHash,
+							"foundationdb.org/last-applied-spec":       hash,
+							"foundationdb.org/existing-annotation":     "test-value",
+							"fdb-annotation":                           "value1",
 						}))
 					} else {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"foundationdb.org/last-applied-spec": hash,
-							"fdb-annotation":                     "value1",
+							"foundationdb.org/last-applied-config-map": configMapHash,
+							"foundationdb.org/last-applied-spec":       hash,
+							"fdb-annotation":                           "value1",
 						}))
 					}
 				}
@@ -1087,8 +1098,13 @@ var _ = Describe("cluster_controller", func() {
 
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
+
+					configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-spec": hash,
+						"foundationdb.org/last-applied-config-map": configMapHash,
+						"foundationdb.org/last-applied-spec":       hash,
 					}))
 				}
 
@@ -1184,8 +1200,13 @@ var _ = Describe("cluster_controller", func() {
 
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
+
+					configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-spec": hash,
+						"foundationdb.org/last-applied-config-map": configMapHash,
+						"foundationdb.org/last-applied-spec":       hash,
 					}))
 				}
 

@@ -64,6 +64,11 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return false, err
 	}
 
+	configMapHash, err := GetDynamicConfHash(configMap)
+	if err != nil {
+		return false, err
+	}
+
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
@@ -202,6 +207,8 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				if err != nil {
 					return false, err
 				}
+				pod.ObjectMeta.Annotations[LastConfigMapKey] = configMapHash
+
 				err = r.PodLifecycleManager.CreateInstance(r, context, pod)
 				if err != nil {
 					return false, err
