@@ -1642,6 +1642,37 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		Context("with a change to the instance ID prefix", func() {
+			BeforeEach(func() {
+				cluster.Spec.InstanceIDPrefix = "my-instances"
+
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should replace the processes", func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				replacements := make(map[string]bool, len(originalPods.Items))
+				for _, pod := range originalPods.Items {
+					replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+				}
+
+				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+			})
+
+			It("should generate instance IDs with the new prefix", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+
+				sortPodsByID(pods)
+				Expect(pods.Items[0].Labels["fdb-instance-id"]).To(Equal("my-instances-cluster_controller-2"))
+				Expect(pods.Items[1].Labels["fdb-instance-id"]).To(Equal("my-instances-log-5"))
+			})
+		})
+
 		Context("when enabling a headless service", func() {
 			BeforeEach(func() {
 				var flag = true
@@ -1764,7 +1795,6 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should have the sidecar conf", func() {
 				sidecarConf := make(map[string]interface{})
-				log.Info("JPB got config map", "confMap", configMap.Data)
 				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(sidecarConf)).To(Equal(5))
