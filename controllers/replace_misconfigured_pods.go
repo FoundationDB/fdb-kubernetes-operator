@@ -119,7 +119,6 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 
 		if instanceID != desiredInstanceID {
-			log.Info("JPB removing pod", "instanceID", instanceID, "desiredInstanceID", desiredInstanceID)
 			needsRemoval = true
 		}
 

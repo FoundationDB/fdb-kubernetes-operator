@@ -1795,7 +1795,6 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should have the sidecar conf", func() {
 				sidecarConf := make(map[string]interface{})
-				log.Info("JPB got config map", "confMap", configMap.Data)
 				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(sidecarConf)).To(Equal(5))
