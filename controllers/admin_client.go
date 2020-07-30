@@ -645,7 +645,8 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				"zoneid":      pod.Name,
 				"dcid":        client.Cluster.Spec.DataCenter,
 			},
-			Version: client.Cluster.Status.RunningVersion,
+			Version:       client.Cluster.Status.RunningVersion,
+			UptimeSeconds: 60000,
 		}
 	}
 
