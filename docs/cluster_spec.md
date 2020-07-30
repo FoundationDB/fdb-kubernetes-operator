@@ -427,6 +427,7 @@ FoundationDBStatusProcessInfo describes the \"processes\" portion of the cluster
 | excluded | Excluded indicates whether the process has been excluded. | bool | false |
 | locality | The locality information for the process. | map[string]string | false |
 | version | The version of FoundationDB the process is running. | string | false |
+| uptime_seconds | The time that the process has been up for. | float64 | false |
 
 [Back to TOC](#table-of-contents)
 

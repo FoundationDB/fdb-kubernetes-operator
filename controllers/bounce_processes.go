@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"math"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -45,9 +46,14 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	if err != nil {
 		return false, err
 	}
+
+	minimumUptime := math.Inf(1)
 	addressMap := make(map[string]string, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		addressMap[process.Locality["instance_id"]] = process.Address
+		if process.UptimeSeconds < minimumUptime {
+			minimumUptime = process.UptimeSeconds
+		}
 	}
 
 	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
@@ -90,6 +96,17 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
 			return false, ReconciliationNotReadyError{message: "Kills are disabled"}
+		}
+
+		if minimumUptime < MinimumUptimeSecondsForBounce {
+			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
+				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
+			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
+			err = r.Status().Update(context, cluster)
+			if err != nil {
+				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			}
+			return false, ReconciliationNotReadyError{message: "Cluster needs to stabilize before bouncing"}
 		}
 
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)

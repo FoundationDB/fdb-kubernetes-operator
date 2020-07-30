@@ -90,7 +90,8 @@ var _ = Describe("admin_client_test", func() {
 						"zoneid":      "operator-test-1-storage-1",
 						"dcid":        "",
 					},
-					Version: "6.2.20",
+					Version:       "6.2.20",
+					UptimeSeconds: 60000,
 				}))
 			})
 		})

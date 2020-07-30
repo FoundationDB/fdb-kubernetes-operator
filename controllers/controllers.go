@@ -42,6 +42,11 @@ const BackupDeploymentLabel = "foundationdb.org/backup-for"
 // The default timeout for CLI commands.
 var DefaultCLITimeout = 10
 
+// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
+// processes in the cluster must have been up for before the operator can
+// execute a bounce.
+const MinimumUptimeSecondsForBounce = 600
+
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
 func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
