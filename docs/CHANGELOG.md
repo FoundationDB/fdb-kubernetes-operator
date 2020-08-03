@@ -1,3 +1,20 @@
+# v0.16.0
+
+*	Ignore the values for version flags in the live configuration when those
+	flags are omitted in the cluster spec.
+*	Add support for Fast Restore instances in FDB 6.3.
+*	Only include the sidecar conf in the config map when there are pods that
+	require it.
+*	Add an option to disable the client compatibility check when upgrading.
+*	Allow specifying custom labels on backup deployments.
+*	Move the backup models into their own file.
+*	Use an annotation to track which version of a config map a pod has seen.
+*	Prevent completing reconciliation when a pod has a pending config map
+	update.
+*	Add an option for controlling CLI timeouts.
+*	Replace any instances that have an instance ID with the wrong prefix.
+*	Prevent bouncing a process when another process has been bounced recently.
+
 # v0.15.2
 
 *	Prevent errors when encountering pods in replace_misconfigured_pods that are
