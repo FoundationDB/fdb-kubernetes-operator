@@ -40,18 +40,18 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	defer adminClient.Close()
 
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false, err
+	}
+
 	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
-	newAddresses := make([]string, 0, len(cluster.Status.PendingRemovals))
 	hasExclusionUpdates := false
 	for id, state := range cluster.Status.PendingRemovals {
 		if state.Address != "" {
 			address := cluster.GetFullAddress(state.Address)
-			if !state.ExclusionComplete {
-				addresses = append(addresses, address)
-			}
-
 			if !state.ExclusionStarted {
-				newAddresses = append(newAddresses, address)
+				addresses = append(addresses, address)
 				newState := state
 				newState.ExclusionStarted = true
 				cluster.Status.PendingRemovals[id] = newState
@@ -67,8 +67,16 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	if len(addresses) > 0 {
-		err = adminClient.ExcludeInstances(addresses)
 		r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
+		err = adminClient.ExcludeInstances(addresses)
+
+		if hasExclusionUpdates && !version.HasNonBlockingExcludes() {
+			updateErr := r.updatePendingRemovals(context, cluster)
+			if updateErr != nil {
+				return false, updateErr
+			}
+			hasExclusionUpdates = false
+		}
 		if err != nil {
 			return false, err
 		}
@@ -78,35 +86,6 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		err = r.updatePendingRemovals(context, cluster)
 		if err != nil {
 			return false, err
-		}
-	}
-
-	remaining := addresses
-	for len(remaining) > 0 {
-		remaining, err = adminClient.CanSafelyRemove(addresses)
-		if err != nil {
-			return false, err
-		}
-		if len(remaining) != len(addresses) {
-			remainingMap := make(map[string]bool, len(remaining))
-			for _, address := range remaining {
-				remainingMap[address] = true
-			}
-			for id, state := range cluster.Status.PendingRemovals {
-				if !remainingMap[state.Address] {
-					newState := state
-					newState.ExclusionComplete = true
-					cluster.Status.PendingRemovals[id] = newState
-				}
-			}
-			err = r.updatePendingRemovals(context, cluster)
-			if err != nil {
-				return false, err
-			}
-		}
-		if len(remaining) > 0 {
-			log.Info("Waiting for exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
-			time.Sleep(time.Second)
 		}
 	}
 
