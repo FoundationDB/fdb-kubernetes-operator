@@ -3049,6 +3049,18 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 		Reconciled:             1,
 		NeedsCoordinatorChange: 2,
 	}))
+
+	cluster = createCluster()
+	cluster.Status.FailingPods = []string{
+		"sample-cluster-storage-1",
+	}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:     1,
+		HasFailingPods: 2,
+	}))
 }
 
 func TestGettingProcessSettings(t *testing.T) {

@@ -108,6 +108,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	cluster.Status.RequiredAddresses = status.RequiredAddresses
 
 	status.IncorrectPods = make([]string, 0)
+	status.FailingPods = make([]string, 0)
 
 	configMap, err := GetConfigMap(context, cluster, r)
 	if err != nil {
@@ -215,6 +216,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 					if !version.PrefersCommandLineArgumentsInSidecar() {
 						status.NeedsSidecarConfInConfigMap = true
 					}
+				}
+			}
+
+			for _, container := range instance.Pod.Status.ContainerStatuses {
+				if !container.Ready {
+					status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
 				}
 			}
 		}

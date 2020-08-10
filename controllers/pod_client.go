@@ -88,7 +88,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 		return nil, fdbPodClientErrorNoIP
 	}
 	for _, container := range pod.Status.ContainerStatuses {
-		if !container.Ready {
+		if container.Name == "foundationdb-kubernetes-sidecar" && !container.Ready {
 			return nil, fdbPodClientErrorNotReady
 		}
 	}
