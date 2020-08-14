@@ -1,3 +1,7 @@
+# v0.17.0
+
+*	Adds non-blocking excludes code, but does not enable it.
+
 # v0.16.0
 
 *	Ignore the values for version flags in the live configuration when those
