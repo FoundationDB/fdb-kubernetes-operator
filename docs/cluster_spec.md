@@ -62,6 +62,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | needsServiceUpdate | NeedsServiceUpdate provides the last generation that needs an update to the service config. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. **Deprecated: This needs to get moved into FoundationDBBackup** | int64 | false |
 | hasPendingRemoval | HasPendingRemoval provides the last generation that has pods that have been excluded but are pending being removed.  A cluster in this state is considered reconciled, but we track this in the status to allow users of the operator to track when the removal is fully complete. | int64 | false |
+| hasFailingPods | HasFailingPods provides the last generation that has pods that are failing to start. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -251,6 +252,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. | [ProcessCounts](#processcounts) | false |
 | incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the instance ID to the timestamp when we observed the incorrect configuration. | map[string]int64 | false |
 | incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. | []string | false |
+| failingPods | FailingPods provides the pods that are not starting correctly.  This will contain the name of the pod. | []string | false |
 | missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |

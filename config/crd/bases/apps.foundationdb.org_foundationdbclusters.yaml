@@ -7691,9 +7691,16 @@ spec:
                 usable_regions:
                   type: integer
               type: object
+            failingPods:
+              items:
+                type: string
+              type: array
             generations:
               properties:
                 hasExtraListeners:
+                  format: int64
+                  type: integer
+                hasFailingPods:
                   format: int64
                   type: integer
                 hasPendingRemoval:

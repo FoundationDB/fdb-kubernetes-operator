@@ -264,6 +264,11 @@ type FoundationDBClusterStatus struct {
 	// This will contain the name of the pod.
 	IncorrectPods []string `json:"incorrectPods,omitempty"`
 
+	// FailingPods provides the pods that are not starting correctly.
+	//
+	// This will contain the name of the pod.
+	FailingPods []string `json:"failingPods,omitempty"`
+
 	// MissingProcesses provides the processes that are not reporting to the
 	// cluster.
 	// This will map the names of the pod to the timestamp when we observed
@@ -376,6 +381,10 @@ type ClusterGenerationStatus struct {
 	// the status to allow users of the operator to track when the removal
 	// is fully complete.
 	HasPendingRemoval int64 `json:"hasPendingRemoval,omitempty"`
+
+	// HasFailingPods provides the last generation that has pods that are
+	// failing to start.
+	HasFailingPods int64 `json:"hasFailingPods,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -868,6 +877,11 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	if len(cluster.Status.IncorrectPods) > 0 {
 		cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
+		reconciled = false
+	}
+
+	if len(cluster.Status.FailingPods) > 0 {
+		cluster.Status.Generations.HasFailingPods = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
