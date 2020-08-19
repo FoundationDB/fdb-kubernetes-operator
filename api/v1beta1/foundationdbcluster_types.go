@@ -97,6 +97,15 @@ type FoundationDBClusterSpec struct {
 	// cluster. This list contains the instance IDs.
 	InstancesToRemove []string `json:"instancesToRemove,omitempty"`
 
+	// InstancesToRemoveWithoutExclusion defines the instances that we should
+	// remove from the cluster without excluding them. This list contains the
+	// instance IDs.
+	//
+	// This should be used for cases where a pod does not have an IP address and
+	// you want to remove it and destroy its volume without confirming the data
+	// is fully replicated.
+	InstancesToRemoveWithoutExclusion []string `json:"instancesToRemoveWithoutExclusion,omitempty"`
+
 	// ConfigMap allows customizing the config map the operator creates.
 	ConfigMap *corev1.ConfigMap `json:"configMap,omitempty"`
 
@@ -1535,6 +1544,12 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 	}
 
 	for _, id := range cluster.Spec.InstancesToRemove {
+		if id == instanceID {
+			return true
+		}
+	}
+
+	for _, id := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		if id == instanceID {
 			return true
 		}

@@ -1190,6 +1190,10 @@ spec:
               items:
                 type: string
               type: array
+            instancesToRemoveWithoutExclusion:
+              items:
+                type: string
+              type: array
             lockOptions:
               properties:
                 disableLocks:
