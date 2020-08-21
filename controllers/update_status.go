@@ -66,7 +66,25 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		defer adminClient.Close()
 		databaseStatus, err = adminClient.GetStatus()
 		if err != nil {
-			return false, err
+			if cluster.Spec.Version != cluster.Status.RunningVersion && cluster.Status.RunningVersion != "" {
+				log.Info("Failed to get status; falling back to version from spec", "runningVersion", cluster.Status.RunningVersion, "newVersion", cluster.Spec.Version)
+				originalRunningVersion := cluster.Status.RunningVersion
+				cluster.Status.RunningVersion = cluster.Spec.Version
+				fallbackAdminClient, clientErr := r.AdminClientProvider(cluster, r)
+				if clientErr != nil {
+					cluster.Status.RunningVersion = originalRunningVersion
+					return false, clientErr
+				}
+				defer fallbackAdminClient.Close()
+				databaseStatusFallback, errFallback := adminClient.GetStatus()
+				if errFallback != nil {
+					cluster.Status.RunningVersion = originalRunningVersion
+					return false, err
+				}
+				databaseStatus = databaseStatusFallback
+			} else {
+				return false, err
+			}
 		}
 	}
 
