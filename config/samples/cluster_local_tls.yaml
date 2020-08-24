@@ -14,6 +14,7 @@ spec:
     stateless: -1
     cluster_controller: 1
     fast_restore: 1
+    backup: 1
   services:
     headless: true
   processes:
