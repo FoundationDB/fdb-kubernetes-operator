@@ -4016,6 +4016,8 @@ spec:
               type: object
             processCounts:
               properties:
+                backup:
+                  type: integer
                 cluster_controller:
                   type: integer
                 data_distributor:
@@ -7788,6 +7790,8 @@ spec:
               type: object
             processCounts:
               properties:
+                backup:
+                  type: integer
                 cluster_controller:
                   type: integer
                 data_distributor:

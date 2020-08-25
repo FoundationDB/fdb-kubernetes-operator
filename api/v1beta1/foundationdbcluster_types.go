@@ -489,6 +489,7 @@ type ProcessCounts struct {
 	Ratekeeper        int `json:"ratekeeper,omitempty"`
 	DataDistributor   int `json:"data_distributor,omitempty"`
 	FastRestore       int `json:"fast_restore,omitempty"`
+	BackupWorker      int `json:"backup,omitempty"`
 }
 
 // Map returns a map from process classes to the number of processes with that
