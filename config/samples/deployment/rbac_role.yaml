@@ -24,6 +24,7 @@ rules:
   resources:
   - foundationdbclusters
   - foundationdbbackups
+  - foundationdbrestores
   verbs:
   - get
   - list
@@ -37,6 +38,7 @@ rules:
   resources:
   - foundationdbclusters/status
   - foundationdbbackups/status
+  - foundationdbrestores/status
   verbs:
   - get
   - update
@@ -70,6 +72,18 @@ rules:
   - ""
   resources:
   - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments
   verbs:
   - get
   - list

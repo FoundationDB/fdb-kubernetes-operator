@@ -30,7 +30,7 @@ jobs:
         sudo dpkg -i fdb.deb
 
     - name: Build
-      run: make all
+      run: make clean all
 
     - name: Check for uncommitted changes
       run: git diff --exit-code
