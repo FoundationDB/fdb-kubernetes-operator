@@ -25,7 +25,11 @@ Once the reconciliation is complete, you can run `kubectl exec -it sample-cluste
 
 You can also browse the [sample directory](config/samples) for more examples of how to configure a cluster.
 
-Most of these examples are designed for doing local development on the operator, so there may be aspects of them that you need to adapt if you want to run in a more realistic environment. The TLS examples assume you have a certificate and key stored in Kubernetes secrets, which may not be the mechanism you want to use for your certificates. The backup examples assume you have backup credentials stored in Kubernetes secrets, so the same consideration applies.
+Most of these examples are designed for doing local development on the operator, so there may be aspects of them that you need to adapt if you want to run in a more realistic environment.
+
+The `faultDomain` stanzas in the local examples disable the operator's placement logic.  This allows the operator to place multiple replicas on the same node, which is necessary for single-machine testing.
+
+The TLS examples assume you have a certificate and key stored in Kubernetes secrets, which may not be the mechanism you want to use for your certificates. The backup examples assume you have backup credentials stored in Kubernetes secrets, so the same consideration applies.
 
 For more information about using the operator, see the [user manual](docs/user_manual.md).
 
