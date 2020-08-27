@@ -506,9 +506,9 @@ You can build this kind of configuration easily from the sample deployment by ch
 
 The name of a cluster is immutable, and it is included in the names of all of the dependent resources, as well as in labels on the resources. If you want to change the name later on, you can do so with the following steps. This example assumes you are renaming the cluster `sample-cluster` to `sample-cluster-2`.
 
-1.  Create a new cluster named `sample-cluster-2`, using the current connection string from `sample-cluster-2` as its seedConnectionString. You will need to set an `instanceIdPrefix` for `sample-cluster-2` to be different from the `instanceIdPrefix` for `sample-cluster`, to make sure that the instance IDs do not collide. The rest of the spec can match `sample-cluster`, other than any fields that you want to customize based on the new name. Wait for reconciliation on `sample-cluster-2` to complete.
+1.  Create a new cluster named `sample-cluster-2`, using the current connection string from `sample-cluster` as its seedConnectionString. You will need to set an `instanceIdPrefix` for `sample-cluster-2` to be different from the `instanceIdPrefix` for `sample-cluster`, to make sure that the instance IDs do not collide. The rest of the spec can match `sample-cluster`, other than any fields that you want to customize based on the new name. Wait for reconciliation on `sample-cluster-2` to complete.
 2.  Update the spec for `sample-cluster` to set the process counts for `log`, `stateless`, and `storage` to `-1`. You should omit all other process counts. Wait for the reconciliation for `sample-cluster` to complete.
 3.  Check that none of the original pods from `sample-cluster` are running.
 4.  Delete the `sample-cluster` resource.
 
-At that point, you will be left with just the resources for `sample-cluster-2`. You can continue performing operations on `sample-cluster-2` as normal. 
+At that point, you will be left with just the resources for `sample-cluster-2`. You can continue performing operations on `sample-cluster-2` as normal. You can also change or remove the `instanceIDPrefix` if you had to set it to a different value earlier in the process.
