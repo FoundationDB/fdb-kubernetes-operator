@@ -9,10 +9,11 @@
 7.  [Replacing a Process](#replacing-a-process)
 8.  [Changing Database Configuration](#changing-database-configuration)
 9.  [Adding a Knob](#adding-a-knob)
-10.  [Upgrading a Cluster](#upgrading-a-cluster)
+10. [Upgrading a Cluster](#upgrading-a-cluster)
 11. [Customizing Your Pods](#customizing-a-container)
 12. [Controlling Fault Domains](#controlling-fault-domains)
 13. [Using Multiple Namespaces](#using-multiple-namespaces)
+14. [Renaming a Cluster](#renaming-a-cluster)
 
 # Introduction
 
@@ -486,7 +487,7 @@ The sample deployment provides all of this configuration.
 
 To use global mode, omit the `WATCH_NAMESPACE` environment variable for the controller. When you are running in global mode, the controller will watch for changes to FDB clusters in all namespaces, and will manage them all through a single instance of the controller.
 
-The advantage of global mode is that you can easily add new namespaces without needing to run a new instance of the controller, which limits the per-namespace operational load. The disadvantage of global mode is that it requires the controller to have extensive access to all namespaces in the Kubernetes cluster. In a multi-tenant environment, this means the controller would have to be managed by the team that is adminstering your Kubernetes environment, which may create its own operational
+The advantage of global mode is that you can easily add new namespaces without needing to run a new instance of the controller, which limits the per-namespace operational load. The disadvantage of global mode is that it requires the controller to have extensive access to all namespaces in the Kubernetes cluster. In a multi-tenant environment, this means the controller would have to be managed by the team that is adminstering your Kubernetes environment, which may create its own operational concerns.
 
 To run the controller in global mode, you will need to configure the following things:
 
@@ -500,3 +501,14 @@ You can build this kind of configuration easily from the sample deployment by ch
 * Delete the configuration for the `WATCH_NAMESPACE` variable
 * Change the Roles to ClusterRoles
 * Change the RoleBindings to ClusterRoleBindings
+
+# Renaming a Cluster
+
+The name of a cluster is immutable, and it is included in the names of all of the dependent resources, as well as in labels on the resources. If you want to change the name later on, you can do so with the following steps. This example assumes you are renaming the cluster `sample-cluster` to `sample-cluster-2`.
+
+1.  Create a new cluster named `sample-cluster-2`, using the current connection string from `sample-cluster` as its seedConnectionString. You will need to set an `instanceIdPrefix` for `sample-cluster-2` to be different from the `instanceIdPrefix` for `sample-cluster`, to make sure that the instance IDs do not collide. The rest of the spec can match `sample-cluster`, other than any fields that you want to customize based on the new name. Wait for reconciliation on `sample-cluster-2` to complete.
+2.  Update the spec for `sample-cluster` to set the process counts for `log`, `stateless`, and `storage` to `-1`. You should omit all other process counts. Wait for the reconciliation for `sample-cluster` to complete.
+3.  Check that none of the original pods from `sample-cluster` are running.
+4.  Delete the `sample-cluster` resource.
+
+At that point, you will be left with just the resources for `sample-cluster-2`. You can continue performing operations on `sample-cluster-2` as normal. You can also change or remove the `instanceIDPrefix` if you had to set it to a different value earlier in the process.
