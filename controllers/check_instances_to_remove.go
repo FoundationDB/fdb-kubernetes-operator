@@ -49,11 +49,7 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 	}
 
 	for _, instanceID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
-		_, present := removals[instanceID]
-		removalState := fdbtypes.PendingRemovalState{}
-		if !present {
-			removalState = removals[instanceID]
-		}
+		removalState := removals[instanceID]
 		removalState.ExclusionComplete = true
 		removalState.ExclusionStarted = true
 		removals[instanceID] = removalState
