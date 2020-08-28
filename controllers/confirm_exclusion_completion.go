@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -41,12 +42,13 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 
 	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
 
-	for _, state := range cluster.Status.PendingRemovals {
-		if state.Address != "" {
-			address := cluster.GetFullAddress(state.Address)
-			if !state.ExclusionComplete {
-				addresses = append(addresses, address)
+	for instanceID, state := range cluster.Status.PendingRemovals {
+		if !state.ExclusionComplete {
+			if state.Address == "" {
+				return false, fmt.Errorf("Cannot check the exclusion state of instance %s, which has no IP address", instanceID)
 			}
+			address := cluster.GetFullAddress(state.Address)
+			addresses = append(addresses, address)
 		}
 	}
 

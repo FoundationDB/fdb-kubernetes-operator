@@ -438,6 +438,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.InstancesToRemoveWithoutExclusion != nil {
+		in, out := &in.InstancesToRemoveWithoutExclusion, &out.InstancesToRemoveWithoutExclusion
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.ConfigMap != nil {
 		in, out := &in.ConfigMap, &out.ConfigMap
 		*out = new(corev1.ConfigMap)

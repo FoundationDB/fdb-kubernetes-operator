@@ -597,7 +597,7 @@ var _ = Describe("cluster_controller", func() {
 					mockMissingPodIPs = map[string]bool{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Name: true,
 					}
-					cluster.Spec.InstancesToRemove = []string{
+					cluster.Spec.InstancesToRemoveWithoutExclusion = []string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
 					}
 					err := k8sClient.Update(context.TODO(), cluster)
@@ -633,7 +633,7 @@ var _ = Describe("cluster_controller", func() {
 
 				It("should clear the removal list", func() {
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
-					Expect(cluster.Spec.InstancesToRemove).To(Equal([]string{
+					Expect(cluster.Spec.InstancesToRemoveWithoutExclusion).To(Equal([]string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels["fdb-instance-id"],
 					}))
 				})

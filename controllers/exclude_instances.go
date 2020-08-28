@@ -57,12 +57,6 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 				cluster.Status.PendingRemovals[id] = newState
 				hasExclusionUpdates = true
 			}
-		} else if !state.ExclusionStarted || !state.ExclusionComplete {
-			newState := state
-			newState.ExclusionStarted = true
-			newState.ExclusionComplete = true
-			cluster.Status.PendingRemovals[id] = newState
-			hasExclusionUpdates = true
 		}
 	}
 

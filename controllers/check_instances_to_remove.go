@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"reflect"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -34,8 +35,6 @@ type CheckInstancesToRemove struct{}
 
 // Reconcile runs the reconciler's work.
 func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	hasNewRemovals := false
-
 	var removals = cluster.Status.PendingRemovals
 
 	if removals == nil {
@@ -43,20 +42,42 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 	}
 
 	for _, instanceID := range cluster.Spec.InstancesToRemove {
+		_, present := removals[instanceID]
+		if !present {
+			removals[instanceID] = fdbtypes.PendingRemovalState{}
+		}
+	}
+
+	for _, instanceID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
+		removalState := removals[instanceID]
+		removalState.ExclusionComplete = true
+		removalState.ExclusionStarted = true
+		removals[instanceID] = removalState
+	}
+
+	var finalRemovals = make(map[string]fdbtypes.PendingRemovalState, len(removals))
+
+	for instanceID, oldRemovalState := range removals {
 		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID}))
 		if err != nil {
 			return false, err
 		}
-		_, present := removals[instanceID]
-		if !present && len(instances) > 0 {
-			hasNewRemovals = true
-			state := r.getPendingRemovalState(instances[0])
-			removals[instanceID] = state
+		if len(instances) > 0 {
+			newRemovalState := r.getPendingRemovalState(instances[0])
+			newRemovalState.ExclusionStarted = oldRemovalState.ExclusionStarted
+			newRemovalState.ExclusionComplete = oldRemovalState.ExclusionComplete
+			finalRemovals[instanceID] = newRemovalState
+		} else if oldRemovalState.PodName != "" {
+			finalRemovals[instanceID] = oldRemovalState
 		}
 	}
 
-	if hasNewRemovals {
-		cluster.Status.PendingRemovals = removals
+	if len(finalRemovals) == 0 {
+		finalRemovals = nil
+	}
+
+	if !reflect.DeepEqual(cluster.Status.PendingRemovals, finalRemovals) {
+		cluster.Status.PendingRemovals = finalRemovals
 		err := r.updatePendingRemovals(context, cluster)
 		if err != nil {
 			return false, err
