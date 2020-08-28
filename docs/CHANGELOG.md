@@ -1,3 +1,13 @@
+# v0.18.0
+
+*	Add a check for container readiness before completing reconciliation.
+*	Fix configuration and examples in getting started guide.
+*	Prevent removing instances that do not have an IP address.
+*	Do a clean build when running the PR checks.
+*	Use the version from the spec as a fallback when we cannot get status using
+	the running version from the status.
+*	Add more detail about the replication strategy in our local test examples.
+
 # v0.17.0
 
 *	Adds non-blocking excludes code, but does not enable it.
