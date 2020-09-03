@@ -33,7 +33,7 @@ def load_data(keys, batch_size, value_size):
 	for batch in range(1, batch_count+1):
 		print('Writing batch %d' % batch)
 		write_batch(db, batch_size, value_size)
-		
+
 	pass
 
 if __name__ == '__main__':
