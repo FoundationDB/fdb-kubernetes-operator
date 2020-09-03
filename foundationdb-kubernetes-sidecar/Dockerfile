@@ -25,7 +25,11 @@ ARG FDB_LIBRARY_VERSIONS="6.2.22 6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 ADD website /mnt/website
-RUN curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
+# FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
+# download GeoTrust_Global_CA.crt during install and remove it afterwards
+RUN curl -sLo /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt https://www.geotrust.com/resources/root_certificates/certificates/GeoTrust_Global_CA.pem && \
+    update-ca-certificates --fresh && \
+    curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
 	tar -xzf fdb_$FDB_VERSION.tar.gz --strip-components=1 && \
 	rm fdb_$FDB_VERSION.tar.gz && \
 	chmod u+x fdbbackup fdbcli fdbdr fdbmonitor fdbrestore fdbserver backup_agent dr_agent && \
@@ -34,7 +38,9 @@ RUN curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fd
 	for version in $FDB_LIBRARY_VERSIONS; do curl $FDB_WEBSITE/downloads/$version/linux/libfdb_c_$version.so -o /var/fdb/lib/libfdb_c_${version%.*}.so; done && \
 	rm -r /var/fdb/tmp && \
 	groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb
+	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb && \
+	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
+	update-ca-certificates --fresh
 
 WORKDIR /
 
@@ -51,4 +57,3 @@ USER fdb
 
 ENV LISTEN_PORT 8080
 ENTRYPOINT ["/entrypoint.bash"]
-
