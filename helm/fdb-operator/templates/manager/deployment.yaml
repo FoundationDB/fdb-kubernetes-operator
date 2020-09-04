@@ -1,3 +1,10 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fdb-kubernetes-operator-controller-manager
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,7 +12,6 @@ metadata:
     {{- include "chart.labels" . | nindent 4 }}
   name: {{ .Values.operator.name }}
 spec:
-  replicas: 1
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
@@ -26,6 +32,9 @@ spec:
               fieldPath: metadata.namespace
         image: {{ .Values.operator.image }}:{{ .Values.operator.tag }}
         name: manager
+        ports:
+        - containerPort: 8080
+          name: metrics
         resources:
           limits:
             cpu: 500m
@@ -33,4 +42,5 @@ spec:
           requests:
             cpu: 500m
             memory: 256Mi
+      serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10
