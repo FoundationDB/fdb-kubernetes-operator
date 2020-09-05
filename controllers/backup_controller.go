@@ -125,6 +125,7 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBBackup{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
 
