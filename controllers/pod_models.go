@@ -219,6 +219,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, cluster.Spec.VolumeClaim.Name)
 		} else if processSettings.VolumeClaim != nil && processSettings.VolumeClaim.Name != "" {
 			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, processSettings.VolumeClaim.Name)
+		} else if processSettings.VolumeClaimTemplate != nil && processSettings.VolumeClaimTemplate.Name != "" {
+			volumeClaimSourceName = fmt.Sprintf("%s-%s", podName, processSettings.VolumeClaimTemplate.Name)
 		} else {
 			volumeClaimSourceName = fmt.Sprintf("%s-data", podName)
 		}
@@ -515,6 +517,13 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass string) bool {
 			storage = &storageCopy
 		}
 	}
+	if processSettings.VolumeClaimTemplate != nil {
+		requests := processSettings.VolumeClaimTemplate.Spec.Resources.Requests
+		if requests != nil {
+			storageCopy := requests["storage"]
+			storage = &storageCopy
+		}
+	}
 	return cluster.Spec.VolumeSize != "0" && isStateful(processClass) &&
 		(storage == nil || !storage.IsZero())
 }
@@ -537,6 +546,8 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 		pvc = cluster.Spec.VolumeClaim.DeepCopy()
 	} else if processSettings.VolumeClaim != nil {
 		pvc = processSettings.VolumeClaim.DeepCopy()
+	} else if processSettings.VolumeClaimTemplate != nil {
+		pvc = processSettings.VolumeClaimTemplate.DeepCopy()
 	} else {
 		pvc = &corev1.PersistentVolumeClaim{}
 	}

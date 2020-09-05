@@ -589,7 +589,12 @@ type ProcessSettings struct {
 
 	// VolumeClaim allows customizing the persistent volume claim for the
 	// pod.
+	// Deprecated: Use the VolumeClaimTemplate field instead.
 	VolumeClaim *corev1.PersistentVolumeClaim `json:"volumeClaim,omitempty"`
+
+	// VolumeClaimTemplate allows customizing the persistent volume claim for the
+	// pod.
+	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// process.
@@ -614,6 +619,9 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass string) Proc
 		}
 		if merged.VolumeClaim == nil {
 			merged.VolumeClaim = entry.VolumeClaim
+		}
+		if merged.VolumeClaimTemplate == nil {
+			merged.VolumeClaimTemplate = entry.VolumeClaimTemplate
 		}
 		if merged.CustomParameters == nil {
 			merged.CustomParameters = entry.CustomParameters

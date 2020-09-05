@@ -1079,6 +1079,11 @@ func (in *ProcessSettings) DeepCopyInto(out *ProcessSettings) {
 		*out = new(corev1.PersistentVolumeClaim)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.VolumeClaimTemplate != nil {
+		in, out := &in.VolumeClaimTemplate, &out.VolumeClaimTemplate
+		*out = new(corev1.PersistentVolumeClaim)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.CustomParameters != nil {
 		in, out := &in.CustomParameters, &out.CustomParameters
 		*out = new([]string)

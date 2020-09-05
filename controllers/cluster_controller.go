@@ -264,6 +264,8 @@ func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		customMetadata = &cluster.Spec.VolumeClaim.ObjectMeta
 	} else if processSettings.VolumeClaim != nil {
 		customMetadata = &processSettings.VolumeClaim.ObjectMeta
+	} else if processSettings.VolumeClaimTemplate != nil {
+		customMetadata = &processSettings.VolumeClaimTemplate.ObjectMeta
 	} else {
 		customMetadata = nil
 	}

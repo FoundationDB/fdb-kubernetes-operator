@@ -1719,6 +1719,18 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
+				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("adds data volume that refers to custom pvc", func() {
+				Expect(spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(fmt.Sprintf("%s-storage-1-%s", cluster.Name, "claim1")))
+			})
+		})
+
+		Context("with custom pvc from the processes.VolumeClaim field", func() {
+			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -1868,6 +1880,30 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a custom storage size", func() {
 			BeforeEach(func() {
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								"storage": resource.MustParse("64G"),
+							},
+						},
+					},
+				}}}
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the storage size on the resources", func() {
+				Expect(pvc.Spec.Resources).To(Equal(corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"storage": resource.MustParse("64G"),
+					},
+				}))
+			})
+		})
+
+		Context("with a custom storage size from the Processes.VolumeClaim field", func() {
+			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.ResourceRequirements{
@@ -1931,6 +1967,38 @@ var _ = Describe("pod_models", func() {
 		})
 
 		Context("with custom metadata", func() {
+			BeforeEach(func() {
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"fdb-annotation": "value1",
+						},
+						Labels: map[string]string{
+							"fdb-label": "value2",
+						},
+					},
+				}}}
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the PVC", func() {
+				Expect(pvc.Namespace).To(Equal("my-ns"))
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+				Expect(pvc.ObjectMeta.Annotations).To(Equal(map[string]string{
+					"fdb-annotation":                     "value1",
+					"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+				}))
+				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
+					"fdb-label":         "value2",
+				}))
+			})
+		})
+
+		Context("with custom metadata from the Processes.VolumeClaim field", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2030,6 +2098,24 @@ var _ = Describe("pod_models", func() {
 			var class string
 			BeforeEach(func() {
 				class = "local"
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						StorageClassName: &class,
+					},
+				}}}
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the storage class on the PVC", func() {
+				Expect(pvc.Spec.StorageClassName).To(Equal(&class))
+			})
+		})
+
+		Context("with a custom storage class from the Processes.VolumeClaim field", func() {
+			var class string
+			BeforeEach(func() {
+				class = "local"
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
 						StorageClassName: &class,
@@ -2105,6 +2191,20 @@ var _ = Describe("pod_models", func() {
 		})
 
 		Context("with custom name in the suffix", func() {
+			BeforeEach(func() {
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},
+				}}}
+				pvc, err = GetPvc(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include claim name with custom suffix", func() {
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-pvc1", cluster.Name)))
+			})
+		})
+
+		Context("with custom name in the suffix from the Processes.VolumeClaim field", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},

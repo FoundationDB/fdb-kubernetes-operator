@@ -1007,113 +1007,340 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("with a change to the PVC labels", func() {
-			BeforeEach(func() {
-				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"fdb-label": "value3",
+			Context("with the fields from the processes", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"fdb-label": "value3",
+							},
 						},
-					},
-				}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+					}}}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should update the labels on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pvcs.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					}
+				})
+
+				It("should not update the labels on other resources", func() {
+					pods := &corev1.PodList{}
+
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pods.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					}
+
+					configMaps := &corev1.ConfigMapList{}
+					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range configMaps.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					}
+				})
 			})
 
-			It("should update the labels on the PVCs", func() {
-				pvcs := &corev1.PersistentVolumeClaimList{}
-				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				for _, item := range pvcs.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
-				}
+			Context("with the deprecated fields from the processes", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"fdb-label": "value3",
+							},
+						},
+					}}}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should update the labels on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pvcs.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					}
+				})
+
+				It("should not update the labels on other resources", func() {
+					pods := &corev1.PodList{}
+
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pods.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					}
+
+					configMaps := &corev1.ConfigMapList{}
+					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range configMaps.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					}
+				})
 			})
 
-			It("should not update the labels on other resources", func() {
-				pods := &corev1.PodList{}
+			Context("with the deprecated field from the spec", func() {
+				BeforeEach(func() {
+					cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"fdb-label": "value3",
+							},
+						},
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				for _, item := range pods.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
-				}
+				It("should update the labels on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pvcs.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal("value3"))
+					}
+				})
 
-				configMaps := &corev1.ConfigMapList{}
-				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
-				}
+				It("should not update the labels on other resources", func() {
+					pods := &corev1.PodList{}
+
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pods.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					}
+
+					configMaps := &corev1.ConfigMapList{}
+					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range configMaps.Items {
+						Expect(item.ObjectMeta.Labels["fdb-label"]).To(Equal(""))
+					}
+				})
 			})
 		})
 
 		Context("with a change to PVC annotations", func() {
-			BeforeEach(func() {
-				pvc := &corev1.PersistentVolumeClaim{}
-				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
-				Expect(err).NotTo(HaveOccurred())
-				pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
-				err = k8sClient.Update(context.TODO(), pvc)
-				Expect(err).NotTo(HaveOccurred())
+			Context("with the fields from the processes", func() {
+				BeforeEach(func() {
+					pvc := &corev1.PersistentVolumeClaim{}
+					err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
+					Expect(err).NotTo(HaveOccurred())
+					pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
+					err = k8sClient.Update(context.TODO(), pvc)
+					Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"fdb-annotation": "value1",
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"fdb-annotation": "value1",
+							},
 						},
-					},
-				}
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
-			})
+					}}}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-			It("should update the annotations on the PVCs", func() {
-				pvcs := &corev1.PersistentVolumeClaimList{}
-				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				for _, item := range pvcs.Items {
-					if item.ObjectMeta.Labels["fdb-instance-id"] == "storage-1" {
-						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"fdb-annotation":                       "value1",
-							"foundationdb.org/existing-annotation": "test-value",
-							"foundationdb.org/last-applied-spec":   "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
-						}))
-					} else {
-						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-							"fdb-annotation":                     "value1",
-							"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
-						}))
+				It("should update the annotations on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pvcs.Items {
+						if item.ObjectMeta.Labels["fdb-instance-id"] == "storage-1" {
+							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+								"fdb-annotation":                       "value1",
+								"foundationdb.org/existing-annotation": "test-value",
+								"foundationdb.org/last-applied-spec":   "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+							}))
+						} else {
+							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+								"fdb-annotation":                     "value1",
+								"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+							}))
 
+						}
 					}
-				}
+				})
+
+				It("should not update the annotations on other resources", func() {
+					pods := &corev1.PodList{}
+
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pods.Items {
+						_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+						Expect(err).NotTo(HaveOccurred())
+
+						hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
+						Expect(err).NotTo(HaveOccurred())
+
+						configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"foundationdb.org/last-applied-config-map": configMapHash,
+							"foundationdb.org/last-applied-spec":       hash,
+						}))
+					}
+
+					configMaps := &corev1.ConfigMapList{}
+					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range configMaps.Items {
+						Expect(item.ObjectMeta.Annotations).To(BeNil())
+					}
+				})
+
 			})
 
-			It("should not update the annotations on other resources", func() {
-				pods := &corev1.PodList{}
-
-				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				for _, item := range pods.Items {
-					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+			Context("with the deprecated fields from the processes", func() {
+				BeforeEach(func() {
+					pvc := &corev1.PersistentVolumeClaim{}
+					err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
+					Expect(err).NotTo(HaveOccurred())
+					pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
+					err = k8sClient.Update(context.TODO(), pvc)
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"fdb-annotation": "value1",
+							},
+						},
+					}}}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should update the annotations on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pvcs.Items {
+						if item.ObjectMeta.Labels["fdb-instance-id"] == "storage-1" {
+							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+								"fdb-annotation":                       "value1",
+								"foundationdb.org/existing-annotation": "test-value",
+								"foundationdb.org/last-applied-spec":   "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+							}))
+						} else {
+							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+								"fdb-annotation":                     "value1",
+								"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+							}))
+
+						}
+					}
+				})
+
+				It("should not update the annotations on other resources", func() {
+					pods := &corev1.PodList{}
+
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pods.Items {
+						_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+						Expect(err).NotTo(HaveOccurred())
+
+						hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
+						Expect(err).NotTo(HaveOccurred())
+
+						configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"foundationdb.org/last-applied-config-map": configMapHash,
+							"foundationdb.org/last-applied-spec":       hash,
+						}))
+					}
+
+					configMaps := &corev1.ConfigMapList{}
+					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range configMaps.Items {
+						Expect(item.ObjectMeta.Annotations).To(BeNil())
+					}
+				})
+			})
+
+			Context("with the deprecated field from the spec", func() {
+				BeforeEach(func() {
+					pvc := &corev1.PersistentVolumeClaim{}
+					err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1-data"}, pvc)
+					Expect(err).NotTo(HaveOccurred())
+					pvc.Annotations["foundationdb.org/existing-annotation"] = "test-value"
+					err = k8sClient.Update(context.TODO(), pvc)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+					cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"fdb-annotation": "value1",
+							},
+						},
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
+				})
 
-					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
-						"foundationdb.org/last-applied-config-map": configMapHash,
-						"foundationdb.org/last-applied-spec":       hash,
-					}))
-				}
+				It("should update the annotations on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pvcs.Items {
+						if item.ObjectMeta.Labels["fdb-instance-id"] == "storage-1" {
+							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+								"fdb-annotation":                       "value1",
+								"foundationdb.org/existing-annotation": "test-value",
+								"foundationdb.org/last-applied-spec":   "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+							}))
+						} else {
+							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+								"fdb-annotation":                     "value1",
+								"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+							}))
 
-				configMaps := &corev1.ConfigMapList{}
-				err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
-				for _, item := range configMaps.Items {
-					Expect(item.ObjectMeta.Annotations).To(BeNil())
-				}
+						}
+					}
+				})
+
+				It("should not update the annotations on other resources", func() {
+					pods := &corev1.PodList{}
+
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range pods.Items {
+						_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
+						Expect(err).NotTo(HaveOccurred())
+
+						hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
+						Expect(err).NotTo(HaveOccurred())
+
+						configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
+							"foundationdb.org/last-applied-config-map": configMapHash,
+							"foundationdb.org/last-applied-spec":       hash,
+						}))
+					}
+
+					configMaps := &corev1.ConfigMapList{}
+					err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+					for _, item := range configMaps.Items {
+						Expect(item.ObjectMeta.Annotations).To(BeNil())
+					}
+				})
 			})
 		})
 
@@ -1622,44 +1849,130 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("with a change to the volume size", func() {
-			BeforeEach(func() {
-				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								"storage": resource.MustParse("32Gi"),
+			Context("with the fields from the processes", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									"storage": resource.MustParse("32Gi"),
+								},
 							},
 						},
-					},
-				}
+					}}}
 
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
-			})
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-			It("should replace the processes", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
 
-				replacements := make(map[string]bool, len(originalPods.Items))
-				for _, pod := range originalPods.Items {
-					processClass := GetProcessClassFromMeta(pod.ObjectMeta)
-					if isStateful(processClass) {
-						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
+						if isStateful(processClass) {
+							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						}
 					}
-				}
 
-				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
+
+				It("should set the new volume size on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pvc := range pvcs.Items {
+						Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(resource.MustParse("32Gi")))
+					}
+				})
 			})
 
-			It("should set the new volume size on the PVCs", func() {
-				pvcs := &corev1.PersistentVolumeClaimList{}
-				err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
-				Expect(err).NotTo(HaveOccurred())
+			Context("with the deprecated fields from the processes", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaim: &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									"storage": resource.MustParse("32Gi"),
+								},
+							},
+						},
+					}}}
 
-				for _, pvc := range pvcs.Items {
-					Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(resource.MustParse("32Gi")))
-				}
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
+						if isStateful(processClass) {
+							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						}
+					}
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
+
+				It("should set the new volume size on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pvc := range pvcs.Items {
+						Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(resource.MustParse("32Gi")))
+					}
+				})
+			})
+
+			Context("with the deprecated field from the spec", func() {
+				BeforeEach(func() {
+					cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									"storage": resource.MustParse("32Gi"),
+								},
+							},
+						},
+					}
+
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should replace the processes", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					replacements := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
+						if isStateful(processClass) {
+							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						}
+					}
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				})
+
+				It("should set the new volume size on the PVCs", func() {
+					pvcs := &corev1.PersistentVolumeClaimList{}
+					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pvc := range pvcs.Items {
+						Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(resource.MustParse("32Gi")))
+					}
+				})
 			})
 		})
 
