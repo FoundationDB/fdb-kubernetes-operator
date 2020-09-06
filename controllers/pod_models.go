@@ -801,3 +801,110 @@ func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) (*corev1.Service,
 
 	return service, nil
 }
+
+// ensureContainerPresent looks for a container by name from a list, and adds
+// an empty container with that name if none is present.
+func ensureContainerPresent(containers []corev1.Container, name string) ([]corev1.Container, int) {
+	for index, container := range containers {
+		if container.Name == name {
+			return containers, index
+		}
+	}
+
+	containers = append(containers, corev1.Container{Name: name})
+	return containers, len(containers) - 1
+}
+
+// customizeContainerFromList finds a container by name and runs a customization
+// function on the container.
+func customizeContainerFromList(containers []corev1.Container, name string, customizer func(*corev1.Container)) []corev1.Container {
+	containers, index := ensureContainerPresent(containers, name)
+	container := containers[index]
+	customizer(&container)
+	containers[index] = container
+	return containers
+}
+
+// NormalizeClusterSpec converts a cluster spec into an unambiguous,
+// future-proof form, by applying any implicit defaults and moving configuration
+// from deprecated fields into fully-supported fields.
+func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defaultsSelection) {
+	if !defaults.OnlyShowChanges {
+		// Set up resource requirements for the main container.
+
+		if spec.Processes == nil {
+			spec.Processes = make(map[string]fdbtypes.ProcessSettings)
+		}
+		_, present := spec.Processes["general"]
+		if !present {
+			spec.Processes["general"] = fdbtypes.ProcessSettings{}
+		}
+
+		for processClass, settings := range spec.Processes {
+			if settings.PodTemplate == nil {
+				settings.PodTemplate = &corev1.PodTemplateSpec{}
+			}
+
+			settings.PodTemplate.Spec.Containers = customizeContainerFromList(settings.PodTemplate.Spec.Containers, "foundationdb", func(container *corev1.Container) {
+				if container.Resources.Requests == nil {
+					container.Resources.Requests = corev1.ResourceList{
+						"cpu":    resource.MustParse("1"),
+						"memory": resource.MustParse("1Gi"),
+					}
+				}
+
+				if container.Resources.Limits == nil {
+					container.Resources.Limits = container.Resources.Requests
+				}
+			})
+
+			spec.Processes[processClass] = settings
+		}
+	}
+
+	// Apply changes between old and new defaults.
+	// When we update the defaults in the next release, the following sections
+	// should be moved under the `!OnlyShowChanges` section, and we should use
+	// the latest defaults as the active defaults.
+
+	// Set up sidecar resource requirements
+	if spec.Processes == nil {
+		spec.Processes = make(map[string]fdbtypes.ProcessSettings)
+	}
+	_, present := spec.Processes["general"]
+	if !present {
+		spec.Processes["general"] = fdbtypes.ProcessSettings{}
+	}
+
+	for processClass, settings := range spec.Processes {
+		if settings.PodTemplate == nil {
+			settings.PodTemplate = &corev1.PodTemplateSpec{}
+		}
+
+		sidecarUpdater := func(container *corev1.Container) {
+			if defaults.ApplyLatestDefaults {
+				if container.Resources.Requests == nil {
+					container.Resources.Requests = corev1.ResourceList{
+						"cpu":    resource.MustParse("100m"),
+						"memory": resource.MustParse("256Mi"),
+					}
+				}
+				if container.Resources.Limits == nil {
+					container.Resources.Limits = container.Resources.Requests
+				}
+			} else {
+				if container.Resources.Requests == nil {
+					container.Resources.Requests = corev1.ResourceList{}
+				}
+				if container.Resources.Limits == nil {
+					container.Resources.Limits = corev1.ResourceList{}
+				}
+			}
+		}
+
+		settings.PodTemplate.Spec.InitContainers = customizeContainerFromList(settings.PodTemplate.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
+		settings.PodTemplate.Spec.Containers = customizeContainerFromList(settings.PodTemplate.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
+
+		spec.Processes[processClass] = settings
+	}
+}

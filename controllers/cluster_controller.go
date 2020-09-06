@@ -87,6 +87,8 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
 		return ctrl.Result{}, err
