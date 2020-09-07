@@ -88,6 +88,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	}
 
 	NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+	normalizedSpec := cluster.Spec.DeepCopy()
 
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
@@ -128,6 +129,8 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	}
 
 	for _, subReconciler := range subReconcilers {
+		cluster.Spec = *(normalizedSpec.DeepCopy())
+
 		canContinue, err := subReconciler.Reconcile(r, context, cluster)
 		if !canContinue || err != nil {
 			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
@@ -243,9 +246,7 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
-	if cluster.Spec.PodTemplate != nil {
-		customMetadata = &cluster.Spec.PodTemplate.ObjectMeta
-	} else if processSettings.PodTemplate != nil {
+	if processSettings.PodTemplate != nil {
 		customMetadata = &processSettings.PodTemplate.ObjectMeta
 	} else {
 		customMetadata = nil

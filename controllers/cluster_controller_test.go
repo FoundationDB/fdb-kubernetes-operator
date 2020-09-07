@@ -960,6 +960,8 @@ var _ = Describe("cluster_controller", func() {
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
+
+				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
 					Expect(err).NotTo(HaveOccurred())
@@ -1288,6 +1290,8 @@ var _ = Describe("cluster_controller", func() {
 							},
 						},
 					}
+
+					NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
 					err := k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1421,6 +1425,9 @@ var _ = Describe("cluster_controller", func() {
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
+
+				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
 					Expect(err).NotTo(HaveOccurred())

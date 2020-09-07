@@ -80,16 +80,8 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.PodSpec, error) {
-	var podSpec *corev1.PodSpec
-
 	processSettings := cluster.GetProcessSettings(processClass)
-	if cluster.Spec.PodTemplate != nil {
-		podSpec = cluster.Spec.PodTemplate.Spec.DeepCopy()
-	} else if processSettings.PodTemplate != nil {
-		podSpec = processSettings.PodTemplate.Spec.DeepCopy()
-	} else {
-		podSpec = &corev1.PodSpec{}
-	}
+	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 
 	var mainContainer *corev1.Container
 	var sidecarContainer *corev1.Container
@@ -107,33 +99,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		if container.Name == "foundationdb-kubernetes-init" {
 			initContainer = &podSpec.InitContainers[index]
 		}
-	}
-	if mainContainer == nil {
-		containerCount := 1 + len(podSpec.Containers) + len(cluster.Spec.Containers)
-		if sidecarContainer == nil {
-			containerCount++
-		}
-		containers := make([]corev1.Container, 0, containerCount)
-		containers = append(containers, corev1.Container{
-			Name: "foundationdb",
-		})
-		containers = append(containers, podSpec.Containers...)
-		podSpec.Containers = containers
-		mainContainer = &podSpec.Containers[0]
-	}
-
-	if sidecarContainer == nil {
-		podSpec.Containers = append(podSpec.Containers, corev1.Container{
-			Name: "foundationdb-kubernetes-sidecar",
-		})
-		sidecarContainer = &podSpec.Containers[len(podSpec.Containers)-1]
-	}
-
-	if initContainer == nil {
-		podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{
-			Name: "foundationdb-kubernetes-init",
-		})
-		initContainer = &podSpec.InitContainers[len(podSpec.InitContainers)-1]
 	}
 
 	podName, instanceID := getInstanceID(cluster, processClass, idNum)
@@ -804,21 +769,36 @@ func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) (*corev1.Service,
 
 // ensureContainerPresent looks for a container by name from a list, and adds
 // an empty container with that name if none is present.
-func ensureContainerPresent(containers []corev1.Container, name string) ([]corev1.Container, int) {
+func ensureContainerPresent(containers []corev1.Container, name string, insertIndex int) ([]corev1.Container, int) {
 	for index, container := range containers {
 		if container.Name == name {
 			return containers, index
 		}
 	}
 
-	containers = append(containers, corev1.Container{Name: name})
-	return containers, len(containers) - 1
+	if insertIndex < 0 || insertIndex >= len(containers) {
+		containers = append(containers, corev1.Container{Name: name})
+		return containers, len(containers) - 1
+	} else {
+		containerCount := 1 + len(containers)
+		newContainers := make([]corev1.Container, 0, containerCount)
+		for indexToCopy := 0; indexToCopy < len(containers); indexToCopy++ {
+			if indexToCopy == insertIndex {
+				newContainers = append(newContainers, corev1.Container{
+					Name: name,
+				})
+			}
+			newContainers = append(newContainers, containers[indexToCopy])
+		}
+
+		return newContainers, insertIndex
+	}
 }
 
 // customizeContainerFromList finds a container by name and runs a customization
 // function on the container.
 func customizeContainerFromList(containers []corev1.Container, name string, customizer func(*corev1.Container)) []corev1.Container {
-	containers, index := ensureContainerPresent(containers, name)
+	containers, index := ensureContainerPresent(containers, name, -1)
 	container := containers[index]
 	customizer(&container)
 	containers[index] = container
@@ -829,6 +809,18 @@ func customizeContainerFromList(containers []corev1.Container, name string, cust
 // future-proof form, by applying any implicit defaults and moving configuration
 // from deprecated fields into fully-supported fields.
 func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defaultsSelection) {
+	if spec.PodTemplate != nil {
+		if spec.Processes == nil {
+			spec.Processes = make(map[string]fdbtypes.ProcessSettings)
+		}
+		generalSettings := spec.Processes["general"]
+		if generalSettings.PodTemplate == nil {
+			generalSettings.PodTemplate = spec.PodTemplate
+		}
+		spec.Processes["general"] = generalSettings
+		spec.PodTemplate = nil
+	}
+
 	if !defaults.OnlyShowChanges {
 		// Set up resource requirements for the main container.
 
@@ -844,6 +836,8 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defau
 			if settings.PodTemplate == nil {
 				settings.PodTemplate = &corev1.PodTemplateSpec{}
 			}
+
+			settings.PodTemplate.Spec.Containers, _ = ensureContainerPresent(settings.PodTemplate.Spec.Containers, "foundationdb", 0)
 
 			settings.PodTemplate.Spec.Containers = customizeContainerFromList(settings.PodTemplate.Spec.Containers, "foundationdb", func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
