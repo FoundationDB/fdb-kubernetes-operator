@@ -876,7 +876,7 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defau
 		}
 
 		sidecarUpdater := func(container *corev1.Container) {
-			if defaults.ApplyLatestDefaults {
+			if defaults.UseFutureDefaults {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
 						"cpu":    resource.MustParse("100m"),

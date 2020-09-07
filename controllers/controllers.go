@@ -80,7 +80,7 @@ func mergeAnnotations(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool
 type defaultsSelection struct {
 	// Whether we should apply the latest defaults rather than the defaults that
 	// were initially established for this major version.
-	ApplyLatestDefaults bool
+	UseFutureDefaults bool
 
 	// Whether we should only fill in defaults that have changes between major
 	// versions of the operator.

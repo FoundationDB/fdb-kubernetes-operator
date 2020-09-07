@@ -48,6 +48,7 @@ func main() {
 	var enableLeaderElection bool
 	var logFile string
 	var cliTimeout int
+	var useFutureDefaults bool
 
 	fdb.MustAPIVersion(610)
 
@@ -56,6 +57,9 @@ func main() {
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
 	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
+	flag.BoolVar(&useFutureDefaults, "use-future-defaults", false,
+		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
+	)
 	flag.Parse()
 
 	var logWriter io.Writer
@@ -105,6 +109,7 @@ func main() {
 		PodClientProvider:   controllers.NewFdbPodClient,
 		AdminClientProvider: controllers.NewCliAdminClient,
 		LockClientProvider:  controllers.NewRealLockClient,
+		UseFutureDefaults:   useFutureDefaults,
 	}
 
 	if err = clusterReconciler.SetupWithManager(mgr); err != nil {

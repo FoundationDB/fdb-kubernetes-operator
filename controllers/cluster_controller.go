@@ -61,6 +61,7 @@ type FoundationDBClusterReconciler struct {
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 	LockClientProvider  LockClientProvider
 	lockClients         map[string]LockClient
+	UseFutureDefaults   bool
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -87,7 +88,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+	NormalizeClusterSpec(&cluster.Spec, defaultsSelection{UseFutureDefaults: r.UseFutureDefaults})
 	normalizedSpec := cluster.Spec.DeepCopy()
 
 	adminClient, err := r.AdminClientProvider(cluster, r)

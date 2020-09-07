@@ -2365,7 +2365,7 @@ var _ = Describe("pod_models", func() {
 		Describe("defaults", func() {
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{ApplyLatestDefaults: false, OnlyShowChanges: false})
+					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: false, OnlyShowChanges: false})
 				})
 
 				It("should have both containers", func() {
@@ -2494,7 +2494,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the current defaults, changes only", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{ApplyLatestDefaults: false, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: false, OnlyShowChanges: true})
 				})
 
 				It("should have a single container", func() {
@@ -2519,7 +2519,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the future defaults", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{ApplyLatestDefaults: true, OnlyShowChanges: false})
+					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: true, OnlyShowChanges: false})
 				})
 
 				It("should have default sidecar resource requirements", func() {
@@ -2644,7 +2644,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the future defaults, changes only", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{ApplyLatestDefaults: true, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: true, OnlyShowChanges: true})
 				})
 
 				It("should have default sidecar resource requirements", func() {
@@ -2668,12 +2668,12 @@ var _ = Describe("pod_models", func() {
 				var originalSpec *fdbtypes.FoundationDBClusterSpec
 
 				BeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{ApplyLatestDefaults: false, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: false, OnlyShowChanges: true})
 					originalSpec = spec.DeepCopy()
 				})
 
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{ApplyLatestDefaults: true, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: true, OnlyShowChanges: true})
 				})
 
 				It("should be equal to the version with the old explicit defaults", func() {
