@@ -25,27 +25,29 @@ spec:
     - "knob_disable_posix_kernel_aio=1"
   databaseConfiguration:
     redundancy_mode: "single"
-  volumeClaim:
-    spec:
-      resources:
-        requests:
-          storage: "16G"
-  podTemplate:
-    spec:
-      securityContext:
-        fsGroup: 0
-      containers:
-        - name: foundationdb
-          securityContext:
-            runAsUser: 0
+  processes:
+    general:
+      volumeClaimTemplate:
+        spec:
           resources:
             requests:
-              cpu: 250m
-              memory: 128Mi
-        - name: foundationdb-kubernetes-sidecar
+              storage: "16G"
+      podTemplate:
+        spec:
           securityContext:
-            runAsUser: 0
-      initContainers:
-        - name: foundationdb-kubernetes-init
-          securityContext:
-            runAsUser: 0
+            fsGroup: 0
+          containers:
+            - name: foundationdb
+              securityContext:
+                runAsUser: 0
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 128Mi
+            - name: foundationdb-kubernetes-sidecar
+              securityContext:
+                runAsUser: 0
+          initContainers:
+            - name: foundationdb-kubernetes-init
+              securityContext:
+                runAsUser: 0

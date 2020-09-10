@@ -21,7 +21,7 @@ spec:
     general:
       customParameters:
         - "knob_disable_posix_kernel_aio=1"
-      volumeClaim:
+      volumeClaimTemplate:
         spec:
           resources:
             requests:
