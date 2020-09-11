@@ -27,8 +27,8 @@ ARG FDB_WEBSITE=https://www.foundationdb.org
 ADD website /mnt/website
 # FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
 # download GeoTrust_Global_CA.crt during install and remove it afterwards
-RUN curl -sLo /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt https://www.geotrust.com/resources/root_certificates/certificates/GeoTrust_Global_CA.pem && \
-    update-ca-certificates --fresh && \
+COPY ./files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
+RUN update-ca-certificates --fresh && \
     curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
 	tar -xzf fdb_$FDB_VERSION.tar.gz --strip-components=1 && \
 	rm fdb_$FDB_VERSION.tar.gz && \
