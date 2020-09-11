@@ -136,7 +136,6 @@ class Config(object):
         with open('/var/fdb/version') as version_file:
             self.primary_version = version_file.read().strip()
 
-        
         version_split = self.primary_version.split('.')
         self.minor_version = [int(version_split[0]), int(version_split[1])]
 
@@ -180,7 +179,7 @@ class Config(object):
 
         for variable in args.substitute_variable or []:
             self.substitutions[variable] = os.getenv(variable)
-        
+
         if forbid_deprecated_environment_variables:
             for variable in ['SIDECAR_CONF_DIR', 'INPUT_DIR', 'OUTPUT_DIR', 'COPY_ONCE']:
                 if os.getenv(variable):
@@ -442,7 +441,7 @@ class CertificateEventHandler(FileSystemEventHandler):
         Server.load_ssl_context()
 
 def check_hash(filename):
-    with open('%s/%s' % (Config.shared().output_dir, filename), 'rb') as contents:
+    with open(os.path.join(Config.shared().output_dir, filename), 'rb') as contents:
         m = hashlib.sha256()
         m.update(contents.read())
         return m.hexdigest()
@@ -451,47 +450,60 @@ def copy_files():
     config = Config.shared()
     if config.require_not_empty:
         for filename in config.require_not_empty:
-            path = '%s/%s' % (config.input_dir, filename)
+            path = os.path.join(config.input_dir, filename)
             if not os.path.isfile(path) or os.path.getsize(path) == 0:
                 raise Exception("No contents for file %s" % path)
     for filename in config.copy_files:
-        shutil.copy('%s/%s' % (config.input_dir, filename), '%s/%s' % (config.output_dir, filename))
+        tmp_file = os.path.join(config.output_dir, f"{filename}.tmp")
+        shutil.copy(os.path.join(config.input_dir, filename), tmp_file)
+        os.replace(tmp_file, os.path.join(config.output_dir, filename))
+
     return "OK"
 
 def copy_binaries():
     config = Config.shared()
     if config.main_container_version != config.primary_version:
         for binary in config.copy_binaries:
-            path = Path('/usr/bin/%s' % binary)
-            target_path = Path('%s/bin/%s/%s' % (config.output_dir, config.primary_version, binary))
+            path = Path(f"/usr/bin/{binary}")
+            target_path = Path(f"{config.output_dir}/bin/{config.primary_version}/{binary}")
             if not target_path.exists():
                 target_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy(path, target_path)
+                tmp_file = f"{target_path}.tmp"
+                shutil.copy(path, tmp_file)
+                os.replace(tmp_file, target_path)
                 target_path.chmod(0o744)
     return "OK"
 
 def copy_libraries():
     config = Config.shared()
     for version in config.copy_libraries:
-        path =  Path('/var/fdb/lib/libfdb_c_%s.so' % version)
+        path =  Path(f"/var/fdb/lib/libfdb_c_{version}.so")
         if version == config.copy_libraries[0]:
-            target_path = Path('%s/lib/libfdb_c.so' % (config.output_dir))
+            target_path = Path(f"{config.output_dir}/lib/libfdb_c.so")
         else:
-            target_path = Path('%s/lib/multiversion/libfdb_c_%s.so' % (config.output_dir, version))
+            target_path = Path(f"{config.output_dir}/lib/multiversion/libfdb_c_{version}.so")
         if not target_path.exists():
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(path, target_path)
+            tmp_file = f"{target_path}.tmp"
+            shutil.copy(path, tmp_file)
+            os.replace(tmp_file, target_path)
     return "OK"
 
 def copy_monitor_conf():
     config = Config.shared()
     if config.input_monitor_conf:
-        with open('%s/%s' % (config.input_dir, config.input_monitor_conf)) as monitor_conf_file:
+        with open(os.path.join(config.input_dir, config.input_monitor_conf)) as monitor_conf_file:
             monitor_conf = monitor_conf_file.read()
         for variable in config.substitutions:
             monitor_conf = monitor_conf.replace('$' + variable, config.substitutions[variable])
-        with open('%s/fdbmonitor.conf' % config.output_dir, 'w') as output_conf_file:
+
+        tmp_file = os.path.join(config.output_dir, "fdbmonitor.conf.tmp")
+        target_file = os.path.join(config.output_dir, "fdbmonitor.conf")
+
+        with open(tmp_file, 'w') as output_conf_file:
             output_conf_file.write(monitor_conf)
+
+        os.replace(tmp_file, target_file)
     return "OK"
 
 def get_substitutions():
