@@ -1,3 +1,11 @@
+# v0.19.0
+
+*	Correct helm chart for helm 3.
+*	Use slim base image for sample container.
+*	Rename the volumeClaim field for greater consistency with StatefulSet.
+*	Add watch events for resources created by the operator.
+*	Make use of atomic copy for sidecar files.
+
 # v0.18.0
 
 *	Add a check for container readiness before completing reconciliation.
