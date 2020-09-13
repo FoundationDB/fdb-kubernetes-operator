@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.13.11 as builder
+FROM golang:1.13.15 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.25
@@ -7,7 +7,12 @@ ARG FDB_ADDITIONAL_VERSIONS="6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
+
+# FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
+# adds GeoTrust_Global_CA.crt during install and removes it afterwards
+COPY ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
 RUN set -eux && \
+    update-ca-certificates --fresh && \
 	curl $FDB_WEBSITE/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
 	for version in ${FDB_VERSION} ${FDB_ADDITIONAL_VERSIONS}; do \
@@ -25,7 +30,9 @@ RUN set -eux && \
 	mkdir -p /usr/lib/fdb && \
 	for VERSION in ${FDB_ADDITIONAL_VERSIONS}; do \
 		curl $FDB_WEBSITE/downloads/$VERSION/linux/libfdb_c_$VERSION.so -o /usr/lib/fdb/libfdb_c_$VERSION.so; \
-	done
+	done && \
+    rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
+    update-ca-certificates --fresh
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
