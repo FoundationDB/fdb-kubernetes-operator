@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
@@ -62,6 +64,8 @@ type FoundationDBClusterReconciler struct {
 	LockClientProvider  LockClientProvider
 	lockClients         map[string]LockClient
 	UseFutureDefaults   bool
+	Namespace           string
+	DeprecationOptions  DeprecationOptions
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -88,7 +92,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	NormalizeClusterSpec(&cluster.Spec, defaultsSelection{UseFutureDefaults: r.UseFutureDefaults})
+	NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
 	normalizedSpec := cluster.Spec.DeepCopy()
 
 	adminClient, err := r.AdminClientProvider(cluster, r)
@@ -1258,4 +1262,49 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	coordinatorsValid := hasEnoughZones && hasEnoughDCs && allHealthy
 
 	return coordinatorsValid, allAddressesValid, nil
+}
+
+func (r *FoundationDBClusterReconciler) CheckDeprecations(context ctx.Context) error {
+	deprecations, err := r.GetDeprecations(context)
+	if err != nil {
+		return err
+	}
+	for _, deprecation := range deprecations {
+		newMeta := metav1.ObjectMeta{
+			Namespace: deprecation.Namespace,
+			Name:      deprecation.Name,
+		}
+		deprecation.ObjectMeta = newMeta
+		deprecation.Status = fdbtypes.FoundationDBClusterStatus{}
+		yamlOutput, err := yaml.Marshal(deprecation)
+		if err != nil {
+			return err
+		}
+		fmt.Print(yamlOutput)
+		fmt.Print("\n---\n")
+	}
+	return nil
+}
+
+func (r *FoundationDBClusterReconciler) GetDeprecations(context ctx.Context) ([]fdbtypes.FoundationDBCluster, error) {
+	clusters := &fdbtypes.FoundationDBClusterList{}
+
+	listOptions := make([]client.ListOption, 0, 1)
+	if r.Namespace != "" {
+		listOptions = append(listOptions, client.InNamespace(r.Namespace))
+	}
+
+	err := r.List(context, clusters, listOptions...)
+	if err != nil {
+		return nil, err
+	}
+	deprecations := make([]fdbtypes.FoundationDBCluster, 0, len(clusters.Items))
+	for _, cluster := range clusters.Items {
+		originalSpec := cluster.Spec.DeepCopy()
+		NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+		if !reflect.DeepEqual(*originalSpec, cluster.Spec) {
+			deprecations = append(deprecations, cluster)
+		}
+	}
+	return deprecations, nil
 }

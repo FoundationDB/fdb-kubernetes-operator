@@ -41,7 +41,7 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+		NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 	})
 
 	Describe("GetPod", func() {
@@ -143,7 +143,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 
 				pod, err = GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -387,7 +387,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
 			})
@@ -580,7 +580,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -907,7 +907,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -2309,7 +2309,7 @@ var _ = Describe("pod_models", func() {
 
 		Describe("deprecations", func() {
 			JustBeforeEach(func() {
-				NormalizeClusterSpec(spec, defaultsSelection{})
+				NormalizeClusterSpec(spec, DeprecationOptions{})
 			})
 
 			Context("with a custom value for the Spec.PodTemplate field", func() {
@@ -2365,12 +2365,25 @@ var _ = Describe("pod_models", func() {
 					}))
 				})
 			})
+
+			Context("with a custom value for the SidecarVersion field", func() {
+				BeforeEach(func() {
+					spec.SidecarVersion = 2
+				})
+
+				It("puts the value in the SidecarVersions", func() {
+					Expect(spec.SidecarVersion).To(Equal(0))
+					Expect(spec.SidecarVersions).To(Equal(map[string]int{
+						Versions.Default.String(): 2,
+					}))
+				})
+			})
 		})
 
 		Describe("defaults", func() {
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: false, OnlyShowChanges: false})
+					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
 				})
 
 				It("should have both containers", func() {
@@ -2499,7 +2512,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the current defaults, changes only", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: false, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 				})
 
 				It("should have a single container", func() {
@@ -2524,7 +2537,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the future defaults", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: true, OnlyShowChanges: false})
+					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
 				})
 
 				It("should have default sidecar resource requirements", func() {
@@ -2649,7 +2662,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the future defaults, changes only", func() {
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: true, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 				})
 
 				It("should have default sidecar resource requirements", func() {
@@ -2673,12 +2686,12 @@ var _ = Describe("pod_models", func() {
 				var originalSpec *fdbtypes.FoundationDBClusterSpec
 
 				BeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: false, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					originalSpec = spec.DeepCopy()
 				})
 
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, defaultsSelection{UseFutureDefaults: true, OnlyShowChanges: true})
+					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 				})
 
 				It("should be equal to the version with the old explicit defaults", func() {

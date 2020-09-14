@@ -962,7 +962,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
 					Expect(err).NotTo(HaveOccurred())
@@ -1431,7 +1431,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
@@ -3223,6 +3223,161 @@ var _ = Describe("cluster_controller", func() {
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
+				})
+			})
+		})
+	})
+
+	Describe("GetDeprecations", func() {
+		var deprecationOptions DeprecationOptions
+
+		BeforeEach(func() {
+			deprecationOptions = DeprecationOptions{OnlyShowChanges: true}
+
+			cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{
+				"general": fdbtypes.ProcessSettings{
+					PodTemplate: &corev1.PodTemplateSpec{},
+				},
+			}
+			cluster.Spec.Processes["general"].PodTemplate.Spec.Containers = append(cluster.Spec.Processes["general"].PodTemplate.Spec.Containers, corev1.Container{
+				Name: "foundationdb-kubernetes-sidecar",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"cpu": resource.MustParse("50m"),
+					},
+					Limits: corev1.ResourceList{
+						"cpu": resource.MustParse("50m"),
+					},
+				},
+			})
+			cluster.Spec.Processes["general"].PodTemplate.Spec.InitContainers = append(cluster.Spec.Processes["general"].PodTemplate.Spec.InitContainers, corev1.Container{
+				Name: "foundationdb-kubernetes-init",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"cpu": resource.MustParse("50m"),
+					},
+					Limits: corev1.ResourceList{
+						"cpu": resource.MustParse("50m"),
+					},
+				},
+			})
+		})
+
+		JustBeforeEach(func() {
+			err := k8sClient.Create(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() (int64, error) { return reloadCluster(k8sClient, cluster) }, 1).Should(Equal(int64(1)))
+			clusterReconciler.DeprecationOptions = deprecationOptions
+		})
+
+		AfterEach(func() {
+			clusterReconciler.Namespace = ""
+			clusterReconciler.DeprecationOptions = DeprecationOptions{}
+			cleanupCluster(cluster)
+		})
+
+		Context("with no pending changes", func() {
+			It("should be empty", func() {
+				deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deprecations)).To(Equal(0))
+			})
+		})
+
+		Context("with a pending change to defaults", func() {
+			BeforeEach(func() {
+				cluster.Spec.Processes["general"].PodTemplate.Spec.InitContainers = nil
+			})
+
+			Context("with the old defaults selected", func() {
+				BeforeEach(func() {
+					deprecationOptions.UseFutureDefaults = false
+				})
+
+				It("should include the cluster with the old default", func() {
+					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(deprecations)).To(Equal(1))
+					deprecation := deprecations[0]
+					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
+
+					container := deprecation.Spec.Processes["general"].PodTemplate.Spec.InitContainers[0]
+					Expect(container.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(container.Resources).To(Equal(corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{},
+						Limits:   corev1.ResourceList{},
+					}))
+				})
+			})
+
+			Context("with the new defaults selected", func() {
+				BeforeEach(func() {
+					deprecationOptions.UseFutureDefaults = true
+				})
+
+				It("should include the cluster with the new default", func() {
+					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(deprecations)).To(Equal(1))
+					deprecation := deprecations[0]
+					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
+
+					container := deprecation.Spec.Processes["general"].PodTemplate.Spec.InitContainers[0]
+					Expect(container.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(container.Resources).To(Equal(corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							"cpu":    resource.MustParse("100m"),
+							"memory": resource.MustParse("256Mi"),
+						},
+						Limits: corev1.ResourceList{
+							"cpu":    resource.MustParse("100m"),
+							"memory": resource.MustParse("256Mi"),
+						},
+					}))
+				})
+			})
+		})
+
+		Context("with a deprecated field", func() {
+			BeforeEach(func() {
+				cluster.Spec.SidecarVersion = 2
+			})
+
+			It("should include the cluster", func() {
+				deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deprecations)).To(Equal(1))
+				deprecation := deprecations[0]
+				Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
+				Expect(deprecation.Spec.SidecarVersion).To(Equal(0))
+				Expect(deprecation.Spec.SidecarVersions).To(Equal(map[string]int{
+					Versions.Default.String(): 2,
+				}))
+			})
+
+			Context("when specifying the cluster's namespace", func() {
+				JustBeforeEach(func() {
+					clusterReconciler.Namespace = cluster.Namespace
+				})
+
+				It("should include the cluster", func() {
+					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(deprecations)).To(Equal(1))
+					deprecation := deprecations[0]
+					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
+				})
+			})
+
+			Context("when specifying another namespace", func() {
+				JustBeforeEach(func() {
+					clusterReconciler.Namespace = "bad-namespace"
+				})
+
+				It("should not include the cluster", func() {
+					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(deprecations)).To(Equal(0))
 				})
 			})
 		})

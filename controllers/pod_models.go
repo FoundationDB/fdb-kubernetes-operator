@@ -789,7 +789,7 @@ func customizeContainerFromList(containers []corev1.Container, name string, cust
 // NormalizeClusterSpec converts a cluster spec into an unambiguous,
 // future-proof form, by applying any implicit defaults and moving configuration
 // from deprecated fields into fully-supported fields.
-func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defaultsSelection) {
+func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options DeprecationOptions) {
 	if spec.PodTemplate != nil {
 		if spec.Processes == nil {
 			spec.Processes = make(map[string]fdbtypes.ProcessSettings)
@@ -802,7 +802,15 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defau
 		spec.PodTemplate = nil
 	}
 
-	if !defaults.OnlyShowChanges {
+	if spec.SidecarVersion != 0 {
+		if spec.SidecarVersions == nil {
+			spec.SidecarVersions = make(map[string]int)
+		}
+		spec.SidecarVersions[spec.Version] = spec.SidecarVersion
+		spec.SidecarVersion = 0
+	}
+
+	if !options.OnlyShowChanges {
 		// Set up resource requirements for the main container.
 
 		if spec.Processes == nil {
@@ -857,7 +865,7 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, defaults defau
 		}
 
 		sidecarUpdater := func(container *corev1.Container) {
-			if defaults.UseFutureDefaults {
+			if options.UseFutureDefaults {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
 						"cpu":    resource.MustParse("100m"),

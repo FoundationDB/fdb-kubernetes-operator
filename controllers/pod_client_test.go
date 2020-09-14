@@ -33,7 +33,7 @@ var _ = Describe("pod_client", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+		NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 	})
 
 	Context("with TLS disabled", func() {
