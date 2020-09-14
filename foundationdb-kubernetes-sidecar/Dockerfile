@@ -17,18 +17,20 @@
 # limitations under the License.
 #
 
-FROM python:3.6
+FROM python:3.6-slim
 
 WORKDIR /var/fdb/tmp
 ARG FDB_VERSION=6.2.22
 ARG FDB_LIBRARY_VERSIONS="6.2.22 6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
-ADD website /mnt/website
+COPY website /mnt/website
 # FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
 # download GeoTrust_Global_CA.crt during install and remove it afterwards
 COPY ./files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
-RUN update-ca-certificates --fresh && \
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends curl && \
+	update-ca-certificates --fresh && \
     curl $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
 	tar -xzf fdb_$FDB_VERSION.tar.gz --strip-components=1 && \
 	rm fdb_$FDB_VERSION.tar.gz && \
@@ -40,7 +42,9 @@ RUN update-ca-certificates --fresh && \
 	groupadd --gid 4059 fdb && \
 	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb && \
 	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
-	update-ca-certificates --fresh
+	update-ca-certificates --fresh && \
+	apt-get remove -y curl && \
+	rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
 
