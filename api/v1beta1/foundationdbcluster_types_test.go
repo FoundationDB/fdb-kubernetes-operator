@@ -1163,7 +1163,11 @@ func TestGettingSidecarVersion(t *testing.T) {
 
 	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.2.15-1"))
 
-	cluster.Spec.SidecarVersion = 2
+	cluster.Spec.SidecarVersions = map[string]int{
+		"6.2.14": 3,
+		"6.2.15": 2,
+	}
+
 	g.Expect(cluster.GetFullSidecarVersion(false)).To(gomega.Equal("6.2.15-2"))
 }
 

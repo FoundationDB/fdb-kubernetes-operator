@@ -92,7 +92,11 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+	err = NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	normalizedSpec := cluster.Spec.DeepCopy()
 
 	adminClient, err := r.AdminClientProvider(cluster, r)
@@ -281,11 +285,7 @@ func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
-	if cluster.Spec.VolumeClaim != nil {
-		customMetadata = &cluster.Spec.VolumeClaim.ObjectMeta
-	} else if processSettings.VolumeClaim != nil {
-		customMetadata = &processSettings.VolumeClaim.ObjectMeta
-	} else if processSettings.VolumeClaimTemplate != nil {
+	if processSettings.VolumeClaimTemplate != nil {
 		customMetadata = &processSettings.VolumeClaimTemplate.ObjectMeta
 	} else {
 		customMetadata = nil
@@ -324,9 +324,6 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 		metadata.Labels = make(map[string]string)
 	}
 	for label, value := range getMinimalPodLabels(cluster, processClass, id) {
-		metadata.Labels[label] = value
-	}
-	for label, value := range cluster.Spec.PodLabels {
 		metadata.Labels[label] = value
 	}
 
@@ -615,8 +612,6 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	if podSettings.CustomParameters != nil {
 		confLines = append(confLines, *podSettings.CustomParameters...)
 	}
-
-	confLines = append(confLines, cluster.Spec.CustomParameters...)
 
 	for index := range confLines {
 		for key, value := range substitutions {
@@ -1301,7 +1296,11 @@ func (r *FoundationDBClusterReconciler) GetDeprecations(context ctx.Context) ([]
 	deprecations := make([]fdbtypes.FoundationDBCluster, 0, len(clusters.Items))
 	for _, cluster := range clusters.Items {
 		originalSpec := cluster.Spec.DeepCopy()
-		NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+		err = NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+		if err != nil {
+			return nil, err
+		}
+
 		if !reflect.DeepEqual(*originalSpec, cluster.Spec) {
 			deprecations = append(deprecations, cluster)
 		}

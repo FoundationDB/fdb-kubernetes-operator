@@ -617,9 +617,6 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass string) Proc
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
 		}
-		if merged.VolumeClaim == nil {
-			merged.VolumeClaim = entry.VolumeClaim
-		}
 		if merged.VolumeClaimTemplate == nil {
 			merged.VolumeClaimTemplate = entry.VolumeClaimTemplate
 		}
@@ -1237,9 +1234,6 @@ func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool
 		version = cluster.Spec.Version
 	}
 	sidecarVersion := cluster.Spec.SidecarVersions[version]
-	if sidecarVersion < 1 {
-		sidecarVersion = cluster.Spec.SidecarVersion
-	}
 	if sidecarVersion < 1 {
 		sidecarVersion = 1
 	}
