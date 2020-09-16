@@ -57,7 +57,7 @@ We encourage your participation asking questions and helping improve the Foundat
 ### Using GitHub Issues and Community Forums
 GitHub issues and the community forums both offer features to facilitate discussion. To clarify how and when to use each tool, here's a quick summary of how we think about them:
 
-GitHub Issues should be used for tracking tasks. If you know the specific code that needs to be changed, then it should go to GitHub Issues. Everything else should go to the Forums. For example: 
+GitHub Issues should be used for tracking tasks. If you know the specific code that needs to be changed, then it should go to GitHub Issues. Everything else should go to the Forums. For example:
 
 * I am experiencing some weird behavior, which I think is a bug, but I don't know where exactly (mysteries and unexpected behaviors): *Forums*
 * I see a bug in this piece of code: *GitHub Issues*
