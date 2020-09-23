@@ -74,3 +74,15 @@ func mergeAnnotations(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool
 	}
 	return changed
 }
+
+// defaultsSelection controls how defaults that are changing get applied to our
+// specs.
+type defaultsSelection struct {
+	// Whether we should apply the latest defaults rather than the defaults that
+	// were initially established for this major version.
+	UseFutureDefaults bool
+
+	// Whether we should only fill in defaults that have changes between major
+	// versions of the operator.
+	OnlyShowChanges bool
+}

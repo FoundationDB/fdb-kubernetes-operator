@@ -55,13 +55,6 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 				}
 			}
 		}
-		if cluster.Spec.PodTemplate != nil {
-			for _, container := range cluster.Spec.PodTemplate.Spec.Containers {
-				if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
-					image = container.Image
-				}
-			}
-		}
 		if image == "" {
 			image = "foundationdb/foundationdb-kubernetes-sidecar"
 		}
