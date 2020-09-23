@@ -1382,6 +1382,8 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
+				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1398,6 +1400,8 @@ var _ = Describe("pod_models", func() {
 				generalSettings.VolumeClaim = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}
 				cluster.Spec.Processes["general"] = generalSettings
 
+				NormalizeClusterSpec(&cluster.Spec, defaultsSelection{})
+
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1410,6 +1414,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc from the Spec.VolumeClaim field", func() {
 			BeforeEach(func() {
 				cluster.Spec.VolumeClaim = &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}
+
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
