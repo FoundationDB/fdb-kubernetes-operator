@@ -2085,5 +2085,5 @@ func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 // This is currently set to false across the board, pending investigation into
 // potential bugs with non-blocking excludes.
 func (version FdbVersion) HasNonBlockingExcludes() bool {
-	return false
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 5})
 }

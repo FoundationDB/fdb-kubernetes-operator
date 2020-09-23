@@ -12,7 +12,7 @@ COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
 # adds GeoTrust_Global_CA.crt during install and removes it afterwards
 COPY ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
 RUN set -eux && \
-    update-ca-certificates --fresh && \
+	update-ca-certificates --fresh && \
 	curl $FDB_WEBSITE/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
 	for version in ${FDB_VERSION} ${FDB_ADDITIONAL_VERSIONS}; do \
@@ -25,14 +25,16 @@ RUN set -eux && \
 			mv /usr/bin/fdb/$minor/tmp/$binary /usr/bin/fdb/$minor/$binary; \
 		done && \
 		rm -r /usr/bin/fdb/$minor/tmp && \
-		chmod u+x /usr/bin/fdb/$minor/fdb*; \
+		chmod u+x /usr/bin/fdb/$minor/fdb* \
+		|| exit; \
 	done && \
 	mkdir -p /usr/lib/fdb && \
 	for VERSION in ${FDB_ADDITIONAL_VERSIONS}; do \
-		curl $FDB_WEBSITE/downloads/$VERSION/linux/libfdb_c_$VERSION.so -o /usr/lib/fdb/libfdb_c_$VERSION.so; \
+		curl $FDB_WEBSITE/downloads/$VERSION/linux/libfdb_c_$VERSION.so -o /usr/lib/fdb/libfdb_c_$VERSION.so \
+		|| exit; \
 	done && \
-    rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
-    update-ca-certificates --fresh
+	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
+	update-ca-certificates --fresh
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
