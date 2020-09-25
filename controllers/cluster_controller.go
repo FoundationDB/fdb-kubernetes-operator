@@ -1278,6 +1278,9 @@ func (r *FoundationDBClusterReconciler) CheckDeprecations(context ctx.Context) e
 		fmt.Print(yamlOutput)
 		fmt.Print("\n---\n")
 	}
+	if len(deprecations) == 0 {
+		fmt.Print("No deprecated specs found.\n")
+	}
 	return nil
 }
 
