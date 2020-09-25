@@ -1,3 +1,13 @@
+# v0.20.0
+
+*	Update the Go version in our build image.
+*	Use a slim base image for the sidecar.
+*	Enable non-blocking excludes in newer versions of FDB.
+*	Add a mechanism for defining changes to defaults for future versions of the
+	operator without enforcing them immediately.
+*	Add a future default for the resource requirements for the sidecar
+	container.
+
 # v0.19.0
 
 *	Correct helm chart for helm 3.
