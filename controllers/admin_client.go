@@ -299,7 +299,7 @@ func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 // removeAddressFlags strips the flags from the end of the addresses, leaving
 // only the IP and port.
 func removeAddressFlags(addresses []string) []string {
-	results := make([]string, len(addresses))
+	results := make([]string, 0, len(addresses))
 	for _, address := range addresses {
 		components := strings.Split(address, ":")
 		results = append(results, fmt.Sprintf("%s:%s", components[0], components[1]))
@@ -360,17 +360,18 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	}
 
 	if version.HasNonBlockingExcludes() {
+		addressesWithoutFlags := removeAddressFlags(addresses)
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
-			strings.Join(removeAddressFlags(addresses), " "),
+			strings.Join(addressesWithoutFlags, " "),
 		)})
 		if err != nil {
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
 		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", addresses, "results", exclusionResults)
-		remaining := make([]string, 0, len(addresses))
-		for _, address := range addresses {
+		remaining := make([]string, 0, len(addressesWithoutFlags))
+		for _, address := range addressesWithoutFlags {
 			if exclusionResults[address] != "Success" && exclusionResults[address] != "Missing" {
 				remaining = append(remaining, address)
 			}
