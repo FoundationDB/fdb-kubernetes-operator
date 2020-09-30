@@ -1,3 +1,7 @@
+# v0.20.1
+
+*	Fix the handling of TLS addresses when doing no-wait excludes.
+
 # v0.20.0
 
 *	Update the Go version in our build image.
