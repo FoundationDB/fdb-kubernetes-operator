@@ -36,10 +36,7 @@ jobs:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
       env:
         GOMAXPROCS: "2"
-      run: |
-        nproc || true
-        cat /proc/cpuinfo
-        make clean all
+      run: make clean all
 
     - name: Check for uncommitted changes
       run: git diff --exit-code
