@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.13.15 as builder
+FROM golang:1.15.2 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.25
