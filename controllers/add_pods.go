@@ -104,7 +104,10 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			r.Recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 
 			pvcs := &corev1.PersistentVolumeClaimList{}
-			r.List(context, pvcs, getPodListOptions(cluster, processClass, "")...)
+			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, "")...)
+			if err != nil {
+				return false, err
+			}
 			reusablePvcs := make(map[int]bool, len(pvcs.Items))
 
 			for index, pvc := range pvcs.Items {

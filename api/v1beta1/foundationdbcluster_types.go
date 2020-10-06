@@ -1515,7 +1515,7 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	return configuration
 }
 
-// This method clears any version flags in the given configuration that are not
+// ClearMissingVersionFlags clears any version flags in the given configuration that are not
 // set in the configuration in the cluster spec.
 //
 // This allows us to compare the spec to the live configuration while ignoring
@@ -1979,7 +1979,7 @@ type FdbVersion struct {
 	Patch int
 }
 
-var fdbVersionRegex = regexp.MustCompile("^(\\d+)\\.(\\d+)\\.(\\d+)$")
+var fdbVersionRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)$`)
 
 // ParseFdbVersion parses a version from its string representation.
 func ParseFdbVersion(version string) (FdbVersion, error) {

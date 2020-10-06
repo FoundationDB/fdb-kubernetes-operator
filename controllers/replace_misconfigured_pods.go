@@ -73,7 +73,14 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 		processClass := GetProcessClassFromMeta(pvc.ObjectMeta)
 		desiredPVC, err := GetPvc(cluster, processClass, idNum)
+		if err != nil {
+			return false, err
+		}
 		pvcHash, err := GetJSONHash(desiredPVC.Spec)
+		if err != nil {
+			return false, err
+		}
+
 		if pvc.Annotations[LastSpecKey] != pvcHash {
 			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
@@ -84,9 +91,6 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 				removals[instanceID] = removalState
 				hasNewRemovals = true
 			}
-		}
-		if err != nil {
-			return false, err
 		}
 	}
 
@@ -114,9 +118,6 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		needsRemoval := false
 
 		_, desiredInstanceID := getInstanceID(cluster, instance.GetProcessClass(), idNum)
-		if err != nil {
-			return false, err
-		}
 
 		if instanceID != desiredInstanceID {
 			needsRemoval = true

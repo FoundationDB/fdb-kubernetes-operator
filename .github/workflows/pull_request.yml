@@ -2,7 +2,7 @@ name: Pull Request Checks
 on: [pull_request]
 jobs:
   lint-go:
-    name: Lint Go code
+    name: Lint code
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

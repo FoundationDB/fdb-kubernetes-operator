@@ -6,35 +6,52 @@ issues:
   # exclude deprecation warning otherwise we get an error for our own deprecations
   - linters: [staticcheck]
     text: "SA1019:"
+  # TODO(johscheuer): run gofmt -s as part of the github actions
+  - linters: [gofmt]
+    text: "File is not `gofmt`-ed with `-s`"
 linters:
   disable-all: true
+  # TODO(johscheuer): activate linters again and fix issuess
   enable:
     - deadcode
-    - dupl
+    #- dupl
     - errcheck
-    - goconst
-    - gocyclo
+    #- goconst
+    #- gocyclo
     - gofmt
     - goimports
     - golint
-    - gosec
+    #- gosec
     - gosimple
     - govet
     - ineffassign
     - interfacer
-    - lll
-    - maligned
+    #- lll
+    #- maligned
     - misspell
     - nakedret
     - prealloc
-    - scopelint
+    #- scopelint
     - staticcheck
     - structcheck
     - typecheck
     - unconvert
-    - unparam
+    #- unparam
     - unused
     - varcheck
 
+linters-settings:
+  errcheck:
+    # path to a file containing a list of functions to exclude from checking
+    # see https://github.com/kisielk/errcheck#excluding-functions for details
+    exclude: errcheck_excludes.txt
 run:
   deadline: 5m
+  skip-dirs:
+    # TODO (johscheuer): fix issues and remove
+    - cmd
+
+  skip-files:
+    # TODO (johscheuer): fix issues and remove
+    - ".*_test.go$"
+    - ".*_generated.*.go$"

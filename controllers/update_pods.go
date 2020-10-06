@@ -106,7 +106,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			}
 
 			r.Recorder.Event(cluster, "Normal", "NeedsPodsDeletion",
-				fmt.Sprintf("Spec require deleting some pods, but deleting pods is disabled"))
+				"Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {

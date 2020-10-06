@@ -35,9 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -49,7 +47,6 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
@@ -66,7 +63,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -188,32 +185,6 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 		},
 	}
 }
-
-func createReconciledCluster() *fdbtypes.FoundationDBCluster {
-	cluster := createDefaultCluster()
-	cluster.Status.ConnectionString = ""
-	err := k8sClient.Create(context.TODO(), cluster)
-	Expect(err).NotTo(HaveOccurred())
-
-	Eventually(func() (bool, error) { return checkClusterReconciled(k8sClient, cluster) }, 10*time.Second).Should(BeTrue())
-	err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-	Expect(err).NotTo(HaveOccurred())
-
-	return cluster
-}
-
-func createReconciledBackup() (*fdbtypes.FoundationDBCluster, *fdbtypes.FoundationDBBackup) {
-	cluster := createReconciledCluster()
-
-	backup := createDefaultBackup(cluster)
-	err := k8sClient.Create(context.TODO(), backup)
-	Expect(err).NotTo(HaveOccurred())
-
-	Eventually(func() (bool, error) { return checkBackupReconciled(k8sClient, backup) }).Should(BeTrue())
-
-	return cluster, backup
-}
-
 func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
 	agentCount := 3
 	return &fdbtypes.FoundationDBBackup{
@@ -296,14 +267,4 @@ func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
 func cleanupRestore(restore *fdbtypes.FoundationDBRestore) {
 	err := k8sClient.Delete(context.TODO(), restore)
 	Expect(err).NotTo(HaveOccurred())
-}
-
-func checkClusterReconciled(client client.Client, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	generations, err := reloadClusterGenerations(client, cluster)
-	return generations == fdbtypes.ClusterGenerationStatus{Reconciled: cluster.ObjectMeta.Generation}, err
-}
-
-func checkBackupReconciled(client client.Client, backup *fdbtypes.FoundationDBBackup) (bool, error) {
-	generations, err := reloadBackupGenerations(client, backup)
-	return generations == fdbtypes.BackupGenerationStatus{Reconciled: backup.ObjectMeta.Generation}, err
 }

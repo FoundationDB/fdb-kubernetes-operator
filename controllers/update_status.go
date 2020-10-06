@@ -207,6 +207,9 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 			pvcs := &corev1.PersistentVolumeClaimList{}
 			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, id)...)
+			if err != nil {
+				return false, err
+			}
 			desiredPvc, err := GetPvc(cluster, processClass, idNum)
 			if err != nil {
 				return false, err

@@ -35,6 +35,10 @@ type AddServices struct{}
 // Reconcile runs the reconciler's work.
 func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	service, err := GetHeadlessService(cluster)
+	if err != nil {
+		return false, err
+	}
+
 	if service == nil {
 		return true, nil
 	}

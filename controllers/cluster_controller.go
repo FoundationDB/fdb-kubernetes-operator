@@ -46,7 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var instanceIDRegex = regexp.MustCompile("^([\\w-]+)-(\\d+)")
+var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
@@ -166,17 +166,26 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 
 // SetupWithManager prepares a reconciler for use.
 func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
+	err := mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
+	if err != nil {
+		return err
+	}
 
-	mgr.GetFieldIndexer().IndexField(&corev1.Service{}, "metadata.name", func(o runtime.Object) []string {
+	err = mgr.GetFieldIndexer().IndexField(&corev1.Service{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.Service).Name}
 	})
+	if err != nil {
+		return err
+	}
 
-	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {
+	err = mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
 	})
+	if err != nil {
+		return err
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBCluster{}).
@@ -189,11 +198,11 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Result, error) {
 	notReadyError, canCast := err.(ReconciliationNotReadyError)
 	if canCast && notReadyError.retryable {
-		log.Info("Retrying reconcilation", "reason", notReadyError.message)
+		log.Info("Retrying reconciliation", "reason", notReadyError.message)
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if k8serrors.IsConflict(err) {
-		log.Info("Retrying reconcilation", "reason", "Conflict")
+		log.Info("Retrying reconciliation", "reason", "Conflict")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -514,7 +523,7 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 		return "", err
 	}
 
-	regex := regexp.MustCompile("^(\\w+)\\s*=\\s*(.*)")
+	regex := regexp.MustCompile(`^(\w+)\s*=\s*(.*)`)
 	firstComponents := regex.FindStringSubmatch(lines[0])
 	command := firstComponents[2]
 	sort.Slice(lines, func(i, j int) bool {
@@ -579,8 +588,8 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", logGroup),
-		fmt.Sprintf("locality_instance_id = $FDB_INSTANCE_ID"),
-		fmt.Sprintf("locality_machineid = $FDB_MACHINE_ID"),
+		"locality_instance_id = $FDB_INSTANCE_ID",
+		"locality_machineid = $FDB_MACHINE_ID",
 		fmt.Sprintf("locality_zoneid = %s", zoneVariable),
 	)
 
@@ -1225,10 +1234,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		log.Info("Cluster does not have coordinators in the correct number of zones", "namespace", cluster.Namespace, "name", cluster.Name, "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
 	}
 
-	maxCoordinatorsPerDC := desiredCount
-
+	var maxCoordinatorsPerDC int
 	hasEnoughDCs := true
-
 	if cluster.Spec.UsableRegions > 1 {
 		maxCoordinatorsPerDC = int(math.Floor(float64(desiredCount) / 2.0))
 

@@ -38,21 +38,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var maxCommandOutput int = parseMaxCommandOutput()
+var maxCommandOutput = parseMaxCommandOutput()
 
-var protocolVersionRegex = regexp.MustCompile("(?m)^protocol (\\w+)$")
+var protocolVersionRegex = regexp.MustCompile(`(?m)^protocol (\w+)$`)
 
 func parseMaxCommandOutput() int {
 	flag := os.Getenv("MAX_FDB_CLI_OUTPUT_LENGTH")
 	if flag == "" {
 		return 20
-	} else {
-		result, err := strconv.Atoi(flag)
-		if err != nil {
-			panic(err)
-		}
-		return result
 	}
+	result, err := strconv.Atoi(flag)
+	if err != nil {
+		panic(err)
+	}
+	return result
 }
 
 // AdminClient describes an interface for running administrative commands on a
@@ -139,15 +138,12 @@ type CliAdminClient struct {
 // NewCliAdminClient generates an Admin client for a cluster
 func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (AdminClient, error) {
 	clusterFile, err := ioutil.TempFile("", "")
-	clusterFilePath := clusterFile.Name()
 	if err != nil {
 		return nil, err
 	}
+	clusterFilePath := clusterFile.Name()
 
 	defer clusterFile.Close()
-	if err != nil {
-		return nil, err
-	}
 	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
 	if err != nil {
 		return nil, err
@@ -242,7 +238,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	} else {
 		args = append(args, "--logdir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
 	}
-	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Duration(time.Second*time.Duration(hardTimeout)))
+	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Second*time.Duration(hardTimeout))
 	defer cancelFunction()
 	execCommand := exec.CommandContext(timeoutContext, binary, args...)
 
@@ -377,20 +373,19 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 			}
 		}
 		return remaining, nil
-	} else {
-		_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
-			"exclude %s",
-			strings.Join(removeAddressFlags(addresses), " "),
-		)})
-		return nil, err
 	}
+	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
+		"exclude %s",
+		strings.Join(removeAddressFlags(addresses), " "),
+	)})
+	return nil, err
 }
 
 // parseExclusionOutput extracts the exclusion status for each address from
 // the output of an exclusion command.
 func parseExclusionOutput(output string) map[string]string {
 	results := make(map[string]string)
-	var regex = regexp.MustCompile("\\s*([\\w.:]+)\\s*-+(.*)")
+	var regex = regexp.MustCompile(`\s*([\w.:]+)\s*-+(.*)`)
 	matches := regex.FindAllStringSubmatch(output, -1)
 	for _, match := range matches {
 		address := match[1]
@@ -828,8 +823,8 @@ func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
 }
 
 func isValidAddress(address string) bool {
-	host, _, error := net.SplitHostPort(address)
-	if error != nil {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
 		return false
 	}
 	if host == "" {
@@ -889,7 +884,10 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 	if err != nil {
 		return "", err
 	}
-	connectionString.GenerateNewGenerationID()
+	err = connectionString.GenerateNewGenerationID()
+	if err != nil {
+		return "", err
+	}
 	connectionString.Coordinators = addresses
 	return connectionString.String(), err
 }
@@ -995,6 +993,7 @@ func (client *MockAdminClient) GetRestoreStatus() (string, error) {
 	return fmt.Sprintf("%s\n", client.restoreURL), nil
 }
 
+// MockClientVersion returns a mocked client version
 func (client *MockAdminClient) MockClientVersion(version string, clients []string) {
 	if client.clientVersions == nil {
 		client.clientVersions = make(map[string][]string)
