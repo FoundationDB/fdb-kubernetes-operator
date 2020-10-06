@@ -134,7 +134,7 @@ docs/restore_spec.md: bin/po-docgen api/v1beta1/foundationdbrestore_types.go
 documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 
 lint:
-	go run golang.org/x/lint/golint -set_exit_status ./...
+	golangci-lint run -v ./...
 
 # find or download controller-gen
 # download controller-gen if necessary
