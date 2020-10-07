@@ -66,7 +66,7 @@ func main() {
 	if logFile != "" {
 		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
-			os.Stderr.WriteString(err.Error())
+			_, _ = os.Stderr.WriteString(err.Error())
 			os.Exit(1)
 		}
 		defer file.Close()

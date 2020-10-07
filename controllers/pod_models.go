@@ -172,10 +172,16 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 
 	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
-	configureSidecarContainerForCluster(cluster, initContainer, true, instanceID)
+	err = configureSidecarContainerForCluster(cluster, initContainer, true, instanceID)
+	if err != nil {
+		return nil, err
+	}
 
 	customizeContainer(sidecarContainer, cluster.Spec.SidecarContainer)
-	configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID)
+	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID)
+	if err != nil {
+		return nil, err
+	}
 
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
@@ -714,7 +720,10 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	configureSidecarContainerForBackup(backup, initContainer)
+	err = configureSidecarContainerForBackup(backup, initContainer)
+	if err != nil {
+		return nil, err
+	}
 
 	if podTemplate.ObjectMeta.Labels == nil {
 		podTemplate.ObjectMeta.Labels = make(map[string]string, 1)
@@ -732,7 +741,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
 				Items: []corev1.KeyToPath{
-					corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+					{Key: "cluster-file", Path: "fdb.cluster"},
 				},
 			}},
 		},
@@ -779,20 +788,19 @@ func ensureContainerPresent(containers []corev1.Container, name string, insertIn
 	if insertIndex < 0 || insertIndex >= len(containers) {
 		containers = append(containers, corev1.Container{Name: name})
 		return containers, len(containers) - 1
-	} else {
-		containerCount := 1 + len(containers)
-		newContainers := make([]corev1.Container, 0, containerCount)
-		for indexToCopy := 0; indexToCopy < len(containers); indexToCopy++ {
-			if indexToCopy == insertIndex {
-				newContainers = append(newContainers, corev1.Container{
-					Name: name,
-				})
-			}
-			newContainers = append(newContainers, containers[indexToCopy])
-		}
-
-		return newContainers, insertIndex
 	}
+	containerCount := 1 + len(containers)
+	newContainers := make([]corev1.Container, 0, containerCount)
+	for indexToCopy := 0; indexToCopy < len(containers); indexToCopy++ {
+		if indexToCopy == insertIndex {
+			newContainers = append(newContainers, corev1.Container{
+				Name: name,
+			})
+		}
+		newContainers = append(newContainers, containers[indexToCopy])
+	}
+
+	return newContainers, insertIndex
 }
 
 // customizeContainerFromList finds a container by name and runs a customization

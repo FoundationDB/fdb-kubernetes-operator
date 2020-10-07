@@ -1,6 +1,20 @@
 name: Pull Request Checks
 on: [pull_request]
 jobs:
+  lint-go:
+    name: Lint code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Get dependencies
+        run: |
+          curl https://www.foundationdb.org/downloads/6.2.20/ubuntu/installers/foundationdb-clients_6.2.20-1_amd64.deb -o fdb.deb
+          sudo dpkg -i fdb.deb
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.31
 
   build:
     name: Build

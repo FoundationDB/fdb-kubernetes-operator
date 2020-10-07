@@ -119,9 +119,12 @@ func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context,
 
 // SetupWithManager prepares a reconciler for use.
 func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	mgr.GetFieldIndexer().IndexField(&appsv1.Deployment{}, "metadata.name", func(o runtime.Object) []string {
+	err := mgr.GetFieldIndexer().IndexField(&appsv1.Deployment{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*appsv1.Deployment).Name}
 	})
+	if err != nil {
+		return err
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBBackup{}).

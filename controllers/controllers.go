@@ -35,11 +35,11 @@ const LastSpecKey = "foundationdb.org/last-applied-spec"
 // config map.
 const LastConfigMapKey = "foundationdb.org/last-applied-config-map"
 
-// BackupDeploymentLabel probvides the label we use to connect backup
+// BackupDeploymentLabel provides the label we use to connect backup
 // deployments to a cluster.
 const BackupDeploymentLabel = "foundationdb.org/backup-for"
 
-// The default timeout for CLI commands.
+// DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10
 
 // MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the

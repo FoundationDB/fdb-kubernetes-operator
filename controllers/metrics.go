@@ -61,9 +61,9 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *v1beta1.FoundationDBCl
 		addConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
 	addGauge(descClusterCreated, float64(cluster.CreationTimestamp.Unix()))
-	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy == true), "health")
-	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available == true), "available")
-	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication == true), "replication")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy), "health")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available), "available")
+	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication), "replication")
 	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
 }
 
