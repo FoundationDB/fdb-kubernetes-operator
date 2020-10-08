@@ -299,18 +299,18 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 					Resolvers: 1,
 				},
 				Regions: []Region{
-					Region{
+					{
 						DataCenters: []DataCenter{
-							DataCenter{ID: "dc1", Satellite: 0, Priority: 1},
-							DataCenter{ID: "dc2", Satellite: 1, Priority: 1},
+							{ID: "dc1", Satellite: 0, Priority: 1},
+							{ID: "dc2", Satellite: 1, Priority: 1},
 						},
 						SatelliteLogs:           2,
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
-					Region{
+					{
 						DataCenters: []DataCenter{
-							DataCenter{ID: "dc3", Satellite: 0, Priority: 1},
-							DataCenter{ID: "dc4", Satellite: 1, Priority: 1},
+							{ID: "dc3", Satellite: 0, Priority: 1},
+							{ID: "dc4", Satellite: 1, Priority: 1},
 						},
 						SatelliteLogs:           2,
 						SatelliteRedundancyMode: "one_satellite_double",
@@ -352,20 +352,20 @@ func TestGettingDefaultProcessCountsWithSatellites(t *testing.T) {
 	}))
 
 	cluster.Spec.DatabaseConfiguration.Regions = []Region{
-		Region{
+		{
 			DataCenters: []DataCenter{
-				DataCenter{ID: "dc1", Satellite: 0, Priority: 1},
-				DataCenter{ID: "dc2", Satellite: 1, Priority: 2},
-				DataCenter{ID: "dc3", Satellite: 1, Priority: 1},
+				{ID: "dc1", Satellite: 0, Priority: 1},
+				{ID: "dc2", Satellite: 1, Priority: 2},
+				{ID: "dc3", Satellite: 1, Priority: 1},
 			},
 			SatelliteLogs:           4,
 			SatelliteRedundancyMode: "one_satellite_double",
 		},
-		Region{
+		{
 			DataCenters: []DataCenter{
-				DataCenter{ID: "dc3", Satellite: 0, Priority: 1},
-				DataCenter{ID: "dc2", Satellite: 1, Priority: 1},
-				DataCenter{ID: "dc1", Satellite: 1, Priority: 2},
+				{ID: "dc3", Satellite: 0, Priority: 1},
+				{ID: "dc2", Satellite: 1, Priority: 1},
+				{ID: "dc1", Satellite: 1, Priority: 2},
 			},
 			SatelliteLogs:           3,
 			SatelliteRedundancyMode: "one_satellite_double",
@@ -659,7 +659,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 			Layers: FoundationDBStatusLayerInfo{
 				Backup: FoundationDBStatusBackupInfo{
 					Tags: map[string]FoundationDBStatusBackupTag{
-						"default": FoundationDBStatusBackupTag{
+						"default": {
 							CurrentContainer: "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
 							RunningBackup:    true,
 							Restorable:       false,
@@ -983,7 +983,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 			Layers: FoundationDBStatusLayerInfo{
 				Backup: FoundationDBStatusBackupInfo{
 					Tags: map[string]FoundationDBStatusBackupTag{
-						"default": FoundationDBStatusBackupTag{
+						"default": {
 							CurrentContainer: "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
 							RunningBackup:    true,
 							Restorable:       false,
@@ -1131,8 +1131,8 @@ func TestGettingConfigurationString(t *testing.T) {
 	}
 	g.Expect(configuration.GetConfigurationString()).To(gomega.Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[]"))
 
-	configuration.Regions = []Region{Region{
-		DataCenters: []DataCenter{DataCenter{
+	configuration.Regions = []Region{{
+		DataCenters: []DataCenter{{
 			ID:        "iad",
 			Priority:  1,
 			Satellite: 0,
@@ -1217,9 +1217,9 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
@@ -1232,13 +1232,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1247,13 +1247,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1270,13 +1270,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1285,13 +1285,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1309,13 +1309,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1324,13 +1324,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1348,13 +1348,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1363,13 +1363,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDR(t *testing.T) {
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1394,13 +1394,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1409,13 +1409,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1432,13 +1432,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1447,13 +1447,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1471,13 +1471,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1486,13 +1486,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1510,13 +1510,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1525,13 +1525,13 @@ func TestGetNextConfigurationChangeWhenEnablingFearlessDRWithNoInitialRegions(t 
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1556,9 +1556,9 @@ func TestGetNextConfigurationChangeWhenEnablingSingleRegionWithNoInitialRegions(
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
@@ -1572,9 +1572,9 @@ func TestGetNextConfigurationChangeWhenEnablingSingleRegionWithNoInitialRegions(
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
@@ -1590,21 +1590,21 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1621,9 +1621,9 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
@@ -1637,17 +1637,17 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -1662,17 +1662,17 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -1687,9 +1687,9 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDR(t *testing.T) {
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
@@ -1705,13 +1705,13 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2",
 						Priority:  1,
 						Satellite: 1,
@@ -1720,13 +1720,13 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 				SatelliteLogs:           3,
 				SatelliteRedundancyMode: "one_satellite_double",
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1743,9 +1743,9 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -1759,17 +1759,17 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -1784,17 +1784,17 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -1809,9 +1809,9 @@ func TestGetNextConfigurationChangeWhenDisablingFearlessDRAndSwitching(t *testin
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -1827,21 +1827,21 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc4",
 						Priority:  1,
 						Satellite: 1,
@@ -1864,17 +1864,17 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -1889,17 +1889,17 @@ func TestGetNextConfigurationChangeWhenDisablingAndClearingRegions(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -1922,9 +1922,9 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
@@ -1938,9 +1938,9 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -1954,17 +1954,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: -1,
 					},
@@ -1979,17 +1979,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: -1,
 					},
@@ -2004,17 +2004,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2029,17 +2029,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2054,9 +2054,9 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithSingleRegion
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2072,17 +2072,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 0,
 					},
@@ -2096,17 +2096,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 0,
 					},
@@ -2120,17 +2120,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2145,17 +2145,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2170,9 +2170,9 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2187,17 +2187,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -2212,17 +2212,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -2237,17 +2237,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 0,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -2262,17 +2262,17 @@ func TestGetNextConfigurationChangeWhenChangingPrimaryDataCenterWithMultipleRegi
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 0,
 					},
@@ -2288,17 +2288,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 0,
 					},
@@ -2312,17 +2312,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc4",
 						Priority: 0,
 					},
@@ -2336,17 +2336,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2361,17 +2361,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2386,9 +2386,9 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
@@ -2403,17 +2403,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -2428,17 +2428,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: -1,
 					},
@@ -2453,17 +2453,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -2478,17 +2478,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: -1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -2503,9 +2503,9 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
@@ -2520,17 +2520,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  1,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc4",
 						Priority: -1,
 					},
@@ -2545,17 +2545,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc4",
 						Priority: -1,
 					},
@@ -2570,17 +2570,17 @@ func TestGetNextConfigurationChangeWhenChangingMultipleDataCenters(t *testing.T)
 		RedundancyMode: "double",
 		UsableRegions:  2,
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc3",
 						Priority: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc4",
 						Priority: 0,
 					},
@@ -2604,36 +2604,36 @@ func TestNormalizeConfigurationWithIncorrectDataCenterOrder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	spec := DatabaseConfiguration{
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc1a",
 						Priority:  1,
 						Satellite: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc1b",
 						Priority:  2,
 						Satellite: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:        "dc2a",
 						Priority:  2,
 						Satellite: 1,
 					},
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2b",
 						Priority:  0,
 						Satellite: 1,
@@ -2644,36 +2644,36 @@ func TestNormalizeConfigurationWithIncorrectDataCenterOrder(t *testing.T) {
 	}
 	normalized := spec.NormalizeConfiguration()
 	g.Expect(normalized.Regions).To(gomega.Equal([]Region{
-		Region{
+		{
 			DataCenters: []DataCenter{
-				DataCenter{
+				{
 					ID:       "dc1",
 					Priority: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc1b",
 					Priority:  2,
 					Satellite: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc1a",
 					Priority:  1,
 					Satellite: 1,
 				},
 			},
 		},
-		Region{
+		{
 			DataCenters: []DataCenter{
-				DataCenter{
+				{
 					ID:       "dc2",
 					Priority: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc2a",
 					Priority:  2,
 					Satellite: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc2b",
 					Priority:  0,
 					Satellite: 1,
@@ -2687,36 +2687,36 @@ func TestNormalizeConfigurationWithIncorrectRegionOrder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	spec := DatabaseConfiguration{
 		Regions: []Region{
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc1",
 						Priority: 0,
 					},
-					DataCenter{
+					{
 						ID:        "dc1a",
 						Priority:  2,
 						Satellite: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc1b",
 						Priority:  1,
 						Satellite: 1,
 					},
 				},
 			},
-			Region{
+			{
 				DataCenters: []DataCenter{
-					DataCenter{
+					{
 						ID:       "dc2",
 						Priority: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2a",
 						Priority:  1,
 						Satellite: 1,
 					},
-					DataCenter{
+					{
 						ID:        "dc2b",
 						Priority:  0,
 						Satellite: 1,
@@ -2727,36 +2727,36 @@ func TestNormalizeConfigurationWithIncorrectRegionOrder(t *testing.T) {
 	}
 	normalized := spec.NormalizeConfiguration()
 	g.Expect(normalized.Regions).To(gomega.Equal([]Region{
-		Region{
+		{
 			DataCenters: []DataCenter{
-				DataCenter{
+				{
 					ID:       "dc2",
 					Priority: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc2a",
 					Priority:  1,
 					Satellite: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc2b",
 					Priority:  0,
 					Satellite: 1,
 				},
 			},
 		},
-		Region{
+		{
 			DataCenters: []DataCenter{
-				DataCenter{
+				{
 					ID:       "dc1",
 					Priority: 0,
 				},
-				DataCenter{
+				{
 					ID:        "dc1a",
 					Priority:  2,
 					Satellite: 1,
 				},
-				DataCenter{
+				{
 					ID:        "dc1b",
 					Priority:  1,
 					Satellite: 1,

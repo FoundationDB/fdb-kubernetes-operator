@@ -6,9 +6,6 @@ issues:
   # exclude deprecation warning otherwise we get an error for our own deprecations
   - linters: [staticcheck]
     text: "SA1019:"
-  # TODO(johscheuer): run gofmt -s as part of the github actions
-  - linters: [gofmt]
-    text: "File is not `gofmt`-ed with `-s`"
 linters:
   disable-all: true
   # TODO(johscheuer): activate linters again and fix issues
@@ -31,7 +28,7 @@ linters:
     - misspell
     - nakedret
     - prealloc
-    #- scopelint
+    - exportloopref
     - staticcheck
     - structcheck
     - typecheck

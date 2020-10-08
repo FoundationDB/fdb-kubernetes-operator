@@ -1464,10 +1464,10 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
-							corev1.Container{
+							{
 								Name: "foundationdb",
 								Env: []corev1.EnvVar{
-									corev1.EnvVar{
+									{
 										Name:  "TEST_CHANGE",
 										Value: "1",
 									},

@@ -82,7 +82,7 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 fmt: bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
-	go fmt ./...
+	gofmt -w -s .
 	mkdir -p bin
 	@touch bin/fmt_check
 
