@@ -44,9 +44,5 @@ linters-settings:
     exclude: errcheck_excludes.txt
 run:
   deadline: 5m
-  skip-dirs:
-    # TODO (johscheuer): fix issues and remove
-    - cmd
-
   skip-files:
     - ".*_generated.*.go$"
