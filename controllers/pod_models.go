@@ -54,10 +54,7 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
 
-	owner, err := buildOwnerReference(context, cluster.TypeMeta, cluster.ObjectMeta, kubeClient)
-	if err != nil {
-		return nil, err
-	}
+	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	spec, err := GetPodSpec(cluster, processClass, idNum)
 	if err != nil {
 		return nil, err
@@ -641,11 +638,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		},
 	}
 	deployment.Spec.Replicas = &agentCount
-	owner, err := buildOwnerReference(context, backup.TypeMeta, backup.ObjectMeta, kubeClient)
-	if err != nil {
-		return nil, err
-	}
-	deployment.ObjectMeta.OwnerReferences = owner
+	deployment.ObjectMeta.OwnerReferences = buildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
 		for key, value := range backup.Spec.BackupDeploymentMetadata.Labels {
@@ -720,7 +713,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	err = configureSidecarContainerForBackup(backup, initContainer)
+	err := configureSidecarContainerForBackup(backup, initContainer)
 	if err != nil {
 		return nil, err
 	}

@@ -209,11 +209,11 @@ func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Res
 	return ctrl.Result{}, err
 }
 
-func (r *FoundationDBClusterReconciler) updatePodDynamicConf(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
+func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
 	if cluster.InstanceIsBeingRemoved(instance.GetInstanceID()) {
 		return true, nil
 	}
-	client, err := r.getPodClient(context, cluster, instance)
+	client, err := r.getPodClient(cluster, instance)
 	if err != nil {
 		return false, err
 	}
@@ -352,15 +352,15 @@ func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID s
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID})}
 }
 
-func buildOwnerReference(context ctx.Context, ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta, kubeClient client.Client) ([]metav1.OwnerReference, error) {
+func buildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta) []metav1.OwnerReference {
 	var isController = true
-	return []metav1.OwnerReference{metav1.OwnerReference{
+	return []metav1.OwnerReference{{
 		APIVersion: ownerType.APIVersion,
 		Kind:       ownerType.Kind,
 		Name:       ownerMetadata.Name,
 		UID:        ownerMetadata.UID,
 		Controller: &isController,
-	}}, nil
+	}}
 }
 
 // GetConfigMap builds a config map for a cluster's dynamic config
@@ -468,7 +468,7 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
-	owner, err := buildOwnerReference(context, cluster.TypeMeta, cluster.ObjectMeta, kubeClient)
+	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +504,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		"restart_delay = 60",
 	)
 	confLines = append(confLines, "[fdbserver.1]")
-	commands, err := getStartCommandLines(cluster, processClass, pod, podClient)
+	commands, err := getStartCommandLines(cluster, processClass, podClient)
 	if err != nil {
 		return "", err
 	}
@@ -518,7 +518,7 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 		return "", MissingPodError(instance, cluster)
 	}
 
-	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), instance.Pod, podClient)
+	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), podClient)
 	if err != nil {
 		return "", err
 	}
@@ -539,7 +539,7 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 	return command, nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod, podClient FdbPodClient) ([]string, error) {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, podClient FdbPodClient) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	var substitutions map[string]string
@@ -661,7 +661,7 @@ func GetDynamicConfHash(configMap *corev1.ConfigMap) (string, error) {
 	return GetJSONHash(data)
 }
 
-func (r *FoundationDBClusterReconciler) getPodClient(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, error) {
+func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, error) {
 	if instance.Pod == nil {
 		return nil, MissingPodError(instance, cluster)
 	}
@@ -766,12 +766,10 @@ func (r *FoundationDBClusterReconciler) updatePendingRemovals(context ctx.Contex
 	return nil
 }
 
-func sortPodsByID(pods *corev1.PodList) error {
-	var err error
+func sortPodsByID(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
 		return GetInstanceIDFromMeta(pods.Items[i].ObjectMeta) < GetInstanceIDFromMeta(pods.Items[j].ObjectMeta)
 	})
-	return err
 }
 
 func sortInstancesByID(instances []FdbInstance) error {

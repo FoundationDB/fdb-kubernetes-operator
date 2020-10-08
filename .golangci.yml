@@ -11,7 +11,7 @@ issues:
     text: "File is not `gofmt`-ed with `-s`"
 linters:
   disable-all: true
-  # TODO(johscheuer): activate linters again and fix issuess
+  # TODO(johscheuer): activate linters again and fix issues
   enable:
     - deadcode
     #- dupl
@@ -36,7 +36,7 @@ linters:
     - structcheck
     - typecheck
     - unconvert
-    #- unparam
+    - unparam
     - unused
     - varcheck
 

@@ -74,7 +74,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, MissingPodErrorByName(instanceID, cluster)
 		}
 
-		synced, err := r.updatePodDynamicConf(context, cluster, instances[0])
+		synced, err := r.updatePodDynamicConf(cluster, instances[0])
 		if !synced {
 			return synced, err
 		}

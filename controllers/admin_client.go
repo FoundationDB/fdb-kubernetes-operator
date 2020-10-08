@@ -640,6 +640,8 @@ func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client
 }
 
 // newMockAdminClientUncast creates a mock admin client for a cluster.
+// nolint:unparam
+// is required because we always return a nil error
 func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*MockAdminClient, error) {
 	client := adminClientCache[cluster.Name]
 	if client == nil {
