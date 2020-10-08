@@ -24,9 +24,11 @@ import (
 	ctx "context"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // AddServices provides a reconciliation step for adding services to a cluster.
@@ -34,31 +36,25 @@ type AddServices struct{}
 
 // Reconcile runs the reconciler's work.
 func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	service, err := GetHeadlessService(cluster)
-	if err != nil {
-		return false, err
-	}
-
+	service := GetHeadlessService(cluster)
 	if service == nil {
 		return true, nil
 	}
 
-	existingServices := &corev1.ServiceList{}
-	err = r.List(context, existingServices, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", service.Name))
+	existingService := &corev1.Service{}
+	err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil {
-		return false, err
-	}
-
-	if len(existingServices.Items) == 0 {
-		owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-		if err != nil {
+		if !k8serrors.IsNotFound(err) {
 			return false, err
 		}
+		owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 		service.ObjectMeta.OwnerReferences = owner
 		err = r.Create(context, service)
 		if err != nil {
 			return false, err
 		}
+
+		return false, err
 	}
 
 	return true, nil
@@ -68,4 +64,21 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 // again.
 func (a AddServices) RequeueAfter() time.Duration {
 	return 0
+}
+
+// GetHeadlessService builds a headless service for a FoundationDB cluster.
+func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) *corev1.Service {
+	headless := cluster.Spec.Services.Headless
+	if headless == nil || !*headless {
+		return nil
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: getObjectMetadata(cluster, nil, "", ""),
+	}
+	service.ObjectMeta.Name = cluster.ObjectMeta.Name
+	service.Spec.ClusterIP = "None"
+	service.Spec.Selector = map[string]string{"fdb-cluster-name": cluster.Name}
+
+	return service
 }

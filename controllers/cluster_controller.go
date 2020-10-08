@@ -192,6 +192,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Owns(&corev1.Pod{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
 

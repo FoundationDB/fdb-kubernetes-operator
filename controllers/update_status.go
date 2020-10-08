@@ -308,10 +308,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
-	service, err := GetHeadlessService(cluster)
-	if err != nil {
-		return false, err
-	}
+	service := GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
 	err = r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil && k8serrors.IsNotFound(err) {

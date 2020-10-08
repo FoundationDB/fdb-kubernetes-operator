@@ -1924,7 +1924,7 @@ var _ = Describe("pod_models", func() {
 		})
 
 		JustBeforeEach(func() {
-			service, err = GetHeadlessService(cluster)
+			service = GetHeadlessService(cluster)
 		})
 
 		Context("with the default config", func() {
