@@ -27,21 +27,22 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-func reloadBackup(client client.Client, backup *fdbtypes.FoundationDBBackup) (int64, error) {
-	generations, err := reloadBackupGenerations(client, backup)
+func reloadBackup(backup *fdbtypes.FoundationDBBackup) (int64, error) {
+	generations, err := reloadBackupGenerations(backup)
+	if err != nil {
+		return 0, err
+	}
 	return generations.Reconciled, err
 }
 
-func reloadBackupGenerations(client client.Client, backup *fdbtypes.FoundationDBBackup) (fdbtypes.BackupGenerationStatus, error) {
+func reloadBackupGenerations(backup *fdbtypes.FoundationDBBackup) (fdbtypes.BackupGenerationStatus, error) {
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, backup)
 	if err != nil {
 		return fdbtypes.BackupGenerationStatus{}, err
@@ -74,7 +75,7 @@ var _ = Describe("backup_controller", func() {
 
 			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
-				return reloadCluster(k8sClient, cluster)
+				return reloadCluster(cluster)
 			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -82,7 +83,7 @@ var _ = Describe("backup_controller", func() {
 			err = k8sClient.Create(context.TODO(), backup)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() (int64, error) {
-				return reloadBackup(k8sClient, backup)
+				return reloadBackup(backup)
 			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -93,7 +94,7 @@ var _ = Describe("backup_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int64, error) { return reloadBackup(k8sClient, backup) }, timeout).Should(Equal(originalVersion + generationGap))
+			Eventually(func() (int64, error) { return reloadBackup(backup) }, timeout).Should(Equal(originalVersion + generationGap))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})

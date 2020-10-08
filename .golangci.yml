@@ -49,6 +49,4 @@ run:
     - cmd
 
   skip-files:
-    # TODO (johscheuer): fix issues and remove
-    - ".*_test.go$"
     - ".*_generated.*.go$"

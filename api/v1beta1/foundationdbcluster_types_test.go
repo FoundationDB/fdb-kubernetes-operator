@@ -1174,7 +1174,7 @@ func TestParsingFdbVersion(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(version).To(gomega.Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
 
-	version, err = ParseFdbVersion("6.2")
+	_, err = ParseFdbVersion("6.2")
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(err.Error()).To(gomega.Equal("Could not parse FDB version from 6.2"))
 }

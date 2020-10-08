@@ -44,7 +44,7 @@ var _ = Describe("admin_client_test", func() {
 
 		timeout := time.Second * 5
 		Eventually(func() (int64, error) {
-			return reloadCluster(k8sClient, cluster)
+			return reloadCluster(cluster)
 		}, timeout).ShouldNot(Equal(int64(0)))
 
 		client, err = newMockAdminClientUncast(cluster, k8sClient)
