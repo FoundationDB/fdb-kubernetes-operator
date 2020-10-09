@@ -1,3 +1,8 @@
+# v0.21.0
+
+*	Adds initial support for gloangci-lint support.
+*	Updates go version 1.15.2.
+
 # v0.20.1
 
 *	Fix the handling of TLS addresses when doing no-wait excludes.
