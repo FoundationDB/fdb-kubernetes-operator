@@ -39,10 +39,24 @@ spec:
                   cpu: 250m
                   memory: 128Mi
             - name: foundationdb-kubernetes-sidecar
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
               securityContext:
                 runAsUser: 0
           initContainers:
             - name: foundationdb-kubernetes-init
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
               securityContext:
                 runAsUser: 0
 ---

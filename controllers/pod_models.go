@@ -1000,6 +1000,11 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 
 	// Set up sidecar resource requirements
 
+	zeroQuantity, err := resource.ParseQuantity("0")
+	if err != nil {
+		return err
+	}
+
 	updatePodTemplates(spec, func(template *corev1.PodTemplateSpec) {
 		sidecarUpdater := func(container *corev1.Container) {
 			if options.UseFutureDefaults {
@@ -1013,11 +1018,17 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 					container.Resources.Limits = container.Resources.Requests
 				}
 			} else {
-				if container.Resources.Requests == nil {
-					container.Resources.Requests = corev1.ResourceList{}
-				}
-				if container.Resources.Limits == nil {
-					container.Resources.Limits = corev1.ResourceList{}
+				if options.OnlyShowChanges {
+					if container.Resources.Requests == nil {
+						container.Resources.Requests = corev1.ResourceList{
+							"org.foundationdb/empty": zeroQuantity,
+						}
+					}
+					if container.Resources.Limits == nil {
+						container.Resources.Limits = corev1.ResourceList{
+							"org.foundationdb/empty": zeroQuantity,
+						}
+					}
 				}
 			}
 		}

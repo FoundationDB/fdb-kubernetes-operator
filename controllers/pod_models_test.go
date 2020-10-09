@@ -2205,10 +2205,8 @@ var _ = Describe("pod_models", func() {
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
 					Expect(containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
-					Expect(containers[1].Resources.Requests).To(Equal(corev1.ResourceList{}))
-					Expect(containers[1].Resources.Requests).NotTo(BeNil())
-					Expect(containers[1].Resources.Limits).To(Equal(corev1.ResourceList{}))
-					Expect(containers[1].Resources.Limits).NotTo(BeNil())
+					Expect(containers[1].Resources.Requests).To(BeNil())
+					Expect(containers[1].Resources.Limits).To(BeNil())
 				})
 
 				It("should have empty init container resource requirements", func() {
@@ -2217,10 +2215,8 @@ var _ = Describe("pod_models", func() {
 					containers := generalProcessConfig.PodTemplate.Spec.InitContainers
 					Expect(len(containers)).To(Equal(1))
 					Expect(containers[0].Name).To(Equal("foundationdb-kubernetes-init"))
-					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{}))
-					Expect(containers[0].Resources.Requests).NotTo(BeNil())
-					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{}))
-					Expect(containers[0].Resources.Limits).NotTo(BeNil())
+					Expect(containers[0].Resources.Requests).To(BeNil())
+					Expect(containers[0].Resources.Limits).To(BeNil())
 				})
 
 				Context("with explicit resource requests for the main container", func() {
@@ -2319,10 +2315,12 @@ var _ = Describe("pod_models", func() {
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(1))
 					Expect(containers[0].Name).To(Equal("foundationdb-kubernetes-sidecar"))
-					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{}))
-					Expect(containers[0].Resources.Requests).NotTo(BeNil())
-					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{}))
-					Expect(containers[0].Resources.Limits).NotTo(BeNil())
+					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
+						"org.foundationdb/empty": resource.MustParse("0"),
+					}))
+					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
+						"org.foundationdb/empty": resource.MustParse("0"),
+					}))
 				})
 			})
 

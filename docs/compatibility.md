@@ -42,17 +42,19 @@ fields or defaults.
 		apiVersion: batch/v1
 		kind: Job
 		metadata:
-		name: fdb-deprecation-check
+			name: fdb-deprecation-check
 		spec:
-		template:
-			spec:
-			containers:
-			- image: fdb-kubernetes-operator
-				imagePullPolicy: IfNotPresent
-				name: fdb-deprecation-check
-				args:
-				- --check-deprecations
-			restartPolicy: Never
+			template:
+				spec:
+					containers:
+					-	image: foundationdb/fdb-kubernetes-operator:$version
+						name: fdb-deprecation-check
+						args:
+						-	--check-deprecations
+					restartPolicy: Never
+
+Make sure to fill in the `$version` placeholder with the version of the operator
+that you are running in your cluster.
 
 This will print out new cluster specs that do not use deprecated fields, and
 explicitly specify values for fields that have defaults that will change in the
@@ -65,6 +67,12 @@ Once you've captured this output, you can delete the job.
 
 If there are no clusters that require changes for the next release, this job
 will print out "No deprecated specs found.".
+
+Note that the specs that this job outputs may include some empty fields that
+are omitted from your spec, such as `automationOptions: {}`. This is merely an
+artifact of the serialization; you can leave them out of your specs. As long as
+there are no meaningful changes to a cluster spec, the cluster will not be
+included in the job's output.
 
 Before running this job, you will need to fill in any secrets, volumes, or other
 configuration that you apply to your normal controller, to make sure that it

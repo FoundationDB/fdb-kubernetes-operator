@@ -123,12 +123,17 @@ func main() {
 	}
 
 	if checkDeprecations {
+		go mgr.GetCache().Start(ctrl.SetupSignalHandler())
 		err = clusterReconciler.CheckDeprecations(context.Background())
 		if err != nil {
 			setupLog.Error(err, "unable to check deprecations")
 			os.Exit(1)
+		} else {
+			os.Exit(0)
 		}
-	} else if err = clusterReconciler.SetupWithManager(mgr); err != nil {
+	}
+
+	if err = clusterReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 		os.Exit(1)
 	}
