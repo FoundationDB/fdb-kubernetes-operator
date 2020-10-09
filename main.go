@@ -123,7 +123,7 @@ func main() {
 	}
 
 	if checkDeprecations {
-		go mgr.GetCache().Start(ctrl.SetupSignalHandler())
+		go startCache(mgr)
 		err = clusterReconciler.CheckDeprecations(context.Background())
 		if err != nil {
 			setupLog.Error(err, "unable to check deprecations")
@@ -174,5 +174,13 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+// startCache manually starts the controller manager cache.
+func startCache(mgr ctrl.Manager) {
+	err := mgr.GetCache().Start(ctrl.SetupSignalHandler())
+	if err != nil {
+		panic(err)
 	}
 }

@@ -1307,7 +1307,7 @@ func (r *FoundationDBClusterReconciler) getDeprecationsWithRetry(context ctx.Con
 	if err != nil {
 		_, notStarted := err.(*ctrlCache.ErrCacheNotStarted)
 		if notStarted && retries > 0 {
-			time.Sleep(5)
+			time.Sleep(5 * time.Second)
 			return r.getDeprecationsWithRetry(context, retries-1)
 		}
 		return nil, err

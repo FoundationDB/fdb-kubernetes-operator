@@ -929,7 +929,9 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
 					Expect(err).NotTo(HaveOccurred())
@@ -1063,7 +1065,9 @@ var _ = Describe("cluster_controller", func() {
 				It("should not update the annotations on other resources", func() {
 					pods := &corev1.PodList{}
 
-					NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+					err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
@@ -1171,7 +1175,8 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels["fdb-instance-id"])
@@ -2845,7 +2850,7 @@ var _ = Describe("cluster_controller", func() {
 			deprecationOptions = DeprecationOptions{OnlyShowChanges: true}
 
 			cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{
-				"general": fdbtypes.ProcessSettings{
+				"general": {
 					PodTemplate: &corev1.PodTemplateSpec{},
 				},
 			}
@@ -2876,7 +2881,7 @@ var _ = Describe("cluster_controller", func() {
 		JustBeforeEach(func() {
 			err := k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(func() (int64, error) { return reloadCluster(k8sClient, cluster) }, 1).Should(Equal(int64(1)))
+			Eventually(func() (int64, error) { return reloadCluster(cluster) }, 1).Should(Equal(int64(1)))
 			clusterReconciler.DeprecationOptions = deprecationOptions
 		})
 
@@ -2914,8 +2919,12 @@ var _ = Describe("cluster_controller", func() {
 					container := deprecation.Spec.Processes["general"].PodTemplate.Spec.InitContainers[0]
 					Expect(container.Name).To(Equal("foundationdb-kubernetes-init"))
 					Expect(container.Resources).To(Equal(corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{},
-						Limits:   corev1.ResourceList{},
+						Requests: corev1.ResourceList{
+							"org.foundationdb/empty": resource.MustParse("0"),
+						},
+						Limits: corev1.ResourceList{
+							"org.foundationdb/empty": resource.MustParse("0"),
+						},
 					}))
 				})
 			})

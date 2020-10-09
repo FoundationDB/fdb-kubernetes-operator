@@ -41,7 +41,8 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+		err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Describe("GetPod", func() {
@@ -143,7 +144,8 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				pod, err = GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -366,9 +368,11 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should set the resources on the main container", func() {
@@ -392,8 +396,11 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				spec, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should use an EmptyDir volume", func() {
@@ -543,7 +550,8 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -824,7 +832,8 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -1157,7 +1166,8 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
-				NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -2064,7 +2074,7 @@ var _ = Describe("pod_models", func() {
 			Context("with a custom value for the VolumeClaim field in the process settings", func() {
 				BeforeEach(func() {
 					spec.Processes = map[string]fdbtypes.ProcessSettings{
-						"general": fdbtypes.ProcessSettings{
+						"general": {
 							VolumeClaim: &corev1.PersistentVolumeClaim{
 								Spec: corev1.PersistentVolumeClaimSpec{
 									Resources: corev1.ResourceRequirements{
@@ -2477,12 +2487,14 @@ var _ = Describe("pod_models", func() {
 				var originalSpec *fdbtypes.FoundationDBClusterSpec
 
 				BeforeEach(func() {
-					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					Expect(err).NotTo(HaveOccurred())
 					originalSpec = spec.DeepCopy()
 				})
 
 				JustBeforeEach(func() {
-					NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("should be equal to the version with the old explicit defaults", func() {
