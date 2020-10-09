@@ -26,14 +26,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-func reloadRestore(client client.Client, backup *fdbtypes.FoundationDBRestore) error {
+func reloadRestore(backup *fdbtypes.FoundationDBRestore) error {
 	return k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, backup)
 }
 
@@ -60,7 +58,7 @@ var _ = Describe("restore_controller", func() {
 
 			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
-				return reloadCluster(k8sClient, cluster)
+				return reloadCluster(cluster)
 			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -68,7 +66,7 @@ var _ = Describe("restore_controller", func() {
 			err = k8sClient.Create(context.TODO(), restore)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() (bool, error) {
-				err := reloadRestore(k8sClient, restore)
+				err := reloadRestore(restore)
 				if err != nil {
 					return false, err
 				}

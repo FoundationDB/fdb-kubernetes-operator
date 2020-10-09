@@ -84,7 +84,7 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	for index := range instances {
 		instance := instances[index]
 		if instance.Metadata.Annotations[LastConfigMapKey] != configMapHash {
-			synced, err := r.updatePodDynamicConf(context, cluster, instance)
+			synced, err := r.updatePodDynamicConf(cluster, instance)
 			if !synced {
 				return synced, err
 			}

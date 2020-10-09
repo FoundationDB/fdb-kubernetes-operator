@@ -48,15 +48,15 @@ import (
 
 var firstStorageIndex = 13
 
-func reloadCluster(client client.Client, cluster *fdbtypes.FoundationDBCluster) (int64, error) {
-	generations, err := reloadClusterGenerations(client, cluster)
+func reloadCluster(cluster *fdbtypes.FoundationDBCluster) (int64, error) {
+	generations, err := reloadClusterGenerations(cluster)
 	if generations.HasPendingRemoval > 0 {
 		return 0, err
 	}
 	return generations.Reconciled, err
 }
 
-func reloadClusterGenerations(client client.Client, cluster *fdbtypes.FoundationDBCluster) (fdbtypes.ClusterGenerationStatus, error) {
+func reloadClusterGenerations(cluster *fdbtypes.FoundationDBCluster) (fdbtypes.ClusterGenerationStatus, error) {
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 	if err != nil {
 		return fdbtypes.ClusterGenerationStatus{}, err
@@ -96,7 +96,7 @@ var _ = Describe("cluster_controller", func() {
 
 			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
-				generations, err := reloadClusterGenerations(k8sClient, cluster)
+				generations, err := reloadClusterGenerations(cluster)
 				return generations.Reconciled, err
 			}, timeout).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
@@ -115,7 +115,7 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int64, error) { return reloadCluster(k8sClient, cluster) }, timeout).Should(Equal(originalVersion + generationGap))
+			Eventually(func() (int64, error) { return reloadCluster(cluster) }, timeout).Should(Equal(originalVersion + generationGap))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -702,7 +702,8 @@ var _ = Describe("cluster_controller", func() {
 
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				adminClient.FreezeStatus()
+				err = adminClient.FreezeStatus()
+				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
 			})
 
@@ -746,7 +747,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:             originalVersion,
 						NeedsBounce:            originalVersion + 1,
 						NeedsMonitorConfUpdate: originalVersion + 1,
@@ -842,7 +843,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
 						NeedsCoordinatorChange:   originalVersion + 1,
@@ -1464,10 +1465,10 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
-							corev1.Container{
+							{
 								Name: "foundationdb",
 								Env: []corev1.EnvVar{
-									corev1.EnvVar{
+									{
 										Name:  "TEST_CHANGE",
 										Value: "1",
 									},
@@ -1544,7 +1545,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:       originalVersion,
 						NeedsPodDeletion: originalVersion + 1,
 					}))
@@ -1604,7 +1605,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:       originalVersion,
 						NeedsPodDeletion: originalVersion + 1,
 					}))
@@ -1780,7 +1781,8 @@ var _ = Describe("cluster_controller", func() {
 
 				It("should not set a message about the client upgradability", func() {
 					events := &corev1.EventList{}
-					k8sClient.List(context.TODO(), events)
+					err = k8sClient.List(context.TODO(), events)
+					Expect(err).NotTo(HaveOccurred())
 					matchingEvents := []corev1.Event{}
 					for _, event := range events.Items {
 						if event.InvolvedObject.UID == cluster.ObjectMeta.UID && event.Reason == "UnsupportedClient" {
@@ -1842,7 +1844,8 @@ var _ = Describe("cluster_controller", func() {
 
 					It("should not set a message about the client upgradability", func() {
 						events := &corev1.EventList{}
-						k8sClient.List(context.TODO(), events)
+						err = k8sClient.List(context.TODO(), events)
+						Expect(err).NotTo(HaveOccurred())
 						matchingEvents := []corev1.Event{}
 						for _, event := range events.Items {
 							if event.InvolvedObject.UID == cluster.ObjectMeta.UID && event.Reason == "UnsupportedClient" {
@@ -2044,7 +2047,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() (int64, error) {
-					generations, err := reloadClusterGenerations(k8sClient, cluster)
+					generations, err := reloadClusterGenerations(cluster)
 					return generations.Reconciled, err
 				}, timeout).Should(Equal(originalVersion + 1))
 
@@ -2760,7 +2763,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(k8sClient, cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 1}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 1}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -3104,7 +3107,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() (int64, error) {
-				generations, err := reloadClusterGenerations(k8sClient, cluster)
+				generations, err := reloadClusterGenerations(cluster)
 				return generations.Reconciled, err
 			}, time.Second*5).ShouldNot(Equal(int64(0)))
 
@@ -3173,7 +3176,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() (int64, error) {
-					generations, err := reloadClusterGenerations(k8sClient, cluster)
+					generations, err := reloadClusterGenerations(cluster)
 					return generations.Reconciled, err
 				}, time.Second*5).Should(Equal(int64(2)))
 

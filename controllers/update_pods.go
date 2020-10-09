@@ -73,7 +73,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if instance.Metadata.Annotations[LastSpecKey] != specHash {
-			podClient, err := r.getPodClient(context, cluster, instance)
+			podClient, err := r.getPodClient(cluster, instance)
 			if err != nil {
 				return false, err
 			}

@@ -156,7 +156,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				status.MissingProcesses[instanceID] = time.Now().Unix()
 			}
 		} else {
-			podClient, err := r.getPodClient(context, cluster, instance)
+			podClient, err := r.getPodClient(cluster, instance)
 			correct := false
 			if err != nil {
 				log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)

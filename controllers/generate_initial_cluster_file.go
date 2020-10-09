@@ -63,7 +63,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	processLocality := make([]localityInfo, len(instances))
 	for indexOfProcess := range instances {
-		client, err := r.getPodClient(context, cluster, instances[indexOfProcess])
+		client, err := r.getPodClient(cluster, instances[indexOfProcess])
 		if err != nil {
 			return false, err
 		}

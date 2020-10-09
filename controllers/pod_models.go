@@ -54,10 +54,7 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
 
-	owner, err := buildOwnerReference(context, cluster.TypeMeta, cluster.ObjectMeta, kubeClient)
-	if err != nil {
-		return nil, err
-	}
+	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	spec, err := GetPodSpec(cluster, processClass, idNum)
 	if err != nil {
 		return nil, err
@@ -203,8 +200,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	}
 
 	configMapItems := []corev1.KeyToPath{
-		corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
-		corev1.KeyToPath{Key: "cluster-file", Path: "fdb.cluster"},
+		{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
+		{Key: "cluster-file", Path: "fdb.cluster"},
 	}
 
 	if useCustomCAs {
@@ -223,13 +220,13 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	}
 
 	volumes := []corev1.Volume{
-		corev1.Volume{Name: "data", VolumeSource: mainVolumeSource},
-		corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+		{Name: "data", VolumeSource: mainVolumeSource},
+		{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+		{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 			LocalObjectReference: corev1.LocalObjectReference{Name: configMapRefName},
 			Items:                configMapItems,
 		}}},
-		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+		{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 
 	for _, volume := range cluster.Spec.Volumes {
@@ -247,7 +244,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		affinity = &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-					corev1.WeightedPodAffinityTerm{
+					{
 						Weight: 1,
 						PodAffinityTerm: corev1.PodAffinityTerm{
 							TopologyKey: faultDomainKey,
@@ -641,11 +638,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		},
 	}
 	deployment.Spec.Replicas = &agentCount
-	owner, err := buildOwnerReference(context, backup.TypeMeta, backup.ObjectMeta, kubeClient)
-	if err != nil {
-		return nil, err
-	}
-	deployment.ObjectMeta.OwnerReferences = owner
+	deployment.ObjectMeta.OwnerReferences = buildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
 		for key, value := range backup.Spec.BackupDeploymentMetadata.Labels {
@@ -720,7 +713,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	err = configureSidecarContainerForBackup(backup, initContainer)
+	err := configureSidecarContainerForBackup(backup, initContainer)
 	if err != nil {
 		return nil, err
 	}
