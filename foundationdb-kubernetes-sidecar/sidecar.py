@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-# entrypoint.py
+# sidecar.py
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -28,10 +28,9 @@ import os
 import shutil
 import socket
 import ssl
-import stat
 import time
-import traceback
 from pathlib import Path
+import ipaddress
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -48,8 +47,10 @@ class Config(object):
                                   'which causes it to copy the files once and '
                                   'exit without starting a server.'),
                             action='store_true')
-        parser.add_argument('--bind-address', help='IP and port to bind on',
-                            default='0.0.0.0:8080')
+        parser.add_argument('--bind-port', help='Port to bind on',
+                            default='8080')
+        parser.add_argument('--bind-address', help='IP address to bind on',
+                            default='')
         parser.add_argument('--tls',
                             help=('This flag enables TLS for incoming '
                                   'connections'),
@@ -121,6 +122,7 @@ class Config(object):
         args = parser.parse_args()
 
         self.bind_address = args.bind_address
+        self.bind_port = args.bind_port
         self.input_dir = args.input_dir
         self.output_dir = args.output_dir
 
@@ -167,10 +169,10 @@ class Config(object):
         if self.substitutions['FDB_ZONE_ID'] == '':
             self.substitutions['FDB_ZONE_ID'] = self.substitutions['FDB_MACHINE_ID']
         if self.substitutions['FDB_PUBLIC_IP'] == '':
+            # AF_INET6 for IPv6
             address_info = socket.getaddrinfo(self.substitutions['FDB_MACHINE_ID'], 4500, family=socket.AddressFamily.AF_INET)
             if len(address_info) > 0:
                 self.substitutions['FDB_PUBLIC_IP'] = address_info[0][4][0]
-
 
         if self.main_container_version == self.primary_version:
             self.substitutions['BINARY_DIR'] = '/usr/bin'
@@ -230,6 +232,9 @@ class Config(object):
     def is_at_least(self, target_version):
         return self.minor_version[0] > target_version[0] or (self.minor_version[0] == target_version[0] and self.minor_version[1] >= target_version[1])
 
+class HTTPServerV6(http.server.HTTPServer):
+    address_family = socket.AF_INET6
+
 class Server(http.server.BaseHTTPRequestHandler):
     ssl_context = None
 
@@ -239,9 +244,17 @@ class Server(http.server.BaseHTTPRequestHandler):
         This method starts the server.
         '''
         config = Config.shared()
-        (address, port) = config.bind_address.split(':')
-        log.info('Listening on %s:%s' % (address, port))
-        httpd = http.server.HTTPServer((address, int(port)), cls)
+
+        if config.bind_address == "":
+            address = os.getenv("FDB_PUBLIC_IP", "")
+        else:
+            address = config.bind_address
+
+        log.info('Listening on %s:%s' % (address, config.bind_port))
+        if ipaddress.ip_address(address).version == 6:
+            httpd = HTTPServerV6((address, int(config.bind_port)), cls)
+        else:
+            httpd = http.server.HTTPServer((address, int(config.bind_port)), cls)
 
         if config.enable_tls:
             context = Server.load_ssl_context()
@@ -489,12 +502,33 @@ def copy_libraries():
             os.replace(tmp_file, target_path)
     return "OK"
 
+def correct_address(address: str) -> str:
+    is_enclosed_in_brackets = address.startswith("[") and address.endswith("]")
+    # Got a IPv6 address with enclosing brackets
+    if is_enclosed_in_brackets:
+        stripped_address = address.strip("[]")
+        # Address is enclosed and IPv6
+        if ipaddress.ip_address(stripped_address).version == 6:
+            return address
+        # Got an enclosed IPv4 address -> remove the brackets
+        return stripped_address
+
+    # Check if we got an IPv6 address without enclosing brackets
+    if ipaddress.ip_address(address).version == 6:
+        return f"[{address}]"
+
+    return address
+
 def copy_monitor_conf():
     config = Config.shared()
     if config.input_monitor_conf:
         with open(os.path.join(config.input_dir, config.input_monitor_conf)) as monitor_conf_file:
             monitor_conf = monitor_conf_file.read()
         for variable in config.substitutions:
+            # TODO (johscheuer): dual-stack support
+            if variable == "FDB_PUBLIC_IP":
+                monitor_conf = monitor_conf.replace('$' + variable, correct_address(config.substitutions[variable]))
+                continue
             monitor_conf = monitor_conf.replace('$' + variable, config.substitutions[variable])
 
         tmp_file = os.path.join(config.output_dir, "fdbmonitor.conf.tmp")

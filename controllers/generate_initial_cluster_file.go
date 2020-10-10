@@ -51,7 +51,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
-		return false, errors.New("Cannot find enough pods to recruit coordinators")
+		return false, errors.New("cannot find enough pods to recruit coordinators")
 	}
 
 	clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"html/template"
 	"math/rand"
+	"net"
 	"reflect"
 	"regexp"
 	"sort"
@@ -1144,11 +1145,46 @@ type ProcessAddress struct {
 // ParseProcessAddress parses a structured address from its string
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
-	result := ProcessAddress{}
-	components := strings.Split(address, ":")
+	if strings.Contains(address, "[") && strings.Contains(address, "]") {
+		return parseProcessAddressWithIPv4(address)
+	}
 
+	return parseProcessAddressWithIPv6(address)
+}
+
+func parseProcessAddressWithIPv6(address string) (ProcessAddress, error) {
+	result := ProcessAddress{}
+
+	components := strings.Split(address, "]")
 	if len(components) < 2 {
-		return result, fmt.Errorf("Invalid address: %s", address)
+		return result, fmt.Errorf("invalid address: %s", address)
+	}
+
+	result.IPAddress = strings.TrimLeft(components[0], "[")
+
+	portAndFlags := strings.Split(strings.TrimLeft(components[1], ":"), ":")
+	port, err := strconv.Atoi(portAndFlags[0])
+	if err != nil {
+		return result, err
+	}
+	result.Port = port
+
+	if len(portAndFlags) > 1 {
+		result.Flags = make(map[string]bool, len(portAndFlags)-1)
+		for _, flag := range portAndFlags[1:] {
+			result.Flags[flag] = true
+		}
+	}
+
+	return result, nil
+}
+
+func parseProcessAddressWithIPv4(address string) (ProcessAddress, error) {
+	result := ProcessAddress{}
+
+	components := strings.Split(address, ":")
+	if len(components) < 2 {
+		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
 	result.IPAddress = components[0]
@@ -1171,7 +1207,7 @@ func ParseProcessAddress(address string) (ProcessAddress, error) {
 
 // String gets the string representation of an address.
 func (address ProcessAddress) String() string {
-	result := address.IPAddress + ":" + strconv.Itoa(address.Port)
+	result := net.JoinHostPort(address.IPAddress, strconv.Itoa(address.Port))
 
 	flags := make([]string, 0, len(address.Flags))
 	for flag, set := range address.Flags {
@@ -1184,11 +1220,12 @@ func (address ProcessAddress) String() string {
 		return flags[i] < flags[j]
 	})
 
-	for _, flag := range flags {
-		result = result + ":" + flag
-	}
+	// Add result as the first element in the slice
+	flags = append(flags, "")
+	copy(flags[1:], flags[0:])
+	flags[0] = result
 
-	return result
+	return strings.Join(flags, ":")
 }
 
 // GetFullAddress gets the full public address we should use for a process.
@@ -1203,24 +1240,26 @@ func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
 // This will include the IP address, the port, and any additional flags.
 //
 // If a process needs multiple addresses, this will include all of them,
-// separated by commas. If you pass false for primaryOnly, this will return only
+// separated by commas. If you pass true for primaryOnly, this will return only
 // the primary address.
 func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool) string {
 	addressMap := make(map[string]bool)
+	hostPort := net.JoinHostPort(ipAddress, "4500")
 	if cluster.Status.RequiredAddresses.TLS {
-		addressMap[fmt.Sprintf("%s:4500:tls", ipAddress)] = cluster.Spec.MainContainer.EnableTLS
+		addressMap[fmt.Sprintf("%s:tls", hostPort)] = cluster.Spec.MainContainer.EnableTLS
 	}
 	if cluster.Status.RequiredAddresses.NonTLS {
-		addressMap[fmt.Sprintf("%s:4501", ipAddress)] = !cluster.Spec.MainContainer.EnableTLS
+		addressMap[hostPort] = !cluster.Spec.MainContainer.EnableTLS
 	}
 
 	addresses := make([]string, 1, 1+len(addressMap))
 	for address, primary := range addressMap {
 		if primary {
 			addresses[0] = address
-		} else if !primaryOnly {
-			addresses = append(addresses, address)
+			break
 		}
+
+		addresses = append(addresses, address)
 	}
 
 	return strings.Join(addresses, ",")
