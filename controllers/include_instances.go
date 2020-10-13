@@ -40,7 +40,7 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.PendingRemovals))
 	for _, state := range cluster.Status.PendingRemovals {
 		if state.Address != "" {
 			addresses = append(addresses, cluster.GetFullAddress(state.Address))

@@ -87,7 +87,7 @@ ConnectionString models the contents of a cluster file in a structured way
 | ----- | ----------- | ------ | -------- |
 | DatabaseName | DatabaseName provides an identifier for the database which persists across coordinator changes. | string | false |
 | GenerationID | GenerationID provides a unique ID for the current generation of coordinators. | string | false |
-| Coordinators | Coordinators provides the addresses of the current coordinators. | []string | false |
+| Coordinators | Coordinators provides the addresses of the current coordinators. | ProcessAddressSlice | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -213,7 +213,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | mainContainer | MainContainer defines customization for the foundationdb container. | [ContainerOverrides](#containeroverrides) | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | [ContainerOverrides](#containeroverrides) | false |
 | trustedCAs | TrustedCAs defines a list of root CAs the cluster should trust, in PEM format. | []string | false |
-| sidecarVariables | SidecarVariables defines Ccustom variables that the sidecar should make available for substitution in the monitor conf file. | []string | false |
+| sidecarVariables | SidecarVariables defines Custom variables that the sidecar should make available for substitution in the monitor conf file. | []string | false |
 | logGroup | LogGroup defines the log group to use for the trace logs for the cluster. | string | false |
 | dataCenter | DataCenter defines the data center where these processes are running. | string | false |
 | dataHall | DataHall defines the data hall where these processes are running. | string | false |
@@ -424,7 +424,7 @@ FoundationDBStatusProcessInfo describes the \"processes\" portion of the cluster
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| address | Address provides the address of the process. | string | false |
+| address | ProcessAddresses provides the addresses of the process. | ProcessAddressSlice | false |
 | class_type | ProcessClass provides the process class the process has been given. | string | false |
 | command_line | CommandLine provides the command-line invocation for the process. | string | false |
 | excluded | Excluded indicates whether the process has been excluded. | bool | false |

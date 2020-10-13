@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -583,7 +584,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("command = %s/fdbserver", binaryDir),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s", cluster.GetFullAddressList("$FDB_PUBLIC_IP", false)),
+		fmt.Sprintf("public_address = %s", fdbtypes.ProcessAddressesString(cluster.GetFullAddressList("$FDB_PUBLIC_IP", false), ",")),
 		fmt.Sprintf("class = %s", processClass),
 		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
@@ -615,6 +616,13 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 
 	for index := range confLines {
 		for key, value := range substitutions {
+			if key == "FDB_PUBLIC_IP" {
+				ip := net.ParseIP(value)
+				// For IPv6 add the brackets
+				if ip != nil && ip.To4() == nil {
+					value = fmt.Sprintf("[%s]", value)
+				}
+			}
 			confLines[index] = strings.Replace(confLines[index], "$"+key, value, -1)
 		}
 	}
@@ -1031,7 +1039,7 @@ type localityInfo struct {
 	ID string
 
 	// The process's public address.
-	Address string
+	Address fdbtypes.ProcessAddress
 
 	// The locality map.
 	LocalityData map[string]string
@@ -1042,7 +1050,7 @@ type localityInfo struct {
 func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo) localityInfo {
 	return localityInfo{
 		ID:           process.Locality["instance_id"],
-		Address:      process.Address,
+		Address:      process.ProcessAddresses[0],
 		LocalityData: process.Locality,
 	}
 }
@@ -1202,10 +1210,15 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	}
 
 	for _, process := range status.Cluster.Processes {
-		_, isCoordinator := coordinatorStatus[process.Address]
+		var addressString string
+		if len(process.ProcessAddresses) > 0 {
+			addressString = process.ProcessAddresses[0].String()
+		}
+
+		_, isCoordinator := coordinatorStatus[addressString]
 		_, pendingRemoval := removals[process.Locality["instance_id"]]
 		if isCoordinator && !process.Excluded && !pendingRemoval {
-			coordinatorStatus[process.Address] = true
+			coordinatorStatus[addressString] = true
 		}
 
 		if isCoordinator {
@@ -1213,13 +1226,10 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			coordinatorDCs[process.Locality["dcid"]]++
 		}
 
-		if process.Address == "" {
+		if len(process.ProcessAddresses) == 0 {
 			continue
 		}
-		address, err := fdbtypes.ParseProcessAddress(process.Address)
-		if err != nil {
-			return false, false, err
-		}
+		address := process.ProcessAddresses[0]
 
 		if address.Flags["tls"] != cluster.Spec.MainContainer.EnableTLS {
 			allAddressesValid = false

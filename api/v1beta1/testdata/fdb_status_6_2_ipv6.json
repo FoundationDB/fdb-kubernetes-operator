@@ -1,0 +1,1424 @@
+{
+    "client" : {
+        "cluster_file" : {
+            "path" : "/var/dynamic-conf/fdb.cluster",
+            "up_to_date" : true
+        },
+        "coordinators" : {
+            "coordinators" : [
+                {
+                    "address" : "[2001:db8::94]:4501",
+                    "reachable" : true
+                },
+                {
+                    "address" : "[2001:db8::102]:4501",
+                    "reachable" : true
+                },
+                {
+                    "address" : "[2001:db8::104]:4501",
+                    "reachable" : true
+                }
+            ],
+            "quorum_reachable" : true
+        },
+        "database_status" : {
+            "available" : true,
+            "healthy" : true
+        },
+        "messages" : [
+        ],
+        "timestamp" : 1580601169
+    },
+    "cluster" : {
+        "clients" : {
+            "count" : 8,
+            "supported_versions" : [
+                {
+                    "client_version" : "Unknown",
+                    "connected_clients" : [
+                        {
+                            "address" : "[2001:db8::92]:52762",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::92]:56406",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:43346",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:43354",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:51458",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:51472",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:59442",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:59942",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:60222",
+                            "log_group" : "default"
+                        },
+                        {
+                            "address" : "[2001:db8::103]:60230",
+                            "log_group" : "default"
+                        }
+                    ],
+                    "count" : 10,
+                    "protocol_version" : "Unknown",
+                    "source_version" : "Unknown"
+                },
+                {
+                    "client_version" : "6.1.8",
+                    "connected_clients" : [
+                        {
+                            "address" : "[2001:db8::106]:35640",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::106]:36128",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::106]:36802",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::107]:42234",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::107]:49684",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:47320",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:47388",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:58734",
+                            "log_group" : "sample-cluster-client"
+                        }
+                    ],
+                    "count" : 8,
+                    "protocol_version" : "fdb00b061060001",
+                    "source_version" : "bd6b10cbcee08910667194e6388733acd3b80549"
+                },
+                {
+                    "client_version" : "6.2.15",
+                    "connected_clients" : [
+                        {
+                            "address" : "[2001:db8::106]:35640",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::106]:36128",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::106]:36802",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::107]:42234",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::107]:49684",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:47320",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:47388",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:58734",
+                            "log_group" : "sample-cluster-client"
+                        }
+                    ],
+                    "count" : 8,
+                    "max_protocol_clients" : [
+                        {
+                            "address" : "[2001:db8::106]:35640",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::106]:36128",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::106]:36802",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::107]:42234",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::107]:49684",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:47320",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:47388",
+                            "log_group" : "sample-cluster-client"
+                        },
+                        {
+                            "address" : "[2001:db8::108]:58734",
+                            "log_group" : "sample-cluster-client"
+                        }
+                    ],
+                    "max_protocol_count" : 8,
+                    "protocol_version" : "fdb00b062010001",
+                    "source_version" : "20566f2ff06a7e822b30e8cfd91090fbd863a393"
+                }
+            ]
+        },
+        "cluster_controller_timestamp" : 1580601169,
+        "configuration" : {
+            "coordinators_count" : 3,
+            "excluded_servers" : [
+            ],
+            "log_spill" : 2,
+            "logs" : 3,
+            "proxies" : 3,
+            "redundancy_mode" : "double",
+            "resolvers" : 1,
+            "storage_engine" : "ssd-2",
+            "usable_regions" : 1
+        },
+        "connection_string" : "sample_cluster:JLjCjL6Vp3kWoIfHJeDZMhYqPBb1bIZr@[2001:db8::94]:4501,[2001:db8::102]:4501,[2001:db8::104]:4501",
+        "data" : {
+            "average_partition_size_bytes" : 400000,
+            "least_operating_space_bytes_log_server" : 6756835321,
+            "least_operating_space_bytes_storage_server" : 6756835321,
+            "moving_data" : {
+                "highest_priority" : 0,
+                "in_flight_bytes" : 0,
+                "in_queue_bytes" : 0,
+                "total_written_bytes" : 0
+            },
+            "partitions_count" : 1,
+            "state" : {
+                "healthy" : true,
+                "name" : "healthy"
+            },
+            "system_kv_size_bytes" : 0,
+            "team_trackers" : [
+                {
+                    "in_flight_bytes" : 0,
+                    "primary" : true,
+                    "state" : {
+                        "healthy" : true,
+                        "name" : "healthy"
+                    },
+                    "unhealthy_servers" : 0
+                }
+            ],
+            "total_disk_used_bytes" : 629223992,
+            "total_kv_size_bytes" : 0
+        },
+        "database_available" : true,
+        "database_locked" : false,
+        "datacenter_lag" : {
+            "seconds" : 0,
+            "versions" : 0
+        },
+        "degraded_processes" : 0,
+        "fault_tolerance" : {
+            "max_zone_failures_without_losing_availability" : 1,
+            "max_zone_failures_without_losing_data" : 1
+        },
+        "full_replication" : true,
+        "generation" : 62,
+        "incompatible_connections" : [
+        ],
+        "latency_probe" : {
+            "batch_priority_transaction_start_seconds" : 0.0042386100000000003,
+            "commit_seconds" : 0.0048012699999999998,
+            "immediate_priority_transaction_start_seconds" : 0.00210977,
+            "read_seconds" : 0.00057244300000000006,
+            "transaction_start_seconds" : 0.0021865399999999998
+        },
+        "layers" : {
+            "_valid" : true,
+            "backup" : {
+                "blob_recent_io" : {
+                    "bytes_per_second" : 19.977430409632969,
+                    "bytes_sent" : 821,
+                    "requests_failed" : 0,
+                    "requests_successful" : 2
+                },
+                "instances" : {
+                    "251839437ba21342e6e66b1946ad8bce" : {
+                        "blob_stats" : {
+                            "recent" : {
+                                "bytes_per_second" : 19.977430409632969,
+                                "bytes_sent" : 821,
+                                "requests_failed" : 0,
+                                "requests_successful" : 2
+                            },
+                            "total" : {
+                                "bytes_sent" : 821,
+                                "requests_failed" : 0,
+                                "requests_successful" : 2
+                            }
+                        },
+                        "configured_workers" : 10,
+                        "id" : "251839437ba21342e6e66b1946ad8bce",
+                        "last_updated" : 1584902591.7021229,
+                        "main_thread_cpu_seconds" : 0.43237700000000001,
+                        "memory_usage" : 467623936,
+                        "process_cpu_seconds" : 0.46500600000000003,
+                        "resident_size" : 15470592,
+                        "version" : "6.2.15"
+                    },
+                    "9becdf29235a9d36e477941a3ec1dcb5" : {
+                        "blob_stats" : {
+                            "recent" : {
+                                "bytes_per_second" : 0,
+                                "bytes_sent" : 0,
+                                "requests_failed" : 0,
+                                "requests_successful" : 0
+                            },
+                            "total" : {
+                                "bytes_sent" : 0,
+                                "requests_failed" : 0,
+                                "requests_successful" : 0
+                            }
+                        },
+                        "configured_workers" : 10,
+                        "id" : "9becdf29235a9d36e477941a3ec1dcb5",
+                        "last_updated" : 1584902592.4618015,
+                        "main_thread_cpu_seconds" : 0.34967400000000004,
+                        "memory_usage" : 183402496,
+                        "process_cpu_seconds" : 0.37652000000000002,
+                        "resident_size" : 13209600,
+                        "version" : "6.2.15"
+                    }
+                },
+                "instances_running" : 2,
+                "last_updated" : 1584902592.4618015,
+                "paused" : false,
+                "tags" : {
+                    "default" : {
+                        "current_container" : "blobstore://minio@minio-service:9000/sample-cluster-test-backup?bucket=fdb-backups",
+                        "current_status" : "has been started",
+                        "last_restorable_seconds_behind" : 1019.591053,
+                        "last_restorable_version" : 0,
+                        "mutation_log_bytes_written" : 0,
+                        "mutation_stream_id" : "634a7ca041cd39f0ddcd73295dd0bc52",
+                        "range_bytes_written" : 13,
+                        "running_backup" : true,
+                        "running_backup_is_restorable" : false
+                    }
+                },
+                "total_workers" : 20
+            }
+        },
+        "machines" : {
+            "sample-cluster-log-1" : {
+                "address" : "[2001:db8::104]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.18701599999999999
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "log-1",
+                    "machineid" : "sample-cluster-log-1",
+                    "processid" : "653defde43cf1fdef131e2fb82bd192d",
+                    "zoneid" : "sample-cluster-log-1"
+                },
+                "machine_id" : "sample-cluster-log-1",
+                "memory" : {
+                    "committed_bytes" : 9314332672,
+                    "free_bytes" : 7479595008,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.50686900000000001
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.41648599999999997
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            },
+            "sample-cluster-log-2" : {
+                "address" : "[2001:db8::106]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.18532099999999999
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "log-2",
+                    "machineid" : "sample-cluster-log-2",
+                    "processid" : "5a633d7f4e98a6c938c84b97ec4aedbf",
+                    "zoneid" : "sample-cluster-log-2"
+                },
+                "machine_id" : "sample-cluster-log-2",
+                "memory" : {
+                    "committed_bytes" : 9314816000,
+                    "free_bytes" : 7479111680,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.44428399999999996
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.365755
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            },
+            "sample-cluster-log-3" : {
+                "address" : "[2001:db8::93]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.186141
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "log-3",
+                    "machineid" : "sample-cluster-log-3",
+                    "processid" : "b9c25278c0fa207bc2a73bda2300d0a9",
+                    "zoneid" : "sample-cluster-log-3"
+                },
+                "machine_id" : "sample-cluster-log-3",
+                "memory" : {
+                    "committed_bytes" : 9314336768,
+                    "free_bytes" : 7479590912,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.181062
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.15188599999999999
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            },
+            "sample-cluster-log-4" : {
+                "address" : "[2001:db8::102]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.18074499999999999
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "log-4",
+                    "machineid" : "sample-cluster-log-4",
+                    "processid" : "5c1b68147a0ef34ce005a38245851270",
+                    "zoneid" : "sample-cluster-log-4"
+                },
+                "machine_id" : "sample-cluster-log-4",
+                "memory" : {
+                    "committed_bytes" : 9314410496,
+                    "free_bytes" : 7479517184,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.084417499999999993
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.079716599999999999
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            },
+            "sample-cluster-storage-1" : {
+                "address" : "[2001:db8::92]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.18515799999999999
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "storage-1",
+                    "machineid" : "sample-cluster-storage-1",
+                    "processid" : "f9efa90fc104f4e277b140baf89aab66",
+                    "zoneid" : "sample-cluster-storage-1"
+                },
+                "machine_id" : "sample-cluster-storage-1",
+                "memory" : {
+                    "committed_bytes" : 9314906112,
+                    "free_bytes" : 7479021568,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.19231699999999999
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.277225
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            },
+            "sample-cluster-storage-2" : {
+                "address" : "[2001:db8::94]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.18664699999999998
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "storage-2",
+                    "machineid" : "sample-cluster-storage-2",
+                    "processid" : "9c93d3b70118f16c72f7cb3f53e49f4c",
+                    "zoneid" : "sample-cluster-storage-2"
+                },
+                "machine_id" : "sample-cluster-storage-2",
+                "memory" : {
+                    "committed_bytes" : 9314336768,
+                    "free_bytes" : 7479590912,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.25247700000000001
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.32502500000000001
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            },
+            "sample-cluster-storage-3" : {
+                "address" : "[2001:db8::95]",
+                "contributing_workers" : 1,
+                "cpu" : {
+                    "logical_core_utilization" : 0.18786799999999998
+                },
+                "excluded" : false,
+                "locality" : {
+                    "instance_id" : "storage-3",
+                    "machineid" : "sample-cluster-storage-3",
+                    "processid" : "c813e585043a7ab55a4905f465c4aa52",
+                    "zoneid" : "sample-cluster-storage-3"
+                },
+                "machine_id" : "sample-cluster-storage-3",
+                "memory" : {
+                    "committed_bytes" : 9314881536,
+                    "free_bytes" : 7479046144,
+                    "total_bytes" : 16793927680
+                },
+                "network" : {
+                    "megabits_received" : {
+                        "hz" : 0.18817499999999998
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.24154699999999998
+                    },
+                    "tcp_segments_retransmitted" : {
+                        "hz" : 0
+                    }
+                }
+            }
+        },
+        "messages" : [
+        ],
+        "page_cache" : {
+            "log_hit_rate" : 1,
+            "storage_hit_rate" : 1
+        },
+        "processes" : {
+            "5a633d7f4e98a6c938c84b97ec4aedbf" : {
+                "address" : "[2001:db8::105]:4501",
+                "class_source" : "command_line",
+                "class_type" : "log",
+                "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::105]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.0553955
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-log-2",
+                "locality" : {
+                    "instance_id" : "log-2",
+                    "machineid" : "sample-cluster-log-2",
+                    "processid" : "5a633d7f4e98a6c938c84b97ec4aedbf",
+                    "zoneid" : "sample-cluster-log-2"
+                },
+                "machine_id" : "sample-cluster-log-2",
+                "memory" : {
+                    "available_bytes" : 7989477376,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 393216,
+                    "used_bytes" : 510365696
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0
+                    },
+                    "connections_established" : {
+                        "hz" : 0.199992
+                    },
+                    "current_connections" : 7,
+                    "megabits_received" : {
+                        "hz" : 0.29791499999999999
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.26679900000000001
+                    }
+                },
+                "roles" : [
+                    {
+                        "id" : "6feba05132f0bdf7",
+                        "role" : "cluster_controller"
+                    },
+                    {
+                        "data_version" : 6622203282,
+                        "durable_bytes" : {
+                            "counter" : 296,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "id" : "863f6c6abfd9f1be",
+                        "input_bytes" : {
+                            "counter" : 296,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "kvstore_available_bytes" : 7176683520,
+                        "kvstore_free_bytes" : 7176683520,
+                        "kvstore_total_bytes" : 8396963840,
+                        "kvstore_used_bytes" : 104861752,
+                        "queue_disk_available_bytes" : 7176683520,
+                        "queue_disk_free_bytes" : 7176683520,
+                        "queue_disk_total_bytes" : 8396963840,
+                        "queue_disk_used_bytes" : 389120,
+                        "role" : "log"
+                    }
+                ],
+                "run_loop_busy" : 0.042184599999999996,
+                "uptime_seconds" : 710.11900000000003,
+                "version" : "6.2.15"
+            },
+            "5c1b68147a0ef34ce005a38245851270" : {
+                "address" : "[2001:db8::102]:4501",
+                "class_source" : "command_line",
+                "class_type" : "log",
+                "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::102]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.018564799999999999
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-log-4",
+                "locality" : {
+                    "instance_id" : "log-4",
+                    "machineid" : "sample-cluster-log-4",
+                    "processid" : "5c1b68147a0ef34ce005a38245851270",
+                    "zoneid" : "sample-cluster-log-4"
+                },
+                "machine_id" : "sample-cluster-log-4",
+                "memory" : {
+                    "available_bytes" : 7977865216,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 524288,
+                    "used_bytes" : 498348032
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0
+                    },
+                    "connections_established" : {
+                        "hz" : 0
+                    },
+                    "current_connections" : 15,
+                    "megabits_received" : {
+                        "hz" : 0.054645799999999994
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.047286700000000001
+                    }
+                },
+                "roles" : [
+                    {
+                        "role" : "coordinator"
+                    },
+                    {
+                        "id" : "da91d822a325c3d5",
+                        "role" : "resolver"
+                    }
+                ],
+                "run_loop_busy" : 0.012884999999999999,
+                "uptime_seconds" : 1095.1800000000001,
+                "version" : "6.2.15"
+            },
+            "653defde43cf1fdef131e2fb82bd192d" : {
+                "address" : "[2001:db8::104]:4501",
+                "class_source" : "command_line",
+                "class_type" : "log",
+                "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::104]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.093293399999999999
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-log-1",
+                "locality" : {
+                    "instance_id" : "log-1",
+                    "machineid" : "sample-cluster-log-1",
+                    "processid" : "653defde43cf1fdef131e2fb82bd192d",
+                    "zoneid" : "sample-cluster-log-1"
+                },
+                "machine_id" : "sample-cluster-log-1",
+                "memory" : {
+                    "available_bytes" : 8000761856,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 131072,
+                    "used_bytes" : 521166848
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0.20138199999999998
+                    },
+                    "connections_established" : {
+                        "hz" : 0.20138199999999998
+                    },
+                    "current_connections" : 15,
+                    "megabits_received" : {
+                        "hz" : 0.35001699999999997
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.25304499999999996
+                    }
+                },
+                "roles" : [
+                    {
+                        "id" : "10b91ea7738abf67",
+                        "role" : "master"
+                    },
+                    {
+                        "id" : "390257179e282d8b",
+                        "role" : "data_distributor"
+                    },
+                    {
+                        "id" : "dba625626caed691",
+                        "role" : "ratekeeper"
+                    },
+                    {
+                        "role" : "coordinator"
+                    },
+                    {
+                        "data_version" : 6622203282,
+                        "durable_bytes" : {
+                            "counter" : 18191,
+                            "hz" : 37.997100000000003,
+                            "roughness" : 93.029700000000005
+                        },
+                        "id" : "ec250c522d647c95",
+                        "input_bytes" : {
+                            "counter" : 18381,
+                            "hz" : 37.997100000000003,
+                            "roughness" : 359.70999999999998
+                        },
+                        "kvstore_available_bytes" : 7176683520,
+                        "kvstore_free_bytes" : 7176683520,
+                        "kvstore_total_bytes" : 8396963840,
+                        "kvstore_used_bytes" : 104861752,
+                        "queue_disk_available_bytes" : 7176683520,
+                        "queue_disk_free_bytes" : 7176683520,
+                        "queue_disk_total_bytes" : 8396963840,
+                        "queue_disk_used_bytes" : 389120,
+                        "role" : "log"
+                    }
+                ],
+                "run_loop_busy" : 0.066497600000000004,
+                "uptime_seconds" : 880.17999999999995,
+                "version" : "6.2.15"
+            },
+            "9c93d3b70118f16c72f7cb3f53e49f4c" : {
+                "address" : "[2001:db8::94]:4501",
+                "class_source" : "command_line",
+                "class_type" : "storage",
+                "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::94]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.057441799999999994
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-storage-2",
+                "locality" : {
+                    "instance_id" : "storage-2",
+                    "machineid" : "sample-cluster-storage-2",
+                    "processid" : "9c93d3b70118f16c72f7cb3f53e49f4c",
+                    "zoneid" : "sample-cluster-storage-2"
+                },
+                "machine_id" : "sample-cluster-storage-2",
+                "memory" : {
+                    "available_bytes" : 7972458496,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 524288,
+                    "used_bytes" : 492867584
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0
+                    },
+                    "connections_established" : {
+                        "hz" : 0
+                    },
+                    "current_connections" : 17,
+                    "megabits_received" : {
+                        "hz" : 0.150509
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.20221699999999998
+                    }
+                },
+                "roles" : [
+                    {
+                        "role" : "coordinator"
+                    },
+                    {
+                        "id" : "768542f56d94c64f",
+                        "role" : "proxy"
+                    },
+                    {
+                        "bytes_queried" : {
+                            "counter" : 9675447,
+                            "hz" : 4114.5799999999999,
+                            "roughness" : 14806.9
+                        },
+                        "data_lag" : {
+                            "seconds" : 0.74415599999999993,
+                            "versions" : 744156
+                        },
+                        "data_version" : 6621156197,
+                        "durability_lag" : {
+                            "seconds" : 5,
+                            "versions" : 5000000
+                        },
+                        "durable_bytes" : {
+                            "counter" : 890158,
+                            "hz" : 401.178,
+                            "roughness" : 283.29599999999999
+                        },
+                        "durable_version" : 6616156197,
+                        "finished_queries" : {
+                            "counter" : 12285,
+                            "hz" : 4.19977,
+                            "roughness" : 8.4612999999999996
+                        },
+                        "id" : "06a581cc09ed3fb9",
+                        "input_bytes" : {
+                            "counter" : 890158,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "keys_queried" : {
+                            "counter" : 30657,
+                            "hz" : 11.9993,
+                            "roughness" : 43.181399999999996
+                        },
+                        "kvstore_available_bytes" : 7176683520,
+                        "kvstore_free_bytes" : 7176683520,
+                        "kvstore_total_bytes" : 8396963840,
+                        "kvstore_used_bytes" : 104886472,
+                        "local_rate" : 100,
+                        "mutation_bytes" : {
+                            "counter" : 61237,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "mutations" : {
+                            "counter" : 865,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "query_queue_max" : 3,
+                        "role" : "storage",
+                        "stored_bytes" : 0,
+                        "total_queries" : {
+                            "counter" : 12285,
+                            "hz" : 4.19977,
+                            "roughness" : 8.4621499999999994
+                        }
+                    }
+                ],
+                "run_loop_busy" : 0.041088099999999995,
+                "uptime_seconds" : 2650.5,
+                "version" : "6.2.15"
+            },
+            "b9c25278c0fa207bc2a73bda2300d0a9" : {
+                "address" : "[2001:db8::93]:4501",
+                "class_source" : "command_line",
+                "class_type" : "log",
+                "command_line" : "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::93]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.037044500000000001
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-log-3",
+                "locality" : {
+                    "instance_id" : "log-3",
+                    "machineid" : "sample-cluster-log-3",
+                    "processid" : "b9c25278c0fa207bc2a73bda2300d0a9",
+                    "zoneid" : "sample-cluster-log-3"
+                },
+                "machine_id" : "sample-cluster-log-3",
+                "memory" : {
+                    "available_bytes" : 7990071296,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 786432,
+                    "used_bytes" : 510480384
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0
+                    },
+                    "connections_established" : {
+                        "hz" : 0
+                    },
+                    "current_connections" : 6,
+                    "megabits_received" : {
+                        "hz" : 0.084289799999999998
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.088182099999999999
+                    }
+                },
+                "roles" : [
+                    {
+                        "data_version" : 6622203282,
+                        "durable_bytes" : {
+                            "counter" : 18191,
+                            "hz" : 37.997,
+                            "roughness" : 95.043300000000002
+                        },
+                        "id" : "c686af4e20478a38",
+                        "input_bytes" : {
+                            "counter" : 18381,
+                            "hz" : 37.997,
+                            "roughness" : 358.887
+                        },
+                        "kvstore_available_bytes" : 7176683520,
+                        "kvstore_free_bytes" : 7176683520,
+                        "kvstore_total_bytes" : 8396963840,
+                        "kvstore_used_bytes" : 104861752,
+                        "queue_disk_available_bytes" : 7176683520,
+                        "queue_disk_free_bytes" : 7176683520,
+                        "queue_disk_total_bytes" : 8396963840,
+                        "queue_disk_used_bytes" : 389120,
+                        "role" : "log"
+                    }
+                ],
+                "run_loop_busy" : 0.028215199999999999,
+                "uptime_seconds" : 2955.5799999999999,
+                "version" : "6.2.15"
+            },
+            "c813e585043a7ab55a4905f465c4aa52" : {
+                "address" : "[2001:db8::95]:4501",
+                "class_source" : "command_line",
+                "class_type" : "storage",
+                "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::95]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.049418299999999998
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-storage-3",
+                "locality" : {
+                    "instance_id" : "storage-3",
+                    "machineid" : "sample-cluster-storage-3",
+                    "processid" : "c813e585043a7ab55a4905f465c4aa52",
+                    "zoneid" : "sample-cluster-storage-3"
+                },
+                "machine_id" : "sample-cluster-storage-3",
+                "memory" : {
+                    "available_bytes" : 7836241920,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 655360,
+                    "used_bytes" : 357195776
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0
+                    },
+                    "connections_established" : {
+                        "hz" : 0
+                    },
+                    "current_connections" : 6,
+                    "megabits_received" : {
+                        "hz" : 0.10390099999999999
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.13573199999999999
+                    }
+                },
+                "roles" : [
+                    {
+                        "id" : "1e20b57ea43f9aa9",
+                        "role" : "proxy"
+                    },
+                    {
+                        "bytes_queried" : {
+                            "counter" : 0,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "data_lag" : {
+                            "seconds" : 0.46506699999999995,
+                            "versions" : 465067
+                        },
+                        "data_version" : 6623279275,
+                        "durability_lag" : {
+                            "seconds" : 5.4650699999999999,
+                            "versions" : 5465067
+                        },
+                        "durable_bytes" : {
+                            "counter" : 46608,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "durable_version" : 6617814208,
+                        "finished_queries" : {
+                            "counter" : 0,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "id" : "6b11d7bb5c720b38",
+                        "input_bytes" : {
+                            "counter" : 46608,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "keys_queried" : {
+                            "counter" : 0,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "kvstore_available_bytes" : 7176683520,
+                        "kvstore_free_bytes" : 7176683520,
+                        "kvstore_total_bytes" : 8396963840,
+                        "kvstore_used_bytes" : 104865792,
+                        "local_rate" : 100,
+                        "mutation_bytes" : {
+                            "counter" : 1968,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "mutations" : {
+                            "counter" : 48,
+                            "hz" : 0,
+                            "roughness" : 0
+                        },
+                        "query_queue_max" : 0,
+                        "role" : "storage",
+                        "stored_bytes" : 0,
+                        "total_queries" : {
+                            "counter" : 0,
+                            "hz" : 0,
+                            "roughness" : 0
+                        }
+                    }
+                ],
+                "run_loop_busy" : 0.033580399999999996,
+                "uptime_seconds" : 2475.3299999999999,
+                "version" : "6.2.15"
+            },
+            "f9efa90fc104f4e277b140baf89aab66" : {
+                "address" : "[2001:db8::92]:4501",
+                "class_source" : "command_line",
+                "class_type" : "storage",
+                "command_line" : "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=[2001:db8::92]:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+                "cpu" : {
+                    "usage_cores" : 0.049631099999999997
+                },
+                "disk" : {
+                    "busy" : 0,
+                    "free_bytes" : 7176683520,
+                    "reads" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    },
+                    "total_bytes" : 8396963840,
+                    "writes" : {
+                        "counter" : 0,
+                        "hz" : 0,
+                        "sectors" : 0
+                    }
+                },
+                "excluded" : false,
+                "fault_domain" : "sample-cluster-storage-1",
+                "locality" : {
+                    "instance_id" : "storage-1",
+                    "machineid" : "sample-cluster-storage-1",
+                    "processid" : "f9efa90fc104f4e277b140baf89aab66",
+                    "zoneid" : "sample-cluster-storage-1"
+                },
+                "machine_id" : "sample-cluster-storage-1",
+                "memory" : {
+                    "available_bytes" : 7971037184,
+                    "limit_bytes" : 8589934592,
+                    "unused_allocated_memory" : 655360,
+                    "used_bytes" : 492015616
+                },
+                "messages" : [
+                ],
+                "network" : {
+                    "connection_errors" : {
+                        "hz" : 0
+                    },
+                    "connections_closed" : {
+                        "hz" : 0
+                    },
+                    "connections_established" : {
+                        "hz" : 0
+                    },
+                    "current_connections" : 6,
+                    "megabits_received" : {
+                        "hz" : 0.10743799999999999
+                    },
+                    "megabits_sent" : {
+                        "hz" : 0.16444599999999998
+                    }
+                },
+                "roles" : [
+                    {
+                        "id" : "780a7ea7433362a3",
+                        "role" : "proxy"
+                    },
+                    {
+                        "bytes_queried" : {
+                            "counter" : 10561056,
+                            "hz" : 4451.5100000000002,
+                            "roughness" : 14589.5
+                        },
+                        "data_lag" : {
+                            "seconds" : 0.26813799999999999,
+                            "versions" : 268138
+                        },
+                        "data_version" : 6622814208,
+                        "durability_lag" : {
+                            "seconds" : 5.2681399999999998,
+                            "versions" : 5268138
+                        },
+                        "durable_bytes" : {
+                            "counter" : 1019590,
+                            "hz" : 401.13799999999998,
+                            "roughness" : 13.9389
+                        },
+                        "durable_version" : 6617546070,
+                        "finished_queries" : {
+                            "counter" : 13715,
+                            "hz" : 5.9990800000000002,
+                            "roughness" : 11.379200000000001
+                        },
+                        "id" : "c8e7fa2179a80035",
+                        "input_bytes" : {
+                            "counter" : 1021596,
+                            "hz" : 401.13799999999998,
+                            "roughness" : 2908.27
+                        },
+                        "keys_queried" : {
+                            "counter" : 34386,
+                            "hz" : 12.798,
+                            "roughness" : 41.944600000000001
+                        },
+                        "kvstore_available_bytes" : 7176683520,
+                        "kvstore_free_bytes" : 7176683520,
+                        "kvstore_total_bytes" : 8396963840,
+                        "kvstore_used_bytes" : 104886472,
+                        "local_rate" : 100,
+                        "mutation_bytes" : {
+                            "counter" : 70793,
+                            "hz" : 18.9971,
+                            "roughness" : 137.72999999999999
+                        },
+                        "mutations" : {
+                            "counter" : 990,
+                            "hz" : 0.39993799999999996,
+                            "roughness" : 2.8995700000000002
+                        },
+                        "query_queue_max" : 4,
+                        "role" : "storage",
+                        "stored_bytes" : 0,
+                        "total_queries" : {
+                            "counter" : 13715,
+                            "hz" : 5.9990800000000002,
+                            "roughness" : 11.3773
+                        }
+                    }
+                ],
+                "run_loop_busy" : 0.035729199999999996,
+                "uptime_seconds" : 2951.1700000000001,
+                "version" : "6.2.15"
+            }
+        },
+        "protocol_version" : "fdb00b062010001",
+        "qos" : {
+            "batch_performance_limited_by" : {
+                "description" : "The database is not being saturated by the workload.",
+                "name" : "workload",
+                "reason_id" : 2
+            },
+            "batch_released_transactions_per_second" : 0.040980999999999997,
+            "batch_transactions_per_second_limit" : 1155910000,
+            "limiting_data_lag_storage_server" : {
+                "seconds" : 0,
+                "versions" : 0
+            },
+            "limiting_durability_lag_storage_server" : {
+                "seconds" : 14.1153,
+                "versions" : 14115335
+            },
+            "limiting_queue_bytes_storage_server" : 2006,
+            "limiting_version_lag_storage_server" : 0,
+            "performance_limited_by" : {
+                "description" : "The database is not being saturated by the workload.",
+                "name" : "workload",
+                "reason_id" : 2
+            },
+            "released_transactions_per_second" : 4.4802200000000001,
+            "transactions_per_second_limit" : 12769300.000000002,
+            "worst_data_lag_storage_server" : {
+                "seconds" : 0,
+                "versions" : 0
+            },
+            "worst_durability_lag_storage_server" : {
+                "seconds" : 14.115600000000001,
+                "versions" : 14115618
+            },
+            "worst_queue_bytes_log_server" : 190,
+            "worst_queue_bytes_storage_server" : 2006,
+            "worst_version_lag_storage_server" : 0
+        },
+        "recovery_state" : {
+            "description" : "Recovery complete.",
+            "name" : "fully_recovered"
+        },
+        "workload" : {
+            "bytes" : {
+                "read" : {
+                    "counter" : 20236503,
+                    "hz" : 8566.0900000000001,
+                    "roughness" : 14693.9
+                },
+                "written" : {
+                    "counter" : 5840,
+                    "hz" : 14.1996,
+                    "roughness" : 134.828
+                }
+            },
+            "keys" : {
+                "read" : {
+                    "counter" : 65043,
+                    "hz" : 24.7973,
+                    "roughness" : 42.543100000000003
+                }
+            },
+            "operations" : {
+                "read_requests" : {
+                    "counter" : 26000,
+                    "hz" : 10.1989,
+                    "roughness" : 10.1769
+                },
+                "reads" : {
+                    "counter" : 26000,
+                    "hz" : 10.1989,
+                    "roughness" : 10.1776
+                },
+                "writes" : {
+                    "counter" : 150,
+                    "hz" : 0.39998899999999998,
+                    "roughness" : 3.7979700000000003
+                }
+            },
+            "transactions" : {
+                "committed" : {
+                    "counter" : 104,
+                    "hz" : 0.19999499999999998,
+                    "roughness" : 1.9001800000000002
+                },
+                "conflicted" : {
+                    "counter" : 0,
+                    "hz" : 0,
+                    "roughness" : 0
+                },
+                "started" : {
+                    "counter" : 2723,
+                    "hz" : 3.3998699999999999,
+                    "roughness" : 2.2299500000000001
+                },
+                "started_batch_priority" : {
+                    "counter" : 30,
+                    "hz" : 0,
+                    "roughness" : 0
+                },
+                "started_default_priority" : {
+                    "counter" : 1741,
+                    "hz" : 2.1999200000000001,
+                    "roughness" : 1.9125000000000001
+                },
+                "started_immediate_priority" : {
+                    "counter" : 952,
+                    "hz" : 1.1999500000000001,
+                    "roughness" : 1.5328900000000001
+                }
+            }
+        }
+    }
+}

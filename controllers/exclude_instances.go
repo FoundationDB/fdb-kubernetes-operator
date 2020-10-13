@@ -45,7 +45,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		return false, err
 	}
 
-	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.PendingRemovals))
 	hasExclusionUpdates := false
 	for id, state := range cluster.Status.PendingRemovals {
 		if state.Address != "" {

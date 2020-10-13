@@ -51,9 +51,6 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 
 	if len(existingServices.Items) == 0 {
 		owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-		if err != nil {
-			return false, err
-		}
 		service.ObjectMeta.OwnerReferences = owner
 		err = r.Create(context, service)
 		if err != nil {

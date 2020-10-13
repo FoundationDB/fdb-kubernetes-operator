@@ -40,12 +40,12 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.PendingRemovals))
 
 	for instanceID, state := range cluster.Status.PendingRemovals {
 		if !state.ExclusionComplete {
 			if state.Address == "" {
-				return false, fmt.Errorf("Cannot check the exclusion state of instance %s, which has no IP address", instanceID)
+				return false, fmt.Errorf("cannot check the exclusion state of instance %s, which has no IP address", instanceID)
 			}
 			address := cluster.GetFullAddress(state.Address)
 			addresses = append(addresses, address)
@@ -61,7 +61,7 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 		if len(remaining) != len(addresses) {
 			remainingMap := make(map[string]bool, len(remaining))
 			for _, address := range remaining {
-				remainingMap[address] = true
+				remainingMap[address.String()] = true
 			}
 			for id, state := range cluster.Status.PendingRemovals {
 				if !remainingMap[state.Address] {

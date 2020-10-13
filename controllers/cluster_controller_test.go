@@ -273,7 +273,7 @@ var _ = Describe("cluster_controller", func() {
 
 				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					cluster.GetFullAddress(MockPodIP(&removedItem)): true,
+					cluster.GetFullAddress(MockPodIP(&removedItem)).String(): true,
 				}))
 			})
 		})
@@ -443,7 +443,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])).String(): true,
 					}))
 				})
 
@@ -514,7 +514,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])).String(): true,
 					}))
 				})
 
@@ -577,7 +577,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])).String(): true,
 					}))
 				})
 
@@ -716,7 +716,7 @@ var _ = Describe("cluster_controller", func() {
 				It("should bounce the processes", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod)))
+						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod)).String())
 					}
 
 					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
@@ -1526,7 +1526,7 @@ var _ = Describe("cluster_controller", func() {
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						replacements[cluster.GetFullAddress(MockPodIP(&pod)).String()] = true
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1652,9 +1652,8 @@ var _ = Describe("cluster_controller", func() {
 
 				Expect(err).NotTo(HaveOccurred())
 				for _, coordinator := range connectionString.Coordinators {
-					address, err := fdbtypes.ParseProcessAddress(coordinator)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(address.Flags["tls"]).To(BeTrue())
+					Expect(coordinator.Flags["tls"]).To(BeTrue())
 				}
 			})
 		})
@@ -1763,7 +1762,7 @@ var _ = Describe("cluster_controller", func() {
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						replacements[cluster.GetFullAddress(MockPodIP(&pod)).String()] = true
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1887,7 +1886,7 @@ var _ = Describe("cluster_controller", func() {
 					for _, pod := range originalPods.Items {
 						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
-							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+							replacements[cluster.GetFullAddress(MockPodIP(&pod)).String()] = true
 						}
 					}
 
@@ -1929,7 +1928,7 @@ var _ = Describe("cluster_controller", func() {
 					for _, pod := range originalPods.Items {
 						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
-							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+							replacements[cluster.GetFullAddress(MockPodIP(&pod)).String()] = true
 						}
 					}
 
@@ -1971,7 +1970,7 @@ var _ = Describe("cluster_controller", func() {
 					for _, pod := range originalPods.Items {
 						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
-							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+							replacements[cluster.GetFullAddress(MockPodIP(&pod)).String()] = true
 						}
 					}
 
@@ -2004,7 +2003,7 @@ var _ = Describe("cluster_controller", func() {
 
 				replacements := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					replacements[cluster.GetFullAddress(MockPodIP(&pod)).String()] = true
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -3148,12 +3147,12 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				zone := ""
 				for _, process := range status.Cluster.Processes {
-					if process.Address == status.Client.Coordinators.Coordinators[0].Address {
+					if process.ProcessAddresses[0].String() == status.Client.Coordinators.Coordinators[0].Address {
 						zone = process.Locality["zoneid"]
 					}
 				}
 				for _, process := range status.Cluster.Processes {
-					if process.Address == status.Client.Coordinators.Coordinators[1].Address {
+					if process.ProcessAddresses[0].String() == status.Client.Coordinators.Coordinators[1].Address {
 						process.Locality["zoneid"] = zone
 					}
 				}
@@ -3190,7 +3189,7 @@ var _ = Describe("cluster_controller", func() {
 				for _, process := range status.Cluster.Processes {
 					if process.ProcessClass == "storage" {
 						coordinators = append(coordinators, fdbtypes.FoundationDBStatusCoordinator{
-							Address:   process.Address,
+							Address:   process.ProcessAddresses[0].String(),
 							Reachable: true,
 						})
 						dc++

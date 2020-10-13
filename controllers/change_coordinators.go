@@ -111,7 +111,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 			return false, err
 		}
 
-		coordinatorAddresses := make([]string, len(coordinators))
+		coordinatorAddresses := make([]fdbtypes.ProcessAddress, len(coordinators))
 		for index, process := range coordinators {
 			coordinatorAddresses[index] = process.Address
 		}

@@ -48,20 +48,19 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	minimumUptime := math.Inf(1)
-	addressMap := make(map[string]string, len(status.Cluster.Processes))
+	addressMap := make(map[string]fdbtypes.ProcessAddress, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		addressMap[process.Locality["instance_id"]] = process.Address
+		addressMap[process.Locality["instance_id"]] = process.ProcessAddresses[0]
 		if process.UptimeSeconds < minimumUptime {
 			minimumUptime = process.UptimeSeconds
 		}
 	}
 
-	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.IncorrectProcesses))
 
 	for instanceID := range cluster.Status.IncorrectProcesses {
-
-		if addressMap[instanceID] == "" {
-			return false, fmt.Errorf("Could not find address for instance %s", instanceID)
+		if addressMap[instanceID].String() == "" {
+			return false, fmt.Errorf("could not find address for instance %s", instanceID)
 		}
 
 		addresses = append(addresses, addressMap[instanceID])
@@ -100,7 +99,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 		if minimumUptime < MinimumUptimeSecondsForBounce {
 			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
-				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
+				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds, needs to be up for %d seconds", minimumUptime, MinimumUptimeSecondsForBounce))
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {

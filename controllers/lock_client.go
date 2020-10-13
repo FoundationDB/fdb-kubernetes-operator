@@ -151,15 +151,12 @@ func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error
 	}
 
 	clusterFile, err := ioutil.TempFile("", "")
-	clusterFilePath := clusterFile.Name()
 	if err != nil {
 		return nil, err
 	}
 
+	clusterFilePath := clusterFile.Name()
 	defer clusterFile.Close()
-	if err != nil {
-		return nil, err
-	}
 
 	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
 	if err != nil {

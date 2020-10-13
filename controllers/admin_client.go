@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"regexp"
@@ -65,24 +64,24 @@ type AdminClient interface {
 
 	// ExcludeInstances starts evacuating processes so that they can be removed
 	// from the database.
-	ExcludeInstances(addresses []string) error
+	ExcludeInstances(addresses []fdbtypes.ProcessAddress) error
 
 	// IncludeInstances removes processes from the exclusion list and allows
 	// them to take on roles again.
-	IncludeInstances(addresses []string) error
+	IncludeInstances(addresses []fdbtypes.ProcessAddress) error
 
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster.
 	//
 	// The list returned by this method will be the addresses that are *not*
 	// safe to remove.
-	CanSafelyRemove(addresses []string) ([]string, error)
+	CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error)
 
 	// KillProcesses restarts processes
-	KillInstances(addresses []string) error
+	KillInstances(addresses []fdbtypes.ProcessAddress) error
 
 	// ChangeCoordinators changes the coordinator set
-	ChangeCoordinators(addresses []string) (string, error)
+	ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error)
 
 	// GetConnectionString fetches the latest connection string.
 	GetConnectionString() (string, error)
@@ -294,18 +293,17 @@ func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 
 // removeAddressFlags strips the flags from the end of the addresses, leaving
 // only the IP and port.
-func removeAddressFlags(addresses []string) []string {
+func removeAddressFlags(addresses []fdbtypes.ProcessAddress) []string {
 	results := make([]string, 0, len(addresses))
 	for _, address := range addresses {
-		components := strings.Split(address, ":")
-		results = append(results, fmt.Sprintf("%s:%s", components[0], components[1]))
+		results = append(results, address.StringWithoutFlags())
 	}
 	return results
 }
 
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
-func (client *CliAdminClient) ExcludeInstances(addresses []string) error {
+func (client *CliAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -333,7 +331,7 @@ func (client *CliAdminClient) ExcludeInstances(addresses []string) error {
 
 // IncludeInstances removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *CliAdminClient) IncludeInstances(addresses []string) error {
+func (client *CliAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -349,7 +347,7 @@ func (client *CliAdminClient) IncludeInstances(addresses []string) error {
 //
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
-func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
+func (client *CliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
 	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
 		return nil, err
@@ -366,9 +364,9 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 		}
 		exclusionResults := parseExclusionOutput(output)
 		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", addresses, "results", exclusionResults)
-		remaining := make([]string, 0, len(addressesWithoutFlags))
-		for _, address := range addressesWithoutFlags {
-			if exclusionResults[address] != "Success" && exclusionResults[address] != "Missing" {
+		remaining := make([]fdbtypes.ProcessAddress, 0, len(addressesWithoutFlags))
+		for _, address := range addresses {
+			if exclusionResults[address.StringWithoutFlags()] != "Success" && exclusionResults[address.StringWithoutFlags()] != "Missing" {
 				remaining = append(remaining, address)
 			}
 		}
@@ -385,7 +383,7 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 // the output of an exclusion command.
 func parseExclusionOutput(output string) map[string]string {
 	results := make(map[string]string)
-	var regex = regexp.MustCompile(`\s*([\w.:]+)\s*-+(.*)`)
+	var regex = regexp.MustCompile(`\s*(\[?[\w.:\]?]+)\s*-+(.*)`)
 	matches := regex.FindAllStringSubmatch(output, -1)
 	for _, match := range matches {
 		address := match[1]
@@ -404,8 +402,7 @@ func parseExclusionOutput(output string) map[string]string {
 }
 
 // KillInstances restarts processes
-func (client *CliAdminClient) KillInstances(addresses []string) error {
-
+func (client *CliAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -417,10 +414,10 @@ func (client *CliAdminClient) KillInstances(addresses []string) error {
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *CliAdminClient) ChangeCoordinators(addresses []string) (string, error) {
+func (client *CliAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"coordinators %s",
-		strings.Join(addresses, " "),
+		fdbtypes.ProcessAddressesString(addresses, " "),
 	)})
 	if err != nil {
 		return "", err
@@ -446,7 +443,7 @@ func (client *CliAdminClient) GetConnectionString() (string, error) {
 	}
 
 	if !strings.Contains(output, "The database is available") {
-		return "", fmt.Errorf("Unable to fetch connection string: %s", output)
+		return "", fmt.Errorf("unable to fetch connection string: %s", output)
 	}
 
 	connectionStringBytes, err := ioutil.ReadFile(client.clusterFilePath)
@@ -622,7 +619,7 @@ type MockAdminClient struct {
 	Cluster               *fdbtypes.FoundationDBCluster
 	KubeClient            client.Client
 	DatabaseConfiguration *fdbtypes.DatabaseConfiguration
-	ExcludedAddresses     []string
+	ExcludedAddresses     []fdbtypes.ProcessAddress
 	ReincludedAddresses   map[string]bool
 	KilledAddresses       []string
 	frozenStatus          *fdbtypes.FoundationDBStatus
@@ -693,7 +690,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 	exclusionMap := make(map[string]bool, len(client.ExcludedAddresses))
 	for _, address := range client.ExcludedAddresses {
-		exclusionMap[address] = true
+		exclusionMap[address.StringWithoutFlags()] = true
 	}
 
 	for _, pod := range pods.Items {
@@ -702,11 +699,11 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		fullAddress := client.Cluster.GetFullAddress(ip)
 
 		_, ipExcluded := exclusionMap[ip]
-		_, addressExcluded := exclusionMap[fullAddress]
+		_, addressExcluded := exclusionMap[fullAddress.String()]
 		excluded := ipExcluded || addressExcluded
-		_, isCoordinator := coordinators[fullAddress]
+		_, isCoordinator := coordinators[fullAddress.String()]
 		if isCoordinator && !excluded {
-			coordinators[fullAddress] = true
+			coordinators[fullAddress.String()] = true
 		}
 		instance := newFdbInstance(pod)
 		command, err := GetStartCommand(client.Cluster, instance, podClient)
@@ -714,10 +711,10 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 		status.Cluster.Processes[pod.Name] = fdbtypes.FoundationDBStatusProcessInfo{
-			Address:      fullAddress,
-			ProcessClass: GetProcessClassFromMeta(pod.ObjectMeta),
-			CommandLine:  command,
-			Excluded:     ipExcluded || addressExcluded,
+			ProcessAddresses: []fdbtypes.ProcessAddress{fullAddress},
+			ProcessClass:     GetProcessClassFromMeta(pod.ObjectMeta),
+			CommandLine:      command,
+			Excluded:         ipExcluded || addressExcluded,
 			Locality: map[string]string{
 				"instance_id": instance.GetInstanceID(),
 				"zoneid":      pod.Name,
@@ -797,23 +794,23 @@ func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.Database
 
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
-func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
+func (client *MockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	count := len(addresses) + len(client.ExcludedAddresses)
 	exclusionMap := make(map[string]bool, count)
-	newExclusions := make([]string, 0, count)
+	newExclusions := make([]fdbtypes.ProcessAddress, 0, count)
 	for _, address := range addresses {
 		if !isValidAddress(address) {
-			return fmt.Errorf("Invalid exclusion address %s", address)
+			return fmt.Errorf("invalid exclusion address %s", address)
 		}
 
-		if !exclusionMap[address] {
-			exclusionMap[address] = true
+		if !exclusionMap[address.StringWithoutFlags()] {
+			exclusionMap[address.StringWithoutFlags()] = true
 			newExclusions = append(newExclusions, address)
 		}
 	}
 	for _, address := range client.ExcludedAddresses {
-		if !exclusionMap[address] {
-			exclusionMap[address] = true
+		if !exclusionMap[address.StringWithoutFlags()] {
+			exclusionMap[address.StringWithoutFlags()] = true
 			newExclusions = append(newExclusions, address)
 		}
 	}
@@ -824,32 +821,25 @@ func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
 	return nil
 }
 
-func isValidAddress(address string) bool {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return false
-	}
-	if host == "" {
-		return false
-	}
-	return true
+func isValidAddress(address fdbtypes.ProcessAddress) bool {
+	return address.IPAddress != ""
 }
 
 // IncludeInstances removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *MockAdminClient) IncludeInstances(addresses []string) error {
-	newExclusions := make([]string, 0, len(client.ExcludedAddresses))
+func (client *MockAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
+	newExclusions := make([]fdbtypes.ProcessAddress, 0, len(client.ExcludedAddresses))
 	for _, address := range addresses {
 		if !isValidAddress(address) {
-			return fmt.Errorf("Invalid exclusion address %s", address)
+			return fmt.Errorf("invalid exclusion address %s", address)
 		}
 	}
 	for _, excludedAddress := range client.ExcludedAddresses {
 		included := false
 		for _, address := range addresses {
-			if address == excludedAddress {
+			if address.Equal(excludedAddress) {
 				included = true
-				client.ReincludedAddresses[address] = true
+				client.ReincludedAddresses[address.StringWithoutFlags()] = true
 				break
 			}
 		}
@@ -869,19 +859,22 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 //
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
-func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
+func (client *MockAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
 	return nil, nil
 }
 
 // KillInstances restarts processes
-func (client *MockAdminClient) KillInstances(addresses []string) error {
-	client.KilledAddresses = append(client.KilledAddresses, addresses...)
+func (client *MockAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
+	for _, addr := range addresses {
+		client.KilledAddresses = append(client.KilledAddresses, addr.String())
+	}
+
 	client.UnfreezeStatus()
 	return nil
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, error) {
+func (client *MockAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
 	connectionString, err := fdbtypes.ParseConnectionString(client.Cluster.Status.ConnectionString)
 	if err != nil {
 		return "", err

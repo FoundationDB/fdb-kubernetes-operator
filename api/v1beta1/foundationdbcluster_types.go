@@ -121,7 +121,7 @@ type FoundationDBClusterSpec struct {
 	// format.
 	TrustedCAs []string `json:"trustedCAs,omitempty"`
 
-	// SidecarVariables defines Ccustom variables that the sidecar should make
+	// SidecarVariables defines Custom variables that the sidecar should make
 	// available for substitution in the monitor conf file.
 	SidecarVariables []string `json:"sidecarVariables,omitempty"`
 
@@ -1035,8 +1035,8 @@ type FoundationDBStatusClusterInfo struct {
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
 // cluster status
 type FoundationDBStatusProcessInfo struct {
-	// Address provides the address of the process.
-	Address string `json:"address,omitempty"`
+	// ProcessAddresses provides the addresses of the process.
+	ProcessAddresses ProcessAddressSlice `json:"address,omitempty"`
 
 	// ProcessClass provides the process class the process has been given.
 	ProcessClass string `json:"class_type,omitempty"`
@@ -1100,7 +1100,7 @@ type ConnectionString struct {
 	GenerationID string
 
 	// Coordinators provides the addresses of the current coordinators.
-	Coordinators []string
+	Coordinators ProcessAddressSlice
 }
 
 // ParseConnectionString parses a connection string from its string
@@ -1108,18 +1108,30 @@ type ConnectionString struct {
 func ParseConnectionString(str string) (ConnectionString, error) {
 	components := connectionStringPattern.FindStringSubmatch(str)
 	if components == nil {
-		return ConnectionString{}, fmt.Errorf("Invalid connection string %s", str)
+		return ConnectionString{}, fmt.Errorf("invalid connection string %s", str)
 	}
+
+	coordinatorsStrings := strings.Split(components[3], ",")
+	coordindators := make([]ProcessAddress, len(coordinatorsStrings))
+
+	for idx, coordinatorsString := range coordinatorsStrings {
+		coordindatorAddress, err := ParseProcessAddress(coordinatorsString)
+		if err != nil {
+			return ConnectionString{}, err
+		}
+		coordindators[idx] = coordindatorAddress
+	}
+
 	return ConnectionString{
 		components[1],
 		components[2],
-		strings.Split(components[3], ","),
+		coordindators,
 	}, nil
 }
 
 // String formats a connection string as a string
 func (str *ConnectionString) String() string {
-	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, strings.Join(str.Coordinators, ","))
+	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, ProcessAddressesString(str.Coordinators, ","))
 }
 
 // GenerateNewGenerationID builds a new generation ID
@@ -1135,17 +1147,65 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 	return nil
 }
 
+// ProcessAddressSlice is a helper type for the json parsing
+type ProcessAddressSlice []ProcessAddress
+
 // ProcessAddress provides a structured address for a process.
 type ProcessAddress struct {
+	// TODO (johscheuer) change to net.IP
 	IPAddress string
 	Port      int
 	Flags     map[string]bool
 }
 
+// UnmarshalJSON defines the parsing method for the address field from JSON to struct
+func (p *ProcessAddressSlice) UnmarshalJSON(data []byte) error {
+	trimmed := strings.Trim(string(data), "\"")
+
+	for _, addr := range strings.Split(trimmed, ",") {
+		parsedAddr, err := ParseProcessAddress(addr)
+		if err != nil {
+			return err
+		}
+
+		*p = append(*p, parsedAddr)
+	}
+
+	return nil
+}
+
+// MarshalJSON defines the parsing method for the address field from struct to JSON
+func (p ProcessAddressSlice) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", ProcessAddressesString(p, ","))), nil
+}
+
+// Equal checks if two ProcessAddress are the same
+func (address ProcessAddress) Equal(addressB ProcessAddress) bool {
+	if address.IPAddress != addressB.IPAddress {
+		return false
+	}
+
+	if address.Port != addressB.Port {
+		return false
+	}
+
+	if len(address.Flags) != len(addressB.Flags) {
+		return false
+	}
+
+	for k, v := range address.Flags {
+		if v != addressB.Flags[k] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // ParseProcessAddress parses a structured address from its string
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
-	if strings.Contains(address, "[") && strings.Contains(address, "]") {
+	if !strings.Contains(address, "[") && !strings.Contains(address, "]") {
 		return parseProcessAddressWithIPv4(address)
 	}
 
@@ -1205,7 +1265,7 @@ func parseProcessAddressWithIPv4(address string) (ProcessAddress, error) {
 	return result, nil
 }
 
-// String gets the string representation of an address.
+// String gets the string representation of a ProcessAddress.
 func (address ProcessAddress) String() string {
 	result := net.JoinHostPort(address.IPAddress, strconv.Itoa(address.Port))
 
@@ -1228,10 +1288,36 @@ func (address ProcessAddress) String() string {
 	return strings.Join(flags, ":")
 }
 
+// StringWithoutFlags gets the string representation of a ProcessAddress without adding the flags.
+func (address ProcessAddress) StringWithoutFlags() string {
+	return net.JoinHostPort(address.IPAddress, strconv.Itoa(address.Port))
+}
+
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
-	return cluster.GetFullAddressList(ipAddress, true)
+func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) ProcessAddress {
+	addresses := cluster.GetFullAddressList(ipAddress, true)
+	if len(addresses) < 1 {
+		return ProcessAddress{}
+	}
+
+	// First element will always be the primary
+	return addresses[0]
+}
+
+// ProcessAddressesString converts a slice of ProcessAddress to a string separating the
+// ProcessAddresses
+func ProcessAddressesString(p []ProcessAddress, sep string) string {
+	var s strings.Builder
+	lenP := len(p)
+	for idx, addr := range p {
+		s.WriteString(addr.String())
+		if idx < lenP-1 {
+			s.WriteString(sep)
+		}
+	}
+
+	return s.String()
 }
 
 // GetFullAddressList gets the full list of public addresses we should use for a
@@ -1242,27 +1328,41 @@ func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass true for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool) string {
+func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool) []ProcessAddress {
+	// TODO (johscheuer) optimize and don't parse it multiple times
 	addressMap := make(map[string]bool)
-	hostPort := net.JoinHostPort(ipAddress, "4500")
 	if cluster.Status.RequiredAddresses.TLS {
-		addressMap[fmt.Sprintf("%s:tls", hostPort)] = cluster.Spec.MainContainer.EnableTLS
+		processAddress := ProcessAddress{
+			IPAddress: ipAddress,
+			Port:      4500,
+			Flags:     map[string]bool{"tls": true},
+		}
+		addressMap[processAddress.String()] = cluster.Spec.MainContainer.EnableTLS
 	}
 	if cluster.Status.RequiredAddresses.NonTLS {
-		addressMap[hostPort] = !cluster.Spec.MainContainer.EnableTLS
+		processAddress := ProcessAddress{
+			IPAddress: ipAddress,
+			Port:      4501,
+		}
+		addressMap[processAddress.String()] = !cluster.Spec.MainContainer.EnableTLS
 	}
 
-	addresses := make([]string, 1, 1+len(addressMap))
+	addresses := make([]ProcessAddress, 1, 1+len(addressMap))
 	for address, primary := range addressMap {
-		if primary {
-			addresses[0] = address
-			break
+		parsedAddr, err := ParseProcessAddress(address)
+		if err != nil {
+			// TODO (johscheuer): log error
+			continue
 		}
 
-		addresses = append(addresses, address)
+		if primary {
+			addresses[0] = parsedAddr
+		} else if !primaryOnly {
+			addresses = append(addresses, parsedAddr)
+		}
 	}
 
-	return strings.Join(addresses, ",")
+	return addresses
 }
 
 // GetFullSidecarVersion gets the version of the image for the sidecar,
@@ -1287,24 +1387,28 @@ func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool
 
 // HasCoordinators checks whether this connection string matches a set of
 // coordinators.
-func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
+func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
+
 	for _, address := range str.Coordinators {
-		matchedCoordinators[address] = false
+		matchedCoordinators[address.String()] = false
 	}
+
 	for _, address := range coordinators {
-		_, matched := matchedCoordinators[address]
+		_, matched := matchedCoordinators[address.String()]
 		if matched {
-			matchedCoordinators[address] = true
+			matchedCoordinators[address.String()] = true
 		} else {
 			return false
 		}
 	}
+
 	for _, matched := range matchedCoordinators {
 		if !matched {
 			return false
 		}
 	}
+
 	return true
 }
 
