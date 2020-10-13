@@ -588,7 +588,8 @@ type FoundationDBClusterAutomationOptions struct {
 
 // ProcessSettings defines process-level settings.
 type ProcessSettings struct {
-	// PodTemplate allows customizing the pod.
+	// PodTemplate allows customizing the pod. If a container image with a tag is specified the operator
+	// will throw an error and stop processing the cluster.
 	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 
 	// VolumeClaim allows customizing the persistent volume claim for the

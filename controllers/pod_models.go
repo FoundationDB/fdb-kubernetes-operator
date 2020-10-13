@@ -76,6 +76,29 @@ func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processC
 	}, nil
 }
 
+func getImage(imageName, curImage, defaultImage, versionString string) (string, error) {
+	var resImage string
+	if imageName != "" {
+		resImage = imageName
+	}
+
+	if curImage != "" {
+		resImage = curImage
+	}
+
+	if resImage == "" {
+		resImage = defaultImage
+	}
+
+	// If the specified image contains a tag return an error
+	res := strings.Split(resImage, ":")
+	if len(res) > 1 {
+		return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", res[1])
+	}
+
+	return fmt.Sprintf("%s:%s", resImage, versionString), nil
+}
+
 // GetPodSpec builds a pod spec for a FoundationDB pod
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -101,19 +124,16 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 
 	podName, instanceID := getInstanceID(cluster, processClass, idNum)
 
-	if cluster.Spec.MainContainer.ImageName != "" {
-		mainContainer.Image = cluster.Spec.MainContainer.ImageName
-	}
-	if mainContainer.Image == "" {
-		mainContainer.Image = "foundationdb/foundationdb"
-	}
-
 	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
 
-	mainContainer.Image = fmt.Sprintf("%s:%s", mainContainer.Image, versionString)
+	image, err := getImage(cluster.Spec.MainContainer.ImageName, mainContainer.Image, "foundationdb/foundationdb", versionString)
+	if err != nil {
+		return nil, err
+	}
+	mainContainer.Image = image
 
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
@@ -374,16 +394,8 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 	}
 
-	if overrides.ImageName != "" {
-		container.Image = overrides.ImageName
-	}
-
 	if version.PrefersCommandLineArgumentsInSidecar() && initMode {
 		sidecarArgs = append(sidecarArgs, "--init-mode")
-	}
-
-	if container.Image == "" {
-		container.Image = "foundationdb/foundationdb-kubernetes-sidecar"
 	}
 
 	extendEnv(container, sidecarEnv...)
@@ -400,7 +412,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		corev1.VolumeMount{Name: "config-map", MountPath: "/var/input-files"},
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
-	container.Image = fmt.Sprintf("%s:%s", container.Image, sidecarVersion)
+
+	image, err := getImage(overrides.ImageName, container.Image, "foundationdb/foundationdb-kubernetes-sidecar", sidecarVersion)
+	if err != nil {
+		return err
+	}
+	container.Image = image
 
 	var readOnlyRootFilesystem = true
 	if container.SecurityContext == nil {
@@ -614,10 +631,11 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		podTemplate.Spec.Containers = containers
 	}
 
-	if mainContainer.Image == "" {
-		mainContainer.Image = "foundationdb/foundationdb"
+	image, err := getImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version)
+	if err != nil {
+		return nil, err
 	}
-	mainContainer.Image = fmt.Sprintf("%s:%s", mainContainer.Image, backup.Spec.Version)
+	mainContainer.Image = image
 	mainContainer.Command = []string{"backup_agent"}
 	mainContainer.Args = []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
 	if mainContainer.Env == nil {
@@ -647,7 +665,7 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	err := configureSidecarContainerForBackup(backup, initContainer)
+	err = configureSidecarContainerForBackup(backup, initContainer)
 	if err != nil {
 		return nil, err
 	}
