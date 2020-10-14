@@ -59,32 +59,22 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			},
 		}
 	} else {
+		version, connectionString, err := tryConnectionOptions(cluster, r)
+		if err != nil {
+			return false, err
+		}
+		cluster.Status.RunningVersion = version
+		cluster.Status.ConnectionString = connectionString
+
 		adminClient, err := r.AdminClientProvider(cluster, r)
 		if err != nil {
 			return false, err
 		}
 		defer adminClient.Close()
+
 		databaseStatus, err = adminClient.GetStatus()
 		if err != nil {
-			if cluster.Spec.Version != cluster.Status.RunningVersion && cluster.Status.RunningVersion != "" {
-				log.Info("Failed to get status; falling back to version from spec", "runningVersion", cluster.Status.RunningVersion, "newVersion", cluster.Spec.Version)
-				originalRunningVersion := cluster.Status.RunningVersion
-				cluster.Status.RunningVersion = cluster.Spec.Version
-				fallbackAdminClient, clientErr := r.AdminClientProvider(cluster, r)
-				if clientErr != nil {
-					cluster.Status.RunningVersion = originalRunningVersion
-					return false, clientErr
-				}
-				defer fallbackAdminClient.Close()
-				databaseStatusFallback, errFallback := adminClient.GetStatus()
-				if errFallback != nil {
-					cluster.Status.RunningVersion = originalRunningVersion
-					return false, err
-				}
-				databaseStatus = databaseStatusFallback
-			} else {
-				return false, err
-			}
+			return false, err
 		}
 	}
 
@@ -380,4 +370,66 @@ func containsAll(current map[string]string, desired map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// tryConnectionOptions attempts to connect with all the combinations of
+// versions and connection strings for this cluster and returns the set that
+// allow connecting to the cluster.
+func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, string, error) {
+	versions := make(map[string]bool)
+	versions[cluster.Status.RunningVersion] = true
+	versions[cluster.Spec.Version] = true
+
+	connectionStrings := make(map[string]bool)
+	connectionStrings[cluster.Status.ConnectionString] = true
+	connectionStrings[cluster.Spec.SeedConnectionString] = true
+	delete(connectionStrings, "")
+
+	originalVersion := cluster.Status.RunningVersion
+	originalConnectionString := cluster.Status.ConnectionString
+
+	if len(versions) == 1 && len(connectionStrings) == 1 {
+		return originalVersion, originalConnectionString, nil
+	}
+
+	log.Info("Trying connection options",
+		"namespace", cluster.Namespace, "cluster", cluster.Name,
+		"version", versions, "connectionString", connectionStrings)
+
+	var firstError error = nil
+
+	defer func() { cluster.Status.RunningVersion = originalVersion }()
+	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
+
+	for version := range versions {
+		for connectionString := range connectionStrings {
+			log.Info("Attempting to get status from cluster",
+				"namespace", cluster.Namespace, "cluster", cluster.Name,
+				"version", version, "connectionString", connectionString)
+			cluster.Status.RunningVersion = version
+			cluster.Status.ConnectionString = connectionString
+			adminClient, clientErr := r.AdminClientProvider(cluster, r)
+
+			if clientErr != nil {
+				return originalVersion, originalConnectionString, clientErr
+			}
+			defer adminClient.Close()
+
+			output, err := adminClient.GetMinimalStatus()
+			if err == nil && !strings.Contains(output, "database is unavailable") {
+				log.Info("Chose connection option",
+					"namespace", cluster.Namespace, "cluster", cluster.Name,
+					"version", version, "connectionString", connectionString,
+					"statusOutput", output)
+				return version, connectionString, err
+			}
+			log.Error(err, "Error getting status from cluster",
+				"namespace", cluster.Namespace, "cluster", cluster.Name,
+				"version", version, "connectionString", connectionString)
+			if firstError == nil {
+				firstError = err
+			}
+		}
+	}
+	return originalVersion, originalConnectionString, firstError
 }
