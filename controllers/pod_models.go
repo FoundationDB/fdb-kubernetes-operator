@@ -273,10 +273,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		podSpec.AutomountServiceAccountToken = cluster.Spec.AutomountServiceAccountToken
 	}
 
-	headlessService, err := GetHeadlessService(cluster)
-	if err != nil {
-		return nil, err
-	}
+	headlessService := GetHeadlessService(cluster)
 
 	if headlessService != nil {
 		podSpec.Hostname = podName
@@ -750,23 +747,6 @@ func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBacku
 	deployment.ObjectMeta.Annotations[LastSpecKey] = specHash
 
 	return deployment, nil
-}
-
-// GetHeadlessService builds a headless service for a FoundationDB cluster.
-func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) (*corev1.Service, error) {
-	headless := cluster.Spec.Services.Headless
-	if headless == nil || !*headless {
-		return nil, nil
-	}
-
-	service := &corev1.Service{
-		ObjectMeta: getObjectMetadata(cluster, nil, "", ""),
-	}
-	service.ObjectMeta.Name = cluster.ObjectMeta.Name
-	service.Spec.ClusterIP = "None"
-	service.Spec.Selector = map[string]string{"fdb-cluster-name": cluster.Name}
-
-	return service, nil
 }
 
 // ensureContainerPresent looks for a container by name from a list, and adds

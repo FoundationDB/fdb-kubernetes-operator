@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,26 +36,22 @@ type RemoveServices struct{}
 
 // Reconcile runs the reconciler's work.
 func (u RemoveServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	service, err := GetHeadlessService(cluster)
-	if err != nil {
-		return false, err
-	}
-
-	if service != nil {
+	if GetHeadlessService(cluster) != nil {
 		return true, nil
 	}
 
-	existingServices := &corev1.ServiceList{}
-	err = r.List(context, existingServices, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", cluster.Name))
+	existingService := &corev1.Service{}
+	err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
 		return false, err
 	}
 
-	if len(existingServices.Items) > 0 {
-		err = r.Delete(context, &existingServices.Items[0])
-		if err != nil {
-			return false, err
-		}
+	err = r.Delete(context, existingService)
+	if err != nil {
+		return false, err
 	}
 
 	return true, nil
