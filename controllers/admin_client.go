@@ -60,6 +60,9 @@ type AdminClient interface {
 	// GetStatus gets the database's status
 	GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
+	// GetMinimalStatus gets a one-line summary of the database's status.
+	GetMinimalStatus() (string, error)
+
 	// ConfigureDatabase sets the database configuration
 	ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error
 
@@ -275,6 +278,11 @@ func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 		return nil, err
 	}
 	return status, nil
+}
+
+// GetMinimalStatus gets a one-line summary of the database's status.
+func (client *CliAdminClient) GetMinimalStatus() (string, error) {
+	return client.runCommand(cliCommand{command: "status minimal"})
 }
 
 // ConfigureDatabase sets the database configuration
@@ -681,7 +689,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 	coordinators := make(map[string]bool)
 	var coordinatorAddresses []string
-	if client.Cluster.Status.ConnectionString != "" {
+	if strings.Contains(client.Cluster.Status.ConnectionString, "@") {
 		coordinatorAddresses = strings.Split(strings.Split(client.Cluster.Status.ConnectionString, "@")[1], ",")
 	} else {
 		coordinatorAddresses = []string{}
@@ -787,6 +795,11 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	return status, nil
+}
+
+// GetMinimalStatus gets a one-line summary of the database's status.
+func (client *MockAdminClient) GetMinimalStatus() (string, error) {
+	return "The database is available", nil
 }
 
 // ConfigureDatabase changes the database configuration
