@@ -1,3 +1,8 @@
+# v0.21.1
+
+*	Allow promoting the seed connection string to the official connection
+	string when the official one is not working.
+
 # v0.21.0
 
 *	Adds initial support for gloangci-lint support.
