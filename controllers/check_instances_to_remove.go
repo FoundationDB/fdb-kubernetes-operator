@@ -50,9 +50,12 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 
 	for _, instanceID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		removalState := removals[instanceID]
-		removalState.ExclusionComplete = true
-		removalState.ExclusionStarted = true
-		removals[instanceID] = removalState
+		if !removalState.ExclusionComplete {
+			removalState.ExclusionComplete = true
+			removalState.ExclusionStarted = true
+			log.Info("Skipping exclusion based on instancesToRemoveWithoutExclusion", "namespace", cluster.Namespace, "name", cluster.Name, "instance", instanceID)
+			removals[instanceID] = removalState
+		}
 	}
 
 	var finalRemovals = make(map[string]fdbtypes.PendingRemovalState, len(removals))
@@ -67,7 +70,7 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 			newRemovalState.ExclusionStarted = oldRemovalState.ExclusionStarted
 			newRemovalState.ExclusionComplete = oldRemovalState.ExclusionComplete
 			finalRemovals[instanceID] = newRemovalState
-		} else if oldRemovalState.PodName != "" {
+		} else if oldRemovalState.HadInstance {
 			finalRemovals[instanceID] = oldRemovalState
 		}
 	}

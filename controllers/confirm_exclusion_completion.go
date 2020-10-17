@@ -52,33 +52,43 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 		}
 	}
 
-	remaining := addresses
-	for len(remaining) > 0 {
-		remaining, err = adminClient.CanSafelyRemove(addresses)
-		if err != nil {
-			return false, err
-		}
-		if len(remaining) != len(addresses) {
-			remainingMap := make(map[string]bool, len(remaining))
-			for _, address := range remaining {
-				remainingMap[address] = true
+	if len(addresses) == 0 {
+		return true, nil
+	}
+
+	remaining, err := adminClient.CanSafelyRemove(addresses)
+	if err != nil {
+		return false, err
+	}
+	if len(remaining) > 0 {
+		log.Info("Waiting for exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
+		return false, nil
+	}
+
+	remainingMap := make(map[string]bool, len(remaining))
+	for _, address := range addresses {
+		remainingMap[address] = false
+	}
+	for _, address := range remaining {
+		remainingMap[address] = true
+	}
+	for id, state := range cluster.Status.PendingRemovals {
+		fullAddress := cluster.GetFullAddress(state.Address)
+		isRemaining, isPresent := remainingMap[fullAddress]
+		if !state.ExclusionComplete {
+			if !isPresent {
+				log.Info("Process missing in exclusion results", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", fullAddress)
+			} else if !isRemaining {
+				newState := state
+				log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", fullAddress)
+				newState.ExclusionComplete = true
+				cluster.Status.PendingRemovals[id] = newState
 			}
-			for id, state := range cluster.Status.PendingRemovals {
-				if !remainingMap[state.Address] {
-					newState := state
-					newState.ExclusionComplete = true
-					cluster.Status.PendingRemovals[id] = newState
-				}
-			}
-			err = r.updatePendingRemovals(context, cluster)
-			if err != nil {
-				return false, err
-			}
 		}
-		if len(remaining) > 0 {
-			log.Info("Waiting for exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
-			time.Sleep(time.Second)
-		}
+	}
+	err = r.updatePendingRemovals(context, cluster)
+	if err != nil {
+		return false, err
 	}
 
 	return true, nil

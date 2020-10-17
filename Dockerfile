@@ -3,7 +3,6 @@ FROM golang:1.15.2 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.25
-ARG FDB_ADDITIONAL_VERSIONS="6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
@@ -15,26 +14,20 @@ RUN set -eux && \
 	update-ca-certificates --fresh && \
 	curl $FDB_WEBSITE/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
-	for version in ${FDB_VERSION} ${FDB_ADDITIONAL_VERSIONS}; do \
-		minor=${version%.*} && \
-		mkdir -p /usr/bin/fdb/$minor/tmp && \
-		curl $FDB_WEBSITE/downloads/$version/linux/fdb_$version.tar.gz -o /usr/bin/fdb/$minor/binaries.tar.gz && \
-		tar --strip-components=1 -C /usr/bin/fdb/$minor/tmp -xzf /usr/bin/fdb/$minor/binaries.tar.gz && \
-		rm /usr/bin/fdb/$minor/binaries.tar.gz && \
-		for binary in fdbcli fdbbackup fdbrestore; do \
-			mv /usr/bin/fdb/$minor/tmp/$binary /usr/bin/fdb/$minor/$binary; \
-		done && \
-		rm -r /usr/bin/fdb/$minor/tmp && \
-		chmod u+x /usr/bin/fdb/$minor/fdb* \
-		|| exit; \
-	done && \
 	mkdir -p /usr/lib/fdb && \
-	for VERSION in ${FDB_ADDITIONAL_VERSIONS}; do \
-		curl $FDB_WEBSITE/downloads/$VERSION/linux/libfdb_c_$VERSION.so -o /usr/lib/fdb/libfdb_c_$VERSION.so \
-		|| exit; \
-	done && \
 	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
 	update-ca-certificates --fresh
+
+# Copy 6.2 binaries
+COPY --from=foundationdb/foundationdb:6.2.25 /usr/bin/fdb* /usr/bin/fdb/6.2/
+
+# Copy 6.1 binaries
+COPY --from=foundationdb/foundationdb:6.1.13 /usr/bin/fdb* /usr/bin/fdb/6.1/
+COPY --from=foundationdb/foundationdb:6.1.13 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.1.so
+
+# Copy 6.3 binaries
+COPY --from=foundationdb/foundationdb:6.3.5 /usr/bin/fdb* /usr/bin/fdb/6.3/
+COPY --from=foundationdb/foundationdb:6.3.5 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.3.so
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

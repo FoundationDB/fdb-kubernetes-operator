@@ -426,6 +426,9 @@ type PendingRemovalState struct {
 
 	// Whether we have completed the exclusion.
 	ExclusionComplete bool `json:"exclusionComplete,omitempty"`
+
+	// Whether this removal has ever corresponded to a real instance.
+	HadInstance bool `json:"hadInstance,omitempty"`
 }
 
 // RoleCounts represents the roles whose counts can be customized.
