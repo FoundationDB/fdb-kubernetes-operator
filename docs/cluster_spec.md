@@ -469,6 +469,7 @@ PendingRemovalState holds information about a process that is being removed.
 | address | The public address of the process. | string | false |
 | exclusionStarted | Whether we have started the exclusion. | bool | false |
 | exclusionComplete | Whether we have completed the exclusion. | bool | false |
+| hadInstance | Whether this removal has ever corresponded to a real instance. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
