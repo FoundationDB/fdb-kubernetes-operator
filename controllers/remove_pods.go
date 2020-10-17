@@ -40,7 +40,11 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		return true, nil
 	}
 	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", cluster.Status.PendingRemovals))
-	for _, state := range cluster.Status.PendingRemovals {
+	for id, state := range cluster.Status.PendingRemovals {
+		if !state.ExclusionComplete {
+			log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id)
+			return false, nil
+		}
 		if state.PodName != "" {
 			err := r.removePod(context, cluster, state.PodName)
 			if err != nil {
