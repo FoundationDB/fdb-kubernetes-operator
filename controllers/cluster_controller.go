@@ -596,6 +596,10 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("locality_zoneid = %s", zoneVariable),
 	)
 
+	if processClass == "fast_restore" {
+		confLines = append(confLines, "blob_credential_file = /var/secrets/blob_credentials.json")
+	}
+
 	if cluster.Spec.DataCenter != "" {
 		confLines = append(confLines, fmt.Sprintf("locality_dcid = %s", cluster.Spec.DataCenter))
 	}

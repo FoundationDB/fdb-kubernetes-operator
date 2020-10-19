@@ -2366,6 +2366,34 @@ var _ = Describe("cluster_controller", func() {
 				}, "\n")))
 			})
 		})
+
+		Context("with a fast restore process", func() {
+			BeforeEach(func() {
+				conf, err = GetMonitorConf(cluster, "fast_restore", nil, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the blob credentials", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = fast_restore",
+					"datadir = /var/fdb/data",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"blob_credential_file = /var/secrets/blob_credentials.json",
+				}, "\n")))
+			})
+		})
 	})
 
 	Describe("GetStartCommand", func() {
