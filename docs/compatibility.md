@@ -51,8 +51,8 @@ fields or defaults.
 		        - image: foundationdb/fdb-kubernetes-operator:$version
 		          name: fdb-deprecation-check
 		          args:
-		          - --check-deprecations
-		            restartPolicy: Never
+		            - --check-deprecations
+		      restartPolicy: Never
 
 Make sure to fill in the `$version` placeholder with the version of the operator
 that you are running in your cluster.
