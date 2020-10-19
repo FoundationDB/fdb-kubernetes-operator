@@ -736,7 +736,7 @@ func ensurePodTemplatePresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	spec.Processes["general"] = generalSettings
 }
 
-// ensureCustomParametersPresent defines custom parameters the general process
+// ensureCustomParametersPresent defines custom parameters for the general process
 // settings.
 func ensureCustomParametersPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
