@@ -39,20 +39,20 @@ clusters safely.
 At this point, you can run a job to check your cluster specs for deprecated
 fields or defaults. 
 
-		---
-		apiVersion: batch/v1
-		kind: Job
-		metadata:
-		  name: fdb-deprecation-check
-		spec:
-		  template:
-		    spec:
-		      containers:
-		        - image: foundationdb/fdb-kubernetes-operator:$version
-		          name: fdb-deprecation-check
-		          args:
-		            - --check-deprecations
-		      restartPolicy: Never
+	--- 
+	apiVersion: batch/v1
+	kind: Job
+	metadata:
+	  name: fdb-deprecation-check
+	spec:
+	  template:
+	    spec:
+	      containers:
+	        - image: foundationdb/fdb-kubernetes-operator:$version
+	          name: fdb-deprecation-check
+	          args:
+	            - --check-deprecations
+	      restartPolicy: Never
 
 Make sure to fill in the `$version` placeholder with the version of the operator
 that you are running in your cluster.
