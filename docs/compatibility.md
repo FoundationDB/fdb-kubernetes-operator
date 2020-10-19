@@ -10,6 +10,7 @@ manageable. The breaks may include:
 * Changing the default values when fields are omitted in the spec
 * Removing flags and environment variables from the operator
 * Removing behavior from the operator
+* Removing deprecated metrics
 
 This document will contain general information about how to manage major version
 upgrades, as well as version-specific notes on things you may need to do during
@@ -42,16 +43,16 @@ fields or defaults.
 		apiVersion: batch/v1
 		kind: Job
 		metadata:
-			name: fdb-deprecation-check
+		  name: fdb-deprecation-check
 		spec:
-			template:
-				spec:
-					containers:
-					-	image: foundationdb/fdb-kubernetes-operator:$version
-						name: fdb-deprecation-check
-						args:
-						-	--check-deprecations
-					restartPolicy: Never
+		  template:
+		    spec:
+		      containers:
+		        - image: foundationdb/fdb-kubernetes-operator:$version
+		          name: fdb-deprecation-check
+		          args:
+		          - --check-deprecations
+		            restartPolicy: Never
 
 Make sure to fill in the `$version` placeholder with the version of the operator
 that you are running in your cluster.

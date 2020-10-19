@@ -128,9 +128,8 @@ func main() {
 		if err != nil {
 			setupLog.Error(err, "unable to check deprecations")
 			os.Exit(1)
-		} else {
-			os.Exit(0)
 		}
+		os.Exit(0)
 	}
 
 	if err = clusterReconciler.SetupWithManager(mgr); err != nil {
