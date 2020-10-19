@@ -75,9 +75,9 @@ func mergeAnnotations(target *metav1.ObjectMeta, desired metav1.ObjectMeta) bool
 	return changed
 }
 
-// defaultsSelection controls how defaults that are changing get applied to our
-// specs.
-type defaultsSelection struct {
+// DeprecationOptions controls how deprecations and changes to defaults
+// get applied to our specs.
+type DeprecationOptions struct {
 	// Whether we should apply the latest defaults rather than the defaults that
 	// were initially established for this major version.
 	UseFutureDefaults bool

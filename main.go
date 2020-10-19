@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"io"
 	"os"
@@ -48,7 +49,9 @@ func main() {
 	var enableLeaderElection bool
 	var logFile string
 	var cliTimeout int
+	var deprecationOptions controllers.DeprecationOptions
 	var useFutureDefaults bool
+	var checkDeprecations bool
 
 	fdb.MustAPIVersion(610)
 
@@ -57,10 +60,15 @@ func main() {
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
 	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
-	flag.BoolVar(&useFutureDefaults, "use-future-defaults", false,
+	flag.BoolVar(&deprecationOptions.UseFutureDefaults, "use-future-defaults", false,
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
+	flag.BoolVar(&checkDeprecations, "check-deprecations", false,
+		"Check for deprecated fields and then exit",
+	)
 	flag.Parse()
+
+	deprecationOptions.OnlyShowChanges = checkDeprecations
 
 	var logWriter io.Writer
 	if logFile != "" {
@@ -110,6 +118,18 @@ func main() {
 		AdminClientProvider: controllers.NewCliAdminClient,
 		LockClientProvider:  controllers.NewRealLockClient,
 		UseFutureDefaults:   useFutureDefaults,
+		Namespace:           namespace,
+		DeprecationOptions:  deprecationOptions,
+	}
+
+	if checkDeprecations {
+		go startCache(mgr)
+		err = clusterReconciler.CheckDeprecations(context.Background())
+		if err != nil {
+			setupLog.Error(err, "unable to check deprecations")
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	if err = clusterReconciler.SetupWithManager(mgr); err != nil {
@@ -153,5 +173,13 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+// startCache manually starts the controller manager cache.
+func startCache(mgr ctrl.Manager) {
+	err := mgr.GetCache().Start(ctrl.SetupSignalHandler())
+	if err != nil {
+		panic(err)
 	}
 }
