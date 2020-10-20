@@ -1,3 +1,9 @@
+# v0.21.2
+
+*	Fix the logic for checking the addresses in the exclusion results.
+*	Add more logging to the exclusion and removal process.
+*	Refactor the no-wait excludes to use a cleaner retry process.
+
 # v0.21.1
 
 *	Allow promoting the seed connection string to the official connection
