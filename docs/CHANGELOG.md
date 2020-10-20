@@ -1,3 +1,14 @@
+# v0.21.2
+
+*	Fix the logic for checking the addresses in the exclusion results.
+*	Add more logging to the exclusion and removal process.
+*	Refactor the no-wait excludes to use a cleaner retry process.
+
+# v0.21.1
+
+*	Allow promoting the seed connection string to the connection string in the
+	status if the one in the status is not working.
+
 # v0.21.0
 
 *	Adds initial support for gloangci-lint support.
