@@ -163,12 +163,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration {
-		log.Info("Cluster was not fully reconciled by reconciliation process")
+		log.Info("Cluster was not fully reconciled by reconciliation process", "namespace", cluster.Namespace, "cluster", cluster.Name, "status", cluster.Status)
 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	log.Info("Reconciliation complete", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	log.Info("Reconciliation complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "generation", cluster.Status.Generations.Reconciled)
 
 	return ctrl.Result{}, nil
 }
@@ -702,7 +702,8 @@ func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.Foundati
 // to remove.
 func (r *FoundationDBClusterReconciler) getPendingRemovalState(instance FdbInstance) fdbtypes.PendingRemovalState {
 	state := fdbtypes.PendingRemovalState{
-		PodName: instance.Metadata.Name,
+		PodName:     instance.Metadata.Name,
+		HadInstance: true,
 	}
 	if instance.Pod != nil {
 		var ip string

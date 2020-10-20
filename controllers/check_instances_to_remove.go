@@ -50,25 +50,32 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 
 	for _, instanceID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		removalState := removals[instanceID]
-		removalState.ExclusionComplete = true
-		removalState.ExclusionStarted = true
-		removals[instanceID] = removalState
+		if !removalState.ExclusionComplete {
+			removalState.ExclusionComplete = true
+			removalState.ExclusionStarted = true
+			log.Info("Skipping exclusion based on instancesToRemoveWithoutExclusion", "namespace", cluster.Namespace, "name", cluster.Name, "instance", instanceID)
+			removals[instanceID] = removalState
+		}
 	}
 
 	var finalRemovals = make(map[string]fdbtypes.PendingRemovalState, len(removals))
 
 	for instanceID, oldRemovalState := range removals {
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID}))
-		if err != nil {
-			return false, err
-		}
-		if len(instances) > 0 {
-			newRemovalState := r.getPendingRemovalState(instances[0])
-			newRemovalState.ExclusionStarted = oldRemovalState.ExclusionStarted
-			newRemovalState.ExclusionComplete = oldRemovalState.ExclusionComplete
-			finalRemovals[instanceID] = newRemovalState
-		} else if oldRemovalState.PodName != "" {
+		if oldRemovalState.HadInstance && oldRemovalState.ExclusionComplete {
 			finalRemovals[instanceID] = oldRemovalState
+		} else {
+			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID}))
+			if err != nil {
+				return false, err
+			}
+			if len(instances) > 0 {
+				newRemovalState := r.getPendingRemovalState(instances[0])
+				newRemovalState.ExclusionStarted = oldRemovalState.ExclusionStarted
+				newRemovalState.ExclusionComplete = oldRemovalState.ExclusionComplete
+				finalRemovals[instanceID] = newRemovalState
+			} else if oldRemovalState.HadInstance {
+				finalRemovals[instanceID] = oldRemovalState
+			}
 		}
 	}
 
