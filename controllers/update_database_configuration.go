@@ -105,11 +105,11 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 				return false, err
 			}
 
-			hasLock, err := lockClient.TakeLock()
+			lock, err := lockClient.TakeLock()
 			if err != nil {
 				return false, err
 			}
-			if !hasLock {
+			if lock == nil {
 				log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
 				r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before reconfiguring the database")
 				return false, nil

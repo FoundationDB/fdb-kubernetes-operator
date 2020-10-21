@@ -31,10 +31,20 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
 
+// LockDuration determines how long locks are valid for.
+var LockDuration = 10 * time.Minute
+
+// LockAggregationDelay determines how long we wait after getting a lock before
+// moving ahead with an operation that uses aggregated values.
+var LockAggregationDelay = 2 * time.Minute
+
 // LockClient provides a client for getting locks on operations for a cluster.
 type LockClient interface {
+	// GetCluster provides the cluster this client is working on.
+	GetCluster() *fdbtypes.FoundationDBCluster
+
 	// TakeLock attempts to acquire a lock.
-	TakeLock() (bool, error)
+	TakeLock() (*Lock, error)
 
 	// SubmitAggregatedOperation submits values that should be operated on
 	// by whichever operator has the lock.
@@ -50,6 +60,12 @@ type LockClient interface {
 
 	// Close cleans up any resources that the client needs to keep open.
 	Close() error
+}
+
+// Lock provides data about a lock that has been acquired.
+type Lock struct {
+	// AcquisitionTime provides the time when the lock was acquired.
+	AcquisitionTime time.Time
 }
 
 // LockClientProvider provides a dependency injection for creating a lock client.
@@ -72,13 +88,18 @@ type RealLockClient struct {
 	database fdb.Database
 }
 
+// GetCluster provides the cluster this client is working on.
+func (client *RealLockClient) GetCluster() *fdbtypes.FoundationDBCluster {
+	return client.cluster
+}
+
 // TakeLock attempts to acquire a lock.
-func (client *RealLockClient) TakeLock() (bool, error) {
+func (client *RealLockClient) TakeLock() (*Lock, error) {
 	if client.disableLocks {
-		return true, nil
+		return &Lock{AcquisitionTime: time.Now()}, nil
 	}
 
-	hasLock, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+	lock, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {
 			return false, err
@@ -89,7 +110,7 @@ func (client *RealLockClient) TakeLock() (bool, error) {
 
 		if len(lockValue) == 0 {
 			log.Info("Setting initial lock")
-			return client.takeLockDirect(transaction)
+			return client.takeLockDirect(transaction, nil)
 		}
 
 		lockTuple, err := tuple.Unpack(lockValue)
@@ -101,14 +122,9 @@ func (client *RealLockClient) TakeLock() (bool, error) {
 			return false, InvalidLockValue{key: lockKey, value: lockValue}
 		}
 
-		endTime, valid := lockTuple[2].(int64)
+		startTime, valid := lockTuple[1].(int64)
 		if !valid {
 			return false, InvalidLockValue{key: lockKey, value: lockValue}
-		}
-
-		if endTime < time.Now().Unix() {
-			log.Info("Clearing expired lock", "previousLockValue", lockValue)
-			return client.takeLockDirect(transaction)
 		}
 
 		ownerID, valid := lockTuple[0].(string)
@@ -116,9 +132,30 @@ func (client *RealLockClient) TakeLock() (bool, error) {
 			return false, InvalidLockValue{key: lockKey, value: lockValue}
 		}
 
-		return ownerID == client.cluster.GetLockID(), nil
+		endTime, valid := lockTuple[2].(int64)
+		if !valid {
+			return false, InvalidLockValue{key: lockKey, value: lockValue}
+		}
+
+		ownsLock := ownerID == client.cluster.GetLockID()
+
+		if endTime < time.Now().Unix() {
+			log.Info("Clearing expired lock", "previousLockValue", lockValue)
+			var startTimeToReuse *int64
+			if ownsLock {
+				startTimeToReuse = &startTime
+			} else {
+				startTimeToReuse = nil
+			}
+			return client.takeLockDirect(transaction, startTimeToReuse)
+		}
+
+		if ownsLock {
+			return &Lock{AcquisitionTime: time.Unix(startTime, 0)}, nil
+		}
+		return nil, nil
 	})
-	return hasLock.(bool), err
+	return lock.(*Lock), err
 }
 
 // SubmitAggregatedOperation submits values that should be operated on
@@ -231,10 +268,16 @@ func (err InvalidLockValue) Error() string {
 }
 
 // TakeLock attempts to acquire a lock.
-func (client *RealLockClient) takeLockDirect(transaction fdb.Transaction) (interface{}, error) {
+func (client *RealLockClient) takeLockDirect(transaction fdb.Transaction, startTimeToReuse *int64) (interface{}, error) {
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	start := time.Now()
-	end := start.Add(time.Minute * 10)
+	var start time.Time
+	if startTimeToReuse == nil {
+		start = time.Now()
+	} else {
+		start = time.Unix(*startTimeToReuse, 0)
+	}
+
+	end := start.Add(LockDuration)
 	lockValue := tuple.Tuple{
 		client.cluster.GetLockID(),
 		start.Unix(),
@@ -297,9 +340,14 @@ type MockLockClient struct {
 	aggregations map[string][]string
 }
 
+// GetCluster provides the cluster this client is working on.
+func (client *MockLockClient) GetCluster() *fdbtypes.FoundationDBCluster {
+	return client.cluster
+}
+
 // TakeLock attempts to acquire a lock.
-func (client *MockLockClient) TakeLock() (bool, error) {
-	return true, nil
+func (client *MockLockClient) TakeLock() (*Lock, error) {
+	return &Lock{AcquisitionTime: time.Unix(0, 0)}, nil
 }
 
 // SubmitAggregatedOperation submits values that should be operated on
@@ -344,4 +392,23 @@ func (client *MockLockClient) Close() error {
 // NewMockLockClient creates a mock lock client.
 func NewMockLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
 	return &MockLockClient{cluster: cluster, aggregations: make(map[string][]string)}, nil
+}
+
+// TakeLockWithAggregationDelay attempts to acquire a lock, but adds an
+// additional delay beyond the initial acquisition time to allow a window for
+// other aggregations.
+func TakeLockWithAggregationDelay(client LockClient) (*Lock, error) {
+	lock, err := client.TakeLock()
+	if lock == nil || err != nil {
+		return lock, err
+	}
+
+	desiredAcquisitionTime := time.Now().Add(-1 * LockAggregationDelay)
+
+	if lock.AcquisitionTime.After(desiredAcquisitionTime) {
+		log.Info("Waiting for aggregated values for lock", "namespace", client.GetCluster().Namespace, "cluster", client.GetCluster().Name, "lockAcquisitionTime", lock.AcquisitionTime)
+		return nil, nil
+	}
+
+	return lock, nil
 }

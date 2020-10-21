@@ -73,9 +73,15 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 			return false, err
 		}
 
-		hasLock, err := lockClient.TakeLock()
-		if !hasLock || err != nil {
+		lock, err := TakeLockWithAggregationDelay(lockClient)
+		if err != nil {
 			return false, err
+		}
+
+		if lock == nil {
+			log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before excluding instances")
+			return false, nil
 		}
 
 		combinedAddresses, err := lockClient.RetrieveAggregatedOperation("exclude")
