@@ -32,7 +32,7 @@ import (
 )
 
 // LockDuration determines how long locks are valid for.
-var LockDuration = 10 * time.Minute
+var LockDuration = 60 * time.Minute
 
 // LockAggregationDelay determines how long we wait after getting a lock before
 // moving ahead with an operation that uses aggregated values.
@@ -102,7 +102,7 @@ func (client *RealLockClient) TakeLock() (*Lock, error) {
 	lock, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 
 		lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
@@ -110,44 +110,38 @@ func (client *RealLockClient) TakeLock() (*Lock, error) {
 
 		if len(lockValue) == 0 {
 			log.Info("Setting initial lock")
-			return client.takeLockDirect(transaction, nil)
+			return client.takeLockDirect(transaction)
 		}
 
 		lockTuple, err := tuple.Unpack(lockValue)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 
 		if len(lockTuple) < 3 {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
+			return nil, InvalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		startTime, valid := lockTuple[1].(int64)
 		if !valid {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
+			return nil, InvalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		ownerID, valid := lockTuple[0].(string)
 		if !valid {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
+			return nil, InvalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		endTime, valid := lockTuple[2].(int64)
 		if !valid {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
+			return nil, InvalidLockValue{key: lockKey, value: lockValue}
 		}
 
 		ownsLock := ownerID == client.cluster.GetLockID()
 
 		if endTime < time.Now().Unix() {
 			log.Info("Clearing expired lock", "previousLockValue", lockValue)
-			var startTimeToReuse *int64
-			if ownsLock {
-				startTimeToReuse = &startTime
-			} else {
-				startTimeToReuse = nil
-			}
-			return client.takeLockDirect(transaction, startTimeToReuse)
+			return client.takeLockDirect(transaction)
 		}
 
 		if ownsLock {
@@ -155,6 +149,10 @@ func (client *RealLockClient) TakeLock() (*Lock, error) {
 		}
 		return nil, nil
 	})
+
+	if lock == nil {
+		return nil, err
+	}
 	return lock.(*Lock), err
 }
 
@@ -268,15 +266,9 @@ func (err InvalidLockValue) Error() string {
 }
 
 // TakeLock attempts to acquire a lock.
-func (client *RealLockClient) takeLockDirect(transaction fdb.Transaction, startTimeToReuse *int64) (interface{}, error) {
+func (client *RealLockClient) takeLockDirect(transaction fdb.Transaction) (interface{}, error) {
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	var start time.Time
-	if startTimeToReuse == nil {
-		start = time.Now()
-	} else {
-		start = time.Unix(*startTimeToReuse, 0)
-	}
-
+	start := time.Now()
 	end := start.Add(LockDuration)
 	lockValue := tuple.Tuple{
 		client.cluster.GetLockID(),
@@ -285,7 +277,7 @@ func (client *RealLockClient) takeLockDirect(transaction fdb.Transaction, startT
 	}
 	log.Info("Setting new lock", "lockValue", lockValue)
 	transaction.Set(lockKey, lockValue.Pack())
-	return true, nil
+	return &Lock{AcquisitionTime: start}, nil
 }
 
 // Close cleans up any resources that the client needs to keep open.
