@@ -276,6 +276,17 @@ var _ = Describe("cluster_controller", func() {
 					cluster.GetFullAddress(MockPodIP(&removedItem)): true,
 				}))
 			})
+
+			It("should remove the exclusion list from the lock client", func() {
+				lockClient, err := clusterReconciler.getLockClient(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				mockLockClient, validCast := lockClient.(*MockLockClient)
+				Expect(validCast).To(BeTrue())
+
+				values, present := mockLockClient.aggregations["exclude"]
+				Expect(len(values)).To(Equal(0))
+				Expect(present).To(BeTrue())
+			})
 		})
 
 		Context("with an increased process count", func() {

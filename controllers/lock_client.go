@@ -36,6 +36,18 @@ type LockClient interface {
 	// TakeLock attempts to acquire a lock.
 	TakeLock() (bool, error)
 
+	// SubmitAggregatedOperation submits values that should be operated on
+	// by whichever operator has the lock.
+	SubmitAggregatedOperation(string, []string) error
+
+	// RetrieveAggregatedOperation retrieves values that should be operated on
+	// by whichever operator has the lock.
+	RetrieveAggregatedOperation(string) ([]string, error)
+
+	// ClearAggregatedOperation removes values that have been executed in an
+	// aggregated operation.
+	ClearAggregatedOperation(string, []string) error
+
 	// Close cleans up any resources that the client needs to keep open.
 	Close() error
 }
@@ -107,6 +119,103 @@ func (client *RealLockClient) TakeLock() (bool, error) {
 		return ownerID == client.cluster.GetLockID(), nil
 	})
 	return hasLock.(bool), err
+}
+
+// SubmitAggregatedOperation submits values that should be operated on
+// by whichever operator has the lock.
+func (client *RealLockClient) SubmitAggregatedOperation(operation string, values []string) error {
+	if client.disableLocks {
+		return nil
+	}
+
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		err := transaction.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, value := range values {
+			key := fdb.Key(fmt.Sprintf("%s/operations/%s/%s",
+				client.cluster.GetLockPrefix(),
+				operation,
+				value,
+			))
+
+			transaction.Set(key, []byte(value))
+		}
+		return nil, nil
+	})
+	return err
+}
+
+// RetrieveAggregatedOperation retrieves values that should be operated on
+// by whichever operator has the lock.
+func (client *RealLockClient) RetrieveAggregatedOperation(operation string) ([]string, error) {
+	if client.disableLocks {
+		return nil, nil
+	}
+
+	values, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		err := transaction.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		prefix := fmt.Sprintf("%s/operations/%s/",
+			client.cluster.GetLockPrefix(),
+			operation,
+		)
+		prefixRange, err := fdb.PrefixRange([]byte(prefix))
+		if err != nil {
+			return nil, err
+		}
+
+		resultHandle := transaction.GetRange(prefixRange, fdb.RangeOptions{})
+
+		results, err := resultHandle.GetSliceWithError()
+		if err != nil {
+			return nil, err
+		}
+
+		values := make([]string, len(results))
+		for index, entry := range results {
+			values[index] = string(entry.Value)
+		}
+
+		return values, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return values.([]string), nil
+}
+
+// ClearAggregatedOperation removes values that have been executed in an
+// aggregated operation.
+func (client *RealLockClient) ClearAggregatedOperation(operation string, values []string) error {
+
+	if client.disableLocks {
+		return nil
+	}
+
+	_, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		err := transaction.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, value := range values {
+			key := fdb.Key(fmt.Sprintf("%s/operations/%s/%s",
+				client.cluster.GetLockPrefix(),
+				operation,
+				value,
+			))
+
+			transaction.Clear(key)
+		}
+		return nil, nil
+	})
+	return err
 }
 
 // InvalidLockValue is an error we can return when we cannot parse the existing
@@ -182,11 +291,49 @@ func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error
 type MockLockClient struct {
 	// cluster stores the cluster this client is working with.
 	cluster *fdbtypes.FoundationDBCluster
+
+	// aggregations stores values that have been submitted for aggregated
+	// operations.
+	aggregations map[string][]string
 }
 
 // TakeLock attempts to acquire a lock.
 func (client *MockLockClient) TakeLock() (bool, error) {
 	return true, nil
+}
+
+// SubmitAggregatedOperation submits values that should be operated on
+// by whichever operator has the lock.
+func (client *MockLockClient) SubmitAggregatedOperation(operation string, values []string) error {
+	client.aggregations[operation] = append(client.aggregations[operation], values...)
+	return nil
+}
+
+// RetrieveAggregatedOperation retrieves values that should be operated on
+// by whichever operator has the lock.
+func (client *MockLockClient) RetrieveAggregatedOperation(operation string) ([]string, error) {
+	values := client.aggregations[operation]
+	if values == nil {
+		return []string{}, nil
+	}
+	return values, nil
+}
+
+// ClearAggregatedOperation removes values that have been executed in an
+// aggregated operation.
+func (client *MockLockClient) ClearAggregatedOperation(operation string, values []string) error {
+	newValues := make([]string, 0, len(client.aggregations[operation]))
+	valuesToRemove := make(map[string]bool, len(values))
+	for _, value := range values {
+		valuesToRemove[value] = true
+	}
+	for _, value := range client.aggregations[operation] {
+		if !valuesToRemove[value] {
+			newValues = append(newValues, value)
+		}
+	}
+	client.aggregations[operation] = newValues
+	return nil
 }
 
 // Close cleans up any resources that the client needs to keep open.
@@ -196,5 +343,5 @@ func (client *MockLockClient) Close() error {
 
 // NewMockLockClient creates a mock lock client.
 func NewMockLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	return &MockLockClient{cluster: cluster}, nil
+	return &MockLockClient{cluster: cluster, aggregations: make(map[string][]string)}, nil
 }

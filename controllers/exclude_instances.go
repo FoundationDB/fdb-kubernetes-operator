@@ -62,17 +62,42 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 	if len(addresses) > 0 {
 		r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
-		err = adminClient.ExcludeInstances(addresses)
 
-		if hasExclusionUpdates && !version.HasNonBlockingExcludes() {
-			updateErr := r.updatePendingRemovals(context, cluster)
+		lockClient, err := r.getLockClient(cluster)
+		if err != nil {
+			return false, err
+		}
+
+		err = lockClient.SubmitAggregatedOperation("exclude", addresses)
+		if err != nil {
+			return false, err
+		}
+
+		hasLock, err := lockClient.TakeLock()
+		if !hasLock || err != nil {
+			return false, err
+		}
+
+		combinedAddresses, err := lockClient.RetrieveAggregatedOperation("exclude")
+		if err != nil {
+			return false, err
+		}
+		if combinedAddresses == nil {
+			combinedAddresses = addresses
+		}
+
+		err = adminClient.ExcludeInstances(combinedAddresses)
+
+		if err != nil && !version.HasNonBlockingExcludes() {
+			return false, err
+		}
+
+		if hasExclusionUpdates {
+			updateErr := updatePendingRemovals(r, context, cluster, lockClient, combinedAddresses)
 			if updateErr != nil {
 				return false, updateErr
 			}
 			hasExclusionUpdates = false
-		}
-		if err != nil {
-			return false, err
 		}
 	}
 
@@ -84,6 +109,22 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	return true, nil
+}
+
+// updatePendingRemovals Updates the pending removals and the aggregated
+// operations after an exclusion.
+func updatePendingRemovals(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, lockClient LockClient, addresses []string) error {
+	err := lockClient.ClearAggregatedOperation("exclude", addresses)
+	if err != nil {
+		return err
+	}
+
+	err = r.updatePendingRemovals(context, cluster)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
