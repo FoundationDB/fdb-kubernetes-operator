@@ -65,6 +65,23 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 	if len(addresses) > 0 {
 		r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
+
+		lockClient, err := r.getLockClient(cluster)
+		if err != nil {
+			return false, err
+		}
+
+		hasLock, err := lockClient.TakeLock()
+		if err != nil {
+			return false, err
+		}
+
+		if !hasLock {
+			log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before excluding instances")
+			return false, nil
+		}
+
 		err = adminClient.ExcludeInstances(addresses)
 
 		if err != nil {
