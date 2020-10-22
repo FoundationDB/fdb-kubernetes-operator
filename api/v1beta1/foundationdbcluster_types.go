@@ -422,6 +422,7 @@ type PendingRemovalState struct {
 	Address string `json:"address,omitempty"`
 
 	// Whether we have started the exclusion.
+	// Deprecated: This field is no longer filled in.
 	ExclusionStarted bool `json:"exclusionStarted,omitempty"`
 
 	// Whether we have completed the exclusion.

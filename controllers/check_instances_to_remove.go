@@ -52,7 +52,6 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 		removalState := removals[instanceID]
 		if !removalState.ExclusionComplete {
 			removalState.ExclusionComplete = true
-			removalState.ExclusionStarted = true
 			log.Info("Skipping exclusion based on instancesToRemoveWithoutExclusion", "namespace", cluster.Namespace, "name", cluster.Name, "instance", instanceID)
 			removals[instanceID] = removalState
 		}
@@ -70,7 +69,6 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 			}
 			if len(instances) > 0 {
 				newRemovalState := r.getPendingRemovalState(instances[0])
-				newRemovalState.ExclusionStarted = oldRemovalState.ExclusionStarted
 				newRemovalState.ExclusionComplete = oldRemovalState.ExclusionComplete
 				finalRemovals[instanceID] = newRemovalState
 			} else if oldRemovalState.HadInstance {

@@ -41,6 +41,7 @@ import (
 var maxCommandOutput = parseMaxCommandOutput()
 
 var protocolVersionRegex = regexp.MustCompile(`(?m)^protocol (\w+)$`)
+var exclusionLinePattern = regexp.MustCompile("(?m)^ +(.*)$")
 
 func parseMaxCommandOutput() int {
 	flag := os.Getenv("MAX_FDB_CLI_OUTPUT_LENGTH")
@@ -73,6 +74,10 @@ type AdminClient interface {
 	// IncludeInstances removes processes from the exclusion list and allows
 	// them to take on roles again.
 	IncludeInstances(addresses []string) error
+
+	// GetExclusions gets a list of the addresses currently excluded from the
+	// database.
+	GetExclusions() ([]string, error)
 
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster.
@@ -300,13 +305,19 @@ func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 	return err
 }
 
-// removeAddressFlags strips the flags from the end of the addresses, leaving
+// RemoveAddressFlags strips the flags from the end of the addresses, leaving
 // only the IP and port.
-func removeAddressFlags(addresses []string) []string {
+func RemoveAddressFlags(address string) string {
+	components := strings.Split(address, ":")
+	return fmt.Sprintf("%s:%s", components[0], components[1])
+}
+
+// RemoveAddressFlagsFromAll strips the flags from the end of the addresses,
+// leaving only the IP and port.
+func RemoveAddressFlagsFromAll(addresses []string) []string {
 	results := make([]string, 0, len(addresses))
 	for _, address := range addresses {
-		components := strings.Split(address, ":")
-		results = append(results, fmt.Sprintf("%s:%s", components[0], components[1]))
+		results = append(results, RemoveAddressFlags(address))
 	}
 	return results
 }
@@ -327,13 +338,13 @@ func (client *CliAdminClient) ExcludeInstances(addresses []string) error {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude no_wait %s",
-				strings.Join(removeAddressFlags(addresses), " "),
+				strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
 			)})
 	} else {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude %s",
-				strings.Join(removeAddressFlags(addresses), " "),
+				strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
 			)})
 	}
 	return err
@@ -347,9 +358,27 @@ func (client *CliAdminClient) IncludeInstances(addresses []string) error {
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"include %s",
-		strings.Join(removeAddressFlags(addresses), " "),
+		strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
 	)})
 	return err
+}
+
+// GetExclusions gets a list of the addresses currently excluded from the
+// database.
+func (client *CliAdminClient) GetExclusions() ([]string, error) {
+	output, err := client.runCommand(cliCommand{command: "exclude"})
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(output, "\n")
+	exclusions := make([]string, 0, len(lines))
+	for _, line := range lines {
+		exclusionMatch := exclusionLinePattern.FindStringSubmatch(line)
+		if exclusionMatch != nil {
+			exclusions = append(exclusions, exclusionMatch[1])
+		}
+	}
+	return exclusions, nil
 }
 
 // CanSafelyRemove checks whether it is safe to remove processes from the
@@ -364,7 +393,7 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	}
 
 	if version.HasNonBlockingExcludes() {
-		addressesWithoutFlags := removeAddressFlags(addresses)
+		addressesWithoutFlags := RemoveAddressFlagsFromAll(addresses)
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
 			strings.Join(addressesWithoutFlags, " "),
@@ -384,7 +413,7 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	}
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
 		"exclude %s",
-		strings.Join(removeAddressFlags(addresses), " "),
+		strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
 	)})
 	return nil, err
 }
@@ -419,7 +448,7 @@ func (client *CliAdminClient) KillInstances(addresses []string) error {
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"kill; kill %s; status",
-		strings.Join(removeAddressFlags(addresses), " "),
+		strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
 	)})
 	return err
 }
@@ -884,6 +913,12 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 // safe to remove.
 func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
 	return nil, nil
+}
+
+// GetExclusions gets a list of the addresses currently excluded from the
+// database.
+func (client *MockAdminClient) GetExclusions() ([]string, error) {
+	return client.ExcludedAddresses, nil
 }
 
 // KillInstances restarts processes

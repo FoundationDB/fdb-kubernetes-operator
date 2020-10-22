@@ -40,22 +40,25 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	defer adminClient.Close()
 
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return false, err
-	}
-
 	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
-	hasExclusionUpdates := false
-	for id, state := range cluster.Status.PendingRemovals {
-		if state.Address != "" {
-			address := cluster.GetFullAddress(state.Address)
-			if !state.ExclusionStarted {
-				addresses = append(addresses, address)
-				newState := state
-				newState.ExclusionStarted = true
-				cluster.Status.PendingRemovals[id] = newState
-				hasExclusionUpdates = true
+
+	if len(cluster.Status.PendingRemovals) > 0 {
+		exclusions, err := adminClient.GetExclusions()
+		if err != nil {
+			return false, err
+		}
+
+		currentExclusionMap := make(map[string]bool, len(exclusions))
+		for _, address := range exclusions {
+			currentExclusionMap[address] = true
+		}
+
+		for _, state := range cluster.Status.PendingRemovals {
+			if state.Address != "" {
+				address := RemoveAddressFlags(cluster.GetFullAddress(state.Address))
+				if !currentExclusionMap[address] {
+					addresses = append(addresses, address)
+				}
 			}
 		}
 	}
@@ -64,20 +67,6 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
 		err = adminClient.ExcludeInstances(addresses)
 
-		if hasExclusionUpdates && !version.HasNonBlockingExcludes() {
-			updateErr := r.updatePendingRemovals(context, cluster)
-			if updateErr != nil {
-				return false, updateErr
-			}
-			hasExclusionUpdates = false
-		}
-		if err != nil {
-			return false, err
-		}
-	}
-
-	if hasExclusionUpdates {
-		err = r.updatePendingRemovals(context, cluster)
 		if err != nil {
 			return false, err
 		}
