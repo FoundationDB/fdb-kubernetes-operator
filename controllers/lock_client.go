@@ -43,6 +43,9 @@ type LockClient interface {
 	// GetCluster provides the cluster this client is working on.
 	GetCluster() *fdbtypes.FoundationDBCluster
 
+	// Disabled determines whether the locking is disabled.
+	Disabled() bool
+
 	// TakeLock attempts to acquire a lock.
 	TakeLock() (*Lock, error)
 
@@ -91,6 +94,11 @@ type RealLockClient struct {
 // GetCluster provides the cluster this client is working on.
 func (client *RealLockClient) GetCluster() *fdbtypes.FoundationDBCluster {
 	return client.cluster
+}
+
+// Disabled determines if the client should automatically grant locks.
+func (client *RealLockClient) Disabled() bool {
+	return client.disableLocks
 }
 
 // TakeLock attempts to acquire a lock.
@@ -376,6 +384,11 @@ func (client *MockLockClient) ClearAggregatedOperation(operation string, values 
 	return nil
 }
 
+// Disabled determines if the client should automatically grant locks.
+func (client *MockLockClient) Disabled() bool {
+	return true
+}
+
 // Close cleans up any resources that the client needs to keep open.
 func (client *MockLockClient) Close() error {
 	return nil
@@ -397,7 +410,7 @@ func TakeLockWithAggregationDelay(client LockClient) (*Lock, error) {
 
 	desiredAcquisitionTime := time.Now().Add(-1 * LockAggregationDelay)
 
-	if lock.AcquisitionTime.After(desiredAcquisitionTime) {
+	if !client.Disabled() && lock.AcquisitionTime.After(desiredAcquisitionTime) {
 		log.Info("Waiting for aggregated values for lock", "namespace", client.GetCluster().Namespace, "cluster", client.GetCluster().Name, "lockAcquisitionTime", lock.AcquisitionTime)
 		return nil, nil
 	}

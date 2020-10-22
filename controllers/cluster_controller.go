@@ -687,6 +687,15 @@ func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.Foundati
 	cacheKey := fmt.Sprintf("%s/%s", cluster.ObjectMeta.Namespace, cluster.ObjectMeta.Name)
 	client, present := r.lockClients[cacheKey]
 	var err error
+
+	if present && client.Disabled() == cluster.ShouldUseLocks() {
+		err = client.Close()
+		if err != nil {
+			return nil, err
+		}
+		present = false
+	}
+
 	if !present {
 		client, err = r.LockClientProvider(cluster)
 		if err != nil {
