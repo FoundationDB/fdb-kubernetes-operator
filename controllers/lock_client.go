@@ -386,7 +386,7 @@ func (client *MockLockClient) ClearAggregatedOperation(operation string, values 
 
 // Disabled determines if the client should automatically grant locks.
 func (client *MockLockClient) Disabled() bool {
-	return true
+	return !client.cluster.ShouldUseLocks()
 }
 
 // Close cleans up any resources that the client needs to keep open.
