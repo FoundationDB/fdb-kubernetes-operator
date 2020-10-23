@@ -1,3 +1,8 @@
+# v0.22.0
+
+*	Simplify the service reconciler.
+*	Add a tool to check for usage of deprecated fields.
+
 # v0.21.2
 
 *	Fix the logic for checking the addresses in the exclusion results.
