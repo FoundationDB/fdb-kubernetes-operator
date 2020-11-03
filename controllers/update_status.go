@@ -332,6 +332,14 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.NeedsNewCoordinators = !coordinatorsValid
 	}
 
+	if len(status.IncorrectPods) == 0 {
+		status.IncorrectPods = nil
+	}
+
+	if len(status.FailingPods) == 0 {
+		status.FailingPods = nil
+	}
+
 	originalStatus := cluster.Status.DeepCopy()
 
 	cluster.Status = status
