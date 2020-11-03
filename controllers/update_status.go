@@ -412,13 +412,12 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 			}
 			defer adminClient.Close()
 
-			output, err := adminClient.GetMinimalStatus()
-			if err == nil && !strings.Contains(output, "database is unavailable") {
+			activeConnectionString, err := adminClient.GetConnectionString()
+			if err == nil {
 				log.Info("Chose connection option",
 					"namespace", cluster.Namespace, "cluster", cluster.Name,
-					"version", version, "connectionString", connectionString,
-					"statusOutput", output)
-				return version, connectionString, err
+					"version", version, "connectionString", activeConnectionString)
+				return version, activeConnectionString, err
 			}
 			log.Error(err, "Error getting status from cluster",
 				"namespace", cluster.Namespace, "cluster", cluster.Name,
