@@ -81,7 +81,6 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 			return false, err
 		}
 		if !hasLock {
-			log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before changing coordinators")
 			return false, nil
 		}

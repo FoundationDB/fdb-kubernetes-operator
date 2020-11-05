@@ -95,7 +95,7 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 
 	if len(lockValue) == 0 {
 		log.Info("Setting initial lock")
-		client.updateLock(transaction)
+		client.updateLock(transaction, 0)
 		return true, nil
 	}
 
@@ -113,33 +113,47 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		return false, InvalidLockValue{key: lockKey, value: lockValue}
 	}
 
+	startTime, valid := lockTuple[1].(int64)
+	if !valid {
+		return false, InvalidLockValue{key: lockKey, value: lockValue}
+	}
+
 	endTime, valid := lockTuple[2].(int64)
 	if !valid {
 		return false, InvalidLockValue{key: lockKey, value: lockValue}
 	}
 
+	cluster := client.cluster
+
 	if endTime < time.Now().Unix() {
-		log.Info("Clearing expired lock", "previousLockValue", lockValue)
-		client.updateLock(transaction)
+		log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		client.updateLock(transaction, startTime)
 		return true, nil
 	}
 
-	ownsLock := ownerID == client.cluster.GetLockID()
-
-	return ownsLock, nil
+	if ownerID == client.cluster.GetLockID() {
+		log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		client.updateLock(transaction, startTime)
+		return true, nil
+	}
+	log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+	return false, nil
 }
 
 // updateLock sets the keys to acquire a lock.
-func (client *RealLockClient) updateLock(transaction fdb.Transaction) {
+func (client *RealLockClient) updateLock(transaction fdb.Transaction, start int64) {
 	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	start := time.Now()
-	end := start.Add(LockDuration)
+
+	if start == 0 {
+		start = time.Now().Unix()
+	}
+	end := time.Now().Add(LockDuration).Unix()
 	lockValue := tuple.Tuple{
 		client.cluster.GetLockID(),
-		start.Unix(),
-		end.Unix(),
+		start,
+		end,
 	}
-	log.Info("Setting new lock", "lockValue", lockValue)
+	log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
 	transaction.Set(lockKey, lockValue.Pack())
 }
 
