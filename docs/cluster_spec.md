@@ -467,7 +467,7 @@ PendingRemovalState holds information about a process that is being removed.
 | ----- | ----------- | ------ | -------- |
 | podName | The name of the pod that is being removed. | string | false |
 | address | The public address of the process. | string | false |
-| exclusionStarted | Whether we have started the exclusion. | bool | false |
+| exclusionStarted | Whether we have started the exclusion. **Deprecated: This field is no longer filled in.** | bool | false |
 | exclusionComplete | Whether we have completed the exclusion. | bool | false |
 | hadInstance | Whether this removal has ever corresponded to a real instance. | bool | false |
 
