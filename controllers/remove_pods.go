@@ -27,7 +27,6 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // RemovePods provides a reconciliation step for removing pods as part of a
@@ -45,28 +44,23 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id)
 			return false, nil
 		}
-		if state.PodName != "" {
-			err := r.removePod(context, cluster, state.PodName)
-			if err != nil {
-				return false, err
-			}
+		err := r.removePod(context, cluster, id)
+		if err != nil {
+			return false, err
 		}
-	}
 
-	for _, state := range cluster.Status.PendingRemovals {
-		if state.PodName != "" {
-			removed, err := r.confirmPodRemoval(context, cluster, state.PodName)
-			if !removed {
-				return removed, err
-			}
+		removed, err := r.confirmPodRemoval(context, cluster, id)
+		if !removed {
+			return removed, err
 		}
 	}
 
 	return true, nil
 }
 
-func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, podName string) error {
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingField("metadata.name", podName))
+func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
+	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
 		return err
 	}
@@ -79,7 +73,7 @@ func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingField("metadata.name", fmt.Sprintf("%s-data", podName)))
+	err = r.List(context, pvcs, instanceListOptions...)
 	if err != nil {
 		return err
 	}
@@ -93,15 +87,15 @@ func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *
 	return nil
 }
 
-func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceName string) (bool, error) {
-	instanceListOptions := getSinglePodListOptions(cluster, instanceName)
+func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, error) {
+	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
 		return false, err
 	}
 	if len(instances) > 0 {
-		log.Info("Waiting for instance get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instanceName)
+		log.Info("Waiting for instance get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", instances[0].Metadata.Name)
 		return false, nil
 	}
 
@@ -111,17 +105,17 @@ func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, c
 		return false, err
 	}
 	if len(pods.Items) > 0 {
-		log.Info("Waiting for pod get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instanceName)
+		log.Info("Waiting for pod get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", pods.Items[0].Name)
 		return false, nil
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingField("metadata.name", fmt.Sprintf("%s-data", instanceName)))
+	err = r.List(context, pvcs, instanceListOptions...)
 	if err != nil {
 		return false, err
 	}
 	if len(pvcs.Items) > 0 {
-		log.Info("Waiting for volume claim get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "name", pvcs.Items[0].Name)
+		log.Info("Waiting for volume claim get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pvc", pvcs.Items[0].Name)
 		return false, nil
 	}
 
