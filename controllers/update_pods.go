@@ -117,8 +117,6 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	}
 
 	for zone, zoneInstances := range updates {
-		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
-		r.Recorder.Event(cluster, "Normal", "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 		ready, err := r.PodLifecycleManager.CanDeletePods(r, context, cluster)
 		if err != nil {
 			return false, err
@@ -137,10 +135,12 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return false, err
 		}
 		if !hasLock {
-			log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before updating pods")
 			return false, nil
 		}
+
+		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
+		r.Recorder.Event(cluster, "Normal", "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances)
 		if err != nil {

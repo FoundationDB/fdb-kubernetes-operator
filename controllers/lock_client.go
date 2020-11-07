@@ -31,8 +31,14 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
 
+// LockDuration determines how long locks are valid for.
+var LockDuration = 10 * time.Minute
+
 // LockClient provides a client for getting locks on operations for a cluster.
 type LockClient interface {
+	// Disabled determines whether the locking is disabled.
+	Disabled() bool
+
 	// TakeLock attempts to acquire a lock.
 	TakeLock() (bool, error)
 
@@ -60,6 +66,11 @@ type RealLockClient struct {
 	database fdb.Database
 }
 
+// Disabled determines if the client should automatically grant locks.
+func (client *RealLockClient) Disabled() bool {
+	return client.disableLocks
+}
+
 // TakeLock attempts to acquire a lock.
 func (client *RealLockClient) TakeLock() (bool, error) {
 	if client.disableLocks {
@@ -67,46 +78,83 @@ func (client *RealLockClient) TakeLock() (bool, error) {
 	}
 
 	hasLock, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
-		err := transaction.Options().SetAccessSystemKeys()
-		if err != nil {
-			return false, err
-		}
-
-		lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-		lockValue := transaction.Get(lockKey).MustGet()
-
-		if len(lockValue) == 0 {
-			log.Info("Setting initial lock")
-			return client.takeLockDirect(transaction)
-		}
-
-		lockTuple, err := tuple.Unpack(lockValue)
-		if err != nil {
-			return false, err
-		}
-
-		if len(lockTuple) < 3 {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
-		}
-
-		endTime, valid := lockTuple[2].(int64)
-		if !valid {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
-		}
-
-		if endTime < time.Now().Unix() {
-			log.Info("Clearing expired lock", "previousLockValue", lockValue)
-			return client.takeLockDirect(transaction)
-		}
-
-		ownerID, valid := lockTuple[0].(string)
-		if !valid {
-			return false, InvalidLockValue{key: lockKey, value: lockValue}
-		}
-
-		return ownerID == client.cluster.GetLockID(), nil
+		return client.takeLockInTransaction(transaction)
 	})
 	return hasLock.(bool), err
+}
+
+// takeLockInTransaction attempts to acquire a lock using an open transaction.
+func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction) (bool, error) {
+	err := transaction.Options().SetAccessSystemKeys()
+	if err != nil {
+		return false, err
+	}
+
+	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
+	lockValue := transaction.Get(lockKey).MustGet()
+
+	if len(lockValue) == 0 {
+		log.Info("Setting initial lock")
+		client.updateLock(transaction, 0)
+		return true, nil
+	}
+
+	lockTuple, err := tuple.Unpack(lockValue)
+	if err != nil {
+		return false, err
+	}
+
+	if len(lockTuple) < 3 {
+		return false, InvalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	ownerID, valid := lockTuple[0].(string)
+	if !valid {
+		return false, InvalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	startTime, valid := lockTuple[1].(int64)
+	if !valid {
+		return false, InvalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	endTime, valid := lockTuple[2].(int64)
+	if !valid {
+		return false, InvalidLockValue{key: lockKey, value: lockValue}
+	}
+
+	cluster := client.cluster
+
+	if endTime < time.Now().Unix() {
+		log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		client.updateLock(transaction, startTime)
+		return true, nil
+	}
+
+	if ownerID == client.cluster.GetLockID() {
+		log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		client.updateLock(transaction, startTime)
+		return true, nil
+	}
+	log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+	return false, nil
+}
+
+// updateLock sets the keys to acquire a lock.
+func (client *RealLockClient) updateLock(transaction fdb.Transaction, start int64) {
+	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
+
+	if start == 0 {
+		start = time.Now().Unix()
+	}
+	end := time.Now().Add(LockDuration).Unix()
+	lockValue := tuple.Tuple{
+		client.cluster.GetLockID(),
+		start,
+		end,
+	}
+	log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
+	transaction.Set(lockKey, lockValue.Pack())
 }
 
 // InvalidLockValue is an error we can return when we cannot parse the existing
@@ -119,21 +167,6 @@ type InvalidLockValue struct {
 // Error formats the error message.
 func (err InvalidLockValue) Error() string {
 	return fmt.Sprintf("Could not decode value %s for key %s", err.value, err.key)
-}
-
-// TakeLock attempts to acquire a lock.
-func (client *RealLockClient) takeLockDirect(transaction fdb.Transaction) (interface{}, error) {
-	lockKey := fdb.Key(fmt.Sprintf("%s/global", client.cluster.GetLockPrefix()))
-	start := time.Now()
-	end := start.Add(time.Minute * 10)
-	lockValue := tuple.Tuple{
-		client.cluster.GetLockID(),
-		start.Unix(),
-		end.Unix(),
-	}
-	log.Info("Setting new lock", "lockValue", lockValue)
-	transaction.Set(lockKey, lockValue.Pack())
-	return true, nil
 }
 
 // Close cleans up any resources that the client needs to keep open.
@@ -187,6 +220,11 @@ type MockLockClient struct {
 // TakeLock attempts to acquire a lock.
 func (client *MockLockClient) TakeLock() (bool, error) {
 	return true, nil
+}
+
+// Disabled determines if the client should automatically grant locks.
+func (client *MockLockClient) Disabled() bool {
+	return !client.cluster.ShouldUseLocks()
 }
 
 // Close cleans up any resources that the client needs to keep open.

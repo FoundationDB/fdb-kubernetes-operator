@@ -377,18 +377,25 @@ func containsAll(current map[string]string, desired map[string]string) bool {
 	return true
 }
 
+// optionList creates an order-preserved unique list
+func optionList(options ...string) []string {
+	valueMap := make(map[string]bool, len(options))
+	values := make([]string, 0, len(options))
+	for _, option := range options {
+		if option != "" && !valueMap[option] {
+			values = append(values, option)
+			valueMap[option] = true
+		}
+	}
+	return values
+}
+
 // tryConnectionOptions attempts to connect with all the combinations of
 // versions and connection strings for this cluster and returns the set that
 // allow connecting to the cluster.
 func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, string, error) {
-	versions := make(map[string]bool)
-	versions[cluster.Status.RunningVersion] = true
-	versions[cluster.Spec.Version] = true
-
-	connectionStrings := make(map[string]bool)
-	connectionStrings[cluster.Status.ConnectionString] = true
-	connectionStrings[cluster.Spec.SeedConnectionString] = true
-	delete(connectionStrings, "")
+	versions := optionList(cluster.Status.RunningVersion, cluster.Spec.Version)
+	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
 	originalVersion := cluster.Status.RunningVersion
 	originalConnectionString := cluster.Status.ConnectionString
@@ -406,8 +413,8 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 	defer func() { cluster.Status.RunningVersion = originalVersion }()
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
-	for version := range versions {
-		for connectionString := range connectionStrings {
+	for _, version := range versions {
+		for _, connectionString := range connectionStrings {
 			log.Info("Attempting to get status from cluster",
 				"namespace", cluster.Namespace, "cluster", cluster.Name,
 				"version", version, "connectionString", connectionString)
