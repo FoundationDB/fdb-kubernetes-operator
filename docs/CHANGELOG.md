@@ -1,3 +1,10 @@
+# v0.23.0
+
+*	Use GetConnectionString method when choosing connection option to always
+	get an up-to-date cluster file.
+*	Use instance IDs as the identifier when removing pods and PVCs
+*	Get the exclusion list directly when we want to determine exclusions.
+
 # v0.22.0
 
 *	Simplify the service reconciler.

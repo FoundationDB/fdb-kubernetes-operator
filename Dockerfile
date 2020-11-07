@@ -2,7 +2,7 @@
 FROM golang:1.15.2 as builder
 
 # Install FDB
-ARG FDB_VERSION=6.2.25
+ARG FDB_VERSION=6.2.27
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
@@ -19,7 +19,7 @@ RUN set -eux && \
 	update-ca-certificates --fresh
 
 # Copy 6.2 binaries
-COPY --from=foundationdb/foundationdb:6.2.25 /usr/bin/fdb* /usr/bin/fdb/6.2/
+COPY --from=foundationdb/foundationdb:6.2.27 /usr/bin/fdb* /usr/bin/fdb/6.2/
 
 # Copy 6.1 binaries
 COPY --from=foundationdb/foundationdb:6.1.13 /usr/bin/fdb* /usr/bin/fdb/6.1/
