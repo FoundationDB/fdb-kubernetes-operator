@@ -51,6 +51,29 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(processClass, "-"), idNum), instanceID
 }
 
+// GetService builds a service for a new instance
+func GetService(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.Service, error) {
+	name, id := getInstanceID(cluster, processClass, idNum)
+
+	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+
+	metadata := getObjectMetadata(cluster, nil, processClass, id)
+	metadata.Name = name
+	metadata.OwnerReferences = owner
+
+	return &corev1.Service{
+		ObjectMeta: metadata,
+		Spec: corev1.ServiceSpec{
+			Type: "ClusterIP",
+			Ports: []corev1.ServicePort{
+				{Name: "tls", Port: 4500},
+				{Name: "non-tls", Port: 4501},
+			},
+			Selector: getMinimalSinglePodLabels(cluster, id),
+		},
+	}, nil
+}
+
 // GetPod builds a pod for a new instance
 func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
@@ -1009,6 +1032,11 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 				}
 			})
 		})
+
+		if spec.Services.PublicIPSource == nil {
+			source := fdbtypes.PublicIPSourcePod
+			spec.Services.PublicIPSource = &source
+		}
 	}
 
 	// Apply changes between old and new defaults.

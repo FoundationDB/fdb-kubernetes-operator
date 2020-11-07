@@ -278,6 +278,7 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		metadata.Annotations = make(map[string]string)
 	}
 	metadata.Annotations[LastSpecKey] = specHash
+	metadata.Annotations[PublicIPSourceAnnotation] = string(*cluster.Spec.Services.PublicIPSource)
 
 	return metadata
 }
@@ -347,12 +348,16 @@ func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass str
 	return labels
 }
 
+func getMinimalSinglePodLabels(cluster *fdbtypes.FoundationDBCluster, id string) map[string]string {
+	return getMinimalPodLabels(cluster, "", id)
+}
+
 func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) []client.ListOption {
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(getMinimalPodLabels(cluster, processClass, id))}
 }
 
 func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID})}
+	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(getMinimalSinglePodLabels(cluster, instanceID))}
 }
 
 func buildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta) []metav1.OwnerReference {
@@ -878,6 +883,15 @@ func (instance FdbInstance) GetProcessClass() string {
 // GetProcessClassFromMeta fetches the process class from an object's metadata.
 func GetProcessClassFromMeta(metadata metav1.ObjectMeta) string {
 	return metadata.Labels["fdb-process-class"]
+}
+
+// GetPublicIPSource determines how an instance has gotten its public IP.
+func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
+	source := instance.Metadata.Annotations[PublicIPSourceAnnotation]
+	if source == "" {
+		return fdbtypes.PublicIPSourcePod
+	}
+	return fdbtypes.PublicIPSource(source)
 }
 
 // GetInstances returns a list of instances for FDB pods that have been

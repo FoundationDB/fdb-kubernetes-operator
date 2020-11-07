@@ -130,6 +130,7 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
 					"foundationdb.org/last-applied-spec": hash,
+					"foundationdb.org/public-ip-source":  "pod",
 				}))
 			})
 		})
@@ -1316,6 +1317,42 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
+	Describe("GetService", func() {
+		var service *corev1.Service
+
+		Context("with a basic storage instance", func() {
+			BeforeEach(func() {
+				service, err = GetService(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the service", func() {
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
+				}))
+			})
+
+			It("should set the spec on the service", func() {
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+
+				Expect(len(service.Spec.Ports)).To(Equal(2))
+				Expect(service.Spec.Ports[0].Name).To(Equal("tls"))
+				Expect(service.Spec.Ports[0].Port).To(Equal(int32(4500)))
+				Expect(service.Spec.Ports[1].Name).To(Equal("non-tls"))
+				Expect(service.Spec.Ports[1].Port).To(Equal(int32(4501)))
+
+				Expect(service.Spec.Selector).To(Equal(map[string]string{
+					"fdb-cluster-name": cluster.Name,
+					"fdb-instance-id":  "storage-1",
+				}))
+			})
+		})
+	})
+
 	Describe("GetPvc", func() {
 		var pvc *corev1.PersistentVolumeClaim
 
@@ -2348,6 +2385,11 @@ var _ = Describe("pod_models", func() {
 						}))
 					})
 				})
+
+				It("should have the public IP source set to pod", func() {
+					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -2375,6 +2417,10 @@ var _ = Describe("pod_models", func() {
 					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
 						"org.foundationdb/empty": resource.MustParse("0"),
 					}))
+				})
+
+				It("should have no public IP source", func() {
+					Expect(spec.Services.PublicIPSource).To(BeNil())
 				})
 			})
 
@@ -2502,6 +2548,11 @@ var _ = Describe("pod_models", func() {
 						Expect(containers[1].Resources.Limits).To(Equal(corev1.ResourceList{}))
 					})
 				})
+
+				It("should have the public IP source set to pod", func() {
+					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+				})
 			})
 
 			Context("with the future defaults, changes only", func() {
@@ -2524,6 +2575,10 @@ var _ = Describe("pod_models", func() {
 						"cpu":    resource.MustParse("100m"),
 						"memory": resource.MustParse("256Mi"),
 					}))
+				})
+
+				It("should have no public IP source", func() {
+					Expect(spec.Services.PublicIPSource).To(BeNil())
 				})
 			})
 

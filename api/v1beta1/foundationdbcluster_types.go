@@ -1951,6 +1951,12 @@ type ServiceConfig struct {
 	// Headless determines whether we want to run a headless service for the
 	// cluster.
 	Headless *bool `json:"headless,omitempty"`
+
+	// PublicIPSource specifies what source a process should use to get its
+	// public IPs.
+	//
+	// This supports the values `pod` and `service`.
+	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen
@@ -2086,3 +2092,14 @@ func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 func (version FdbVersion) HasNonBlockingExcludes() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 5})
 }
+
+// PublicIPSource models options for how a pod gets its public IP.
+type PublicIPSource string
+
+const (
+	// PublicIPSourcePod specifies that a pod gets its IP from the pod IP.
+	PublicIPSourcePod PublicIPSource = "pod"
+
+	// PublicIPSourceService specifies that a pod gets its IP from a service.
+	PublicIPSourceService PublicIPSource = "service"
+)

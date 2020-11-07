@@ -567,6 +567,7 @@ ServiceConfig allows configuring services that sit in front of our pods.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | headless | Headless determines whether we want to run a headless service for the cluster. | *bool | false |
+| publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *PublicIPSource | false |
 
 [Back to TOC](#table-of-contents)
 

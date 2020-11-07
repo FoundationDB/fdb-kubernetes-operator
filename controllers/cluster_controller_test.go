@@ -140,6 +140,7 @@ var _ = Describe("cluster_controller", func() {
 
 				Expect(pods.Items[0].Name).To(Equal("operator-test-1-cluster-controller-1"))
 				Expect(pods.Items[0].Labels["fdb-instance-id"]).To(Equal("cluster_controller-1"))
+				Expect(pods.Items[0].Annotations[PublicIPSourceAnnotation]).To(Equal("pod"))
 				Expect(pods.Items[1].Name).To(Equal("operator-test-1-log-1"))
 				Expect(pods.Items[1].Labels["fdb-instance-id"]).To(Equal("log-1"))
 				Expect(pods.Items[4].Name).To(Equal("operator-test-1-log-4"))
@@ -946,6 +947,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
 							"foundationdb.org/last-applied-spec":       hash,
+							"foundationdb.org/public-ip-source":        "pod",
 							"foundationdb.org/existing-annotation":     "test-value",
 							"fdb-annotation":                           "value1",
 						}))
@@ -953,6 +955,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
 							"foundationdb.org/last-applied-spec":       hash,
+							"foundationdb.org/public-ip-source":        "pod",
 							"fdb-annotation":                           "value1",
 						}))
 					}
@@ -1083,6 +1086,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
 							"foundationdb.org/last-applied-spec":       hash,
+							"foundationdb.org/public-ip-source":        "pod",
 						}))
 					}
 
@@ -1191,6 +1195,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 						"foundationdb.org/last-applied-config-map": configMapHash,
 						"foundationdb.org/last-applied-spec":       hash,
+						"foundationdb.org/public-ip-source":        "pod",
 					}))
 				}
 
@@ -1366,6 +1371,55 @@ var _ = Describe("cluster_controller", func() {
 						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("FDB_CLUSTER_FILE"))
 					}
 				})
+			})
+		})
+
+		Context("with a change to the public IP source", func() {
+			BeforeEach(func() {
+				source := fdbtypes.PublicIPSourceService
+				cluster.Spec.Services.PublicIPSource = &source
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+				timeout = 10 * time.Second
+			})
+
+			It("should set the new public IP source annotation", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					Expect(pod.Annotations[PublicIPSourceAnnotation]).To(Equal("service"))
+				}
+			})
+
+			It("should create services for the pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+
+				services := &corev1.ServiceList{}
+				err = k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(services.Items)).To(Equal(len(pods.Items)))
+
+				service := &corev1.Service{}
+				pod := pods.Items[0]
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+			})
+
+			It("should replace the old processes", func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				replacements := make(map[string]bool, len(originalPods.Items))
+				for _, pod := range originalPods.Items {
+					replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+				}
+
+				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
 			})
 		})
 

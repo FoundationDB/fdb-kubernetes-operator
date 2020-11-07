@@ -26,7 +26,6 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // CheckInstancesToRemove updates the pending removal state based on the
@@ -63,7 +62,7 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 		if oldRemovalState.HadInstance && oldRemovalState.ExclusionComplete {
 			finalRemovals[instanceID] = oldRemovalState
 		} else {
-			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, client.InNamespace(cluster.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID}))
+			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
 				return false, err
 			}
