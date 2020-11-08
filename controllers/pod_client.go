@@ -45,9 +45,6 @@ type FdbPodClient interface {
 	// GetPod returns the pod associated with a client
 	GetPod() *corev1.Pod
 
-	// GetPodIP gets the IP address for a pod.
-	GetPodIP() string
-
 	// IsPresent checks whether a file in the sidecar is present
 	IsPresent(filename string) (bool, error)
 
@@ -138,8 +135,8 @@ func (client *realFdbPodClient) GetPod() *corev1.Pod {
 	return client.Pod
 }
 
-// GetPodIP gets the IP address for a pod.
-func (client *realFdbPodClient) GetPodIP() string {
+// getListenIP gets the IP address that a pod listens on.
+func (client *realFdbPodClient) getListenIP() string {
 	return client.Pod.Status.PodIP
 }
 
@@ -152,7 +149,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 		protocol = "http"
 	}
 
-	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.GetPodIP(), path)
+	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
 	var resp *http.Response
 	var err error
 
@@ -274,11 +271,6 @@ func (client *mockFdbPodClient) GetCluster() *fdbtypes.FoundationDBCluster {
 // GetPod returns the pod associated with a client
 func (client *mockFdbPodClient) GetPod() *corev1.Pod {
 	return client.Pod
-}
-
-// GetPodIP gets the IP address for a pod.
-func (client *mockFdbPodClient) GetPodIP() string {
-	return MockPodIP(client.Pod)
 }
 
 // IsPresent checks whether a file in the sidecar is prsent.

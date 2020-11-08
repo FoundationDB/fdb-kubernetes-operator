@@ -46,7 +46,7 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 		return false, err
 	}
 
-	desiredBackupDeployment, err := GetBackupDeployment(context, backup, r)
+	desiredBackupDeployment, err := GetBackupDeployment(backup)
 	if err != nil {
 		return false, err
 	}

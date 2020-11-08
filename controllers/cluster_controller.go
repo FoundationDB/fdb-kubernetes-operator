@@ -613,6 +613,10 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		confLines = append(confLines, fmt.Sprintf("tls_verify_peers = %s", cluster.Spec.MainContainer.PeerVerificationRules))
 	}
 
+	if cluster.NeedsExplicitListenAddress() {
+		confLines = append(confLines, fmt.Sprintf("listen_address = %s", cluster.GetFullAddressList("$FDB_POD_IP", false)))
+	}
+
 	podSettings := cluster.GetProcessSettings(processClass)
 
 	if podSettings.CustomParameters != nil {

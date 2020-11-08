@@ -51,6 +51,10 @@ const MinimumUptimeSecondsForBounce = 600
 // gets its public IP from.
 const PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"
 
+// PublicIPAnnotation is an annotation key that specifies the current public
+// IP for a pod.
+const PublicIPAnnotation = "foundationdb.org/public-ip"
+
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
 func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {

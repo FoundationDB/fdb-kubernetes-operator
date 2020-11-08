@@ -268,3 +268,11 @@ func cleanupRestore(restore *fdbtypes.FoundationDBRestore) {
 	err := k8sClient.Delete(context.TODO(), restore)
 	Expect(err).NotTo(HaveOccurred())
 }
+
+func getEnvVars(container corev1.Container) map[string]*corev1.EnvVar {
+	results := make(map[string]*corev1.EnvVar)
+	for index, env := range container.Env {
+		results[env.Name] = &container.Env[index]
+	}
+	return results
+}

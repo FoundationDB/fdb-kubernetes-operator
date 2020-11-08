@@ -215,7 +215,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 // createInstances builds a new instance and potentially other related
 // resources.
 func createInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, configMapHash string, existingMeta *metav1.ObjectMeta) (bool, error) {
-	pod, err := GetPod(context, cluster, processClass, idNum, r)
+	pod, err := GetPod(cluster, processClass, idNum)
 	if err != nil {
 		r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processClass, idNum, err))
 		return false, err
@@ -235,16 +235,22 @@ func createInstance(r *FoundationDBClusterReconciler, context ctx.Context, clust
 		return false, err
 	}
 
-	if len(services.Items) == 0 && *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
-		service, err := GetService(cluster, processClass, idNum)
-		if err != nil {
+	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+		if len(services.Items) == 0 {
+			service, err := GetService(cluster, processClass, idNum)
+			if err != nil {
+				return false, err
+			}
+			log.Info("Creating service", "namespace", cluster.Namespace, "cluster", cluster.Name, "serviceName", service.ObjectMeta.Name)
+			err = r.Create(context, service)
 			return false, err
 		}
-		log.Info("Creating service", "namespace", cluster.Namespace, "cluster", cluster.Name, "serviceName", service.ObjectMeta.Name)
-		err = r.Create(context, service)
-		if err != nil {
-			return false, err
+		ip := services.Items[0].Spec.ClusterIP
+		if ip == "" {
+			log.Info("Service does not have an IP address", "namespace", cluster.Namespace, "cluster", cluster.Name, "podName", pod.Name)
+			return false, nil
 		}
+		pod.Annotations[PublicIPAnnotation] = ip
 	}
 
 	err = r.PodLifecycleManager.CreateInstance(r, context, pod)

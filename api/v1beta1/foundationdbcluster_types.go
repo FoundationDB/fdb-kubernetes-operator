@@ -1589,6 +1589,13 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 	return cluster.Spec.InstanceIDPrefix
 }
 
+// NeedsExplicitListenAddress determines whether we pass a listen address
+// parameter to fdbserver.
+func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
+	source := cluster.Spec.Services.PublicIPSource
+	return source != nil && *source == PublicIPSourceService
+}
+
 // FillInDefaultsFromStatus adds in missing fields from the database
 // configuration in the database status to make sure they match the fields that
 // will appear in the cluster spec.
