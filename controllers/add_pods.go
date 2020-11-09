@@ -151,6 +151,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 				pod, err := GetPod(context, cluster, processClass, idNum, r)
 				if err != nil {
+					r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processClass, idNum, err))
 					return false, err
 				}
 				if GetInstanceIDFromMeta(pod.ObjectMeta) != instanceID {
@@ -195,9 +196,6 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 				if pvc != nil {
 					owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-					if err != nil {
-						return false, err
-					}
 					pvc.ObjectMeta.OwnerReferences = owner
 
 					err = r.Create(context, pvc)
@@ -208,6 +206,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 				pod, err := GetPod(context, cluster, processClass, idNum, r)
 				if err != nil {
+					r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processClass, idNum, err))
 					return false, err
 				}
 				pod.ObjectMeta.Annotations[LastConfigMapKey] = configMapHash

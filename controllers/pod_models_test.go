@@ -588,6 +588,50 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with custom container images with tag", func() {
+			BeforeEach(func() {
+				cluster = createDefaultCluster()
+				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{{
+							Name:  "foundationdb-kubernetes-init",
+							Image: "test/foundationdb-kubernetes-sidecar:dummy",
+						}},
+						Containers: []corev1.Container{{
+							Name:  "foundationdb",
+							Image: "test/foundationdb:dummy",
+						}, {
+							Name:  "foundationdb-kubernetes-sidecar",
+							Image: "test/foundationdb-kubernetes-sidecar:dummy",
+						}},
+					},
+				}}}
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return an error since a tag is specified", func() {
+				_, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("with container override imageName with tag from the spec field", func() {
+			BeforeEach(func() {
+				cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+					ImageName: "test/foundationdb-kubernetes-sidecar:dummy",
+				}
+				cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+					ImageName: "test/foundationdb:dummy",
+				}
+			})
+
+			It("should return an error since a tag is specified", func() {
+				_, err = GetPodSpec(cluster, "storage", 1)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		Context("with custom environment", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {PodTemplate: &corev1.PodTemplateSpec{
