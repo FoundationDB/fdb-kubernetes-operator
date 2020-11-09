@@ -1,5 +1,7 @@
 #! /bin/bash
 
+set -eu
+
 # generate_secrets.bash
 #
 # This source file is part of the FoundationDB open source project
@@ -23,4 +25,4 @@
 
 kubectl delete secrets -l app=fdb-kubernetes-operator
 kubectl create secret tls fdb-kubernetes-operator-secrets --key=config/test-certs/key.pem --cert=config/test-certs/cert.pem
-kubectl patch secret fdb-kubernetes-operator-secrets --type='json' -p='[{"op": "add", "path": "/metadata/labels", "value":{"app":"fdb-kubernetes-operator"}}]'
+kubectl label secret fdb-kubernetes-operator-secrets app=fdb-kubernetes-operator

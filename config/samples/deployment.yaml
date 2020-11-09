@@ -16,6 +16,8 @@ rules:
   - configmaps
   - persistentvolumeclaims
   - events
+  - secrets
+  - services
   verbs:
   - get
   - watch
@@ -53,30 +55,6 @@ rules:
   resources:
   - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - services
   verbs:
   - get
   - list
