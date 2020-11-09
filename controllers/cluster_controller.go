@@ -724,13 +724,13 @@ func (r *FoundationDBClusterReconciler) getPendingRemovalState(instance FdbInsta
 		HadInstance: true,
 	}
 	if instance.Pod != nil {
-		var ip string
-		if r.PodIPProvider == nil {
-			ip = instance.Pod.Status.PodIP
+		if r.PodIPProvider != nil {
+			state.Address = r.PodIPProvider(instance.Pod)
+		} else if ip := instance.Pod.Annotations[PublicIPAnnotation]; ip != "" {
+			state.Address = ip
 		} else {
-			ip = r.PodIPProvider(instance.Pod)
+			state.Address = instance.Pod.Status.PodIP
 		}
-		state.Address = ip
 	}
 	return state
 }

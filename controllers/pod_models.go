@@ -91,12 +91,6 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 	metadata.Name = name
 	metadata.OwnerReferences = owner
 
-	log.Info("JPB getting pod", "name", name)
-
-	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
-		log.Info("JPB in branch")
-	}
-
 	return &corev1.Pod{
 		ObjectMeta: metadata,
 		Spec:       *spec,

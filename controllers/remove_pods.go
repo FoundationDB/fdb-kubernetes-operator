@@ -44,12 +44,12 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id)
 			return false, nil
 		}
-		err := r.removePod(context, cluster, id)
+		err := removePod(r, context, cluster, id)
 		if err != nil {
 			return false, err
 		}
 
-		removed, err := r.confirmPodRemoval(context, cluster, id)
+		removed, err := confirmPodRemoval(r, context, cluster, id)
 		if !removed {
 			return removed, err
 		}
@@ -58,7 +58,7 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	return true, nil
 }
 
-func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
+func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
 	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
@@ -84,10 +84,22 @@ func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *
 		}
 	}
 
+	services := &corev1.ServiceList{}
+	err = r.List(context, services, instanceListOptions...)
+	if err != nil {
+		return err
+	}
+	if len(services.Items) > 0 {
+		err = r.Delete(context, &services.Items[0])
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, error) {
+func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, error) {
 	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
@@ -116,6 +128,16 @@ func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, c
 	}
 	if len(pvcs.Items) > 0 {
 		log.Info("Waiting for volume claim get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pvc", pvcs.Items[0].Name)
+		return false, nil
+	}
+
+	services := &corev1.ServiceList{}
+	err = r.List(context, services, instanceListOptions...)
+	if err != nil {
+		return false, err
+	}
+	if len(services.Items) > 0 {
+		log.Info("Waiting for service get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "service", services.Items[0].Name)
 		return false, nil
 	}
 
