@@ -533,7 +533,7 @@ Using service IPs presents its own challenges:
 
 * In some networking configurations, pods may not be able to access service IPs that route to the pod. See the section on hairpin mode in the [Kubernetes Docs](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-service/#a-pod-fails-to-reach-itself-via-the-service-ip) for more information.
 * Creating one service for each pod may cause performance problems for the Kubernetes cluster
-* We currently only supporting services with the ClusterIP type. These IPs may not be routable from outside the Kubernetes cluster.
+* We currently only support services with the ClusterIP type. These IPs may not be routable from outside the Kubernetes cluster.
 
 # Renaming a Cluster
 
