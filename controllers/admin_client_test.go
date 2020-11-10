@@ -83,7 +83,7 @@ var _ = Describe("admin_client_test", func() {
 				Expect(status.Cluster.Processes["operator-test-1-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
 					Address:      "1.1.0.1:4501",
 					ProcessClass: "storage",
-					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=1.1.0.1:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_process_id=storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=1.1.0.1:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
 						"instance_id": "storage-1",
@@ -264,24 +264,24 @@ var _ = Describe("admin_client_test", func() {
 	Describe("helper methods", func() {
 		Describe("parseExclusionOutput", func() {
 			It("should map the output description to exclusion success", func() {
-				output := "  10.1.56.36:4501  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.43:4501  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.52:4501  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.53:4501  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
+				output := "  10.1.56.36  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.43  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.52  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.53  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
 					" before removing them from the cluster!\n" +
-					"  10.1.56.35:4501  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
-					"  10.1.56.56:4501  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"WARNING: 10.1.56.56:4501 is a coordinator!\n" +
+					"  10.1.56.35  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
+					"  10.1.56.56  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"WARNING: 10.1.56.56 is a coordinator!\n" +
 					"Type `help coordinators' for information on how to change the\n" +
 					"cluster's coordination servers before removing them."
 				results := parseExclusionOutput(output)
 				Expect(results).To(Equal(map[string]string{
-					"10.1.56.36:4501": "Success",
-					"10.1.56.43:4501": "Success",
-					"10.1.56.52:4501": "Success",
-					"10.1.56.53:4501": "Missing",
-					"10.1.56.35:4501": "In Progress",
-					"10.1.56.56:4501": "Success",
+					"10.1.56.36": "Success",
+					"10.1.56.43": "Success",
+					"10.1.56.52": "Success",
+					"10.1.56.53": "Missing",
+					"10.1.56.35": "In Progress",
+					"10.1.56.56": "Success",
 				}))
 			})
 		})

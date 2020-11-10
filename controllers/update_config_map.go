@@ -37,7 +37,7 @@ type UpdateConfigMap struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	configMap, err := GetConfigMap(context, cluster, r)
+	configMap, err := GetConfigMap(cluster)
 	if err != nil {
 		return false, err
 	}

@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +47,10 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
+	status.StorageServersPerDisk = make(map[string]bool)
+
+	// Initialize with the current desired storage servers per Pod
+	status.AddStorageServerPerDisk(strconv.Itoa(cluster.GetStorageServersPerPod()))
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
@@ -79,8 +84,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, process := range databaseStatus.Cluster.Processes {
-		instanceID := process.Locality["instance_id"]
-		processMap[instanceID] = append(processMap[instanceID], process)
+		processID, ok := process.Locality["process_id"]
+		// if the processID is not set we fall back to the instanceID
+		if !ok {
+			processID = process.Locality["instance_id"]
+		}
+		processMap[processID] = append(processMap[processID], process)
 	}
 
 	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
@@ -118,10 +127,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.IncorrectPods = make([]string, 0)
 	status.FailingPods = make([]string, 0)
 
-	configMap, err := GetConfigMap(context, cluster, r)
+	configMap, err := GetConfigMap(cluster)
 	if err != nil {
 		return false, err
 	}
+
+	// TODO (johscheuer): should be process specific #377
 	configMapHash, err := GetDynamicConfHash(configMap)
 	if err != nil {
 		return false, err
@@ -131,50 +142,34 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		processClass := instance.GetProcessClass()
 		instanceID := instance.GetInstanceID()
 
+		// Even the instance will be removed we need to keep the config around
+		if processClass == fdbtypes.ProcessClassStorage {
+			status.AddStorageServerPerDisk(getStorageServersPerPodForInstance(&instance))
+		}
+
 		if cluster.InstanceIsBeingRemoved(instanceID) {
 			continue
 		}
 
 		status.ProcessCounts.IncreaseCount(processClass, 1)
 
-		processStatus := processMap[instanceID]
-		if len(processStatus) == 0 {
-			existingTime, exists := cluster.Status.MissingProcesses[instanceID]
-			if exists {
-				status.MissingProcesses[instanceID] = existingTime
-			} else {
-				status.MissingProcesses[instanceID] = time.Now().Unix()
+		if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+			storageServersPerPod := cluster.GetStorageServersPerPod()
+			for i := 1; i <= storageServersPerPod; i++ {
+				err := CheckAndSetProcessStatus(r, cluster, instance, processMap, &status, i, storageServersPerPod)
+				if err != nil {
+					return false, err
+				}
 			}
 		} else {
-			podClient, err := r.getPodClient(cluster, instance)
-			correct := false
+			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, &status, 1, 1)
 			if err != nil {
-				log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
-			} else {
-				for _, process := range processStatus {
-					commandLine, err := GetStartCommand(cluster, instance, podClient)
-					if err != nil {
-						return false, err
-					}
-					correct = commandLine == process.CommandLine && (process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version))
-					break
-				}
-			}
-
-			if !correct {
-				instanceID := instance.GetInstanceID()
-				existingTime, exists := cluster.Status.IncorrectProcesses[instanceID]
-				if exists {
-					status.IncorrectProcesses[instanceID] = existingTime
-				} else {
-					status.IncorrectProcesses[instanceID] = time.Now().Unix()
-				}
+				return false, err
 			}
 		}
 
 		if instance.Pod != nil {
-			id := instance.GetInstanceID()
-			_, idNum, err := ParseInstanceID(id)
+			_, idNum, err := ParseInstanceID(instanceID)
 			if err != nil {
 				return false, err
 			}
@@ -184,7 +179,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				return false, err
 			}
 
-			incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, id, specHash))
+			incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, instanceID, specHash))
 			if !incorrectPod {
 				updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
 				if err != nil {
@@ -196,7 +191,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			incorrectPod = incorrectPod || instance.Metadata.Annotations[LastConfigMapKey] != configMapHash
 
 			pvcs := &corev1.PersistentVolumeClaimList{}
-			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, id)...)
+			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, instanceID)...)
 			if err != nil {
 				return false, err
 			}
@@ -443,4 +438,66 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 		}
 	}
 	return originalVersion, originalConnectionString, firstError
+}
+
+// CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
+func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, status *fdbtypes.FoundationDBClusterStatus, processNumber int, processCount int) error {
+	instanceID := instance.GetInstanceID()
+
+	if processCount > 1 {
+		instanceID = fmt.Sprintf("%s-%d", instanceID, processNumber)
+	}
+
+	processStatus := processMap[instanceID]
+	if len(processStatus) == 0 {
+		existingTime, exists := cluster.Status.MissingProcesses[instanceID]
+		if exists {
+			status.MissingProcesses[instanceID] = existingTime
+		} else {
+			status.MissingProcesses[instanceID] = time.Now().Unix()
+		}
+	} else {
+		podClient, err := r.getPodClient(cluster, instance)
+		correct := false
+		if err != nil {
+			log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
+		} else {
+			for _, process := range processStatus {
+				commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
+				if err != nil {
+					return err
+				}
+				correct = commandLine == process.CommandLine && (process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version))
+
+				if !correct {
+					log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine)
+				}
+			}
+		}
+
+		if !correct {
+			existingTime, exists := cluster.Status.IncorrectProcesses[instanceID]
+			if exists {
+				status.IncorrectProcesses[instanceID] = existingTime
+			} else {
+				status.IncorrectProcesses[instanceID] = time.Now().Unix()
+			}
+		}
+	}
+
+	return nil
+}
+
+func getStorageServersPerPodForInstance(instance *FdbInstance) string {
+	// If not specified we will default to 1
+	storageServersPerPod := "1"
+	for _, container := range instance.Pod.Spec.Containers {
+		for _, env := range container.Env {
+			if env.Name == "STORAGE_SERVERS_PER_POD" {
+				return env.Value
+			}
+		}
+	}
+
+	return storageServersPerPod
 }

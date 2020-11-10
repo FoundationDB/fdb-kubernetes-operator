@@ -253,6 +253,13 @@ type FoundationDBClusterSpec struct {
 	// InstancesToRemove field. To get information about pending removals,
 	// use the PendingRemovals field in the status.
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
+
+	// StorageServersPerPod defines how many Storage Servers should run in
+	// a single Instance (Pod). This number defines the number of processes running
+	// in one Pod whereas the ProcessCounts defines the number of Pods created.
+	// This means that you end up with ProcessCounts["storage"] * StorageServersPerPod
+	// storage processes
+	StorageServersPerPod int `json:"storageServersPerPod,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -329,6 +336,11 @@ type FoundationDBClusterStatus struct {
 	// sidecar conf in the config map even when the latest version should not
 	// require it.
 	NeedsSidecarConfInConfigMap bool `json:"needsSidecarConfInConfigMap,omitempty"`
+
+	// StorageServersPerDisk defines the current count of storage servers per disk
+	// this value should be StorageServersPerPod * ProcessCount for storage class.
+	// If the value differs the reconcile phase is not finished
+	StorageServersPerDisk map[string]bool `json:"storageServersPerDisk,omitempty"`
 }
 
 // ClusterGenerationStatus stores information on which generations have reached
@@ -448,7 +460,7 @@ func (counts RoleCounts) Map() map[string]int {
 	countMap := make(map[string]int, len(roleIndices))
 	countValue := reflect.ValueOf(counts)
 	for role, index := range roleIndices {
-		if role != "storage" {
+		if role != ProcessClassStorage {
 			value := int(countValue.Field(index).Int())
 			countMap[role] = value
 		}
@@ -950,6 +962,15 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	return reconciled, nil
 }
 
+// GetStorageServersPerPod returns the StorageServer per Pod.
+func (cluster *FoundationDBCluster) GetStorageServersPerPod() int {
+	if cluster.Spec.StorageServersPerPod <= 1 {
+		return 1
+	}
+
+	return cluster.Spec.StorageServersPerPod
+}
+
 // CountsAreSatisfied checks whether the current counts of processes satisfy
 // a desired set of counts.
 func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool {
@@ -1196,8 +1217,8 @@ func (address ProcessAddress) String() string {
 
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
-	return cluster.GetFullAddressList(ipAddress, true)
+func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumber int) string {
+	return cluster.GetFullAddressList(ipAddress, true, processNumber)
 }
 
 // GetFullAddressList gets the full list of public addresses we should use for a
@@ -1208,13 +1229,16 @@ func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string) string {
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool) string {
+func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool, processNumber int) string {
 	addressMap := make(map[string]bool)
+
 	if cluster.Status.RequiredAddresses.TLS {
-		addressMap[fmt.Sprintf("%s:4500:tls", ipAddress)] = cluster.Spec.MainContainer.EnableTLS
+		port := 4498 + 2*processNumber
+		addressMap[fmt.Sprintf("%s:%d:tls", ipAddress, port)] = cluster.Spec.MainContainer.EnableTLS
 	}
 	if cluster.Status.RequiredAddresses.NonTLS {
-		addressMap[fmt.Sprintf("%s:4501", ipAddress)] = !cluster.Spec.MainContainer.EnableTLS
+		port := 4499 + 2*processNumber
+		addressMap[fmt.Sprintf("%s:%d", ipAddress, port)] = !cluster.Spec.MainContainer.EnableTLS
 	}
 
 	addresses := make([]string, 1, 1+len(addressMap))
@@ -1471,7 +1495,7 @@ func (configuration DatabaseConfiguration) GetConfigurationString() (string, err
 	counts := configuration.RoleCounts.Map()
 	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
 	for _, role := range roleNames {
-		if role != "storage" {
+		if role != ProcessClassStorage {
 			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
 		}
 	}
@@ -2127,3 +2151,24 @@ const (
 	// PublicIPSourceService specifies that a pod gets its IP from a service.
 	PublicIPSourceService PublicIPSource = "service"
 )
+
+// ProcessClass models the different FDB classes
+type ProcessClass string
+
+const (
+	// ProcessClassStorage model for FDB class storage
+	ProcessClassStorage = "storage"
+	// ProcessClassLog model for FDB class log
+	ProcessClassLog = "log"
+	// ProcessClassTransaction model for FDB class transaction
+	ProcessClassTransaction = "transaction"
+)
+
+// AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
+func (clusterStatus FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk string) {
+	if _, ok := clusterStatus.StorageServersPerDisk[serversPerDisk]; ok {
+		return
+	}
+
+	clusterStatus.StorageServersPerDisk[serversPerDisk] = true
+}

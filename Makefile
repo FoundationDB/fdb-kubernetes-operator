@@ -24,7 +24,7 @@ GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 
-all: generate fmt vet manager manifests samples documentation test_if_changed
+all: generate fmt vet lint manager manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-operator bounce lint
 

@@ -49,7 +49,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return true, nil
 	}
 
-	configMap, err := GetConfigMap(context, cluster, r)
+	configMap, err := GetConfigMap(cluster)
 	if err != nil {
 		return false, err
 	}

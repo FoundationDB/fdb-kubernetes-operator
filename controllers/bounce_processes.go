@@ -50,7 +50,12 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	minimumUptime := math.Inf(1)
 	addressMap := make(map[string]string, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		addressMap[process.Locality["instance_id"]] = process.Address
+		if _, ok := process.Locality["process_id"]; ok {
+			addressMap[process.Locality["process_id"]] = process.Address
+		} else {
+			addressMap[process.Locality["instance_id"]] = process.Address
+		}
+
 		if process.UptimeSeconds < minimumUptime {
 			minimumUptime = process.UptimeSeconds
 		}
@@ -58,20 +63,22 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
 
-	for instanceID := range cluster.Status.IncorrectProcesses {
-
-		if addressMap[instanceID] == "" {
-			return false, fmt.Errorf("Could not find address for instance %s", instanceID)
+	for process := range cluster.Status.IncorrectProcesses {
+		if addressMap[process] == "" {
+			return false, fmt.Errorf("could not find address for process: %s", process)
 		}
 
-		addresses = append(addresses, addressMap[instanceID])
+		addresses = append(addresses, addressMap[process])
+
+		instanceID := GetInstanceIDFromProcessID(process)
+		log.Info("GetPod", "instanceID", instanceID)
 
 		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return false, err
 		}
 		if len(instances) == 0 {
-			return false, MissingPodErrorByName(instanceID, cluster)
+			return false, MissingPodErrorByName(process, cluster)
 		}
 
 		synced, err := r.updatePodDynamicConf(cluster, instances[0])

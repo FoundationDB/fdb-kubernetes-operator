@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"strconv"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -73,6 +74,19 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if instance.Metadata.Annotations[LastSpecKey] != specHash {
+			if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
+				storageServersPerPodStr := getStorageServersPerPodForInstance(&instance)
+				storageServersPerPod, err := strconv.Atoi(storageServersPerPodStr)
+				if err != nil {
+					return false, err
+				}
+
+				// If the storage servers differ skip these instances since they will be replaced
+				if storageServersPerPod != cluster.GetStorageServersPerPod() {
+					continue
+				}
+			}
+
 			podClient, err := r.getPodClient(cluster, instance)
 			if err != nil {
 				return false, err
