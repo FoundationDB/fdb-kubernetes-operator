@@ -229,13 +229,13 @@ func createInstance(r *FoundationDBClusterReconciler, context ctx.Context, clust
 
 	pod.ObjectMeta.Annotations[LastConfigMapKey] = configMapHash
 
-	services := &corev1.ServiceList{}
-	err = r.List(context, services, getSinglePodListOptions(cluster, instanceID)...)
-	if err != nil {
-		return false, err
-	}
-
 	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+		services := &corev1.ServiceList{}
+		err = r.List(context, services, getSinglePodListOptions(cluster, instanceID)...)
+		if err != nil {
+			return false, err
+		}
+
 		if len(services.Items) == 0 {
 			service, err := GetService(cluster, processClass, idNum)
 			if err != nil {

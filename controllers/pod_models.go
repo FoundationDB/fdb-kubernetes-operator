@@ -62,7 +62,7 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	return &corev1.Service{
 		ObjectMeta: metadata,
 		Spec: corev1.ServiceSpec{
-			Type: "ClusterIP",
+			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{
 				{Name: "tls", Port: 4500},
 				{Name: "non-tls", Port: 4501},
@@ -301,36 +301,34 @@ func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, 
 		versionString = cluster.Spec.Version
 	}
 
-	publicIPSource := cluster.Spec.Services.PublicIPSource
-	usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
-
-	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster.Spec.SidecarVariables, cluster.Spec.FaultDomain, cluster.Spec.SidecarContainer, cluster.Spec.SidecarVersions, len(cluster.Spec.TrustedCAs) > 0, usePublicIPFromService)
+	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, fdbtypes.FoundationDBClusterFaultDomain{}, fdbtypes.ContainerOverrides{}, nil, false, false)
+	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil)
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, sidecarVariables []string, faultDomain fdbtypes.FoundationDBClusterFaultDomain, overrides fdbtypes.ContainerOverrides, sidecarVersions map[string]int, hasTrustedCAs bool, usePublicIPFromService bool) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
 	}
 
 	var sidecarVersion string
-	if sidecarVersions != nil && sidecarVersions[versionString] != 0 {
-		sidecarVersion = fmt.Sprintf("%s-%d", versionString, sidecarVersions[versionString])
+
+	if optionalCluster != nil && optionalCluster.Spec.SidecarVersions[versionString] != 0 {
+		sidecarVersion = fmt.Sprintf("%s-%d", versionString, optionalCluster.Spec.SidecarVersions[versionString])
 	} else {
 		sidecarVersion = fmt.Sprintf("%s-1", versionString)
 	}
 
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
-	fdbserverMode := instanceID != ""
+	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
 
 	var sidecarArgs []string
 	if version.PrefersCommandLineArgumentsInSidecar() {
@@ -340,7 +338,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		if hasTrustedCAs {
 			sidecarArgs = append(sidecarArgs, "--copy-file", "ca.pem")
 		}
-		if fdbserverMode {
+		if optionalCluster != nil {
 			sidecarArgs = append(sidecarArgs,
 				"--input-monitor-conf", "fdbmonitor.conf",
 				"--copy-binary", "fdbserver",
@@ -356,7 +354,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		sidecarArgs = make([]string, 0)
 	}
 
-	if version.HasSidecarCrashOnEmpty() && !fdbserverMode {
+	if version.HasSidecarCrashOnEmpty() && optionalCluster == nil {
 		sidecarArgs = append(sidecarArgs, "--require-not-empty")
 		sidecarArgs = append(sidecarArgs, "fdb.cluster")
 	}
@@ -368,9 +366,13 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
 	}
 
-	if fdbserverMode {
-		var publicIPKey string
+	if optionalCluster != nil {
+		cluster := optionalCluster
 
+		publicIPSource := cluster.Spec.Services.PublicIPSource
+		usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
+
+		var publicIPKey string
 		if usePublicIPFromService {
 			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", PublicIPAnnotation)
 		} else {
@@ -380,7 +382,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
 		}})
 
-		if usePublicIPFromService {
+		if cluster.NeedsExplicitListenAddress() {
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 			}})
@@ -391,7 +393,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		}
 
 		if version.PrefersCommandLineArgumentsInSidecar() {
-			for _, substitution := range sidecarVariables {
+			for _, substitution := range cluster.Spec.SidecarVariables {
 				sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 			}
 			if !version.HasInstanceIDInSidecarSubstitutions() {
@@ -399,12 +401,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			}
 		}
 
-		faultDomainKey := faultDomain.Key
+		faultDomainKey := cluster.Spec.FaultDomain.Key
 		if faultDomainKey == "" {
 			faultDomainKey = "kubernetes.io/hostname"
 		}
 
-		faultDomainSource := faultDomain.ValueFrom
+		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
 		}
@@ -420,7 +422,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 			}})
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: faultDomain.Value})
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
 		} else {
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
@@ -440,6 +442,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 	}
 
 	extendEnv(container, sidecarEnv...)
+
+	var overrides fdbtypes.ContainerOverrides
+
+	if optionalCluster != nil {
+		overrides = optionalCluster.Spec.SidecarContainer
+	}
 
 	if overrides.EnableTLS && !initMode {
 		sidecarArgs = append(sidecarArgs, "--tls")
