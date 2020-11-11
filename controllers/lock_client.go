@@ -31,9 +31,6 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
 
-// LockDuration determines how long locks are valid for.
-var LockDuration = 10 * time.Minute
-
 // LockClient provides a client for getting locks on operations for a cluster.
 type LockClient interface {
 	// Disabled determines whether the locking is disabled.
@@ -147,7 +144,7 @@ func (client *RealLockClient) updateLock(transaction fdb.Transaction, start int6
 	if start == 0 {
 		start = time.Now().Unix()
 	}
-	end := time.Now().Add(LockDuration).Unix()
+	end := time.Now().Add(client.cluster.GetLockDuration()).Unix()
 	lockValue := tuple.Tuple{
 		client.cluster.GetLockID(),
 		start,

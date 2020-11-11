@@ -1198,6 +1198,8 @@ spec:
               properties:
                 disableLocks:
                   type: boolean
+                lockDurationMinutes:
+                  type: integer
                 lockKeyPrefix:
                   type: string
               type: object
