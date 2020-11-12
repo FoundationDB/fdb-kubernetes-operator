@@ -1,3 +1,7 @@
+# v0.23.1
+
+*	Fix a bug that caused the operator to delete pods for the wrong cluster.
+
 # v0.23.0
 
 *	Use GetConnectionString method when choosing connection option to always
