@@ -63,7 +63,6 @@ type FoundationDBClusterReconciler struct {
 	PodIPProvider       func(*corev1.Pod) string
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 	LockClientProvider  LockClientProvider
-	lockClients         map[string]LockClient
 	UseFutureDefaults   bool
 	Namespace           string
 	DeprecationOptions  DeprecationOptions
@@ -690,31 +689,7 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.Foundatio
 }
 
 func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	if r.lockClients == nil {
-		r.lockClients = make(map[string]LockClient)
-	}
-
-	cacheKey := fmt.Sprintf("%s/%s", cluster.ObjectMeta.Namespace, cluster.ObjectMeta.Name)
-	client, present := r.lockClients[cacheKey]
-	var err error
-
-	if present && client.Disabled() == cluster.ShouldUseLocks() {
-		err = client.Close()
-		if err != nil {
-			return nil, err
-		}
-		present = false
-	}
-
-	if !present {
-		client, err = r.LockClientProvider(cluster)
-		if err != nil {
-			return nil, err
-		}
-
-		r.lockClients[cacheKey] = client
-	}
-	return client, nil
+	return r.LockClientProvider(cluster)
 }
 
 // takeLock attempts to acquire a lock.

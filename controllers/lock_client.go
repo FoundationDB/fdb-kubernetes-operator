@@ -23,7 +23,6 @@ package controllers
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -38,9 +37,6 @@ type LockClient interface {
 
 	// TakeLock attempts to acquire a lock.
 	TakeLock() (bool, error)
-
-	// Close cleans up any resources that the client needs to keep open.
-	Close() error
 }
 
 // LockClientProvider provides a dependency injection for creating a lock client.
@@ -54,10 +50,6 @@ type RealLockClient struct {
 
 	// Whether we should disable locking completely.
 	disableLocks bool
-
-	// clusterFilePath provides the path this client is using for its cluster
-	// file.
-	clusterFilePath string
 
 	// The connection to the database.
 	database fdb.Database
@@ -166,46 +158,18 @@ func (err InvalidLockValue) Error() string {
 	return fmt.Sprintf("Could not decode value %s for key %s", err.value, err.key)
 }
 
-// Close cleans up any resources that the client needs to keep open.
-func (client *RealLockClient) Close() error {
-	if client.disableLocks {
-		return nil
-	}
-	return os.Remove(client.clusterFilePath)
-}
-
 // NewRealLockClient creates a lock client.
 func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
 	if !cluster.ShouldUseLocks() {
 		return &RealLockClient{disableLocks: true}, nil
 	}
 
-	clusterFile, err := ioutil.TempFile("", "")
-	clusterFilePath := clusterFile.Name()
+	database, err := getFDBDatabase(cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	defer clusterFile.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
-	if err != nil {
-		return nil, err
-	}
-	err = clusterFile.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	database, err := fdb.OpenDatabase(clusterFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RealLockClient{cluster: cluster, clusterFilePath: clusterFilePath, database: database}, nil
+	return &RealLockClient{cluster: cluster, database: database}, nil
 }
 
 // MockLockClient provides a mock client for managing operation locks.
@@ -224,12 +188,48 @@ func (client *MockLockClient) Disabled() bool {
 	return !client.cluster.ShouldUseLocks()
 }
 
-// Close cleans up any resources that the client needs to keep open.
-func (client *MockLockClient) Close() error {
-	return nil
-}
-
 // NewMockLockClient creates a mock lock client.
 func NewMockLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
 	return &MockLockClient{cluster: cluster}, nil
+}
+
+// fdbDatabaseCache provides a
+var fdbDatabaseCache = map[string]fdb.Database{}
+
+// getFDBDatabase opens an FDB database. The result will be cached for
+// subsequent calls, based on the cluster namespace and name.
+func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error) {
+	cacheKey := fmt.Sprintf("%s/%s", cluster.ObjectMeta.Namespace, cluster.ObjectMeta.Name)
+	database, present := fdbDatabaseCache[cacheKey]
+	if present {
+		return database, nil
+	}
+
+	clusterFile, err := ioutil.TempFile("", "")
+	clusterFilePath := clusterFile.Name()
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	defer clusterFile.Close()
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
+	if err != nil {
+		return fdb.Database{}, err
+	}
+	err = clusterFile.Close()
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	database, err = fdb.OpenDatabase(clusterFilePath)
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	fdbDatabaseCache[cacheKey] = database
+	return database, nil
 }
