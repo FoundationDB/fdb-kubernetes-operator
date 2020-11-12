@@ -48,6 +48,7 @@ type FoundationDBBackupReconciler struct {
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
