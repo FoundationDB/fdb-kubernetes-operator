@@ -21,7 +21,6 @@
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -49,7 +48,7 @@ var _ = Describe("pod_models", func() {
 		var pod *corev1.Pod
 		Context("with a basic storage instance", func() {
 			BeforeEach(func() {
-				pod, err = GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
+				pod, err = GetPod(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -72,7 +71,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a cluster controller instance", func() {
 			BeforeEach(func() {
-				pod, err = GetPod(context.TODO(), cluster, "cluster_controller", 1, k8sClient)
+				pod, err = GetPod(cluster, "cluster_controller", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -95,7 +94,7 @@ var _ = Describe("pod_models", func() {
 		Context("with an instance ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstanceIDPrefix = "dc1"
-				pod, err = GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
+				pod, err = GetPod(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -120,7 +119,7 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				pod, err = GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
+				pod, err = GetPod(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -130,6 +129,7 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
 					"foundationdb.org/last-applied-spec": hash,
+					"foundationdb.org/public-ip-source":  "pod",
 				}))
 			})
 		})
@@ -147,7 +147,7 @@ var _ = Describe("pod_models", func() {
 				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pod, err = GetPod(context.TODO(), cluster, "storage", 1, k8sClient)
+				pod, err = GetPod(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -320,6 +320,136 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with a the public IP from the pod", func() {
+			BeforeEach(func() {
+				var source = fdbtypes.PublicIPSourcePod
+				cluster.Spec.Services.PublicIPSource = &source
+				spec, err = GetPodSpec(cluster, "storage", 1)
+			})
+
+			It("should not have the pod IP in the init container args", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--init-mode",
+				}))
+			})
+
+			It("should not have the pod IP in the sidecar container args", func() {
+				Expect(len(spec.Containers)).To(Equal(2))
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+				}))
+			})
+
+			It("should have the environment variables for the IPs in the sidecar container", func() {
+				sidecarEnv := getEnvVars(spec.Containers[1])
+				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv["FDB_POD_IP"]).To(BeNil())
+			})
+
+			It("should have the environment variables for the IPs in the init container", func() {
+				sidecarEnv := getEnvVars(spec.InitContainers[0])
+				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv["FDB_POD_IP"]).To(BeNil())
+			})
+		})
+
+		Context("with a the public IP from the service", func() {
+			BeforeEach(func() {
+				var source = fdbtypes.PublicIPSourceService
+				cluster.Spec.Services.PublicIPSource = &source
+				spec, err = GetPodSpec(cluster, "storage", 1)
+			})
+
+			It("should have the environment variables for the IPs in the sidecar container", func() {
+				sidecarEnv := getEnvVars(spec.Containers[1])
+				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
+				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+			})
+
+			It("should have the environment variables for the IPs in the init container", func() {
+				sidecarEnv := getEnvVars(spec.InitContainers[0])
+				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
+				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+			})
+
+			It("should have the pod IP in the init container args", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--substitute-variable",
+					"FDB_POD_IP",
+					"--init-mode",
+				}))
+			})
+
+			It("should have the pod IP in the sidecar container args", func() {
+				Expect(len(spec.Containers)).To(Equal(2))
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--substitute-variable",
+					"FDB_POD_IP",
+				}))
+			})
+		})
+
 		Context("with a headless service", func() {
 			BeforeEach(func() {
 				var enabled = true
@@ -340,7 +470,7 @@ var _ = Describe("pod_models", func() {
 				spec, err = GetPodSpec(cluster, "storage", 1)
 			})
 
-			It("should have the hostname and subdomain set", func() {
+			It("should not have the hostname and subdomain set", func() {
 				Expect(spec.Hostname).To(Equal(""))
 				Expect(spec.Subdomain).To(Equal(""))
 			})
@@ -1316,6 +1446,42 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
+	Describe("GetService", func() {
+		var service *corev1.Service
+
+		Context("with a basic storage instance", func() {
+			BeforeEach(func() {
+				service, err = GetService(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the service", func() {
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-cluster-name":  cluster.Name,
+					"fdb-process-class": "storage",
+					"fdb-instance-id":   "storage-1",
+				}))
+			})
+
+			It("should set the spec on the service", func() {
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+
+				Expect(len(service.Spec.Ports)).To(Equal(2))
+				Expect(service.Spec.Ports[0].Name).To(Equal("tls"))
+				Expect(service.Spec.Ports[0].Port).To(Equal(int32(4500)))
+				Expect(service.Spec.Ports[1].Name).To(Equal("non-tls"))
+				Expect(service.Spec.Ports[1].Port).To(Equal(int32(4501)))
+
+				Expect(service.Spec.Selector).To(Equal(map[string]string{
+					"fdb-cluster-name": cluster.Name,
+					"fdb-instance-id":  "storage-1",
+				}))
+			})
+		})
+	})
+
 	Describe("GetPvc", func() {
 		var pvc *corev1.PersistentVolumeClaim
 
@@ -1558,7 +1724,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic deployment", func() {
 			BeforeEach(func() {
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -1703,7 +1869,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -1760,7 +1926,7 @@ var _ = Describe("pod_models", func() {
 						"fdb-test": "test-value",
 					},
 				}
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -1776,7 +1942,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a nil agent count", func() {
 			BeforeEach(func() {
 				backup.Spec.AgentCount = nil
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1790,7 +1956,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				agentCount := 0
 				backup.Spec.AgentCount = &agentCount
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1812,7 +1978,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1828,7 +1994,7 @@ var _ = Describe("pod_models", func() {
 		Context("with the sidecar require-not-empty field", func() {
 			BeforeEach(func() {
 				backup.Spec.Version = Versions.WithSidecarCrashOnEmpty.String()
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -1855,7 +2021,7 @@ var _ = Describe("pod_models", func() {
 		Context("without the sidecar require-not-empty field", func() {
 			BeforeEach(func() {
 				backup.Spec.Version = Versions.WithoutSidecarCrashOnEmpty.String()
-				deployment, err = GetBackupDeployment(context.TODO(), backup, k8sClient)
+				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -2348,6 +2514,11 @@ var _ = Describe("pod_models", func() {
 						}))
 					})
 				})
+
+				It("should have the public IP source set to pod", func() {
+					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -2375,6 +2546,10 @@ var _ = Describe("pod_models", func() {
 					Expect(containers[0].Resources.Limits).To(Equal(corev1.ResourceList{
 						"org.foundationdb/empty": resource.MustParse("0"),
 					}))
+				})
+
+				It("should have no public IP source", func() {
+					Expect(spec.Services.PublicIPSource).To(BeNil())
 				})
 			})
 
@@ -2502,6 +2677,11 @@ var _ = Describe("pod_models", func() {
 						Expect(containers[1].Resources.Limits).To(Equal(corev1.ResourceList{}))
 					})
 				})
+
+				It("should have the public IP source set to pod", func() {
+					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+				})
 			})
 
 			Context("with the future defaults, changes only", func() {
@@ -2524,6 +2704,10 @@ var _ = Describe("pod_models", func() {
 						"cpu":    resource.MustParse("100m"),
 						"memory": resource.MustParse("256Mi"),
 					}))
+				})
+
+				It("should have no public IP source", func() {
+					Expect(spec.Services.PublicIPSource).To(BeNil())
 				})
 			})
 

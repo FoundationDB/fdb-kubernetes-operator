@@ -13,7 +13,8 @@
 11. [Customizing Your Pods](#customizing-a-container)
 12. [Controlling Fault Domains](#controlling-fault-domains)
 13. [Using Multiple Namespaces](#using-multiple-namespaces)
-14. [Renaming a Cluster](#renaming-a-cluster)
+14. [Choosing Your Public IP Source](choosing-your-public-ip-source)
+15. [Renaming a Cluster](#renaming-a-cluster)
 
 # Introduction
 
@@ -43,6 +44,10 @@ For more information on the fields you can define on the cluster resource, see
 the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta1#FoundationDBCluster).
 
 For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
+
+## Before You Create a Cluster
+
+This operator aims to support as many different environments and use cases as we can, by offering a variety of customization options. You may find that the stock configurations don't work as desired in your environment. We recommend reading through this entire manual in order to get a feel for how the operator works. There are a few sections that are most likely to be relevant before you create a cluster: [Customizing Your Pods](#customizing-a-container), [Controlling Fault Domains](#controlling-fault-domains), and [Using Multiple Namespaces](#using-multiple-namespaces).
 
 # Creating a Cluster
 
@@ -501,6 +506,35 @@ You can build this kind of configuration easily from the sample deployment by ch
 * Delete the configuration for the `WATCH_NAMESPACE` variable
 * Change the Roles to ClusterRoles
 * Change the RoleBindings to ClusterRoleBindings
+
+# Choosing Your Public IP Source
+
+The default behavior of the operator is to use the IP assigned to the pod as the public IP for FoundationDB. This is not the right choice for some environments, so you may need to consider an alternative approach.
+
+## Pod IPs
+
+You can choose this option by setting `spec.services.publicIPSource=pod`. This is currently the default selection.
+
+In this mode, we use the pod's IP as both the listen address and the public address. We will not create any services for the pods.
+
+Using pod IPs can present several challenges:
+
+* Deleting and recreating a pod will lead to the IP changing. If the process is a coordinator, this can only be recovered by changing coordinators, which requires that a majority of the old coordinators still be functioning on their original IP.
+* Pod IPs may not be routable from outside the Kubernetes cluster.
+* Pods that are failing to schedule will not have IP addresses. This prevents us from excluding them, requiring manual safety checks before removing the pod.
+
+## Service IPs
+
+You can choose this option by setting `spec.services.publicIPSource=service`. This feature is new, and still experimental, but we plan to make it the default in the future.
+
+In this mode, we create one service for each pod, and use that service's IP as the public IP for the pod. The pod IP will still be used as the listen address. This ensures that IPs stay fixed even when pods get rescheduled, which reduces the need for changing coordinators and protects against some unrecoverable failure modes.
+
+Using service IPs presents its own challenges:
+
+* In some networking configurations, pods may not be able to access service IPs that route to the pod. See the section on hairpin mode in the [Kubernetes Docs](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-service/#a-pod-fails-to-reach-itself-via-the-service-ip) for more information.
+* Creating one service for each pod may cause performance problems for the Kubernetes cluster
+* We currently only support services with the ClusterIP type. These IPs may not be routable from outside the Kubernetes cluster.
+* The Service IP space is often more limited than the pod IP space, which could cause you to run out of service IPs.
 
 # Renaming a Cluster
 

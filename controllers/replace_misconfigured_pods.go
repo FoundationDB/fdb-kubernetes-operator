@@ -119,9 +119,8 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 		_, desiredInstanceID := getInstanceID(cluster, instance.GetProcessClass(), idNum)
 
-		if instanceID != desiredInstanceID {
-			needsRemoval = true
-		}
+		needsRemoval = needsRemoval || instanceID != desiredInstanceID
+		needsRemoval = needsRemoval || instance.GetPublicIPSource() != *cluster.Spec.Services.PublicIPSource
 
 		if cluster.Spec.UpdatePodsByReplacement {
 			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
@@ -129,9 +128,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 				return false, err
 			}
 
-			if instance.Metadata.Annotations[LastSpecKey] != specHash {
-				needsRemoval = true
-			}
+			needsRemoval = needsRemoval || instance.Metadata.Annotations[LastSpecKey] != specHash
 		}
 
 		if needsRemoval {

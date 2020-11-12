@@ -6904,6 +6904,8 @@ spec:
               properties:
                 headless:
                   type: boolean
+                publicIPSource:
+                  type: string
               type: object
             sidecarContainer:
               properties:

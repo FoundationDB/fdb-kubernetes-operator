@@ -21,7 +21,6 @@
 package controllers
 
 import (
-	ctx "context"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -33,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
@@ -51,8 +49,31 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(processClass, "-"), idNum), instanceID
 }
 
+// GetService builds a service for a new instance
+func GetService(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.Service, error) {
+	name, id := getInstanceID(cluster, processClass, idNum)
+
+	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+
+	metadata := getObjectMetadata(cluster, nil, processClass, id)
+	metadata.Name = name
+	metadata.OwnerReferences = owner
+
+	return &corev1.Service{
+		ObjectMeta: metadata,
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{Name: "tls", Port: 4500},
+				{Name: "non-tls", Port: 4501},
+			},
+			Selector: getMinimalSinglePodLabels(cluster, id),
+		},
+	}, nil
+}
+
 // GetPod builds a pod for a new instance
-func GetPod(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, kubeClient client.Client) (*corev1.Pod, error) {
+func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.Pod, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
 
 	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -280,33 +301,34 @@ func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, 
 		versionString = cluster.Spec.Version
 	}
 
-	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster.Spec.SidecarVariables, cluster.Spec.FaultDomain, cluster.Spec.SidecarContainer, cluster.Spec.SidecarVersions, len(cluster.Spec.TrustedCAs) > 0)
+	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, fdbtypes.FoundationDBClusterFaultDomain{}, fdbtypes.ContainerOverrides{}, nil, false)
+	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil)
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, sidecarVariables []string, faultDomain fdbtypes.FoundationDBClusterFaultDomain, overrides fdbtypes.ContainerOverrides, sidecarVersions map[string]int, hasTrustedCAs bool) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
 	}
 
 	var sidecarVersion string
-	if sidecarVersions != nil && sidecarVersions[versionString] != 0 {
-		sidecarVersion = fmt.Sprintf("%s-%d", versionString, sidecarVersions[versionString])
+
+	if optionalCluster != nil && optionalCluster.Spec.SidecarVersions[versionString] != 0 {
+		sidecarVersion = fmt.Sprintf("%s-%d", versionString, optionalCluster.Spec.SidecarVersions[versionString])
 	} else {
 		sidecarVersion = fmt.Sprintf("%s-1", versionString)
 	}
 
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
-	fdbserverMode := instanceID != ""
+	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
 
 	var sidecarArgs []string
 	if version.PrefersCommandLineArgumentsInSidecar() {
@@ -316,7 +338,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		if hasTrustedCAs {
 			sidecarArgs = append(sidecarArgs, "--copy-file", "ca.pem")
 		}
-		if fdbserverMode {
+		if optionalCluster != nil {
 			sidecarArgs = append(sidecarArgs,
 				"--input-monitor-conf", "fdbmonitor.conf",
 				"--copy-binary", "fdbserver",
@@ -332,7 +354,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		sidecarArgs = make([]string, 0)
 	}
 
-	if version.HasSidecarCrashOnEmpty() && !fdbserverMode {
+	if version.HasSidecarCrashOnEmpty() && optionalCluster == nil {
 		sidecarArgs = append(sidecarArgs, "--require-not-empty")
 		sidecarArgs = append(sidecarArgs, "fdb.cluster")
 	}
@@ -344,13 +366,34 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
 	}
 
-	if fdbserverMode {
+	if optionalCluster != nil {
+		cluster := optionalCluster
+
+		publicIPSource := cluster.Spec.Services.PublicIPSource
+		usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
+
+		var publicIPKey string
+		if usePublicIPFromService {
+			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", PublicIPAnnotation)
+		} else {
+			publicIPKey = "status.podIP"
+		}
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
 		}})
 
+		if cluster.NeedsExplicitListenAddress() {
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			}})
+
+			if version.PrefersCommandLineArgumentsInSidecar() {
+				sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_POD_IP")
+			}
+		}
+
 		if version.PrefersCommandLineArgumentsInSidecar() {
-			for _, substitution := range sidecarVariables {
+			for _, substitution := range cluster.Spec.SidecarVariables {
 				sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 			}
 			if !version.HasInstanceIDInSidecarSubstitutions() {
@@ -358,12 +401,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			}
 		}
 
-		faultDomainKey := faultDomain.Key
+		faultDomainKey := cluster.Spec.FaultDomain.Key
 		if faultDomainKey == "" {
 			faultDomainKey = "kubernetes.io/hostname"
 		}
 
-		faultDomainSource := faultDomain.ValueFrom
+		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
 		if faultDomainSource == "" {
 			faultDomainSource = "spec.nodeName"
 		}
@@ -379,7 +422,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
 			}})
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: faultDomain.Value})
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
 		} else {
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
@@ -399,6 +442,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 	}
 
 	extendEnv(container, sidecarEnv...)
+
+	var overrides fdbtypes.ContainerOverrides
+
+	if optionalCluster != nil {
+		overrides = optionalCluster.Spec.SidecarContainer
+	}
 
 	if overrides.EnableTLS && !initMode {
 		sidecarArgs = append(sidecarArgs, "--tls")
@@ -574,7 +623,7 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 }
 
 // GetBackupDeployment builds a deployment for backup agents for a cluster.
-func GetBackupDeployment(context ctx.Context, backup *fdbtypes.FoundationDBBackup, kubeClient client.Client) (*appsv1.Deployment, error) {
+func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deployment, error) {
 	agentCount := int32(backup.GetDesiredAgentCount())
 	if agentCount == 0 {
 		return nil, nil
@@ -1009,6 +1058,11 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 				}
 			})
 		})
+
+		if spec.Services.PublicIPSource == nil {
+			source := fdbtypes.PublicIPSourcePod
+			spec.Services.PublicIPSource = &source
+		}
 	}
 
 	// Apply changes between old and new defaults.

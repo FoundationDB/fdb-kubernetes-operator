@@ -44,7 +44,7 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 	if err != nil {
 		return false, err
 	}
-	deployment, err := GetBackupDeployment(context, backup, r)
+	deployment, err := GetBackupDeployment(backup)
 	if err != nil {
 		return false, err
 	}

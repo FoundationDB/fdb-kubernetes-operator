@@ -29,6 +29,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -143,24 +144,16 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				if newCount <= 0 {
 					break
 				}
+
 				instanceID := GetInstanceIDFromMeta(pvcs.Items[index].ObjectMeta)
 				_, idNum, err := ParseInstanceID(instanceID)
 				if err != nil {
 					return false, err
 				}
 
-				pod, err := GetPod(context, cluster, processClass, idNum, r)
-				if err != nil {
-					r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processClass, idNum, err))
-					return false, err
-				}
-				if GetInstanceIDFromMeta(pod.ObjectMeta) != instanceID {
-					return false, fmt.Errorf("Failed to create new pod to match PVC %s", pvcs.Items[index].Name)
-				}
-
-				err = r.PodLifecycleManager.CreateInstance(r, context, pod)
-				if err != nil {
-					return false, err
+				created, err := createInstance(r, context, cluster, processClass, idNum, configMapHash, &pvcs.Items[index].ObjectMeta)
+				if !created {
+					return created, err
 				}
 
 				if instanceIDs[processClass] == nil {
@@ -204,16 +197,9 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 					}
 				}
 
-				pod, err := GetPod(context, cluster, processClass, idNum, r)
-				if err != nil {
-					r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processClass, idNum, err))
-					return false, err
-				}
-				pod.ObjectMeta.Annotations[LastConfigMapKey] = configMapHash
-
-				err = r.PodLifecycleManager.CreateInstance(r, context, pod)
-				if err != nil {
-					return false, err
+				created, err := createInstance(r, context, cluster, processClass, idNum, configMapHash, nil)
+				if !created {
+					return created, err
 				}
 
 				addedCount++
@@ -221,6 +207,55 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			}
 			cluster.Status.ProcessCounts.IncreaseCount(processClass, addedCount)
 		}
+	}
+
+	return true, nil
+}
+
+// createInstances builds a new instance and potentially other related
+// resources.
+func createInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int, configMapHash string, existingMeta *metav1.ObjectMeta) (bool, error) {
+	pod, err := GetPod(cluster, processClass, idNum)
+	if err != nil {
+		r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processClass, idNum, err))
+		return false, err
+	}
+
+	instanceID := GetInstanceIDFromMeta(pod.ObjectMeta)
+
+	if existingMeta != nil && instanceID != GetInstanceIDFromMeta(*existingMeta) {
+		return false, fmt.Errorf("Failed to create new pod to match %s", existingMeta.Name)
+	}
+
+	pod.ObjectMeta.Annotations[LastConfigMapKey] = configMapHash
+
+	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+		services := &corev1.ServiceList{}
+		err = r.List(context, services, getSinglePodListOptions(cluster, instanceID)...)
+		if err != nil {
+			return false, err
+		}
+
+		if len(services.Items) == 0 {
+			service, err := GetService(cluster, processClass, idNum)
+			if err != nil {
+				return false, err
+			}
+			log.Info("Creating service", "namespace", cluster.Namespace, "cluster", cluster.Name, "serviceName", service.ObjectMeta.Name)
+			err = r.Create(context, service)
+			return false, err
+		}
+		ip := services.Items[0].Spec.ClusterIP
+		if ip == "" {
+			log.Info("Service does not have an IP address", "namespace", cluster.Namespace, "cluster", cluster.Name, "podName", pod.Name)
+			return false, nil
+		}
+		pod.Annotations[PublicIPAnnotation] = ip
+	}
+
+	err = r.PodLifecycleManager.CreateInstance(r, context, pod)
+	if err != nil {
+		return false, err
 	}
 
 	return true, nil
