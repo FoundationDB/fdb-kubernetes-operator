@@ -94,11 +94,13 @@ func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *f
 	if err != nil {
 		return err
 	}
-	if len(services.Items) > 0 {
+	if len(services.Items) == 1 {
 		err = r.Delete(context, &services.Items[0])
 		if err != nil {
 			return err
 		}
+	} else if len(services.Items) > 0 {
+		return fmt.Errorf("Multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	return nil
@@ -147,9 +149,11 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 	if err != nil {
 		return false, err
 	}
-	if len(services.Items) > 0 {
+	if len(services.Items) == 1 {
 		log.Info("Waiting for service get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "service", services.Items[0].Name)
 		return false, nil
+	} else if len(services.Items) > 0 {
+		return false, fmt.Errorf("Multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	return true, nil
