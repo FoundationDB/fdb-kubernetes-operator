@@ -347,12 +347,16 @@ func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass str
 	return labels
 }
 
+func getMinimalSinglePodLabels(cluster *fdbtypes.FoundationDBCluster, id string) map[string]string {
+	return getMinimalPodLabels(cluster, "", id)
+}
+
 func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) []client.ListOption {
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(getMinimalPodLabels(cluster, processClass, id))}
 }
 
 func getSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(map[string]string{"fdb-instance-id": instanceID})}
+	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(getMinimalSinglePodLabels(cluster, instanceID))}
 }
 
 func buildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta) []metav1.OwnerReference {

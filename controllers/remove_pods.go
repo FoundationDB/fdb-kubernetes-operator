@@ -64,12 +64,15 @@ func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *
 	if err != nil {
 		return err
 	}
-	if len(instances) > 0 {
+
+	if len(instances) == 1 {
 		err = r.PodLifecycleManager.DeleteInstance(r, context, instances[0])
 
 		if err != nil {
 			return err
 		}
+	} else if len(instances) > 0 {
+		return fmt.Errorf("Multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -77,11 +80,13 @@ func (r *FoundationDBClusterReconciler) removePod(context ctx.Context, cluster *
 	if err != nil {
 		return err
 	}
-	if len(pvcs.Items) > 0 {
+	if len(pvcs.Items) == 1 {
 		err = r.Delete(context, &pvcs.Items[0])
 		if err != nil {
 			return err
 		}
+	} else if len(pvcs.Items) > 0 {
+		return fmt.Errorf("Multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	return nil
@@ -94,9 +99,11 @@ func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, c
 	if err != nil {
 		return false, err
 	}
-	if len(instances) > 0 {
+	if len(instances) == 1 {
 		log.Info("Waiting for instance get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", instances[0].Metadata.Name)
 		return false, nil
+	} else if len(instances) > 0 {
+		return false, fmt.Errorf("Multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pods := &corev1.PodList{}
@@ -104,9 +111,11 @@ func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, c
 	if err != nil {
 		return false, err
 	}
-	if len(pods.Items) > 0 {
+	if len(pods.Items) == 1 {
 		log.Info("Waiting for pod get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", pods.Items[0].Name)
 		return false, nil
+	} else if len(pods.Items) > 0 {
+		return false, fmt.Errorf("Multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -114,9 +123,11 @@ func (r *FoundationDBClusterReconciler) confirmPodRemoval(context ctx.Context, c
 	if err != nil {
 		return false, err
 	}
-	if len(pvcs.Items) > 0 {
+	if len(pvcs.Items) == 1 {
 		log.Info("Waiting for volume claim get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pvc", pvcs.Items[0].Name)
 		return false, nil
+	} else if len(pvcs.Items) > 0 {
+		return false, fmt.Errorf("Multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	return true, nil
