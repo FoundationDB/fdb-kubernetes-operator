@@ -3119,7 +3119,6 @@ func TestGettingLockOptions(t *testing.T) {
 
 	cluster := &FoundationDBCluster{}
 
-	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeTrue())
 	g.Expect(cluster.GetLockPrefix()).To(gomega.Equal("\xff\x02/org.foundationdb.kubernetes-operator"))
 
 	var disabled = true
@@ -3131,4 +3130,17 @@ func TestGettingLockOptions(t *testing.T) {
 
 	cluster.Spec.LockOptions.LockKeyPrefix = "\xfe/locks"
 	g.Expect(cluster.GetLockPrefix()).To(gomega.Equal("\xfe/locks"))
+
+	cluster.Spec.LockOptions.DisableLocks = nil
+	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeFalse())
+
+	cluster.Spec.FaultDomain.ZoneCount = 3
+	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeTrue())
+
+	cluster.Spec.FaultDomain.ZoneCount = 0
+	cluster.Spec.DatabaseConfiguration.Regions = []Region{
+		{},
+		{},
+	}
+	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeTrue())
 }

@@ -1570,7 +1570,10 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 // operations.
 func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
 	disabled := cluster.Spec.LockOptions.DisableLocks
-	return disabled == nil || !*disabled
+	if disabled != nil {
+		return !*disabled
+	}
+	return cluster.Spec.FaultDomain.ZoneCount > 1 || len(cluster.Spec.DatabaseConfiguration.Regions) > 1
 }
 
 // GetLockPrefix gets the prefix for the keys where we store locking
