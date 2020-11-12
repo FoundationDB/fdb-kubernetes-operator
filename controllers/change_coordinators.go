@@ -71,18 +71,9 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	}
 
 	if !hasValidCoordinators {
-		lockClient, err := r.getLockClient(cluster)
-		if err != nil {
-			return false, err
-		}
-
-		hasLock, err := lockClient.TakeLock()
-		if err != nil {
-			return false, err
-		}
+		hasLock, err := r.takeLock(cluster, "changing coordinators")
 		if !hasLock {
-			r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", "Lock required before changing coordinators")
-			return false, nil
+			return false, err
 		}
 
 		if !allAddressesValid {

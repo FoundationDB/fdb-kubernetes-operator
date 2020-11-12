@@ -109,6 +109,11 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, ReconciliationNotReadyError{message: "Cluster needs to stabilize before bouncing"}
 		}
 
+		hasLock, err := r.takeLock(cluster, fmt.Sprintf("bouncing processes: %v", addresses))
+		if !hasLock {
+			return false, err
+		}
+
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
 		r.Recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
