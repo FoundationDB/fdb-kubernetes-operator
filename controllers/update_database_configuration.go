@@ -100,19 +100,10 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		}
 
 		if !initialConfig {
-			lockClient, err := r.getLockClient(cluster)
-			if err != nil {
-				return false, err
-			}
-
-			hasLock, err := lockClient.TakeLock()
-			if err != nil {
-				return false, err
-			}
+			hasLock, err := r.takeLock(cluster,
+				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if !hasLock {
-				r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed",
-					fmt.Sprintf("Lock required before reconfiguring the database to `%s`", configurationString))
-				return false, nil
+				return false, err
 			}
 		}
 

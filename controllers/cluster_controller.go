@@ -717,6 +717,24 @@ func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.Foundati
 	return client, nil
 }
 
+// takeLock attempts to acquire a lock.
+func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBCluster, action string) (bool, error) {
+	lockClient, err := r.getLockClient(cluster)
+	if err != nil {
+		return false, err
+	}
+
+	hasLock, err := lockClient.TakeLock()
+	if err != nil {
+		return false, err
+	}
+
+	if !hasLock {
+		r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", fmt.Sprintf("Lock required before %s", action))
+	}
+	return hasLock, nil
+}
+
 // getPendingRemovalState builds pending removal state for an instance we want
 // to remove.
 func (r *FoundationDBClusterReconciler) getPendingRemovalState(instance FdbInstance) fdbtypes.PendingRemovalState {
