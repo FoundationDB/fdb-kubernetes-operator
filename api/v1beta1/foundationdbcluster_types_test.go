@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 
@@ -3120,6 +3121,7 @@ func TestGettingLockOptions(t *testing.T) {
 	cluster := &FoundationDBCluster{}
 
 	g.Expect(cluster.GetLockPrefix()).To(gomega.Equal("\xff\x02/org.foundationdb.kubernetes-operator"))
+	g.Expect(cluster.GetLockDuration()).To(gomega.Equal(10 * time.Minute))
 
 	var disabled = true
 	cluster.Spec.LockOptions.DisableLocks = &disabled
@@ -3143,4 +3145,8 @@ func TestGettingLockOptions(t *testing.T) {
 		{},
 	}
 	g.Expect(cluster.ShouldUseLocks()).To(gomega.BeTrue())
+
+	duration := 60
+	cluster.Spec.LockOptions.LockDurationMinutes = &duration
+	g.Expect(cluster.GetLockDuration()).To(gomega.Equal(60 * time.Minute))
 }

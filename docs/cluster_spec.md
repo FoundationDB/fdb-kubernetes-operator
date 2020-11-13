@@ -456,6 +456,7 @@ LockOptions provides customization for locking global operations.
 | ----- | ----------- | ------ | -------- |
 | disableLocks | DisableLocks determines whether we should disable locking entirely. | *bool | false |
 | lockKeyPrefix | LockKeyPrefix provides a custom prefix for the keys in the database we use to store locks. | string | false |
+| lockDurationMinutes | LockDurationMinutes determines the duration that locks should be valid for. | *int | false |
 
 [Back to TOC](#table-of-contents)
 

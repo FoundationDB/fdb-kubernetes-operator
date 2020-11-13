@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1586,6 +1587,15 @@ func (cluster *FoundationDBCluster) GetLockPrefix() string {
 	return "\xff\x02/org.foundationdb.kubernetes-operator"
 }
 
+// GetLockDuration determines how long we hold locks for.
+func (cluster *FoundationDBCluster) GetLockDuration() time.Duration {
+	minutes := 10
+	if cluster.Spec.LockOptions.LockDurationMinutes != nil {
+		minutes = *cluster.Spec.LockOptions.LockDurationMinutes
+	}
+	return time.Duration(minutes) * time.Minute
+}
+
 // GetLockID gets the identifier for this instance of the operator when taking
 // locks.
 func (cluster *FoundationDBCluster) GetLockID() string {
@@ -1954,6 +1964,10 @@ type LockOptions struct {
 	// LockKeyPrefix provides a custom prefix for the keys in the database we
 	// use to store locks.
 	LockKeyPrefix string `json:"lockKeyPrefix,omitempty"`
+
+	// LockDurationMinutes determines the duration that locks should be valid
+	// for.
+	LockDurationMinutes *int `json:"lockDurationMinutes,omitempty"`
 }
 
 // ServiceConfig allows configuring services that sit in front of our pods.
