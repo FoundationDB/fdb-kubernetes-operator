@@ -206,15 +206,12 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 	}
 
 	clusterFile, err := ioutil.TempFile("", "")
-	clusterFilePath := clusterFile.Name()
 	if err != nil {
 		return fdb.Database{}, err
 	}
 
 	defer clusterFile.Close()
-	if err != nil {
-		return fdb.Database{}, err
-	}
+	clusterFilePath := clusterFile.Name()
 
 	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
 	if err != nil {
