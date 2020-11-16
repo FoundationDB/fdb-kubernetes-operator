@@ -1,5 +1,11 @@
 # Tracking Process Groups in the Status
 
+## Metadata
+
+Authors: @brownleej
+Created: 2020-11-16
+Updated: 2020-11-16
+
 ## Background
 
 We have multiple places in the status where we track information about
