@@ -12,7 +12,7 @@ COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
 COPY ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
 RUN set -eux && \
 	update-ca-certificates --fresh && \
-	curl $FDB_WEBSITE/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -o fdb.deb && \
+	curl --fail $FDB_WEBSITE/downloads/$FDB_VERSION/ubuntu/installers/foundationdb-clients_$FDB_VERSION-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
 	mkdir -p /usr/lib/fdb && \
 	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
