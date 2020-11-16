@@ -1,5 +1,11 @@
 # Automatic Replacements
 
+## Metadata
+
+* Authors: @brownleej
+* Created: 2020-11-04
+* Updated: 2020-11-16
+
 ## Background
 
 Replacing failed processes can be a major source of operational toil when running FoundationDB. This is especially true when using local disks, which expose the service to a wide variety of failure modes both of the disks themselves and the hosts they run on. FoundationDB generally aims to be self-healing, but it will eventually be necessary to replace failing processes to regain capacity. People running FoundationDB may want to define restrictions on other operations while a cluster is in a degraded state, such as having a pod disruption budget to prevent voluntary deletion of pods while another pod is failing to schedule.
