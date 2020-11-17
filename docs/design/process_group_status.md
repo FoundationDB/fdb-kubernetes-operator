@@ -48,7 +48,7 @@ will introduce the term, but will not require the removal of all uses of the
 word "instance", which has additional design challenges. There will be a 1:1
 relationship between a process group and a pod, in the healthy state, but there
 will be times where a process group does not have a pod, in which case the
-operator will create on. The term "process" will refer to a single fdbserver
+operator will create one. The term "process" will refer to a single fdbserver
 process managed by the operator. In configurations where we are running multiple
 storage servers on a single disk, the pod will be represented by a single
 process group, with multiple fdbserver processes within it.
