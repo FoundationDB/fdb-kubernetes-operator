@@ -47,7 +47,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
-	status.StorageServersPerDisk = make([]int, 0, 0)
+	status.StorageServersPerDisk = make([]int, 0)
 
 	// Initialize with the current desired storage servers per Pod
 	status.AddStorageServerPerDisk(cluster.GetStorageServersPerPod())
