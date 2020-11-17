@@ -271,7 +271,6 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 				Expect(sidecarContainer.VolumeMounts).To(Equal([]corev1.VolumeMount{
 					{Name: "config-map", MountPath: "/var/input-files"},
@@ -305,8 +304,8 @@ var _ = Describe("pod_models", func() {
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
-							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
+							{Key: "cluster-file", Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -462,8 +461,8 @@ var _ = Describe("pod_models", func() {
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
-							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "fdbmonitor-conf-storage-density-2", Path: "fdbmonitor.conf"},
+							{Key: "cluster-file", Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -996,7 +995,6 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 			})
 		})
@@ -1057,7 +1055,6 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 			})
 		})
@@ -1140,7 +1137,6 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: "S.CN=foundationdb.org"},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 			})
 		})
@@ -1219,8 +1215,8 @@ var _ = Describe("pod_models", func() {
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
-							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
+							{Key: "cluster-file", Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1396,7 +1392,6 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 			})
 
@@ -1406,8 +1401,8 @@ var _ = Describe("pod_models", func() {
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
-							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
+							{Key: "cluster-file", Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1459,7 +1454,6 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 
 				Expect(len(spec.Volumes)).To(Equal(4))
@@ -1469,8 +1463,8 @@ var _ = Describe("pod_models", func() {
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
-							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
+							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "sidecar-conf", Path: "config.json"},
 						},
 					}},
@@ -1589,7 +1583,6 @@ var _ = Describe("pod_models", func() {
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
 					{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"},
-					{Name: "STORAGE_SERVERS_PER_POD", Value: "1"},
 				}))
 			})
 
@@ -1600,8 +1593,8 @@ var _ = Describe("pod_models", func() {
 					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
-							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
+							{Key: "cluster-file", Path: "fdb.cluster"},
 							{Key: "ca-file", Path: "ca.pem"},
 						},
 					}},

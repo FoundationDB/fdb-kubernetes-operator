@@ -7,7 +7,6 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
-  storageServersPerPod: 1
   version: 6.2.27
   faultDomain:
     key: foundationdb.org/none

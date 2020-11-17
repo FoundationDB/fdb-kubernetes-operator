@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"strconv"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -125,8 +124,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 		if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
 			// Replace the instance if the storage servers differ
-			storageServersPerPodStr := getStorageServersPerPodForInstance(&instance)
-			storageServersPerPod, err := strconv.Atoi(storageServersPerPodStr)
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
 			if err != nil {
 				return false, err
 			}

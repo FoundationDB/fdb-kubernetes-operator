@@ -235,8 +235,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 
 	serversPerPod := 1
 	if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
-		serversPerPod, err = strconv.Atoi(getStorageServersPerPodForInstance(&instance))
-
+		serversPerPod, err = getStorageServersPerPodForInstance(&instance)
 		if err != nil {
 			return false, err
 		}
@@ -424,25 +423,19 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 	for processClass, count := range desiredCounts {
 		if count > 0 {
 			if processClass == fdbtypes.ProcessClassStorage {
-				storageServersPerDisk, err := convertStringSetToIntSet(cluster.Status.StorageServersPerDisk)
-				if err != nil {
-					return nil, err
-				}
+				storageServersPerDisk := cluster.Status.StorageServersPerDisk
 				// If the status field is not initialized we fallback to only the specified count
 				// in the cluster spec. This should only happen in the initial phase of a new cluster.
 				if len(cluster.Status.StorageServersPerDisk) == 0 {
-					log.Info("GetConfigMap", "fallback to", cluster.GetStorageServersPerPod(), "storageServersPerDisk", storageServersPerDisk)
-					storageServersPerDisk = map[int]bool{cluster.GetStorageServersPerPod(): true}
+					storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 				}
 
-				for serversPerPod := range storageServersPerDisk {
+				for _, serversPerPod := range storageServersPerDisk {
 					var filename string
-
 					if serversPerPod > 1 {
 						filename = fmt.Sprintf("fdbmonitor-conf-%s-density-%d", processClass, serversPerPod)
 					} else {
-						// We need this here because of https://golang.org/ref/spec#RangeClause 3.
-						// the order of the range over a map is not specified.
+						// We need this here because we have no guarantee of the order of the slice.
 						filename = fmt.Sprintf("fdbmonitor-conf-%s", processClass)
 					}
 
@@ -1432,19 +1425,4 @@ func (r *FoundationDBClusterReconciler) getDeprecationsWithRetry(context ctx.Con
 		}
 	}
 	return deprecations, nil
-}
-
-func convertStringSetToIntSet(stringMap map[string]bool) (map[int]bool, error) {
-	result := make(map[int]bool)
-
-	for k, v := range stringMap {
-		key, err := strconv.Atoi(k)
-		if err != nil {
-			return result, err
-		}
-
-		result[key] = v
-	}
-
-	return result, nil
 }

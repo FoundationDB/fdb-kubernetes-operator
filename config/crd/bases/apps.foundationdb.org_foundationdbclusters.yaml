@@ -7946,9 +7946,9 @@ spec:
             runningVersion:
               type: string
             storageServersPerDisk:
-              additionalProperties:
-                type: boolean
-              type: object
+              items:
+                type: integer
+              type: array
           type: object
       type: object
   version: v1beta1

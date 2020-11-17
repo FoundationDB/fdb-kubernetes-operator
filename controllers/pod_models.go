@@ -219,7 +219,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		return nil, err
 	}
 
-	if processClass == fdbtypes.ProcessClassStorage {
+	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
 		sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
 	}
 
@@ -238,14 +238,14 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
 	}
 
-	configMapItems := []corev1.KeyToPath{
-		{Key: "cluster-file", Path: "fdb.cluster"},
+	monitorConf := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
+	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+		monitorConf = fmt.Sprintf("fdbmonitor-conf-%s-density-%d", processClass, cluster.GetStorageServersPerPod())
 	}
 
-	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-		configMapItems = append(configMapItems, corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s-density-%d", processClass, cluster.GetStorageServersPerPod()), Path: "fdbmonitor.conf"})
-	} else {
-		configMapItems = append(configMapItems, corev1.KeyToPath{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"})
+	configMapItems := []corev1.KeyToPath{
+		{Key: monitorConf, Path: "fdbmonitor.conf"},
+		{Key: "cluster-file", Path: "fdb.cluster"},
 	}
 
 	if useCustomCAs {

@@ -47,10 +47,10 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
-	status.StorageServersPerDisk = make(map[string]bool)
+	status.StorageServersPerDisk = make([]int, 0, 0)
 
 	// Initialize with the current desired storage servers per Pod
-	status.AddStorageServerPerDisk(strconv.Itoa(cluster.GetStorageServersPerPod()))
+	status.AddStorageServerPerDisk(cluster.GetStorageServersPerPod())
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
@@ -141,10 +141,17 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	for _, instance := range instances {
 		processClass := instance.GetProcessClass()
 		instanceID := instance.GetInstanceID()
+		processCount := 1
 
 		// Even the instance will be removed we need to keep the config around
+		// Set the processCount for the instance specific storage servers per pod
 		if processClass == fdbtypes.ProcessClassStorage {
-			status.AddStorageServerPerDisk(getStorageServersPerPodForInstance(&instance))
+			processCount, err := getStorageServersPerPodForInstance(&instance)
+			if err != nil {
+				return false, err
+			}
+
+			status.AddStorageServerPerDisk(processCount)
 		}
 
 		if cluster.InstanceIsBeingRemoved(instanceID) {
@@ -153,16 +160,9 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 		status.ProcessCounts.IncreaseCount(processClass, 1)
 
-		if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-			storageServersPerPod := cluster.GetStorageServersPerPod()
-			for i := 1; i <= storageServersPerPod; i++ {
-				err := CheckAndSetProcessStatus(r, cluster, instance, processMap, &status, i, storageServersPerPod)
-				if err != nil {
-					return false, err
-				}
-			}
-		} else {
-			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, &status, 1, 1)
+		// In theory we could also support multiple processes per pod for different classes
+		for i := 1; i <= processCount; i++ {
+			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, &status, i, processCount)
 			if err != nil {
 				return false, err
 			}
@@ -488,16 +488,16 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	return nil
 }
 
-func getStorageServersPerPodForInstance(instance *FdbInstance) string {
+func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
 	// If not specified we will default to 1
-	storageServersPerPod := "1"
+	storageServersPerPod := 1
 	for _, container := range instance.Pod.Spec.Containers {
 		for _, env := range container.Env {
 			if env.Name == "STORAGE_SERVERS_PER_POD" {
-				return env.Value
+				return strconv.Atoi(env.Value)
 			}
 		}
 	}
 
-	return storageServersPerPod
+	return storageServersPerPod, nil
 }

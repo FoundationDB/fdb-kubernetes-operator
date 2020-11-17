@@ -71,8 +71,6 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		addresses = append(addresses, addressMap[process])
 
 		instanceID := GetInstanceIDFromProcessID(process)
-		log.Info("GetPod", "instanceID", instanceID)
-
 		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return false, err
@@ -102,6 +100,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
+
 			return false, ReconciliationNotReadyError{message: "Kills are disabled"}
 		}
 
@@ -113,6 +112,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
+
 			return false, ReconciliationNotReadyError{message: "Cluster needs to stabilize before bouncing"}
 		}
 

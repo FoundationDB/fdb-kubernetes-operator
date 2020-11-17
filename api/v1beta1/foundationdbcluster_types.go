@@ -337,10 +337,9 @@ type FoundationDBClusterStatus struct {
 	// require it.
 	NeedsSidecarConfInConfigMap bool `json:"needsSidecarConfInConfigMap,omitempty"`
 
-	// StorageServersPerDisk defines the current count of storage servers per disk
-	// this value should be StorageServersPerPod * ProcessCount for storage class.
-	// If the value differs the reconcile phase is not finished
-	StorageServersPerDisk map[string]bool `json:"storageServersPerDisk,omitempty"`
+	// StorageServersPerDisk defines the storageServersPerPod observed in the cluster.
+	// If there are more than one value in the slice the reconcile phase is not finished.
+	StorageServersPerDisk []int `json:"storageServersPerDisk,omitempty"`
 }
 
 // ClusterGenerationStatus stores information on which generations have reached
@@ -2165,10 +2164,12 @@ const (
 )
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
-func (clusterStatus FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk string) {
-	if _, ok := clusterStatus.StorageServersPerDisk[serversPerDisk]; ok {
-		return
+func (clusterStatus FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
+	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
+		if curServersPerDisk == serversPerDisk {
+			return
+		}
 	}
 
-	clusterStatus.StorageServersPerDisk[serversPerDisk] = true
+	clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
 }

@@ -44,8 +44,9 @@ var _ = Describe("update_status", func() {
 				},
 			}
 
-			storageServersPerPod := getStorageServersPerPodForInstance(&instance)
-			Expect(storageServersPerPod).To(Equal("1"))
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storageServersPerPod).To(Equal(1))
 		})
 	})
 
@@ -66,8 +67,9 @@ var _ = Describe("update_status", func() {
 				},
 			}
 
-			storageServersPerPod := getStorageServersPerPodForInstance(&instance)
-			Expect(storageServersPerPod).To(Equal("2"))
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storageServersPerPod).To(Equal(2))
 		})
 	})
 
@@ -83,8 +85,9 @@ var _ = Describe("update_status", func() {
 				},
 			}
 
-			storageServersPerPod := getStorageServersPerPodForInstance(&instance)
-			Expect(storageServersPerPod).To(Equal("1"))
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storageServersPerPod).To(Equal(1))
 		})
 	})
 })

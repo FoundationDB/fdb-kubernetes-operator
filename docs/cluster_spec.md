@@ -268,7 +268,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
-| storageServersPerDisk | StorageServersPerDisk defines the current count of storage servers per disk this value should be StorageServersPerPod * ProcessCount for storage class. If the value differs the reconcile phase is not finished | map[string]bool | false |
+| storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -586,10 +586,8 @@ func (in *FoundationDBClusterStatus) DeepCopyInto(out *FoundationDBClusterStatus
 	}
 	if in.StorageServersPerDisk != nil {
 		in, out := &in.StorageServersPerDisk, &out.StorageServersPerDisk
-		*out = make(map[string]bool, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
+		*out = make([]int, len(*in))
+		copy(*out, *in)
 	}
 }
 
