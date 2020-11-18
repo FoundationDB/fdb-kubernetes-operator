@@ -257,7 +257,6 @@ var _ = Describe("cluster_controller", func() {
 
 				// The storage pods should be replaced
 				Expect(pods.Items[13].Name).To(Not(Equal(originalPods.Items[13].Name)))
-				log.Info("Meta", "Meta", pods.Items[13].ObjectMeta, "cluster", getSinglePodListOptions(cluster, "operator-test-1-storage-5"))
 				Expect(pods.Items[14].Name).To(Not(Equal(originalPods.Items[14].Name)))
 				Expect(pods.Items[15].Name).To(Not(Equal(originalPods.Items[15].Name)))
 				Expect(pods.Items[16].Name).To(Not(Equal(originalPods.Items[16].Name)))
