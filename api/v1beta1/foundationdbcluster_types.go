@@ -2151,9 +2151,6 @@ const (
 	PublicIPSourceService PublicIPSource = "service"
 )
 
-// ProcessClass models the different FDB classes
-type ProcessClass string
-
 const (
 	// ProcessClassStorage model for FDB class storage
 	ProcessClassStorage = "storage"
