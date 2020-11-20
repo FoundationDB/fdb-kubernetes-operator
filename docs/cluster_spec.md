@@ -241,6 +241,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | volumeClaim | VolumeClaim allows customizing the persistent volume claim for the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. **Deprecated: use the Processes field instead.** | []string | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP.  **Deprecated: To indicate that a process should be removed, use the InstancesToRemove field. To get information about pending removals, use the PendingRemovals field in the status.** | map[string]string | false |
+| storageServersPerPod | StorageServersPerPod defines how many Storage Servers should run in a single Instance (Pod). This number defines the number of processes running in one Pod whereas the ProcessCounts defines the number of Pods created. This means that you end up with ProcessCounts[\"storage\"] * StorageServersPerPod storage processes | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -267,6 +268,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
+| storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 
 [Back to TOC](#table-of-contents)
 

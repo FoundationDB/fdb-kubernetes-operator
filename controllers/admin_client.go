@@ -309,6 +309,10 @@ func (client *CliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 // only the IP and port.
 func RemoveAddressFlags(address string) string {
 	components := strings.Split(address, ":")
+	if len(components) < 2 {
+		return address
+	}
+
 	return fmt.Sprintf("%s:%s", components[0], components[1])
 }
 
@@ -338,13 +342,13 @@ func (client *CliAdminClient) ExcludeInstances(addresses []string) error {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude no_wait %s",
-				strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
+				strings.Join(addresses, " "),
 			)})
 	} else {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude %s",
-				strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
+				strings.Join(addresses, " "),
 			)})
 	}
 	return err
@@ -358,7 +362,7 @@ func (client *CliAdminClient) IncludeInstances(addresses []string) error {
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"include %s",
-		strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
+		strings.Join(addresses, " "),
 	)})
 	return err
 }
@@ -393,18 +397,17 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	}
 
 	if version.HasNonBlockingExcludes() {
-		addressesWithoutFlags := RemoveAddressFlagsFromAll(addresses)
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
-			strings.Join(addressesWithoutFlags, " "),
+			strings.Join(addresses, " "),
 		)})
 		if err != nil {
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
 		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", addresses, "results", exclusionResults)
-		remaining := make([]string, 0, len(addressesWithoutFlags))
-		for _, address := range addressesWithoutFlags {
+		remaining := make([]string, 0, len(addresses))
+		for _, address := range addresses {
 			if exclusionResults[address] != "Success" && exclusionResults[address] != "Missing" {
 				remaining = append(remaining, address)
 			}
@@ -413,7 +416,7 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	}
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
 		"exclude %s",
-		strings.Join(RemoveAddressFlagsFromAll(addresses), " "),
+		strings.Join(addresses, " "),
 	)})
 	return nil, err
 }
@@ -422,7 +425,7 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 // the output of an exclusion command.
 func parseExclusionOutput(output string) map[string]string {
 	results := make(map[string]string)
-	var regex = regexp.MustCompile(`\s*([\w.:]+)\s*-+(.*)`)
+	var regex = regexp.MustCompile(`\s*(\[?[\w.:\]?]+)\s*-+(.*)`)
 	matches := regex.FindAllStringSubmatch(output, -1)
 	for _, match := range matches {
 		address := match[1]
@@ -736,7 +739,8 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	for _, pod := range pods.Items {
 		ip := MockPodIP(&pod)
 		podClient := &mockFdbPodClient{Cluster: client.Cluster, Pod: &pod}
-		fullAddress := client.Cluster.GetFullAddress(ip)
+
+		fullAddress := client.Cluster.GetFullAddress(ip, 1)
 
 		_, ipExcluded := exclusionMap[ip]
 		_, addressExcluded := exclusionMap[fullAddress]
@@ -746,7 +750,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			coordinators[fullAddress] = true
 		}
 		instance := newFdbInstance(pod)
-		command, err := GetStartCommand(client.Cluster, instance, podClient)
+		command, err := GetStartCommand(client.Cluster, instance, podClient, 1, 1)
 		if err != nil {
 			return nil, err
 		}
@@ -754,7 +758,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			Address:      fullAddress,
 			ProcessClass: GetProcessClassFromMeta(pod.ObjectMeta),
 			CommandLine:  command,
-			Excluded:     ipExcluded || addressExcluded,
+			Excluded:     excluded,
 			Locality: map[string]string{
 				"instance_id": instance.GetInstanceID(),
 				"zoneid":      pod.Name,
@@ -867,17 +871,10 @@ func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
 }
 
 func isValidAddress(address string) bool {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return false
-	}
-	if host == "" {
-		return false
-	}
-	return true
+	return net.ParseIP(address) != nil
 }
 
-// IncludeInstances removes processes from the exclusion list and allows
+// IncludeInstances removes instances from the exclusion list and allows
 // them to take on roles again.
 func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 	newExclusions := make([]string, 0, len(client.ExcludedAddresses))
@@ -906,7 +903,7 @@ func (client *MockAdminClient) IncludeInstances(addresses []string) error {
 	return nil
 }
 
-// CanSafelyRemove checks whether it is safe to remove processes from the
+// CanSafelyRemove checks whether it is safe to remove instances from the
 // cluster
 //
 // The list returned by this method will be the addresses that are *not*

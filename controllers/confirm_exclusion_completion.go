@@ -47,8 +47,7 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 			if state.Address == "" {
 				return false, fmt.Errorf("Cannot check the exclusion state of instance %s, which has no IP address", instanceID)
 			}
-			address := cluster.GetFullAddress(state.Address)
-			addresses = append(addresses, address)
+			addresses = append(addresses, state.Address)
 		}
 	}
 
@@ -73,14 +72,13 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 		remainingMap[address] = true
 	}
 	for id, state := range cluster.Status.PendingRemovals {
-		fullAddress := cluster.GetFullAddress(state.Address)
-		isRemaining, isPresent := remainingMap[fullAddress]
+		isRemaining, isPresent := remainingMap[state.Address]
 		if !state.ExclusionComplete {
 			if !isPresent {
-				log.Info("Process missing in exclusion results", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", fullAddress)
+				log.Info("Process missing in exclusion results", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", state.Address)
 			} else if !isRemaining {
 				newState := state
-				log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", fullAddress)
+				log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", state.Address)
 				newState.ExclusionComplete = true
 				cluster.Status.PendingRemovals[id] = newState
 			}

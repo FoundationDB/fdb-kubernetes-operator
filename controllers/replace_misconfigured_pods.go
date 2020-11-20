@@ -122,6 +122,18 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		needsRemoval = needsRemoval || instanceID != desiredInstanceID
 		needsRemoval = needsRemoval || instance.GetPublicIPSource() != *cluster.Spec.Services.PublicIPSource
 
+		if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
+			// Replace the instance if the storage servers differ
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			if err != nil {
+				return false, err
+			}
+
+			if storageServersPerPod != cluster.GetStorageServersPerPod() {
+				needsRemoval = true
+			}
+		}
+
 		if cluster.Spec.UpdatePodsByReplacement {
 			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 			if err != nil {

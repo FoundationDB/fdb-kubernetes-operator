@@ -43,7 +43,7 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
 	for _, state := range cluster.Status.PendingRemovals {
 		if state.Address != "" {
-			addresses = append(addresses, cluster.GetFullAddress(state.Address))
+			addresses = append(addresses, state.Address)
 		}
 	}
 

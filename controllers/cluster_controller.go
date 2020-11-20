@@ -50,6 +50,7 @@ import (
 )
 
 var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
+var processIDRegex = regexp.MustCompile(`^(\w+-\d)-\d$`)
 
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
@@ -223,7 +224,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	if cluster.InstanceIsBeingRemoved(instance.GetInstanceID()) {
 		return true, nil
 	}
-	client, err := r.getPodClient(cluster, instance)
+	podClient, err := r.getPodClient(cluster, instance)
 	if err != nil {
 		return false, err
 	}
@@ -232,17 +233,25 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		return false, MissingPodError(instance, cluster)
 	}
 
-	conf, err := GetMonitorConf(cluster, instance.GetProcessClass(), instance.Pod, client)
+	serversPerPod := 1
+	if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
+		serversPerPod, err = getStorageServersPerPodForInstance(&instance)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	conf, err := GetMonitorConf(cluster, instance.GetProcessClass(), podClient, serversPerPod)
 	if err != nil {
 		return false, err
 	}
 
-	synced, err := UpdateDynamicFiles(client, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
+	synced, err := UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
 	if !synced {
 		return synced, err
 	}
 
-	synced, err = UpdateDynamicFiles(client, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
+	synced, err = UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
 	if !synced {
 		return synced, err
 	}
@@ -253,7 +262,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	}
 
 	if !version.SupportsUsingBinariesFromMainContainer() || cluster.IsBeingUpgraded() {
-		synced, err = CheckDynamicFilePresent(client, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
+		synced, err = CheckDynamicFilePresent(podClient, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
 		if !synced {
 			return synced, err
 		}
@@ -371,8 +380,22 @@ func buildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 	}}
 }
 
+func setMonitorConfForFilename(cluster *fdbtypes.FoundationDBCluster, data map[string]string, filename string, connectionString string, processClass string, serversPerPod int) error {
+	if connectionString == "" {
+		data[filename] = ""
+	} else {
+		conf, err := GetMonitorConf(cluster, processClass, nil, serversPerPod)
+		if err != nil {
+			return err
+		}
+		data[filename] = conf
+	}
+
+	return nil
+}
+
 // GetConfigMap builds a config map for a cluster's dynamic config
-func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*corev1.ConfigMap, error) {
+func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
 	connectionString := cluster.Status.ConnectionString
@@ -399,15 +422,35 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 
 	for processClass, count := range desiredCounts {
 		if count > 0 {
-			filename := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
-			if connectionString == "" {
-				data[filename] = ""
-			} else {
-				conf, err := GetMonitorConf(cluster, processClass, nil, nil)
-				if err != nil {
-					return nil, err
+			if processClass == fdbtypes.ProcessClassStorage {
+				storageServersPerDisk := cluster.Status.StorageServersPerDisk
+				// If the status field is not initialized we fallback to only the specified count
+				// in the cluster spec. This should only happen in the initial phase of a new cluster.
+				if len(cluster.Status.StorageServersPerDisk) == 0 {
+					storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 				}
-				data[filename] = conf
+
+				for _, serversPerPod := range storageServersPerDisk {
+					var filename string
+					if serversPerPod > 1 {
+						filename = fmt.Sprintf("fdbmonitor-conf-%s-density-%d", processClass, serversPerPod)
+					} else {
+						// We need this here because we have no guarantee of the order of the slice.
+						filename = fmt.Sprintf("fdbmonitor-conf-%s", processClass)
+					}
+
+					err := setMonitorConfForFilename(cluster, data, filename, connectionString, processClass, serversPerPod)
+					if err != nil {
+						return nil, err
+					}
+				}
+				continue
+
+			}
+
+			err := setMonitorConfForFilename(cluster, data, fmt.Sprintf("fdbmonitor-conf-%s", processClass), connectionString, processClass, 1)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -476,13 +519,8 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 		}
 	}
 
-	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-	if err != nil {
-		return nil, err
-	}
-
 	metadata := getConfigMapMetadata(cluster)
-	metadata.OwnerReferences = owner
+	metadata.OwnerReferences = buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 
 	return &corev1.ConfigMap{
 		ObjectMeta: metadata,
@@ -491,8 +529,8 @@ func GetConfigMap(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, ku
 }
 
 // GetConfigMapHash gets the hash of the data for a cluster's dynamic config.
-func GetConfigMapHash(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (string, error) {
-	configMap, err := GetConfigMap(context, cluster, kubeClient)
+func GetConfigMapHash(cluster *fdbtypes.FoundationDBCluster) (string, error) {
+	configMap, err := GetConfigMap(cluster)
 	if err != nil {
 		return "", err
 	}
@@ -500,7 +538,7 @@ func GetConfigMapHash(context ctx.Context, cluster *fdbtypes.FoundationDBCluster
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, pod *corev1.Pod, podClient FdbPodClient) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, podClient FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -511,22 +549,26 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 		"kill_on_configuration_change = false",
 		"restart_delay = 60",
 	)
-	confLines = append(confLines, "[fdbserver.1]")
-	commands, err := getStartCommandLines(cluster, processClass, podClient)
-	if err != nil {
-		return "", err
+
+	for i := 1; i <= serversPerPod; i++ {
+		confLines = append(confLines, fmt.Sprintf("[fdbserver.%d]", i))
+		commands, err := getStartCommandLines(cluster, processClass, podClient, i, serversPerPod)
+		if err != nil {
+			return "", err
+		}
+		confLines = append(confLines, commands...)
 	}
-	confLines = append(confLines, commands...)
+
 	return strings.Join(confLines, "\n"), nil
 }
 
 // GetStartCommand builds the expected start command for an instance.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, podClient FdbPodClient) (string, error) {
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
 	if instance.Pod == nil {
 		return "", MissingPodError(instance, cluster)
 	}
 
-	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), podClient)
+	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), podClient, processNumber, processCount)
 	if err != nil {
 		return "", err
 	}
@@ -544,10 +586,11 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 		}
 		command += " --" + components[1] + "=" + components[2]
 	}
+
 	return command, nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, podClient FdbPodClient) ([]string, error) {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	var substitutions map[string]string
@@ -591,15 +634,21 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("command = %s/fdbserver", binaryDir),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s", cluster.GetFullAddressList("$FDB_PUBLIC_IP", false)),
+		fmt.Sprintf("public_address = %s", cluster.GetFullAddressList("$FDB_PUBLIC_IP", false, processNumber)),
 		fmt.Sprintf("class = %s", processClass),
-		"datadir = /var/fdb/data",
 		"logdir = /var/log/fdb-trace-logs",
-		fmt.Sprintf("loggroup = %s", logGroup),
+		fmt.Sprintf("loggroup = %s", logGroup))
+
+	if processCount <= 1 {
+		confLines = append(confLines, "datadir = /var/fdb/data", "locality_process_id = $FDB_INSTANCE_ID")
+	} else {
+		confLines = append(confLines, fmt.Sprintf("datadir = /var/fdb/data/%d", processNumber), fmt.Sprintf("locality_process_id = $FDB_INSTANCE_ID-%d", processNumber))
+	}
+
+	confLines = append(confLines,
 		"locality_instance_id = $FDB_INSTANCE_ID",
 		"locality_machineid = $FDB_MACHINE_ID",
-		fmt.Sprintf("locality_zoneid = %s", zoneVariable),
-	)
+		fmt.Sprintf("locality_zoneid = %s", zoneVariable))
 
 	if cluster.Spec.DataCenter != "" {
 		confLines = append(confLines, fmt.Sprintf("locality_dcid = %s", cluster.Spec.DataCenter))
@@ -614,7 +663,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 	}
 
 	if cluster.NeedsExplicitListenAddress() {
-		confLines = append(confLines, fmt.Sprintf("listen_address = %s", cluster.GetFullAddressList("$FDB_POD_IP", false)))
+		confLines = append(confLines, fmt.Sprintf("listen_address = %s", cluster.GetFullAddressList("$FDB_POD_IP", false, processNumber)))
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
@@ -892,6 +941,11 @@ func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
 	return fdbtypes.PublicIPSource(source)
 }
 
+// GetProcessID fetches the instance ID from an instance's metadata.
+func (instance FdbInstance) GetProcessID(processNumber int) string {
+	return fmt.Sprintf("%s-%d", GetInstanceIDFromMeta(*instance.Metadata), processNumber)
+}
+
 // GetInstances returns a list of instances for FDB pods that have been
 // created.
 func (manager StandardPodLifecycleManager) GetInstances(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, context ctx.Context, options ...client.ListOption) ([]FdbInstance, error) {
@@ -981,7 +1035,7 @@ func (manager StandardPodLifecycleManager) InstanceIsUpdated(*FoundationDBCluste
 func ParseInstanceID(id string) (string, int, error) {
 	result := instanceIDRegex.FindStringSubmatch(id)
 	if result == nil {
-		return "", 0, fmt.Errorf("Could not parse instance ID %s", id)
+		return "", 0, fmt.Errorf("could not parse instance ID %s", id)
 	}
 	prefix := result[1]
 	number, err := strconv.Atoi(result[2])
@@ -989,6 +1043,17 @@ func ParseInstanceID(id string) (string, int, error) {
 		return "", 0, err
 	}
 	return prefix, number, nil
+}
+
+// GetInstanceIDFromProcessID returns the instance ID for the process ID
+func GetInstanceIDFromProcessID(id string) string {
+	result := processIDRegex.FindStringSubmatch(id)
+	if result == nil {
+		// In this case we assume that instance ID == process ID
+		return id
+	}
+
+	return result[1]
 }
 
 // MissingPodError creates an error that can be thrown when an instance does not
@@ -1078,7 +1143,10 @@ func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client FdbPo
 		return localityInfo{}, err
 	}
 
-	address := cluster.GetFullAddress(substitutions["FDB_PUBLIC_IP"])
+	// This locality information is only used during the initial cluster file generation.
+	// So it should be good to only use the first process address here.
+	// This has the implication that in the initial cluster file only the first processes will be used.
+	address := cluster.GetFullAddress(substitutions["FDB_PUBLIC_IP"], 1)
 	return localityInfo{
 		ID:      substitutions["FDB_INSTANCE_ID"],
 		Address: address,

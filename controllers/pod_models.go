@@ -143,6 +143,18 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		}
 	}
 
+	if mainContainer == nil {
+		return nil, fmt.Errorf("could not create main container")
+	}
+
+	if sidecarContainer == nil {
+		return nil, fmt.Errorf("could not create sidecar container")
+	}
+
+	if initContainer == nil {
+		return nil, fmt.Errorf("could not create init container")
+	}
+
 	podName, instanceID := getInstanceID(cluster, processClass, idNum)
 
 	versionString := cluster.Status.RunningVersion
@@ -207,6 +219,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		return nil, err
 	}
 
+	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+		sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
+	}
+
 	var mainVolumeSource corev1.VolumeSource
 	if usePvc(cluster, processClass) {
 		var volumeClaimSourceName string
@@ -222,8 +238,13 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
 	}
 
+	monitorConf := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
+	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+		monitorConf = fmt.Sprintf("fdbmonitor-conf-%s-density-%d", processClass, cluster.GetStorageServersPerPod())
+	}
+
 	configMapItems := []corev1.KeyToPath{
-		{Key: fmt.Sprintf("fdbmonitor-conf-%s", processClass), Path: "fdbmonitor.conf"},
+		{Key: monitorConf, Path: "fdbmonitor.conf"},
 		{Key: "cluster-file", Path: "fdb.cluster"},
 	}
 
@@ -514,7 +535,7 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass string) bool {
 
 // isStateful determines whether a process class should store data.
 func isStateful(processClass string) bool {
-	return processClass == "storage" || processClass == "log" || processClass == "transaction"
+	return processClass == fdbtypes.ProcessClassStorage || processClass == fdbtypes.ProcessClassLog || processClass == fdbtypes.ProcessClassTransaction
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB instance.

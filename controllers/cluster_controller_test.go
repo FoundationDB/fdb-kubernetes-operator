@@ -163,7 +163,7 @@ var _ = Describe("cluster_controller", func() {
 					"cluster_controller": 1,
 				}))
 
-				configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+				configMapHash, err := GetConfigMapHash(cluster)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(pods.Items[0].ObjectMeta.Annotations[LastConfigMapKey]).To(Equal(configMapHash))
@@ -186,7 +186,7 @@ var _ = Describe("cluster_controller", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
-				expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, k8sClient)
+				expectedConfigMap, _ := GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
 
@@ -239,6 +239,56 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		Context("change the storage servers per disk", func() {
+			BeforeEach(func() {
+				cluster.Spec.StorageServersPerPod = 2
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.GetStorageServersPerPod()).To(Equal(2))
+			})
+
+			It("should replace the pods", func() {
+				pods := &corev1.PodList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return len(pods.Items), err
+				}, timeout).Should(Equal(len(originalPods.Items)))
+				sortPodsByID(pods)
+
+				// The storage pods should be replaced
+				Expect(pods.Items[13].Name).To(Not(Equal(originalPods.Items[13].Name)))
+				Expect(pods.Items[14].Name).To(Not(Equal(originalPods.Items[14].Name)))
+				Expect(pods.Items[15].Name).To(Not(Equal(originalPods.Items[15].Name)))
+				Expect(pods.Items[16].Name).To(Not(Equal(originalPods.Items[16].Name)))
+
+				for i := 13; i <= 16; i++ {
+					inst := newFdbInstance(pods.Items[i])
+					Expect(getStorageServersPerPodForInstance(&inst)).To(Equal(2))
+				}
+
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+					"storage":            4,
+					"log":                4,
+					"stateless":          8,
+					"cluster_controller": 1,
+				}))
+
+				Expect(cluster.Spec.PendingRemovals).To(BeNil())
+				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
+				Expect(cluster.Status.PendingRemovals).To(BeNil())
+			})
+
+			It("should update the config map", func() {
+				configMap := &corev1.ConfigMap{}
+				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
+				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+				expectedConfigMap, _ := GetConfigMap(cluster)
+				_, ok := configMap.Data["fdbmonitor-conf-storage-density-2"]
+				Expect(ok).To(Equal(true))
+				Expect(configMap.Data["fdbmonitor-conf-storage-density-2"]).To(Equal(expectedConfigMap.Data["fdbmonitor-conf-storage-density-2"]))
+			})
+		})
+
 		Context("with a decreased process count", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessCounts.Storage = 3
@@ -276,7 +326,7 @@ var _ = Describe("cluster_controller", func() {
 
 				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					cluster.GetFullAddress(MockPodIP(&removedItem)): true,
+					MockPodIP(&removedItem): true,
 				}))
 			})
 		})
@@ -307,7 +357,7 @@ var _ = Describe("cluster_controller", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
-				expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, k8sClient)
+				expectedConfigMap, _ := GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
 		})
@@ -338,7 +388,7 @@ var _ = Describe("cluster_controller", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
-				expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, k8sClient)
+				expectedConfigMap, _ := GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
 		})
@@ -439,14 +489,14 @@ var _ = Describe("cluster_controller", func() {
 					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
 				})
 
-				It("should exclude and re-include the process", func() {
+				It("should exclude and re-include the instance", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+						MockPodIP(&originalPods.Items[firstStorageIndex]): true,
 					}))
 				})
 
@@ -510,14 +560,14 @@ var _ = Describe("cluster_controller", func() {
 					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
 				})
 
-				It("should exclude and re-include the process", func() {
+				It("should exclude and re-include the instance", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+						MockPodIP(&originalPods.Items[firstStorageIndex]): true,
 					}))
 				})
 
@@ -573,14 +623,14 @@ var _ = Describe("cluster_controller", func() {
 					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
 				})
 
-				It("should exclude and re-include the process", func() {
+				It("should exclude and re-include the instance", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						cluster.GetFullAddress(MockPodIP(&originalPods.Items[firstStorageIndex])): true,
+						MockPodIP(&originalPods.Items[firstStorageIndex]): true,
 					}))
 				})
 
@@ -719,7 +769,8 @@ var _ = Describe("cluster_controller", func() {
 				It("should bounce the processes", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod)))
+						// TODO: johscheuer get real process number !
+						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 1))
 					}
 
 					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
@@ -735,7 +786,7 @@ var _ = Describe("cluster_controller", func() {
 					configMap := &corev1.ConfigMap{}
 					configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
 					Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
-					expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, k8sClient)
+					expectedConfigMap, _ := GetConfigMap(cluster)
 					Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 				})
 			})
@@ -765,7 +816,7 @@ var _ = Describe("cluster_controller", func() {
 					configMap := &corev1.ConfigMap{}
 					configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
 					Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
-					expectedConfigMap, _ := GetConfigMap(context.TODO(), cluster, k8sClient)
+					expectedConfigMap, _ := GetConfigMap(cluster)
 					Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 				})
 			})
@@ -942,7 +993,7 @@ var _ = Describe("cluster_controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+					configMapHash, err := GetConfigMapHash(cluster)
 					Expect(err).NotTo(HaveOccurred())
 
 					if item.Labels["fdb-instance-id"] == "storage-1" {
@@ -1082,7 +1133,7 @@ var _ = Describe("cluster_controller", func() {
 						hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 						Expect(err).NotTo(HaveOccurred())
 
-						configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+						configMapHash, err := GetConfigMapHash(cluster)
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
@@ -1191,7 +1242,7 @@ var _ = Describe("cluster_controller", func() {
 					hash, err := GetPodSpecHash(cluster, item.Labels["fdb-process-class"], id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := GetConfigMapHash(context.TODO(), cluster, k8sClient)
+					configMapHash, err := GetConfigMapHash(cluster)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
@@ -1272,13 +1323,13 @@ var _ = Describe("cluster_controller", func() {
 					}
 				})
 
-				It("should replace the processes", func() {
+				It("should replace the instance", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						replacements[MockPodIP(&pod)] = true
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1426,7 +1477,7 @@ var _ = Describe("cluster_controller", func() {
 
 				replacements := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					replacements[MockPodIP(&pod)] = true
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1566,13 +1617,13 @@ var _ = Describe("cluster_controller", func() {
 					}
 				})
 
-				It("should replace the processes", func() {
+				It("should replace the instances", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+						replacements[MockPodIP(&pod)] = true
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1688,7 +1739,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should replace the processes", func() {
+				It("should replace the instances", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -1696,7 +1747,7 @@ var _ = Describe("cluster_controller", func() {
 					for _, pod := range originalPods.Items {
 						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
-							replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+							replacements[MockPodIP(&pod)] = true
 						}
 					}
 
@@ -1723,13 +1774,13 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should replace the processes", func() {
+			It("should replace the instances", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				replacements := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[cluster.GetFullAddress(MockPodIP(&pod))] = true
+					replacements[MockPodIP(&pod)] = true
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1835,7 +1886,7 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			configMap, err = GetConfigMap(context.TODO(), cluster, k8sClient)
+			configMap, err = GetConfigMap(cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -1850,7 +1901,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should have the basic files", func() {
-				expectedConf, err := GetMonitorConf(cluster, "storage", nil, nil)
+				expectedConf, err := GetMonitorConf(cluster, "storage", nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
@@ -2066,7 +2117,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a basic storage instance", func() {
 			BeforeEach(func() {
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2081,9 +2132,52 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with a basic storage instance with multiple storage servers per Pod", func() {
+			BeforeEach(func() {
+				cluster.Spec.StorageServersPerPod = 2
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the storage conf with two processes", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data/1",
+					"locality_process_id = $FDB_INSTANCE_ID-1",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"[fdbserver.2]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4503",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data/2",
+					"locality_process_id = $FDB_INSTANCE_ID-2",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2095,7 +2189,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
 				cluster.Spec.Services.PublicIPSource = &source
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2110,9 +2204,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2124,7 +2219,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService
 				cluster.Spec.Services.PublicIPSource = &source
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2139,9 +2234,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2155,7 +2251,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.MainContainer.EnableTLS = true
 				cluster.Status.RequiredAddresses.NonTLS = false
 				cluster.Status.RequiredAddresses.TLS = true
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2170,9 +2266,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2186,7 +2283,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RequiredAddresses.NonTLS = true
 				cluster.Status.RequiredAddresses.TLS = true
 
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2201,9 +2298,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2217,7 +2315,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RequiredAddresses.NonTLS = true
 				cluster.Status.RequiredAddresses.TLS = true
 
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2232,9 +2330,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501,$FDB_PUBLIC_IP:4500:tls",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2248,7 +2347,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {CustomParameters: &[]string{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
-					conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+					conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2263,9 +2362,10 @@ var _ = Describe("cluster_controller", func() {
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 						"public_address = $FDB_PUBLIC_IP:4501",
 						"class = storage",
-						"datadir = /var/fdb/data",
 						"logdir = /var/log/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
+						"datadir = /var/fdb/data",
+						"locality_process_id = $FDB_INSTANCE_ID",
 						"locality_instance_id = $FDB_INSTANCE_ID",
 						"locality_machineid = $FDB_MACHINE_ID",
 						"locality_zoneid = $FDB_ZONE_ID",
@@ -2287,7 +2387,7 @@ var _ = Describe("cluster_controller", func() {
 							"knob_test = test2",
 						}},
 					}
-					conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+					conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2302,9 +2402,10 @@ var _ = Describe("cluster_controller", func() {
 						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 						"public_address = $FDB_PUBLIC_IP:4501",
 						"class = storage",
-						"datadir = /var/fdb/data",
 						"logdir = /var/log/fdb-trace-logs",
 						"loggroup = " + cluster.Name,
+						"datadir = /var/fdb/data",
+						"locality_process_id = $FDB_INSTANCE_ID",
 						"locality_instance_id = $FDB_INSTANCE_ID",
 						"locality_machineid = $FDB_MACHINE_ID",
 						"locality_zoneid = $FDB_ZONE_ID",
@@ -2320,7 +2421,7 @@ var _ = Describe("cluster_controller", func() {
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2335,9 +2436,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $RACK",
@@ -2349,7 +2451,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithBinariesFromMainContainer.String()
 				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 
 			})
@@ -2365,9 +2467,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2379,7 +2482,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
 				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2394,9 +2497,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2407,7 +2511,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with peer verification rules", func() {
 			BeforeEach(func() {
 				cluster.Spec.MainContainer.PeerVerificationRules = "S.CN=foundationdb.org"
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2422,9 +2526,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2436,7 +2541,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a custom log group", func() {
 			BeforeEach(func() {
 				cluster.Spec.LogGroup = "test-fdb-cluster"
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2451,9 +2556,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = test-fdb-cluster",
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2464,7 +2570,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a data center", func() {
 			BeforeEach(func() {
 				cluster.Spec.DataCenter = "dc01"
-				conf, err = GetMonitorConf(cluster, "storage", nil, nil)
+				conf, err = GetMonitorConf(cluster, "storage", nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2479,9 +2585,10 @@ var _ = Describe("cluster_controller", func() {
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
 					"class = storage",
-					"datadir = /var/fdb/data",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_process_id = $FDB_INSTANCE_ID",
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $FDB_ZONE_ID",
@@ -2525,7 +2632,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should substitute the variables in the start command", func() {
 				instance := newFdbInstance(pods.Items[firstStorageIndex])
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: instance.Pod}
-				command, err = GetStartCommand(cluster, instance, podClient)
+				command, err = GetStartCommand(cluster, instance, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				id := instance.GetInstanceID()
@@ -2536,10 +2643,53 @@ var _ = Describe("cluster_controller", func() {
 					"--datadir=/var/fdb/data",
 					fmt.Sprintf("--locality_instance_id=%s", id),
 					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s", id),
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
 					"--public_address=1.1.0.1:4501",
+					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				}, " ")))
+			})
+		})
+
+		Context("for a basic storage process with multiple storage servers per Pod", func() {
+			It("should substitute the variables in the start command", func() {
+				instance := newFdbInstance(pods.Items[firstStorageIndex])
+				podClient := &mockFdbPodClient{Cluster: cluster, Pod: instance.Pod}
+				command, err = GetStartCommand(cluster, instance, podClient, 1, 2)
+				Expect(err).NotTo(HaveOccurred())
+
+				id := instance.GetInstanceID()
+				Expect(command).To(Equal(strings.Join([]string{
+					"/usr/bin/fdbserver",
+					"--class=storage",
+					"--cluster_file=/var/fdb/data/fdb.cluster",
+					"--datadir=/var/fdb/data/1",
+					fmt.Sprintf("--locality_instance_id=%s", id),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s-1", id),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
+					"--logdir=/var/log/fdb-trace-logs",
+					"--loggroup=" + cluster.Name,
+					"--public_address=1.1.0.1:4501",
+					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				}, " ")))
+
+				command, err = GetStartCommand(cluster, instance, podClient, 2, 2)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(command).To(Equal(strings.Join([]string{
+					"/usr/bin/fdbserver",
+					"--class=storage",
+					"--cluster_file=/var/fdb/data/fdb.cluster",
+					"--datadir=/var/fdb/data/2",
+					fmt.Sprintf("--locality_instance_id=%s", id),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s-2", id),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
+					"--logdir=/var/log/fdb-trace-logs",
+					"--loggroup=" + cluster.Name,
+					"--public_address=1.1.0.1:4503",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -2552,7 +2702,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
 
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient)
+				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2564,6 +2714,7 @@ var _ = Describe("cluster_controller", func() {
 					"--datadir=/var/fdb/data",
 					"--locality_instance_id=storage-1",
 					"--locality_machineid=machine1",
+					"--locality_process_id=storage-1",
 					"--locality_zoneid=machine1",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
@@ -2584,7 +2735,7 @@ var _ = Describe("cluster_controller", func() {
 				}
 
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient)
+				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2596,6 +2747,7 @@ var _ = Describe("cluster_controller", func() {
 					"--datadir=/var/fdb/data",
 					"--locality_instance_id=storage-1",
 					"--locality_machineid=machine1",
+					"--locality_process_id=storage-1",
 					"--locality_zoneid=kc2",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
@@ -2611,7 +2763,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient)
+				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2624,6 +2776,7 @@ var _ = Describe("cluster_controller", func() {
 					"--datadir=/var/fdb/data",
 					fmt.Sprintf("--locality_instance_id=%s", id),
 					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s", id),
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
@@ -2639,7 +2792,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient)
+				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2652,6 +2805,7 @@ var _ = Describe("cluster_controller", func() {
 					"--datadir=/var/fdb/data",
 					fmt.Sprintf("--locality_instance_id=%s", id),
 					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s", id),
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
@@ -2694,7 +2848,7 @@ var _ = Describe("cluster_controller", func() {
 			It("gives a parsing error", func() {
 				_, _, err := ParseInstanceID("6")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Could not parse instance ID 6"))
+				Expect(err.Error()).To(Equal("could not parse instance ID 6"))
 			})
 		})
 
@@ -2702,7 +2856,7 @@ var _ = Describe("cluster_controller", func() {
 			It("gives a parsing error", func() {
 				_, _, err := ParseInstanceID("storage")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Could not parse instance ID storage"))
+				Expect(err.Error()).To(Equal("could not parse instance ID storage"))
 			})
 		})
 
@@ -2710,7 +2864,7 @@ var _ = Describe("cluster_controller", func() {
 			It("gives a parsing error", func() {
 				_, _, err := ParseInstanceID("storage-bad")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Could not parse instance ID storage-bad"))
+				Expect(err.Error()).To(Equal("could not parse instance ID storage-bad"))
 			})
 		})
 	})

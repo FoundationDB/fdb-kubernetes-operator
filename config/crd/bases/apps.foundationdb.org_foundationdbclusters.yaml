@@ -7056,6 +7056,8 @@ spec:
               type: object
             storageClass:
               type: string
+            storageServersPerPod:
+              type: integer
             trustedCAs:
               items:
                 type: string
@@ -7943,6 +7945,10 @@ spec:
               type: object
             runningVersion:
               type: string
+            storageServersPerDisk:
+              items:
+                type: integer
+              type: array
           type: object
       type: object
   version: v1beta1

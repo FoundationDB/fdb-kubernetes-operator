@@ -55,7 +55,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 		for _, state := range cluster.Status.PendingRemovals {
 			if state.Address != "" {
-				address := RemoveAddressFlags(cluster.GetFullAddress(state.Address))
+				address := state.Address
 				if !currentExclusionMap[address] {
 					addresses = append(addresses, address)
 				}
