@@ -236,7 +236,12 @@ func createInstance(r *FoundationDBClusterReconciler, context ctx.Context, clust
 			return false, err
 		}
 
-		if len(services.Items) == 0 {
+		serviceCount := len(services.Items)
+		if serviceCount > 1 {
+			return false, fmt.Errorf("expected to find one or no service but found %d services for %s instance in cluster: %s/%s", serviceCount, instanceID, cluster.Namespace, cluster.Name)
+		}
+
+		if serviceCount == 0 {
 			service, err := GetService(cluster, processClass, idNum)
 			if err != nil {
 				return false, err
@@ -245,6 +250,31 @@ func createInstance(r *FoundationDBClusterReconciler, context ctx.Context, clust
 			err = r.Create(context, service)
 			return false, err
 		}
+
+		// If we create a new Pod and reuse a service we should ensure that it matches.
+		if processClass == fdbtypes.ProcessClassStorage {
+			// Ensure that the service contains all required ports.
+			// Since a process can listen on non-TLS and TLS we multiply by 2.
+			// Since we are creating a new Pod we can use the cluster.GetStorageServersPerPod()
+			// if this value would be changed during the creation it should be reconciled again.
+			if len(services.Items[0].Spec.Ports) != (cluster.GetStorageServersPerPod() * 2) {
+				log.Info("Updating service missing ports", "namespace", cluster.Namespace, "cluster", cluster.Name, "serviceName", services.Items[0].ObjectMeta.Name)
+				service, err := GetService(cluster, processClass, idNum)
+				if err != nil {
+					return false, err
+				}
+				// We need to set these fields otherwise we get an error about the immutable field
+				// spec.clusterIP and the missing metadata.resourceVersion.
+				service.Spec.ClusterIP = services.Items[0].Spec.ClusterIP
+				service.ResourceVersion = services.Items[0].ResourceVersion
+
+				err = r.Update(context, service)
+				if err != nil {
+					return false, err
+				}
+			}
+		}
+
 		ip := services.Items[0].Spec.ClusterIP
 		if ip == "" {
 			log.Info("Service does not have an IP address", "namespace", cluster.Namespace, "cluster", cluster.Name, "podName", pod.Name)

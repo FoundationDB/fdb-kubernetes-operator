@@ -1220,6 +1220,16 @@ func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumb
 	return cluster.GetFullAddressList(ipAddress, true, processNumber)
 }
 
+// GetProcessPort returns the expected port for a given process number
+// and the tls setting.
+func GetProcessPort(processNumber int, tls bool) int {
+	if tls {
+		return 4498 + 2*processNumber
+	}
+
+	return 4499 + 2*processNumber
+}
+
 // GetFullAddressList gets the full list of public addresses we should use for a
 // process.
 //
@@ -1232,12 +1242,10 @@ func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primary
 	addressMap := make(map[string]bool)
 
 	if cluster.Status.RequiredAddresses.TLS {
-		port := 4498 + 2*processNumber
-		addressMap[fmt.Sprintf("%s:%d:tls", ipAddress, port)] = cluster.Spec.MainContainer.EnableTLS
+		addressMap[fmt.Sprintf("%s:%d:tls", ipAddress, GetProcessPort(processNumber, true))] = cluster.Spec.MainContainer.EnableTLS
 	}
 	if cluster.Status.RequiredAddresses.NonTLS {
-		port := 4499 + 2*processNumber
-		addressMap[fmt.Sprintf("%s:%d", ipAddress, port)] = !cluster.Spec.MainContainer.EnableTLS
+		addressMap[fmt.Sprintf("%s:%d", ipAddress, GetProcessPort(processNumber, false))] = !cluster.Spec.MainContainer.EnableTLS
 	}
 
 	addresses := make([]string, 1, 1+len(addressMap))

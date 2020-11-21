@@ -50,6 +50,32 @@ func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass string, i
 	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(processClass, "-"), idNum), instanceID
 }
 
+func generateServicePorts(processesPerPod int) []corev1.ServicePort {
+	ports := make([]corev1.ServicePort, 0, processesPerPod*2)
+
+	for i := 1; i <= processesPerPod; i++ {
+		tlsPortName := "tls"
+		nonTlSPortName := "non-tls"
+
+		// We keep the current behaviour and only add the process number to ports for
+		// processes > 1.
+		if i != 1 {
+			tlsPortName = fmt.Sprintf("%s-%d", tlsPortName, i)
+			nonTlSPortName = fmt.Sprintf("%s-%d", nonTlSPortName, i)
+		}
+
+		ports = append(ports, corev1.ServicePort{
+			Name: tlsPortName,
+			Port: int32(fdbtypes.GetProcessPort(i, true)),
+		}, corev1.ServicePort{
+			Name: nonTlSPortName,
+			Port: int32(fdbtypes.GetProcessPort(i, false)),
+		})
+	}
+
+	return ports
+}
+
 // GetService builds a service for a new instance
 func GetService(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum int) (*corev1.Service, error) {
 	name, id := getInstanceID(cluster, processClass, idNum)
@@ -60,14 +86,16 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	metadata.Name = name
 	metadata.OwnerReferences = owner
 
+	processesPerPod := 1
+	if processClass == fdbtypes.ProcessClassStorage {
+		processesPerPod = cluster.GetStorageServersPerPod()
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metadata,
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{
-				{Name: "tls", Port: 4500},
-				{Name: "non-tls", Port: 4501},
-			},
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports:    generateServicePorts(processesPerPod),
 			Selector: getMinimalSinglePodLabels(cluster, id),
 		},
 	}, nil
