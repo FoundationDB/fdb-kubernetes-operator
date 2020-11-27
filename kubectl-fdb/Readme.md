@@ -24,5 +24,8 @@ Run `kubectl fdb help` to get the latest help.
 ### Planned operations
 
 - Evacuate node: removes all instances on a node (e.g. maintenance)
+- Status: show the status of the fdb cluster (e.g. `fdbcli status`)
+- top: show the current resource utilization
+- df: shows the current free/used disk capacity either for each instance or aggregated per class
 
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.

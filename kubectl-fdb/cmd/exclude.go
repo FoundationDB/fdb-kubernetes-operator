@@ -58,7 +58,13 @@ var excludeCmd = &cobra.Command{
 
 		excludeInstances(cluster, instances, namespace, withoutExclusion)
 	},
-	Example: "kubectl fdb exclude -c cluster -i instance-1 -i instance-2",
+	Example: `
+# Remove instances for a cluster in the current namespace
+kubectl fdb exclude -c cluster -i instance-1 -i instance-2
+
+# Remove instances for a cluster in the namespace default
+kubectl fdb -n default exclude -c cluster -i instance-1 -i instance-2
+`,
 }
 
 // excludeInstances adds instances to the instancesToRemove field

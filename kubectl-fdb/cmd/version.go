@@ -48,7 +48,7 @@ var versionCmd = &cobra.Command{
 #Lists the version of kubectl fdb plugin and foundationdb operator in current namespace
 kubectl fdb version
 #Lists the version of kubectl fdb plugin and foundationdb operator in provided namespace
-kubectl fdb version -n default
+kubectl fdb -n default version
 `,
 }
 
