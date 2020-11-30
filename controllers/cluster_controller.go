@@ -640,7 +640,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 		fmt.Sprintf("loggroup = %s", logGroup))
 
 	if processCount <= 1 {
-		confLines = append(confLines, "datadir = /var/fdb/data", "locality_process_id = $FDB_INSTANCE_ID")
+		confLines = append(confLines, "datadir = /var/fdb/data")
 	} else {
 		confLines = append(confLines, fmt.Sprintf("datadir = /var/fdb/data/%d", processNumber), fmt.Sprintf("locality_process_id = $FDB_INSTANCE_ID-%d", processNumber))
 	}
