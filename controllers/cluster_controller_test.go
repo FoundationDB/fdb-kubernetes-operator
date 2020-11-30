@@ -3158,7 +3158,9 @@ var _ = Describe("cluster_controller", func() {
 		JustBeforeEach(func() {
 			err := k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(func() (int64, error) { return reloadCluster(cluster) }, 1).Should(Equal(int64(1)))
+			Eventually(func() (int64, error) {
+				return reloadCluster(cluster)
+			}, 5*time.Second).Should(Equal(int64(1)))
 			clusterReconciler.DeprecationOptions = deprecationOptions
 		})
 
@@ -3170,9 +3172,9 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with no pending changes", func() {
 			It("should be empty", func() {
-				deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(deprecations)).To(Equal(0))
+				Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
+					return clusterReconciler.GetDeprecations(context.TODO())
+				}, 5*time.Second).Should(HaveLen(0))
 			})
 		})
 
@@ -3187,9 +3189,13 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should include the cluster with the old default", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(deprecations)).To(Equal(1))
+					var deprecations []fdbtypes.FoundationDBCluster
+					Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
+						var err error
+						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
+						return deprecations, err
+					}, 5*time.Second).Should(HaveLen(1))
+
 					deprecation := deprecations[0]
 					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
 
@@ -3212,9 +3218,13 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should include the cluster with the new default", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(deprecations)).To(Equal(1))
+					var deprecations []fdbtypes.FoundationDBCluster
+					Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
+						var err error
+						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
+						return deprecations, err
+					}, 5*time.Second).Should(HaveLen(1))
+
 					deprecation := deprecations[0]
 					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
 
@@ -3240,9 +3250,13 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should include the cluster", func() {
-				deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(deprecations)).To(Equal(1))
+				var deprecations []fdbtypes.FoundationDBCluster
+				Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
+					var err error
+					deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
+					return deprecations, err
+				}, 5*time.Second).Should(HaveLen(1))
+
 				deprecation := deprecations[0]
 				Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
 				Expect(deprecation.Spec.SidecarVersion).To(Equal(0))
@@ -3257,9 +3271,13 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should include the cluster", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(deprecations)).To(Equal(1))
+					var deprecations []fdbtypes.FoundationDBCluster
+					Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
+						var err error
+						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
+						return deprecations, err
+					}, 5*time.Second).Should(HaveLen(1))
+
 					deprecation := deprecations[0]
 					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
 				})
@@ -3271,9 +3289,12 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should not include the cluster", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(deprecations)).To(Equal(0))
+					var deprecations []fdbtypes.FoundationDBCluster
+					Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
+						var err error
+						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
+						return deprecations, err
+					}, 5*time.Second).Should(HaveLen(0))
 				})
 			})
 		})
