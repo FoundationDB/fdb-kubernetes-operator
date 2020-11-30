@@ -66,7 +66,7 @@ func reloadClusterGenerations(cluster *fdbtypes.FoundationDBCluster) (fdbtypes.C
 
 func getListOptions(cluster *fdbtypes.FoundationDBCluster) []client.ListOption {
 	return []client.ListOption{
-		client.InNamespace("my-ns"),
+		client.InNamespace(cluster.Namespace),
 		client.MatchingLabels(map[string]string{
 			"fdb-cluster-name": cluster.Name,
 		}),
@@ -249,29 +249,45 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should replace the pods", func() {
 				pods := &corev1.PodList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					return len(pods.Items), err
-				}, timeout).Should(Equal(len(originalPods.Items)))
+				listOptions := []client.ListOption{
+					client.InNamespace(cluster.Namespace),
+					client.MatchingLabels(map[string]string{
+						"fdb-cluster-name": cluster.Name,
+						"fdb-process-class": "storage",
+					}),
+				}
+
+				Eventually(func() ([]string, error) {
+					var result []string
+					err := k8sClient.List(context.TODO(), pods, listOptions...)
+					if err != nil {
+						return result, nil
+					}
+
+					for _, pod := range pods.Items {
+						result = append(result, pod.Name)
+					}
+
+					return result, nil
+				}, timeout).Should(ConsistOf([]string{
+					"operator-test-1-storage-5",
+					"operator-test-1-storage-6",
+					"operator-test-1-storage-7",
+					"operator-test-1-storage-8",
+				}))
+
 				sortPodsByID(pods)
 
 				// The storage pods should be replaced
-				Expect(pods.Items[13].Name).To(Not(Equal(originalPods.Items[13].Name)))
-				Expect(pods.Items[14].Name).To(Not(Equal(originalPods.Items[14].Name)))
-				Expect(pods.Items[15].Name).To(Not(Equal(originalPods.Items[15].Name)))
-				Expect(pods.Items[16].Name).To(Not(Equal(originalPods.Items[16].Name)))
+				Expect(pods.Items[0].Name).To(Not(Equal(originalPods.Items[13].Name)))
+				Expect(pods.Items[1].Name).To(Not(Equal(originalPods.Items[14].Name)))
+				Expect(pods.Items[2].Name).To(Not(Equal(originalPods.Items[15].Name)))
+				Expect(pods.Items[3].Name).To(Not(Equal(originalPods.Items[16].Name)))
 
-				for i := 13; i <= 16; i++ {
-					inst := newFdbInstance(pods.Items[i])
+				for _, pod := range pods.Items {
+					inst := newFdbInstance(pod)
 					Expect(getStorageServersPerPodForInstance(&inst)).To(Equal(2))
 				}
-
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
-					"storage":            4,
-					"log":                4,
-					"stateless":          8,
-					"cluster_controller": 1,
-				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
 				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
@@ -280,7 +296,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should update the config map", func() {
 				configMap := &corev1.ConfigMap{}
-				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
+				configMapName := types.NamespacedName{Namespace: cluster.Namespace, Name: fmt.Sprintf("%s-config", cluster.Name)}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
 				expectedConfigMap, _ := GetConfigMap(cluster)
 				_, ok := configMap.Data["fdbmonitor-conf-storage-density-2"]
