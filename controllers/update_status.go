@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -146,7 +145,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		// Even the instance will be removed we need to keep the config around
 		// Set the processCount for the instance specific storage servers per pod
 		if processClass == fdbtypes.ProcessClassStorage {
-			processCount, err := getStorageServersPerPodForInstance(&instance)
+			processCount, err = getStorageServersPerPodForInstance(&instance)
 			if err != nil {
 				return false, err
 			}
@@ -486,18 +485,4 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	}
 
 	return nil
-}
-
-func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
-	// If not specified we will default to 1
-	storageServersPerPod := 1
-	for _, container := range instance.Pod.Spec.Containers {
-		for _, env := range container.Env {
-			if env.Name == "STORAGE_SERVERS_PER_POD" {
-				return strconv.Atoi(env.Value)
-			}
-		}
-	}
-
-	return storageServersPerPod, nil
 }

@@ -835,6 +835,50 @@ var _ = Describe("cluster_controller", func() {
 					Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 				})
 			})
+
+			Context("with multiple storage servers per pod", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {CustomParameters: &[]string{}}}
+					cluster.Spec.StorageServersPerPod = 2
+					adminClient.UnfreezeStatus()
+					Expect(err).NotTo(HaveOccurred())
+					err = k8sClient.Update(context.TODO(), cluster)
+					Eventually(func() (int64, error) { return reloadCluster(cluster) }, timeout).Should(Equal(originalVersion + generationGap))
+					originalVersion = cluster.ObjectMeta.Generation
+
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
+						return len(originalPods.Items), err
+					}, timeout).Should(Equal(17))
+
+					sortPodsByID(originalPods)
+
+					err = adminClient.FreezeStatus()
+					Expect(err).NotTo(HaveOccurred())
+
+					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{"general": {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 1))
+						if pod.ObjectMeta.Labels["fdb-process-class"] == "storage" {
+							addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 2))
+						}
+					}
+
+					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
+						return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
+					})
+					sort.Slice(addresses, func(i, j int) bool {
+						return strings.Compare(addresses[i], addresses[j]) < 0
+					})
+					Expect(adminClient.KilledAddresses).To(Equal(addresses))
+				})
+			})
 		})
 
 		Context("with a configuration change", func() {

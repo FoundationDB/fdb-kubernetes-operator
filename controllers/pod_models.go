@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -1130,4 +1131,22 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
 	})
 	return nil
+}
+
+func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
+	return getStorageServersPerPodForPod(instance.Pod)
+}
+
+func getStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
+	// If not specified we will default to 1
+	storageServersPerPod := 1
+	for _, container := range pod.Spec.Containers {
+		for _, env := range container.Env {
+			if env.Name == "STORAGE_SERVERS_PER_POD" {
+				return strconv.Atoi(env.Value)
+			}
+		}
+	}
+
+	return storageServersPerPod, nil
 }

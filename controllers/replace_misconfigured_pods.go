@@ -157,7 +157,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			return false, err
 		}
 
-		return true, nil
+		return false, nil
 	}
 
 	return true, nil
