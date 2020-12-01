@@ -21,9 +21,10 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
-	"log"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
