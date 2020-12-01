@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -67,16 +66,14 @@ var _ = Describe("backup_controller", func() {
 	Describe("Reconciliation", func() {
 		var originalVersion int64
 		var generationGap int64
-		var timeout time.Duration
 
 		BeforeEach(func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
 				return reloadCluster(cluster)
-			}, timeout).ShouldNot(Equal(int64(0)))
+			}).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -84,7 +81,7 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() (int64, error) {
 				return reloadBackup(backup)
-			}, timeout).ShouldNot(Equal(int64(0)))
+			}).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -94,7 +91,7 @@ var _ = Describe("backup_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int64, error) { return reloadBackup(backup) }, timeout).Should(Equal(originalVersion + generationGap))
+			Eventually(func() (int64, error) { return reloadBackup(backup) }).Should(Equal(originalVersion + generationGap))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -155,7 +152,7 @@ var _ = Describe("backup_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), deployments)
 					return len(deployments.Items), err
-				}, timeout).Should(Equal(1))
+				}).Should(Equal(1))
 				Expect(*deployments.Items[0].Spec.Replicas).To(Equal(int32(2)))
 			})
 		})
@@ -173,7 +170,7 @@ var _ = Describe("backup_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), deployments)
 					return len(deployments.Items), err
-				}, timeout).Should(Equal(0))
+				}).Should(Equal(0))
 			})
 		})
 
@@ -251,7 +248,7 @@ var _ = Describe("backup_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), deployments)
 					return len(deployments.Items), err
-				}, timeout).Should(Equal(1))
+				}).Should(Equal(1))
 				Expect(deployments.Items[0].ObjectMeta.Labels).To(Equal(map[string]string{
 					"fdb-test":                    "test-value",
 					"foundationdb.org/backup-for": string(backup.ObjectMeta.UID),
@@ -282,7 +279,7 @@ var _ = Describe("backup_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), deployments)
 					return len(deployments.Items), err
-				}, timeout).Should(Equal(1))
+				}).Should(Equal(1))
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",

@@ -88,17 +88,15 @@ var _ = Describe("cluster_controller", func() {
 		var originalVersion int64
 		var err error
 		var generationGap int64
-		var timeout time.Duration
 
 		BeforeEach(func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
 				generations, err := reloadClusterGenerations(cluster)
 				return generations.Reconciled, err
-			}, timeout).ShouldNot(Equal(int64(0)))
+			}).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			originalVersion = cluster.ObjectMeta.Generation
@@ -107,7 +105,7 @@ var _ = Describe("cluster_controller", func() {
 			Eventually(func() (int, error) {
 				err := k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 				return len(originalPods.Items), err
-			}, timeout).Should(Equal(17))
+			}).Should(Equal(17))
 
 			sortPodsByID(originalPods)
 
@@ -115,7 +113,7 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int64, error) { return reloadCluster(cluster) }, timeout).Should(Equal(originalVersion + generationGap))
+			Eventually(func() (int64, error) { return reloadCluster(cluster) }).Should(Equal(originalVersion + generationGap))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -134,7 +132,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(17))
+				}).Should(Equal(17))
 
 				sortPodsByID(pods)
 
@@ -185,7 +183,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should create a config map for the cluster", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }).Should(Succeed())
 				expectedConfigMap, _ := GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
@@ -252,7 +250,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(len(originalPods.Items)))
+				}).Should(Equal(len(originalPods.Items)))
 				sortPodsByID(pods)
 
 				// The storage pods should be replaced
@@ -281,7 +279,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should update the config map", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }).Should(Succeed())
 				expectedConfigMap, _ := GetConfigMap(cluster)
 				_, ok := configMap.Data["fdbmonitor-conf-storage-density-2"]
 				Expect(ok).To(Equal(true))
@@ -301,7 +299,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(len(originalPods.Items) - 1))
+				}).Should(Equal(len(originalPods.Items) - 1))
 				sortPodsByID(pods)
 
 				Expect(pods.Items[0].Name).To(Equal(originalPods.Items[0].Name))
@@ -343,7 +341,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(len(originalPods.Items) + 1))
+				}).Should(Equal(len(originalPods.Items) + 1))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":            5,
@@ -356,7 +354,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should update the config map", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }).Should(Succeed())
 				expectedConfigMap, _ := GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
@@ -374,7 +372,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(18))
+				}).Should(Equal(18))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":            4,
@@ -387,7 +385,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should update the config map", func() {
 				configMap := &corev1.ConfigMap{}
 				configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+				Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }).Should(Succeed())
 				expectedConfigMap, _ := GetConfigMap(cluster)
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
@@ -406,7 +404,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(18))
+				}).Should(Equal(18))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":            4,
@@ -429,7 +427,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(9))
+				}).Should(Equal(9))
 
 				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 					"storage":            4,
@@ -464,7 +462,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 						"storage":            4,
@@ -479,7 +477,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					sortPodsByID(pods)
 
@@ -535,7 +533,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 						"storage":            4,
@@ -550,7 +548,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					sortPodsByID(pods)
 
@@ -598,7 +596,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
 						"storage":            4,
@@ -613,7 +611,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					sortPodsByID(pods)
 
@@ -666,7 +664,7 @@ var _ = Describe("cluster_controller", func() {
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 						return len(pods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					sortPodsByID(pods)
 
@@ -708,7 +706,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					return len(pods.Items), err
-				}, timeout).Should(Equal(17))
+				}).Should(Equal(17))
 
 				sortPodsByID(pods)
 
@@ -742,7 +740,7 @@ var _ = Describe("cluster_controller", func() {
 						return false, err
 					}
 					return len(pods.Items) == 1 && pods.Items[0].ObjectMeta.UID != pod.ObjectMeta.UID, nil
-				}, timeout).Should(BeTrue())
+				}).Should(BeTrue())
 
 				Expect(pods.Items[0].Name).To(Equal("operator-test-1-storage-1"))
 			})
@@ -785,7 +783,7 @@ var _ = Describe("cluster_controller", func() {
 				It("should update the config map", func() {
 					configMap := &corev1.ConfigMap{}
 					configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-					Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+					Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }).Should(Succeed())
 					expectedConfigMap, _ := GetConfigMap(cluster)
 					Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 				})
@@ -801,7 +799,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:             originalVersion,
 						NeedsBounce:            originalVersion + 1,
 						NeedsMonitorConfUpdate: originalVersion + 1,
@@ -815,7 +813,7 @@ var _ = Describe("cluster_controller", func() {
 				It("should update the config map", func() {
 					configMap := &corev1.ConfigMap{}
 					configMapName := types.NamespacedName{Namespace: "my-ns", Name: fmt.Sprintf("%s-config", cluster.Name)}
-					Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }, timeout).Should(Succeed())
+					Eventually(func() error { return k8sClient.Get(context.TODO(), configMapName, configMap) }).Should(Succeed())
 					expectedConfigMap, _ := GetConfigMap(cluster)
 					Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 				})
@@ -897,7 +895,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
 						NeedsCoordinatorChange:   originalVersion + 1,
@@ -1280,8 +1278,6 @@ var _ = Describe("cluster_controller", func() {
 						},
 					},
 				}}}
-
-				timeout = 120 * time.Second
 			})
 
 			Context("with deletion enabled", func() {
@@ -1308,7 +1304,6 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-					timeout = 10 * time.Second
 				})
 
 				It("should set the environment variable on the pods", func() {
@@ -1348,7 +1343,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:       originalVersion,
 						NeedsPodDeletion: originalVersion + 1,
 					}))
@@ -1373,8 +1368,6 @@ var _ = Describe("cluster_controller", func() {
 					Name:  "TEST_CHANGE",
 					Value: "1",
 				})
-
-				timeout = 60 * time.Second
 			})
 
 			Context("with deletion enabled", func() {
@@ -1408,7 +1401,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{
+					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, 60).Should(Equal(fdbtypes.ClusterGenerationStatus{
 						Reconciled:       originalVersion,
 						NeedsPodDeletion: originalVersion + 1,
 					}))
@@ -1433,7 +1426,6 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.Services.PublicIPSource = &source
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
-				timeout = 10 * time.Second
 			})
 
 			It("should set the public IP annotations", func() {
@@ -1547,7 +1539,6 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with the default strategy", func() {
 				BeforeEach(func() {
-					timeout = 120 * time.Second
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1588,7 +1579,6 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-					timeout = 10 * time.Second
 				})
 
 				It("should bounce the processes", func() {
@@ -1633,7 +1623,6 @@ var _ = Describe("cluster_controller", func() {
 			Context("with all upgradable clients", func() {
 				BeforeEach(func() {
 					adminClient.MockClientVersion(Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
-					timeout = 120 * time.Second
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -1665,7 +1654,6 @@ var _ = Describe("cluster_controller", func() {
 
 				Context("with the check enabled", func() {
 					BeforeEach(func() {
-						timeout = 120 * time.Second
 						err = k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
 						generationGap = 0
@@ -1696,7 +1684,6 @@ var _ = Describe("cluster_controller", func() {
 
 				Context("with the check disabled", func() {
 					BeforeEach(func() {
-						timeout = 120 * time.Second
 						cluster.Spec.IgnoreUpgradabilityChecks = true
 						err = k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -1825,7 +1812,7 @@ var _ = Describe("cluster_controller", func() {
 				Eventually(func() (int64, error) {
 					generations, err := reloadClusterGenerations(cluster)
 					return generations.Reconciled, err
-				}, timeout).Should(Equal(originalVersion + 1))
+				}).Should(Equal(originalVersion + 1))
 
 				*cluster.Spec.Services.Headless = false
 				generationGap = 2
@@ -2607,8 +2594,7 @@ var _ = Describe("cluster_controller", func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			timeout := time.Second * 5
-			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, timeout).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 1}))
+			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 1}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -2616,7 +2602,7 @@ var _ = Describe("cluster_controller", func() {
 			Eventually(func() (int, error) {
 				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				return len(pods.Items), err
-			}, timeout).Should(Equal(17))
+			}).Should(Equal(17))
 
 			sortPodsByID(pods)
 
@@ -3160,7 +3146,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() (int64, error) {
 				return reloadCluster(cluster)
-			}, 5*time.Second).Should(Equal(int64(1)))
+			}).Should(Equal(int64(1)))
 			clusterReconciler.DeprecationOptions = deprecationOptions
 		})
 
@@ -3174,7 +3160,7 @@ var _ = Describe("cluster_controller", func() {
 			It("should be empty", func() {
 				Eventually(func() ([]fdbtypes.FoundationDBCluster, error) {
 					return clusterReconciler.GetDeprecations(context.TODO())
-				}, 5*time.Second).Should(HaveLen(0))
+				}).Should(HaveLen(0))
 			})
 		})
 
@@ -3194,7 +3180,7 @@ var _ = Describe("cluster_controller", func() {
 						var err error
 						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
 						return deprecations, err
-					}, 5*time.Second).Should(HaveLen(1))
+					}).Should(HaveLen(1))
 
 					deprecation := deprecations[0]
 					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
@@ -3223,7 +3209,7 @@ var _ = Describe("cluster_controller", func() {
 						var err error
 						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
 						return deprecations, err
-					}, 5*time.Second).Should(HaveLen(1))
+					}).Should(HaveLen(1))
 
 					deprecation := deprecations[0]
 					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
@@ -3255,7 +3241,7 @@ var _ = Describe("cluster_controller", func() {
 					var err error
 					deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
 					return deprecations, err
-				}, 5*time.Second).Should(HaveLen(1))
+				}).Should(HaveLen(1))
 
 				deprecation := deprecations[0]
 				Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
@@ -3276,7 +3262,7 @@ var _ = Describe("cluster_controller", func() {
 						var err error
 						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
 						return deprecations, err
-					}, 5*time.Second).Should(HaveLen(1))
+					}).Should(HaveLen(1))
 
 					deprecation := deprecations[0]
 					Expect(deprecation.ObjectMeta.Name).To(Equal(cluster.ObjectMeta.Name))
@@ -3294,7 +3280,7 @@ var _ = Describe("cluster_controller", func() {
 						var err error
 						deprecations, err = clusterReconciler.GetDeprecations(context.TODO())
 						return deprecations, err
-					}, 5*time.Second).Should(HaveLen(0))
+					}).Should(HaveLen(0))
 				})
 			})
 		})
