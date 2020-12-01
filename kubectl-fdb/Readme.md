@@ -18,7 +18,7 @@ Run `kubectl fdb help` to get the latest help.
 
 ### Supported operations
 
-- `exlcude` instances from a cluster.
+- `remove` instances from a cluster.
 - Print the `version` of the plugin and the operator.
 
 ### Planned operations

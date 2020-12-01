@@ -1,5 +1,5 @@
 /*
- * exclude.go
+ * remove.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,6 +21,8 @@
 package cmd
 
 import (
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	corev1 "k8s.io/api/core/v1"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -33,9 +35,9 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// excludeCmd represents the exclude command of the fdb cli
-var excludeCmd = &cobra.Command{
-	Use:   "exclude",
+// removeCmd represents the removal of
+var removeCmd = &cobra.Command{
+	Use:   "remove",
 	Short: "Adds an instance (or multiple) to the remove list of the given cluster",
 	Long:  "Adds an instance (or multiple) to the remove list field of the given cluster",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -51,24 +53,28 @@ var excludeCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		withoutExclusion, err := rootCmd.Flags().GetBool("without-exclusion")
+		withExclusion, err := rootCmd.Flags().GetBool("with-exclusion")
+		if err != nil {
+			log.Fatal(err)
+		}
+		withShrink, err := rootCmd.Flags().GetBool("with-shrink")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		excludeInstances(cluster, instances, namespace, withoutExclusion)
+		removeInstances(cluster, instances, namespace, withExclusion, withShrink)
 	},
 	Example: `
 # Remove instances for a cluster in the current namespace
-kubectl fdb exclude -c cluster -i instance-1 -i instance-2
+kubectl fdb remove -c cluster -i instance-1 -i instance-2
 
 # Remove instances for a cluster in the namespace default
-kubectl fdb -n default exclude -c cluster -i instance-1 -i instance-2
+kubectl fdb -n default remove -c cluster -i instance-1 -i instance-2
 `,
 }
 
-// excludeInstances adds instances to the instancesToRemove field
-func excludeInstances(clusterName string, instances []string, namespace string, withoutExclusion bool) {
+// removeInstances adds instances to the instancesToRemove field
+func removeInstances(clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool) {
 	if len(instances) == 0 {
 		return
 	}
@@ -84,6 +90,27 @@ func excludeInstances(clusterName string, instances []string, namespace string, 
 		log.Fatal(err)
 	}
 
+	shrinkMap := make(map[string]int)
+
+	if withShrink {
+		var pods corev1.PodList
+		err = kubeClient.List(ctx.Background(), &pods,
+			client.InNamespace(namespace),
+			client.MatchingLabels(map[string]string{
+				"fdb-cluster-name": clusterName,
+			}))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, pod := range pods.Items {
+			// FoundationDBStatusClusterInfo
+			class := controllers.GetProcessClassFromMeta(pod.ObjectMeta)
+			shrinkMap[class]++
+		}
+	}
+
 	var cluster fdbtypes.FoundationDBCluster
 	err = kubeClient.Get(ctx.Background(), client.ObjectKey{
 		Namespace: namespace,
@@ -94,8 +121,12 @@ func excludeInstances(clusterName string, instances []string, namespace string, 
 		log.Fatal(err)
 	}
 
-	// TODO add confirmation?
-	if !withoutExclusion {
+	for class, amount := range shrinkMap {
+		cluster.Spec.ProcessCounts.DecreaseCount(class, amount)
+	}
+
+	// TODO: add confirmation?
+	if withExclusion {
 		cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instances...)
 	} else {
 		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
@@ -108,19 +139,20 @@ func excludeInstances(clusterName string, instances []string, namespace string, 
 }
 
 func init() {
-	excludeCmd.Flags().StringP("cluster", "c", "", "exclude instance(s) from the provided cluster.")
-	excludeCmd.Flags().StringSliceP("instances", "i", []string{}, "instances to be excluded.")
-	excludeCmd.Flags().BoolP("without-exclusion", "w", false, "define if the instances should be remove without exclusion, normally you don't want this.")
-	err := excludeCmd.MarkFlagRequired("cluster")
+	removeCmd.Flags().StringP("cluster", "c", "", "remove instance(s) from the provided cluster.")
+	removeCmd.Flags().StringSliceP("instances", "i", []string{}, "instances to be removed.")
+	removeCmd.Flags().BoolP("with-exclusion", "we", true, "define if the instances should be remove with exclusion.")
+	removeCmd.Flags().BoolP("with-shrink", "ws", false, "define if the removed instances should not be replaced.")
+	err := removeCmd.MarkFlagRequired("cluster")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = excludeCmd.MarkFlagRequired("instances")
+	err = removeCmd.MarkFlagRequired("instances")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rootCmd.AddCommand(excludeCmd)
+	rootCmd.AddCommand(removeCmd)
 }
