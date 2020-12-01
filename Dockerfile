@@ -45,21 +45,26 @@ COPY controllers/ controllers/
 # Build
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
-FROM ubuntu:18.04
-WORKDIR /
-
-COPY --from=builder /workspace/manager .
-COPY --from=builder /usr/bin/fdb /usr/bin/fdb
-COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
-COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
-
+# Create user and group here since we don't have the tools
+# in distroless
 RUN groupadd --gid 4059 fdb && \
 	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
 	mkdir -p /var/log/fdb && \
-	chown fdb:fdb /var/log/fdb && \
-	chmod -R a+x /usr/bin/fdb
+	touch /var/log/fdb/.keep
+
+FROM gcr.io/distroless/base
+
+WORKDIR /
+
+COPY --chown=fdb:fdb --from=builder /workspace/manager .
+COPY --from=builder /usr/bin/fdb /usr/bin/fdb
+COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
+COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
 USER fdb
+
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
 ENV FDB_BINARY_DIR=/usr/bin/fdb
