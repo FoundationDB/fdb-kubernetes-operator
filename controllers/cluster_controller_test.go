@@ -252,7 +252,7 @@ var _ = Describe("cluster_controller", func() {
 				listOptions := []client.ListOption{
 					client.InNamespace(cluster.Namespace),
 					client.MatchingLabels(map[string]string{
-						"fdb-cluster-name": cluster.Name,
+						"fdb-cluster-name":  cluster.Name,
 						"fdb-process-class": "storage",
 					}),
 				}
@@ -269,7 +269,7 @@ var _ = Describe("cluster_controller", func() {
 					}
 
 					return result, nil
-				}, timeout).Should(ConsistOf([]string{
+				}, 10*time.Second).Should(ConsistOf([]string{
 					"operator-test-1-storage-5",
 					"operator-test-1-storage-6",
 					"operator-test-1-storage-7",
