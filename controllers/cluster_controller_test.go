@@ -843,13 +843,13 @@ var _ = Describe("cluster_controller", func() {
 					adminClient.UnfreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
 					err = k8sClient.Update(context.TODO(), cluster)
-					Eventually(func() (int64, error) { return reloadCluster(cluster) }, timeout).Should(Equal(originalVersion + generationGap))
+					Eventually(func() (int64, error) { return reloadCluster(cluster) }).Should(Equal(originalVersion + generationGap))
 					originalVersion = cluster.ObjectMeta.Generation
 
 					Eventually(func() (int, error) {
 						err := k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
 						return len(originalPods.Items), err
-					}, timeout).Should(Equal(17))
+					}).Should(Equal(17))
 
 					sortPodsByID(originalPods)
 

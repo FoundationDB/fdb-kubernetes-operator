@@ -78,7 +78,7 @@ var _ = Describe("admin_client_test", func() {
 					},
 				}))
 
-				Expect(status.Cluster.Processes["operator-test-1-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
+				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
 					Address:      "1.1.0.1:4501",
 					ProcessClass: "storage",
 					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=1.1.0.1:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
