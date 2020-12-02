@@ -740,32 +740,46 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		ip := MockPodIP(&pod)
 		podClient := &mockFdbPodClient{Cluster: client.Cluster, Pod: &pod}
 
-		fullAddress := client.Cluster.GetFullAddress(ip, 1)
-
-		_, ipExcluded := exclusionMap[ip]
-		_, addressExcluded := exclusionMap[fullAddress]
-		excluded := ipExcluded || addressExcluded
-		_, isCoordinator := coordinators[fullAddress]
-		if isCoordinator && !excluded {
-			coordinators[fullAddress] = true
-		}
-		instance := newFdbInstance(pod)
-		command, err := GetStartCommand(client.Cluster, instance, podClient, 1, 1)
+		processCount, err := getStorageServersPerPodForPod(&pod)
 		if err != nil {
 			return nil, err
 		}
-		status.Cluster.Processes[pod.Name] = fdbtypes.FoundationDBStatusProcessInfo{
-			Address:      fullAddress,
-			ProcessClass: GetProcessClassFromMeta(pod.ObjectMeta),
-			CommandLine:  command,
-			Excluded:     excluded,
-			Locality: map[string]string{
+
+		for processIndex := 1; processIndex <= processCount; processIndex++ {
+			fullAddress := client.Cluster.GetFullAddress(ip, processIndex)
+
+			_, ipExcluded := exclusionMap[ip]
+			_, addressExcluded := exclusionMap[fullAddress]
+			excluded := ipExcluded || addressExcluded
+			_, isCoordinator := coordinators[fullAddress]
+			if isCoordinator && !excluded {
+				coordinators[fullAddress] = true
+			}
+			instance := newFdbInstance(pod)
+			command, err := GetStartCommand(client.Cluster, instance, podClient, processIndex, processCount)
+			if err != nil {
+				return nil, err
+			}
+
+			locality := map[string]string{
 				"instance_id": instance.GetInstanceID(),
 				"zoneid":      pod.Name,
 				"dcid":        client.Cluster.Spec.DataCenter,
-			},
-			Version:       client.Cluster.Status.RunningVersion,
-			UptimeSeconds: 60000,
+			}
+
+			if processCount > 1 {
+				locality["process_id"] = fmt.Sprintf("%s-%d", instance.GetInstanceID(), processIndex)
+			}
+
+			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbtypes.FoundationDBStatusProcessInfo{
+				Address:       fullAddress,
+				ProcessClass:  GetProcessClassFromMeta(pod.ObjectMeta),
+				CommandLine:   command,
+				Excluded:      excluded,
+				Locality:      locality,
+				Version:       client.Cluster.Status.RunningVersion,
+				UptimeSeconds: 60000,
+			}
 		}
 	}
 
