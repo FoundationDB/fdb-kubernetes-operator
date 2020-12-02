@@ -35,6 +35,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -247,17 +248,33 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should replace the pods", func() {
 				pods := &corev1.PodList{}
-				Eventually(func() (int, error) {
+				ContainOriginalPod := func(idx int) gomegatypes.GomegaMatcher {
+					return ContainElement(WithTransform(func(pod corev1.Pod) string {
+						return pod.Name
+					}, Equal(originalPods.Items[idx].Name)))
+				}
+				Eventually(func() (corev1.PodList, error) {
 					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					return len(pods.Items), err
-				}).Should(Equal(len(originalPods.Items)))
-				sortPodsByID(pods)
+					return *pods, err
+				}).Should(WithTransform(
+					func(pods corev1.PodList) []corev1.Pod {
+						sortPodsByID(&pods)
+						return pods.Items
+					}, SatisfyAll(
+						// Exactly as many pods as we started with
+						HaveLen(len(originalPods.Items)),
+						// But the original storage pods should all be replaced
+						// with newly named storage pods
+						Not(SatisfyAny(
+							ContainOriginalPod(13),
+							ContainOriginalPod(14),
+							ContainOriginalPod(15),
+							ContainOriginalPod(16),
+						)),
+					)))
 
-				// The storage pods should be replaced
-				Expect(pods.Items[13].Name).To(Not(Equal(originalPods.Items[13].Name)))
-				Expect(pods.Items[14].Name).To(Not(Equal(originalPods.Items[14].Name)))
-				Expect(pods.Items[15].Name).To(Not(Equal(originalPods.Items[15].Name)))
-				Expect(pods.Items[16].Name).To(Not(Equal(originalPods.Items[16].Name)))
+				// With the replacement completed, this is now race free - drop
+				// down to less convoluted code.
 
 				for i := 13; i <= 16; i++ {
 					inst := newFdbInstance(pods.Items[i])
