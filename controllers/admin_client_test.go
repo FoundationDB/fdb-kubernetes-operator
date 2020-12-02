@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -42,10 +41,9 @@ var _ = Describe("admin_client_test", func() {
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		timeout := time.Second * 5
 		Eventually(func() (int64, error) {
 			return reloadCluster(cluster)
-		}, timeout).ShouldNot(Equal(int64(0)))
+		}).ShouldNot(Equal(int64(0)))
 
 		client, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())

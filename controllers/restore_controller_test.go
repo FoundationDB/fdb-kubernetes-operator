@@ -21,8 +21,6 @@
 package controllers
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -50,16 +48,14 @@ var _ = Describe("restore_controller", func() {
 	})
 
 	Describe("Reconciliation", func() {
-		var timeout time.Duration
 
 		BeforeEach(func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			timeout = time.Second * 5
 			Eventually(func() (int64, error) {
 				return reloadCluster(cluster)
-			}, timeout).ShouldNot(Equal(int64(0)))
+			}).ShouldNot(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -71,7 +67,7 @@ var _ = Describe("restore_controller", func() {
 					return false, err
 				}
 				return restore.Status.Running, nil
-			}, timeout).Should(BeTrue())
+			}).Should(BeTrue())
 
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())

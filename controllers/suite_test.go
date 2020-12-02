@@ -56,6 +56,7 @@ var restoreReconciler *FoundationDBRestoreReconciler
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
+	SetDefaultEventuallyTimeout(5 * time.Second)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
