@@ -63,7 +63,6 @@ To get this controller running in a local Kubernetes cluster:
 5. Run `kubectl apply -f config/samples/cluster_local_tls.yaml`
    to create a new FoundationDB cluster with the operator.
 
-
 ### Testing
 
 The test suite runs a live copy of etcd which is heavily dependent on disk I/O
@@ -80,3 +79,6 @@ export TMPDIR=$(pwd)/ramdisk
 ```
 
 Then run the test suite under that environment.
+
+For `MacOS` you can use the script located under `./scripts/setup_ramdisk_macos.sh`.
+This script will setup a ramdisk and mount it (the default location will be `${HOME}/volatile`).
