@@ -36,7 +36,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// removeCmd represents the removal of
+// removeCmd represents the removal of one or multiple instances in a given cluster
 var removeCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Adds an instance (or multiple) to the remove list of the given cluster",
