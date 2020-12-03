@@ -3150,3 +3150,42 @@ func TestGettingLockOptions(t *testing.T) {
 	cluster.Spec.LockOptions.LockDurationMinutes = &duration
 	g.Expect(cluster.GetLockDuration()).To(gomega.Equal(60 * time.Minute))
 }
+
+func TestGetProcessPort(t *testing.T) {
+	tt := []struct {
+		Name          string
+		processNumber int
+		tls           bool
+		expectedPort  int
+	}{
+		{"test first process no tls",
+			1,
+			true,
+			4500,
+		},
+		{"test first process with tls",
+			1,
+			false,
+			4501,
+		},
+		{"test second process no tls",
+			2,
+			true,
+			4502,
+		},
+		{"test third process no tls",
+			2,
+			false,
+			4503,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.Name, func(t *testing.T) {
+			port := GetProcessPort(tc.processNumber, tc.tls)
+			if tc.expectedPort != port {
+				t.Errorf("expected: %d, got: %d", tc.expectedPort, port)
+			}
+		})
+	}
+}

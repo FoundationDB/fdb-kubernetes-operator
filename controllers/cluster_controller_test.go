@@ -1505,6 +1505,7 @@ var _ = Describe("cluster_controller", func() {
 
 				Expect(pod.Annotations[PublicIPAnnotation]).To(Equal(service.Spec.ClusterIP))
 				Expect(pod.Annotations[PublicIPAnnotation]).NotTo(Equal(""))
+				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
 			})
 
 			It("should create services for the pods", func() {
@@ -1522,6 +1523,120 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
+			})
+
+			It("should replace the old processes", func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				replacements := make(map[string]bool, len(originalPods.Items))
+				for _, pod := range originalPods.Items {
+					replacements[MockPodIP(&pod)] = true
+				}
+
+				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+			})
+		})
+
+		Context("with a change to the public IP source and multiple storage servers per Pod", func() {
+			BeforeEach(func() {
+				source := fdbtypes.PublicIPSourceService
+				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.StorageServersPerPod = 2
+				err = k8sClient.Update(context.TODO(), cluster)
+			})
+
+			It("should set the public IP annotations", func() {
+				pods := &corev1.PodList{}
+				ContainOriginalPod := func(idx int) gomegatypes.GomegaMatcher {
+					return ContainElement(WithTransform(func(pod corev1.Pod) string {
+						return pod.Name
+					}, Equal(originalPods.Items[idx].Name)))
+				}
+				Eventually(func() (corev1.PodList, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return *pods, err
+				}).Should(WithTransform(
+					func(pods corev1.PodList) []corev1.Pod {
+						sortPodsByID(&pods)
+						return pods.Items
+					}, SatisfyAll(
+						// Exactly as many pods as we started with
+						HaveLen(len(originalPods.Items)),
+						// But the original storage pods should all be replaced
+						// with newly named storage pods
+						Not(SatisfyAny(
+							ContainOriginalPod(13),
+							ContainOriginalPod(14),
+							ContainOriginalPod(15),
+							ContainOriginalPod(16),
+						)),
+					)))
+
+				var storagePod corev1.Pod
+				for _, pod := range pods.Items {
+					Expect(pod.Annotations[PublicIPSourceAnnotation]).To(Equal("service"))
+
+					if pod.Labels["fdb-process-class"] == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+						storagePod = pod
+					}
+				}
+
+				service := &corev1.Service{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: storagePod.Namespace, Name: storagePod.Name}, service)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(storagePod.Annotations[PublicIPAnnotation]).To(Equal(service.Spec.ClusterIP))
+				Expect(storagePod.Annotations[PublicIPAnnotation]).NotTo(Equal(""))
+				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
+			})
+
+			It("should create services for the pods", func() {
+				pods := &corev1.PodList{}
+				ContainOriginalPod := func(idx int) gomegatypes.GomegaMatcher {
+					return ContainElement(WithTransform(func(pod corev1.Pod) string {
+						return pod.Name
+					}, Equal(originalPods.Items[idx].Name)))
+				}
+				Eventually(func() (corev1.PodList, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return *pods, err
+				}).Should(WithTransform(
+					func(pods corev1.PodList) []corev1.Pod {
+						sortPodsByID(&pods)
+						return pods.Items
+					}, SatisfyAll(
+						// Exactly as many pods as we started with
+						HaveLen(len(originalPods.Items)),
+						// But the original storage pods should all be replaced
+						// with newly named storage pods
+						Not(SatisfyAny(
+							ContainOriginalPod(13),
+							ContainOriginalPod(14),
+							ContainOriginalPod(15),
+							ContainOriginalPod(16),
+						)),
+					)))
+
+				services := &corev1.ServiceList{}
+				err = k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(services.Items)).To(Equal(len(pods.Items)))
+
+				var storagePod corev1.Pod
+				for _, pod := range pods.Items {
+					if pod.Labels["fdb-process-class"] == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+						storagePod = pod
+						break
+					}
+				}
+
+				service := &corev1.Service{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: storagePod.Namespace, Name: storagePod.Name}, service)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
 			})
 
 			It("should replace the old processes", func() {
