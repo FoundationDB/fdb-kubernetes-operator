@@ -29,8 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// TODO: should follow the operator versioning
-var pluginVersion string = "0.0.1"
+var pluginVersion string = "v0.23.1"
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
