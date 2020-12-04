@@ -2,9 +2,9 @@
 
 ## Metadata
 
-Authors: @brownleej
-Created: 2020-11-16
-Updated: 2020-11-16
+* Authors: @brownleej
+* Created: 2020-11-16
+* Updated: 2020-11-16
 
 ## Background
 

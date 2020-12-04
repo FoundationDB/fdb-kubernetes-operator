@@ -1,8 +1,8 @@
 # Running Multiple Storage Servers per Disk
 
-Authors: @brownleej
-Created: 2020-11-16
-Updated: 2020-11-18
+* Authors: @brownleej
+* Created: 2020-11-16
+* Updated: 2020-11-18
 
 ## Background
 

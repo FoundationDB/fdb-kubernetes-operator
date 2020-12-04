@@ -56,11 +56,11 @@ FROM gcr.io/distroless/base
 
 WORKDIR /
 
+COPY --from=builder /etc/passwd /etc/passwd
 COPY --chown=fdb:fdb --from=builder /workspace/manager .
 COPY --from=builder /usr/bin/fdb /usr/bin/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
-COPY --from=builder /etc/passwd /etc/passwd
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
 USER fdb

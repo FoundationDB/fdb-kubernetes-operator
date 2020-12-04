@@ -1,3 +1,15 @@
+# v0.24.0
+
+*	Use the locking system to coordinate exclusions and bounces.
+*	Add a validation to prevent user-submitted tags for core images.
+*	Add an option to use service IPs for the public IPs for FDB processes.
+*	Use the zone and region configuration to infer whether locks are required by default.
+*	Simplify RBAC configuration.
+*	Take a lock when bouncing processes.
+*	Allow customizing lock durations.
+*	Add support for running with multiple storage servers per disk.
+*	Use a distroless image as the base image for the operator.
+
 # v0.23.1
 
 *	Fix a bug that caused the operator to delete pods for the wrong cluster.
