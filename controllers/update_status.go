@@ -334,6 +334,10 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.FailingPods = nil
 	}
 
+	if len(status.StorageServersPerDisk) == 0 {
+		status.StorageServersPerDisk = nil
+	}
+
 	originalStatus := cluster.Status.DeepCopy()
 
 	cluster.Status = status

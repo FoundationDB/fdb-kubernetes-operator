@@ -57,6 +57,7 @@ FROM gcr.io/distroless/base
 WORKDIR /
 
 COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
 COPY --chown=fdb:fdb --from=builder /workspace/manager .
 COPY --from=builder /usr/bin/fdb /usr/bin/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
