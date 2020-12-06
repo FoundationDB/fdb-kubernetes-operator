@@ -21,9 +21,13 @@
 package controllers
 
 import (
+	"context"
+
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("update_status", func() {
@@ -88,6 +92,24 @@ var _ = Describe("update_status", func() {
 			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(storageServersPerPod).To(Equal(1))
+		})
+	})
+
+	Context("when instance has no Pod", func() {
+		It("should be added to the failing Pods", func() {
+			instance := FdbInstance{
+				Metadata: &metav1.ObjectMeta{
+					Labels: map[string]string{
+						"process-class":   fdbtypes.ProcessClassStorage,
+						"fdb-instance-id": "1337",
+					},
+				},
+			}
+			cluster := createDefaultCluster()
+
+			failing, _, _, err := validateInstance(clusterReconciler, context.TODO(), cluster, instance, "")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(failing).To(BeTrue())
 		})
 	})
 })

@@ -167,68 +167,21 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 		}
 
-		if instance.Pod != nil {
-			_, idNum, err := ParseInstanceID(instanceID)
-			if err != nil {
-				return false, err
-			}
+		failing, incorrect, needsSidecarConfInConfigMap, err := validateInstance(r, context, cluster, instance, configMapHash)
+		if err != nil {
+			return false, err
+		}
 
-			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
-			if err != nil {
-				return false, err
-			}
+		if failing {
+			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
+		}
 
-			incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, instanceID, specHash))
-			if !incorrectPod {
-				updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
-				if err != nil {
-					return false, err
-				}
-				incorrectPod = !updated
-			}
+		if incorrect {
+			status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
+		}
 
-			incorrectPod = incorrectPod || instance.Metadata.Annotations[LastConfigMapKey] != configMapHash
-
-			pvcs := &corev1.PersistentVolumeClaimList{}
-			err = r.List(context, pvcs, getPodListOptions(cluster, processClass, instanceID)...)
-			if err != nil {
-				return false, err
-			}
-			desiredPvc, err := GetPvc(cluster, processClass, idNum)
-			if err != nil {
-				return false, err
-			}
-
-			if (len(pvcs.Items) == 1) != (desiredPvc != nil) {
-				incorrectPod = true
-			}
-
-			if !incorrectPod && desiredPvc != nil {
-				incorrectPod = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
-			}
-
-			if incorrectPod {
-				status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
-			}
-
-			for _, container := range instance.Pod.Spec.Containers {
-				if container.Name == "foundationdb" {
-					image := strings.Split(container.Image, ":")
-					version, err := fdbtypes.ParseFdbVersion(image[len(image)-1])
-					if err != nil {
-						return false, err
-					}
-					if !version.PrefersCommandLineArgumentsInSidecar() {
-						status.NeedsSidecarConfInConfigMap = true
-					}
-				}
-			}
-
-			for _, container := range instance.Pod.Status.ContainerStatuses {
-				if !container.Ready {
-					status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
-				}
-			}
+		if needsSidecarConfInConfigMap {
+			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
 		}
 	}
 
@@ -489,4 +442,80 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	}
 
 	return nil
+}
+
+// validateInstance runs specific checks for the status of an instance.
+// returns failing, incorrect, error
+func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, configMapHash string) (bool, bool, bool, error) {
+	processClass := instance.GetProcessClass()
+	instanceID := instance.GetInstanceID()
+
+	if instance.Pod == nil {
+		return true, false, false, nil
+	}
+
+	_, idNum, err := ParseInstanceID(instanceID)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, instanceID, specHash))
+	if !incorrectPod {
+		updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
+		if err != nil {
+			return false, false, false, err
+		}
+		incorrectPod = !updated
+	}
+
+	incorrectPod = incorrectPod || instance.Metadata.Annotations[LastConfigMapKey] != configMapHash
+
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = r.List(context, pvcs, getPodListOptions(cluster, processClass, instanceID)...)
+	if err != nil {
+		return false, false, false, err
+	}
+	desiredPvc, err := GetPvc(cluster, processClass, idNum)
+	if err != nil {
+		return false, false, false, err
+	}
+
+	if (len(pvcs.Items) == 1) != (desiredPvc != nil) {
+		incorrectPod = true
+	}
+
+	if !incorrectPod && desiredPvc != nil {
+		incorrectPod = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
+	}
+
+	if incorrectPod {
+		return false, true, false, nil
+	}
+
+	var needsSidecarConfInConfigMap bool
+	for _, container := range instance.Pod.Spec.Containers {
+		if container.Name == "foundationdb" {
+			image := strings.Split(container.Image, ":")
+			version, err := fdbtypes.ParseFdbVersion(image[len(image)-1])
+			if err != nil {
+				return false, false, false, err
+			}
+			if !version.PrefersCommandLineArgumentsInSidecar() {
+				needsSidecarConfInConfigMap = true
+			}
+		}
+	}
+
+	for _, container := range instance.Pod.Status.ContainerStatuses {
+		if !container.Ready {
+			return true, false, needsSidecarConfInConfigMap, nil
+		}
+	}
+
+	return false, false, needsSidecarConfInConfigMap, nil
 }
