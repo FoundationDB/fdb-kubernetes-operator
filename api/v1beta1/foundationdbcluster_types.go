@@ -541,6 +541,16 @@ func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
 	}
 }
 
+// DecreaseCount adds to one of the process counts based on the name.
+func (counts *ProcessCounts) DecreaseCount(name string, amount int) {
+	index, present := processClassIndices[name]
+	if present {
+		countValue := reflect.ValueOf(counts)
+		value := countValue.Elem().Field(index)
+		value.SetInt(value.Int() - int64(amount))
+	}
+}
+
 // fieldNames provides the names of fields on a structure.
 func fieldNames(value interface{}) []string {
 	countType := reflect.TypeOf(value)

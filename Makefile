@@ -55,6 +55,12 @@ manager: bin/manager
 bin/manager: ${GO_SRC}
 	go build -o bin/manager main.go
 
+# Build kubectl-fdb binary
+plugin: bin/kubectl-fdb
+
+bin/kubectl-fdb: ${GO_SRC}
+	go build -o bin/kubectl-fdb ./kubectl-fdb
+
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate manifests
 	go run ./main.go
