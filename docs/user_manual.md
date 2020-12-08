@@ -1,20 +1,22 @@
 # Table of Contents
 
-1.  [Introduction](#introduction)
-2.  [Creating a Cluster](#creating-a-cluster)
-3.  [Accessing a Cluster](#accessing-a-cluster)
-4.  [Managing Process Counts](#managing-process-counts)
-5.  [Growing a Cluster](#growing-a-cluster)
-6.  [Shrinking a Cluster](#shrinking-a-cluster)
-7.  [Replacing a Process](#replacing-a-process)
-8.  [Changing Database Configuration](#changing-database-configuration)
-9.  [Adding a Knob](#adding-a-knob)
-10. [Upgrading a Cluster](#upgrading-a-cluster)
-11. [Customizing Your Pods](#customizing-a-container)
-12. [Controlling Fault Domains](#controlling-fault-domains)
-13. [Using Multiple Namespaces](#using-multiple-namespaces)
-14. [Choosing Your Public IP Source](choosing-your-public-ip-source)
-15. [Renaming a Cluster](#renaming-a-cluster)
+1. [Introduction](#introduction)
+1. [Creating a Cluster](#creating-a-cluster)
+1. [Accessing a Cluster](#accessing-a-cluster)
+1. [Managing Process Counts](#managing-process-counts)
+1. [Growing a Cluster](#growing-a-cluster)
+1. [Shrinking a Cluster](#shrinking-a-cluster)
+1. [Replacing a Process](#replacing-a-process)
+1. [Changing Database Configuration](#changing-database-configuration)
+1. [Adding a Knob](#adding-a-knob)
+1. [Upgrading a Cluster](#upgrading-a-cluster)
+1. [Running multiple Storage Servers per Pod](#running-multiple-storage-servers-per-pod)
+1. [Customizing the StorageClass](#customizing-the-storageclass)
+1. [Customizing Your Pods](#customizing-your-pods)
+1. [Controlling Fault Domains](#controlling-fault-domains)
+1. [Using Multiple Namespaces](#using-multiple-namespaces)
+1. [Choosing Your Public IP Source](choosing-your-public-ip-source)
+1. [Renaming a Cluster](#renaming-a-cluster)
 
 # Introduction
 
@@ -249,6 +251,46 @@ To upgrade a cluster, you can change the version in the cluster spec:
 This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver processes.
 
 Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will use the strategies described in [Pod Update Strategy](#pod-update-strategy).
+
+# Running multiple Storage Servers per Pod
+
+Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk.
+You can change the number of storage server per Pod with the `storageServersPerPod`.
+This will start multiple FDB processes inside of a single container with `fdbmonitor`.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.20
+  spec:
+    storageServersPerPod: 2
+```
+
+A change to the `storageServersPerPod` will replace storage Pods.
+For more information about this feature read the [multplie storage servers per Pod](./design/multiple_storage_per_disk.md) design doc.
+
+# Customizing the StorageClass
+
+To use a different `StorageClass` than the default you can set your desired `StorageClass` in the [process settings](./cluster_spec.md#processsettings):
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.20
+  processes:
+    general:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: my-storage-class
+```
+
+A change to the `StorageClass` will replace all PVC's and the according Pods. You can also use different `StorageClasses` for different processes.
 
 # Customizing Your Pods
 
