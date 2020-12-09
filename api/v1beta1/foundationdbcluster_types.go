@@ -266,6 +266,7 @@ type FoundationDBClusterSpec struct {
 type FoundationDBClusterStatus struct {
 	// ProcessCounts defines the number of processes that are currently running
 	// in the cluster.
+	// Deprecated: Use ProcessGroups instead.
 	ProcessCounts `json:"processCounts,omitempty"`
 
 	// IncorrectProcesses provides the processes that do not have the correct
@@ -273,23 +274,27 @@ type FoundationDBClusterStatus struct {
 	//
 	// This will map the instance ID to the timestamp when we observed the
 	// incorrect configuration.
+	// Deprecated: Use ProcessGroups instead.
 	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
 
 	// IncorrectPods provides the pods that do not have the correct
 	// spec.
 	//
 	// This will contain the name of the pod.
+	// Deprecated: Use ProcessGroups instead.
 	IncorrectPods []string `json:"incorrectPods,omitempty"`
 
 	// FailingPods provides the pods that are not starting correctly.
 	//
 	// This will contain the name of the pod.
+	// Deprecated: Use ProcessGroups instead.
 	FailingPods []string `json:"failingPods,omitempty"`
 
 	// MissingProcesses provides the processes that are not reporting to the
 	// cluster.
 	// This will map the names of the pod to the timestamp when we observed
 	// that the process was missing.
+	// Deprecated: Use ProcessGroups instead.
 	MissingProcesses map[string]int64 `json:"missingProcesses,omitempty"`
 
 	// DatabaseConfiguration provides the running configuration of the database.
@@ -330,6 +335,7 @@ type FoundationDBClusterStatus struct {
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the instance ID to its removal state.
+	// Deprecated: Use ProcessGroups instead.
 	PendingRemovals map[string]PendingRemovalState `json:"pendingRemovals,omitempty"`
 
 	// NeedsSidecarConfInConfigMap determines whether we need to include the
@@ -340,7 +346,189 @@ type FoundationDBClusterStatus struct {
 	// StorageServersPerDisk defines the storageServersPerPod observed in the cluster.
 	// If there are more than one value in the slice the reconcile phase is not finished.
 	StorageServersPerDisk []int `json:"storageServersPerDisk,omitempty"`
+
+	// ProcessGroups contain information about a process group.
+	// This information is used in multiple places to trigger the according action.
+	ProcessGroups []*ProcessGroupStatus `json:"processGroups,omitempty"`
 }
+
+// ProcessGroupStatus represents a the status of a ProcessGroup.
+type ProcessGroupStatus struct {
+	// ProcessGroupID represents the ID of the process group
+	ProcessGroupID string `json:"processGroupID,omitempty"`
+	// ProcessClass represents the class the process group has.
+	ProcessClass string `json:"processClass,omitempty"`
+	// Addresses represents the list of addresses the process group has been known to have.
+	Addresses []string `json:"addresses,omitempty"`
+	// Remove defines it the process group is marked for removal.
+	Remove bool `json:"remove,omitempty"`
+	// Excluded represents if the process group has been fully excluded.
+	Excluded bool `json:"excluded,omitempty"`
+	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
+	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
+}
+
+// NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
+func NewProcessGroupStatus(processGroupID string, processClass string, addresses []string) *ProcessGroupStatus {
+	return &ProcessGroupStatus{
+		ProcessGroupID:         processGroupID,
+		ProcessClass:           processClass,
+		Addresses:              addresses,
+		Remove:                 false,
+		Excluded:               false,
+		ProcessGroupConditions: make([]*ProcessGroupCondition, 0),
+	}
+}
+
+// ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
+func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
+	for _, processGroup := range processGroups {
+		if processGroup.ProcessGroupID != processGroupID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
+func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass string, address string) (bool, *ProcessGroupStatus) {
+	for _, processGroup := range processGroups {
+		if processGroup.ProcessGroupID != processGroupID {
+			continue
+		}
+
+		hasAddress := false
+		for _, addr := range processGroup.Addresses {
+			if addr != address {
+				continue
+			}
+
+			hasAddress = true
+			break
+		}
+
+		if !hasAddress {
+			processGroup.Addresses = append(processGroup.Addresses, address)
+		}
+
+		processGroup.Remove = true
+		return false, nil
+	}
+
+	processGroup := NewProcessGroupStatus(processGroupID, processClass, []string{address})
+	processGroup.Remove = true
+
+	return true, processGroup
+}
+
+// AddCondition will add the condition to the ProcessGroupStatus.
+// If the old ProcessGroupStatus already contains the condition the condition is reused to contain the same timestamp.
+func (processGroupStatus *ProcessGroupStatus) AddCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID string, conditionType ProcessGroupConditionType) {
+	var oldProcessGroupStatus *ProcessGroupStatus
+
+	// Check if we got a ProcessGroupStatus for the processGroupID
+	for _, oldGroupStatus := range oldProcessGroups {
+		if oldGroupStatus.ProcessGroupID != processGroupID {
+			continue
+		}
+
+		oldProcessGroupStatus = oldGroupStatus
+		break
+	}
+
+	// Check if we got a condition for the condition type for the ProcessGroupStatus
+	if oldProcessGroupStatus != nil {
+		for _, condition := range oldProcessGroupStatus.ProcessGroupConditions {
+			if condition.ProcessGroupConditionType != conditionType {
+				continue
+			}
+
+			// We found a condition with the above condition type
+			processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, condition)
+			return
+		}
+	}
+
+	// Check if we already got this condition in the current ProcessGroupStatus
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return
+		}
+	}
+
+	// We didn't find any condition so we create a new one
+	processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, NewProcessGroupCondition(conditionType))
+}
+
+// CreateProcessCountsFromProcessGroupStatus creates a ProcessCounts struct from the current ProcessGroupStatus.
+func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus) *ProcessCounts {
+	processCounts := &ProcessCounts{}
+
+	for _, groupStatus := range processGroupStatus {
+		processCounts.IncreaseCount(groupStatus.ProcessClass, 1)
+	}
+
+	return processCounts
+}
+
+// FilterByCondition returns a string slice of all ProcessGroupIDs that contains a condition with the given type.
+func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType) []string {
+	result := make([]string, 0)
+
+	for _, groupStatus := range processGroupStatus {
+		for _, condition := range groupStatus.ProcessGroupConditions {
+			if condition.ProcessGroupConditionType != conditionType {
+				continue
+			}
+
+			result = append(result, groupStatus.ProcessGroupID)
+			break
+		}
+	}
+
+	return result
+}
+
+// NewProcessGroupCondition creates a new ProcessGroupCondition of the given time with the current timestamp.
+func NewProcessGroupCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
+	return &ProcessGroupCondition{
+		ProcessGroupConditionType: conditionType,
+		Timestamp:                 time.Now().Unix(),
+	}
+}
+
+// ProcessGroupCondition represents a degraded condition that a process group is in.
+type ProcessGroupCondition struct {
+	// Name of the condition
+	ProcessGroupConditionType ProcessGroupConditionType `json:"type,omitempty"`
+	// Timestamp when the Condition was observed
+	Timestamp int64 `json:"timestamp,omitempty"`
+}
+
+// ProcessGroupConditionType represents a concrete ProcessGroupCondition.
+type ProcessGroupConditionType string
+
+const (
+	// NotConnecting represents a process group that doesn't connect to the cluster.
+	NotConnecting ProcessGroupConditionType = "NotConnecting"
+	// IncorrectPodSpec represents a process group that has an incorrect Pod spec.
+	IncorrectPodSpec ProcessGroupConditionType = "IncorrectPodSpec"
+	// IncorrectConfigMap represents a process group that has an incorrect ConfigMap.
+	IncorrectConfigMap ProcessGroupConditionType = "IncorrectConfigMap"
+	// IncorrectCommandLine represents a process group that has an incorrect commandline configuration.
+	IncorrectCommandLine ProcessGroupConditionType = "IncorrectCommandLine"
+	// PodFailing represents a process group which Pod keeps failing.
+	PodFailing ProcessGroupConditionType = "IncorrectPodSpec"
+	// MissingPod represents a process group that doesn't have a Pod assigned.
+	MissingPod ProcessGroupConditionType = "MissingPod"
+	// MissingPVC represents a process group that doesn't have a PVC assigned.
+	MissingPVC ProcessGroupConditionType = "MissingPVC"
+	// MissingService represents a process group that doesn't have a Service assigned.
+	MissingService ProcessGroupConditionType = "MissingService"
+	// MissingProcesses represents a process group that misses a process.
+	MissingProcesses ProcessGroupConditionType = "MissingProcesses"
+)
 
 // ClusterGenerationStatus stores information on which generations have reached
 // different stages in reconciliation for the cluster.
@@ -2181,6 +2369,10 @@ const (
 	ProcessClassGeneral = "general"
 	// ProcessClassClusterController model for FDB class cluster_controller
 	ProcessClassClusterController = "cluster_controller"
+	// FDBInstanceIDLabel represents the label that is used to represent a instance ID
+	FDBInstanceIDLabel = "fdb-instance-id"
+	// FDBProcessClassLabel represents the label that is used to represent the process class
+	FDBProcessClassLabel = "fdb-process-class"
 )
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept

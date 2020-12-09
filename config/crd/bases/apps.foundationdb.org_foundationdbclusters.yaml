@@ -7936,6 +7936,33 @@ spec:
                 unset:
                   type: integer
               type: object
+            processGroups:
+              items:
+                properties:
+                  addresses:
+                    items:
+                      type: string
+                    type: array
+                  excluded:
+                    type: boolean
+                  grocessGroupID:
+                    type: string
+                  processClass:
+                    type: string
+                  processGroupConditions:
+                    items:
+                      properties:
+                        timestamp:
+                          format: int64
+                          type: integer
+                        type:
+                          type: string
+                      type: object
+                    type: array
+                  remove:
+                    type: boolean
+                type: object
+              type: array
             requiredAddresses:
               properties:
                 nonTLS:

@@ -166,6 +166,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(pods.Items[0].ObjectMeta.Annotations[LastConfigMapKey]).To(Equal(configMapHash))
+				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
 			})
 
 			It("should not create any services", func() {
@@ -221,6 +222,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(cluster.Status.ProcessCounts).To(Equal(desiredCounts))
 				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
 				Expect(cluster.Status.MissingProcesses).To(BeNil())
+				Expect(*fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)).To(Equal(desiredCounts))
+				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine))).To(Equal(0))
+				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses))).To(Equal(0))
 
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())

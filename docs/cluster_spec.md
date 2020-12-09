@@ -36,6 +36,8 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [PendingRemovalState](#pendingremovalstate)
 * [ProcessAddress](#processaddress)
 * [ProcessCounts](#processcounts)
+* [ProcessGroupCondition](#processgroupcondition)
+* [ProcessGroupStatus](#processgroupstatus)
 * [ProcessSettings](#processsettings)
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
@@ -251,11 +253,11 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. | [ProcessCounts](#processcounts) | false |
-| incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the instance ID to the timestamp when we observed the incorrect configuration. | map[string]int64 | false |
-| incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. | []string | false |
-| failingPods | FailingPods provides the pods that are not starting correctly.  This will contain the name of the pod. | []string | false |
-| missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. | map[string]int64 | false |
+| processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. **Deprecated: Use ProcessGroups instead.** | [ProcessCounts](#processcounts) | false |
+| incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the instance ID to the timestamp when we observed the incorrect configuration. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
+| incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
+| failingPods | FailingPods provides the pods that are not starting correctly.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
+| missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
@@ -266,9 +268,10 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
-| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. | map[string][PendingRemovalState](#pendingremovalstate) | false |
+| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. **Deprecated: Use ProcessGroups instead.** | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
+| processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -509,6 +512,32 @@ ProcessCounts represents the number of processes we have for each valid process 
 | data_distributor |  | int | false |
 | fast_restore |  | int | false |
 | backup |  | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## ProcessGroupCondition
+
+ProcessGroupCondition represents a degraded condition that a process group is in.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| type | Name of the condition | ProcessGroupConditionType | false |
+| timestamp | Timestamp when the Condition was observed | int64 | false |
+
+[Back to TOC](#table-of-contents)
+
+## ProcessGroupStatus
+
+ProcessGroupStatus represents a the status of a ProcessGroup.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| grocessGroupID | ProcessGroupID represents the ID of the process group | string | false |
+| processClass | ProcessClass represents the class the process group has. | string | false |
+| addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
+| remove | Remove defines it the process group is marked for removal. | bool | false |
+| excluded | Excluded represents if the process group has been fully excluded. | bool | false |
+| processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
 
 [Back to TOC](#table-of-contents)
 

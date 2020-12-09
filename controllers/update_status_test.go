@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -135,16 +134,19 @@ var _ = Describe("update_status", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						"process-class":    fdbtypes.ProcessClassStorage,
-						FDBInstanceIDLabel: "1337",
+						fdbtypes.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						fdbtypes.FDBInstanceIDLabel:   "1337",
 					},
 				},
 			}
 			cluster := createDefaultCluster()
+			processGroupStatus := fdbtypes.NewProcessGroupStatus("1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
 
-			failing, _, _, err := validateInstance(clusterReconciler, context.TODO(), cluster, instance, "")
+			failing, _, _, err := validateInstance(clusterReconciler, context.TODO(), cluster, instance, "", processGroupStatus)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failing).To(BeTrue())
+			Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
+			Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
 		})
 	})
 
@@ -175,12 +177,15 @@ var _ = Describe("update_status", func() {
 
 				processMap := map[string][]fdbtypes.FoundationDBStatusProcessInfo{}
 
-				err := validateInstances(clusterReconciler, context.TODO(), cluster, &status, processMap, instances, configMap)
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(status.FailingPods)).To(Equal(1))
 				Expect(status.FailingPods[0]).To(Equal("1337"))
 				Expect(len(status.MissingProcesses)).To(Equal(0))
 				Expect(len(status.StorageServersPerDisk)).To(Equal(1))
+				Expect(len(processGroupStatus)).To(Equal(1))
+				Expect(len(processGroupStatus[0].ProcessGroupConditions)).To(Equal(1))
+				Expect(processGroupStatus[0].ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
 			})
 		})
 	})
