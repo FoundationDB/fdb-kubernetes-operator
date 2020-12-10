@@ -35,6 +35,10 @@ spec:
         ports:
         - containerPort: 8080
           name: metrics
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics            
         resources:
           limits:
             cpu: 500m
