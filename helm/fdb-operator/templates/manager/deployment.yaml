@@ -56,5 +56,11 @@ spec:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           privileged: false
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics            
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}     
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10
