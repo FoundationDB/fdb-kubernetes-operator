@@ -64,7 +64,9 @@ COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
-USER fdb
+# Specify the fdb user by UID to satisfy Kubernetes PSPs, which 
+# require numeric UIDs to be assured a pod is not running as root
+USER 4059
 
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
