@@ -12,6 +12,7 @@ metadata:
     {{- include "chart.labels" . | nindent 4 }}
   name: {{ .Values.operator.name }}
 spec:
+  replicas: {{ .Values.operator.replicas }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
@@ -20,27 +21,43 @@ spec:
       labels:
         {{- include "chart.labels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsUser: 40590
+        runAsGroup: 40590
+        fsGroup: 40590
+      volumes:
+      - name: tmp
+        emptyDir: {}
       containers:
       - args:
         - --enable-leader-election
         command:
         - /manager
+        {{- if not .Values.operator.globalMode.enabled }}
         env:
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        {{- end }}
         image: {{ .Values.operator.image }}:{{ .Values.operator.tag }}
+        imagePullPolicy: {{ .Values.operator.imagePullPolicy }}
         name: manager
         ports:
         - containerPort: 8080
           name: metrics
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics   
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp       
         resources:
-          limits:
-            cpu: 500m
-            memory: 256Mi
-          requests:
-            cpu: 500m
-            memory: 256Mi
+          {{- toYaml .Values.resources | nindent 12 }}     
+        securityContext:
+          readOnlyRootFilesystem: true  
+          allowPrivilegeEscalation: false   
+          privileged: false          
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10

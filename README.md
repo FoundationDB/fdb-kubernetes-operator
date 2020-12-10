@@ -13,6 +13,14 @@ the CRDs:
     kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
     kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
 
+Alternately, use the experimental [helm chart](/charts/fdb-operator/):
+
+```
+helm repo add fdb-operator https://foundationdb.github.io/fdb-kubernetes-operator/
+helm repo update
+helm install fdb-operator fdb-operator/fdb-operator 
+```
+
 At that point, you can set up one of the sample clusters:
 
     kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/cluster_local.yaml

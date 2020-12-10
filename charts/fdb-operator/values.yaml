@@ -1,6 +1,18 @@
 operator:
   name: fdb-kubernetes-operator-controller-manager
   image: foundationdb/fdb-kubernetes-operator
+  imagePullPolicy: IfNotPresent
   tag: 0.24.0
   role: fdb-kubernetes-operator-manager-role
   rolebinding: fdb-kubernetes-operator-manager-rolebinding
+  globalMode:
+    enabled: false
+  replicas: 1
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 500m
+    memory: 256Mi
