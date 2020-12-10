@@ -4,3 +4,5 @@ operator:
   tag: 0.24.0
   role: fdb-kubernetes-operator-manager-role
   rolebinding: fdb-kubernetes-operator-manager-rolebinding
+  globalMode:
+    enabled: false
