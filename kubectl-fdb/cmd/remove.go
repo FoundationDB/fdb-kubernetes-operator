@@ -73,7 +73,18 @@ var removeCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		removeInstances(kubeconfig, cluster, instances, namespace, withExclusion, withShrink, force)
+		config := getConfig(kubeconfig)
+
+		scheme := runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(scheme)
+		_ = fdbtypes.AddToScheme(scheme)
+
+		kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force)
 	},
 	Example: `
 # Remove instances for a cluster in the current namespace
@@ -85,27 +96,16 @@ kubectl fdb -n default remove -c cluster -i instance-1 -i instance-2
 }
 
 // removeInstances adds instances to the instancesToRemove field
-func removeInstances(kubeconfig string, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) {
+func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) {
 	if len(instances) == 0 {
 		return
-	}
-	config := getConfig(kubeconfig)
-	_ = config
-
-	scheme := runtime.NewScheme()
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = fdbtypes.AddToScheme(scheme)
-
-	kubeClient, err := client.New(config, client.Options{Scheme: scheme})
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	shrinkMap := make(map[string]int)
 
 	if withShrink {
 		var pods corev1.PodList
-		err = kubeClient.List(ctx.Background(), &pods,
+		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
 			client.MatchingLabels(map[string]string{
 				"fdb-cluster-name": clusterName,
@@ -122,7 +122,7 @@ func removeInstances(kubeconfig string, clusterName string, instances []string, 
 	}
 
 	var cluster fdbtypes.FoundationDBCluster
-	err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
 		Namespace: namespace,
 		Name:      clusterName,
 	}, &cluster)
@@ -149,7 +149,7 @@ func removeInstances(kubeconfig string, clusterName string, instances []string, 
 		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
 	}
 
-	err = kubeClient.Update(ctx.Background(), &cluster)
+	err = kubeClient.Update(ctx.TODO(), &cluster)
 	if err != nil {
 		log.Fatal(err)
 	}
