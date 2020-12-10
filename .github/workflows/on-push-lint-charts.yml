@@ -36,6 +36,9 @@ jobs:
               --ignore-test pod-networkpolicy
               --ignore-test deployment-has-poddisruptionbudget
               --ignore-test deployment-has-host-podantiaffinity
+              --ignore-test container-security-context              
+              --enable-optional-test container-security-context-privileged
+              --enable-optional-test container-security-context-readonlyrootfilesystem               
 
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.0.1
