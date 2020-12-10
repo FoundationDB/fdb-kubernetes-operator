@@ -22,10 +22,6 @@ jobs:
         with:
           version: v3.4.0
 
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.7
-
       - name: Set up kube-score
         run: |
           wget https://github.com/zegl/kube-score/releases/download/v${{ env.KUBE_SCORE_VERSION }}/kube-score_${{ env.KUBE_SCORE_VERSION }}_linux_amd64 -O kube-score
@@ -39,6 +35,11 @@ jobs:
               --ignore-test container-security-context              
               --enable-optional-test container-security-context-privileged
               --enable-optional-test container-security-context-readonlyrootfilesystem               
+
+      # python is a requirement for the chart-testing action below (supports yamllint among other tests)
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
 
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.0.1
