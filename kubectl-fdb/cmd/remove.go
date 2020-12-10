@@ -73,7 +73,6 @@ var removeCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-
 		removeInstances(kubeconfig, cluster, instances, namespace, withExclusion, withShrink, force)
 	},
 	Example: `
@@ -137,8 +136,8 @@ func removeInstances(kubeconfig string, clusterName string, instances []string, 
 	}
 
 	if !force {
-		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exlcude: %t and schrink: %t", instances, namespace, clusterName, withExclusion, withShrink))
-		if ! confirmed{
+		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", instances, namespace, clusterName, withExclusion, withShrink))
+		if !confirmed {
 			print("Abort")
 			return
 		}

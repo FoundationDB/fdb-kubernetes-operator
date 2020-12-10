@@ -63,7 +63,6 @@ func getDefaultNamespace() string {
 	return "default"
 }
 
-
 // confirmAction requests a user to confirm it's action
 func confirmAction(action string) bool {
 	reader := bufio.NewReader(os.Stdin)
@@ -91,7 +90,7 @@ func confirmAction(action string) bool {
 func init() {
 	viper.SetDefault("license", "apache 2")
 	rootCmd.Flags().StringP("namespace", "n", getDefaultNamespace(), "namespace to interact with the fdb cluster.")
-	rootCmd.Flags().BoolP("force", "f",false ,"Suppress the confirmation dialog")
+	rootCmd.Flags().BoolP("force", "f", false, "Suppress the confirmation dialog")
 	home := homedir.HomeDir()
 	rootCmd.Flags().String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file.")
 }
