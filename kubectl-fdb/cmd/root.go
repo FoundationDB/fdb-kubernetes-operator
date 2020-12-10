@@ -22,7 +22,12 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,8 +48,22 @@ func Execute() {
 	}
 }
 
+func getDefaultNamespace() string {
+	clientCfg, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
+		return ctx.Namespace
+	}
+
+	return "default"
+}
+
 func init() {
 	viper.SetDefault("license", "apache 2")
-	// TODO get currentNamespace if not set fallback to "default"
-	rootCmd.Flags().StringP("namespace", "n", "default", "namespace to interact with the fdb cluster.")
+	rootCmd.Flags().StringP("namespace", "n", getDefaultNamespace(), "namespace to interact with the fdb cluster.")
+	home := homedir.HomeDir()
+	rootCmd.Flags().String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 }

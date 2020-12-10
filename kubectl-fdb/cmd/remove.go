@@ -62,8 +62,12 @@ var removeCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
+		kubeconfig, err := rootCmd.Flags().GetString("kubeconfig")
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		removeInstances(cluster, instances, namespace, withExclusion, withShrink)
+		removeInstances(kubeconfig, cluster, instances, namespace, withExclusion, withShrink)
 	},
 	Example: `
 # Remove instances for a cluster in the current namespace
@@ -75,11 +79,11 @@ kubectl fdb -n default remove -c cluster -i instance-1 -i instance-2
 }
 
 // removeInstances adds instances to the instancesToRemove field
-func removeInstances(clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool) {
+func removeInstances(kubeconfig string, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool) {
 	if len(instances) == 0 {
 		return
 	}
-	config := getConfig()
+	config := getConfig(kubeconfig)
 	_ = config
 
 	scheme := runtime.NewScheme()
@@ -142,8 +146,8 @@ func removeInstances(clusterName string, instances []string, namespace string, w
 func init() {
 	removeCmd.Flags().StringP("cluster", "c", "", "remove instance(s) from the provided cluster.")
 	removeCmd.Flags().StringSliceP("instances", "i", []string{}, "instances to be removed.")
-	removeCmd.Flags().BoolP("with-exclusion", "we", true, "define if the instances should be remove with exclusion.")
-	removeCmd.Flags().BoolP("with-shrink", "ws", false, "define if the removed instances should not be replaced.")
+	removeCmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be remove with exclusion.")
+	removeCmd.Flags().BoolP("shrink", "s", false, "define if the removed instances should not be replaced.")
 	err := removeCmd.MarkFlagRequired("cluster")
 
 	if err != nil {

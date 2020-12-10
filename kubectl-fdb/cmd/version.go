@@ -41,7 +41,11 @@ var versionCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		version(namespace)
+		kubeconfig, err := rootCmd.Flags().GetString("kubeconfig")
+		if err != nil {
+			log.Fatal(err)
+		}
+		version(kubeconfig, namespace)
 	},
 	Example: `
 #Lists the version of kubectl fdb plugin and foundationdb operator in current namespace
@@ -51,10 +55,10 @@ kubectl fdb -n default version
 `,
 }
 
-func version(namespace string) {
+func version(kubeconfig string, namespace string) {
 	fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
 
-	config := getConfig()
+	config := getConfig(kubeconfig)
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Fatal(err)
