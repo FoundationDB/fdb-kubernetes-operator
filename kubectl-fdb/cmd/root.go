@@ -21,10 +21,12 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -61,9 +63,35 @@ func getDefaultNamespace() string {
 	return "default"
 }
 
+
+// confirmAction requests a user to confirm it's action
+func confirmAction(action string) bool {
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Printf("%s [y/n]: ", action)
+
+		resp, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		resp = strings.ToLower(strings.TrimSpace(resp))
+
+		if resp == "y" || resp == "yes" {
+			return true
+		}
+
+		if resp == "n" || resp == "no" {
+			return false
+		}
+	}
+}
+
 func init() {
 	viper.SetDefault("license", "apache 2")
 	rootCmd.Flags().StringP("namespace", "n", getDefaultNamespace(), "namespace to interact with the fdb cluster.")
+	rootCmd.Flags().BoolP("force", "f",false ,"Suppress the confirmation dialog")
 	home := homedir.HomeDir()
-	rootCmd.Flags().String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	rootCmd.Flags().String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file.")
 }

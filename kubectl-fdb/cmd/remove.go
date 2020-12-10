@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
@@ -42,6 +43,19 @@ var removeCmd = &cobra.Command{
 	Short: "Adds an instance (or multiple) to the remove list of the given cluster",
 	Long:  "Adds an instance (or multiple) to the remove list field of the given cluster",
 	Run: func(cmd *cobra.Command, args []string) {
+		namespace, err := rootCmd.Flags().GetString("namespace")
+		if err != nil {
+			log.Fatal(err)
+		}
+		kubeconfig, err := rootCmd.Flags().GetString("kubeconfig")
+		if err != nil {
+			log.Fatal(err)
+		}
+		force, err := rootCmd.Flags().GetBool("force")
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		cluster, err := cmd.Flags().GetString("cluster")
 		if err != nil {
 			log.Fatal(err)
@@ -50,24 +64,17 @@ var removeCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		namespace, err := rootCmd.Flags().GetString("namespace")
+		withExclusion, err := cmd.Flags().GetBool("exclusion")
 		if err != nil {
 			log.Fatal(err)
 		}
-		withExclusion, err := rootCmd.Flags().GetBool("with-exclusion")
-		if err != nil {
-			log.Fatal(err)
-		}
-		withShrink, err := rootCmd.Flags().GetBool("with-shrink")
-		if err != nil {
-			log.Fatal(err)
-		}
-		kubeconfig, err := rootCmd.Flags().GetString("kubeconfig")
+		withShrink, err := cmd.Flags().GetBool("shrink")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		removeInstances(kubeconfig, cluster, instances, namespace, withExclusion, withShrink)
+
+		removeInstances(kubeconfig, cluster, instances, namespace, withExclusion, withShrink, force)
 	},
 	Example: `
 # Remove instances for a cluster in the current namespace
@@ -79,7 +86,7 @@ kubectl fdb -n default remove -c cluster -i instance-1 -i instance-2
 }
 
 // removeInstances adds instances to the instancesToRemove field
-func removeInstances(kubeconfig string, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool) {
+func removeInstances(kubeconfig string, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) {
 	if len(instances) == 0 {
 		return
 	}
@@ -110,7 +117,6 @@ func removeInstances(kubeconfig string, clusterName string, instances []string, 
 		}
 
 		for _, pod := range pods.Items {
-			// FoundationDBStatusClusterInfo
 			class := controllers.GetProcessClassFromMeta(pod.ObjectMeta)
 			shrinkMap[class]++
 		}
@@ -130,7 +136,14 @@ func removeInstances(kubeconfig string, clusterName string, instances []string, 
 		cluster.Spec.ProcessCounts.DecreaseCount(class, amount)
 	}
 
-	// TODO: add confirmation?
+	if !force {
+		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exlcude: %t and schrink: %t", instances, namespace, clusterName, withExclusion, withShrink))
+		if ! confirmed{
+			print("Abort")
+			return
+		}
+	}
+
 	if withExclusion {
 		cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instances...)
 	} else {
