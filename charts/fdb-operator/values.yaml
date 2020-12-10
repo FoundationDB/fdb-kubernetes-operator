@@ -1,12 +1,13 @@
 operator:
   name: fdb-kubernetes-operator-controller-manager
   image: foundationdb/fdb-kubernetes-operator
-  tag: 0.25.0
+  imagePullPolicy: IfNotPresent
+  tag: 0.24.0
   role: fdb-kubernetes-operator-manager-role
   rolebinding: fdb-kubernetes-operator-manager-rolebinding
-  replicas: 1
   globalMode:
     enabled: false
+  replicas: 1
 
 resources:
   limits:

@@ -14,8 +14,21 @@ type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
-version: 0.1.0
+version: 0.24.5
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: 0.25.0
+appVersion: 0.24.0
+
+home: https://github.com/FoundationDB/fdb-kubernetes-operator
+
+sources:
+    - https://github.com/FoundationDB/fdb-kubernetes-operator
+
+maintainers:
+    - name: brownleej
+      email: apps@johnbrownlee.com
+      url: https://github.com/brownleej
+    - name: funkypenguin
+      email: davidy@funkypenguin.co.nz
+      url: https://www.funkypenguin.co.nz

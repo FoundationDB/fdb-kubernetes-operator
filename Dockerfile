@@ -47,8 +47,8 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager 
 
 # Create user and group here since we don't have the tools
 # in distroless
-RUN groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
+RUN groupadd --gid 40590 fdb && \
+	useradd --gid 40590 --uid 40590 --create-home --shell /bin/bash fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
@@ -64,7 +64,7 @@ COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
-USER fdb
+USER 40590
 
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
