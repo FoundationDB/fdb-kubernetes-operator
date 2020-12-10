@@ -4,3 +4,11 @@ operator:
   tag: 0.24.0
   role: fdb-kubernetes-operator-manager-role
   rolebinding: fdb-kubernetes-operator-manager-rolebinding
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 500m
+    memory: 256Mi
