@@ -36,11 +36,6 @@ spec:
         - containerPort: 8080
           name: metrics
         resources:
-          limits:
-            cpu: 500m
-            memory: 256Mi
-          requests:
-            cpu: 500m
-            memory: 256Mi
+          {{- toYaml .Values.resources | nindent 12 }}     
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10
