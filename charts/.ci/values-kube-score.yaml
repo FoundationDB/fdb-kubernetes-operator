@@ -9,5 +9,9 @@ resources:
     memory: 100Mi
   limits:
     cpu: 1
+<<<<<<< HEAD
     memory: 100Mi
 
+=======
+    memory: 100Mi
+>>>>>>> 3b9f0ff (Update chart and add publishing action)

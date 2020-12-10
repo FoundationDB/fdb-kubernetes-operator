@@ -22,9 +22,15 @@ spec:
         {{- include "chart.labels" . | nindent 8 }}
     spec:
       securityContext:
+<<<<<<< HEAD:charts/fdb-operator/templates/manager/deployment.yaml
         runAsUser: 4059
         runAsGroup: 4059
         fsGroup: 4059
+=======
+        runAsUser: 40590
+        runAsGroup: 40590
+        fsGroup: 40590
+>>>>>>> 3b9f0ff (Update chart and add publishing action):helm/fdb-operator/templates/manager/deployment.yaml
       volumes:
       - name: tmp
         emptyDir: {}
@@ -52,7 +58,11 @@ spec:
             port: metrics   
         volumeMounts:
         - name: tmp
+<<<<<<< HEAD:charts/fdb-operator/templates/manager/deployment.yaml
           mountPath: /tmp
+=======
+          mountPath: /tmp       
+>>>>>>> 3b9f0ff (Update chart and add publishing action):helm/fdb-operator/templates/manager/deployment.yaml
         resources:
           {{- toYaml .Values.resources | nindent 12 }}     
         securityContext:

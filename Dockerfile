@@ -47,8 +47,8 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager 
 
 # Create user and group here since we don't have the tools
 # in distroless
-RUN groupadd --gid 4059 fdb && \
-	useradd --gid 4059 --uid 4059 --create-home --shell /bin/bash fdb && \
+RUN groupadd --gid 40590 fdb && \
+	useradd --gid 40590 --uid 40590 --create-home --shell /bin/bash fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
