@@ -20,6 +20,13 @@ spec:
       labels:
         {{- include "chart.labels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsUser: 40590
+        runAsGroup: 40590
+        fsGroup: 40590
+      volumes:
+      - name: tmp
+        emptyDir: {}
       containers:
       - args:
         - --enable-leader-election
@@ -35,6 +42,9 @@ spec:
         ports:
         - containerPort: 8080
           name: metrics
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         resources:
           limits:
             cpu: 500m
@@ -42,5 +52,9 @@ spec:
           requests:
             cpu: 500m
             memory: 256Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          privileged: false
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10
