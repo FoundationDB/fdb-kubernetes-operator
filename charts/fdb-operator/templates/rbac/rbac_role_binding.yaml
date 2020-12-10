@@ -21,8 +21,4 @@ subjects:
   name: fdb-kubernetes-operator-controller-manager
   {{- if .Values.operator.globalMode.enabled }}
   namespace: {{ .Release.Namespace }}
-<<<<<<< HEAD:charts/fdb-operator/templates/rbac/rbac_role_binding.yaml
   {{- end }}
-=======
-  {{- end }}
->>>>>>> 3b9f0ff (Update chart and add publishing action):helm/fdb-operator/templates/rbac/rbac_role_binding.yaml
