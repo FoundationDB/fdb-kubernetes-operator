@@ -21,6 +21,13 @@ spec:
       labels:
         {{- include "chart.labels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsUser: 40590
+        runAsGroup: 40590
+        fsGroup: 40590
+      volumes:
+      - name: tmp
+        emptyDir: {}
       containers:
       - args:
         - --enable-leader-election
@@ -34,6 +41,7 @@ spec:
               fieldPath: metadata.namespace
         {{- end }}
         image: {{ .Values.operator.image }}:{{ .Values.operator.tag }}
+        imagePullPolicy: {{ .Values.operator.imagePullPolicy }}
         name: manager
         ports:
         - containerPort: 8080
@@ -41,8 +49,15 @@ spec:
         livenessProbe:
           httpGet:
             path: /metrics
-            port: metrics            
+            port: metrics   
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         resources:
           {{- toYaml .Values.resources | nindent 12 }}     
+        securityContext:
+          readOnlyRootFilesystem: true  
+          allowPrivilegeEscalation: false   
+          privileged: false          
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       terminationGracePeriodSeconds: 10

@@ -19,4 +19,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: fdb-kubernetes-operator-controller-manager
+  {{- if .Values.operator.globalMode.enabled }}
   namespace: {{ .Release.Namespace }}
+  {{- end }}
