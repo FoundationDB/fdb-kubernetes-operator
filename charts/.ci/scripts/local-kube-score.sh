@@ -4,3 +4,4 @@ helm template --values charts/.ci/values-kube-score.yaml charts/* -f charts/.ci/
     --ignore-test pod-networkpolicy \
     --ignore-test deployment-has-poddisruptionbudget \
     --ignore-test deployment-has-host-podantiaffinity
+
