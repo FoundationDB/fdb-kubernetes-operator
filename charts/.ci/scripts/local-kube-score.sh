@@ -6,5 +6,4 @@ helm template --values charts/.ci/values-kube-score.yaml charts/* -f charts/.ci/
     --ignore-test deployment-has-host-podantiaffinity \
     --enable-optional-test container-security-context-privileged \
     --enable-optional-test container-security-context-readonlyrootfilesystem \
-    --ignore-test container-security-context    
-    --ignore-test deployment-has-host-podantiaffinity
+    --ignore-test container-security-context
