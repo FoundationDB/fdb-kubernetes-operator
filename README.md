@@ -13,7 +13,7 @@ the CRDs:
     kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
     kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
 
-Alternately, use the experimental [helm chart](/charts/fdb-operator/):
+Alternately, use the [helm chart](/charts/fdb-operator/):
 
 ```
 helm repo add fdb-operator https://foundationdb.github.io/fdb-kubernetes-operator/
