@@ -21,9 +21,9 @@ spec:
         {{- include "chart.labels" . | nindent 8 }}
     spec:
       securityContext:
-        runAsUser: 40590
-        runAsGroup: 40590
-        fsGroup: 40590
+        runAsUser: 4059
+        runAsGroup: 4059
+        fsGroup: 4059
       volumes:
       - name: tmp
         emptyDir: {}
