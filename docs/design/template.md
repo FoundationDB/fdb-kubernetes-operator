@@ -1,5 +1,11 @@
 # Design Doc Template
 
+## Metadata
+
+* Authors: Github usernames for the primary authors of the design, including major revisions.
+* Created: Date when the first draft of the design was created, in ISO 8601 format.
+* Updated: Date when the last change was made to the design, in ISO 8601 format.
+
 ## Background
 
 Explanation of the problem you are trying to solve.

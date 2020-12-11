@@ -1,5 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
+{{- if .Values.operator.globalMode.enabled }}
+kind: ClusterRole
+{{- else }}
 kind: Role
+{{- end }}
 metadata:
   name: {{ .Values.operator.role }}
   labels:

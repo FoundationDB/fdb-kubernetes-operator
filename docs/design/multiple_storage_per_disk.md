@@ -1,8 +1,10 @@
 # Running Multiple Storage Servers per Disk
 
+## Metadata
+
 * Authors: @brownleej
-* Created: 2020-11-16
-* Updated: 2020-11-18
+* Created: 2020-08-31
+* Updated: 2020-11-16
 
 ## Background
 

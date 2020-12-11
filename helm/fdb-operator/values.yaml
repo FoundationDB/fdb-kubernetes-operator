@@ -5,6 +5,8 @@ operator:
   role: fdb-kubernetes-operator-manager-role
   rolebinding: fdb-kubernetes-operator-manager-rolebinding
   replicas: 1
+  globalMode:
+    enabled: false
 
 resources:
   limits:

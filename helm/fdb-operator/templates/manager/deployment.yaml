@@ -26,11 +26,13 @@ spec:
         - --enable-leader-election
         command:
         - /manager
+        {{- if not .Values.operator.globalMode.enabled }}
         env:
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        {{- end }}
         image: {{ .Values.operator.image }}:{{ .Values.operator.tag }}
         name: manager
         ports:
