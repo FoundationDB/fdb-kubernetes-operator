@@ -16,6 +16,10 @@ spec:
         control-plane: controller-manager
         app: fdb-kubernetes-operator-controller-manager
     spec:
+      securityContext:
+        runAsUser: 4059
+        runAsGroup: 4059
+        fsGroup: 4059      
       serviceAccountName: fdb-kubernetes-operator-controller-manager
       containers:
       - command:
@@ -36,6 +40,10 @@ spec:
           requests:
             cpu: 500m
             memory: 256Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          privileged: false            
       terminationGracePeriodSeconds: 10
 ---
 apiVersion: v1
