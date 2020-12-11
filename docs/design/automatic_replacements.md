@@ -4,7 +4,7 @@
 
 * Authors: @brownleej
 * Created: 2020-11-04
-* Updated: 2020-11-16
+* Updated: 2020-12-11
 
 ## Background
 
@@ -42,7 +42,7 @@ In order to make sure we consistently detect failures, we will add a new cronjob
 
 ### Making Replacements Smooth
 
-In order for replacements to succeed reliably, we need to handle the case where an instance does not have an IP address and is pending removal. The design on improving process tracking in the cluster status (TODO: Add link to this design when it is merged) will improve this considerably by tracking the previously known IP addresses and allowing us to exclude those addresses when the pod is still pending.
+In order for replacements to succeed reliably, we need to handle the case where an instance does not have an IP address and is pending removal. The design on [improving process tracking in the cluster status](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/design/process_group_status.md) will improve this considerably by tracking the previously known IP addresses and allowing us to exclude those addresses when the pod is still pending.
 
 ### Additional Safety Measures
 
