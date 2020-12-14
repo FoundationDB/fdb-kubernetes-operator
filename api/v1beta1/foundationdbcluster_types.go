@@ -2179,7 +2179,7 @@ const (
 )
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
-func (clusterStatus FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
+func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
 		if curServersPerDisk == serversPerDisk {
 			return
