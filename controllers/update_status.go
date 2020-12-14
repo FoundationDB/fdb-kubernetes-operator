@@ -49,7 +49,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.MissingProcesses = make(map[string]int64)
 	// Initialize with the current desired storage servers per Pod
 	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-	log.Info("first status.StorageServersPerDisk", "status.StorageServersPerDisk", status.StorageServersPerDisk)
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
