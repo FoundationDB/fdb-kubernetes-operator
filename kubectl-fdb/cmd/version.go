@@ -45,7 +45,21 @@ var versionCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		version(kubeconfig, namespace)
+		operatorName, err := rootCmd.Flags().GetString("operator-name")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		config := getConfig(kubeconfig)
+		client, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		operatorVersion := version(client, operatorName, namespace)
+
+		fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
+		fmt.Printf("foundationdb-operator: %s\n", operatorVersion)
 	},
 	Example: `
 #Lists the version of kubectl fdb plugin and foundationdb operator in current namespace
@@ -55,23 +69,15 @@ kubectl fdb -n default version
 `,
 }
 
-func version(kubeconfig string, namespace string) {
-	fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
-
-	config := getConfig(kubeconfig)
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	operatorDeployment := getOperator(client, namespace)
+func version(client kubernetes.Interface, operatorName string, namespace string) string {
+	operatorDeployment := getOperator(client, operatorName, namespace)
 	if operatorDeployment.Name == "" {
-		log.Fatalf("could not find the foundationdb operator in the namespace: %s", namespace)
+		log.Fatalf("could not find the foundationdb-operator in the namespace: %s", namespace)
 	}
 	operatorImage := operatorDeployment.Spec.Template.Spec.Containers[0].Image
 	imageName := strings.Split(operatorImage, ":")
-	imageVersion := imageName[len(imageName)-1]
-	fmt.Printf("foundationd-operator: %s\n", imageVersion)
+
+	return imageName[len(imageName)-1]
 }
 
 func init() {

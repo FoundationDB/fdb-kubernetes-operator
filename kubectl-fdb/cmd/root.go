@@ -90,6 +90,7 @@ func confirmAction(action string) bool {
 func init() {
 	viper.SetDefault("license", "apache 2")
 	rootCmd.Flags().StringP("namespace", "n", getDefaultNamespace(), "namespace to interact with the fdb cluster.")
+	rootCmd.Flags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
 	rootCmd.Flags().BoolP("force", "f", false, "Suppress the confirmation dialog")
 	home := homedir.HomeDir()
 	rootCmd.Flags().String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file.")

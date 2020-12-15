@@ -32,10 +32,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	operatorName = "fdb-kubernetes-operator-controller-manager"
-)
-
 func getConfig(kubeconfig string) *restclient.Config {
 	var config *restclient.Config
 	envKubeConfig := os.Getenv("KUBECONFIG")
@@ -53,7 +49,7 @@ func getConfig(kubeconfig string) *restclient.Config {
 	return config
 }
 
-func getOperator(k8sClient *kubernetes.Clientset, namespace string) *v1.Deployment {
+func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) *v1.Deployment {
 	var operator *v1.Deployment
 	operator, err := k8sClient.AppsV1().Deployments(namespace).Get(operatorName, metav1.GetOptions{})
 	if err == nil {
