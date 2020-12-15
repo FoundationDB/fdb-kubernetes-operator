@@ -6,6 +6,9 @@ issues:
   # exclude deprecation warning otherwise we get an error for our own deprecations
   - linters: [staticcheck]
     text: "SA1019:"
+  - linters: [ govet ]
+    text: 'declaration of "(err|ctx)" shadows declaration at'
+
 linters:
   disable-all: true
   # TODO(johscheuer): activate linters again and fix issues
@@ -42,6 +45,9 @@ linters-settings:
     # path to a file containing a list of functions to exclude from checking
     # see https://github.com/kisielk/errcheck#excluding-functions for details
     exclude: errcheck_excludes.txt
+  govet:
+    enable:
+      - shadow
 run:
   deadline: 5m
   skip-files:
