@@ -90,6 +90,10 @@ type FoundationDBBackupSpec struct {
 	// PodTemplateSpec allows customizing the pod template for the backup
 	// agents.
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
+
+	// CustomParameters defines additional parameters to pass to the backup
+	// agents.
+	CustomParameters []string `json:"customParameters,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.

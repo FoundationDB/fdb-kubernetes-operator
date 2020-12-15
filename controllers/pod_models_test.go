@@ -23,6 +23,8 @@ package controllers
 import (
 	"fmt"
 	"reflect"
+	"strings"
+	"testing"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -2199,6 +2201,29 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 		})
+
+		Context("with customParameters", func() {
+			BeforeEach(func() {
+				backup.Spec.CustomParameters = []string{"customParameter=1337"}
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set custom parameter in the args", func() {
+				Expect(deployment.ObjectMeta.Name).To(Equal("operator-test-1-backup-agents"))
+				Expect(len(deployment.ObjectMeta.OwnerReferences)).To(Equal(1))
+				Expect(deployment.ObjectMeta.OwnerReferences[0].UID).To(Equal(cluster.ObjectMeta.UID))
+				Expect(deployment.ObjectMeta.Labels).To(Equal(map[string]string{
+					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
+				}))
+				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
+					"foundationdb.org/last-applied-spec": "f0029ec076e325804d278982021203dc10c5a6e2e67abf8a609b87d4e7cf4129",
+				}))
+
+				Expect(deployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--customParameter=1337"))
+			})
+		})
 	})
 
 	Describe("NormalizeClusterSpec", func() {
@@ -2546,6 +2571,58 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Describe("Validations", func() {
+			Context("with duplicated custom parameters in the spec", func() {
+				It("an error should be returned", func() {
+					spec.CustomParameters = []string{
+						"knob_disable_posix_kernel_aio = 1",
+						"knob_disable_posix_kernel_aio = 1",
+					}
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+
+			Context("with a protected custom parameter in the spec", func() {
+				It("an error should be returned", func() {
+					spec.CustomParameters = []string{
+						"datadir=1",
+					}
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+
+			Context("with a duplicated custom parameter in the ProcessSettings", func() {
+				It("an error should be returned", func() {
+					spec.Processes = map[string]fdbtypes.ProcessSettings{
+						"general": {
+							CustomParameters: &[]string{
+								"knob_disable_posix_kernel_aio = 1",
+								"knob_disable_posix_kernel_aio = 1",
+							},
+						},
+					}
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+
+			Context("with a protected custom parameter in the ProcessSettings", func() {
+				It("an error should be returned", func() {
+					spec.Processes = map[string]fdbtypes.ProcessSettings{
+						"general": {
+							CustomParameters: &[]string{
+								"datadir=1",
+							},
+						},
+					}
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+		})
+
 		Describe("defaults", func() {
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
@@ -2889,3 +2966,54 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 })
+
+func TestValidateCustomParameters(t *testing.T) {
+	tt := []struct {
+		Name               string
+		Input              []string
+		ExpectedViolations []string
+	}{
+		{
+			Name:               "Valid parameter without duplicate",
+			Input:              []string{"blahblah=1"},
+			ExpectedViolations: []string{},
+		},
+		{
+			Name:               "Valid parameter with duplicate",
+			Input:              []string{"blahblah=1", "blahblah=1"},
+			ExpectedViolations: []string{"found duplicated customParameter: blahblah"},
+		},
+		{
+			Name:               "Protected parameter without duplicate",
+			Input:              []string{"datadir=1"},
+			ExpectedViolations: []string{"found protected customParameter: datadir, please remove this parameter from the customParameters list"},
+		},
+		{
+			Name:               "Valid parameter with duplicate and protected parameter",
+			Input:              []string{"blahblah=1", "blahblah=1", "datadir=1"},
+			ExpectedViolations: []string{"found duplicated customParameter: blahblah", "found protected customParameter: datadir, please remove this parameter from the customParameters list"},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.Name, func(t *testing.T) {
+			err := ValidateCustomParameters(tc.Input)
+			errMsg := fmt.Errorf("found the following customParameters violations:\n%s", strings.Join(tc.ExpectedViolations, "\n"))
+
+			if err == nil {
+				// No errors expected and no error occurred
+				if len(tc.ExpectedViolations) == 0 {
+					return
+				}
+
+				t.Logf("expected error:\n%v, but got:\n%v", errMsg, err)
+				t.FailNow()
+			}
+
+			if errMsg.Error() != err.Error() {
+				t.Logf("expected error:\n%v, but got:\n%v", errMsg, err)
+				t.Fail()
+			}
+		})
+	}
+}
