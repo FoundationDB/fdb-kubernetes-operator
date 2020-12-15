@@ -22,6 +22,7 @@ package main
 
 import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 func main() {
