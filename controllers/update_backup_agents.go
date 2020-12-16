@@ -26,6 +26,8 @@ import (
 	"reflect"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,29 +40,35 @@ type UpdateBackupAgents struct{}
 // Reconcile runs the reconciler's work.
 func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
-	existingDeployments := &appsv1.DeploymentList{}
+	existingDeployment := &appsv1.Deployment{}
+	needCreation := false
 
-	err := r.List(context, existingDeployments, client.InNamespace(backup.Namespace), client.MatchingField("metadata.name", deploymentName))
+	err := r.Get(context, client.ObjectKey{Name: deploymentName, Namespace: backup.Namespace}, existingDeployment)
 	if err != nil {
-		return false, err
+		if k8serrors.IsNotFound(err) {
+			needCreation = true
+		} else {
+			return false, err
+		}
 	}
+
 	deployment, err := GetBackupDeployment(backup)
 	if err != nil {
+		r.Recorder.Event(backup, "Error", "GetBackupDeployment", err.Error())
 		return false, err
 	}
 
 	if deployment != nil && deployment.ObjectMeta.Name != deploymentName {
-		return false, fmt.Errorf("Inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)
+		return false, fmt.Errorf("inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)
 	}
 
-	if len(existingDeployments.Items) == 0 && deployment != nil {
+	if needCreation && deployment != nil {
 		err = r.Create(context, deployment)
 		if err != nil {
 			return false, err
 		}
 	}
-	if len(existingDeployments.Items) != 0 && deployment != nil {
-		existingDeployment := existingDeployments.Items[0]
+	if !needCreation && deployment != nil {
 		annotationChange := mergeAnnotations(&existingDeployment.ObjectMeta, deployment.ObjectMeta)
 		deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
 
@@ -71,8 +79,9 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 			}
 		}
 	}
-	if len(existingDeployments.Items) != 0 && deployment == nil {
-		err = r.Delete(context, &existingDeployments.Items[0])
+
+	if !needCreation && deployment == nil {
+		err = r.Delete(context, existingDeployment)
 		if err != nil {
 			return false, err
 		}

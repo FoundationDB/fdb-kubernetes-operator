@@ -723,8 +723,9 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 	}
 
 	if mainContainer == nil {
-		containers := []corev1.Container{}
-		containers = append(containers, corev1.Container{Name: "foundationdb"})
+		containers := []corev1.Container{
+			{Name: "foundationdb"},
+		}
 		containers = append(containers, podTemplate.Spec.Containers...)
 		mainContainer = &containers[0]
 		podTemplate.Spec.Containers = containers
@@ -736,7 +737,21 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 	}
 	mainContainer.Image = image
 	mainContainer.Command = []string{"backup_agent"}
-	mainContainer.Args = []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
+	args := []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
+
+	if len(backup.Spec.CustomParameters) > 0 {
+		err := ValidateCustomParameters(backup.Spec.CustomParameters)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, customParameter := range backup.Spec.CustomParameters {
+			args = append(args, fmt.Sprintf("--%s", customParameter))
+		}
+
+	}
+
+	mainContainer.Args = args
 	if mainContainer.Env == nil {
 		mainContainer.Env = make([]corev1.EnvVar, 0, 1)
 	}
@@ -828,6 +843,36 @@ func ensureContainerPresent(containers []corev1.Container, name string, insertIn
 	}
 
 	return newContainers, insertIndex
+}
+
+// ValidateCustomParameters ensures that no duplicate values are set and that no
+// protected/forbidden parameters are set. Theoretically we could also check if FDB
+// supports the given parameter.
+func ValidateCustomParameters(customParameters []string) error {
+	protectedParameters := map[string]bool{"datadir": true}
+	parameters := make(map[string]bool)
+	violations := make([]string, 0)
+
+	for _, parameter := range customParameters {
+		parameterName := strings.Split(parameter, "=")[0]
+		parameterName = strings.TrimSpace(parameterName)
+
+		if _, ok := parameters[parameterName]; !ok {
+			parameters[parameterName] = true
+		} else {
+			violations = append(violations, fmt.Sprintf("found duplicated customParameter: %v", parameterName))
+		}
+
+		if _, ok := protectedParameters[parameterName]; ok {
+			violations = append(violations, fmt.Sprintf("found protected customParameter: %v, please remove this parameter from the customParameters list", parameterName))
+		}
+	}
+
+	if len(violations) > 0 {
+		return fmt.Errorf("found the following customParameters violations:\n%s", strings.Join(violations, "\n"))
+	}
+
+	return nil
 }
 
 // customizeContainerFromList finds a container by name and runs a customization
@@ -1088,6 +1133,20 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 			spec.Processes[processClass] = settings
 		}
 		spec.CustomParameters = nil
+	}
+
+	// Validate customParameters
+	for processClass := range spec.Processes {
+		if setting, ok := spec.Processes[processClass]; ok {
+			if setting.CustomParameters == nil {
+				continue
+			}
+
+			err := ValidateCustomParameters(*setting.CustomParameters)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	if !options.OnlyShowChanges {

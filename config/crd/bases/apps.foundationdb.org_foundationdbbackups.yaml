@@ -57,6 +57,10 @@ spec:
               type: string
             clusterName:
               type: string
+            customParameters:
+              items:
+                type: string
+              type: array
             podTemplateSpec:
               properties:
                 metadata:
