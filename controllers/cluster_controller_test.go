@@ -1777,9 +1777,6 @@ var _ = Describe("cluster_controller", func() {
 						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
 					}
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-
 					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
 					for _, address := range adminClient.KilledAddresses {
 						killedAddresses[address] = true
@@ -1815,9 +1812,6 @@ var _ = Describe("cluster_controller", func() {
 						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
 					}
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-
 					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
 					for _, address := range adminClient.KilledAddresses {
 						killedAddresses[address] = true
@@ -1836,9 +1830,6 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should replace the instances", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						replacements[MockPodIP(&pod)] = true
