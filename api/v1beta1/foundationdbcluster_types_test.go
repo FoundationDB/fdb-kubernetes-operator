@@ -3189,3 +3189,55 @@ func TestGetProcessPort(t *testing.T) {
 		})
 	}
 }
+
+func TestAddStorageServerPerDisk(t *testing.T) {
+	tt := []struct {
+		Name                          string
+		ValuesToAdd                   []int
+		ExpectedLen                   int
+		ExpectedStorageServersPerDisk []int
+	}{
+		{
+			Name:                          "Add missing element",
+			ValuesToAdd:                   []int{1},
+			ExpectedLen:                   1,
+			ExpectedStorageServersPerDisk: []int{1},
+		},
+		{
+			Name:                          "Duplicates should only inserted once",
+			ValuesToAdd:                   []int{1, 1},
+			ExpectedLen:                   1,
+			ExpectedStorageServersPerDisk: []int{1},
+		},
+		{
+			Name:                          "Multiple elements should be added",
+			ValuesToAdd:                   []int{1, 2},
+			ExpectedLen:                   2,
+			ExpectedStorageServersPerDisk: []int{1, 2},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.Name, func(t *testing.T) {
+			status := FoundationDBClusterStatus{
+				StorageServersPerDisk: []int{},
+			}
+
+			for _, val := range tc.ValuesToAdd {
+				status.AddStorageServerPerDisk(val)
+			}
+
+			if len(status.StorageServersPerDisk) != tc.ExpectedLen {
+				t.Logf("Expected len %d, got %d: %v", tc.ExpectedLen, len(status.StorageServersPerDisk), status.StorageServersPerDisk)
+				t.FailNow()
+			}
+
+			for i, val := range tc.ExpectedStorageServersPerDisk {
+				if val != status.StorageServersPerDisk[i] {
+					t.Logf("Expected %v, got %v", tc.ExpectedStorageServersPerDisk, status.StorageServersPerDisk)
+					t.FailNow()
+				}
+			}
+		})
+	}
+}

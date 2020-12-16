@@ -302,6 +302,58 @@ var _ = Describe("cluster_controller", func() {
 				Expect(ok).To(Equal(true))
 				Expect(configMap.Data["fdbmonitor-conf-storage-density-2"]).To(Equal(expectedConfigMap.Data["fdbmonitor-conf-storage-density-2"]))
 			})
+
+			It("should replace the pods", func() {
+				cluster.Spec.StorageServersPerPod = 1
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.GetStorageServersPerPod()).To(Equal(1))
+
+				pods := &corev1.PodList{}
+				ContainOriginalPod := func(idx int) gomegatypes.GomegaMatcher {
+					return ContainElement(WithTransform(func(pod corev1.Pod) string {
+						return pod.Name
+					}, Equal(originalPods.Items[idx].Name)))
+				}
+				Eventually(func() (corev1.PodList, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return *pods, err
+				}).Should(WithTransform(
+					func(pods corev1.PodList) []corev1.Pod {
+						sortPodsByID(&pods)
+						return pods.Items
+					}, SatisfyAll(
+						// Exactly as many pods as we started with
+						HaveLen(len(originalPods.Items)),
+						// But the original storage pods should all be replaced
+						// with newly named storage pods
+						Not(SatisfyAny(
+							ContainOriginalPod(13),
+							ContainOriginalPod(14),
+							ContainOriginalPod(15),
+							ContainOriginalPod(16),
+						)),
+					)))
+
+				// With the replacement completed, this is now race free - drop
+				// down to less convoluted code.
+
+				for i := 13; i <= 16; i++ {
+					inst := newFdbInstance(pods.Items[i])
+					Expect(getStorageServersPerPodForInstance(&inst)).To(Equal(2))
+				}
+
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+					"storage":            4,
+					"log":                4,
+					"stateless":          8,
+					"cluster_controller": 1,
+				}))
+
+				Expect(cluster.Spec.PendingRemovals).To(BeNil())
+				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
+				Expect(cluster.Status.PendingRemovals).To(BeNil())
+			})
 		})
 
 		Context("with a decreased process count", func() {

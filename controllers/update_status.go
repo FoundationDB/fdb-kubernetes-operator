@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,10 +47,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
 	status.MissingProcesses = make(map[string]int64)
-	status.StorageServersPerDisk = make([]int, 0)
-
 	// Initialize with the current desired storage servers per Pod
-	status.AddStorageServerPerDisk(cluster.GetStorageServersPerPod())
+	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
@@ -210,6 +209,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if status.ConnectionString == "" {
 		status.ConnectionString = existingConfigMap.Data["cluster-file"]
 	}
+
 	if status.ConnectionString == "" {
 		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
@@ -266,6 +266,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if len(status.IncorrectProcesses) == 0 {
 		status.IncorrectProcesses = nil
 	}
+
 	if len(status.MissingProcesses) == 0 {
 		status.MissingProcesses = nil
 	}
@@ -287,9 +288,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.FailingPods = nil
 	}
 
-	if len(status.StorageServersPerDisk) == 0 {
-		status.StorageServersPerDisk = nil
-	}
+	// Sort the storage servers per Disk to prevent a reodering to issue a new reconcile loop.
+	sort.Ints(status.StorageServersPerDisk)
 
 	originalStatus := cluster.Status.DeepCopy()
 
