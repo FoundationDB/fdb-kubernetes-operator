@@ -87,7 +87,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 		candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 		for _, process := range status.Cluster.Processes {
-			eligible := !process.Excluded && isStateful(process.ProcessClass) && !cluster.InstanceIsBeingRemoved(process.Locality["fdb-instance-id"])
+			eligible := !process.Excluded && isStateful(process.ProcessClass) && !cluster.InstanceIsBeingRemoved(process.Locality[FDBInstanceIDLabel])
 			if eligible {
 				candidates = append(candidates, localityInfoForProcess(process))
 			}

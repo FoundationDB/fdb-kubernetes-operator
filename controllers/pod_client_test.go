@@ -41,7 +41,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should not have TLS sidecar TLS", func() {
-			pod, err := GetPod(cluster, "storage", 1)
+			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeFalse())
 		})
@@ -53,7 +53,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should have TLS sidecar TLS", func() {
-			pod, err := GetPod(cluster, "storage", 1)
+			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeTrue())
 		})

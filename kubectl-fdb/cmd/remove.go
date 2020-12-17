@@ -108,7 +108,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
 			client.MatchingLabels(map[string]string{
-				"fdb-cluster-name": clusterName,
+				controllers.FDBClusterLabel: clusterName,
 			}))
 
 		if err != nil {

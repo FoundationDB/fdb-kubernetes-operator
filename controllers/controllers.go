@@ -27,33 +27,44 @@ import (
 
 var log = logf.Log.WithName("controller")
 
-// LastSpecKey provides the annotation name we use to store the hash of the
-// pod spec.
-const LastSpecKey = "foundationdb.org/last-applied-spec"
-
-// LastConfigMapKey provides the annotation name we use to store the hash of the
-// config map.
-const LastConfigMapKey = "foundationdb.org/last-applied-config-map"
-
-// BackupDeploymentLabel provides the label we use to connect backup
-// deployments to a cluster.
-const BackupDeploymentLabel = "foundationdb.org/backup-for"
-
 // DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10
 
-// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
-// processes in the cluster must have been up for before the operator can
-// execute a bounce.
-const MinimumUptimeSecondsForBounce = 600
+const (
+	// LastSpecKey provides the annotation name we use to store the hash of the
+	// pod spec.
+	LastSpecKey = "foundationdb.org/last-applied-spec"
 
-// PublicIPSourceAnnotation is an annotation key that specifies where a pod
-// gets its public IP from.
-const PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"
+	// LastConfigMapKey provides the annotation name we use to store the hash of the
+	// config map.
+	LastConfigMapKey = "foundationdb.org/last-applied-config-map"
 
-// PublicIPAnnotation is an annotation key that specifies the current public
-// IP for a pod.
-const PublicIPAnnotation = "foundationdb.org/public-ip"
+	// BackupDeploymentLabel provides the label we use to connect backup
+	// deployments to a cluster.
+	BackupDeploymentLabel = "foundationdb.org/backup-for"
+
+	// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
+	// processes in the cluster must have been up for before the operator can
+	// execute a bounce.
+	MinimumUptimeSecondsForBounce = 600
+
+	// PublicIPSourceAnnotation is an annotation key that specifies where a pod
+	// gets its public IP from.
+	PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"
+
+	// PublicIPAnnotation is an annotation key that specifies the current public
+	// IP for a pod.
+	PublicIPAnnotation = "foundationdb.org/public-ip"
+
+	// FDBInstanceIDLabel represents the label that is used to represent a instance ID
+	FDBInstanceIDLabel = "fdb-instance-id"
+
+	// FDBProcessClassLabel represents the label that is used to represent the process class
+	FDBProcessClassLabel = "fdb-process-class"
+
+	// FDBClusterLabel represents the label that is used to represent the cluster of an instance
+	FDBClusterLabel = "fdb-cluster-name"
+)
 
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
