@@ -52,7 +52,7 @@ spec:
             port: metrics   
         volumeMounts:
         - name: tmp
-          mountPath: /tmp
+          mountPath: /tmp       
         resources:
           {{- toYaml .Values.resources | nindent 12 }}     
         securityContext:
