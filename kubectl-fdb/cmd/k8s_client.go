@@ -21,33 +21,10 @@
 package cmd
 
 import (
-	"flag"
-	"log"
-	"os"
-
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
-
-func getConfig(kubeconfig string) *restclient.Config {
-	var config *restclient.Config
-	envKubeConfig := os.Getenv("KUBECONFIG")
-	if envKubeConfig != "" {
-		kubeconfig = envKubeConfig
-	}
-
-	flag.Parse()
-	var err error
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return config
-}
 
 func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) *v1.Deployment {
 	var operator *v1.Deployment
