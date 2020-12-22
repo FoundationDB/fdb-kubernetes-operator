@@ -24,7 +24,27 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
+
+func getNamespace(namespace string) (string, error) {
+	if namespace != "" {
+		return namespace, nil
+	}
+
+	clientCfg, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+	if err != nil {
+		return "", err
+	}
+
+	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
+		if ctx.Namespace != "" {
+			return ctx.Namespace, nil
+		}
+	}
+
+	return "default", nil
+}
 
 func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) *v1.Deployment {
 	var operator *v1.Deployment

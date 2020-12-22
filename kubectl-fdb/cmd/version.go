@@ -56,7 +56,12 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 				return err
 			}
 
-			operatorVersion := version(client, operatorName, *o.configFlags.Namespace)
+			namespace, err := getNamespace(*o.configFlags.Namespace)
+			if err != nil {
+				return err
+			}
+
+			operatorVersion := version(client, operatorName, namespace)
 
 			// TODO check: https://github.com/kubernetes/cli-runtime/tree/release-1.20/pkg/printers
 			fmt.Printf("kubectl-fdb: %s\n", pluginVersion)

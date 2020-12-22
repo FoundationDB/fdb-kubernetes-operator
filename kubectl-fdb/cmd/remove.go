@@ -82,7 +82,12 @@ func newRemoveCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *
 				return err
 			}
 
-			removeInstances(kubeClient, cluster, instances, *o.configFlags.Namespace, withExclusion, withShrink, force)
+			namespace, err := getNamespace(*o.configFlags.Namespace)
+			if err != nil {
+				return err
+			}
+
+			removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force)
 
 			return nil
 		},
