@@ -57,7 +57,9 @@ func getDefaultNamespace() string {
 	}
 
 	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
-		return ctx.Namespace
+		if ctx.Namespace != "" {
+			return ctx.Namespace
+		}
 	}
 
 	return "default"
