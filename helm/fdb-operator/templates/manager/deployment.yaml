@@ -27,6 +27,8 @@ spec:
       volumes:
       - name: tmp
         emptyDir: {}
+      - name: logs
+        emptyDir: {}        
       containers:
       - args:
         - --enable-leader-election
@@ -45,6 +47,8 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        - name: logs
+          mountPath: /var/log/fdb   
         resources:
           limits:
             cpu: 500m
