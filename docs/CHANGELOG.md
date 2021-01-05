@@ -1,3 +1,18 @@
+# v0.25.0
+
+*	Add docs for StorageClass and multiple storage servers per pod.
+*	Add kubectl plugin for fdb.
+*	Add liveness probe to helm chart.
+*	Allow customization of pod resources in help chart.
+*	Add a design for automating replacements.
+*	Pin kustomize version.
+*	Add option to helm chart for "global mode".
+*	Allow override of deployment replicas value.
+*	Add unit tests for plugin.
+*	Fix bug to update storageServerPerPod.
+*	Add custom parameters to backup agents.
+*	Enable golint to check for shadowing.
+
 # v0.24.0
 
 *	Use the locking system to coordinate exclusions and bounces.

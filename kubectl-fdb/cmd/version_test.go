@@ -11,7 +11,7 @@ import (
 
 func TestVersion(t *testing.T) {
 	operatorName := "/dev/random"
-	expectedVersion := "0.24.0"
+	expectedVersion := "0.25.0"
 
 	client := fake.NewSimpleClientset(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -23,7 +23,7 @@ func TestVersion(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Image: "foundationdb/fdb-kubernetes-operator:0.24.0",
+							Image: "foundationdb/fdb-kubernetes-operator:0.25.0",
 						},
 					},
 				},
