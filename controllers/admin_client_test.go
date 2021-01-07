@@ -262,14 +262,14 @@ var _ = Describe("admin_client_test", func() {
 	Describe("helper methods", func() {
 		Describe("parseExclusionOutput", func() {
 			It("should map the output description to exclusion success", func() {
-				output := "  10.1.56.36  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.43  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.52  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"  10.1.56.53  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
+				output := "  10.1.56.36(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.43(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.52(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.53(Whole machine)  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
 					" before removing them from the cluster!\n" +
-					"  10.1.56.35  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
-					"  10.1.56.56  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
-					"WARNING: 10.1.56.56 is a coordinator!\n" +
+					"  10.1.56.35(Whole machine)  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
+					"  10.1.56.56(Whole machine)  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"WARNING: 10.1.56.56:4500 is a coordinator!\n" +
 					"Type `help coordinators' for information on how to change the\n" +
 					"cluster's coordination servers before removing them."
 				results := parseExclusionOutput(output)
@@ -280,6 +280,50 @@ var _ = Describe("admin_client_test", func() {
 					"10.1.56.53": "Missing",
 					"10.1.56.35": "In Progress",
 					"10.1.56.56": "Success",
+				}))
+			})
+
+			It("should handle a lack of suffices in the output", func() {
+				output := "  10.1.56.36  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.43  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.52  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.53  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
+					" before removing them from the cluster!\n" +
+					"  10.1.56.35  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
+					"  10.1.56.56  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"WARNING: 10.1.56.56:4500 is a coordinator!\n" +
+					"Type `help coordinators' for information on how to change the\n" +
+					"cluster's coordination servers before removing them."
+				results := parseExclusionOutput(output)
+				Expect(results).To(Equal(map[string]string{
+					"10.1.56.36": "Success",
+					"10.1.56.43": "Success",
+					"10.1.56.52": "Success",
+					"10.1.56.53": "Missing",
+					"10.1.56.35": "In Progress",
+					"10.1.56.56": "Success",
+				}))
+			})
+
+			It("should handle ports in the output", func() {
+				output := "  10.1.56.36:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.43:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.52:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"  10.1.56.53:4500  ---- WARNING: Missing from cluster! Be sure that you excluded the correct processes" +
+					" before removing them from the cluster!\n" +
+					"  10.1.56.35:4500  ---- WARNING: Exclusion in progress! It is not safe to remove this process from the cluster\n" +
+					"  10.1.56.56:4500  ---- Successfully excluded. It is now safe to remove this process from the cluster.\n" +
+					"WARNING: 10.1.56.56:4500 is a coordinator!\n" +
+					"Type `help coordinators' for information on how to change the\n" +
+					"cluster's coordination servers before removing them."
+				results := parseExclusionOutput(output)
+				Expect(results).To(Equal(map[string]string{
+					"10.1.56.36:4500": "Success",
+					"10.1.56.43:4500": "Success",
+					"10.1.56.52:4500": "Success",
+					"10.1.56.53:4500": "Missing",
+					"10.1.56.35:4500": "In Progress",
+					"10.1.56.56:4500": "Success",
 				}))
 			})
 		})
