@@ -425,11 +425,11 @@ func (client *CliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 // the output of an exclusion command.
 func parseExclusionOutput(output string) map[string]string {
 	results := make(map[string]string)
-	var regex = regexp.MustCompile(`\s*(\[?[\w.:\]?]+)\s*-+(.*)`)
+	var regex = regexp.MustCompile(`\s*(\[?[\w.:\]?]+)(\([\w ]*\))?\s*-+(.*)`)
 	matches := regex.FindAllStringSubmatch(output, -1)
 	for _, match := range matches {
 		address := match[1]
-		status := match[2]
+		status := match[len(match)-1]
 		if strings.Contains(status, "Successfully excluded") {
 			results[address] = "Success"
 		} else if strings.Contains(status, "WARNING: Missing from cluster") {
