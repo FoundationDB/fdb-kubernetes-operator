@@ -21,32 +21,29 @@
 package cmd
 
 import (
-	"flag"
-	"log"
-	"os"
-
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func getConfig(kubeconfig string) *restclient.Config {
-	var config *restclient.Config
-	envKubeConfig := os.Getenv("KUBECONFIG")
-	if envKubeConfig != "" {
-		kubeconfig = envKubeConfig
+func getNamespace(namespace string) (string, error) {
+	if namespace != "" {
+		return namespace, nil
 	}
 
-	flag.Parse()
-	var err error
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	clientCfg, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
-	return config
+	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
+		if ctx.Namespace != "" {
+			return ctx.Namespace, nil
+		}
+	}
+
+	return "default", nil
 }
 
 func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) *v1.Deployment {

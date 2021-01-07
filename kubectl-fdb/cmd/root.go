@@ -25,42 +25,55 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
+	"github.com/spf13/viper"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "kubectl-fdb",
-	Short: "kubectl plugin for the FoundationDB operator.",
-	Long:  `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
+// FDBOptions provides information required to run different
+// actions on FDB
+type FDBOptions struct {
+	configFlags *genericclioptions.ConfigFlags
+	genericclioptions.IOStreams
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+// NewFDBOptions provides an instance of FDBOptions with default values
+func NewFDBOptions(streams genericclioptions.IOStreams) *FDBOptions {
+	return &FDBOptions{
+		configFlags: genericclioptions.NewConfigFlags(true),
+		IOStreams:   streams,
 	}
 }
 
-func getDefaultNamespace() string {
-	clientCfg, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
-	if err != nil {
-		log.Fatal(err)
+// NewRootCmd provides a cobra command wrapping FDB actions
+func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
+	o := NewFDBOptions(streams)
+
+	cmd := &cobra.Command{
+		Use:   "kubectl-fdb",
+		Short: "kubectl plugin for the FoundationDB operator.",
+		Long:  `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
+		// TODO: Example:      fmt.Sprintf(fdbexample, "kubectl"),
+		SilenceUsage: true,
+		RunE: func(c *cobra.Command, args []string) error {
+			return nil
+		},
 	}
 
-	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
-		return ctx.Namespace
-	}
+	viper.SetDefault("license", "apache 2")
+	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
+	cmd.PersistentFlags().BoolP("force", "f", false, "Suppress the confirmation dialog")
+	o.configFlags.AddFlags(cmd.Flags())
 
-	return "default"
+	cmd.AddCommand(
+		newVersionCmd(streams, cmd),
+		newRemoveCmd(streams, cmd),
+	)
+
+	return cmd
 }
 
 // confirmAction requests a user to confirm it's action
@@ -85,13 +98,4 @@ func confirmAction(action string) bool {
 			return false
 		}
 	}
-}
-
-func init() {
-	viper.SetDefault("license", "apache 2")
-	rootCmd.Flags().StringP("namespace", "n", getDefaultNamespace(), "namespace to interact with the fdb cluster.")
-	rootCmd.Flags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
-	rootCmd.Flags().BoolP("force", "f", false, "Suppress the confirmation dialog")
-	home := homedir.HomeDir()
-	rootCmd.Flags().String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file.")
 }

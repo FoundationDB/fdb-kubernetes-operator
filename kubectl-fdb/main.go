@@ -21,10 +21,20 @@
 package main
 
 import (
+	"os"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd"
+	"github.com/spf13/pflag"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 func main() {
-	cmd.Execute()
+	flags := pflag.NewFlagSet("kubectl-fdb", pflag.ExitOnError)
+	pflag.CommandLine = flags
+
+	root := cmd.NewRootCmd(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

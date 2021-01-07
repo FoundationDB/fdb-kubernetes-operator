@@ -25,48 +25,60 @@ import (
 	"log"
 	"strings"
 
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 )
 
-var pluginVersion string = "v0.23.1"
+var pluginVersion = "v0.23.1"
 
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "version of kubectl-fdb & foundationdb-operator",
-	Long:  `version of kubectl-fdb and current running foundationdb-operator`,
-	Run: func(cmd *cobra.Command, args []string) {
-		namespace, err := rootCmd.Flags().GetString("namespace")
-		if err != nil {
-			log.Fatal(err)
-		}
-		kubeconfig, err := rootCmd.Flags().GetString("kubeconfig")
-		if err != nil {
-			log.Fatal(err)
-		}
-		operatorName, err := rootCmd.Flags().GetString("operator-name")
-		if err != nil {
-			log.Fatal(err)
-		}
+func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+	o := NewFDBOptions(streams)
 
-		config := getConfig(kubeconfig)
-		client, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			log.Fatal(err)
-		}
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "version of kubectl-fdb & foundationdb-operator",
+		Long:  `version of kubectl-fdb and current running foundationdb-operator`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			operatorName, err := rootCmd.Flags().GetString("operator-name")
+			if err != nil {
+				return err
+			}
 
-		operatorVersion := version(client, operatorName, namespace)
+			config, err := o.configFlags.ToRESTConfig()
+			if err != nil {
+				return err
+			}
 
-		fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
-		fmt.Printf("foundationdb-operator: %s\n", operatorVersion)
-	},
-	Example: `
+			client, err := kubernetes.NewForConfig(config)
+			if err != nil {
+				return err
+			}
+
+			namespace, err := getNamespace(*o.configFlags.Namespace)
+			if err != nil {
+				return err
+			}
+
+			operatorVersion := version(client, operatorName, namespace)
+
+			// TODO check: https://github.com/kubernetes/cli-runtime/tree/release-1.20/pkg/printers
+			fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
+			fmt.Printf("foundationdb-operator: %s\n", operatorVersion)
+
+			return nil
+		},
+		Example: `
 #Lists the version of kubectl fdb plugin and foundationdb operator in current namespace
 kubectl fdb version
 #Lists the version of kubectl fdb plugin and foundationdb operator in provided namespace
 kubectl fdb -n default version
 `,
+	}
+	o.configFlags.AddFlags(cmd.Flags())
+
+	return cmd
 }
 
 func version(client kubernetes.Interface, operatorName string, namespace string) string {
@@ -78,8 +90,4 @@ func version(client kubernetes.Interface, operatorName string, namespace string)
 	imageName := strings.Split(operatorImage, ":")
 
 	return imageName[len(imageName)-1]
-}
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
 }
