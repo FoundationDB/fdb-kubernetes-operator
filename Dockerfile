@@ -64,7 +64,8 @@ COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
-USER fdb
+# Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
+USER 4059
 
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
