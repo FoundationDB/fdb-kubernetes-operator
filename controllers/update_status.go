@@ -122,66 +122,14 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	cluster.Status.RequiredAddresses = status.RequiredAddresses
 
-	status.IncorrectPods = make([]string, 0)
-	status.FailingPods = make([]string, 0)
-
 	configMap, err := GetConfigMap(cluster)
 	if err != nil {
 		return false, err
 	}
 
-	// TODO (johscheuer): should be process specific #377
-	configMapHash, err := GetDynamicConfHash(configMap)
+	err = validateInstances(r,context, cluster, &status, processMap, instances, configMap)
 	if err != nil {
 		return false, err
-	}
-
-	for _, instance := range instances {
-		processClass := instance.GetProcessClass()
-		instanceID := instance.GetInstanceID()
-		processCount := 1
-
-		// Even the instance will be removed we need to keep the config around
-		// Set the processCount for the instance specific storage servers per pod
-		if processClass == fdbtypes.ProcessClassStorage {
-			processCount, err = getStorageServersPerPodForInstance(&instance)
-			if err != nil {
-				return false, err
-			}
-
-			status.AddStorageServerPerDisk(processCount)
-		}
-
-		if cluster.InstanceIsBeingRemoved(instanceID) {
-			continue
-		}
-
-		status.ProcessCounts.IncreaseCount(processClass, 1)
-
-		// In theory we could also support multiple processes per pod for different classes
-		for i := 1; i <= processCount; i++ {
-			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, &status, i, processCount)
-			if err != nil {
-				return false, err
-			}
-		}
-
-		failing, incorrect, needsSidecarConfInConfigMap, err := validateInstance(r, context, cluster, instance, configMapHash)
-		if err != nil {
-			return false, err
-		}
-
-		if failing {
-			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
-		}
-
-		if incorrect {
-			status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
-		}
-
-		if needsSidecarConfInConfigMap {
-			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
-		}
 	}
 
 	existingConfigMap := &corev1.ConfigMap{}
@@ -412,32 +360,103 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 		} else {
 			status.MissingProcesses[instanceID] = time.Now().Unix()
 		}
-	} else {
-		podClient, err := r.getPodClient(cluster, instance)
-		correct := false
-		if err != nil {
-			log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
-		} else {
-			for _, process := range processStatus {
-				commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
-				if err != nil {
-					return err
-				}
-				correct = commandLine == process.CommandLine && (process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version))
 
-				if !correct {
-					log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine)
-				}
+		return nil
+	}
+
+	podClient, err := r.getPodClient(cluster, instance)
+	correct := false
+	if err != nil {
+		log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
+	} else {
+		for _, process := range processStatus {
+			commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
+			if err != nil {
+				return err
+			}
+			correct = commandLine == process.CommandLine && (process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version))
+
+			if !correct {
+				log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine)
+			}
+		}
+	}
+
+	if !correct {
+		existingTime, exists := cluster.Status.IncorrectProcesses[instanceID]
+		if exists {
+			status.IncorrectProcesses[instanceID] = existingTime
+		} else {
+			status.IncorrectProcesses[instanceID] = time.Now().Unix()
+		}
+	}
+
+	return nil
+}
+
+func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []FdbInstance, configMap *corev1.ConfigMap) error {
+	// TODO (johscheuer): should be process specific #377
+	configMapHash, err := GetDynamicConfHash(configMap)
+	if err != nil {
+		return err
+	}
+
+	status.IncorrectPods = make([]string, 0)
+	status.FailingPods = make([]string, 0)
+
+	for _, instance := range instances {
+		processClass := instance.GetProcessClass()
+		instanceID := instance.GetInstanceID()
+		processCount := 1
+
+		// If the instance is not being removed and the Pod is not set we need to put it into
+		// the failing list.
+		isBeingRemoved := cluster.InstanceIsBeingRemoved(instanceID)
+		if instance.Pod == nil  && ! isBeingRemoved {
+			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
+			continue
+		}
+
+		// Even the instance will be removed we need to keep the config around.
+		// Set the processCount for the instance specific storage servers per pod
+		if processClass == fdbtypes.ProcessClassStorage {
+			processCount, err = getStorageServersPerPodForInstance(&instance)
+			if err != nil {
+				return err
+			}
+
+			status.AddStorageServerPerDisk(processCount)
+		}
+
+		if isBeingRemoved {
+			continue
+		}
+
+		status.ProcessCounts.IncreaseCount(processClass, 1)
+
+		// In theory we could also support multiple processes per pod for different classes
+		for i := 1; i <= processCount; i++ {
+			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, status, i, processCount)
+			if err != nil {
+				return err
 			}
 		}
 
-		if !correct {
-			existingTime, exists := cluster.Status.IncorrectProcesses[instanceID]
-			if exists {
-				status.IncorrectProcesses[instanceID] = existingTime
-			} else {
-				status.IncorrectProcesses[instanceID] = time.Now().Unix()
-			}
+		failing, incorrect, needsSidecarConfInConfigMap, err := validateInstance(r, context, cluster, instance, configMapHash)
+		if err != nil {
+			return err
+		}
+
+		if failing {
+			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
+		}
+
+		if incorrect {
+			status.IncorrectPods = append(status.IncorrectPods, instance.Metadata.Name)
+		}
+
+		if needsSidecarConfInConfigMap {
+			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
 		}
 	}
 
