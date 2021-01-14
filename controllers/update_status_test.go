@@ -107,7 +107,6 @@ var _ = Describe("update_status", func() {
 		})
 	})
 
-
 	Context("when Pod doesn't contain a Spec", func() {
 		It("should return 1", func() {
 			instance := FdbInstance{}

@@ -127,7 +127,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
-	err = validateInstances(r,context, cluster, &status, processMap, instances, configMap)
+	err = validateInstances(r, context, cluster, &status, processMap, instances, configMap)
 	if err != nil {
 		return false, err
 	}
@@ -412,7 +412,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		// If the instance is not being removed and the Pod is not set we need to put it into
 		// the failing list.
 		isBeingRemoved := cluster.InstanceIsBeingRemoved(instanceID)
-		if instance.Pod == nil  && ! isBeingRemoved {
+		if instance.Pod == nil && !isBeingRemoved {
 			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
 			continue
 		}
