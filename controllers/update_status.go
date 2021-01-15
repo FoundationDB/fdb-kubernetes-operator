@@ -233,7 +233,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 					return false, err
 				}
 				if len(pods.Items) > 0 {
-					instanceID := pods.Items[0].ObjectMeta.Labels["fdb-instance-id"]
+					instanceID := pods.Items[0].ObjectMeta.Labels[FDBInstanceIDLabel]
 					status.PendingRemovals[instanceID] = fdbtypes.PendingRemovalState{
 						PodName: podName,
 						Address: address,

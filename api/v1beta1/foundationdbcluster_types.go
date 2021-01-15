@@ -638,7 +638,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass string) Proc
 		entries = append(entries, entry)
 	}
 
-	entries = append(entries, cluster.Spec.Processes["general"])
+	entries = append(entries, cluster.Spec.Processes[ProcessClassGeneral])
 
 	for _, entry := range entries {
 		if merged.PodTemplate == nil {
@@ -2176,6 +2176,12 @@ const (
 	ProcessClassLog = "log"
 	// ProcessClassTransaction model for FDB class transaction
 	ProcessClassTransaction = "transaction"
+	// ProcessClassStateless model for FDB stateless processes
+	ProcessClassStateless = "stateless"
+	// ProcessClassGeneral model for FDB general processes
+	ProcessClassGeneral = "general"
+	// ProcessClassClusterController model for FDB class cluster_controller
+	ProcessClassClusterController = "cluster_controller"
 )
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept

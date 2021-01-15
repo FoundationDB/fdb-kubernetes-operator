@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,8 +39,8 @@ func TestRemoveInstances(t *testing.T) {
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						"fdb-process-class": "storage",
-						"fdb-cluster-name":  clusterName,
+						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBClusterLabel:      clusterName,
 					},
 				},
 			},

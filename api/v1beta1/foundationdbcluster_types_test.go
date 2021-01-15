@@ -151,9 +151,9 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 		Stateless: 9,
 	}))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
-		"storage":   5,
-		"log":       4,
-		"stateless": 9,
+		ProcessClassStorage:   5,
+		ProcessClassLog:       4,
+		ProcessClassStateless: 9,
 	}))
 	g.Expect(cluster.Spec.ProcessCounts).To(gomega.Equal(ProcessCounts{}))
 
@@ -172,10 +172,10 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 	g.Expect(counts.Stateless).To(gomega.Equal(8))
 	g.Expect(counts.ClusterController).To(gomega.Equal(3))
 	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
-		"storage":            5,
-		"log":                4,
-		"stateless":          8,
-		"cluster_controller": 3,
+		ProcessClassStorage:           5,
+		ProcessClassLog:               4,
+		ProcessClassStateless:         8,
+		ProcessClassClusterController: 3,
 	}))
 
 	cluster.Spec.ProcessCounts = ProcessCounts{
@@ -407,13 +407,13 @@ func TestCheckingWhetherProcessCountsAreSatisfied(t *testing.T) {
 func TestSettingProcessCountByName(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	counts := ProcessCounts{}
-	counts.IncreaseCount("storage", 2)
+	counts.IncreaseCount(ProcessClassStorage, 2)
 	g.Expect(counts.Storage).To(gomega.Equal(2))
 	g.Expect(counts.ClusterController).To(gomega.Equal(0))
-	counts.IncreaseCount("storage", 3)
+	counts.IncreaseCount(ProcessClassStorage, 3)
 	g.Expect(counts.Storage).To(gomega.Equal(5))
 	g.Expect(counts.ClusterController).To(gomega.Equal(0))
-	counts.IncreaseCount("cluster_controller", 1)
+	counts.IncreaseCount(ProcessClassClusterController, 1)
 	g.Expect(counts.Storage).To(gomega.Equal(5))
 	g.Expect(counts.ClusterController).To(gomega.Equal(1))
 }
@@ -488,7 +488,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"c813e585043a7ab55a4905f465c4aa52": {
 					Address:      "10.1.38.91:4501",
-					ProcessClass: "storage",
+					ProcessClass: ProcessClassStorage,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.91:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -502,7 +502,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				},
 				"f9efa90fc104f4e277b140baf89aab66": {
 					Address:      "10.1.38.82:4501",
-					ProcessClass: "storage",
+					ProcessClass: ProcessClassStorage,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.82:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -516,7 +516,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				},
 				"5a633d7f4e98a6c938c84b97ec4aedbf": {
 					Address:      "10.1.38.89:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.89:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -530,7 +530,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				},
 				"5c1b68147a0ef34ce005a38245851270": {
 					Address:      "10.1.38.88:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.88:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -544,7 +544,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				},
 				"653defde43cf1fdef131e2fb82bd192d": {
 					Address:      "10.1.38.87:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.87:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -558,7 +558,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				},
 				"9c93d3b70118f16c72f7cb3f53e49f4c": {
 					Address:      "10.1.38.86:4501",
-					ProcessClass: "storage",
+					ProcessClass: ProcessClassStorage,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.86:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -572,7 +572,7 @@ func TestParsingClusterStatusWithSixOneCluster(t *testing.T) {
 				},
 				"b9c25278c0fa207bc2a73bda2300d0a9": {
 					Address:      "10.1.38.90:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.90:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -713,7 +713,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"b9c25278c0fa207bc2a73bda2300d0a9": {
 					Address:      "10.1.38.93:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.93:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -727,7 +727,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				},
 				"c813e585043a7ab55a4905f465c4aa52": {
 					Address:      "10.1.38.95:4501",
-					ProcessClass: "storage",
+					ProcessClass: ProcessClassStorage,
 					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.95:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -741,7 +741,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				},
 				"f9efa90fc104f4e277b140baf89aab66": {
 					Address:      "10.1.38.92:4501",
-					ProcessClass: "storage",
+					ProcessClass: ProcessClassStorage,
 					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.92:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -755,7 +755,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				},
 				"5a633d7f4e98a6c938c84b97ec4aedbf": {
 					Address:      "10.1.38.105:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.105:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -769,7 +769,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				},
 				"5c1b68147a0ef34ce005a38245851270": {
 					Address:      "10.1.38.102:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.102:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -783,7 +783,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				},
 				"653defde43cf1fdef131e2fb82bd192d": {
 					Address:      "10.1.38.104:4501",
-					ProcessClass: "log",
+					ProcessClass: ProcessClassLog,
 					CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.104:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -797,7 +797,7 @@ func TestParsingClusterStatusWithSixTwoCluster(t *testing.T) {
 				},
 				"9c93d3b70118f16c72f7cb3f53e49f4c": {
 					Address:      "10.1.38.94:4501",
-					ProcessClass: "storage",
+					ProcessClass: ProcessClassStorage,
 					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.94:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
 					Locality: map[string]string{
@@ -3074,7 +3074,7 @@ func TestGettingProcessSettings(t *testing.T) {
 	cluster := &FoundationDBCluster{
 		Spec: FoundationDBClusterSpec{
 			Processes: map[string]ProcessSettings{
-				"general": {
+				ProcessClassGeneral: {
 					PodTemplate: &corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"test-label": "label1"},
@@ -3082,14 +3082,14 @@ func TestGettingProcessSettings(t *testing.T) {
 					},
 					CustomParameters: &[]string{"test_knob=value1"},
 				},
-				"storage": {
+				ProcessClassStorage: {
 					PodTemplate: &corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"test-label": "label2"},
 						},
 					},
 				},
-				"stateless": {
+				ProcessClassStateless: {
 					PodTemplate: &corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"test-label": "label3"},
@@ -3099,7 +3099,7 @@ func TestGettingProcessSettings(t *testing.T) {
 			},
 		},
 	}
-	settings := cluster.GetProcessSettings("storage")
+	settings := cluster.GetProcessSettings(ProcessClassStorage)
 	g.Expect(settings.PodTemplate.ObjectMeta.Labels).To(gomega.Equal(map[string]string{"test-label": "label2"}))
 	g.Expect(settings.CustomParameters).To(gomega.Equal(&[]string{"test_knob=value1"}))
 }

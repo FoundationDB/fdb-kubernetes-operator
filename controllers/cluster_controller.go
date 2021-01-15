@@ -344,14 +344,14 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
 	labels := map[string]string{}
 
-	labels["fdb-cluster-name"] = cluster.ObjectMeta.Name
+	labels[FDBClusterLabel] = cluster.ObjectMeta.Name
 
 	if processClass != "" {
-		labels["fdb-process-class"] = processClass
+		labels[FDBProcessClassLabel] = processClass
 	}
 
 	if id != "" {
-		labels["fdb-instance-id"] = id
+		labels[FDBInstanceIDLabel] = id
 	}
 
 	return labels
@@ -919,7 +919,7 @@ func (instance FdbInstance) GetInstanceID() string {
 
 // GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
 func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels["fdb-instance-id"]
+	return metadata.Labels[FDBInstanceIDLabel]
 }
 
 // GetProcessClass fetches the process class from an instance's metadata.
@@ -929,7 +929,7 @@ func (instance FdbInstance) GetProcessClass() string {
 
 // GetProcessClassFromMeta fetches the process class from an object's metadata.
 func GetProcessClassFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels["fdb-process-class"]
+	return metadata.Labels[FDBProcessClassLabel]
 }
 
 // GetPublicIPSource determines how an instance has gotten its public IP.

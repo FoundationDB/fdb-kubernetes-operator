@@ -318,8 +318,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 						PodAffinityTerm: corev1.PodAffinityTerm{
 							TopologyKey: faultDomainKey,
 							LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-								"fdb-cluster-name":  cluster.ObjectMeta.Name,
-								"fdb-process-class": processClass,
+								FDBClusterLabel:      cluster.ObjectMeta.Name,
+								FDBProcessClassLabel: processClass,
 							}},
 						},
 					},
@@ -555,7 +555,7 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass string) bool {
 	if processSettings.VolumeClaimTemplate != nil {
 		requests := processSettings.VolumeClaimTemplate.Spec.Resources.Requests
 		if requests != nil {
-			storageCopy := requests["storage"]
+			storageCopy := requests[fdbtypes.ProcessClassStorage]
 			storage = &storageCopy
 		}
 	}
@@ -597,9 +597,9 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass string, idNum in
 		pvc.Spec.Resources.Requests = corev1.ResourceList{}
 	}
 
-	storage := pvc.Spec.Resources.Requests["storage"]
+	storage := pvc.Spec.Resources.Requests[fdbtypes.ProcessClassStorage]
 	if (&storage).IsZero() {
-		pvc.Spec.Resources.Requests["storage"] = resource.MustParse("128G")
+		pvc.Spec.Resources.Requests[fdbtypes.ProcessClassStorage] = resource.MustParse("128G")
 	}
 
 	specHash, err := GetJSONHash(pvc.Spec)
@@ -891,11 +891,11 @@ func ensurePodTemplatePresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
 		spec.Processes = make(map[string]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes["general"]
+	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 	if generalSettings.PodTemplate == nil {
 		generalSettings.PodTemplate = &corev1.PodTemplateSpec{}
 	}
-	spec.Processes["general"] = generalSettings
+	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 }
 
 // ensureCustomParametersPresent defines custom parameters for the general process
@@ -904,12 +904,12 @@ func ensureCustomParametersPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
 		spec.Processes = make(map[string]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes["general"]
+	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 	if generalSettings.CustomParameters == nil {
 		params := make([]string, 0)
 		generalSettings.CustomParameters = &params
 	}
-	spec.Processes["general"] = generalSettings
+	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 }
 
 // ensureVolumeClaimPresent defines a volume claim in the general process
@@ -918,11 +918,11 @@ func ensureVolumeClaimPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
 		spec.Processes = make(map[string]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes["general"]
+	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 	if generalSettings.VolumeClaimTemplate == nil {
 		generalSettings.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{}
 	}
-	spec.Processes["general"] = generalSettings
+	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 }
 
 // ensureConfigMapPresent defines a config map in the cluster spec.
@@ -987,11 +987,11 @@ func updateVolumeClaims(spec *fdbtypes.FoundationDBClusterSpec, customizer func(
 func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options DeprecationOptions) error {
 	if spec.PodTemplate != nil {
 		ensurePodTemplatePresent(spec)
-		generalSettings := spec.Processes["general"]
+		generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 		if reflect.DeepEqual(generalSettings.PodTemplate, &corev1.PodTemplateSpec{}) {
 			generalSettings.PodTemplate = spec.PodTemplate
 		}
-		spec.Processes["general"] = generalSettings
+		spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 		spec.PodTemplate = nil
 	}
 
@@ -1007,11 +1007,11 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		if spec.Processes == nil {
 			spec.Processes = make(map[string]fdbtypes.ProcessSettings)
 		}
-		generalSettings := spec.Processes["general"]
+		generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 		if generalSettings.VolumeClaimTemplate == nil {
 			generalSettings.VolumeClaimTemplate = spec.VolumeClaim.DeepCopy()
 		}
-		spec.Processes["general"] = generalSettings
+		spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 		spec.VolumeClaim = nil
 	}
 
@@ -1112,7 +1112,7 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 			if volumeClaim.Spec.Resources.Requests == nil {
 				volumeClaim.Spec.Resources.Requests = corev1.ResourceList{}
 			}
-			volumeClaim.Spec.Resources.Requests["storage"] = storageQuantity
+			volumeClaim.Spec.Resources.Requests[fdbtypes.ProcessClassStorage] = storageQuantity
 		})
 		spec.VolumeSize = ""
 	}
