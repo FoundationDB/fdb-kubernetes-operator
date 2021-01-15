@@ -1,3 +1,11 @@
+# v0.26.0
+
+*	Replace some hardcoded strings with named constants.
+*	Add security contexts to the sample operator deployments.
+*	Fix handling of exclusion output from whole-machine exclusions on FDB 6.3.
+*	Fix a bug with calculating the storage servers per pod for a missing pod.
+*	Fix handling of the default namespace in the kubectl plugin commands.
+
 # v0.25.0
 
 *	Add docs for StorageClass and multiple storage servers per pod.
