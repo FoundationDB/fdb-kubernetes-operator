@@ -1227,6 +1227,10 @@ func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
 func getStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
 	// If not specified we will default to 1
 	storageServersPerPod := 1
+	if pod == nil {
+		return storageServersPerPod, nil
+	}
+
 	for _, container := range pod.Spec.Containers {
 		for _, env := range container.Env {
 			if env.Name == "STORAGE_SERVERS_PER_POD" {

@@ -95,6 +95,41 @@ var _ = Describe("update_status", func() {
 		})
 	})
 
+	Context("when instance is missing Pod", func() {
+		It("should return 1", func() {
+			instance := FdbInstance{
+				Pod: &corev1.Pod{},
+			}
+
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storageServersPerPod).To(Equal(1))
+		})
+	})
+
+	Context("when Pod doesn't contain a Spec", func() {
+		It("should return 1", func() {
+			instance := FdbInstance{}
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storageServersPerPod).To(Equal(1))
+		})
+	})
+
+	Context("when Pod doesn't contain a containers", func() {
+		It("should return 1", func() {
+			instance := FdbInstance{
+				Pod: &corev1.Pod{
+					Spec: corev1.PodSpec{},
+				},
+			}
+
+			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storageServersPerPod).To(Equal(1))
+		})
+	})
+
 	Context("when instance has no Pod", func() {
 		It("should be added to the failing Pods", func() {
 			instance := FdbInstance{
@@ -110,6 +145,43 @@ var _ = Describe("update_status", func() {
 			failing, _, _, err := validateInstance(clusterReconciler, context.TODO(), cluster, instance, "")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(failing).To(BeTrue())
+		})
+	})
+
+	Context("validate instances", func() {
+		Context("when Pod for instance is missing", func() {
+			It("should be added to the failing Pods", func() {
+				cluster := createDefaultCluster()
+				status := fdbtypes.FoundationDBClusterStatus{}
+				status.Generations.Reconciled = cluster.Status.Generations.Reconciled
+				status.IncorrectProcesses = make(map[string]int64)
+				status.MissingProcesses = make(map[string]int64)
+				// Initialize with the current desired storage servers per Pod
+				status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
+
+				instances := []FdbInstance{
+					{
+						Metadata: &metav1.ObjectMeta{
+							Name: "1337",
+							Labels: map[string]string{
+								"process-class":   fdbtypes.ProcessClassStorage,
+								"fdb-instance-id": "1337",
+							},
+						},
+					},
+				}
+
+				configMap := &corev1.ConfigMap{}
+
+				processMap := map[string][]fdbtypes.FoundationDBStatusProcessInfo{}
+
+				err := validateInstances(clusterReconciler, context.TODO(), cluster, &status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(status.FailingPods)).To(Equal(1))
+				Expect(status.FailingPods[0]).To(Equal("1337"))
+				Expect(len(status.MissingProcesses)).To(Equal(0))
+				Expect(len(status.StorageServersPerDisk)).To(Equal(1))
+			})
 		})
 	})
 })
