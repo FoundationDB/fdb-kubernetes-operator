@@ -30,6 +30,10 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
 
+const (
+	defaultTransactionTimeout int64 = 5000
+)
+
 // LockClient provides a client for getting locks on operations for a cluster.
 type LockClient interface {
 	// Disabled determines whether the locking is disabled.
@@ -223,6 +227,11 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 	}
 
 	database, err = fdb.OpenDatabase(clusterFilePath)
+	if err != nil {
+		return fdb.Database{}, err
+	}
+
+	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout)
 	if err != nil {
 		return fdb.Database{}, err
 	}
