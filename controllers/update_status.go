@@ -486,7 +486,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		if instance.Pod == nil && !isBeingRemoved {
 			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
 			processGroupStatus.AddCondition(processGroups, instanceID, fdbtypes.MissingPod)
-			processGroups= append(processGroups, processGroupStatus)
+			processGroups = append(processGroups, processGroupStatus)
 			continue
 		}
 
@@ -532,7 +532,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
 		}
 
-		processGroups= append(processGroups, processGroupStatus)
+		processGroups = append(processGroups, processGroupStatus)
 	}
 
 	return processGroups, nil

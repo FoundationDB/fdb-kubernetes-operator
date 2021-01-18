@@ -7945,8 +7945,6 @@ spec:
                     type: array
                   excluded:
                     type: boolean
-                  grocessGroupID:
-                    type: string
                   processClass:
                     type: string
                   processGroupConditions:
@@ -7959,6 +7957,8 @@ spec:
                           type: string
                       type: object
                     type: array
+                  processGroupID:
+                    type: string
                   remove:
                     type: boolean
                 type: object

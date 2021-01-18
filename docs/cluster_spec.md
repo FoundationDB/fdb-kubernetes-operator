@@ -532,7 +532,7 @@ ProcessGroupStatus represents a the status of a ProcessGroup.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| grocessGroupID | ProcessGroupID represents the ID of the process group | string | false |
+| processGroupID | ProcessGroupID represents the ID of the process group | string | false |
 | processClass | ProcessClass represents the class the process group has. | string | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
 | remove | Remove defines it the process group is marked for removal. | bool | false |
