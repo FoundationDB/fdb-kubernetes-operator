@@ -2369,10 +2369,6 @@ const (
 	ProcessClassGeneral = "general"
 	// ProcessClassClusterController model for FDB class cluster_controller
 	ProcessClassClusterController = "cluster_controller"
-	// FDBInstanceIDLabel represents the label that is used to represent a instance ID
-	FDBInstanceIDLabel = "fdb-instance-id"
-	// FDBProcessClassLabel represents the label that is used to represent the process class
-	FDBProcessClassLabel = "fdb-process-class"
 )
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept

@@ -135,8 +135,8 @@ var _ = Describe("update_status", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbtypes.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
-						fdbtypes.FDBInstanceIDLabel:   "1337",
+						FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						FDBInstanceIDLabel:   "1337",
 					},
 				},
 			}
