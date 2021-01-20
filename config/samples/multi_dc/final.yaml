@@ -28,15 +28,17 @@ spec:
     regions:
       - datacenters:
           - id: dc1
+            priority: 1
           - id: dc3
             satellite: 1
-        priority: 1
+            priority: 1
         satellite_logs: 3
       - datacenters:
           - id: dc2
+            priority: 0
           - id: dc3
             satellite: 1
-        priority: 0
+            priority: 1
         satellite_logs: 3
   processes:
     general:
