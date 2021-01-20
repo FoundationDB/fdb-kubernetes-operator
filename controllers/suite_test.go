@@ -56,7 +56,7 @@ var restoreReconciler *FoundationDBRestoreReconciler
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	SetDefaultEventuallyTimeout(5 * time.Second)
+	SetDefaultEventuallyTimeout(10 * time.Second)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
@@ -183,6 +183,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			RequiredAddresses: fdbtypes.RequiredAddressSet{
 				NonTLS: true,
 			},
+			ProcessGroups: make([]*fdbtypes.ProcessGroupStatus, 0),
 		},
 	}
 }

@@ -941,6 +941,21 @@ func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
 	return fdbtypes.PublicIPSource(source)
 }
 
+// GetPublicIPs returns the public IP of an instance.
+func (instance FdbInstance) GetPublicIPs() []string {
+	if instance.Pod == nil {
+		return []string{}
+	}
+
+	source := instance.Metadata.Annotations[PublicIPSourceAnnotation]
+	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
+		// TODO for dual-stack support return PodIPs
+		return []string{instance.Pod.Status.PodIP}
+	}
+
+	return []string{instance.Pod.ObjectMeta.Annotations[PublicIPAnnotation]}
+}
+
 // GetProcessID fetches the instance ID from an instance's metadata.
 func (instance FdbInstance) GetProcessID(processNumber int) string {
 	return fmt.Sprintf("%s-%d", GetInstanceIDFromMeta(*instance.Metadata), processNumber)
