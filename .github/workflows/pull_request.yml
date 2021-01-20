@@ -34,6 +34,7 @@ jobs:
       env:
         KUBEBUILDER_VER: "2.2.0"
         KUSTOMIZE_VER: "v3.8.8"
+        TEST_RACE_CONDITIONS: "1"
       run: |
         go get -v -t -d ./...
         curl --fail -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz"

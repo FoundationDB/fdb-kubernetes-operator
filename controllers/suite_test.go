@@ -83,18 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClient = &mockclient.MockClient{}
 
-	clusterReconciler = &FoundationDBClusterReconciler{
-		Client:              k8sClient,
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Recorder:            k8sClient,
-		InSimulation:        true,
-		PodLifecycleManager: StandardPodLifecycleManager{},
-		PodClientProvider:   NewMockFdbPodClient,
-		PodIPProvider:       MockPodIP,
-		AdminClientProvider: NewMockAdminClient,
-		LockClientProvider:  NewMockLockClient,
-		RequeueOnNotFound:   true,
-	}
+	clusterReconciler = createTestClusterReconciler()
 
 	backupReconciler = &FoundationDBBackupReconciler{
 		Client:              k8sClient,
@@ -254,4 +243,18 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 		}
 	}
 	return result, err
+}
+
+func createTestClusterReconciler() *FoundationDBClusterReconciler {
+	return &FoundationDBClusterReconciler{
+		Client:              k8sClient,
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Recorder:            k8sClient,
+		InSimulation:        true,
+		PodLifecycleManager: StandardPodLifecycleManager{},
+		PodClientProvider:   NewMockFdbPodClient,
+		PodIPProvider:       MockPodIP,
+		AdminClientProvider: NewMockAdminClient,
+		LockClientProvider:  NewMockLockClient,
+	}
 }

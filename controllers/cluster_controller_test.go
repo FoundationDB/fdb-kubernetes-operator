@@ -681,9 +681,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("with a removal with no exclusion", func() {
 				BeforeEach(func() {
-					mockMissingPodIPs = map[string]bool{
+					setMissingPodIPs(map[string]bool{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Name: true,
-					}
+					})
 					cluster.Spec.InstancesToRemoveWithoutExclusion = []string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel],
 					}
@@ -692,7 +692,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				})
 
 				AfterEach(func() {
-					mockMissingPodIPs = nil
+					setMissingPodIPs(nil)
 				})
 
 				It("should replace one of the pods", func() {
@@ -3293,9 +3293,11 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 	Describe("GetDeprecations", func() {
 		var deprecationOptions DeprecationOptions
+		var reconciler *FoundationDBClusterReconciler
 
 		BeforeEach(func() {
 			deprecationOptions = DeprecationOptions{OnlyShowChanges: true}
+			reconciler = createTestClusterReconciler()
 
 			cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{
 				fdbtypes.ProcessClassGeneral: {
@@ -3433,7 +3435,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("when specifying the cluster's namespace", func() {
 				JustBeforeEach(func() {
-					clusterReconciler.Namespace = cluster.Namespace
+					reconciler.Namespace = cluster.Namespace
 				})
 
 				It("should include the cluster", func() {
@@ -3448,7 +3450,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("when specifying another namespace", func() {
 				JustBeforeEach(func() {
-					clusterReconciler.Namespace = "bad-namespace"
+					reconciler.Namespace = "bad-namespace"
 				})
 
 				It("should not include the cluster", func() {
