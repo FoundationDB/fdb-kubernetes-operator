@@ -71,6 +71,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.AddCommand(
 		newVersionCmd(streams, cmd),
 		newRemoveCmd(streams, cmd),
+		newExecCmd(streams),
 	)
 
 	return cmd
