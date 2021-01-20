@@ -39,14 +39,14 @@ clean:
 # Run tests
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ./... -coverprofile cover.out
+	go test -race ./... -coverprofile cover.out
 endif
 
 test_if_changed: cover.out
 
 cover.out: ${GO_ALL} ${MANIFESTS}
 ifneq "$(SKIP_TEST)" "1"
-	go test ./... -coverprofile cover.out -tags test
+	go test -race ./... -coverprofile cover.out -tags test
 endif
 
 # Build manager binary
