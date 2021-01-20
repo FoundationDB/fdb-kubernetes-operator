@@ -24,6 +24,7 @@ import (
 	ctx "context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 
@@ -73,12 +74,7 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			context, err := cmd.Flags().GetString("context")
-			if err != nil {
-				return err
-			}
-
-			err = runExec(kubeClient, cluster, context, namespace, args)
+			err = runExec(kubeClient, cluster, *o.configFlags.Context, namespace, args)
 			if err != nil {
 				return err
 			}
@@ -120,12 +116,13 @@ func buildCommand(kubeClient client.Client, clusterName string, context string, 
 	err = kubeClient.List(ctx.Background(), pods,
 		client.InNamespace(namespace),
 		client.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*clusterRequirement, *processClassRequirement)},
+		client.MatchingField("status.phase", "Running"),
 	)
 	if err != nil {
 		return exec.Cmd{}, err
 	}
 	if len(pods.Items) == 0 {
-		return exec.Cmd{}, fmt.Errorf("No pods found for cluster %s", clusterName)
+		return exec.Cmd{}, fmt.Errorf("No usable pods found for cluster %s", clusterName)
 	}
 	kubectlPath, err := exec.LookPath("kubectl")
 	if err != nil {
@@ -137,7 +134,9 @@ func buildCommand(kubeClient client.Client, clusterName string, context string, 
 		args = append(args, "--context", context)
 	}
 
-	args = append(args, "--namespace", namespace, "exec", "-it", pods.Items[0].Name)
+	randomPodIndex := rand.Int31n(int32(len(pods.Items)))
+
+	args = append(args, "--namespace", namespace, "exec", "-it", pods.Items[randomPodIndex].Name)
 	if len(commandArgs) > 0 {
 		args = append(args, "--")
 		args = append(args, commandArgs...)

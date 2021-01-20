@@ -74,20 +74,20 @@ func TestBuildCommand(t *testing.T) {
 		ExpectedError string
 	}{
 		{
-			Name:         "Remove instance with valid pod",
+			Name:         "Exec into instance with valid pod",
 			ClusterName:  "test",
 			ExpectedArgs: []string{"--namespace", "test", "exec", "-it", "instance-1", "--", "bash"},
 		},
 		{
-			Name:         "Remove instance with explicit context",
+			Name:         "Exec into instance with explicit context",
 			ClusterName:  "test",
 			Context:      "remote-kc",
 			ExpectedArgs: []string{"--context", "remote-kc", "--namespace", "test", "exec", "-it", "instance-1", "--", "bash"},
 		},
 		{
-			Name:          "Remove instance with missing pod",
+			Name:          "Exec into instance with missing pod",
 			ClusterName:   "test-2",
-			ExpectedError: "No pods found for cluster test-2",
+			ExpectedError: "No usable pods found for cluster test-2",
 		},
 	}
 
