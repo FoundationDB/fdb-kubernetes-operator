@@ -40,9 +40,16 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
+	removalCount := 0
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			removalCount++
+		}
+	}
 
-	if len(cluster.Status.PendingRemovals) > 0 {
+	addresses := make([]string, 0, removalCount)
+
+	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
 			return false, err
@@ -53,10 +60,9 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 			currentExclusionMap[address] = true
 		}
 
-		for _, state := range cluster.Status.PendingRemovals {
-			if state.Address != "" {
-				address := state.Address
-				if !currentExclusionMap[address] {
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			for _, address := range processGroup.Addresses {
+				if processGroup.Remove && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
 					addresses = append(addresses, address)
 				}
 			}

@@ -40,10 +40,17 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
-	for _, state := range cluster.Status.PendingRemovals {
-		if state.Address != "" {
-			addresses = append(addresses, state.Address)
+	addresses := make([]string, 0)
+
+	needsUpdate := false
+
+	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			addresses = append(addresses, processGroup.Addresses...)
+			needsUpdate = true
+		} else {
+			processGroups = append(processGroups, processGroup)
 		}
 	}
 
@@ -55,8 +62,6 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	if err != nil {
 		return false, err
 	}
-
-	needsUpdate := false
 
 	if cluster.Status.PendingRemovals != nil {
 		cluster.Status.PendingRemovals = nil
@@ -72,7 +77,8 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	if needsUpdate {
-		err := r.updatePendingRemovals(context, cluster)
+		cluster.Status.ProcessGroups = processGroups
+		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return false, err
 		}

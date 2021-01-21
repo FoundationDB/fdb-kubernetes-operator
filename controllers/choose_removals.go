@@ -86,6 +86,14 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 	}
 
+	for processGroupID := range removals {
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			if processGroup.ProcessGroupID == processGroupID {
+				processGroup.Remove = true
+			}
+		}
+	}
+
 	if hasNewRemovals {
 		cluster.Status.PendingRemovals = removals
 		err := r.updatePendingRemovals(context, cluster)

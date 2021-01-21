@@ -7945,6 +7945,8 @@ spec:
                     type: array
                   excluded:
                     type: boolean
+                  exclusionSkipped:
+                    type: boolean
                   processClass:
                     type: string
                   processGroupConditions:

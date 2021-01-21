@@ -802,31 +802,6 @@ func (r *FoundationDBClusterReconciler) updatePendingRemovals(context ctx.Contex
 		return err
 	}
 
-	metadata := getConfigMapMetadata(cluster)
-	configMap := &corev1.ConfigMap{}
-
-	err = r.Get(context, types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}, configMap)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-	} else {
-		if cluster.Status.PendingRemovals == nil {
-			configMap.Data["pending-removals"] = ""
-		} else {
-			pendingRemovalData, err := json.Marshal(cluster.Status.PendingRemovals)
-			if err != nil {
-				return err
-			}
-			configMap.Data["pending-removals"] = string(pendingRemovalData)
-		}
-
-		err = r.Update(context, configMap)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

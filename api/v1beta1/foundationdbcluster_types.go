@@ -360,10 +360,13 @@ type ProcessGroupStatus struct {
 	ProcessClass string `json:"processClass,omitempty"`
 	// Addresses represents the list of addresses the process group has been known to have.
 	Addresses []string `json:"addresses,omitempty"`
-	// Remove defines it the process group is marked for removal.
+	// Remove defines if the process group is marked for removal.
 	Remove bool `json:"remove,omitempty"`
-	// Excluded represents if the process group has been fully excluded.
+	// Excluded defines if the process group has been fully excluded.
+	// This is only used within the reconciliation process, and should not be considered authoritative.
 	Excluded bool `json:"excluded,omitempty"`
+	// ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion.
+	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 }
@@ -383,7 +386,7 @@ func NewProcessGroupStatus(processGroupID string, processClass string, addresses
 // ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
 func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
 	for _, processGroup := range processGroups {
-		if processGroup.ProcessGroupID != processGroupID {
+		if processGroup.ProcessGroupID == processGroupID {
 			return true
 		}
 	}
@@ -408,18 +411,25 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 			break
 		}
 
-		if !hasAddress {
+		if !hasAddress && address != "" {
 			processGroup.Addresses = append(processGroup.Addresses, address)
 		}
 
 		processGroup.Remove = true
-		return false, nil
+		return true, nil
 	}
 
-	processGroup := NewProcessGroupStatus(processGroupID, processClass, []string{address})
+	var addresses []string
+	if address == "" {
+		addresses = nil
+	} else {
+		addresses = []string{address}
+	}
+
+	processGroup := NewProcessGroupStatus(processGroupID, processClass, addresses)
 	processGroup.Remove = true
 
-	return true, processGroup
+	return false, processGroup
 }
 
 // AddCondition will add the condition to the ProcessGroupStatus.
@@ -1788,6 +1798,12 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 
 	for _, id := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		if id == instanceID {
+			return true
+		}
+	}
+
+	for _, status := range cluster.Status.ProcessGroups {
+		if status.ProcessGroupID == instanceID && status.Remove {
 			return true
 		}
 	}

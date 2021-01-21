@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -167,6 +166,34 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, service.Labels[FDBProcessClassLabel], nil))
 	}
 
+	for _, oldStatus := range cluster.Status.ProcessGroups {
+		if !fdbtypes.ContainsProcessGroupID(status.ProcessGroups, oldStatus.ProcessGroupID) {
+			// Add any old process groups that no longer have resources defined, in
+			// case we still need to re-include them.
+			newStatus := oldStatus.DeepCopy()
+			newStatus.Remove = true
+			newStatus.Addresses = removeEmptyStrings((newStatus.Addresses))
+			status.ProcessGroups = append(status.ProcessGroups, newStatus)
+		}
+	}
+
+	// Ensure that anything the user has explicitly chosen to remove is marked
+	// for removal.
+	for _, processGroupID := range cluster.Spec.InstancesToRemove {
+		for _, processGroup := range status.ProcessGroups {
+			if processGroup.ProcessGroupID == processGroupID {
+				processGroup.Remove = true
+			}
+		}
+	}
+	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
+		for _, processGroup := range status.ProcessGroups {
+			if processGroup.ProcessGroupID == processGroupID {
+				processGroup.ExclusionSkipped = true
+			}
+		}
+	}
+
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -199,53 +226,19 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.PendingRemovals = cluster.Status.PendingRemovals
 
-	if status.PendingRemovals == nil {
-		if existingConfigMap.Data["pending-removals"] != "" {
-			removals := map[string]fdbtypes.PendingRemovalState{}
-			err = json.Unmarshal([]byte(existingConfigMap.Data["pending-removals"]), &removals)
+	if cluster.Spec.PendingRemovals != nil {
+		for podName, address := range cluster.Spec.PendingRemovals {
+			pods := &corev1.PodList{}
+			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", podName))
 			if err != nil {
 				return false, err
 			}
-			status.PendingRemovals = removals
-
-			for _, removal := range removals {
-				pods := &corev1.PodList{}
-				err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", removal.PodName))
-				if err != nil {
-					return false, err
-				}
-
-				if len(pods.Items) == 0 {
-					continue
-				}
-
+			if len(pods.Items) > 0 {
 				instanceID := pods.Items[0].ObjectMeta.Labels[FDBInstanceIDLabel]
 				processClass := pods.Items[0].ObjectMeta.Labels[FDBProcessClassLabel]
-				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, removal.Address)
+				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
 				if !included {
 					status.ProcessGroups = append(status.ProcessGroups, newStatus)
-				}
-			}
-
-		} else if cluster.Spec.PendingRemovals != nil {
-			status.PendingRemovals = make(map[string]fdbtypes.PendingRemovalState)
-			for podName, address := range cluster.Spec.PendingRemovals {
-				pods := &corev1.PodList{}
-				err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", podName))
-				if err != nil {
-					return false, err
-				}
-				if len(pods.Items) > 0 {
-					instanceID := pods.Items[0].ObjectMeta.Labels[FDBInstanceIDLabel]
-					processClass := pods.Items[0].ObjectMeta.Labels[FDBProcessClassLabel]
-					included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
-					if !included {
-						status.ProcessGroups = append(status.ProcessGroups, newStatus)
-					}
-					status.PendingRemovals[instanceID] = fdbtypes.PendingRemovalState{
-						PodName: podName,
-						Address: address,
-					}
 				}
 			}
 		}
@@ -300,6 +293,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	sort.Ints(status.StorageServersPerDisk)
 
 	originalStatus := cluster.Status.DeepCopy()
+
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
 	sort.SliceStable(status.ProcessGroups, func(i, j int) bool {
@@ -477,7 +471,36 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 	for _, instance := range instances {
 		processClass := instance.GetProcessClass()
 		instanceID := instance.GetInstanceID()
-		processGroupStatus := fdbtypes.NewProcessGroupStatus(instanceID, processClass, instance.GetPublicIPs())
+
+		addresses := instance.GetPublicIPs()
+		addressMap := make(map[string]bool)
+		for _, address := range addresses {
+			addressMap[address] = true
+		}
+
+		if r.PodIPProvider != nil && instance.Pod != nil {
+			address := r.PodIPProvider(instance.Pod)
+			if !addressMap[address] {
+				addressMap[address] = true
+				addresses = append(addresses, address)
+			}
+		}
+
+		for _, oldStatus := range cluster.Status.ProcessGroups {
+			if oldStatus.ProcessGroupID == instanceID {
+				for _, address := range oldStatus.Addresses {
+					if !addressMap[address] {
+						addressMap[address] = true
+						addresses = append(addresses, address)
+					}
+				}
+			}
+		}
+
+		addresses = removeEmptyStrings(addresses)
+
+		processGroupStatus := fdbtypes.NewProcessGroupStatus(instanceID, processClass, addresses)
+
 		processCount := 1
 
 		// If the instance is not being removed and the Pod is not set we need to put it into
@@ -502,6 +525,8 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		}
 
 		if isBeingRemoved {
+			processGroupStatus.Remove = true
+			processGroups = append(processGroups, processGroupStatus)
 			continue
 		}
 
@@ -628,4 +653,14 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	}
 
 	return false, false, needsSidecarConfInConfigMap, nil
+}
+
+func removeEmptyStrings(slice []string) []string {
+	result := make([]string, 0, len(slice))
+	for _, value := range slice {
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
 }

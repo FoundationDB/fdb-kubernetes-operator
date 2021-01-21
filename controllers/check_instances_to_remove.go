@@ -34,7 +34,7 @@ type CheckInstancesToRemove struct{}
 
 // Reconcile runs the reconciler's work.
 func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	var removals = cluster.Status.PendingRemovals
+	removals := cluster.Status.PendingRemovals
 
 	if removals == nil {
 		removals = make(map[string]fdbtypes.PendingRemovalState)
@@ -87,6 +87,7 @@ func (c CheckInstancesToRemove) Reconcile(r *FoundationDBClusterReconciler, cont
 			return false, err
 		}
 	}
+
 	return true, nil
 }
 
