@@ -2191,7 +2191,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["running-version"]).To(Equal(Versions.Default.String()))
-				Expect(configMap.Data["pending-removals"]).To(Equal(""))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
 			})
 		})
@@ -2228,18 +2227,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(sidecarConf["COPY_LIBRARIES"]).To(Equal([]interface{}{}))
 				Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(Equal("fdbmonitor.conf"))
 				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(BeNil())
-			})
-		})
-
-		Context("with instances pending removal", func() {
-			BeforeEach(func() {
-				cluster.Status.PendingRemovals = map[string]fdbtypes.PendingRemovalState{
-					"storage-1": {Address: "17.1.1.1"},
-				}
-			})
-
-			It("should have the pending removals in the config map", func() {
-				Expect(configMap.Data["pending-removals"]).To(Equal("{\"storage-1\":{\"address\":\"17.1.1.1\"}}"))
 			})
 		})
 

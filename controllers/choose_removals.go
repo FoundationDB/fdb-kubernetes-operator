@@ -35,10 +35,11 @@ type ChooseRemovals struct{}
 func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
-	var removals = cluster.Status.PendingRemovals
-
-	if removals == nil {
-		removals = make(map[string]fdbtypes.PendingRemovalState)
+	var removals = make(map[string]bool)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			removals[processGroup.ProcessGroupID] = true
+		}
 	}
 
 	currentCounts := cluster.Status.ProcessCounts.Map()
@@ -50,34 +51,23 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, processClass, "")...)
-		if err != nil {
-			return false, err
-		}
-
-		if desiredCount < 0 {
-			desiredCount = 0
-		}
 
 		removedCount := currentCounts[processClass] - desiredCount
-		if removedCount > 0 {
-			err = sortInstancesByID(instances)
-			if err != nil {
-				return false, err
-			}
 
-			r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			if processGroup.ProcessClass == processClass && processGroup.Remove {
+				removedCount--
+			}
+		}
+
+		if removedCount > 0 {
+			r.Recorder.Event(cluster, "Normal", "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 
 			removalsChosen := 0
-			for indexOfPod := 0; indexOfPod < len(instances) && removalsChosen < removedCount; indexOfPod++ {
-				instance := instances[len(instances)-1-indexOfPod]
-				instanceID := instance.GetInstanceID()
-				_, beingRemoved := removals[instanceID]
-				if !beingRemoved {
-					removalState := r.getPendingRemovalState(instance)
-
-					removals[instanceID] = removalState
-
+			for indexOfProcess := len(cluster.Status.ProcessGroups) - 1; indexOfProcess >= 0 && removalsChosen < removedCount; indexOfProcess-- {
+				processGroup := cluster.Status.ProcessGroups[indexOfProcess]
+				if !processGroup.Remove && processGroup.ProcessClass == processClass && removedCount > removalsChosen {
+					processGroup.Remove = true
 					removalsChosen++
 				}
 			}
@@ -86,17 +76,8 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 	}
 
-	for processGroupID := range removals {
-		for _, processGroup := range cluster.Status.ProcessGroups {
-			if processGroup.ProcessGroupID == processGroupID {
-				processGroup.Remove = true
-			}
-		}
-	}
-
 	if hasNewRemovals {
-		cluster.Status.PendingRemovals = removals
-		err := r.updatePendingRemovals(context, cluster)
+		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return false, err
 		}

@@ -171,8 +171,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			// Add any old process groups that no longer have resources defined, in
 			// case we still need to re-include them.
 			newStatus := oldStatus.DeepCopy()
-			newStatus.Remove = true
-			newStatus.Addresses = removeEmptyStrings((newStatus.Addresses))
+			newStatus.Addresses = removeEmptyStrings(newStatus.Addresses)
 			status.ProcessGroups = append(status.ProcessGroups, newStatus)
 		}
 	}
@@ -224,8 +223,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
-	status.PendingRemovals = cluster.Status.PendingRemovals
-
 	if cluster.Spec.PendingRemovals != nil {
 		for podName, address := range cluster.Spec.PendingRemovals {
 			pods := &corev1.PodList{}
@@ -242,6 +239,25 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				}
 			}
 		}
+	}
+
+	if cluster.Status.PendingRemovals != nil {
+		for instanceID, state := range cluster.Status.PendingRemovals {
+			pods := &corev1.PodList{}
+			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", state.PodName))
+			if err != nil {
+				return false, err
+			}
+			processClass := ""
+			if len(pods.Items) > 0 {
+				processClass = pods.Items[0].ObjectMeta.Labels[FDBProcessClassLabel]
+			}
+			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, state.Address)
+			if !included {
+				status.ProcessGroups = append(status.ProcessGroups, newStatus)
+			}
+		}
+		cluster.Status.PendingRemovals = nil
 	}
 
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)

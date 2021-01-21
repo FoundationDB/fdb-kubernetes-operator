@@ -118,7 +118,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	subReconcilers := []ClusterSubReconciler{
 		UpdateStatus{},
 		CheckClientCompatibility{},
-		CheckInstancesToRemove{},
 		ReplaceMisconfiguredPods{},
 		AddServices{},
 		AddPods{},
@@ -505,14 +504,6 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 		data["sidecar-conf"] = string(sidecarConfData)
 	}
 
-	if cluster.Status.PendingRemovals != nil {
-		pendingRemovalData, err := json.Marshal(cluster.Status.PendingRemovals)
-		if err != nil {
-			return nil, err
-		}
-		data["pending-removals"] = string(pendingRemovalData)
-	}
-
 	if cluster.Spec.ConfigMap != nil {
 		for k, v := range cluster.Spec.ConfigMap.Data {
 			data[k] = v
@@ -713,9 +704,7 @@ func GetJSONHash(object interface{}) (string, error) {
 func GetDynamicConfHash(configMap *corev1.ConfigMap) (string, error) {
 	var data = make(map[string]string, len(configMap.Data))
 	for key, value := range configMap.Data {
-		if key != "pending-removals" {
-			data[key] = value
-		}
+		data[key] = value
 	}
 	return GetJSONHash(data)
 }
@@ -760,25 +749,6 @@ func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBC
 	return hasLock, nil
 }
 
-// getPendingRemovalState builds pending removal state for an instance we want
-// to remove.
-func (r *FoundationDBClusterReconciler) getPendingRemovalState(instance FdbInstance) fdbtypes.PendingRemovalState {
-	state := fdbtypes.PendingRemovalState{
-		PodName:     instance.Metadata.Name,
-		HadInstance: true,
-	}
-	if instance.Pod != nil {
-		if r.PodIPProvider != nil {
-			state.Address = r.PodIPProvider(instance.Pod)
-		} else if ip := instance.Pod.Annotations[PublicIPAnnotation]; ip != "" {
-			state.Address = ip
-		} else {
-			state.Address = instance.Pod.Status.PodIP
-		}
-	}
-	return state
-}
-
 // clearPendingRemovalsFromSpec removes the pending removals from the cluster
 // spec.
 func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
@@ -790,19 +760,6 @@ func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx
 	modifiedCluster.Spec.PendingRemovals = nil
 	err = r.Update(context, modifiedCluster)
 	return err
-}
-
-// updatePendingRemovals processes an update to the pending removals for the
-// cluster.
-//
-// This will update both the status and the config map.
-func (r *FoundationDBClusterReconciler) updatePendingRemovals(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
-	err := r.Status().Update(context, cluster)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func sortPodsByID(pods *corev1.PodList) {
@@ -1278,14 +1235,15 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
 
-	removals := cluster.Status.PendingRemovals
-	if removals == nil {
-		removals = make(map[string]fdbtypes.PendingRemovalState)
+	processGroups := make(map[string]*fdbtypes.ProcessGroupStatus)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
 
 	for _, process := range status.Cluster.Processes {
 		_, isCoordinator := coordinatorStatus[process.Address]
-		_, pendingRemoval := removals[process.Locality["instance_id"]]
+		processGroupStatus := processGroups[process.Locality["instance_id"]]
+		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
 		if isCoordinator && !process.Excluded && !pendingRemoval {
 			coordinatorStatus[process.Address] = true
 		}

@@ -624,6 +624,7 @@ type ClusterHealth struct {
 }
 
 // PendingRemovalState holds information about a process that is being removed.
+// Deprecated: This is modeled in the process group status instead.
 type PendingRemovalState struct {
 	// The name of the pod that is being removed.
 	PodName string `json:"podName,omitempty"`
@@ -1075,22 +1076,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
 
-	if len(cluster.Status.PendingRemovals) > 0 {
-		needsShrink := false
-		for _, state := range cluster.Status.PendingRemovals {
-			if !state.ExclusionComplete {
-				needsShrink = true
-			}
-		}
-		if needsShrink {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove && !processGroup.Excluded {
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
-		} else {
+		} else if processGroup.Remove {
 			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		}
-	} else if len(cluster.Spec.PendingRemovals) > 0 {
-		cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
-		reconciled = false
 	}
 
 	desiredCounts, err := cluster.GetProcessCountsWithDefaults()

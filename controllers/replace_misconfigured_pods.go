@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -36,10 +37,9 @@ type ReplaceMisconfiguredPods struct{}
 func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
-	var removals = cluster.Status.PendingRemovals
-
-	if removals == nil {
-		removals = make(map[string]fdbtypes.PendingRemovalState)
+	processGroups := make(map[string]*fdbtypes.ProcessGroupStatus)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -62,10 +62,14 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 
 		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
-		_, pendingRemoval := removals[instanceID]
-		if pendingRemoval {
+		processGroupStatus := processGroups[instanceID]
+		if processGroupStatus == nil {
+			return false, fmt.Errorf("Unknown PVC %s in replace_misconfigured_pods", instanceID)
+		}
+		if processGroupStatus.Remove {
 			continue
 		}
+
 		_, idNum, err := ParseInstanceID(instanceID)
 		if err != nil {
 			return false, err
@@ -87,8 +91,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 				return false, err
 			}
 			if len(instances) > 0 {
-				removalState := r.getPendingRemovalState(instances[0])
-				removals[instanceID] = removalState
+				processGroupStatus.Remove = true
 				hasNewRemovals = true
 			}
 		}
@@ -105,8 +108,12 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 
 		instanceID := instance.GetInstanceID()
-		_, pendingRemoval := removals[instanceID]
-		if pendingRemoval {
+
+		processGroupStatus := processGroups[instanceID]
+		if processGroupStatus == nil {
+			return false, fmt.Errorf("Unknown instance %s in replace_misconfigured_pods", instanceID)
+		}
+		if processGroupStatus.Remove {
 			continue
 		}
 
@@ -144,14 +151,12 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 
 		if needsRemoval {
-			removalState := r.getPendingRemovalState(instance)
-			removals[instanceID] = removalState
+			processGroupStatus.Remove = true
 			hasNewRemovals = true
 		}
 	}
 
 	if hasNewRemovals {
-		cluster.Status.PendingRemovals = removals
 		err = r.Status().Update(context, cluster)
 		if err != nil {
 			return false, err

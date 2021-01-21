@@ -467,7 +467,7 @@ LockOptions provides customization for locking global operations.
 
 ## PendingRemovalState
 
-PendingRemovalState holds information about a process that is being removed.
+PendingRemovalState holds information about a process that is being removed. **Deprecated: This is modeled in the process group status instead.**
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -535,8 +535,9 @@ ProcessGroupStatus represents a the status of a ProcessGroup.
 | processGroupID | ProcessGroupID represents the ID of the process group | string | false |
 | processClass | ProcessClass represents the class the process group has. | string | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
-| remove | Remove defines it the process group is marked for removal. | bool | false |
-| excluded | Excluded represents if the process group has been fully excluded. | bool | false |
+| remove | Remove defines if the process group is marked for removal. | bool | false |
+| excluded | Excluded defines if the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | bool | false |
+| exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
 
 [Back to TOC](#table-of-contents)
