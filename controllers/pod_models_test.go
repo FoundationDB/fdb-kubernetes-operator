@@ -322,6 +322,24 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with an instance with scheduling broken", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should have an affinity rule for a custom label on the node", func() {
+				Expect(spec.Affinity).NotTo(BeNil())
+				Expect(spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal([]corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{Key: "foundationdb.org/no-schedule-allowed", Operator: corev1.NodeSelectorOpIn, Values: []string{"true"}},
+						},
+					},
+				}))
+			})
+		})
+
 		Context("with a basic storage instance with multiple storage servers per disk", func() {
 			BeforeEach(func() {
 				cluster.Spec.StorageServersPerPod = 2

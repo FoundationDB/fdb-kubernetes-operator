@@ -129,6 +129,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
+	status.ProcessGroups = cluster.Status.ProcessGroups
+
 	status.ProcessGroups, err = validateInstances(r, context, cluster, &status, processMap, instances, configMap)
 	if err != nil {
 		return false, err
@@ -164,16 +166,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 
 		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, service.Labels[FDBProcessClassLabel], nil))
-	}
-
-	for _, oldStatus := range cluster.Status.ProcessGroups {
-		if !fdbtypes.ContainsProcessGroupID(status.ProcessGroups, oldStatus.ProcessGroupID) {
-			// Add any old process groups that no longer have resources defined, in
-			// case we still need to re-include them.
-			newStatus := oldStatus.DeepCopy()
-			newStatus.Addresses = removeEmptyStrings(newStatus.Addresses)
-			status.ProcessGroups = append(status.ProcessGroups, newStatus)
-		}
 	}
 
 	// Ensure that anything the user has explicitly chosen to remove is marked
@@ -474,7 +466,13 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 }
 
 func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []FdbInstance, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
-	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0)
+	processGroups := status.ProcessGroups
+	processGroupMap := make(map[string]*fdbtypes.ProcessGroupStatus, len(processGroups))
+
+	for _, processGroup := range processGroups {
+		processGroupMap[processGroup.ProcessGroupID] = processGroup
+	}
+
 	// TODO (johscheuer): should be process specific #377
 	configMapHash, err := GetDynamicConfHash(configMap)
 	if err != nil {
@@ -488,34 +486,22 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		processClass := instance.GetProcessClass()
 		instanceID := instance.GetInstanceID()
 
-		addresses := instance.GetPublicIPs()
-		addressMap := make(map[string]bool)
-		for _, address := range addresses {
-			addressMap[address] = true
+		processGroupStatus, found := processGroupMap[instanceID]
+		if !found {
+			processGroupStatus = fdbtypes.NewProcessGroupStatus(instanceID, processClass, nil)
+			processGroups = append(processGroups, processGroupStatus)
+			processGroupMap[instanceID] = processGroupStatus
 		}
+
+		processGroupStatus.Addresses = append(processGroupStatus.Addresses, instance.GetPublicIPs()...)
 
 		if r.PodIPProvider != nil && instance.Pod != nil {
-			address := r.PodIPProvider(instance.Pod)
-			if !addressMap[address] {
-				addressMap[address] = true
-				addresses = append(addresses, address)
-			}
+			processGroupStatus.Addresses = append(processGroupStatus.Addresses, r.PodIPProvider(instance.Pod))
 		}
 
-		for _, oldStatus := range cluster.Status.ProcessGroups {
-			if oldStatus.ProcessGroupID == instanceID {
-				for _, address := range oldStatus.Addresses {
-					if !addressMap[address] {
-						addressMap[address] = true
-						addresses = append(addresses, address)
-					}
-				}
-			}
-		}
+		processGroupStatus.Addresses = cleanAddressList((processGroupStatus.Addresses))
 
-		addresses = removeEmptyStrings(addresses)
-
-		processGroupStatus := fdbtypes.NewProcessGroupStatus(instanceID, processClass, addresses)
+		processGroupStatus.ProcessGroupConditions = nil
 
 		processCount := 1
 
@@ -525,7 +511,6 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		if instance.Pod == nil && !isBeingRemoved {
 			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
 			processGroupStatus.AddCondition(processGroups, instanceID, fdbtypes.MissingPod)
-			processGroups = append(processGroups, processGroupStatus)
 			continue
 		}
 
@@ -542,7 +527,6 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		if isBeingRemoved {
 			processGroupStatus.Remove = true
-			processGroups = append(processGroups, processGroupStatus)
 			continue
 		}
 
@@ -572,8 +556,6 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		if needsSidecarConfInConfigMap {
 			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
 		}
-
-		processGroups = append(processGroups, processGroupStatus)
 	}
 
 	return processGroups, nil
@@ -671,11 +653,13 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	return false, false, needsSidecarConfInConfigMap, nil
 }
 
-func removeEmptyStrings(slice []string) []string {
+func cleanAddressList(slice []string) []string {
 	result := make([]string, 0, len(slice))
+	resultMap := make(map[string]bool)
 	for _, value := range slice {
-		if value != "" {
+		if value != "" && !resultMap[value] {
 			result = append(result, value)
+			resultMap[value] = true
 		}
 	}
 	return result

@@ -157,6 +157,9 @@ type FoundationDBClusterSpec struct {
 	// client compatibility when performing an upgrade.
 	IgnoreUpgradabilityChecks bool `json:"ignoreUpgradabilityChecks,omitempty"`
 
+	// Buggify defines settings for injecting faults into a cluster for testing.
+	Buggify BuggifyConfig `json:"buggify,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.
@@ -2227,6 +2230,12 @@ type RequiredAddressSet struct {
 
 	// NonTLS defines whether we need to listen on a non-TLS address.
 	NonTLS bool `json:"nonTLS,omitempty"`
+}
+
+// BuggifyConfig provides options for injecting faults into a cluster for testing.
+type BuggifyConfig struct {
+	// NoSchedule defines a list of instance IDs that should fail to schedule.
+	NoSchedule []string `json:"noSchedule,omitempty"`
 }
 
 // FdbVersion represents a version of FoundationDB.

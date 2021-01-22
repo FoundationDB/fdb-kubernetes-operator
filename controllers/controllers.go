@@ -64,6 +64,9 @@ const (
 
 	// FDBClusterLabel represents the label that is used to represent the cluster of an instance
 	FDBClusterLabel = "fdb-cluster-name"
+
+	// NodeSelectorNoScheduleLabel is a label used when adding node selectors to block scheduling.
+	NodeSelectorNoScheduleLabel = "foundationdb.org/no-schedule-allowed"
 )
 
 // metadataMatches determines if the current metadata on an object matches the

@@ -12,10 +12,10 @@ spec:
     key: foundationdb.org/none
   services:
     headless: true
-    publicIPSource: service
   processCounts:
     stateless: -1
     cluster_controller: 1
+    storage: 4
   processes:
     general:
       customParameters:

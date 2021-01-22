@@ -4,6 +4,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [BuggifyConfig](#buggifyconfig)
 * [ClusterGenerationStatus](#clustergenerationstatus)
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
@@ -44,6 +45,16 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [RoleCounts](#rolecounts)
 * [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
+
+## BuggifyConfig
+
+BuggifyConfig provides options for injecting faults into a cluster for testing.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| noSchedule | NoSchedule defines a list of instance IDs that should fail to schedule. | []string | false |
+
+[Back to TOC](#table-of-contents)
 
 ## ClusterGenerationStatus
 
@@ -225,6 +236,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
 | services | Services defines the configuration for services that sit in front of our pods. | [ServiceConfig](#serviceconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
+| buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
 | podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
 | resources | Resources defines the resource requirements for the foundationdb containers.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
