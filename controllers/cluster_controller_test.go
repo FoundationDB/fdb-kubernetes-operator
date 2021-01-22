@@ -512,6 +512,15 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 				Expect(cluster.Status.PendingRemovals).To(BeNil())
 			})
+
+			It("should clear removals from the process group status", func() {
+				processGroups := cluster.Status.ProcessGroups
+				Expect(len(processGroups)).To(Equal(9))
+
+				for _, group := range processGroups {
+					Expect(group.Remove).To(BeFalse())
+				}
+			})
 		})
 
 		Context("with a coordinator replacement", func() {
@@ -581,6 +590,19 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					Expect(cluster.Spec.InstancesToRemove).To(Equal([]string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel],
 					}))
+				})
+
+				It("should clear removals from the process group status", func() {
+					processGroups := cluster.Status.ProcessGroups
+					Expect(len(processGroups)).To(Equal(len(originalPods.Items)))
+
+					Expect(fdbtypes.ContainsProcessGroupID(processGroups, "storage-5")).To(BeTrue())
+					oldID := originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel]
+					Expect(fdbtypes.ContainsProcessGroupID(processGroups, oldID)).To(BeFalse())
+
+					for _, group := range processGroups {
+						Expect(group.Remove).To(BeFalse())
+					}
 				})
 			})
 
@@ -717,6 +739,58 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			})
 
 			Context("with a missing pod IP", func() {
+				var podIP string
+
+				BeforeEach(func() {
+					podIP = MockPodIP(&originalPods.Items[firstStorageIndex])
+
+					mockMissingPodIPs = map[string]bool{
+						originalPods.Items[firstStorageIndex].ObjectMeta.Name: true,
+					}
+					cluster.Spec.InstancesToRemove = []string{
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel],
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				AfterEach(func() {
+					mockMissingPodIPs = nil
+				})
+
+				It("should replace one of the pods", func() {
+					pods := &corev1.PodList{}
+					Eventually(func() (int, error) {
+						err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						return len(pods.Items), err
+					}).Should(Equal(17))
+
+					sortPodsByID(pods)
+
+					Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+					Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+					Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
+					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
+				})
+
+				It("should exclude and re-include the instance", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient).NotTo(BeNil())
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
+
+					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{podIP: true}))
+				})
+
+				It("should clear the removal list", func() {
+					Expect(cluster.Spec.PendingRemovals).To(BeNil())
+					Expect(cluster.Spec.InstancesToRemove).To(Equal([]string{
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel],
+					}))
+				})
+			})
+
+			Context("with a removal with no exclusion", func() {
 				BeforeEach(func() {
 					mockMissingPodIPs = map[string]bool{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Name: true,
@@ -2117,7 +2191,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["running-version"]).To(Equal(Versions.Default.String()))
-				Expect(configMap.Data["pending-removals"]).To(Equal(""))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
 			})
 		})
@@ -2154,18 +2227,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(sidecarConf["COPY_LIBRARIES"]).To(Equal([]interface{}{}))
 				Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(Equal("fdbmonitor.conf"))
 				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(BeNil())
-			})
-		})
-
-		Context("with instances pending removal", func() {
-			BeforeEach(func() {
-				cluster.Status.PendingRemovals = map[string]fdbtypes.PendingRemovalState{
-					"storage-1": {Address: "17.1.1.1"},
-				}
-			})
-
-			It("should have the pending removals in the config map", func() {
-				Expect(configMap.Data["pending-removals"]).To(Equal("{\"storage-1\":{\"address\":\"17.1.1.1\"}}"))
 			})
 		})
 

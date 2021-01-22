@@ -2870,6 +2870,9 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 					Stateless: 9,
 					Log:       4,
 				},
+				ProcessGroups: []*ProcessGroupStatus{
+					{ProcessGroupID: "storage-1"},
+				},
 				Configured: true,
 			},
 		}
@@ -2892,18 +2895,6 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
 		Reconciled:               1,
 		NeedsConfigurationChange: 2,
-	}))
-
-	cluster = createCluster()
-	cluster.Spec.PendingRemovals = map[string]string{
-		"sample-cluster-storage-1": "17.1.1.1",
-	}
-	result, err = cluster.CheckReconciliation()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
-		Reconciled:  1,
-		NeedsShrink: 2,
 	}))
 
 	cluster = createCluster()
@@ -2991,12 +2982,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
-		"storage-1": {
-			ExclusionStarted:  false,
-			ExclusionComplete: false,
-		},
-	}
+	cluster.Status.ProcessGroups[0].Remove = true
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
@@ -3006,27 +2992,8 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
-		"storage-1": {
-			ExclusionStarted:  true,
-			ExclusionComplete: false,
-		},
-	}
-	result, err = cluster.CheckReconciliation()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
-		Reconciled:  1,
-		NeedsShrink: 2,
-	}))
-
-	cluster = createCluster()
-	cluster.Status.PendingRemovals = map[string]PendingRemovalState{
-		"storage-1": {
-			ExclusionStarted:  true,
-			ExclusionComplete: true,
-		},
-	}
+	cluster.Status.ProcessGroups[0].Remove = true
+	cluster.Status.ProcessGroups[0].Excluded = true
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeTrue())

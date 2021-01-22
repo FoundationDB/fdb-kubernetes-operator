@@ -54,6 +54,13 @@ spec:
               type: object
             automountServiceAccountToken:
               type: boolean
+            buggify:
+              properties:
+                noSchedule:
+                  items:
+                    type: string
+                  type: array
+              type: object
             configMap:
               properties:
                 apiVersion:
@@ -7944,6 +7951,8 @@ spec:
                       type: string
                     type: array
                   excluded:
+                    type: boolean
+                  exclusionSkipped:
                     type: boolean
                   processClass:
                     type: string

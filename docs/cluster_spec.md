@@ -4,6 +4,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [BuggifyConfig](#buggifyconfig)
 * [ClusterGenerationStatus](#clustergenerationstatus)
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
@@ -44,6 +45,16 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [RoleCounts](#rolecounts)
 * [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
+
+## BuggifyConfig
+
+BuggifyConfig provides options for injecting faults into a cluster for testing.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| noSchedule | NoSchedule defines a list of instance IDs that should fail to schedule. | []string | false |
+
+[Back to TOC](#table-of-contents)
 
 ## ClusterGenerationStatus
 
@@ -225,6 +236,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
 | services | Services defines the configuration for services that sit in front of our pods. | [ServiceConfig](#serviceconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
+| buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
 | podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
 | resources | Resources defines the resource requirements for the foundationdb containers.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
@@ -467,7 +479,7 @@ LockOptions provides customization for locking global operations.
 
 ## PendingRemovalState
 
-PendingRemovalState holds information about a process that is being removed.
+PendingRemovalState holds information about a process that is being removed. **Deprecated: This is modeled in the process group status instead.**
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -535,8 +547,9 @@ ProcessGroupStatus represents a the status of a ProcessGroup.
 | processGroupID | ProcessGroupID represents the ID of the process group | string | false |
 | processClass | ProcessClass represents the class the process group has. | string | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
-| remove | Remove defines it the process group is marked for removal. | bool | false |
-| excluded | Excluded represents if the process group has been fully excluded. | bool | false |
+| remove | Remove defines if the process group is marked for removal. | bool | false |
+| excluded | Excluded defines if the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | bool | false |
+| exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
 
 [Back to TOC](#table-of-contents)

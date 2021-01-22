@@ -42,7 +42,12 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	updates := make(map[string][]FdbInstance)
 
-	removals := cluster.Status.PendingRemovals
+	removals := make(map[string]bool)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			removals[processGroup.ProcessGroupID] = true
+		}
+	}
 
 	for _, instance := range instances {
 		if instance.Pod == nil {

@@ -40,14 +40,15 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.PendingRemovals))
+	addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
 
-	for instanceID, state := range cluster.Status.PendingRemovals {
-		if !state.ExclusionComplete {
-			if state.Address == "" {
-				return false, fmt.Errorf("Cannot check the exclusion state of instance %s, which has no IP address", instanceID)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove && !processGroup.ExclusionSkipped {
+			if len(processGroup.Addresses) == 0 {
+				return false, fmt.Errorf("Cannot check the exclusion state of instance %s, which has no IP address", processGroup.ProcessGroupID)
 			}
-			addresses = append(addresses, state.Address)
+
+			addresses = append(addresses, processGroup.Addresses...)
 		}
 	}
 
@@ -59,10 +60,13 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 	if err != nil {
 		return false, err
 	}
+
 	if len(remaining) > 0 {
 		log.Info("Waiting for exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
 		return false, nil
 	}
+
+	hasStatusUpdates := false
 
 	remainingMap := make(map[string]bool, len(remaining))
 	for _, address := range addresses {
@@ -71,22 +75,29 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 	for _, address := range remaining {
 		remainingMap[address] = true
 	}
-	for id, state := range cluster.Status.PendingRemovals {
-		isRemaining, isPresent := remainingMap[state.Address]
-		if !state.ExclusionComplete {
-			if !isPresent {
-				log.Info("Process missing in exclusion results", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", state.Address)
-			} else if !isRemaining {
-				newState := state
-				log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "instance", id, "address", state.Address)
-				newState.ExclusionComplete = true
-				cluster.Status.PendingRemovals[id] = newState
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove && !processGroup.ExclusionSkipped {
+			excluded := true
+			for _, address := range processGroup.Addresses {
+				isRemaining, isPresent := remainingMap[address]
+				if !isPresent || isRemaining {
+					log.Info("Process missing in exclusion results", "namespace", cluster.Namespace, "name", cluster.Name, "instance", processGroup.ProcessGroupID, "address", address)
+					excluded = false
+				}
+			}
+			if excluded {
+				log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "instance", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+				processGroup.Excluded = true
+				hasStatusUpdates = true
 			}
 		}
 	}
-	err = r.updatePendingRemovals(context, cluster)
-	if err != nil {
-		return false, err
+
+	if hasStatusUpdates {
+		err = r.Status().Update(context, cluster)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil

@@ -328,6 +328,25 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 		}
 	}
 
+	for _, noScheduleInstanceID := range cluster.Spec.Buggify.NoSchedule {
+		if instanceID == noScheduleInstanceID {
+			if affinity == nil {
+				affinity = &corev1.Affinity{}
+			}
+			if affinity.NodeAffinity == nil {
+				affinity.NodeAffinity = &corev1.NodeAffinity{}
+			}
+			if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+				affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+			}
+			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, corev1.NodeSelectorTerm{
+				MatchExpressions: []corev1.NodeSelectorRequirement{{
+					Key: NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
+				}},
+			})
+		}
+	}
+
 	replaceContainers(podSpec.InitContainers, initContainer)
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)

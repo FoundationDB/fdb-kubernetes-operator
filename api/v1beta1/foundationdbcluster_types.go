@@ -157,6 +157,9 @@ type FoundationDBClusterSpec struct {
 	// client compatibility when performing an upgrade.
 	IgnoreUpgradabilityChecks bool `json:"ignoreUpgradabilityChecks,omitempty"`
 
+	// Buggify defines settings for injecting faults into a cluster for testing.
+	Buggify BuggifyConfig `json:"buggify,omitempty"`
+
 	// SidecarVersion defines the build version of the sidecar to use.
 	//
 	// Deprecated: Use SidecarVersions instead.
@@ -360,10 +363,13 @@ type ProcessGroupStatus struct {
 	ProcessClass string `json:"processClass,omitempty"`
 	// Addresses represents the list of addresses the process group has been known to have.
 	Addresses []string `json:"addresses,omitempty"`
-	// Remove defines it the process group is marked for removal.
+	// Remove defines if the process group is marked for removal.
 	Remove bool `json:"remove,omitempty"`
-	// Excluded represents if the process group has been fully excluded.
+	// Excluded defines if the process group has been fully excluded.
+	// This is only used within the reconciliation process, and should not be considered authoritative.
 	Excluded bool `json:"excluded,omitempty"`
+	// ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion.
+	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 }
@@ -383,7 +389,7 @@ func NewProcessGroupStatus(processGroupID string, processClass string, addresses
 // ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
 func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
 	for _, processGroup := range processGroups {
-		if processGroup.ProcessGroupID != processGroupID {
+		if processGroup.ProcessGroupID == processGroupID {
 			return true
 		}
 	}
@@ -408,18 +414,25 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 			break
 		}
 
-		if !hasAddress {
+		if !hasAddress && address != "" {
 			processGroup.Addresses = append(processGroup.Addresses, address)
 		}
 
 		processGroup.Remove = true
-		return false, nil
+		return true, nil
 	}
 
-	processGroup := NewProcessGroupStatus(processGroupID, processClass, []string{address})
+	var addresses []string
+	if address == "" {
+		addresses = nil
+	} else {
+		addresses = []string{address}
+	}
+
+	processGroup := NewProcessGroupStatus(processGroupID, processClass, addresses)
 	processGroup.Remove = true
 
-	return true, processGroup
+	return false, processGroup
 }
 
 // AddCondition will add the condition to the ProcessGroupStatus.
@@ -614,6 +627,7 @@ type ClusterHealth struct {
 }
 
 // PendingRemovalState holds information about a process that is being removed.
+// Deprecated: This is modeled in the process group status instead.
 type PendingRemovalState struct {
 	// The name of the pod that is being removed.
 	PodName string `json:"podName,omitempty"`
@@ -1065,22 +1079,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
 
-	if len(cluster.Status.PendingRemovals) > 0 {
-		needsShrink := false
-		for _, state := range cluster.Status.PendingRemovals {
-			if !state.ExclusionComplete {
-				needsShrink = true
-			}
-		}
-		if needsShrink {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove && !processGroup.Excluded {
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
-		} else {
+		} else if processGroup.Remove {
 			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		}
-	} else if len(cluster.Spec.PendingRemovals) > 0 {
-		cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
-		reconciled = false
 	}
 
 	desiredCounts, err := cluster.GetProcessCountsWithDefaults()
@@ -1792,6 +1797,12 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 		}
 	}
 
+	for _, status := range cluster.Status.ProcessGroups {
+		if status.ProcessGroupID == instanceID && status.Remove {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -2219,6 +2230,12 @@ type RequiredAddressSet struct {
 
 	// NonTLS defines whether we need to listen on a non-TLS address.
 	NonTLS bool `json:"nonTLS,omitempty"`
+}
+
+// BuggifyConfig provides options for injecting faults into a cluster for testing.
+type BuggifyConfig struct {
+	// NoSchedule defines a list of instance IDs that should fail to schedule.
+	NoSchedule []string `json:"noSchedule,omitempty"`
 }
 
 // FdbVersion represents a version of FoundationDB.
