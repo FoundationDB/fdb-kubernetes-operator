@@ -653,10 +653,11 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	return false, false, needsSidecarConfInConfigMap, nil
 }
 
-func cleanAddressList(slice []string) []string {
-	result := make([]string, 0, len(slice))
+// This method removes duplicates and empty strings from a list of addresses.
+func cleanAddressList(addresses []string) []string {
+	result := make([]string, 0, len(addresses))
 	resultMap := make(map[string]bool)
-	for _, value := range slice {
+	for _, value := range addresses {
 		if value != "" && !resultMap[value] {
 			result = append(result, value)
 			resultMap[value] = true

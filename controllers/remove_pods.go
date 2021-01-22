@@ -35,8 +35,7 @@ type RemovePods struct{}
 
 // Reconcile runs the reconciler's work.
 func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-
-	processesToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
+	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
 			excluded := processGroup.Excluded || processGroup.ExclusionSkipped
@@ -44,16 +43,16 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 				log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "name", cluster.Name, "instance", processGroup.ProcessGroupID)
 				return false, nil
 			}
-			processesToRemove = append(processesToRemove, processGroup.ProcessGroupID)
+			processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
 		}
 	}
 
-	if len(processesToRemove) == 0 {
+	if len(processGroupsToRemove) == 0 {
 		return true, nil
 	}
 
-	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processesToRemove))
-	for _, id := range processesToRemove {
+	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
+	for _, id := range processGroupsToRemove {
 		err := removePod(r, context, cluster, id)
 		if err != nil {
 			return false, err

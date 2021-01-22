@@ -42,13 +42,13 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 	addresses := make([]string, 0)
 
-	needsUpdate := false
+	hasStatusUpdate := false
 
 	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
 			addresses = append(addresses, processGroup.Addresses...)
-			needsUpdate = true
+			hasStatusUpdate = true
 		} else {
 			processGroups = append(processGroups, processGroup)
 		}
@@ -71,7 +71,7 @@ func (i IncludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		}
 	}
 
-	if needsUpdate {
+	if hasStatusUpdate {
 		cluster.Status.ProcessGroups = processGroups
 		err := r.Status().Update(context, cluster)
 		if err != nil {
