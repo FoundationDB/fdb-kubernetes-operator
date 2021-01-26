@@ -52,6 +52,7 @@ func main() {
 	var deprecationOptions controllers.DeprecationOptions
 	var useFutureDefaults bool
 	var checkDeprecations bool
+	var development bool
 
 	fdb.MustAPIVersion(610)
 
@@ -65,6 +66,9 @@ func main() {
 	)
 	flag.BoolVar(&checkDeprecations, "check-deprecations", false,
 		"Check for deprecated fields and then exit",
+	)
+	flag.BoolVar(&development, "development", false,
+		"Enable verbose development logs",
 	)
 	flag.Parse()
 
@@ -84,7 +88,7 @@ func main() {
 	}
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = true
+		o.Development = development
 		o.DestWritter = logWriter
 	}))
 
