@@ -226,7 +226,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | mainContainer | MainContainer defines customization for the foundationdb container. | [ContainerOverrides](#containeroverrides) | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | [ContainerOverrides](#containeroverrides) | false |
 | trustedCAs | TrustedCAs defines a list of root CAs the cluster should trust, in PEM format. | []string | false |
-| sidecarVariables | SidecarVariables defines Ccustom variables that the sidecar should make available for substitution in the monitor conf file. | []string | false |
+| sidecarVariables | SidecarVariables defines Custom variables that the sidecar should make available for substitution in the monitor conf file. | []string | false |
 | logGroup | LogGroup defines the log group to use for the trace logs for the cluster. | string | false |
 | dataCenter | DataCenter defines the data center where these processes are running. | string | false |
 | dataHall | DataHall defines the data hall where these processes are running. | string | false |

@@ -121,7 +121,7 @@ type FoundationDBClusterSpec struct {
 	// format.
 	TrustedCAs []string `json:"trustedCAs,omitempty"`
 
-	// SidecarVariables defines Ccustom variables that the sidecar should make
+	// SidecarVariables defines Custom variables that the sidecar should make
 	// available for substitution in the monitor conf file.
 	SidecarVariables []string `json:"sidecarVariables,omitempty"`
 
