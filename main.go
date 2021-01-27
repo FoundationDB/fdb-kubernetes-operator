@@ -70,6 +70,7 @@ func main() {
 	flag.BoolVar(&development, "development", false,
 		"Enable verbose development logs",
 	)
+	level := uzap.LevelFlag("log-level", uzap.InfoLevel, "The log level")
 	flag.Parse()
 
 	deprecationOptions.OnlyShowChanges = checkDeprecations
