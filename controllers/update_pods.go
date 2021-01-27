@@ -55,12 +55,9 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		instanceID := instance.GetInstanceID()
-
-		if removals != nil {
-			_, pendingRemoval := removals[instanceID]
-			if pendingRemoval {
-				continue
-			}
+		_, pendingRemoval := removals[instanceID]
+		if pendingRemoval {
+			continue
 		}
 
 		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {

@@ -1848,6 +1848,16 @@ func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
 	return source != nil && *source == PublicIPSourceService
 }
 
+// GetPublicIPSourceService returns the set PublicIPSource or the default PublicIPSourcePod
+func (cluster *FoundationDBCluster) GetPublicIPSourceService() PublicIPSource {
+	source := cluster.Spec.Services.PublicIPSource
+	if source == nil {
+		return PublicIPSourcePod
+	}
+
+	return *source
+}
+
 // FillInDefaultsFromStatus adds in missing fields from the database
 // configuration in the database status to make sure they match the fields that
 // will appear in the cluster spec.
