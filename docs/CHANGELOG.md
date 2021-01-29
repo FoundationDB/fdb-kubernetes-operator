@@ -1,3 +1,11 @@
+# v0.27.0
+
+* Check if instance contains Pod before continuing operation.
+* Add a timeout to the transactions for managing locks.
+* Add an exec subcommand for the kubectl plugin.
+* Move tracking of removal state into the process group status.
+* Fix typo in spec.
+
 # v0.26.0
 
 *	Replace some hardcoded strings with named constants.
