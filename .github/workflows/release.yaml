@@ -1,0 +1,73 @@
+name: Release kubectl plugin
+on:
+  push:
+    tags:
+    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          # Should use body_path + auto generate release info
+          body: |
+            Changes in this Release
+            - More awesomeness !
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+  release-plugin:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          # - windows-latest
+          - ubuntu-latest
+          - macOS-latest
+    needs: create-release
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go 1.15
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+      - name: Get FDB client
+        if: runner.os != 'Windows'
+        env:
+          FDB_VER: "6.2.28"
+        run: |
+          go get -v -t -d ./...
+          if [[ "${RUNNER_OS}" == "macOS" ]];then
+              curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/macOS/installers/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
+              sudo installer -allowUntrusted -verbose -pkg ./fdb.pkg -target /
+          else
+              curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+              sudo dpkg -i fdb.deb
+          fi
+      # - name: Get FDB client (windows-only)
+      #   if: runner.os == 'Windows'
+      #   shell: powershell
+      #   run: |
+      #     Invoke-WebRequest -OutFile fdb.msi -Uri https://www.foundationdb.org/downloads/6.2.28/windows/installers/foundationdb-6.2.28-x64.msi
+      #     msiexec /i "fdb.msi"
+      #     go get -v -t -d ./...
+      - name: Build
+        run: make plugin
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./bin/kubectl-fdb
+          asset_name: kubectl-fdb-${{ matrix.os }}-amd64
+          asset_content_type: application/octet-stream

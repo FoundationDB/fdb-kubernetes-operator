@@ -59,7 +59,7 @@ bin/manager: ${GO_SRC}
 plugin: bin/kubectl-fdb
 
 bin/kubectl-fdb: ${GO_SRC}
-	go build -o bin/kubectl-fdb ./kubectl-fdb
+	go build -ldflags="-s -w" -o bin/kubectl-fdb ./kubectl-fdb
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate manifests
