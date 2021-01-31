@@ -1191,6 +1191,16 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 			source := fdbtypes.PublicIPSourcePod
 			spec.Services.PublicIPSource = &source
 		}
+
+		if spec.AutomationOptions.Replacements.Enabled == nil {
+			enabled := false
+			spec.AutomationOptions.Replacements.Enabled = &enabled
+		}
+
+		if spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds == nil {
+			duration := 1800
+			spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = &duration
+		}
 	}
 
 	// Apply changes between old and new defaults.

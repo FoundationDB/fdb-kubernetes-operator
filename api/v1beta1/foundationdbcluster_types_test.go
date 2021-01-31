@@ -3218,3 +3218,17 @@ func TestAddStorageServerPerDisk(t *testing.T) {
 		})
 	}
 }
+
+func TestGettingConditionTimestamp(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	status := &ProcessGroupStatus{}
+
+	timestamp := time.Now().Unix()
+	status.ProcessGroupConditions = append(status.ProcessGroupConditions, &ProcessGroupCondition{ProcessGroupConditionType: MissingProcesses, Timestamp: timestamp})
+
+	result := status.GetConditionTime(MissingProcesses)
+	g.Expect(result).NotTo(gomega.BeNil())
+	g.Expect(*result).To(gomega.Equal(timestamp))
+	g.Expect(status.GetConditionTime(IncorrectConfigMap)).To(gomega.BeNil())
+}

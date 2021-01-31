@@ -669,6 +669,7 @@ type MockAdminClient struct {
 	Backups               map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
 	restoreURL            string
 	clientVersions        map[string][]string
+	missingProcessGroups  map[string]bool
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -686,9 +687,10 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 	client := adminClientCache[cluster.Name]
 	if client == nil {
 		client = &MockAdminClient{
-			Cluster:             cluster,
-			KubeClient:          kubeClient,
-			ReincludedAddresses: make(map[string]bool),
+			Cluster:              cluster,
+			KubeClient:           kubeClient,
+			ReincludedAddresses:  make(map[string]bool),
+			missingProcessGroups: make(map[string]bool),
 		}
 		adminClientCache[cluster.Name] = client
 		client.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
@@ -745,6 +747,13 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
+		instance := newFdbInstance(pod)
+		instanceID := instance.GetInstanceID()
+
+		if client.missingProcessGroups[instanceID] {
+			continue
+		}
+
 		for processIndex := 1; processIndex <= processCount; processIndex++ {
 			fullAddress := client.Cluster.GetFullAddress(ip, processIndex)
 
@@ -755,7 +764,6 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			if isCoordinator && !excluded {
 				coordinators[fullAddress] = true
 			}
-			instance := newFdbInstance(pod)
 			command, err := GetStartCommand(client.Cluster, instance, podClient, processIndex, processCount)
 			if err != nil {
 				return nil, err
@@ -1060,6 +1068,12 @@ func (client *MockAdminClient) MockClientVersion(version string, clients []strin
 		client.clientVersions = make(map[string][]string)
 	}
 	client.clientVersions[version] = clients
+}
+
+// MockMissingProcessGroup updates the mock for whether a process group should
+// be missing from the cluster status.
+func (client *MockAdminClient) MockMissingProcessGroup(instanceID string, missing bool) {
+	client.missingProcessGroups[instanceID] = missing
 }
 
 // Close shuts down any resources for the client once it is no longer

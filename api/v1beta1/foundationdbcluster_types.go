@@ -524,6 +524,19 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 	return result
 }
 
+// GetConditionTime returns the timestamp when we detected a condition on a
+// process group.
+// If there is no matching condition this will return nil.
+func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType ProcessGroupConditionType) *int64 {
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return &condition.Timestamp
+		}
+	}
+
+	return nil
+}
+
 // NewProcessGroupCondition creates a new ProcessGroupCondition of the given time with the current timestamp.
 func NewProcessGroupCondition(conditionType ProcessGroupConditionType) *ProcessGroupCondition {
 	return &ProcessGroupCondition{
@@ -833,6 +846,23 @@ type FoundationDBClusterAutomationOptions struct {
 	// DeletePods defines whether the operator is allowed to delete pods in
 	// order to recreate them.
 	DeletePods *bool `json:"deletePods,omitempty"`
+
+	// Replacements contains options for automatically replacing failed
+	// processes.
+	Replacements AutomaticReplacementOptions `json:"replacements,omitempty"`
+}
+
+// AutomaticReplacementOptions controls options for automatically replacing
+// failed processes.
+type AutomaticReplacementOptions struct {
+	// Enabled controls whether automatic replacements are enabled.
+	// The default is false.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// FailureDetectionTimeSeconds controls how long a process must be
+	// failed or missing before it is automatically replaced.
+	// The default is 1800 seconds, or 30 minutes.
+	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.

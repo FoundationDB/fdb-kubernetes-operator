@@ -4,6 +4,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [AutomaticReplacementOptions](#automaticreplacementoptions)
 * [BuggifyConfig](#buggifyconfig)
 * [ClusterGenerationStatus](#clustergenerationstatus)
 * [ClusterHealth](#clusterhealth)
@@ -46,6 +47,17 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
 
+## AutomaticReplacementOptions
+
+AutomaticReplacementOptions controls options for automatically replacing failed processes.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| enabled | Enabled controls whether automatic replacements are enabled. The default is false. | *bool | false |
+| failureDetectionTimeSeconds | FailureDetectionTimeSeconds controls how long a process must be failed or missing before it is automatically replaced. The default is 1800 seconds, or 30 minutes. | *int | false |
+
+[Back to TOC](#table-of-contents)
+
 ## BuggifyConfig
 
 BuggifyConfig provides options for injecting faults into a cluster for testing.
@@ -76,6 +88,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. **Deprecated: This needs to get moved into FoundationDBBackup** | int64 | false |
 | hasPendingRemoval | HasPendingRemoval provides the last generation that has pods that have been excluded but are pending being removed.  A cluster in this state is considered reconciled, but we track this in the status to allow users of the operator to track when the removal is fully complete. | int64 | false |
 | hasFailingPods | HasFailingPods provides the last generation that has pods that are failing to start. | int64 | false |
+| hasUnhealthyProcess | HasUnhealthyProcess provides the last generation that has at least one process group with a negative condition. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -179,6 +192,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | configureDatabase | ConfigureDatabase defines whether the operator is allowed to reconfigure the database. | *bool | false |
 | killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
 | deletePods | DeletePods defines whether the operator is allowed to delete pods in order to recreate them. | *bool | false |
+| replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 
 [Back to TOC](#table-of-contents)
 

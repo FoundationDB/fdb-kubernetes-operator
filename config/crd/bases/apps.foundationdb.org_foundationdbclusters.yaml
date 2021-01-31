@@ -51,6 +51,13 @@ spec:
                   type: boolean
                 killProcesses:
                   type: boolean
+                replacements:
+                  properties:
+                    enabled:
+                      type: boolean
+                    failureDetectionTimeSeconds:
+                      type: integer
+                  type: object
               type: object
             automountServiceAccountToken:
               type: boolean

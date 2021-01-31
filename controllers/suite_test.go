@@ -164,6 +164,9 @@ var Versions = struct {
 }
 
 func createDefaultCluster() *fdbtypes.FoundationDBCluster {
+	trueValue := true
+	failureDetectionWindow := 1
+
 	return &fdbtypes.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "operator-test-1",
@@ -177,6 +180,12 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			},
 			FaultDomain: fdbtypes.FoundationDBClusterFaultDomain{
 				Key: "foundationdb.org/none",
+			},
+			AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+				Replacements: fdbtypes.AutomaticReplacementOptions{
+					Enabled:                     &trueValue,
+					FailureDetectionTimeSeconds: &failureDetectionWindow,
+				},
 			},
 		},
 		Status: fdbtypes.FoundationDBClusterStatus{

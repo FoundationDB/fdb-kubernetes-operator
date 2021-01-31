@@ -837,6 +837,39 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			})
 		})
 
+		Context("with a missing process", func() {
+			var adminClient *MockAdminClient
+
+			BeforeEach(func() {
+				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				adminClient.MockMissingProcessGroup("storage-1", true)
+				generationGap = 0
+			})
+
+			It("should replace the pod", func() {
+				pods := &corev1.PodList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-1")...)
+					return len(pods.Items), err
+				}).Should(Equal(0))
+
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return len(pods.Items), err
+				}).Should(Equal(17))
+
+				sortPodsByID(pods)
+
+				log.Info("JPB checking pod names")
+				Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+				Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+				Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
+				Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
+			})
+		})
+
 		Context("with multiple replacements", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstancesToRemove = []string{
