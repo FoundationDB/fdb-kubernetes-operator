@@ -7828,6 +7828,9 @@ spec:
                 hasPendingRemoval:
                   format: int64
                   type: integer
+                hasUnhealthyProcess:
+                  format: int64
+                  type: integer
                 missingDatabaseStatus:
                   format: int64
                   type: integer

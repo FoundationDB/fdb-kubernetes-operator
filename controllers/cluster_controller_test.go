@@ -221,7 +221,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cluster.Status.ProcessCounts).To(Equal(desiredCounts))
 				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
-				Expect(cluster.Status.MissingProcesses).To(BeNil())
 				Expect(*fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)).To(Equal(desiredCounts))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine))).To(Equal(0))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses))).To(Equal(0))
@@ -1535,8 +1534,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{
-						Reconciled:       originalVersion,
-						NeedsPodDeletion: originalVersion + 1,
+						Reconciled:          originalVersion,
+						NeedsPodDeletion:    originalVersion + 1,
+						HasUnhealthyProcess: originalVersion + 1,
 					}))
 				})
 
@@ -1593,8 +1593,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, 60).Should(Equal(fdbtypes.ClusterGenerationStatus{
-						Reconciled:       originalVersion,
-						NeedsPodDeletion: originalVersion + 1,
+						Reconciled:          originalVersion,
+						NeedsPodDeletion:    originalVersion + 1,
+						HasUnhealthyProcess: originalVersion + 1,
 					}))
 				})
 

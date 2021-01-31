@@ -47,7 +47,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	status := fdbtypes.FoundationDBClusterStatus{}
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 	status.IncorrectProcesses = make(map[string]int64)
-	status.MissingProcesses = make(map[string]int64)
 
 	// Initialize with the current desired storage servers per Pod
 	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
@@ -135,6 +134,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if err != nil {
 		return false, err
 	}
+	removeDuplicateConditions(status)
 
 	// Track all PVCs
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -275,10 +275,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if len(status.IncorrectProcesses) == 0 {
 		status.IncorrectProcesses = nil
 	}
-
-	if len(status.MissingProcesses) == 0 {
-		status.MissingProcesses = nil
-	}
+	status.MissingProcesses = nil
 
 	if status.Configured && cluster.Status.ConnectionString != "" {
 		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus)
@@ -423,15 +420,9 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	}
 
 	processStatus := processMap[instanceID]
-	if len(processStatus) == 0 {
-		existingTime, exists := cluster.Status.MissingProcesses[instanceID]
-		processGroupStatus.AddCondition(cluster.Status.ProcessGroups, instanceID, fdbtypes.MissingProcesses)
-		if exists {
-			status.MissingProcesses[instanceID] = existingTime
-		} else {
-			status.MissingProcesses[instanceID] = time.Now().Unix()
-		}
 
+	processGroupStatus.UpdateCondition(fdbtypes.MissingProcesses, len(processStatus) == 0, cluster.Status.ProcessGroups, instanceID)
+	if len(processStatus) == 0 {
 		return nil
 	}
 
@@ -501,16 +492,15 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		processGroupStatus.Addresses = cleanAddressList((processGroupStatus.Addresses))
 
-		processGroupStatus.ProcessGroupConditions = nil
-
 		processCount := 1
 
 		// If the instance is not being removed and the Pod is not set we need to put it into
 		// the failing list.
 		isBeingRemoved := cluster.InstanceIsBeingRemoved(instanceID)
-		if instance.Pod == nil && !isBeingRemoved {
+		missingPod := instance.Pod == nil && !isBeingRemoved
+		processGroupStatus.UpdateCondition(fdbtypes.MissingPod, missingPod, processGroups, instanceID)
+		if missingPod {
 			status.FailingPods = append(status.FailingPods, instance.Metadata.Name)
-			processGroupStatus.AddCondition(processGroups, instanceID, fdbtypes.MissingPod)
 			continue
 		}
 
@@ -567,8 +557,8 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	processClass := instance.GetProcessClass()
 	instanceID := instance.GetInstanceID()
 
+	processGroupStatus.UpdateCondition(fdbtypes.MissingPod, instance.Pod == nil, cluster.Status.ProcessGroups, instanceID)
 	if instance.Pod == nil {
-		processGroupStatus.AddCondition(cluster.Status.ProcessGroups, instanceID, fdbtypes.MissingPod)
 		return true, false, false, nil
 	}
 
@@ -591,16 +581,12 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		incorrectPod = !updated
 	}
 
-	if incorrectPod {
-		processGroupStatus.AddCondition(cluster.Status.ProcessGroups, instanceID, fdbtypes.IncorrectPodSpec)
-	}
+	processGroupStatus.UpdateCondition(fdbtypes.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, instanceID)
 
 	incorrectConfigMap := instance.Metadata.Annotations[LastConfigMapKey] != configMapHash
 
-	if incorrectConfigMap {
-		incorrectPod = incorrectConfigMap
-		processGroupStatus.AddCondition(cluster.Status.ProcessGroups, instanceID, fdbtypes.IncorrectConfigMap)
-	}
+	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, instanceID)
+	incorrectPod = incorrectPod || incorrectConfigMap
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcs, getPodListOptions(cluster, processClass, instanceID)...)
@@ -612,19 +598,13 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		return false, false, false, err
 	}
 
-	if (len(pvcs.Items) == 1) != (desiredPvc != nil) {
-		incorrectPod = true
-		// This would be a special case got a PVC but shouldn't
-		processGroupStatus.AddCondition(cluster.Status.ProcessGroups, instanceID, fdbtypes.MissingPVC)
+	incorrectPVC := (len(pvcs.Items) == 1) != (desiredPvc != nil)
+	if !incorrectPVC && desiredPvc != nil {
+		incorrectPVC = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
 	}
 
-	if !incorrectPod && desiredPvc != nil {
-		incorrectPod = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
-
-		if incorrectPod {
-			processGroupStatus.AddCondition(cluster.Status.ProcessGroups, instanceID, fdbtypes.MissingPVC)
-		}
-	}
+	processGroupStatus.UpdateCondition(fdbtypes.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, instanceID)
+	incorrectPod = incorrectPod || incorrectPVC
 
 	if incorrectPod {
 		return false, true, false, nil
@@ -651,6 +631,27 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	}
 
 	return false, false, needsSidecarConfInConfigMap, nil
+}
+
+func removeDuplicateConditions(status fdbtypes.FoundationDBClusterStatus) {
+	for _, processGroupStatus := range status.ProcessGroups {
+		conditionTimes := make(map[fdbtypes.ProcessGroupConditionType]int64, len(processGroupStatus.ProcessGroupConditions))
+		copiedConditions := make(map[fdbtypes.ProcessGroupConditionType]bool, len(processGroupStatus.ProcessGroupConditions))
+		conditions := make([]*fdbtypes.ProcessGroupCondition, 0, len(processGroupStatus.ProcessGroupConditions))
+		for _, condition := range processGroupStatus.ProcessGroupConditions {
+			existingTime, present := conditionTimes[condition.ProcessGroupConditionType]
+			if !present || existingTime > condition.Timestamp {
+				conditionTimes[condition.ProcessGroupConditionType] = condition.Timestamp
+			}
+		}
+		for _, condition := range processGroupStatus.ProcessGroupConditions {
+			if condition.Timestamp == conditionTimes[condition.ProcessGroupConditionType] && !copiedConditions[condition.ProcessGroupConditionType] {
+				conditions = append(conditions, condition)
+				copiedConditions[condition.ProcessGroupConditionType] = true
+			}
+		}
+		processGroupStatus.ProcessGroupConditions = conditions
+	}
 }
 
 // This method removes duplicates and empty strings from a list of addresses.

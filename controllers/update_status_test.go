@@ -158,7 +158,6 @@ var _ = Describe("update_status", func() {
 				status := fdbtypes.FoundationDBClusterStatus{}
 				status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 				status.IncorrectProcesses = make(map[string]int64)
-				status.MissingProcesses = make(map[string]int64)
 				// Initialize with the current desired storage servers per Pod
 				status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 
@@ -182,7 +181,6 @@ var _ = Describe("update_status", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(status.FailingPods)).To(Equal(1))
 				Expect(status.FailingPods[0]).To(Equal("1337"))
-				Expect(len(status.MissingProcesses)).To(Equal(0))
 				Expect(len(status.StorageServersPerDisk)).To(Equal(1))
 				Expect(len(processGroupStatus)).To(Equal(1))
 				Expect(len(processGroupStatus[0].ProcessGroupConditions)).To(Equal(1))
