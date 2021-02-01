@@ -89,17 +89,20 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		var originalVersion int64
 		var err error
 		var generationGap int64
+		var shouldCompleteReconciliation bool
 
 		BeforeEach(func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) {
-				generations, err := reloadClusterGenerations(cluster)
-				return generations.Reconciled, err
-			}).ShouldNot(Equal(int64(0)))
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-			Expect(err).NotTo(HaveOccurred())
+				return reloadCluster(cluster)
+			}).Should(Equal(int64(1)))
+
 			originalVersion = cluster.ObjectMeta.Generation
 
 			originalPods = &corev1.PodList{}
@@ -111,12 +114,20 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			sortPodsByID(originalPods)
 
 			generationGap = 1
+			shouldCompleteReconciliation = true
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int64, error) { return reloadCluster(cluster) }).Should(Equal(originalVersion + generationGap))
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-			Expect(err).NotTo(HaveOccurred())
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+
+			Expect(result.Requeue).To(Equal(!shouldCompleteReconciliation))
+
+			if shouldCompleteReconciliation {
+				Eventually(func() (int64, error) {
+					return reloadCluster(cluster)
+				}).Should(Equal(originalVersion + generationGap))
+			}
 		})
 
 		AfterEach(func() {

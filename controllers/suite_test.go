@@ -35,12 +35,14 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -97,10 +99,8 @@ var _ = BeforeSuite(func(done Done) {
 		PodIPProvider:       MockPodIP,
 		AdminClientProvider: NewMockAdminClient,
 		LockClientProvider:  NewMockLockClient,
+		RequeueOnNotFound:   true,
 	}
-
-	err = (clusterReconciler).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
 
 	backupReconciler = &FoundationDBBackupReconciler{
 		Client:              k8sManager.GetClient(),
@@ -286,4 +286,31 @@ func getEnvVars(container corev1.Container) map[string]*corev1.EnvVar {
 		results[env.Name] = &container.Env[index]
 	}
 	return results
+}
+
+func reconcileCluster(cluster *fdbtypes.FoundationDBCluster) (reconcile.Result, error) {
+	return reconcileObject(clusterReconciler, cluster.ObjectMeta, 20)
+}
+
+func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta, requeueLimit int) (reconcile.Result, error) {
+	attempts := requeueLimit + 1
+	result := reconcile.Result{Requeue: true}
+	var err error = nil
+	for result.Requeue && attempts > 0 {
+		log.Info("Running test reconciliation")
+		attempts--
+
+		result, err = reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metadata.Namespace, Name: metadata.Name}})
+		if err != nil {
+			log.Error(err, "Error in reconciliation")
+			break
+		}
+
+		if result.Requeue {
+			time.Sleep(time.Second)
+		} else {
+			log.Info("Reconciliation successful")
+		}
+	}
+	return result, err
 }
