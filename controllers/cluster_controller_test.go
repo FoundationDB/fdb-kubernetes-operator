@@ -58,7 +58,9 @@ func reloadCluster(cluster *fdbtypes.FoundationDBCluster) (int64, error) {
 }
 
 func reloadClusterGenerations(cluster *fdbtypes.FoundationDBCluster) (fdbtypes.ClusterGenerationStatus, error) {
-	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
+	objectKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
+	*cluster = fdbtypes.FoundationDBCluster{}
+	err := k8sClient.Get(context.TODO(), objectKey, cluster)
 	if err != nil {
 		return fdbtypes.ClusterGenerationStatus{}, err
 	}
@@ -119,6 +121,11 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		JustBeforeEach(func() {
 			result, err := reconcileCluster(cluster)
+
+			if err != nil && !shouldCompleteReconciliation {
+				return
+			}
+
 			Expect(err).NotTo((HaveOccurred()))
 
 			Expect(result.Requeue).To(Equal(!shouldCompleteReconciliation))
@@ -131,7 +138,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		})
 
 		AfterEach(func() {
-			cleanupCluster(cluster)
+			k8sClient.Clear()
 		})
 
 		Context("when reconciling a new cluster", func() {
@@ -624,6 +631,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				})
 
 				It("should clear the removal list", func() {
+					_, err = reloadCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
 					Expect(cluster.Status.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
@@ -821,7 +831,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
-
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				err = adminClient.FreezeStatus()
@@ -862,7 +871,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("with bounces disabled", func() {
 				BeforeEach(func() {
-					generationGap = 0
+					shouldCompleteReconciliation = false
 					var flag = false
 					cluster.Spec.AutomationOptions.KillProcesses = &flag
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -874,6 +883,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 						Reconciled:             originalVersion,
 						NeedsBounce:            originalVersion + 1,
 						NeedsMonitorConfUpdate: originalVersion + 1,
+						NeedsPodDeletion:       originalVersion + 1,
 					}))
 				})
 
@@ -1000,7 +1010,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("with changes disabled", func() {
 				BeforeEach(func() {
-					generationGap = 0
+					shouldCompleteReconciliation = false
 					var flag = false
 					cluster.Spec.AutomationOptions.ConfigureDatabase = &flag
 					cluster.Spec.DatabaseConfiguration.RedundancyMode = "triple"
@@ -1014,6 +1024,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
 						NeedsCoordinatorChange:   originalVersion + 1,
+						NeedsGrow:                originalVersion + 1,
 					}))
 				})
 
@@ -1510,7 +1521,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					var flag = false
 					cluster.Spec.AutomationOptions.DeletePods = &flag
 
-					generationGap = 0
+					shouldCompleteReconciliation = false
 
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1745,7 +1756,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		Context("downgrade cluster", func() {
 			BeforeEach(func() {
-				generationGap = 0
+				shouldCompleteReconciliation = false
 				IncompatibleVersion := Versions.Default
 				IncompatibleVersion.Patch--
 				cluster.Spec.Version = IncompatibleVersion.String()
@@ -1879,7 +1890,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					BeforeEach(func() {
 						err = k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
-						generationGap = 0
+						shouldCompleteReconciliation = false
 					})
 
 					It("should set a message about the client upgradability", func() {
@@ -2032,6 +2043,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
+				_, err := reconcileCluster(cluster)
+				Expect(err).NotTo((HaveOccurred()))
+
 				Eventually(func() (int64, error) {
 					generations, err := reloadClusterGenerations(cluster)
 					return generations.Reconciled, err
@@ -2053,7 +2067,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		Context("custom metrics for a cluster", func() {
 			BeforeEach(func() {
-				generationGap = 0
+				shouldCompleteReconciliation = false
 				metricFamilies, err := metrics.Registry.Gather()
 				Expect(err).NotTo(HaveOccurred())
 				for _, metricFamily := range metricFamilies {

@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/mock-kubernetes-client/client"
 
 	"github.com/onsi/gomega/gexec"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -49,7 +49,7 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var k8sClient client.Client
+var k8sClient *mockclient.MockClient
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
 var clusterReconciler *FoundationDBClusterReconciler
@@ -89,8 +89,10 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	k8sClient = &mockclient.MockClient{}
+
 	clusterReconciler = &FoundationDBClusterReconciler{
-		Client:              k8sManager.GetClient(),
+		Client:              k8sClient,
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
 		Recorder:            k8sManager.GetEventRecorderFor("foundationdbcluster-controller"),
 		InSimulation:        true,
@@ -103,7 +105,7 @@ var _ = BeforeSuite(func(done Done) {
 	}
 
 	backupReconciler = &FoundationDBBackupReconciler{
-		Client:              k8sManager.GetClient(),
+		Client:              k8sClient,
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
 		Recorder:            k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
 		InSimulation:        true,
@@ -113,7 +115,7 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	restoreReconciler = &FoundationDBRestoreReconciler{
-		Client:              k8sManager.GetClient(),
+		Client:              k8sClient,
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
 		Recorder:            k8sManager.GetEventRecorderFor("foundationdbrestore-controller"),
 		InSimulation:        true,
@@ -126,9 +128,6 @@ var _ = BeforeSuite(func(done Done) {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
 	}()
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
 
 	close(done)
 }, 60)
