@@ -21,12 +21,15 @@
 package client
 
 import (
+	"context"
 	ctx "context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -45,6 +48,9 @@ type MockClient struct {
 	// This maps a type, and then a namespace/name, to the JSON representation of an
 	// object.
 	data map[string]map[string][]byte
+
+	// ipCounter provides monotonically incrementing IP addresses.
+	ipCounter int
 }
 
 // Clear erases any mock data.
@@ -106,33 +112,43 @@ func (client *MockClient) fillInMaps(kind string) {
 	}
 }
 
-// lookupJSONString looks up a string in a generic JSON object.
-func lookupJSONString(genericData map[string]interface{}, path ...string) (string, error) {
+// lookupJSONValue looks up a value in a generic JSON object.
+func lookupJSONValue(genericData map[string]interface{}, path []string, defaultValue interface{}) (interface{}, error) {
 	currentData := genericData
 
 	if len(path) == 0 {
 		return "", fmt.Errorf("Cannot look up empty path")
 	}
-	var result string
+	var result interface{}
 	for index, key := range path {
-		var ok bool
 		genericValue, present := currentData[key]
 		if !present {
-			return "", fmt.Errorf("Missing key %v", path[0:index+1])
+			return defaultValue, nil
 		}
+		var ok bool
 		if index == len(path)-1 {
-			result, ok = genericValue.(string)
-			if !ok {
-				return "", fmt.Errorf("Type error for %v", path)
-			}
+			result = genericValue
 		} else {
 			currentData, ok = genericValue.(map[string]interface{})
 			if !ok {
-				return "", fmt.Errorf("Type error for key %v", path[0:index+1])
+				return nil, fmt.Errorf("Type error for key %v", path[0:index+1])
 			}
 		}
 	}
 	return result, nil
+}
+
+// lookupJSONString looks up a string in a generic JSON object.
+func lookupJSONString(genericData map[string]interface{}, path ...string) (string, error) {
+	result, err := lookupJSONValue(genericData, path, "")
+	if err != nil {
+		return "", err
+	}
+	stringResult, isString := result.(string)
+	if !isString {
+		return "", fmt.Errorf("Type error for key %v", path)
+	}
+	return stringResult, nil
 }
 
 // lookupJSONStringMap looks up a map of string to string in a generic JSON object.
@@ -195,58 +211,58 @@ func lookupJSONStringFields(genericData map[string]interface{}) map[string]strin
 	return result
 }
 
+// setField sets a field in a generic object.
+func setJSONValue(genericData map[string]interface{}, path []string, value interface{}) error {
+	currentData := genericData
+	for index, key := range path {
+		if index == len(path)-1 {
+			currentData[key] = value
+		} else {
+			if currentData[key] == nil {
+				currentData[key] = make(map[string]interface{})
+			}
+			var isMap bool
+			currentData, isMap = currentData[key].(map[string]interface{})
+			if !isMap {
+				return fmt.Errorf("Invalid type for %v", path[0:index+1])
+			}
+		}
+	}
+	return nil
+}
+
 // incrementGeneration increments the generation field in an object's metadata.
 func incrementGeneration(genericData map[string]interface{}) (float64, error) {
-	if genericData["metadata"] == nil {
-		genericData["metadata"] = make(map[string]interface{})
+	generationValue, err := lookupJSONValue(genericData, []string{"metadata", "generation"}, float64(0))
+	if err != nil {
+		return 0, err
 	}
-
-	metadata, isMap := genericData["metadata"].(map[string]interface{})
-	if !isMap {
-		return 0, fmt.Errorf("Invalid metadata type")
+	generationNumber, isNumber := generationValue.(float64)
+	if !isNumber {
+		return 0, fmt.Errorf("Invalid metadata generation type")
 	}
-	generation, generationPresent := metadata["generation"]
-	var generationNumber float64
-	if generationPresent {
-		var isNumber bool
-		generationNumber, isNumber = generation.(float64)
-		if !isNumber {
-			return 0, fmt.Errorf("Invalid metadata generation type")
-		}
-		generationNumber++
-	} else {
-		generationNumber = 1
+	generationNumber++
+	err = setJSONValue(genericData, []string{"metadata", "generation"}, generationNumber)
+	if err != nil {
+		return 0, err
 	}
-	metadata["generation"] = generationNumber
-	genericData["metadata"] = metadata
 	return generationNumber, nil
 }
 
 // setGeneration sets the generation field in an object's metadata.
 func setGeneration(genericData map[string]interface{}, generation float64) error {
-	if genericData["metadata"] == nil {
-		genericData["metadata"] = make(map[string]interface{})
-	}
-	metadata, isMap := genericData["metadata"].(map[string]interface{})
-	if !isMap {
-		return fmt.Errorf("Invalid metadata type")
-	}
-	metadata["generation"] = generation
-	genericData["metadata"] = metadata
-	return nil
+	return setJSONValue(genericData, []string{"metadata", "generation"}, generation)
 }
 
 // setUID sets the UID in the object metadata.
 func setUID(genericData map[string]interface{}) error {
-	if genericData["metadata"] == nil {
-		genericData["metadata"] = make(map[string]interface{})
-	}
-	metadata, isMap := genericData["metadata"].(map[string]interface{})
-	if !isMap {
-		return fmt.Errorf("Invalid metadata type")
-	}
-	metadata["uid"] = uuid.NewUUID()
-	return nil
+	return setJSONValue(genericData, []string{"metadata", "uid"}, uuid.NewUUID())
+}
+
+// generateIP generates a unique IP address.
+func (client *MockClient) generateIP() string {
+	client.ipCounter++
+	return fmt.Sprintf("192.168.%d.%d", client.ipCounter/256, client.ipCounter%256)
 }
 
 // checkPresence checks the presence of an object in the data.
@@ -294,6 +310,20 @@ func (client *MockClient) Create(context ctx.Context, object runtime.Object, opt
 	err = setUID(genericObject)
 	if err != nil {
 		return err
+	}
+
+	if kindKey == "/v1/Service" {
+		clusterIP, err := lookupJSONString(genericObject, "spec", "clusterIP")
+		if err != nil {
+			return err
+		}
+
+		if clusterIP == "" {
+			err = setJSONValue(genericObject, []string{"spec", "clusterIP"}, client.generateIP())
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	jsonData, err = json.Marshal(genericObject)
@@ -576,4 +606,77 @@ func (client MockStatusClient) Patch(context ctx.Context, object runtime.Object,
 // Status returns a writer for updating status.
 func (client *MockClient) Status() ctrlClient.StatusWriter {
 	return MockStatusClient{rawClient: client}
+}
+
+func (client *MockClient) createEvent(event *corev1.Event) {
+	err := client.Create(context.TODO(), event)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func buildEvent(object runtime.Object, eventType string, reason string, message string) *corev1.Event {
+	jsonData, err := json.Marshal(object)
+	if err != nil {
+		panic(err)
+	}
+	genericObject := make(map[string]interface{})
+	err = json.Unmarshal(jsonData, &genericObject)
+	if err != nil {
+		panic(err)
+	}
+	namespace, err := lookupJSONString(genericObject, "metadata", "namespace")
+	if err != nil {
+		panic(err)
+	}
+	name, err := lookupJSONString(genericObject, "metadata", "name")
+	if err != nil {
+		panic(err)
+	}
+	uid, err := lookupJSONString(genericObject, "metadata", "uid")
+	if err != nil {
+		panic(err)
+	}
+
+	eventName := fmt.Sprintf("%s-%v", eventType, uuid.NewUUID())
+
+	return &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      eventName,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Namespace: namespace,
+			Name:      name,
+			UID:       types.UID(uid),
+		},
+		Type:      eventType,
+		Message:   message,
+		Reason:    reason,
+		EventTime: metav1.MicroTime{Time: time.Now()},
+	}
+}
+
+// Event sends an event
+func (client *MockClient) Event(object runtime.Object, eventType string, reason string, message string) {
+	client.createEvent(buildEvent(object, eventType, reason, message))
+}
+
+// Eventf is just like Event, but with Sprintf for the message field.
+func (client *MockClient) Eventf(object runtime.Object, eventType string, reason string, messageFormat string, args ...interface{}) {
+	client.createEvent(buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...)))
+}
+
+// PastEventf is just like Eventf, but with an option to specify the event's 'timestamp' field.
+func (client *MockClient) PastEventf(object runtime.Object, timestamp metav1.Time, eventType string, reason string, messageFormat string, args ...interface{}) {
+	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
+	event.EventTime = metav1.MicroTime(timestamp)
+	client.createEvent(event)
+}
+
+// AnnotatedEventf is just like eventf, but with annotations attached
+func (client *MockClient) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventType string, reason string, messageFormat string, args ...interface{}) {
+	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
+	event.ObjectMeta.Annotations = annotations
+	client.createEvent(event)
 }

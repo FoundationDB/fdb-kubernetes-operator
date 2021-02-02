@@ -94,7 +94,7 @@ var _ = BeforeSuite(func(done Done) {
 	clusterReconciler = &FoundationDBClusterReconciler{
 		Client:              k8sClient,
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Recorder:            k8sManager.GetEventRecorderFor("foundationdbcluster-controller"),
+		Recorder:            k8sClient,
 		InSimulation:        true,
 		PodLifecycleManager: StandardPodLifecycleManager{},
 		PodClientProvider:   NewMockFdbPodClient,
@@ -107,7 +107,7 @@ var _ = BeforeSuite(func(done Done) {
 	backupReconciler = &FoundationDBBackupReconciler{
 		Client:              k8sClient,
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
-		Recorder:            k8sManager.GetEventRecorderFor("foundationdbbackup-controller"),
+		Recorder:            k8sClient,
 		InSimulation:        true,
 		AdminClientProvider: NewMockAdminClient,
 	}
@@ -117,7 +117,7 @@ var _ = BeforeSuite(func(done Done) {
 	restoreReconciler = &FoundationDBRestoreReconciler{
 		Client:              k8sClient,
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		Recorder:            k8sManager.GetEventRecorderFor("foundationdbrestore-controller"),
+		Recorder:            k8sClient,
 		InSimulation:        true,
 		AdminClientProvider: NewMockAdminClient,
 	}
@@ -291,6 +291,14 @@ func reconcileCluster(cluster *fdbtypes.FoundationDBCluster) (reconcile.Result, 
 	return reconcileObject(clusterReconciler, cluster.ObjectMeta, 20)
 }
 
+func reconcileBackup(backup *fdbtypes.FoundationDBBackup) (reconcile.Result, error) {
+	return reconcileObject(backupReconciler, backup.ObjectMeta, 20)
+}
+
+func reconcileRestore(restore *fdbtypes.FoundationDBRestore) (reconcile.Result, error) {
+	return reconcileObject(restoreReconciler, restore.ObjectMeta, 20)
+}
+
 func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta, requeueLimit int) (reconcile.Result, error) {
 	attempts := requeueLimit + 1
 	result := reconcile.Result{Requeue: true}
@@ -305,9 +313,7 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 			break
 		}
 
-		if result.Requeue {
-			time.Sleep(time.Second)
-		} else {
+		if !result.Requeue {
 			log.Info("Reconciliation successful")
 		}
 	}

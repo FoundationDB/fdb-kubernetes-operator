@@ -907,6 +907,11 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					adminClient.UnfreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
 					err = k8sClient.Update(context.TODO(), cluster)
+
+					result, err := reconcileCluster(cluster)
+					Expect(err).NotTo((HaveOccurred()))
+					Expect(result.Requeue).To(BeFalse())
+
 					Eventually(func() (int64, error) { return reloadCluster(cluster) }).Should(Equal(originalVersion + generationGap))
 					originalVersion = cluster.ObjectMeta.Generation
 
@@ -1462,7 +1467,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					var flag = false
 					cluster.Spec.AutomationOptions.DeletePods = &flag
 
-					generationGap = 0
+					shouldCompleteReconciliation = false
 
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -2067,7 +2072,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		Context("custom metrics for a cluster", func() {
 			BeforeEach(func() {
-				shouldCompleteReconciliation = false
+				generationGap = 0
 				metricFamilies, err := metrics.Registry.Gather()
 				Expect(err).NotTo(HaveOccurred())
 				for _, metricFamily := range metricFamilies {
@@ -2804,6 +2809,10 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{Reconciled: 1}))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
@@ -3189,6 +3198,10 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) {
 				generations, err := reloadClusterGenerations(cluster)
 				return generations.Reconciled, err
@@ -3257,6 +3270,10 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
+
+				result, err := reconcileCluster(cluster)
+				Expect(err).NotTo((HaveOccurred()))
+				Expect(result.Requeue).To(BeFalse())
 
 				Eventually(func() (int64, error) {
 					generations, err := reloadClusterGenerations(cluster)
@@ -3349,6 +3366,11 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		JustBeforeEach(func() {
 			err := k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) {
 				return reloadCluster(cluster)
 			}).Should(Equal(int64(1)))

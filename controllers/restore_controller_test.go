@@ -53,6 +53,10 @@ var _ = Describe("restore_controller", func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) {
 				return reloadCluster(cluster)
 			}).ShouldNot(Equal(int64(0)))
@@ -61,6 +65,11 @@ var _ = Describe("restore_controller", func() {
 
 			err = k8sClient.Create(context.TODO(), restore)
 			Expect(err).NotTo(HaveOccurred())
+
+			result, err = reconcileRestore(restore)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (bool, error) {
 				err := reloadRestore(restore)
 				if err != nil {

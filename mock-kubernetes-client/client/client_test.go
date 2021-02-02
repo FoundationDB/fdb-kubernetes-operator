@@ -24,6 +24,7 @@ import (
 	"context"
 	"sort"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega"
@@ -80,6 +82,35 @@ func TestCreatingObjectTwice(t *testing.T) {
 	err = client.Create(context.TODO(), createDummyPod())
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(Equal("Conflict"))
+}
+
+func TestCreatingService(t *testing.T) {
+	g := NewWithT(t)
+	client := &MockClient{}
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "service1",
+		},
+	}
+	err := client.Create(context.TODO(), service)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
+	g.Expect(service.Spec.ClusterIP).To(Equal("192.168.0.1"))
+
+	service = &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "service2",
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+		},
+	}
+	err = client.Create(context.TODO(), service)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
+	g.Expect(service.Spec.ClusterIP).To(Equal("None"))
 }
 
 func TestGettingMissingObject(t *testing.T) {
@@ -281,4 +312,81 @@ func TestListingObjectsByField(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(len(pods.Items)).To(Equal(1))
 	g.Expect(pods.Items[0].Name).To(Equal("pod1"))
+}
+
+func TestCreatingEvent(t *testing.T) {
+	g := NewWithT(t)
+	client := &MockClient{}
+	pod := createDummyPod()
+	pod.ObjectMeta.UID = uuid.NewUUID()
+	client.Event(pod, "Testing", "This is a test", "Test message")
+	events := &corev1.EventList{}
+	err := client.List(context.TODO(), events)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(len(events.Items)).To(Equal(1))
+	g.Expect(events.Items[0].Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+	g.Expect(events.Items[0].InvolvedObject.UID).To(Equal(pod.ObjectMeta.UID))
+	g.Expect(events.Items[0].Type).To(Equal("Testing"))
+	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
+	g.Expect(events.Items[0].Message).To(Equal("Test message"))
+	g.Expect(events.Items[0].EventTime.UnixNano()).NotTo(Equal(0))
+}
+
+func TestCreatingEventWithMessageFormat(t *testing.T) {
+	g := NewWithT(t)
+	client := &MockClient{}
+	client.Eventf(createDummyPod(), "Testing", "This is a test", "Test message: %d", 5)
+	events := &corev1.EventList{}
+	err := client.List(context.TODO(), events)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(len(events.Items)).To(Equal(1))
+	g.Expect(events.Items[0].Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+	g.Expect(events.Items[0].Type).To(Equal("Testing"))
+	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
+	g.Expect(events.Items[0].Message).To(Equal("Test message: 5"))
+}
+
+func TestCreatingEventInPast(t *testing.T) {
+	g := NewWithT(t)
+	client := &MockClient{}
+	timestamp := metav1.Time{Time: time.Now().Add(-1 * time.Minute)}
+
+	client.PastEventf(createDummyPod(), timestamp, "Testing", "This is a test", "Test message: %d", 5)
+	events := &corev1.EventList{}
+	err := client.List(context.TODO(), events)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(len(events.Items)).To(Equal(1))
+	g.Expect(events.Items[0].Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+	g.Expect(events.Items[0].Type).To(Equal("Testing"))
+	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
+	g.Expect(events.Items[0].Message).To(Equal("Test message: 5"))
+	g.Expect(events.Items[0].EventTime.Unix()).To(Equal(timestamp.Unix()))
+}
+
+func TestCreatingEventWithAnnotations(t *testing.T) {
+	g := NewWithT(t)
+	client := &MockClient{}
+
+	client.AnnotatedEventf(createDummyPod(), map[string]string{"anno": "value"}, "Testing", "This is a test", "Test message: %d", 5)
+	events := &corev1.EventList{}
+	err := client.List(context.TODO(), events)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(len(events.Items)).To(Equal(1))
+	g.Expect(events.Items[0].Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+	g.Expect(events.Items[0].Type).To(Equal("Testing"))
+	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
+	g.Expect(events.Items[0].Message).To(Equal("Test message: 5"))
+	g.Expect(events.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{"anno": "value"}))
 }

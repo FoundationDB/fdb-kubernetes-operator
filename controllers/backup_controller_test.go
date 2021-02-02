@@ -71,14 +71,24 @@ var _ = Describe("backup_controller", func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) {
 				return reloadCluster(cluster)
 			}).ShouldNot(Equal(int64(0)))
+
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Create(context.TODO(), backup)
 			Expect(err).NotTo(HaveOccurred())
+
+			result, err = reconcileBackup(backup)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) {
 				return reloadBackup(backup)
 			}).ShouldNot(Equal(int64(0)))
@@ -91,6 +101,10 @@ var _ = Describe("backup_controller", func() {
 		})
 
 		JustBeforeEach(func() {
+			result, err := reconcileBackup(backup)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
 			Eventually(func() (int64, error) { return reloadBackup(backup) }).Should(Equal(originalVersion + generationGap))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())

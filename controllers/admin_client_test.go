@@ -41,6 +41,10 @@ var _ = Describe("admin_client_test", func() {
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
+		result, err := reconcileCluster(cluster)
+		Expect(err).NotTo((HaveOccurred()))
+		Expect(result.Requeue).To(BeFalse())
+
 		Eventually(func() (int64, error) {
 			return reloadCluster(cluster)
 		}).ShouldNot(Equal(int64(0)))
