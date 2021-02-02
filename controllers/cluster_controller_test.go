@@ -3339,17 +3339,17 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).To(Equal(int64(1)))
-			clusterReconciler.DeprecationOptions = deprecationOptions
+			reconciler.DeprecationOptions = deprecationOptions
 		})
 
 		AfterEach(func() {
-			clusterReconciler.Namespace = ""
-			clusterReconciler.DeprecationOptions = DeprecationOptions{}
+			reconciler.Namespace = ""
+			reconciler.DeprecationOptions = DeprecationOptions{}
 		})
 
 		Context("with no pending changes", func() {
 			It("should be empty", func() {
-				deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+				deprecations, err := reconciler.GetDeprecations(context.TODO())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deprecations).To(HaveLen(0))
 			})
@@ -3366,7 +3366,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				})
 
 				It("should include the cluster with the old default", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					deprecations, err := reconciler.GetDeprecations(context.TODO())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(deprecations).To(HaveLen(1))
 
@@ -3392,7 +3392,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				})
 
 				It("should include the cluster with the new default", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					deprecations, err := reconciler.GetDeprecations(context.TODO())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(deprecations).To(HaveLen(1))
 
@@ -3421,7 +3421,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			})
 
 			It("should include the cluster", func() {
-				deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+				deprecations, err := reconciler.GetDeprecations(context.TODO())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deprecations).To(HaveLen(1))
 
@@ -3439,7 +3439,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				})
 
 				It("should include the cluster", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					deprecations, err := reconciler.GetDeprecations(context.TODO())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(deprecations).To(HaveLen(1))
 
@@ -3454,7 +3454,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				})
 
 				It("should not include the cluster", func() {
-					deprecations, err := clusterReconciler.GetDeprecations(context.TODO())
+					deprecations, err := reconciler.GetDeprecations(context.TODO())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(deprecations).To(HaveLen(0))
 				})
