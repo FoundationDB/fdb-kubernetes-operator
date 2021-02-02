@@ -66,11 +66,9 @@ jobs:
       #     Invoke-WebRequest -OutFile fdb.msi -Uri https://www.foundationdb.org/downloads/6.2.28/windows/installers/foundationdb-6.2.28-x64.msi
       #     msiexec /i "fdb.msi"
       #     go get -v -t -d ./...
-      # kubectl-mc_v0.4.0_darwin_amd64.tar.gz
       - name: Build
         run: make plugin package
-      - name: Upload Release Asset
-        id: upload-release-asset
+      - name: Upload Release Asse
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,3 +77,14 @@ jobs:
           asset_path: ./bin/kubectl-fdb.tar.gz
           asset_name: ${{ steps.set_package_name.outputs.package_name }}
           asset_content_type: application/gzip
+      - name: Create sha256 for assert
+        run: echo "${{ hashFiles('./bin/kubectl-fdb.tar.gz') }}" > ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
+      - name: Upload sha256 for asssert
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
+          asset_name: ${{ steps.set_package_name.outputs.package_name }}.sha256
+          asset_content_type: text/plain
