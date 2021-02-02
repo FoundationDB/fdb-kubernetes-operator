@@ -174,7 +174,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watchedObjects ...runtime.Object) error {
 	err := mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
@@ -196,13 +196,16 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBCluster{}).
 		Owns(&corev1.Pod{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Service{}).
-		Complete(r)
+		Owns(&corev1.Service{})
+	for _, object := range watchedObjects {
+		builder.Owns(object)
+	}
+	return builder.Complete(r)
 }
 
 func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Result, error) {
