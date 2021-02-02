@@ -55,6 +55,13 @@ manager: bin/manager
 bin/manager: ${GO_SRC}
 	go build -o bin/manager main.go
 
+# package the plugin
+package: plugin bin/kubectl-fdb.tar.gz
+
+bin/kubectl-fdb.tar.gz:
+	cp ./kubectl-fdb/Readme.md ./bin
+	(cd ./bin; tar cfvz ./kubectl-fdb.tar.gz ./kubectl-fdb ./Readme.md)
+
 # Build kubectl-fdb binary
 plugin: bin/kubectl-fdb
 
