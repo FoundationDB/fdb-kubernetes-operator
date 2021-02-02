@@ -1848,8 +1848,8 @@ func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
 	return source != nil && *source == PublicIPSourceService
 }
 
-// GetPublicIPSourceService returns the set PublicIPSource or the default PublicIPSourcePod
-func (cluster *FoundationDBCluster) GetPublicIPSourceService() PublicIPSource {
+// GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
+func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
 	source := cluster.Spec.Services.PublicIPSource
 	if source == nil {
 		return PublicIPSourcePod

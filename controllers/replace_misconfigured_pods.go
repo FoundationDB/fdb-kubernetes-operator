@@ -154,7 +154,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 		return true, nil
 	}
 
-	if instance.GetPublicIPSource() != cluster.GetPublicIPSourceService() {
+	if instance.GetPublicIPSource() != cluster.GetPublicIPSource() {
 		return true, nil
 	}
 
