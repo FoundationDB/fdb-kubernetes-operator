@@ -57,9 +57,9 @@ var _ = Describe("restore_controller", func() {
 			Expect(err).NotTo((HaveOccurred()))
 			Expect(result.Requeue).To(BeFalse())
 
-			Eventually(func() (int64, error) {
-				return reloadCluster(cluster)
-			}).ShouldNot(Equal(int64(0)))
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).NotTo(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -70,21 +70,12 @@ var _ = Describe("restore_controller", func() {
 			Expect(err).NotTo((HaveOccurred()))
 			Expect(result.Requeue).To(BeFalse())
 
-			Eventually(func() (bool, error) {
-				err := reloadRestore(restore)
-				if err != nil {
-					return false, err
-				}
-				return restore.Status.Running, nil
-			}).Should(BeTrue())
+			err = reloadRestore(restore)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(restore.Status.Running).To(BeTrue())
 
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			cleanupCluster(cluster)
-			cleanupRestore(restore)
 		})
 
 		Context("when reconciling a new restore", func() {

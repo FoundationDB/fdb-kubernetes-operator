@@ -21,7 +21,6 @@
 package controllers
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -33,7 +32,6 @@ import (
 	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/mock-kubernetes-client/client"
 
 	"github.com/onsi/gomega/gexec"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,7 +48,6 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var k8sClient *mockclient.MockClient
-var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
 var clusterReconciler *FoundationDBClusterReconciler
 var backupReconciler *FoundationDBBackupReconciler
@@ -84,11 +81,6 @@ var _ = BeforeSuite(func(done Done) {
 
 	// +kubebuilder:scaffold:scheme
 
-	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-	Expect(err).ToNot(HaveOccurred())
-
 	k8sClient = &mockclient.MockClient{}
 
 	clusterReconciler = &FoundationDBClusterReconciler{
@@ -111,8 +103,6 @@ var _ = BeforeSuite(func(done Done) {
 		InSimulation:        true,
 		AdminClientProvider: NewMockAdminClient,
 	}
-	err = backupReconciler.SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
 
 	restoreReconciler = &FoundationDBRestoreReconciler{
 		Client:              k8sClient,
@@ -121,13 +111,6 @@ var _ = BeforeSuite(func(done Done) {
 		InSimulation:        true,
 		AdminClientProvider: NewMockAdminClient,
 	}
-	err = restoreReconciler.SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		Expect(err).ToNot(HaveOccurred())
-	}()
 
 	close(done)
 }, 60)
@@ -137,6 +120,10 @@ var _ = AfterSuite(func() {
 	gexec.KillAndWait(5 * time.Second)
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = AfterEach(func() {
+	k8sClient.Clear()
 })
 
 var Versions = struct {
@@ -226,57 +213,6 @@ func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Found
 		},
 		Status: fdbtypes.FoundationDBRestoreStatus{},
 	}
-}
-
-func cleanupCluster(cluster *fdbtypes.FoundationDBCluster) {
-	err := k8sClient.Delete(context.TODO(), cluster)
-	Expect(err).NotTo(HaveOccurred())
-
-	pods := &corev1.PodList{}
-	err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range pods.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	configMaps := &corev1.ConfigMapList{}
-	err = k8sClient.List(context.TODO(), configMaps, getListOptions(cluster)...)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range configMaps.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range pvcs.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-}
-
-func cleanupBackup(backup *fdbtypes.FoundationDBBackup) {
-	err := k8sClient.Delete(context.TODO(), backup)
-	Expect(err).NotTo(HaveOccurred())
-
-	deployments := &appsv1.DeploymentList{}
-	err = k8sClient.List(context.TODO(), deployments)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, item := range deployments.Items {
-		err = k8sClient.Delete(context.TODO(), &item)
-		Expect(err).NotTo(HaveOccurred())
-	}
-}
-
-func cleanupRestore(restore *fdbtypes.FoundationDBRestore) {
-	err := k8sClient.Delete(context.TODO(), restore)
-	Expect(err).NotTo(HaveOccurred())
 }
 
 func getEnvVars(container corev1.Container) map[string]*corev1.EnvVar {

@@ -45,9 +45,9 @@ import (
 // MockClient provides a mock Kubernetes client.
 type MockClient struct {
 	// data is the internal mock data.
-	// This maps a type, and then a namespace/name, to the JSON representation of an
-	// object.
-	data map[string]map[string][]byte
+	// This maps a type, and then a namespace/name, to the generic
+	// representation of an object.
+	data map[string]map[string]map[string]interface{}
 
 	// ipCounter provides monotonically incrementing IP addresses.
 	ipCounter int
@@ -55,7 +55,7 @@ type MockClient struct {
 
 // Clear erases any mock data.
 func (client *MockClient) Clear() {
-	client.data = make(map[string]map[string][]byte)
+	client.data = make(map[string]map[string]map[string]interface{})
 }
 
 // buildKindKey gets the key identifying an object's type.
@@ -105,10 +105,10 @@ func buildRuntimeObjectKey(object runtime.Object) (string, error) {
 // fillInMaps ensures that we have maps for a given object type.
 func (client *MockClient) fillInMaps(kind string) {
 	if client.data == nil {
-		client.data = make(map[string]map[string][]byte)
+		client.data = make(map[string]map[string]map[string]interface{})
 	}
 	if client.data[kind] == nil {
-		client.data[kind] = make(map[string][]byte)
+		client.data[kind] = make(map[string]map[string]interface{})
 	}
 }
 
@@ -326,11 +326,6 @@ func (client *MockClient) Create(context ctx.Context, object runtime.Object, opt
 		}
 	}
 
-	jsonData, err = json.Marshal(genericObject)
-	if err != nil {
-		return err
-	}
-
 	client.fillInMaps(kindKey)
 	if client.data[kindKey][objectKey] != nil {
 		return &k8serrors.StatusError{ErrStatus: metav1.Status{
@@ -340,8 +335,12 @@ func (client *MockClient) Create(context ctx.Context, object runtime.Object, opt
 			Reason:  metav1.StatusReasonAlreadyExists,
 		}}
 	}
-	client.data[kindKey][objectKey] = jsonData
+	client.data[kindKey][objectKey] = genericObject
 
+	jsonData, err = json.Marshal(genericObject)
+	if err != nil {
+		return err
+	}
 	err = json.Unmarshal(jsonData, object)
 	if err != nil {
 		return err
@@ -364,7 +363,12 @@ func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, obj
 		return err
 	}
 
-	err = json.Unmarshal(client.data[kindKey][objectKey], object)
+	jsonData, err := json.Marshal(client.data[kindKey][objectKey])
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(jsonData, object)
 
 	return err
 }
@@ -385,9 +389,7 @@ func (client *MockClient) List(context ctx.Context, list runtime.Object, options
 	}
 
 	client.fillInMaps(kindKey)
-	for _, objectJSON := range client.data[kindKey] {
-		object := make(map[string]interface{})
-		err = json.Unmarshal(objectJSON, &object)
+	for _, object := range client.data[kindKey] {
 		if err != nil {
 			return err
 		}
@@ -490,12 +492,7 @@ func (client *MockClient) Update(context ctx.Context, object runtime.Object, opt
 		return err
 	}
 
-	existingData := client.data[kindKey][objectKey]
-	existingObject := make(map[string]interface{})
-	err = json.Unmarshal(existingData, &existingObject)
-	if err != nil {
-		return err
-	}
+	existingObject := client.data[kindKey][objectKey]
 
 	newObject := make(map[string]interface{})
 	err = json.Unmarshal(jsonData, &newObject)
@@ -515,13 +512,12 @@ func (client *MockClient) Update(context ctx.Context, object runtime.Object, opt
 		}
 	}
 
+	client.data[kindKey][objectKey] = newObject
+
 	jsonData, err = json.Marshal(newObject)
 	if err != nil {
 		return err
 	}
-
-	client.data[kindKey][objectKey] = jsonData
-
 	err = json.Unmarshal(jsonData, object)
 	if err != nil {
 		return err
@@ -573,12 +569,7 @@ func (client MockStatusClient) Update(context ctx.Context, object runtime.Object
 		return err
 	}
 
-	existingData := client.rawClient.data[kindKey][objectKey]
-	existingObject := make(map[string]interface{})
-	err = json.Unmarshal(existingData, &existingObject)
-	if err != nil {
-		return err
-	}
+	existingObject := client.rawClient.data[kindKey][objectKey]
 
 	newObject := make(map[string]interface{})
 	err = json.Unmarshal(jsonData, &newObject)
@@ -587,12 +578,7 @@ func (client MockStatusClient) Update(context ctx.Context, object runtime.Object
 	}
 
 	existingObject["status"] = newObject["status"]
-	jsonData, err = json.Marshal(existingObject)
-	if err != nil {
-		return err
-	}
-
-	client.rawClient.data[kindKey][objectKey] = jsonData
+	client.rawClient.data[kindKey][objectKey] = existingObject
 
 	return nil
 }
