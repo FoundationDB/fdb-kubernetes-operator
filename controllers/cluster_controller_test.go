@@ -862,7 +862,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				sortPodsByID(pods)
 
-				log.Info("JPB checking pod names")
 				Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
 				Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
 				Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))

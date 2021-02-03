@@ -33,27 +33,7 @@ type ReplaceFailedPods struct{}
 
 // Reconcile runs the reconciler's work.
 func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	hasNewRemovals := false
-
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.Remove && !processGroupStatus.Excluded {
-			// If we already have a removal in-flight, we should not try
-			// replacing more failed pods.
-			return true, nil
-		}
-	}
-
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		missingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
-		needsReplacement := missingTime != nil && *missingTime < time.Now().Add(-1*time.Duration(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)*time.Second).Unix() && !processGroupStatus.Remove
-		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
-			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", *missingTime)
-			processGroupStatus.Remove = true
-			hasNewRemovals = true
-		}
-	}
-
-	if hasNewRemovals {
+	if chooseNewRemovals(cluster) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return false, err
@@ -63,6 +43,31 @@ func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context c
 	}
 
 	return true, nil
+}
+
+// chooseNewRemovals flags failed processes for removal and returns an indicator
+// of whether any processes were thus flagged.
+func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
+	for _, processGroupStatus := range cluster.Status.ProcessGroups {
+		if processGroupStatus.Remove && !processGroupStatus.Excluded {
+			// If we already have a removal in-flight, we should not try
+			// replacing more failed pods.
+			return false
+		}
+	}
+
+	for _, processGroupStatus := range cluster.Status.ProcessGroups {
+		missingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
+		failureWindowStart := time.Now().Add(-1 * time.Duration(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds) * time.Second).Unix()
+		needsReplacement := missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.Remove
+		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
+			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", *missingTime)
+			processGroupStatus.Remove = true
+			return true
+		}
+	}
+
+	return false
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

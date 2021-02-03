@@ -386,15 +386,20 @@ func NewProcessGroupStatus(processGroupID string, processClass string, addresses
 	}
 }
 
-// ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
-func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
+// FindProcessGroupByID finds a process group status for a given processGroupID.
+func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID string) *ProcessGroupStatus {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID == processGroupID {
-			return true
+			return processGroup
 		}
 	}
 
-	return false
+	return nil
+}
+
+// ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
+func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
+	return FindProcessGroupByID(processGroups, processGroupID) != nil
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
