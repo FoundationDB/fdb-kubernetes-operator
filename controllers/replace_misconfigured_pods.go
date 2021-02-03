@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -64,7 +66,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
 		processGroupStatus := processGroups[instanceID]
 		if processGroupStatus == nil {
-			return false, fmt.Errorf("Unknown PVC %s in replace_misconfigured_pods", instanceID)
+			return false, fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)
 		}
 		if processGroupStatus.Remove {
 			continue
@@ -103,51 +105,10 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, instance := range instances {
-		if instance.Pod == nil {
-			continue
-		}
-
-		instanceID := instance.GetInstanceID()
-
-		processGroupStatus := processGroups[instanceID]
-		if processGroupStatus == nil {
-			return false, fmt.Errorf("Unknown instance %s in replace_misconfigured_pods", instanceID)
-		}
-		if processGroupStatus.Remove {
-			continue
-		}
-
-		_, idNum, err := ParseInstanceID(instanceID)
+		processGroupStatus := processGroups[instance.GetInstanceID()]
+		needsRemoval, err := instanceNeedsRemoval(cluster, instance, processGroupStatus)
 		if err != nil {
 			return false, err
-		}
-
-		needsRemoval := false
-
-		_, desiredInstanceID := getInstanceID(cluster, instance.GetProcessClass(), idNum)
-
-		needsRemoval = needsRemoval || instanceID != desiredInstanceID
-		needsRemoval = needsRemoval || instance.GetPublicIPSource() != *cluster.Spec.Services.PublicIPSource
-
-		if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
-			// Replace the instance if the storage servers differ
-			storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-			if err != nil {
-				return false, err
-			}
-
-			if storageServersPerPod != cluster.GetStorageServersPerPod() {
-				needsRemoval = true
-			}
-		}
-
-		if cluster.Spec.UpdatePodsByReplacement {
-			specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
-			if err != nil {
-				return false, err
-			}
-
-			needsRemoval = needsRemoval || instance.Metadata.Annotations[LastSpecKey] != specHash
 		}
 
 		if needsRemoval {
@@ -166,6 +127,64 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	return true, nil
+}
+
+func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+	if instance.Pod == nil {
+		return false, nil
+	}
+
+	instanceID := instance.GetInstanceID()
+
+	if processGroupStatus == nil {
+		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", instanceID)
+	}
+
+	if processGroupStatus.Remove {
+		return false, nil
+	}
+
+	_, idNum, err := ParseInstanceID(instanceID)
+	if err != nil {
+		return false, err
+	}
+
+	_, desiredInstanceID := getInstanceID(cluster, instance.GetProcessClass(), idNum)
+	if instanceID != desiredInstanceID {
+		return true, nil
+	}
+
+	if instance.GetPublicIPSource() != cluster.GetPublicIPSource() {
+		return true, nil
+	}
+
+	if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
+		// Replace the instance if the storage servers differ
+		storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+		if err != nil {
+			return false, err
+		}
+
+		if storageServersPerPod != cluster.GetStorageServersPerPod() {
+			return true, nil
+		}
+	}
+
+	expectedNodeSelector := cluster.GetProcessSettings(instance.GetProcessClass()).PodTemplate.Spec.NodeSelector
+	if !equality.Semantic.DeepEqual(instance.Pod.Spec.NodeSelector, expectedNodeSelector) {
+		return true, nil
+	}
+
+	if cluster.Spec.UpdatePodsByReplacement {
+		specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		if err != nil {
+			return false, err
+		}
+
+		return instance.Metadata.Annotations[LastSpecKey] != specHash, nil
+	}
+
+	return false, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
