@@ -134,7 +134,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		UpdatePods{},
 		RemoveServices{},
 		RemovePods{},
-		IncludeInstances{},
 		UpdateStatus{},
 	}
 

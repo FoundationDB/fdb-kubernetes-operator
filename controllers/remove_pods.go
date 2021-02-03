@@ -52,19 +52,30 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	}
 
 	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
+	allRemoved := true
 	for _, id := range processGroupsToRemove {
+
 		err := removePod(r, context, cluster, id)
 		if err != nil {
 			return false, err
 		}
 
 		removed, err := confirmPodRemoval(r, context, cluster, id)
+		if err != nil {
+			return false, err
+		}
 		if !removed {
-			return removed, err
+			allRemoved = false
+			continue
+		}
+
+		err = includeInstance(r, context, cluster, id)
+		if err != nil {
+			return false, err
 		}
 	}
 
-	return true, nil
+	return allRemoved, nil
 }
 
 func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
@@ -166,6 +177,55 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 	}
 
 	return true, nil
+}
+
+func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
+	adminClient, err := r.AdminClientProvider(cluster, r)
+	if err != nil {
+		return err
+	}
+	defer adminClient.Close()
+
+	addresses := make([]string, 0)
+
+	hasStatusUpdate := false
+
+	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			addresses = append(addresses, processGroup.Addresses...)
+			hasStatusUpdate = true
+		} else {
+			processGroups = append(processGroups, processGroup)
+		}
+	}
+
+	if len(addresses) > 0 {
+		r.Recorder.Event(cluster, "Normal", "IncludingInstances", fmt.Sprintf("Including removed processes: %v", addresses))
+	}
+
+	err = adminClient.IncludeInstances(addresses)
+	if err != nil {
+		return err
+	}
+
+	needsSpecUpdate := cluster.Spec.PendingRemovals != nil
+	if needsSpecUpdate {
+		err := r.clearPendingRemovalsFromSpec(context, cluster)
+		if err != nil {
+			return err
+		}
+	}
+
+	if hasStatusUpdate {
+		cluster.Status.ProcessGroups = processGroups
+		err := r.Status().Update(context, cluster)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
