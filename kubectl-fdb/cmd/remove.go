@@ -87,9 +87,7 @@ func newRemoveCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *
 				return err
 			}
 
-			removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force)
-
-			return nil
+			return removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force)
 		},
 		Example: `
 # Remove instances for a cluster in the current namespace
@@ -120,9 +118,9 @@ kubectl fdb -n default remove -c cluster -i instance-1 -i instance-2
 }
 
 // removeInstances adds instances to the instancesToRemove field
-func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) {
+func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) error {
 	if len(instances) == 0 {
-		return
+		return nil
 	}
 
 	shrinkMap := make(map[string]int)
@@ -136,7 +134,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 			}))
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		for _, pod := range pods.Items {
@@ -152,7 +150,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 	}, &cluster)
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for class, amount := range shrinkMap {
@@ -163,7 +161,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", instances, namespace, clusterName, withExclusion, withShrink))
 		if !confirmed {
 			print("Abort")
-			return
+			return nil
 		}
 	}
 
@@ -173,8 +171,5 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
 	}
 
-	err = kubeClient.Update(ctx.TODO(), &cluster)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return kubeClient.Update(ctx.TODO(), &cluster)
 }

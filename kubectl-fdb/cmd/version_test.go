@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"reflect"
 	"testing"
 
@@ -9,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestVersion(t *testing.T) {
@@ -99,9 +102,12 @@ func TestVersion(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			client := fake.NewSimpleClientset(tc.deployment)
+			scheme := runtime.NewScheme()
+			_ = clientgoscheme.AddToScheme(scheme)
+			_ = fdbtypes.AddToScheme(scheme)
+			kubeClient := fake.NewFakeClientWithScheme(scheme, tc.deployment)
 
-			operatorVersion, err := version(client, operatorName, "default", "manager")
+			operatorVersion, err := version(kubeClient, operatorName, "default", "manager")
 
 			if !reflect.DeepEqual(err, tc.expectedError) {
 				t.Errorf("Expected: %s, got: %s", tc.expectedError, err)

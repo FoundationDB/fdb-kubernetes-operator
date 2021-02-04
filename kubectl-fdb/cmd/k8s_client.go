@@ -21,10 +21,11 @@
 package cmd
 
 import (
-	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	ctx "context"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func getNamespace(namespace string) (string, error) {
@@ -37,15 +38,33 @@ func getNamespace(namespace string) (string, error) {
 		return "", err
 	}
 
-	if ctx, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
-		if ctx.Namespace != "" {
-			return ctx.Namespace, nil
+	if context, ok := clientCfg.Contexts[clientCfg.CurrentContext]; ok {
+		if context.Namespace != "" {
+			return context.Namespace, nil
 		}
 	}
 
 	return "default", nil
 }
 
-func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) (*v1.Deployment, error) {
-	return k8sClient.AppsV1().Deployments(namespace).Get(operatorName, metav1.GetOptions{})
+func getOperator(kubeClient client.Client, operatorName string, namespace string) (*appsv1.Deployment, error) {
+	operator := &appsv1.Deployment{}
+	err := kubeClient.Get(ctx.Background(), client.ObjectKey{Namespace: namespace, Name: operatorName}, operator)
+	return operator, err
+}
+
+func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]string, error) {
+	var nodes []string
+
+	var nodesList corev1.NodeList
+	err := kubeClient.List(ctx.Background(), &nodesList, client.MatchingLabels(nodeSelector))
+	if err != nil {
+		return nodes, err
+	}
+
+	for _, node := range nodesList.Items {
+		nodes = append(nodes, node.Name)
+	}
+
+	return nodes, nil
 }

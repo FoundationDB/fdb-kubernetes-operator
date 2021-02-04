@@ -22,12 +22,15 @@ package cmd
 
 import (
 	"fmt"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
 )
 
 var pluginVersion = "latest"
@@ -58,7 +61,11 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 				return err
 			}
 
-			client, err := kubernetes.NewForConfig(config)
+			scheme := runtime.NewScheme()
+			_ = clientgoscheme.AddToScheme(scheme)
+			_ = fdbtypes.AddToScheme(scheme)
+
+			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
 			if err != nil {
 				return err
 			}
@@ -69,7 +76,7 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 			}
 
 			if !clientOnly {
-				operatorVersion, err := version(client, operatorName, namespace, containerName)
+				operatorVersion, err := version(kubeClient, operatorName, namespace, containerName)
 				if err != nil {
 					return err
 				}
@@ -94,8 +101,8 @@ kubectl fdb -n default version
 	return cmd
 }
 
-func version(client kubernetes.Interface, operatorName string, namespace string, containerName string) (string, error) {
-	operatorDeployment, err := getOperator(client, operatorName, namespace)
+func version(kubeClient client.Client, operatorName string, namespace string, containerName string) (string, error) {
+	operatorDeployment, err := getOperator(kubeClient, operatorName, namespace)
 	if err != nil {
 		return "", err
 	}
