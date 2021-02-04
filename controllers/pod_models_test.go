@@ -2771,6 +2771,13 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
 					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
 				})
+
+				It("should have automatic replacements disabled", func() {
+					Expect(spec.AutomationOptions.Replacements.Enabled).NotTo(BeNil())
+					Expect(*spec.AutomationOptions.Replacements.Enabled).To(BeFalse())
+					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
+					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -2802,6 +2809,11 @@ var _ = Describe("pod_models", func() {
 
 				It("should have no public IP source", func() {
 					Expect(spec.Services.PublicIPSource).To(BeNil())
+				})
+
+				It("should have no configuration for automatic replacements", func() {
+					Expect(spec.AutomationOptions.Replacements.Enabled).To(BeNil())
+					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
 				})
 			})
 
@@ -2933,6 +2945,13 @@ var _ = Describe("pod_models", func() {
 				It("should have the public IP source set to pod", func() {
 					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
 					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+				})
+
+				It("should have automatic replacements disabled", func() {
+					Expect(spec.AutomationOptions.Replacements.Enabled).NotTo(BeNil())
+					Expect(*spec.AutomationOptions.Replacements.Enabled).To(BeFalse())
+					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
+					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
 				})
 			})
 

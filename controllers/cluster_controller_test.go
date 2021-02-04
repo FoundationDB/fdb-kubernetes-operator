@@ -221,7 +221,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cluster.Status.ProcessCounts).To(Equal(desiredCounts))
 				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
-				Expect(cluster.Status.MissingProcesses).To(BeNil())
 				Expect(*fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)).To(Equal(desiredCounts))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine))).To(Equal(0))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses))).To(Equal(0))
@@ -717,6 +716,38 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel],
 					}))
 				})
+			})
+		})
+
+		Context("with a missing process", func() {
+			var adminClient *MockAdminClient
+
+			BeforeEach(func() {
+				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				adminClient.MockMissingProcessGroup("storage-1", true)
+				generationGap = 0
+			})
+
+			It("should replace the pod", func() {
+				pods := &corev1.PodList{}
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-1")...)
+					return len(pods.Items), err
+				}).Should(Equal(0))
+
+				Eventually(func() (int, error) {
+					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					return len(pods.Items), err
+				}).Should(Equal(17))
+
+				sortPodsByID(pods)
+
+				Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
+				Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
+				Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
+				Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
 			})
 		})
 
@@ -1417,8 +1448,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }).Should(Equal(fdbtypes.ClusterGenerationStatus{
-						Reconciled:       originalVersion,
-						NeedsPodDeletion: originalVersion + 1,
+						Reconciled:          originalVersion,
+						NeedsPodDeletion:    originalVersion + 1,
+						HasUnhealthyProcess: originalVersion + 1,
 					}))
 				})
 
@@ -1475,8 +1507,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				JustBeforeEach(func() {
 					Eventually(func() (fdbtypes.ClusterGenerationStatus, error) { return reloadClusterGenerations(cluster) }, 60).Should(Equal(fdbtypes.ClusterGenerationStatus{
-						Reconciled:       originalVersion,
-						NeedsPodDeletion: originalVersion + 1,
+						Reconciled:          originalVersion,
+						NeedsPodDeletion:    originalVersion + 1,
+						HasUnhealthyProcess: originalVersion + 1,
 					}))
 				})
 

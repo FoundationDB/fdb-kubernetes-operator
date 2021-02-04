@@ -3033,6 +3033,16 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 		Reconciled:     1,
 		HasFailingPods: 2,
 	}))
+
+	cluster = createCluster()
+	cluster.Status.ProcessGroups[0].UpdateCondition(MissingProcesses, true, nil, "storage-1")
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:          1,
+		HasUnhealthyProcess: 2,
+	}))
 }
 
 func TestGettingProcessSettings(t *testing.T) {
@@ -3207,4 +3217,18 @@ func TestAddStorageServerPerDisk(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGettingConditionTimestamp(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	status := &ProcessGroupStatus{}
+
+	timestamp := time.Now().Unix()
+	status.ProcessGroupConditions = append(status.ProcessGroupConditions, &ProcessGroupCondition{ProcessGroupConditionType: MissingProcesses, Timestamp: timestamp})
+
+	result := status.GetConditionTime(MissingProcesses)
+	g.Expect(result).NotTo(gomega.BeNil())
+	g.Expect(*result).To(gomega.Equal(timestamp))
+	g.Expect(status.GetConditionTime(IncorrectConfigMap)).To(gomega.BeNil())
 }

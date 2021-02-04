@@ -386,15 +386,20 @@ func NewProcessGroupStatus(processGroupID string, processClass string, addresses
 	}
 }
 
-// ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
-func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
+// FindProcessGroupByID finds a process group status for a given processGroupID.
+func FindProcessGroupByID(processGroups []*ProcessGroupStatus, processGroupID string) *ProcessGroupStatus {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID == processGroupID {
-			return true
+			return processGroup
 		}
 	}
 
-	return false
+	return nil
+}
+
+// ContainsProcessGroupID evaluates if the ProcessGroupStatus contains a given processGroupID.
+func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID string) bool {
+	return FindProcessGroupByID(processGroups, processGroupID) != nil
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
@@ -435,9 +440,20 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 	return false, processGroup
 }
 
-// AddCondition will add the condition to the ProcessGroupStatus.
+// UpdateCondition will add or remove a condition in the ProcessGroupStatus.
+// If the old ProcessGroupStatus already contains the condition, and the condition is being set,
+// the condition is reused to contain the same timestamp.
+func (processGroupStatus *ProcessGroupStatus) UpdateCondition(conditionType ProcessGroupConditionType, set bool, oldProcessGroups []*ProcessGroupStatus, processGroupID string) {
+	if set {
+		processGroupStatus.addCondition(oldProcessGroups, processGroupID, conditionType)
+	} else {
+		processGroupStatus.removeCondition(conditionType)
+	}
+}
+
+// addCondition will add the condition to the ProcessGroupStatus.
 // If the old ProcessGroupStatus already contains the condition the condition is reused to contain the same timestamp.
-func (processGroupStatus *ProcessGroupStatus) AddCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID string, conditionType ProcessGroupConditionType) {
+func (processGroupStatus *ProcessGroupStatus) addCondition(oldProcessGroups []*ProcessGroupStatus, processGroupID string, conditionType ProcessGroupConditionType) {
 	var oldProcessGroupStatus *ProcessGroupStatus
 
 	// Check if we got a ProcessGroupStatus for the processGroupID
@@ -453,13 +469,11 @@ func (processGroupStatus *ProcessGroupStatus) AddCondition(oldProcessGroups []*P
 	// Check if we got a condition for the condition type for the ProcessGroupStatus
 	if oldProcessGroupStatus != nil {
 		for _, condition := range oldProcessGroupStatus.ProcessGroupConditions {
-			if condition.ProcessGroupConditionType != conditionType {
-				continue
+			if condition.ProcessGroupConditionType == conditionType {
+				// We found a condition with the above condition type
+				processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, condition)
+				return
 			}
-
-			// We found a condition with the above condition type
-			processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, condition)
-			return
 		}
 	}
 
@@ -472,6 +486,18 @@ func (processGroupStatus *ProcessGroupStatus) AddCondition(oldProcessGroups []*P
 
 	// We didn't find any condition so we create a new one
 	processGroupStatus.ProcessGroupConditions = append(processGroupStatus.ProcessGroupConditions, NewProcessGroupCondition(conditionType))
+}
+
+// removeCondition will remove a condition from the ProcessGroupStatus, if it is
+// present.
+func (processGroupStatus *ProcessGroupStatus) removeCondition(conditionType ProcessGroupConditionType) {
+	conditions := make([]*ProcessGroupCondition, 0, len(processGroupStatus.ProcessGroupConditions))
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType != conditionType {
+			conditions = append(conditions, condition)
+		}
+	}
+	processGroupStatus.ProcessGroupConditions = conditions
 }
 
 // CreateProcessCountsFromProcessGroupStatus creates a ProcessCounts struct from the current ProcessGroupStatus.
@@ -501,6 +527,19 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 	}
 
 	return result
+}
+
+// GetConditionTime returns the timestamp when we detected a condition on a
+// process group.
+// If there is no matching condition this will return nil.
+func (processGroupStatus *ProcessGroupStatus) GetConditionTime(conditionType ProcessGroupConditionType) *int64 {
+	for _, condition := range processGroupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return &condition.Timestamp
+		}
+	}
+
+	return nil
 }
 
 // NewProcessGroupCondition creates a new ProcessGroupCondition of the given time with the current timestamp.
@@ -607,6 +646,10 @@ type ClusterGenerationStatus struct {
 	// HasFailingPods provides the last generation that has pods that are
 	// failing to start.
 	HasFailingPods int64 `json:"hasFailingPods,omitempty"`
+
+	// HasUnhealthyProcess provides the last generation that has at least one
+	// process group with a negative condition.
+	HasUnhealthyProcess int64 `json:"hasUnhealthyProcess,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -808,6 +851,23 @@ type FoundationDBClusterAutomationOptions struct {
 	// DeletePods defines whether the operator is allowed to delete pods in
 	// order to recreate them.
 	DeletePods *bool `json:"deletePods,omitempty"`
+
+	// Replacements contains options for automatically replacing failed
+	// processes.
+	Replacements AutomaticReplacementOptions `json:"replacements,omitempty"`
+}
+
+// AutomaticReplacementOptions controls options for automatically replacing
+// failed processes.
+type AutomaticReplacementOptions struct {
+	// Enabled controls whether automatic replacements are enabled.
+	// The default is false.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// FailureDetectionTimeSeconds controls how long a process must be
+	// failed or missing before it is automatically replaced.
+	// The default is 1800 seconds, or 30 minutes.
+	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.
@@ -1105,6 +1165,13 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		}
 	}
 
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if len(processGroup.ProcessGroupConditions) > 0 {
+			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
+			reconciled = false
+		}
+	}
+
 	if len(cluster.Status.IncorrectProcesses) > 0 {
 		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
@@ -1160,6 +1227,8 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	if reconciled {
 		cluster.Status.Generations.Reconciled = cluster.ObjectMeta.Generation
+	} else if cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation {
+		cluster.Status.Generations.Reconciled = 0
 	}
 	return reconciled, nil
 }
