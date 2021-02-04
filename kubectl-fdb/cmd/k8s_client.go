@@ -22,6 +22,7 @@ package cmd
 
 import (
 	ctx "context"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -54,13 +55,13 @@ func getOperator(kubeClient client.Client, operatorName string, namespace string
 }
 
 func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]string, error) {
-	var nodes []string
-
 	var nodesList corev1.NodeList
 	err := kubeClient.List(ctx.Background(), &nodesList, client.MatchingLabels(nodeSelector))
 	if err != nil {
-		return nodes, err
+		return []string{}, err
 	}
+
+	nodes := make([]string, len(nodesList.Items))
 
 	for _, node := range nodesList.Items {
 		nodes = append(nodes, node.Name)

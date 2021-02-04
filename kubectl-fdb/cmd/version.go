@@ -22,11 +22,12 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 

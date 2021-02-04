@@ -22,8 +22,9 @@ package cmd
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/fields"
 	"log"
+
+	"k8s.io/apimachinery/pkg/fields"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
@@ -84,7 +85,7 @@ func newEvacuateCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command)
 				return err
 			}
 
-			if len(nodeSelector) != 0 && len(args) !=0 {
+			if len(nodeSelector) != 0 && len(args) != 0 {
 				return fmt.Errorf("it's not allowed to use the node-selector and pass nodes")
 			}
 
@@ -112,7 +113,7 @@ kubectl fdb evacuate -c cluster --node-selector machine=a,disk=fast
 	}
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate instance(s) from the provided cluster.")
-	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil,"node-selector got all nodes that should be evacuated.")
+	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector got all nodes that should be evacuated.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be removed with exclusion.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {

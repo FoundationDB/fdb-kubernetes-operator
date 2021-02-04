@@ -22,8 +22,9 @@ package cmd
 
 import (
 	ctx "context"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 
