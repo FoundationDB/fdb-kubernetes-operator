@@ -73,6 +73,11 @@ func (client *RealLockClient) TakeLock() (bool, error) {
 	hasLock, err := client.database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 		return client.takeLockInTransaction(transaction)
 	})
+
+	if hasLock == nil {
+		return false, err
+	}
+
 	return hasLock.(bool), err
 }
 
@@ -129,6 +134,7 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		client.updateLock(transaction, startTime)
 		return true, nil
 	}
+
 	log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 	return false, nil
 }
