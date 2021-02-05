@@ -868,6 +868,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 						NeedsBounce:            originalVersion + 1,
 						NeedsMonitorConfUpdate: originalVersion + 1,
 						NeedsPodDeletion:       originalVersion + 1,
+						HasUnhealthyProcess:    originalVersion + 1,
 					}))
 				})
 
