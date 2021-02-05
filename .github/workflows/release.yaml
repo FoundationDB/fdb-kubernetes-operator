@@ -9,7 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      tag: ${{ steps.get_tag.outputs.TAG  }}
     steps:
+      - uses: actions/checkout@v2
+      - name: Get the tag without ref
+        id: get_tag
+        run: echo ::set-output name=TAG::${GITHUB_REF/refs\/tags\//}
+      - name: Ensure changelog file exists
+        run: touch ./docs/changelog/${{ steps.get_tag.outputs.TAG }}.md
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -17,10 +24,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          # Should use body_path + auto generate release info
-          body: |
-            Changes in this Release
-            - More awesomeness !
+          body_path: ./docs/changelog/${{ steps.get_tag.outputs.TAG }}.md
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
@@ -35,6 +39,9 @@ jobs:
     needs: create-release
     steps:
       - uses: actions/checkout@v2
+      - name: Set package name
+        id: set_package_name
+        run: echo ::set-output name=package_name::kubectl-fdb-${{ needs.create-release.outputs.tag }}-$(echo ${RUNNER_OS} | tr [:upper:] [:lower:]).tar.gz
       - name: Set up Go 1.15
         uses: actions/setup-go@v1
         with:
@@ -60,14 +67,24 @@ jobs:
       #     msiexec /i "fdb.msi"
       #     go get -v -t -d ./...
       - name: Build
-        run: make plugin
-      - name: Upload Release Asset
-        id: upload-release-asset
+        run: make plugin package
+      - name: Upload Release Asse
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./bin/kubectl-fdb
-          asset_name: kubectl-fdb-${{ matrix.os }}-amd64
-          asset_content_type: application/octet-stream
+          asset_path: ./bin/kubectl-fdb.tar.gz
+          asset_name: ${{ steps.set_package_name.outputs.package_name }}
+          asset_content_type: application/gzip
+      - name: Create sha256 for assert
+        run: echo "${{ hashFiles('./bin/kubectl-fdb.tar.gz') }}" > ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
+      - name: Upload sha256 for asssert
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
+          asset_name: ${{ steps.set_package_name.outputs.package_name }}.sha256
+          asset_content_type: text/plain
