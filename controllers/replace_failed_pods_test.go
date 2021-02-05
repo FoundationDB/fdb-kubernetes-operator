@@ -38,11 +38,13 @@ var _ = Describe("replace_failed_pods", func() {
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() (int64, error) { return reloadCluster(cluster) }).Should(Equal(int64(1)))
-	})
+		result, err := reconcileCluster(cluster)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Requeue).To(BeFalse())
 
-	AfterEach(func() {
-		cleanupCluster(cluster)
+		generation, err := reloadCluster(cluster)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(generation).To(Equal(int64(1)))
 	})
 
 	Describe("chooseNewRemovals", func() {

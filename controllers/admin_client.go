@@ -31,6 +31,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -674,6 +675,7 @@ type MockAdminClient struct {
 
 // adminClientCache provides a cache of mock admin clients.
 var adminClientCache = make(map[string]*MockAdminClient)
+var adminClientMutex sync.Mutex
 
 // NewMockAdminClient creates an admin client for a cluster.
 func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (AdminClient, error) {
@@ -684,10 +686,14 @@ func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client
 // nolint:unparam
 // is required because we always return a nil error
 func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*MockAdminClient, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	client := adminClientCache[cluster.Name]
+
 	if client == nil {
 		client = &MockAdminClient{
-			Cluster:              cluster,
+			Cluster:              cluster.DeepCopy(),
 			KubeClient:           kubeClient,
 			ReincludedAddresses:  make(map[string]bool),
 			missingProcessGroups: make(map[string]bool),
@@ -695,7 +701,7 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 		adminClientCache[cluster.Name] = client
 		client.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
 	} else {
-		client.Cluster = cluster
+		client.Cluster = cluster.DeepCopy()
 	}
 	return client, nil
 }
@@ -707,6 +713,9 @@ func ClearMockAdminClients() {
 
 // GetStatus gets the database's status
 func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	if client.frozenStatus != nil {
 		return client.frozenStatus, nil
 	}
@@ -859,6 +868,9 @@ func (client *MockAdminClient) GetMinimalStatus() (string, error) {
 
 // ConfigureDatabase changes the database configuration
 func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	client.DatabaseConfiguration = configuration.DeepCopy()
 	return nil
 }
@@ -866,6 +878,9 @@ func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.Database
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
 func (client *MockAdminClient) ExcludeInstances(addresses []string) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	count := len(addresses) + len(client.ExcludedAddresses)
 	exclusionMap := make(map[string]bool, count)
 	newExclusions := make([]string, 0, count)
@@ -899,6 +914,9 @@ func isValidAddress(address string) bool {
 // IncludeInstances removes instances from the exclusion list and allows
 // them to take on roles again.
 func (client *MockAdminClient) IncludeInstances(addresses []string) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	newExclusions := make([]string, 0, len(client.ExcludedAddresses))
 	for _, address := range addresses {
 		if !isValidAddress(address) {
@@ -937,18 +955,27 @@ func (client *MockAdminClient) CanSafelyRemove(addresses []string) ([]string, er
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
 func (client *MockAdminClient) GetExclusions() ([]string, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	return client.ExcludedAddresses, nil
 }
 
 // KillInstances restarts processes
 func (client *MockAdminClient) KillInstances(addresses []string) error {
+	adminClientMutex.Lock()
 	client.KilledAddresses = append(client.KilledAddresses, addresses...)
+	adminClientMutex.Unlock()
+
 	client.UnfreezeStatus()
 	return nil
 }
 
 // ChangeCoordinators changes the coordinator set
 func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	connectionString, err := fdbtypes.ParseConnectionString(client.Cluster.Status.ConnectionString)
 	if err != nil {
 		return "", err
@@ -963,6 +990,9 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []string) (string, e
 
 // GetConnectionString fetches the latest connection string.
 func (client *MockAdminClient) GetConnectionString() (string, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	return client.Cluster.Status.ConnectionString, nil
 }
 
@@ -989,6 +1019,9 @@ func (client *MockAdminClient) GetProtocolVersion(version string) (string, error
 
 // StartBackup starts a new backup.
 func (client *MockAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	client.Backups["default"] = fdbtypes.FoundationDBBackupStatusBackupDetails{
 		URL:                   url,
 		Running:               true,
@@ -999,6 +1032,9 @@ func (client *MockAdminClient) StartBackup(url string, snapshotPeriodSeconds int
 
 // PauseBackups pauses backups.
 func (client *MockAdminClient) PauseBackups() error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	for tag, backup := range client.Backups {
 		backup.Paused = true
 		client.Backups[tag] = backup
@@ -1008,6 +1044,9 @@ func (client *MockAdminClient) PauseBackups() error {
 
 // ResumeBackups resumes backups.
 func (client *MockAdminClient) ResumeBackups() error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	for tag, backup := range client.Backups {
 		backup.Paused = false
 		client.Backups[tag] = backup
@@ -1017,6 +1056,9 @@ func (client *MockAdminClient) ResumeBackups() error {
 
 // ModifyBackup reconfigures the backup.
 func (client *MockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	backup := client.Backups["default"]
 	backup.SnapshotPeriodSeconds = snapshotPeriodSeconds
 	client.Backups["default"] = backup
@@ -1025,6 +1067,9 @@ func (client *MockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 
 // StopBackup stops a backup.
 func (client *MockAdminClient) StopBackup(url string) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	for tag, backup := range client.Backups {
 		if backup.URL == url {
 			backup.Running = false
@@ -1037,6 +1082,9 @@ func (client *MockAdminClient) StopBackup(url string) error {
 
 // GetBackupStatus gets the status of the current backup.
 func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	status := &fdbtypes.FoundationDBLiveBackupStatus{}
 
 	tag := "default"
@@ -1053,17 +1101,26 @@ func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBack
 
 // StartRestore starts a new restore.
 func (client *MockAdminClient) StartRestore(url string) error {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	client.restoreURL = url
 	return nil
 }
 
 // GetRestoreStatus gets the status of the current restore.
 func (client *MockAdminClient) GetRestoreStatus() (string, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	return fmt.Sprintf("%s\n", client.restoreURL), nil
 }
 
 // MockClientVersion returns a mocked client version
 func (client *MockAdminClient) MockClientVersion(version string, clients []string) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	if client.clientVersions == nil {
 		client.clientVersions = make(map[string][]string)
 	}
@@ -1090,6 +1147,10 @@ func (client *MockAdminClient) FreezeStatus() error {
 	if err != nil {
 		return err
 	}
+
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	client.frozenStatus = status
 	return nil
 }
@@ -1097,5 +1158,8 @@ func (client *MockAdminClient) FreezeStatus() error {
 // UnfreezeStatus causes the admin client to start recalculating the status
 // on every call to GetStatus
 func (client *MockAdminClient) UnfreezeStatus() {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
 	client.frozenStatus = nil
 }

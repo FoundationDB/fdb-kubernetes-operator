@@ -24,6 +24,10 @@ GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 
+ifeq "$(TEST_RACE_CONDITIONS)" "1"
+	go_test_flags := $(go_test_flags) -race
+endif
+
 all: generate fmt vet manager plugin manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-operator bounce lint
@@ -39,14 +43,14 @@ clean:
 # Run tests
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ./... -coverprofile cover.out
+	go test ${go_test_flags} ./... -coverprofile cover.out
 endif
 
 test_if_changed: cover.out
 
 cover.out: ${GO_ALL} ${MANIFESTS}
 ifneq "$(SKIP_TEST)" "1"
-	go test ./... -coverprofile cover.out -tags test
+	go test ${go_test_flags} ./... -coverprofile cover.out -tags test
 endif
 
 # Build manager binary

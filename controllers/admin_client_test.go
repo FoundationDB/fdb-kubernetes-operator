@@ -41,16 +41,16 @@ var _ = Describe("admin_client_test", func() {
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() (int64, error) {
-			return reloadCluster(cluster)
-		}).ShouldNot(Equal(int64(0)))
+		result, err := reconcileCluster(cluster)
+		Expect(err).NotTo((HaveOccurred()))
+		Expect(result.Requeue).To(BeFalse())
+
+		generation, err := reloadCluster(cluster)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(generation).NotTo(Equal(int64(0)))
 
 		client, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		cleanupCluster(cluster)
 	})
 
 	Describe("JSON status", func() {

@@ -67,6 +67,7 @@ type FoundationDBClusterReconciler struct {
 	UseFutureDefaults   bool
 	Namespace           string
 	DeprecationOptions  DeprecationOptions
+	RequeueOnNotFound   bool
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -75,8 +76,6 @@ type FoundationDBClusterReconciler struct {
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
-	// your logic here
-
 	cluster := &fdbtypes.FoundationDBCluster{}
 	context := ctx.Background()
 
@@ -88,7 +87,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 		if k8serrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
+
+			if r.RequeueOnNotFound {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			return ctrl.Result{}, nil
+
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err

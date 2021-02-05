@@ -71,17 +71,27 @@ var _ = Describe("backup_controller", func() {
 			err = k8sClient.Create(context.TODO(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() (int64, error) {
-				return reloadCluster(cluster)
-			}).ShouldNot(Equal(int64(0)))
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).NotTo(Equal(int64(0)))
+
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Create(context.TODO(), backup)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(func() (int64, error) {
-				return reloadBackup(backup)
-			}).ShouldNot(Equal(int64(0)))
+
+			result, err = reconcileBackup(backup)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err = reloadBackup(backup)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).NotTo(Equal(int64(0)))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -91,14 +101,15 @@ var _ = Describe("backup_controller", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func() (int64, error) { return reloadBackup(backup) }).Should(Equal(originalVersion + generationGap))
+			result, err := reconcileBackup(backup)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadBackup(backup)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).To(Equal(originalVersion + generationGap))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			cleanupCluster(cluster)
-			cleanupBackup(backup)
 		})
 
 		Context("when reconciling a new backup", func() {
@@ -149,10 +160,9 @@ var _ = Describe("backup_controller", func() {
 
 			It("should set the default replica count", func() {
 				deployments := &appsv1.DeploymentList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), deployments)
-					return len(deployments.Items), err
-				}).Should(Equal(1))
+				err = k8sClient.List(context.TODO(), deployments)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deployments.Items)).To(Equal(1))
 				Expect(*deployments.Items[0].Spec.Replicas).To(Equal(int32(2)))
 			})
 		})
@@ -167,10 +177,9 @@ var _ = Describe("backup_controller", func() {
 
 			It("should remove the deployment", func() {
 				deployments := &appsv1.DeploymentList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), deployments)
-					return len(deployments.Items), err
-				}).Should(Equal(0))
+				err = k8sClient.List(context.TODO(), deployments)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deployments.Items)).To(Equal(0))
 			})
 		})
 
@@ -245,10 +254,9 @@ var _ = Describe("backup_controller", func() {
 
 			It("should modify the deployment", func() {
 				deployments := &appsv1.DeploymentList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), deployments)
-					return len(deployments.Items), err
-				}).Should(Equal(1))
+				err = k8sClient.List(context.TODO(), deployments)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deployments.Items)).To(Equal(1))
 				Expect(deployments.Items[0].ObjectMeta.Labels).To(Equal(map[string]string{
 					"fdb-test":                    "test-value",
 					"foundationdb.org/backup-for": string(backup.ObjectMeta.UID),
@@ -276,10 +284,9 @@ var _ = Describe("backup_controller", func() {
 
 			It("should modify the deployment", func() {
 				deployments := &appsv1.DeploymentList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), deployments)
-					return len(deployments.Items), err
-				}).Should(Equal(1))
+				err = k8sClient.List(context.TODO(), deployments)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(deployments.Items)).To(Equal(1))
 				Expect(deployments.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-test-1":                         "test-value-1",
 					"fdb-test-2":                         "test-value-2",
