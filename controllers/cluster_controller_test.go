@@ -734,20 +734,36 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				adminClient.MockMissingProcessGroup("storage-1", true)
+
+				// Run a single reconciliation to detect the missing process.
+				result, err := reconcileObject(clusterReconciler, cluster.ObjectMeta, 1)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeTrue())
+
+				// Tweak the time on the missing process to make it eligible for replacement.
+				_, err = reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1")
+				Expect(processGroup).NotTo(BeNil())
+				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+				Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingProcesses))
+				Expect(processGroup.ProcessGroupConditions[0].Timestamp).NotTo(Equal(0))
+				processGroup.ProcessGroupConditions[0].Timestamp -= 3600
+				err = k8sClient.Status().Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
 				generationGap = 0
 			})
 
 			It("should replace the pod", func() {
 				pods := &corev1.PodList{}
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-1")...)
-					return len(pods.Items), err
-				}).Should(Equal(0))
+				err = k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-1")...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(0))
 
-				Eventually(func() (int, error) {
-					err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					return len(pods.Items), err
-				}).Should(Equal(17))
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(17))
 
 				sortPodsByID(pods)
 
