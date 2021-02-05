@@ -205,15 +205,14 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 
 	if len(addresses) > 0 {
 		r.Recorder.Event(cluster, "Normal", "IncludingInstances", fmt.Sprintf("Including removed processes: %v", addresses))
+
+		err = adminClient.IncludeInstances(addresses)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = adminClient.IncludeInstances(addresses)
-	if err != nil {
-		return err
-	}
-
-	needsSpecUpdate := cluster.Spec.PendingRemovals != nil
-	if needsSpecUpdate {
+	if cluster.Spec.PendingRemovals != nil {
 		err := r.clearPendingRemovalsFromSpec(context, cluster)
 		if err != nil {
 			return err
