@@ -68,7 +68,7 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 				return err
 			}
 
-			if ! clientOnly {
+			if !clientOnly {
 				operatorVersion, err := version(client, operatorName, namespace, containerName)
 				if err != nil {
 					return err
@@ -77,7 +77,6 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 			}
 
 			fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
-
 
 			return nil
 		},

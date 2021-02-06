@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -14,14 +15,14 @@ import (
 func TestVersion(t *testing.T) {
 	operatorName := "fdb-operator"
 
-	tt := []struct{
-		name string
-		deployment *appsv1.Deployment
-		expected string
+	tt := []struct {
+		name          string
+		deployment    *appsv1.Deployment
+		expected      string
 		expectedError error
 	}{
 		{
-			name: "Single container",
+			name:     "Single container",
 			expected: "0.27.0",
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -33,7 +34,7 @@ func TestVersion(t *testing.T) {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "manager",
+									Name:  "manager",
 									Image: "foundationdb/fdb-kubernetes-operator:0.27.0",
 								},
 							},
@@ -44,7 +45,7 @@ func TestVersion(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name: "Multi container",
+			name:     "Multi container",
 			expected: "0.27.0",
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -56,15 +57,15 @@ func TestVersion(t *testing.T) {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "test",
+									Name:  "test",
 									Image: "test:1337",
 								},
 								{
-									Name: "test2",
+									Name:  "test2",
 									Image: "test:1337-2",
 								},
 								{
-									Name: "manager",
+									Name:  "manager",
 									Image: "foundationdb/fdb-kubernetes-operator:0.27.0",
 								},
 							},
@@ -75,7 +76,7 @@ func TestVersion(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name: "No container",
+			name:     "No container",
 			expected: "",
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -102,7 +103,7 @@ func TestVersion(t *testing.T) {
 
 			operatorVersion, err := version(client, operatorName, "default", "manager")
 
-			if ! reflect.DeepEqual(err, tc.expectedError){
+			if !reflect.DeepEqual(err, tc.expectedError) {
 				t.Errorf("Expected: %s, got: %s", tc.expectedError, err)
 			}
 
