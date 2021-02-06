@@ -100,6 +100,20 @@ var _ = Describe("add_pvcs", func() {
 
 			Expect(lastPVC.OwnerReferences).To(Equal(buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
+
+		Context("when the process group is being removed", func() {
+			BeforeEach(func() {
+				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].Remove = true
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldContinue).To(BeTrue())
+			})
+
+			It("should not create any PVCs", func() {
+				Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items)))
+			})
+		})
 	})
 
 	Context("with a stateless process group with no PVC defined", func() {

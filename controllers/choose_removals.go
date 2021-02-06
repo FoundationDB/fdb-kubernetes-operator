@@ -42,7 +42,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 	}
 
-	currentCounts := cluster.Status.ProcessCounts.Map()
+	currentCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups).Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return false, err
@@ -72,7 +72,6 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 				}
 			}
 			hasNewRemovals = true
-			cluster.Status.ProcessCounts.IncreaseCount(processClass, -1*removalsChosen)
 		}
 	}
 

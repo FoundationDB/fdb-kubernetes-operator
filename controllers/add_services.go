@@ -55,6 +55,10 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 
 	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
 		for _, processGroup := range cluster.Status.ProcessGroups {
+			if processGroup.Remove {
+				continue
+			}
+
 			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 			if err != nil {
 				return false, err

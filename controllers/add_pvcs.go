@@ -37,6 +37,10 @@ type AddPVCs struct{}
 func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			continue
+		}
+
 		_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 		if err != nil {
 			return false, err

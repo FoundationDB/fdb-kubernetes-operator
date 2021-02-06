@@ -69,7 +69,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		_, instanceExists := instanceMap[processGroup.ProcessGroupID]
-		if !instanceExists {
+		if !instanceExists && !processGroup.Remove {
 			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 			if err != nil {
 				return false, err

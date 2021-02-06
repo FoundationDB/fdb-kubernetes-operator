@@ -525,8 +525,6 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			continue
 		}
 
-		status.ProcessCounts.IncreaseCount(processClass, 1)
-
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
 			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, status, i, processCount, processGroupStatus)

@@ -99,5 +99,19 @@ var _ = Describe("add_pods", func() {
 			Expect(lastPod.Labels[FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastPod.OwnerReferences).To(Equal(buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
+
+		Context("when the process group is being removed", func() {
+			BeforeEach(func() {
+				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].Remove = true
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldContinue).To(BeTrue())
+			})
+
+			It("should not create any pods", func() {
+				Expect(newPods.Items).To(HaveLen(len(initialPods.Items)))
+			})
+		})
 	})
 })

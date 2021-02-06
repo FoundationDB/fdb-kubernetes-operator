@@ -119,6 +119,20 @@ var _ = Describe("add_services", func() {
 				Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 			})
 		})
+
+		Context("when the process group is being removed", func() {
+			BeforeEach(func() {
+				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].Remove = true
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldContinue).To(BeTrue())
+			})
+
+			It("should not create any pods", func() {
+				Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
+			})
+		})
 	})
 
 	Context("with no headless service", func() {
