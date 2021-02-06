@@ -161,7 +161,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	for _, service := range services.Items {
 		processGroupID := service.Labels[FDBInstanceIDLabel]
-		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
 

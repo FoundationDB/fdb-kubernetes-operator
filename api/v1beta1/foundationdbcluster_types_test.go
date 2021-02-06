@@ -2871,7 +2871,22 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 					Log:       4,
 				},
 				ProcessGroups: []*ProcessGroupStatus{
-					{ProcessGroupID: "storage-1"},
+					{ProcessGroupID: "storage-1", ProcessClass: "storage"},
+					{ProcessGroupID: "storage-2", ProcessClass: "storage"},
+					{ProcessGroupID: "storage-3", ProcessClass: "storage"},
+					{ProcessGroupID: "stateless-1", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-2", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-3", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-4", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-5", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-6", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-7", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-8", ProcessClass: "stateless"},
+					{ProcessGroupID: "stateless-9", ProcessClass: "stateless"},
+					{ProcessGroupID: "log-1", ProcessClass: "log"},
+					{ProcessGroupID: "log-2", ProcessClass: "log"},
+					{ProcessGroupID: "log-3", ProcessClass: "log"},
+					{ProcessGroupID: "log-4", ProcessClass: "log"},
 				},
 				Configured: true,
 			},
@@ -2898,7 +2913,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Status.ProcessCounts.Storage = 4
+	cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())
@@ -2908,7 +2923,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Status.ProcessCounts.Log = 3
+	cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[1:]
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())

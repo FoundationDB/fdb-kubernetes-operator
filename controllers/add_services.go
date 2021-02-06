@@ -37,24 +37,49 @@ type AddServices struct{}
 // Reconcile runs the reconciler's work.
 func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	service := GetHeadlessService(cluster)
-	if service == nil {
-		return true, nil
+	if service != nil {
+		existingService := &corev1.Service{}
+		err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return false, err
+			}
+			owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+			service.ObjectMeta.OwnerReferences = owner
+			err = r.Create(context, service)
+			if err != nil {
+				return false, err
+			}
+		}
 	}
 
-	existingService := &corev1.Service{}
-	err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return false, err
-		}
-		owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-		service.ObjectMeta.OwnerReferences = owner
-		err = r.Create(context, service)
-		if err != nil {
-			return false, err
-		}
+	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
+			if err != nil {
+				return false, err
+			}
 
-		return false, err
+			serviceName, _ := getInstanceID(cluster, processGroup.ProcessClass, idNum)
+			existingService := &corev1.Service{}
+			err = r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
+			if err != nil {
+
+				if !k8serrors.IsNotFound(err) {
+					return false, err
+				}
+				service, err := GetService(cluster, processGroup.ProcessClass, idNum)
+				if err != nil {
+					return false, err
+				}
+
+				err = r.Create(context, service)
+
+				if err != nil {
+					return false, err
+				}
+			}
+		}
 	}
 
 	return true, nil

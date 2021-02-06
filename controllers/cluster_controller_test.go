@@ -226,7 +226,9 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
-				Expect(cluster.Status.ProcessCounts).To(Equal(fdbtypes.ProcessCounts{
+
+				processCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)
+				Expect(processCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
 					Stateless:         8,
@@ -235,9 +237,8 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				desiredCounts, err := cluster.GetProcessCountsWithDefaults()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(cluster.Status.ProcessCounts).To(Equal(desiredCounts))
+				Expect(processCounts).To(Equal(desiredCounts))
 				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
-				Expect(*fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)).To(Equal(desiredCounts))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine))).To(Equal(0))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses))).To(Equal(0))
 
