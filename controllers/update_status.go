@@ -128,7 +128,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
-	status.ProcessGroups = cluster.Status.ProcessGroups
+	status.ProcessGroups = make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup != nil && processGroup.ProcessGroupID != "" {
+			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+		}
+	}
 
 	status.ProcessGroups, err = validateInstances(r, context, cluster, &status, processMap, instances, configMap)
 	if err != nil {
