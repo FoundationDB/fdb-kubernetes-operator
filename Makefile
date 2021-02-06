@@ -11,6 +11,12 @@ ifneq "$(FDB_WEBSITE)" ""
 	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
 endif
 
+# TAG is used to define the version in the kubectl-fdb plugin.
+# If not defined we use the current git hash.
+ifndef TAG
+	TAG := $(shell git rev-parse HEAD)
+endif
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -70,7 +76,7 @@ bin/kubectl-fdb.tar.gz:
 plugin: bin/kubectl-fdb
 
 bin/kubectl-fdb: ${GO_SRC}
-	go build -ldflags="-s -w" -o bin/kubectl-fdb ./kubectl-fdb
+	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd.pluginVersion=${TAG}" -o bin/kubectl-fdb ./kubectl-fdb
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate manifests

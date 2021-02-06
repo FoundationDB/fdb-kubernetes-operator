@@ -46,12 +46,6 @@ func getNamespace(namespace string) (string, error) {
 	return "default", nil
 }
 
-func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) *v1.Deployment {
-	var operator *v1.Deployment
-	operator, err := k8sClient.AppsV1().Deployments(namespace).Get(operatorName, metav1.GetOptions{})
-	if err == nil {
-		return operator
-	}
-
-	return operator
+func getOperator(k8sClient kubernetes.Interface, operatorName string, namespace string) (*v1.Deployment, error) {
+	return k8sClient.AppsV1().Deployments(namespace).Get(operatorName, metav1.GetOptions{})
 }
