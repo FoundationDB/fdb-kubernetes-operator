@@ -59,7 +59,7 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 // cleanUpDBCache removes the FDB DB connection for the deleted cluster.
 // Otherwise the controller will connect to an old cluster.
 func cleanUpDBCache(namespace string, name string) {
-	delete(fdbDatabaseCache, fmt.Sprintf("%s/%s",namespace, name))
+	delete(fdbDatabaseCache, fmt.Sprintf("%s/%s", namespace, name))
 }
 
 // getStatusFromDB gets the database's status directly from the system key
