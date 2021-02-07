@@ -175,9 +175,6 @@ type cliCommand struct {
 
 	// args provides alternative arguments in place of the exec command.
 	args []string
-
-	// timeout is the timeout for the CLI.
-	timeout int
 }
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
@@ -223,11 +220,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	binary := getBinaryPath(binaryName, version)
-	timeout := command.timeout
-	if timeout == 0 {
-		timeout = DefaultCLITimeout
-	}
-	hardTimeout := timeout
+	hardTimeout := DefaultCLITimeout
 	args := make([]string, 0, 9)
 	args = append(args, command.args...)
 	if len(args) == 0 {
@@ -236,7 +229,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	if command.hasTimeoutArg() {
-		args = append(args, "--timeout", fmt.Sprintf("%d", timeout))
+		args = append(args, "--timeout", fmt.Sprintf("%d", DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout
 	}
 	if command.hasDashInLogDir() {
@@ -263,7 +256,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	var debugOutput string
 	if len(outputString) > maxCommandOutput && maxCommandOutput > 0 {
-		debugOutput = debugOutput[0:maxCommandOutput] + "..."
+		debugOutput = outputString[0:maxCommandOutput] + "..."
 	} else {
 		debugOutput = outputString
 	}
@@ -273,6 +266,8 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // GetStatus gets the database's status
 func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
 	// This will call directly the database and fetch the status information
 	// from the system key.
 	return getStatusFromDB(client.Cluster)
