@@ -40,7 +40,6 @@ var _ = Describe("restore_controller", func() {
 	var err error
 
 	BeforeEach(func() {
-		ClearMockAdminClients()
 		cluster = createDefaultCluster()
 		restore = createDefaultRestore(cluster)
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)

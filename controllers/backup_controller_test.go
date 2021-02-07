@@ -56,7 +56,6 @@ var _ = Describe("backup_controller", func() {
 	var err error
 
 	BeforeEach(func() {
-		ClearMockAdminClients()
 		cluster = createDefaultCluster()
 		backup = createDefaultBackup(cluster)
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)

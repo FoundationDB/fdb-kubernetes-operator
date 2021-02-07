@@ -80,7 +80,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 	var fakeConnectionString string
 
 	BeforeEach(func() {
-		ClearMockAdminClients()
 		cluster = createDefaultCluster()
 		fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 	})
