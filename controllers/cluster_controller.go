@@ -50,7 +50,7 @@ import (
 )
 
 var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
-var processIDRegex = regexp.MustCompile(`^(\w+-\d)-\d$`)
+var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {

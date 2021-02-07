@@ -140,36 +140,6 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			if err != nil {
 				return false, err
 			}
-
-			pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
-			if err != nil {
-				return false, err
-			}
-
-			databaseStatus, err := adminClient.GetStatus()
-			if err != nil {
-				return false, err
-			}
-
-			if !databaseStatus.Client.DatabaseStatus.Available {
-				log.Info("Deferring upgrade until database is available")
-				return false, nil
-			}
-
-			notReadyProcesses := make([]string, 0)
-			addresses = make([]string, 0, len(databaseStatus.Cluster.Processes))
-			for _, process := range databaseStatus.Cluster.Processes {
-				processID := process.Locality["instance_id"]
-				if pendingUpgrades[processID] {
-					addresses = append(addresses, process.Address)
-				} else {
-					notReadyProcesses = append(notReadyProcesses, processID)
-				}
-			}
-			if len(notReadyProcesses) > 0 {
-				log.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
-				return false, nil
-			}
 		}
 
 		hasLock, err := r.takeLock(cluster, fmt.Sprintf("bouncing processes: %v", addresses))
@@ -177,18 +147,18 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, err
 		}
 
+		if useLocks && upgrading {
+			addresses, err = getAddressesForUpgrade(r, adminClient, lockClient, cluster, version)
+			if err != nil || addresses == nil {
+				return false, err
+			}
+		}
+
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
 		r.Recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {
 			return false, err
-		}
-
-		if useLocks && upgrading {
-			err = lockClient.ClearPendingUpgrades()
-			if err != nil {
-				return false, err
-			}
 		}
 	}
 
@@ -207,4 +177,46 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 // again.
 func (b BounceProcesses) RequeueAfter() time.Duration {
 	return 0
+}
+
+// getAddressesForUpgrade checks that all processes in a cluster are ready to be
+// upgraded and returns the full list of addresses.
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]string, error) {
+	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
+	if err != nil {
+		return nil, err
+	}
+
+	databaseStatus, err := adminClient.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+
+	if !databaseStatus.Client.DatabaseStatus.Available {
+		log.Info("Deferring upgrade until database is available")
+		r.Recorder.Event(cluster, "Normal", "UpgradeRequeued", "Database is unavailable")
+		return nil, nil
+	}
+
+	notReadyProcesses := make([]string, 0)
+	addresses := make([]string, 0, len(databaseStatus.Cluster.Processes))
+	for _, process := range databaseStatus.Cluster.Processes {
+		processID := process.Locality["instance_id"]
+		if pendingUpgrades[processID] {
+			addresses = append(addresses, process.Address)
+		} else {
+			notReadyProcesses = append(notReadyProcesses, processID)
+		}
+	}
+	if len(notReadyProcesses) > 0 {
+		log.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
+		r.Recorder.Event(cluster, "Normal", "UpgradeRequeued", fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses))
+		return nil, nil
+	}
+	err = lockClient.ClearPendingUpgrades()
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses, nil
 }

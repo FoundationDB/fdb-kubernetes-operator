@@ -169,6 +169,11 @@ func (client *RealLockClient) updateLock(transaction fdb.Transaction, start int6
 func (client *RealLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		for _, processGroupID := range processGroupIDs {
+			err := tr.Options().SetAccessSystemKeys()
+			if err != nil {
+				return nil, err
+			}
+
 			key := fdb.Key(fmt.Sprintf("%s/upgrades/%s/%s", client.cluster.GetLockPrefix(), version.String(), processGroupID))
 			tr.Set(key, []byte(processGroupID))
 		}
@@ -181,6 +186,11 @@ func (client *RealLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, pr
 // groups are pending an upgrade to a new version.
 func (client *RealLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error) {
 	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetReadSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
 		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()))
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {
@@ -203,6 +213,11 @@ func (client *RealLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (m
 // upgrades.
 func (client *RealLockClient) ClearPendingUpgrades() error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
 		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/", client.cluster.GetLockPrefix()))
 		keyRange, err := fdb.PrefixRange(keyPrefix)
 		if err != nil {

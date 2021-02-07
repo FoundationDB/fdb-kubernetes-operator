@@ -3054,6 +3054,19 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		})
 	})
 
+	Describe("GetInstanceIDFromProcessID", func() {
+		It("can parse a process ID", func() {
+			Expect(GetInstanceIDFromProcessID("storage-1-1")).To(Equal("storage-1"))
+		})
+		It("can parse a process ID with a prefix", func() {
+			Expect(GetInstanceIDFromProcessID("dc1-storage-1-1")).To(Equal("dc1-storage-1"))
+		})
+
+		It("can handle a process group ID with no process number", func() {
+			Expect(GetInstanceIDFromProcessID("storage-2")).To(Equal("storage-2"))
+		})
+	})
+
 	Describe("chooseDistributedProcesses", func() {
 		var candidates []localityInfo
 		var result []localityInfo
