@@ -62,9 +62,6 @@ type AdminClient interface {
 	// GetStatus gets the database's status
 	GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
-	// GetMinimalStatus gets a one-line summary of the database's status.
-	GetMinimalStatus() (string, error)
-
 	// ConfigureDatabase sets the database configuration
 	ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error
 
@@ -263,10 +260,12 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	outputString := string(output)
-	debugOutput := outputString
 
-	if len(debugOutput) > maxCommandOutput && maxCommandOutput > 0 {
+	var debugOutput string
+	if len(outputString) > maxCommandOutput && maxCommandOutput > 0 {
 		debugOutput = debugOutput[0:maxCommandOutput] + "..."
+	} else {
+		debugOutput = outputString
 	}
 	log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
 	return outputString, nil
@@ -274,21 +273,9 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // GetStatus gets the database's status
 func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
-	statusString, err := client.runCommand(cliCommand{command: "status json"})
-	if err != nil {
-		return nil, err
-	}
-	status := &fdbtypes.FoundationDBStatus{}
-	err = json.Unmarshal([]byte(statusString), &status)
-	if err != nil {
-		return nil, err
-	}
-	return status, nil
-}
-
-// GetMinimalStatus gets a one-line summary of the database's status.
-func (client *CliAdminClient) GetMinimalStatus() (string, error) {
-	return client.runCommand(cliCommand{command: "status minimal"})
+	// This will call directly the database and fetch the status information
+	// from the system key.
+	return getStatusFromDB(client.Cluster)
 }
 
 // ConfigureDatabase sets the database configuration
@@ -859,11 +846,6 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	return status, nil
-}
-
-// GetMinimalStatus gets a one-line summary of the database's status.
-func (client *MockAdminClient) GetMinimalStatus() (string, error) {
-	return "The database is available", nil
 }
 
 // ConfigureDatabase changes the database configuration
