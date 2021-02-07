@@ -58,7 +58,7 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 
 // getStatusFromDB gets the database's status directly from the system key
 func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.FoundationDBStatus, error) {
-	statusKey := "\xff\x02/status/json"
+	statusKey := "\xff\xff/status/json"
 
 	database, err := getFDBDatabase(cluster)
 	if err != nil {
