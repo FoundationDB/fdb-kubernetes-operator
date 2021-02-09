@@ -68,31 +68,32 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 			desiredCount = 0
 		}
 		newCount := desiredCount - processCounts[processClass]
-		if newCount > 0 {
-			r.Recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
-			idNum := 1
+		if newCount <= 0 {
+			continue
+		}
+		r.Recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
+		idNum := 1
 
-			if processGroupIDs[processClass] == nil {
-				processGroupIDs[processClass] = make(map[int]bool)
-			}
+		if processGroupIDs[processClass] == nil {
+			processGroupIDs[processClass] = make(map[int]bool)
+		}
 
-			for i := 0; i < newCount; i++ {
-				for idNum > 0 {
-					_, processGroupID := getInstanceID(cluster, processClass, idNum)
-
-					if !cluster.InstanceIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
-						break
-					}
-
-					idNum++
-				}
+		for i := 0; i < newCount; i++ {
+			for idNum > 0 {
 				_, processGroupID := getInstanceID(cluster, processClass, idNum)
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClass, nil))
+
+				if !cluster.InstanceIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
+					break
+				}
 
 				idNum++
 			}
-			hasNewProcessGroups = true
+			_, processGroupID := getInstanceID(cluster, processClass, idNum)
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClass, nil))
+
+			idNum++
 		}
+		hasNewProcessGroups = true
 	}
 
 	if hasNewProcessGroups {

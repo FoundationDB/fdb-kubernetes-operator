@@ -1,5 +1,5 @@
 /*
- * add_process_groups.go
+ * add_pvcs.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -51,22 +51,23 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			return false, err
 		}
 
-		if pvc != nil {
-			existingPVC := &corev1.PersistentVolumeClaim{}
+		if pvc == nil {
+			continue
+		}
+		existingPVC := &corev1.PersistentVolumeClaim{}
 
-			err = r.Get(context, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
+		err = r.Get(context, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return false, err
+			}
+
+			owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+			pvc.ObjectMeta.OwnerReferences = owner
+			err = r.Create(context, pvc)
+
 			if err != nil {
-				if !k8serrors.IsNotFound(err) {
-					return false, err
-				}
-
-				owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-				pvc.ObjectMeta.OwnerReferences = owner
-				err = r.Create(context, pvc)
-
-				if err != nil {
-					return false, err
-				}
+				return false, err
 			}
 		}
 	}
