@@ -24,6 +24,7 @@ import (
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	uzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -52,6 +53,7 @@ func main() {
 	var deprecationOptions controllers.DeprecationOptions
 	var useFutureDefaults bool
 	var checkDeprecations bool
+	var development bool
 
 	fdb.MustAPIVersion(610)
 
@@ -66,6 +68,10 @@ func main() {
 	flag.BoolVar(&checkDeprecations, "check-deprecations", false,
 		"Check for deprecated fields and then exit",
 	)
+	flag.BoolVar(&development, "development", false,
+		"Enable verbose development logs",
+	)
+	level := uzap.LevelFlag("log-level", uzap.InfoLevel, "The log level")
 	flag.Parse()
 
 	deprecationOptions.OnlyShowChanges = checkDeprecations
@@ -83,10 +89,14 @@ func main() {
 		logWriter = os.Stdout
 	}
 
-	ctrl.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = true
-		o.DestWritter = logWriter
-	}))
+	logLevel := uzap.NewAtomicLevelAt(*level)
+	ctrl.SetLogger(
+		zap.New(
+			zap.UseDevMode(development),
+			zap.WriteTo(logWriter),
+			zap.Level(&logLevel),
+		),
+	)
 
 	controllers.DefaultCLITimeout = cliTimeout
 
