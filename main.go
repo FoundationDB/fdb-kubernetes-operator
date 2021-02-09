@@ -90,11 +90,13 @@ func main() {
 	}
 
 	logLevel := uzap.NewAtomicLevelAt(*level)
-	ctrl.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = development
-		o.DestWritter = logWriter
-		o.Level = &logLevel
-	}))
+	ctrl.SetLogger(
+		zap.New(
+			zap.UseDevMode(development),
+			zap.WriteTo(logWriter),
+			zap.Level(&logLevel),
+		),
+	)
 
 	controllers.DefaultCLITimeout = cliTimeout
 
