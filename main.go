@@ -24,6 +24,7 @@ import (
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	uzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -88,9 +89,11 @@ func main() {
 		logWriter = os.Stdout
 	}
 
+	logLevel := uzap.NewAtomicLevelAt(*level)
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
 		o.Development = development
 		o.DestWritter = logWriter
+		o.Level = &logLevel
 	}))
 
 	controllers.DefaultCLITimeout = cliTimeout

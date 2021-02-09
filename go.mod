@@ -12,6 +12,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.3.2
+	go.uber.org/zap v1.9.1
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
