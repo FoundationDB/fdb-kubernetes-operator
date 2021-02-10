@@ -22,7 +22,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -31,7 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var pluginVersion = "v0.23.1"
+var pluginVersion = "latest"
 
 func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
 	o := NewFDBOptions(streams)
@@ -44,6 +43,14 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 			operatorName, err := rootCmd.Flags().GetString("operator-name")
 			if err != nil {
 				return err
+			}
+			clientOnly, err := cmd.Flags().GetBool("client-only")
+			if err != nil {
+				return nil
+			}
+			containerName, err := cmd.Flags().GetString("container-name")
+			if err != nil {
+				return nil
 			}
 
 			config, err := o.configFlags.ToRESTConfig()
@@ -61,11 +68,15 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 				return err
 			}
 
-			operatorVersion := version(client, operatorName, namespace)
+			if !clientOnly {
+				operatorVersion, err := version(client, operatorName, namespace, containerName)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("foundationdb-operator: %s\n", operatorVersion)
+			}
 
-			// TODO check: https://github.com/kubernetes/cli-runtime/tree/release-1.20/pkg/printers
 			fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
-			fmt.Printf("foundationdb-operator: %s\n", operatorVersion)
 
 			return nil
 		},
@@ -77,17 +88,26 @@ kubectl fdb -n default version
 `,
 	}
 	o.configFlags.AddFlags(cmd.Flags())
+	cmd.Flags().Bool("client-only", false, "Prints out the plugin version only without checking the operator version.")
+	cmd.Flags().String("container-name", "manager", "The container name of Kubernetes Deployment.")
 
 	return cmd
 }
 
-func version(client kubernetes.Interface, operatorName string, namespace string) string {
-	operatorDeployment := getOperator(client, operatorName, namespace)
-	if operatorDeployment.Name == "" {
-		log.Fatalf("could not find the foundationdb-operator in the namespace: %s", namespace)
+func version(client kubernetes.Interface, operatorName string, namespace string, containerName string) (string, error) {
+	operatorDeployment, err := getOperator(client, operatorName, namespace)
+	if err != nil {
+		return "", err
 	}
-	operatorImage := operatorDeployment.Spec.Template.Spec.Containers[0].Image
-	imageName := strings.Split(operatorImage, ":")
 
-	return imageName[len(imageName)-1]
+	for _, container := range operatorDeployment.Spec.Template.Spec.Containers {
+		if container.Name != containerName {
+			continue
+		}
+
+		imageName := strings.Split(container.Image, ":")
+		return imageName[len(imageName)-1], nil
+	}
+
+	return "", fmt.Errorf("could not find container: %s in %s/%s", containerName, namespace, operatorName)
 }

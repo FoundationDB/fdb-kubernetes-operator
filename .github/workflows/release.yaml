@@ -67,7 +67,7 @@ jobs:
       #     msiexec /i "fdb.msi"
       #     go get -v -t -d ./...
       - name: Build
-        run: make plugin package
+        run: TAG=${{ needs.create-release.outputs.tag }} make plugin package
       - name: Upload Release Asse
         uses: actions/upload-release-asset@v1
         env:
