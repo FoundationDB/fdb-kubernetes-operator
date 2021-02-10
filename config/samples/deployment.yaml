@@ -108,9 +108,7 @@ spec:
         control-plane: controller-manager
     spec:
       containers:
-      - args:
-        - --enable-leader-election
-        command:
+      - command:
         - /manager
         env:
         - name: WATCH_NAMESPACE

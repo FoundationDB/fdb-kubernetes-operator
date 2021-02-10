@@ -58,7 +58,7 @@ func main() {
 	fdb.MustAPIVersion(610)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	flag.BoolVar(&enableLeaderElection, "enable-leader-election", true,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
 	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")

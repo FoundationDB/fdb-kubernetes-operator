@@ -31,9 +31,7 @@ spec:
       - name: logs
         emptyDir: {}        
       containers:
-      - args:
-        - --enable-leader-election
-        command:
+      - command:
         - /manager
         {{- if not .Values.operator.globalMode.enabled }}
         env:
