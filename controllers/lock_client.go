@@ -22,16 +22,11 @@ package controllers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
-)
-
-const (
-	defaultTransactionTimeout int64 = 5000
 )
 
 // LockClient provides a client for getting locks on operations for a cluster.
@@ -201,47 +196,4 @@ func (client *MockLockClient) Disabled() bool {
 // NewMockLockClient creates a mock lock client.
 func NewMockLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
 	return &MockLockClient{cluster: cluster}, nil
-}
-
-// fdbDatabaseCache provides a
-var fdbDatabaseCache = map[string]fdb.Database{}
-
-// getFDBDatabase opens an FDB database. The result will be cached for
-// subsequent calls, based on the cluster namespace and name.
-func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error) {
-	cacheKey := fmt.Sprintf("%s/%s", cluster.ObjectMeta.Namespace, cluster.ObjectMeta.Name)
-	database, present := fdbDatabaseCache[cacheKey]
-	if present {
-		return database, nil
-	}
-
-	clusterFile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	defer clusterFile.Close()
-	clusterFilePath := clusterFile.Name()
-
-	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
-	if err != nil {
-		return fdb.Database{}, err
-	}
-	err = clusterFile.Close()
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	database, err = fdb.OpenDatabase(clusterFilePath)
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout)
-	if err != nil {
-		return fdb.Database{}, err
-	}
-
-	fdbDatabaseCache[cacheKey] = database
-	return database, nil
 }

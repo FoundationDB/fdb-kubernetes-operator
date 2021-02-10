@@ -85,8 +85,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Object not found, return.  Created objects are automatically garbage collected.
+			// Object not found, return. Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
+			cleanUpDBCache(request.Namespace, request.Name)
 
 			if r.RequeueOnNotFound {
 				return ctrl.Result{Requeue: true}, nil
