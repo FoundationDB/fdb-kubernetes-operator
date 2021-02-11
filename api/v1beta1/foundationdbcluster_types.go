@@ -505,8 +505,8 @@ func (processGroupStatus *ProcessGroupStatus) removeCondition(conditionType Proc
 }
 
 // CreateProcessCountsFromProcessGroupStatus creates a ProcessCounts struct from the current ProcessGroupStatus.
-func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus) *ProcessCounts {
-	processCounts := &ProcessCounts{}
+func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus) ProcessCounts {
+	processCounts := ProcessCounts{}
 
 	for _, groupStatus := range processGroupStatus {
 		processCounts.IncreaseCount(groupStatus.ProcessClass, 1)
@@ -1157,7 +1157,9 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		return false, err
 	}
 
-	diff := desiredCounts.diff(cluster.Status.ProcessCounts)
+	currentCounts := CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)
+
+	diff := desiredCounts.diff(currentCounts)
 
 	for _, delta := range diff {
 		if delta > 0 {

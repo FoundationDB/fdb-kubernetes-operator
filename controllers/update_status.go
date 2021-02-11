@@ -128,7 +128,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 
-	status.ProcessGroups = cluster.Status.ProcessGroups
+	status.ProcessGroups = make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup != nil && processGroup.ProcessGroupID != "" {
+			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+		}
+	}
 
 	status.ProcessGroups, err = validateInstances(r, context, cluster, &status, processMap, instances, configMap)
 	if err != nil {
@@ -161,7 +166,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	for _, service := range services.Items {
 		processGroupID := service.Labels[FDBInstanceIDLabel]
-		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
 
@@ -519,8 +524,6 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			processGroupStatus.Remove = true
 			continue
 		}
-
-		status.ProcessCounts.IncreaseCount(processClass, 1)
 
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
