@@ -2,10 +2,19 @@
 
 ## Installation
 
+The `kubectl fdb plugin` is released as a binary as part of our release process.
+For the latest version take a look at the [release page](https://github.com/FoundationDB/fdb-kubernetes-operator/releases).
+
 Install from release:
 
 ```bash
-# Coming soon!
+pushd $TMPDIR
+OS=macos
+VERSION="v0.27.1"
+curl -sLo kubectl-fdb.tar.gz "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/kubectl-fdb-${VERSION}-${OS}.tar.gz"
+tar xfz kubectl-fdb.tar.gz
+sudo mv ./kubectl-fdb /usr/local/bin
+popd
 ```
 
 In order to install the latest version from the source code run:
