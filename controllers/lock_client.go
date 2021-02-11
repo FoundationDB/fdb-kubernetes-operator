@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -36,6 +37,18 @@ type LockClient interface {
 
 	// TakeLock attempts to acquire a lock.
 	TakeLock() (bool, error)
+
+	// AddPendingUpgrades registers information about which process groups are
+	// pending an upgrade to a new version.
+	AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error
+
+	// GetPendingUpgrades returns the stored information about which process
+	// groups are pending an upgrade to a new version.
+	GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error)
+
+	// ClearPendingUpgrades clears any stored information about pending
+	// upgrades.
+	ClearPendingUpgrades() error
 }
 
 // LockClientProvider provides a dependency injection for creating a lock client.
@@ -151,6 +164,75 @@ func (client *RealLockClient) updateLock(transaction fdb.Transaction, start int6
 	transaction.Set(lockKey, lockValue.Pack())
 }
 
+// AddPendingUpgrades registers information about which process groups are
+// pending an upgrade to a new version.
+func (client *RealLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error {
+	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+		for _, processGroupID := range processGroupIDs {
+			key := fdb.Key(fmt.Sprintf("%s/upgrades/%s/%s", client.cluster.GetLockPrefix(), version.String(), processGroupID))
+			tr.Set(key, []byte(processGroupID))
+		}
+		return nil, nil
+	})
+	return err
+}
+
+// GetPendingUpgrades returns the stored information about which process
+// groups are pending an upgrade to a new version.
+func (client *RealLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error) {
+	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetReadSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/%s/", client.cluster.GetLockPrefix(), version.String()))
+		keyRange, err := fdb.PrefixRange(keyPrefix)
+		if err != nil {
+			return nil, err
+		}
+		results := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+		upgrades := make(map[string]bool, len(results))
+		for _, result := range results {
+			upgrades[string(result.Value)] = true
+		}
+		return upgrades, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	upgradeMap, isMap := upgrades.(map[string]bool)
+	if !isMap {
+		return nil, fmt.Errorf("Invalid return value from transaction in GetPendingUpgrades: %v", upgrades)
+	}
+	return upgradeMap, nil
+}
+
+// ClearPendingUpgrades clears any stored information about pending
+// upgrades.
+func (client *RealLockClient) ClearPendingUpgrades() error {
+	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		keyPrefix := []byte(fmt.Sprintf("%s/upgrades/", client.cluster.GetLockPrefix()))
+		keyRange, err := fdb.PrefixRange(keyPrefix)
+		if err != nil {
+			return nil, err
+		}
+
+		tr.ClearRange(keyRange)
+		return nil, nil
+	})
+	return err
+}
+
 // InvalidLockValue is an error we can return when we cannot parse the existing
 // values in the locking system.
 type InvalidLockValue struct {
@@ -181,6 +263,10 @@ func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error
 type MockLockClient struct {
 	// cluster stores the cluster this client is working with.
 	cluster *fdbtypes.FoundationDBCluster
+
+	// pendingUpgrades stores data about process groups that have a pending
+	// upgrade.
+	pendingUpgrades map[fdbtypes.FdbVersion]map[string]bool
 }
 
 // TakeLock attempts to acquire a lock.
@@ -193,7 +279,57 @@ func (client *MockLockClient) Disabled() bool {
 	return !client.cluster.ShouldUseLocks()
 }
 
+// AddPendingUpgrades registers information about which process groups are
+// pending an upgrade to a new version.
+func (client *MockLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error {
+	if client.pendingUpgrades[version] == nil {
+		client.pendingUpgrades[version] = make(map[string]bool)
+	}
+	for _, processGroupID := range processGroupIDs {
+		client.pendingUpgrades[version][processGroupID] = true
+	}
+	return nil
+}
+
+// GetPendingUpgrades returns the stored information about which process
+// groups are pending an upgrade to a new version.
+func (client *MockLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error) {
+	upgrades := client.pendingUpgrades[version]
+	if upgrades == nil {
+		return make(map[string]bool), nil
+	}
+	return upgrades, nil
+}
+
+// lockClientCache provides a cache of mock lock clients.
+var lockClientCache = make(map[string]*MockLockClient)
+var lockClientMutex sync.Mutex
+
 // NewMockLockClient creates a mock lock client.
 func NewMockLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	return &MockLockClient{cluster: cluster}, nil
+	return newMockLockClientUncast(cluster), nil
+}
+
+// NewMockLockClientUncast creates a mock lock client.
+func newMockLockClientUncast(cluster *fdbtypes.FoundationDBCluster) *MockLockClient {
+	lockClientMutex.Lock()
+	defer lockClientMutex.Unlock()
+
+	client := lockClientCache[cluster.Name]
+	if client == nil {
+		client = &MockLockClient{cluster: cluster, pendingUpgrades: make(map[fdbtypes.FdbVersion]map[string]bool)}
+		lockClientCache[cluster.Name] = client
+	}
+	return client
+}
+
+// ClearPendingUpgrades clears any stored information about pending
+// upgrades.
+func (client *MockLockClient) ClearPendingUpgrades() error {
+	return nil
+}
+
+// ClearMockLockClients clears the cache of mock lock clients
+func ClearMockLockClients() {
+	lockClientCache = map[string]*MockLockClient{}
 }

@@ -140,6 +140,10 @@ type FoundationDBClusterSpec struct {
 
 	// InstanceIDPrefix defines a prefix to append to the instance IDs in the
 	// locality fields.
+	//
+	// This must be a valid Kubernetes label value. See
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	// for more details on that.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
 
 	// UpdatePodsByReplacement determines whether we should update pod config

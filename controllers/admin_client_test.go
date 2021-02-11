@@ -36,7 +36,6 @@ var _ = Describe("admin_client_test", func() {
 	var err error
 
 	BeforeEach(func() {
-		ClearMockAdminClients()
 		cluster = createDefaultCluster()
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -78,6 +77,7 @@ var _ = Describe("admin_client_test", func() {
 					},
 				}))
 
+				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
 				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
 					Address:      "1.1.0.1:4501",
 					ProcessClass: fdbtypes.ProcessClassStorage,
@@ -87,6 +87,30 @@ var _ = Describe("admin_client_test", func() {
 						"instance_id": "storage-1",
 						"zoneid":      "operator-test-1-storage-1",
 						"dcid":        "",
+					},
+					Version:       "6.2.20",
+					UptimeSeconds: 60000,
+				}))
+			})
+		})
+
+		Context("with an additional process", func() {
+			BeforeEach(func() {
+				client.MockAdditionalProcesses([]fdbtypes.ProcessGroupStatus{{
+					ProcessGroupID: "dc2-storage-1",
+					ProcessClass:   "storage",
+					Addresses:      []string{"1.2.3.4"},
+				}})
+			})
+
+			It("puts the additional processes in the status", func() {
+				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups) + 1))
+				Expect(status.Cluster.Processes["dc2-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
+					Address:      "1.2.3.4:4501",
+					ProcessClass: fdbtypes.ProcessClassStorage,
+					Locality: map[string]string{
+						"instance_id": "dc2-storage-1",
+						"zoneid":      "dc2-storage-1",
 					},
 					Version:       "6.2.20",
 					UptimeSeconds: 60000,

@@ -80,7 +80,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 	var fakeConnectionString string
 
 	BeforeEach(func() {
-		ClearMockAdminClients()
 		cluster = createDefaultCluster()
 		fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 	})
@@ -3052,6 +3051,19 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("could not parse instance ID storage-bad"))
 			})
+		})
+	})
+
+	Describe("GetInstanceIDFromProcessID", func() {
+		It("can parse a process ID", func() {
+			Expect(GetInstanceIDFromProcessID("storage-1-1")).To(Equal("storage-1"))
+		})
+		It("can parse a process ID with a prefix", func() {
+			Expect(GetInstanceIDFromProcessID("dc1-storage-1-1")).To(Equal("dc1-storage-1"))
+		})
+
+		It("can handle a process group ID with no process number", func() {
+			Expect(GetInstanceIDFromProcessID("storage-2")).To(Equal("storage-2"))
 		})
 	})
 

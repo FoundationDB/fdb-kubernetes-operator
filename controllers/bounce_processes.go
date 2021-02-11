@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,6 +85,8 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 	}
 
+	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
+
 	if len(addresses) > 0 {
 		var enabled = cluster.Spec.AutomationOptions.KillProcesses
 		if enabled != nil && !*enabled {
@@ -116,9 +118,40 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, ReconciliationNotReadyError{message: "Cluster needs to stabilize before bouncing"}
 		}
 
+		var lockClient LockClient
+		useLocks := cluster.ShouldUseLocks()
+		if useLocks {
+			lockClient, err = r.getLockClient(cluster)
+			if err != nil {
+				return false, err
+			}
+		}
+		version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+		if err != nil {
+			return false, err
+		}
+
+		if useLocks && upgrading {
+			processGroupIDs := make([]string, 0, len(cluster.Status.ProcessGroups))
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				processGroupIDs = append(processGroupIDs, processGroup.ProcessGroupID)
+			}
+			err = lockClient.AddPendingUpgrades(version, processGroupIDs)
+			if err != nil {
+				return false, err
+			}
+		}
+
 		hasLock, err := r.takeLock(cluster, fmt.Sprintf("bouncing processes: %v", addresses))
 		if !hasLock {
 			return false, err
+		}
+
+		if useLocks && upgrading {
+			addresses, err = getAddressesForUpgrade(r, adminClient, lockClient, cluster, version)
+			if err != nil || addresses == nil {
+				return false, err
+			}
 		}
 
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
@@ -129,7 +162,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 	}
 
-	if cluster.Status.RunningVersion != cluster.Spec.Version {
+	if upgrading {
 		cluster.Status.RunningVersion = cluster.Spec.Version
 		err = r.Status().Update(context, cluster)
 		if err != nil {
@@ -144,4 +177,46 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 // again.
 func (b BounceProcesses) RequeueAfter() time.Duration {
 	return 0
+}
+
+// getAddressesForUpgrade checks that all processes in a cluster are ready to be
+// upgraded and returns the full list of addresses.
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]string, error) {
+	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
+	if err != nil {
+		return nil, err
+	}
+
+	databaseStatus, err := adminClient.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+
+	if !databaseStatus.Client.DatabaseStatus.Available {
+		log.Info("Deferring upgrade until database is available")
+		r.Recorder.Event(cluster, "Normal", "UpgradeRequeued", "Database is unavailable")
+		return nil, nil
+	}
+
+	notReadyProcesses := make([]string, 0)
+	addresses := make([]string, 0, len(databaseStatus.Cluster.Processes))
+	for _, process := range databaseStatus.Cluster.Processes {
+		processID := process.Locality["instance_id"]
+		if pendingUpgrades[processID] {
+			addresses = append(addresses, process.Address)
+		} else {
+			notReadyProcesses = append(notReadyProcesses, processID)
+		}
+	}
+	if len(notReadyProcesses) > 0 {
+		log.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
+		r.Recorder.Event(cluster, "Normal", "UpgradeRequeued", fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses))
+		return nil, nil
+	}
+	err = lockClient.ClearPendingUpgrades()
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses, nil
 }

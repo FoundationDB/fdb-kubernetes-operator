@@ -653,6 +653,7 @@ type MockAdminClient struct {
 	restoreURL            string
 	clientVersions        map[string][]string
 	missingProcessGroups  map[string]bool
+	additionalProcesses   []fdbtypes.ProcessGroupStatus
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -779,6 +780,24 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				Version:       client.Cluster.Status.RunningVersion,
 				UptimeSeconds: 60000,
 			}
+		}
+
+		for _, processGroup := range client.additionalProcesses {
+			locality := map[string]string{
+				"instance_id": processGroup.ProcessGroupID,
+				"zoneid":      processGroup.ProcessGroupID,
+			}
+
+			fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
+
+			status.Cluster.Processes[processGroup.ProcessGroupID] = fdbtypes.FoundationDBStatusProcessInfo{
+				Address:       fullAddress,
+				ProcessClass:  processGroup.ProcessClass,
+				Locality:      locality,
+				Version:       client.Cluster.Status.RunningVersion,
+				UptimeSeconds: 60000,
+			}
+
 		}
 	}
 
@@ -1102,6 +1121,14 @@ func (client *MockAdminClient) MockClientVersion(version string, clients []strin
 		client.clientVersions = make(map[string][]string)
 	}
 	client.clientVersions[version] = clients
+}
+
+// MockAdditionalProcesses adds additional processes to the cluster status.
+func (client *MockAdminClient) MockAdditionalProcesses(processes []fdbtypes.ProcessGroupStatus) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	client.additionalProcesses = append(client.additionalProcesses, processes...)
 }
 
 // MockMissingProcessGroup updates the mock for whether a process group should

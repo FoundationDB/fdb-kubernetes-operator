@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -113,10 +114,12 @@ var _ = AfterSuite(func() {
 
 var _ = AfterEach(func() {
 	k8sClient.Clear()
+	ClearMockAdminClients()
+	ClearMockLockClients()
 })
 
 var Versions = struct {
-	NextMajorVersion,
+	NextMajorVersion, NextPatchVersion,
 	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
@@ -125,6 +128,7 @@ var Versions = struct {
 	Default fdbtypes.FdbVersion
 }{
 	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:                     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 21},
 	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
 	WithSidecarInstanceIDSubstitution:    fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutSidecarInstanceIDSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
@@ -171,6 +175,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 		},
 	}
 }
+
 func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
 	agentCount := 3
 	return &fdbtypes.FoundationDBBackup{
@@ -243,6 +248,31 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 		}
 	}
 	return result, err
+}
+
+func setupClusterForTest(cluster *fdbtypes.FoundationDBCluster) error {
+
+	err := k8sClient.Create(context.TODO(), cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = reconcileCluster(cluster)
+	if err != nil {
+		return err
+	}
+
+	_, err = reloadCluster(cluster)
+	if err != nil {
+		return err
+	}
+
+	err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func createTestClusterReconciler() *FoundationDBClusterReconciler {
