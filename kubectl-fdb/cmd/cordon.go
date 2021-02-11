@@ -1,5 +1,5 @@
 /*
- * evacuate.go
+ * cordon.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -41,12 +41,12 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-func newEvacuateCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newCordonCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
 	o := NewFDBOptions(streams)
 	var nodeSelectors map[string]string
 
 	cmd := &cobra.Command{
-		Use:   "evacuate",
+		Use:   "cordon",
 		Short: "Adds all instance (or multiple) that run on a node to the remove list of the given cluster",
 		Long:  "Adds all instance (or multiple) that run on a node to the remove list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,25 +95,25 @@ func newEvacuateCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command)
 					return err
 				}
 
-				return evacuateNode(kubeClient, cluster, nodes, namespace, withExclusion, force)
+				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, force)
 			}
 
-			return evacuateNode(kubeClient, cluster, args, namespace, withExclusion, force)
+			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, force)
 		},
 		Example: `
 # Evacuate all instances for a cluster in the current namespace that are hosted on node-1
-kubectl fdb evacuate -c cluster node-1
+kubectl fdb cordon -c cluster node-1
 
 # Evacuate all instances for a cluster in the default namespace that are hosted on node-1
-kubectl fdb evacuate -n default -c cluster node-1
+kubectl fdb cordon -n default -c cluster node-1
 
 # Evacuate all instances for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
-kubectl fdb evacuate -c cluster --node-selector machine=a,disk=fast
+kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 `,
 	}
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate instance(s) from the provided cluster.")
-	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector got all nodes that should be evacuated.")
+	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be removed with exclusion.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
@@ -125,14 +125,12 @@ kubectl fdb evacuate -c cluster --node-selector machine=a,disk=fast
 	return cmd
 }
 
-// evacuateNode gets all instances of this cluster that run on the given nodes and add them to the remove lisst
-func evacuateNode(kubeClient client.Client, clusterName string, nodes []string, namespace string, withExclusion bool, force bool) error {
+// cordonNode gets all instances of this cluster that run on the given nodes and add them to the remove list
+func cordonNode(kubeClient client.Client, clusterName string, nodes []string, namespace string, withExclusion bool, force bool) error {
+	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
-		fmt.Printf("evacuated %d nodes\n", len(nodes))
 		return nil
 	}
-
-	// TODO also implement node label selector
 
 	var instances []string
 

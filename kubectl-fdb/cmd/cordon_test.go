@@ -1,5 +1,5 @@
 /*
- * evacuate_test.go
+ * cordon_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestEvacuateNode(t *testing.T) {
+func TestCordonNode(t *testing.T) {
 	clusterName := "test"
 	namespace := "test"
 
@@ -99,42 +99,42 @@ func TestEvacuateNode(t *testing.T) {
 	}{
 		// todo add test cases for node selector
 		{
-			Name:                      "Evacuate node with exclusion",
+			Name:                      "Cordon node with exclusion",
 			nodes:                     []string{"node-1"},
 			WithExclusion:             true,
 			ExpectedInstancesToRemove: []string{"instance-1"},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{},
 		},
 		{
-			Name:                      "Evacuate node without exclusion",
+			Name:                      "Cordon node without exclusion",
 			nodes:                     []string{"node-1"},
 			WithExclusion:             false,
 			ExpectedInstancesToRemove: []string{},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
 		},
 		{
-			Name:                      "Evacuate no nodes with exclusion",
+			Name:                      "Cordon no nodes with exclusion",
 			nodes:                     []string{""},
 			WithExclusion:             true,
 			ExpectedInstancesToRemove: []string{},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{},
 		},
 		{
-			Name:                      "Evacuate no node nodes without exclusion",
+			Name:                      "Cordon no node nodes without exclusion",
 			nodes:                     []string{""},
 			WithExclusion:             false,
 			ExpectedInstancesToRemove: []string{},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{},
 		},
 		{
-			Name:                      "Evacuate all nodes with exclusion",
+			Name:                      "Cordon all nodes with exclusion",
 			nodes:                     []string{"node-1", "node-2"},
 			WithExclusion:             true,
 			ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{},
 		},
 		{
-			Name:                      "Evacuate all node nodes without exclusion",
+			Name:                      "Cordon all nodes without exclusion",
 			nodes:                     []string{"node-1", "node-2"},
 			WithExclusion:             false,
 			ExpectedInstancesToRemove: []string{},
@@ -149,7 +149,7 @@ func TestEvacuateNode(t *testing.T) {
 			_ = fdbtypes.AddToScheme(scheme)
 			kubeClient := fake.NewFakeClientWithScheme(scheme, &cluster, &podList, &nodeList)
 
-			err := evacuateNode(kubeClient, clusterName, tc.nodes, namespace, tc.WithExclusion, true)
+			err := cordonNode(kubeClient, clusterName, tc.nodes, namespace, tc.WithExclusion, true)
 			if err != nil {
 				t.Error(err)
 				return

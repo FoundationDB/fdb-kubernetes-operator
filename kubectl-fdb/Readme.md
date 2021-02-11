@@ -30,7 +30,7 @@ export PATH="$PATH:$(pwd)/bin"
 Run `kubectl fdb help` to get the latest help:
 
 ```bash
- kubectl fdb help
+$ kubectl fdb help
 kubectl fdb plugin for the interaction with the FoundationDB operator.
 
 Usage:
@@ -38,7 +38,7 @@ Usage:
   kubectl-fdb [command]
 
 Available Commands:
-  evacuate    Adds all instance (or multiple) that run on a node to the remove list of the given cluster
+  cordon      Adds all instance (or multiple) that run on a node to the remove list of the given cluster
   exec        Runs a command on a container in an FDB cluster
   help        Help about any command
   remove      Adds an instance (or multiple) to the remove list of the given cluster
@@ -69,8 +69,6 @@ Use "kubectl-fdb [command] --help" for more information about a command.
 
 ### Planned operations
 
-- Status: show the status of the fdb cluster (e.g. `fdbcli status`)
-- top: show the current resource utilization
-- df: shows the current free/used disk capacity either for each instance or aggregated per class
-
+Currently we have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
+that we want to implement.
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.
