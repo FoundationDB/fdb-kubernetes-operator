@@ -16,8 +16,10 @@ jobs:
         include:
           - image: fdb-kubernetes-operator
             context: ./
+            name: foundationdb/fdb-kubernetes-operator
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
+            name: foundationdb/fdb-data-loader
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -33,4 +35,4 @@ jobs:
         with:
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ github.repository }}/${{ matrix.image }}:latest
+          tags: ${{ matrix.name }}:latest
