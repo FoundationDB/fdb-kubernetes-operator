@@ -31,5 +31,6 @@ jobs:
       - name: Build and push to registry
         uses: docker/build-push-action@v2
         with:
+          push: true
           context: ${{ matrix.context }}
           tags: ${{ github.repository }}/${{ matrix.image }}:latest
