@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-FROM python:3.6-slim
+FROM python:3.9-slim
 
 WORKDIR /var/fdb/tmp
 ARG FDB_VERSION=6.2.22
