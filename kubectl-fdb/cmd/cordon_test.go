@@ -1,5 +1,5 @@
 /*
- * remove_test.go
+ * cordon_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestRemoveInstances(t *testing.T) {
+func TestCordonNode(t *testing.T) {
 	clusterName := "test"
 	namespace := "test"
 
@@ -53,6 +53,10 @@ func TestRemoveInstances(t *testing.T) {
 		},
 	}
 
+	nodeList := corev1.NodeList{
+		Items: []corev1.Node{},
+	}
+
 	podList := corev1.PodList{
 		Items: []corev1.Pod{
 			{
@@ -62,7 +66,25 @@ func TestRemoveInstances(t *testing.T) {
 					Labels: map[string]string{
 						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
 						controllers.FDBClusterLabel:      clusterName,
+						controllers.FDBInstanceIDLabel:   "instance-1",
 					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node-1",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "instance-2",
+					Namespace: namespace,
+					Labels: map[string]string{
+						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBClusterLabel:      clusterName,
+						controllers.FDBInstanceIDLabel:   "instance-2",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node-2",
 				},
 			},
 		},
@@ -70,56 +92,53 @@ func TestRemoveInstances(t *testing.T) {
 
 	tt := []struct {
 		Name                                      string
-		Instances                                 []string
+		nodes                                     []string
 		WithExclusion                             bool
-		WithShrink                                bool
 		ExpectedInstancesToRemove                 []string
 		ExpectedInstancesToRemoveWithoutExclusion []string
-		ExpectedProcessCounts                     fdbtypes.ProcessCounts
 	}{
+		// todo add test cases for node selector
 		{
-			Name:                      "Remove instance with exclusion",
-			Instances:                 []string{"instance-1"},
+			Name:                      "Cordon node with exclusion",
+			nodes:                     []string{"node-1"},
 			WithExclusion:             true,
-			WithShrink:                false,
 			ExpectedInstancesToRemove: []string{"instance-1"},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{},
-			ExpectedProcessCounts: fdbtypes.ProcessCounts{
-				Storage: 1,
-			},
 		},
 		{
-			Name:                      "Remove instance without exclusion",
-			Instances:                 []string{"instance-1"},
+			Name:                      "Cordon node without exclusion",
+			nodes:                     []string{"node-1"},
 			WithExclusion:             false,
-			WithShrink:                false,
 			ExpectedInstancesToRemove: []string{},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-			ExpectedProcessCounts: fdbtypes.ProcessCounts{
-				Storage: 1,
-			},
 		},
 		{
-			Name:                      "Remove instance with exclusion and shrink",
-			Instances:                 []string{"instance-1"},
+			Name:                      "Cordon no nodes with exclusion",
+			nodes:                     []string{""},
 			WithExclusion:             true,
-			WithShrink:                true,
-			ExpectedInstancesToRemove: []string{"instance-1"},
+			ExpectedInstancesToRemove: []string{},
 			ExpectedInstancesToRemoveWithoutExclusion: []string{},
-			ExpectedProcessCounts: fdbtypes.ProcessCounts{
-				Storage: 0,
-			},
 		},
 		{
-			Name:                      "Remove instance without exclusion and shrink",
-			Instances:                 []string{"instance-1"},
+			Name:                      "Cordon no node nodes without exclusion",
+			nodes:                     []string{""},
 			WithExclusion:             false,
-			WithShrink:                true,
 			ExpectedInstancesToRemove: []string{},
-			ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-			ExpectedProcessCounts: fdbtypes.ProcessCounts{
-				Storage: 0,
-			},
+			ExpectedInstancesToRemoveWithoutExclusion: []string{},
+		},
+		{
+			Name:                      "Cordon all nodes with exclusion",
+			nodes:                     []string{"node-1", "node-2"},
+			WithExclusion:             true,
+			ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
+			ExpectedInstancesToRemoveWithoutExclusion: []string{},
+		},
+		{
+			Name:                      "Cordon all nodes without exclusion",
+			nodes:                     []string{"node-1", "node-2"},
+			WithExclusion:             false,
+			ExpectedInstancesToRemove: []string{},
+			ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
 		},
 	}
 
@@ -128,9 +147,9 @@ func TestRemoveInstances(t *testing.T) {
 			scheme := runtime.NewScheme()
 			_ = clientgoscheme.AddToScheme(scheme)
 			_ = fdbtypes.AddToScheme(scheme)
-			kubeClient := fake.NewFakeClientWithScheme(scheme, &cluster, &podList)
+			kubeClient := fake.NewFakeClientWithScheme(scheme, &cluster, &podList, &nodeList)
 
-			err := removeInstances(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true)
+			err := cordonNode(kubeClient, clusterName, tc.nodes, namespace, tc.WithExclusion, true)
 			if err != nil {
 				t.Error(err)
 				return
@@ -152,10 +171,6 @@ func TestRemoveInstances(t *testing.T) {
 
 			if !equality.Semantic.DeepEqual(tc.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.InstancesToRemoveWithoutExclusion) {
 				t.Errorf("InstancesToRemoveWithoutExclusion expected: %s - got: %s\n", tc.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.InstancesToRemoveWithoutExclusion)
-			}
-
-			if tc.ExpectedProcessCounts.Storage != resCluster.Spec.ProcessCounts.Storage {
-				t.Errorf("ProcessCounts expected: %d - got: %d\n", tc.ExpectedProcessCounts.Storage, cluster.Spec.ProcessCounts.Storage)
 			}
 		})
 	}
