@@ -1,4 +1,4 @@
-name: Release kubectl plugin
+name: Create Release
 on:
   push:
     tags:
