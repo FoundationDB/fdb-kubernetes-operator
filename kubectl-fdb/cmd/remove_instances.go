@@ -129,7 +129,7 @@ kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 s
 }
 
 func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podNames []string, namespace string) ([]string, error) {
-	var instances []string
+	instances := make([]string, 0, len(podNames))
 	// Build a map to filter faster
 	podNameMap := map[string]bool{}
 	for _, instance := range podNames {
