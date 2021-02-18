@@ -39,6 +39,7 @@ func main() {
 
 	root := cmd.NewRootCmd(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	if err := root.Execute(); err != nil {
+		root.PrintErrln(err)
 		os.Exit(1)
 	}
 }

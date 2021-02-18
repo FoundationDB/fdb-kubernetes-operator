@@ -1,5 +1,5 @@
 /*
- * remove_test.go
+ * remove_instances_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -156,6 +156,79 @@ func TestRemoveInstances(t *testing.T) {
 
 			if tc.ExpectedProcessCounts.Storage != resCluster.Spec.ProcessCounts.Storage {
 				t.Errorf("ProcessCounts expected: %d - got: %d\n", tc.ExpectedProcessCounts.Storage, cluster.Spec.ProcessCounts.Storage)
+			}
+		})
+	}
+}
+
+func TestGetInstanceIDsFromPod(t *testing.T) {
+	clusterName := "test"
+	namespace := "test"
+
+	podList := corev1.PodList{
+		Items: []corev1.Pod{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "instance-1",
+					Namespace: namespace,
+					Labels: map[string]string{
+						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBClusterLabel:      clusterName,
+						controllers.FDBInstanceIDLabel:   "storage-1",
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "instance-2",
+					Namespace: namespace,
+					Labels: map[string]string{
+						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBClusterLabel:      clusterName,
+						controllers.FDBInstanceIDLabel:   "storage-2",
+					},
+				},
+			},
+		},
+	}
+
+	tt := []struct {
+		Name              string
+		Instances         []string
+		ExpectedInstances []string
+	}{
+		{
+			Name:              "Filter one instance",
+			Instances:         []string{"instance-1"},
+			ExpectedInstances: []string{"storage-1"},
+		},
+		{
+			Name:              "Filter two instances",
+			Instances:         []string{"instance-1", "instance-2"},
+			ExpectedInstances: []string{"storage-1", "storage-2"},
+		},
+		{
+			Name:              "Filter no instance",
+			Instances:         []string{""},
+			ExpectedInstances: []string{},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.Name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			_ = clientgoscheme.AddToScheme(scheme)
+			_ = fdbtypes.AddToScheme(scheme)
+			kubeClient := fake.NewFakeClientWithScheme(scheme, &podList)
+
+			instances, err := getInstanceIDsFromPod(kubeClient, clusterName, tc.Instances, namespace)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if !equality.Semantic.DeepEqual(tc.ExpectedInstances, instances) {
+				t.Errorf("expected: %s - got: %s\n", tc.ExpectedInstances, instances)
 			}
 		})
 	}

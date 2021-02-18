@@ -23,6 +23,8 @@ package cmd
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -68,4 +70,17 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 	}
 
 	return nodes, nil
+}
+
+func getPodsForCluster(kubeClient client.Client, clusterName string, namespace string) (*corev1.PodList, error) {
+	var podList corev1.PodList
+	err := kubeClient.List(
+		ctx.Background(),
+		&podList,
+		client.MatchingLabels(map[string]string{
+			controllers.FDBClusterLabel: clusterName,
+		}),
+		client.InNamespace(namespace))
+
+	return &podList, err
 }
