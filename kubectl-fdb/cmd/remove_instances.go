@@ -118,11 +118,6 @@ kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 s
 		log.Fatal(err)
 	}
 
-	err = cmd.MarkFlagRequired("instances")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
