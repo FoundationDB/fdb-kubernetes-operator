@@ -49,7 +49,7 @@ var _ = Describe("add_process_groups", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		initialProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)
+		initialProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 	})
 
 	JustBeforeEach(func() {
@@ -57,7 +57,7 @@ var _ = Describe("add_process_groups", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		newProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)
+		newProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 
 	})
 

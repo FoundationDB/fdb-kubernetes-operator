@@ -2997,6 +2997,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
+	cluster.Spec.ProcessCounts.Storage = 2
 	cluster.Status.ProcessGroups[0].Remove = true
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -3007,6 +3008,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
+	cluster.Spec.ProcessCounts.Storage = 2
 	cluster.Status.ProcessGroups[0].Remove = true
 	cluster.Status.ProcessGroups[0].Excluded = true
 	result, err = cluster.CheckReconciliation()

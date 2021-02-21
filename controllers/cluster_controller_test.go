@@ -226,7 +226,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
 
-				processCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)
+				processCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 				Expect(processCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
