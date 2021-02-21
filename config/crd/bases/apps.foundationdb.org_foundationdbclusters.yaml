@@ -1210,6 +1210,15 @@ spec:
               type: array
             lockOptions:
               properties:
+                denyList:
+                  items:
+                    properties:
+                      allow:
+                        type: boolean
+                      id:
+                        type: string
+                    type: object
+                  type: array
                 disableLocks:
                   type: boolean
                 lockDurationMinutes:
@@ -7856,6 +7865,9 @@ spec:
                 needsGrow:
                   format: int64
                   type: integer
+                needsLockConfigurationChanges:
+                  format: int64
+                  type: integer
                 needsMonitorConfUpdate:
                   format: int64
                   type: integer
@@ -7895,6 +7907,13 @@ spec:
               additionalProperties:
                 format: int64
                 type: integer
+              type: object
+            locks:
+              properties:
+                lockDenyList:
+                  items:
+                    type: string
+                  type: array
               type: object
             missingProcesses:
               additionalProperties:

@@ -2058,6 +2058,26 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			})
 		})
 
+		Context("with a lock deny list", func() {
+			BeforeEach(func() {
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbtypes.LockDenyListEntry{ID: "dc2"})
+				var locksDisabled = false
+				cluster.Spec.LockOptions.DisableLocks = &locksDisabled
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should update the deny list", func() {
+				lockClient, err := clusterReconciler.getLockClient(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				list, err := lockClient.GetDenyList()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(list).To(Equal([]string{"dc2"}))
+
+				Expect(cluster.Status.Locks.DenyList).To(Equal([]string{"dc2"}))
+			})
+		})
+
 		Context("custom metrics for a cluster", func() {
 			BeforeEach(func() {
 				generationGap = 0

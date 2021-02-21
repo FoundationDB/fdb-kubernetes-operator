@@ -122,6 +122,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 
 	subReconcilers := []ClusterSubReconciler{
 		UpdateStatus{},
+		UpdateLockConfiguration{},
 		CheckClientCompatibility{},
 		ReplaceMisconfiguredPods{},
 		ReplaceFailedPods{},

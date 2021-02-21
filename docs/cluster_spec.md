@@ -34,7 +34,9 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBStatusMovingData](#foundationdbstatusmovingdata)
 * [FoundationDBStatusProcessInfo](#foundationdbstatusprocessinfo)
 * [FoundationDBStatusSupportedVersion](#foundationdbstatussupportedversion)
+* [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
+* [LockSystemStatus](#locksystemstatus)
 * [PendingRemovalState](#pendingremovalstate)
 * [ProcessAddress](#processaddress)
 * [ProcessCounts](#processcounts)
@@ -89,6 +91,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | hasPendingRemoval | HasPendingRemoval provides the last generation that has pods that have been excluded but are pending being removed.  A cluster in this state is considered reconciled, but we track this in the status to allow users of the operator to track when the removal is fully complete. | int64 | false |
 | hasFailingPods | HasFailingPods provides the last generation that has pods that are failing to start. | int64 | false |
 | hasUnhealthyProcess | HasUnhealthyProcess provides the last generation that has at least one process group with a negative condition. | int64 | false |
+| needsLockConfigurationChanges | NeedsLockConfigurationChanges provides the last generation that is pending a change to the configuration of the locking system. | int64 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -298,6 +301,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
+| locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -479,6 +483,17 @@ FoundationDBStatusSupportedVersion provides information about a version of FDB s
 
 [Back to TOC](#table-of-contents)
 
+## LockDenyListEntry
+
+LockDenyListEntry models an entry in the deny list for the locking system.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| id | The ID of the operator instance this entry is targeting. | string | false |
+| allow | Whether the instance is allowed to take locks. | bool | false |
+
+[Back to TOC](#table-of-contents)
+
 ## LockOptions
 
 LockOptions provides customization for locking global operations.
@@ -488,6 +503,17 @@ LockOptions provides customization for locking global operations.
 | disableLocks | DisableLocks determines whether we should disable locking entirely. | *bool | false |
 | lockKeyPrefix | LockKeyPrefix provides a custom prefix for the keys in the database we use to store locks. | string | false |
 | lockDurationMinutes | LockDurationMinutes determines the duration that locks should be valid for. | *int | false |
+| denyList | DenyList manages configuration for whether an instance of the operator should be denied from taking locks. | [][LockDenyListEntry](#lockdenylistentry) | false |
+
+[Back to TOC](#table-of-contents)
+
+## LockSystemStatus
+
+LockSystemStatus provides a summary of the status of the locking system.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| lockDenyList | DenyList contains a list of operator instances that are prevented from taking locks. | []string | false |
 
 [Back to TOC](#table-of-contents)
 
