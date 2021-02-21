@@ -1109,7 +1109,7 @@ func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client FdbPo
 		ID:      substitutions["FDB_INSTANCE_ID"],
 		Address: address,
 		LocalityData: map[string]string{
-			"zoneid": substitutions["FDB_ZONE_ID"],
+			FDBLocalityZoneIDKey: substitutions["FDB_ZONE_ID"],
 		},
 	}, nil
 }
@@ -1151,7 +1151,7 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 
 	fields := constraint.Fields
 	if len(fields) == 0 {
-		fields = []string{"zoneid", "dcid"}
+		fields = []string{FDBLocalityZoneIDKey, FDBLocalityDCIDKey}
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))
@@ -1259,8 +1259,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 
 		if isCoordinator {
-			coordinatorZones[process.Locality["zoneid"]]++
-			coordinatorDCs[process.Locality["dcid"]]++
+			coordinatorZones[process.Locality[FDBLocalityZoneIDKey]]++
+			coordinatorDCs[process.Locality[FDBLocalityDCIDKey]]++
 		}
 
 		if process.Address == "" {

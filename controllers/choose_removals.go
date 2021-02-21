@@ -49,26 +49,60 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	}
 	desiredCounts := desiredCountStruct.Map()
 
+	adminClient, err := r.AdminClientProvider(cluster, r)
+	if err != nil {
+		return false, err
+	}
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
+	}
+	localityMap := make(map[string]localityInfo)
+	for _, process := range status.Cluster.Processes {
+		id := process.Locality[FDBLocalityInstanceIDKey]
+		localityMap[id] = localityInfo{ID: id, Address: process.Address, LocalityData: process.Locality}
+	}
+
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 
 		removedCount := currentCounts[processClass] - desiredCount
 
+		processClassLocality := make([]localityInfo, 0, currentCounts[processClass])
+
 		for _, processGroup := range cluster.Status.ProcessGroups {
-			if processGroup.ProcessClass == processClass && processGroup.Remove {
-				removedCount--
+			if processGroup.ProcessClass == processClass {
+				if processGroup.Remove {
+					if processGroup.ProcessClass == processClass && processGroup.Remove {
+						removedCount--
+					}
+				} else {
+					locality, present := localityMap[processGroup.ProcessGroupID]
+					if present {
+						processClassLocality = append(processClassLocality, locality)
+					}
+				}
 			}
 		}
 
 		if removedCount > 0 {
 			r.Recorder.Event(cluster, "Normal", "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 
-			removalsChosen := 0
-			for indexOfProcess := len(cluster.Status.ProcessGroups) - 1; indexOfProcess >= 0 && removalsChosen < removedCount; indexOfProcess-- {
-				processGroup := cluster.Status.ProcessGroups[indexOfProcess]
-				if !processGroup.Remove && processGroup.ProcessClass == processClass && removedCount > removalsChosen {
+			remainingProcesses, err := chooseDistributedProcesses(processClassLocality, desiredCount, processSelectionConstraint{})
+			if err != nil {
+				return false, err
+			}
+
+			log.Info("Chose remaining processes after shrink", "desiredCount", desiredCount, "options", processClassLocality, "selected", remainingProcesses)
+
+			remainingProcessMap := make(map[string]bool, len(remainingProcesses))
+			for _, localityInfo := range remainingProcesses {
+				remainingProcessMap[localityInfo.ID] = true
+			}
+
+			for _, processGroup := range cluster.Status.ProcessGroups {
+				if processGroup.ProcessClass == processClass && !remainingProcessMap[processGroup.ProcessGroupID] {
 					processGroup.Remove = true
-					removalsChosen++
 				}
 			}
 			hasNewRemovals = true

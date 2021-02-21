@@ -3239,7 +3239,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				zone := ""
 				for _, process := range status.Cluster.Processes {
 					if process.Address == status.Client.Coordinators.Coordinators[0].Address {
-						zone = process.Locality["zoneid"]
+						zone = process.Locality[FDBLocalityZoneIDKey]
 					}
 				}
 				for _, process := range status.Cluster.Processes {
