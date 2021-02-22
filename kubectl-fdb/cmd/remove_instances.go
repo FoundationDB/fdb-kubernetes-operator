@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"log"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
@@ -118,6 +120,9 @@ kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 s
 	if err != nil {
 		log.Fatal(err)
 	}
+	cmd.SetOut(o.Out)
+	cmd.SetErr(o.ErrOut)
+	cmd.SetIn(o.In)
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -150,6 +155,19 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 
 // removeInstances adds instances to the instancesToRemove field
 func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) error {
+	var cluster fdbtypes.FoundationDBCluster
+	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      clusterName,
+	}, &cluster)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
+		}
+		return err
+	}
+
 	if len(instances) == 0 {
 		return nil
 	}
@@ -172,16 +190,6 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 			class := controllers.GetProcessClassFromMeta(pod.ObjectMeta)
 			shrinkMap[class]++
 		}
-	}
-
-	var cluster fdbtypes.FoundationDBCluster
-	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      clusterName,
-	}, &cluster)
-
-	if err != nil {
-		return err
 	}
 
 	for class, amount := range shrinkMap {

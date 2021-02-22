@@ -95,6 +95,10 @@ kubectl fdb version
 kubectl fdb -n default version
 `,
 	}
+	cmd.SetOut(o.Out)
+	cmd.SetErr(o.ErrOut)
+	cmd.SetIn(o.In)
+
 	o.configFlags.AddFlags(cmd.Flags())
 	cmd.Flags().Bool("client-only", false, "Prints out the plugin version only without checking the operator version.")
 	cmd.Flags().String("container-name", "manager", "The container name of Kubernetes Deployment.")

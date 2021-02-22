@@ -33,7 +33,6 @@ func newRemoveCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *
 		Use:   "remove",
 		Short: "Subcommand to remove instances from a given cluster",
 		Long:  "Subcommand to remove instances from a given cluster",
-
 		RunE: func(c *cobra.Command, args []string) error {
 			return c.Help()
 		},
@@ -49,6 +48,9 @@ kubectl fdb -n default remove instances -c cluster pod-1 pod-2
 kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
 `,
 	}
+	cmd.SetOut(o.Out)
+	cmd.SetErr(o.ErrOut)
+	cmd.SetIn(o.In)
 
 	cmd.AddCommand(newRemoveInstancesCmd(streams, rootCmd))
 	o.configFlags.AddFlags(cmd.Flags())
