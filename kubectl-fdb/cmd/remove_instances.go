@@ -99,19 +99,20 @@ func newRemoveInstancesCmd(streams genericclioptions.IOStreams, rootCmd *cobra.C
 		},
 		Example: `
 # Remove instances for a cluster in the current namespace
-kubectl fdb remove instances -c cluster instance-1 -i instance-2
+kubectl fdb remove instances -c cluster pod-1 -i pod-2
 
 # Remove instances for a cluster in the namespace default
-kubectl fdb -n default remove instances -c cluster instance-1 instance-2
+kubectl fdb -n default remove instances -c cluster pod-1 pod-2
 
-# Remove instances for a cluster with the instance-id
+# Remove instances for a cluster with the instance ID.
+# The instance ID of a Pod can be fetched with "kubectl get po -L fdb-instance-id"
 kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
 `,
 	}
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "remove instance(s) from the provided cluster.")
-	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be remove with exclusion.")
-	cmd.Flags().Bool("use-instance-id", false, "if set the operator will use the instance ID to remove it rather than the Pod name.")
+	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be removed with exclusion.")
+	cmd.Flags().Bool("use-instance-id", false, "if set the operator will use the instance ID to remove it rather than the Pod(s) name.")
 	cmd.Flags().Bool("shrink", false, "define if the removed instances should not be replaced.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
@@ -190,8 +191,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 	if !force {
 		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", instances, namespace, clusterName, withExclusion, withShrink))
 		if !confirmed {
-			print("Abort")
-			return nil
+			return fmt.Errorf("user aborted the removal")
 		}
 	}
 

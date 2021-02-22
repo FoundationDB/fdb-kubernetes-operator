@@ -1,5 +1,5 @@
 /*
- * remove_instances.go
+ * remove.go
  *
  * This source file is part of the FoundationDB open source project
  *
