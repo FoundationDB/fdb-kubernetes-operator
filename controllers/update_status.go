@@ -223,7 +223,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if cluster.Spec.PendingRemovals != nil {
 		for podName, address := range cluster.Spec.PendingRemovals {
 			pods := &corev1.PodList{}
-			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", podName))
+			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": podName})
 			if err != nil {
 				return false, err
 			}
@@ -241,7 +241,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if cluster.Status.PendingRemovals != nil {
 		for instanceID, state := range cluster.Status.PendingRemovals {
 			pods := &corev1.PodList{}
-			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingField("metadata.name", state.PodName))
+			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": state.PodName})
 			if err != nil {
 				return false, err
 			}

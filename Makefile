@@ -5,7 +5,7 @@ IMG ?= fdb-kubernetes-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0"
 
-CONTROLLER_GEN_VERSION ?= 0.2.4
+CONTROLLER_GEN_VERSION ?= 0.5.0
 
 ifneq "$(FDB_WEBSITE)" ""
 	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)

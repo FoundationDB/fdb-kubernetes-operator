@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/net/context"
 	"math"
 	"regexp"
 	"sort"
@@ -57,7 +58,7 @@ type FoundationDBClusterReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
-	Scheme              *runtime.Scheme
+	scheme              *runtime.Scheme
 	InSimulation        bool
 	PodLifecycleManager PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
@@ -70,16 +71,23 @@ type FoundationDBClusterReconciler struct {
 	RequeueOnNotFound   bool
 }
 
+func (r *FoundationDBClusterReconciler) SetScheme(scheme *runtime.Scheme) {
+	r.scheme = scheme
+}
+
+func (r *FoundationDBClusterReconciler) Scheme() *runtime.Scheme {
+	return r.scheme
+}
+
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=pods;configmaps;persistentvolumeclaims;events;secrets;services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
-	context := ctx.Background()
 
-	err := r.Get(context, request.NamespacedName, cluster)
+	err := r.Get(ctx, request.NamespacedName, cluster)
 
 	originalGeneration := cluster.ObjectMeta.Generation
 
@@ -148,7 +156,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	for _, subReconciler := range subReconcilers {
 		cluster.Spec = *(normalizedSpec.DeepCopy())
 
-		canContinue, err := subReconciler.Reconcile(r, context, cluster)
+		canContinue, err := subReconciler.Reconcile(r, ctx, cluster)
 		if !canContinue || err != nil {
 			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
@@ -181,22 +189,22 @@ func (r *FoundationDBClusterReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watchedObjects ...runtime.Object) error {
-	err := mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, "metadata.name", func(o runtime.Object) []string {
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watchedObjects ...client.Object) error {
+	err := mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(&corev1.Service{}, "metadata.name", func(o runtime.Object) []string {
+	err = mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Service).Name}
 	})
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolumeClaim{}, "metadata.name", func(o runtime.Object) []string {
+	err = mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
 	})
 	if err != nil {
