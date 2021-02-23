@@ -655,6 +655,7 @@ type MockAdminClient struct {
 	missingProcessGroups  map[string]bool
 	additionalProcesses   []fdbtypes.ProcessGroupStatus
 	localityInfo          map[string]map[string]string
+	incorrectCommandLines map[string]bool
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -761,6 +762,9 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			command, err := GetStartCommand(client.Cluster, instance, podClient, processIndex, processCount)
 			if err != nil {
 				return nil, err
+			}
+			if client.incorrectCommandLines != nil && client.incorrectCommandLines[instance.GetInstanceID()] {
+				command += " --locality_incorrect=1"
 			}
 
 			locality := map[string]string{
@@ -1150,6 +1154,15 @@ func (client *MockAdminClient) MockMissingProcessGroup(instanceID string, missin
 // MockLocalityInfo sets mock locality information for a process.
 func (client *MockAdminClient) MockLocalityInfo(processGroupID string, locality map[string]string) {
 	client.localityInfo[processGroupID] = locality
+}
+
+// MockIncorrectCommandLine updates the mock for whether a process group should
+// be have an incorrect command-line.
+func (client *MockAdminClient) MockIncorrectCommandLine(instanceID string, incorrect bool) {
+	if client.incorrectCommandLines == nil {
+		client.incorrectCommandLines = make(map[string]bool)
+	}
+	client.incorrectCommandLines[instanceID] = incorrect
 }
 
 // Close shuts down any resources for the client once it is no longer

@@ -89,7 +89,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | needsServiceUpdate | NeedsServiceUpdate provides the last generation that needs an update to the service config. | int64 | false |
 | needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. **Deprecated: This needs to get moved into FoundationDBBackup** | int64 | false |
 | hasPendingRemoval | HasPendingRemoval provides the last generation that has pods that have been excluded but are pending being removed.  A cluster in this state is considered reconciled, but we track this in the status to allow users of the operator to track when the removal is fully complete. | int64 | false |
-| hasFailingPods | HasFailingPods provides the last generation that has pods that are failing to start. | int64 | false |
+| hasFailingPods | HasFailingPods provides the last generation that has pods that are failing to start. **Deprecated: This is no longer used.** | int64 | false |
 | hasUnhealthyProcess | HasUnhealthyProcess provides the last generation that has at least one process group with a negative condition. | int64 | false |
 | needsLockConfigurationChanges | NeedsLockConfigurationChanges provides the last generation that is pending a change to the configuration of the locking system. | int64 | false |
 

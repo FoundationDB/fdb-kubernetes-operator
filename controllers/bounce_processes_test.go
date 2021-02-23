@@ -24,7 +24,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -71,10 +70,13 @@ var _ = Describe("BounceProcesses", func() {
 
 	Context("with incorrect processes", func() {
 		BeforeEach(func() {
-			cluster.Status.IncorrectProcesses = map[string]int64{
-				"storage-1": time.Now().Unix(),
-				"storage-2": time.Now().Unix(),
-			}
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+
+			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
 		})
 
 		It("should not requeue", func() {
@@ -94,12 +96,48 @@ var _ = Describe("BounceProcesses", func() {
 		})
 	})
 
+	Context("with multiple storage servers per pod", func() {
+		BeforeEach(func() {
+			cluster.Spec.StorageServersPerPod = 2
+			err = k8sClient.Update(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			_, err = reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-5"))
+			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+
+			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-6"))
+			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+		})
+
+		It("should not requeue", func() {
+			Expect(shouldContinue).To(BeTrue())
+		})
+
+		It("should kill the targeted processes", func() {
+			addresses := make([]string, 0, 2)
+			for _, processGroupID := range []string{"storage-5", "storage-6"} {
+				processGroupAddresses := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
+				for _, address := range processGroupAddresses {
+					addresses = append(addresses, fmt.Sprintf("%s:4501", address), fmt.Sprintf("%s:4503", address))
+				}
+			}
+			sort.Strings(adminClient.KilledAddresses)
+			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+		})
+	})
+
 	Context("with a pending upgrade", func() {
 		BeforeEach(func() {
 			cluster.Spec.Version = Versions.NextMajorVersion.String()
-			cluster.Status.IncorrectProcesses = make(map[string]int64, len(cluster.Status.ProcessGroups))
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				cluster.Status.IncorrectProcesses[processGroup.ProcessGroupID] = time.Now().Unix()
+				processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
 			}
 		})
 
