@@ -28,13 +28,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context"
 	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
@@ -71,10 +72,12 @@ type FoundationDBClusterReconciler struct {
 	RequeueOnNotFound   bool
 }
 
+// SetScheme sets the current runtime Scheme
 func (r *FoundationDBClusterReconciler) SetScheme(scheme *runtime.Scheme) {
 	r.scheme = scheme
 }
 
+// Scheme returns the current runtime Scheme
 func (r *FoundationDBClusterReconciler) Scheme() *runtime.Scheme {
 	return r.scheme
 }

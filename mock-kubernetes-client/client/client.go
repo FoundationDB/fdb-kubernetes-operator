@@ -25,11 +25,12 @@ import (
 	ctx "context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -59,26 +60,19 @@ func (client *MockClient) Clear() {
 	client.data = make(map[string]map[string]map[string]interface{})
 }
 
+// Scheme returns the runtime Scheme
 func (client *MockClient) Scheme() *runtime.Scheme {
 	return nil
 }
 
+// RESTMapper retruns the RESTMapper
 func (client *MockClient) RESTMapper() meta.RESTMapper {
 	return nil
 }
 
 // buildKindKey gets the key identifying an object's type.
-func buildKindKey(object ctrlClient.Object) (string, error) {
+func buildKindKey(object runtime.Object) (string, error) {
 	gvk, err := apiutil.GVKForObject(object, scheme.Scheme)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind), nil
-}
-
-// buildKindKeyForList gets the key identifying an object's type.
-func buildKindKeyForList(objectList ctrlClient.ObjectList) (string, error) {
-	gvk, err := apiutil.GVKForObject(objectList, scheme.Scheme)
 	if err != nil {
 		return "", err
 	}
@@ -393,7 +387,7 @@ func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, obj
 
 // List lists objects.
 func (client *MockClient) List(context ctx.Context, list ctrlClient.ObjectList, options ...ctrlClient.ListOption) error {
-	kindKey, err := buildKindKeyForList(list)
+	kindKey, err := buildKindKey(list)
 	if err != nil {
 		return err
 	}

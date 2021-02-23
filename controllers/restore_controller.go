@@ -23,8 +23,9 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"golang.org/x/net/context"
 	"time"
+
+	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
@@ -46,10 +47,12 @@ type FoundationDBRestoreReconciler struct {
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
+// SetScheme sets the current runtime Scheme
 func (r *FoundationDBRestoreReconciler) SetScheme(scheme *runtime.Scheme) {
 	r.scheme = scheme
 }
 
+// Scheme returns the current runtime Scheme
 func (r *FoundationDBRestoreReconciler) Scheme() *runtime.Scheme {
 	return r.scheme
 }
