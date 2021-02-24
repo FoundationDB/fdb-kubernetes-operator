@@ -445,7 +445,7 @@ This tells the operator to use the value "zone2" as the fault domain for every p
 
 When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration. You can set different flags in `automationOptions` to control what the operator can change about the cluster. You can use these fields to designate a master instance of the operator which will handle things like reconfiguring the database.
 
-You should always specify an `instanceIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters. You should set it to a different value in each Kubernetes cluster. This will two multiple instances in different Kubernetes cluster from using the same instance ID.
+You must always specify an `instanceIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters. You must set it to a different value in each Kubernetes cluster. This will prevent instance ID duplicates in the different Kubernetes clusters.
 
 ## Option 3: Fake Replication
 
@@ -578,7 +578,7 @@ When running a FoundationDB cluster that is deployed across multiple Kubernetes 
 
 The locking system uses the `instanceIDPrefix` from the cluster spec to identify an instance of the operator. Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate instance IDs.
 
-This locking system uses the FoundationDB cluster as its data source. This means that if the cluster is unavailable, no instance of the operator will be able to get a lock. If you hit a case where this becomes a blocker, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
+This locking system uses the FoundationDB cluster as its data source. This means that if the cluster is unavailable, no instance of the operator will be able to get a lock. If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
 
 In most cases, bounces will be done independently in each Kubernetes cluster, and the locking system will be used to ensure a minimum time between the different bounces and avoid multiple recoveries in a short span of time. During upgrades, however, all instances must be bounced at the same time. The operator will use the locking system to coordinate this. Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the bounce. Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade. If all processes are prepared, the operator will bounce all of them at once. If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the bounce will not occur.
 
