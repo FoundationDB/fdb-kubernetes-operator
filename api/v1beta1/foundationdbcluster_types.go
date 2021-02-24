@@ -1252,13 +1252,14 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	for _, denyListID := range cluster.Status.Locks.DenyList {
 		allow, present := lockDenyMap[denyListID]
-		if present {
-			if allow {
-				cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
-				reconciled = false
-			} else {
-				delete(lockDenyMap, denyListID)
-			}
+		if !present {
+			continue
+		}
+		if allow {
+			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
+			reconciled = false
+		} else {
+			delete(lockDenyMap, denyListID)
 		}
 	}
 
@@ -1266,6 +1267,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		if !allow {
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
 			reconciled = false
+			break
 		}
 	}
 

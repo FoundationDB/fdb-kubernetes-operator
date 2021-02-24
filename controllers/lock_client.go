@@ -277,7 +277,6 @@ func (client *RealLockClient) GetDenyList() ([]string, error) {
 }
 
 // UpdateDenyList updates the deny list to match a list of entries.
-// This will return the complete deny list after these changes are made.
 func (client *RealLockClient) UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetAccessSystemKeys()

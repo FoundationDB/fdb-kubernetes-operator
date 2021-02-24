@@ -312,8 +312,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			denyList = nil
 		}
 		status.Locks.DenyList = denyList
-	} else {
-		status.Locks.DenyList = nil
 	}
 
 	// Sort the storage servers per Disk to prevent a reodering to issue a new reconcile loop.
