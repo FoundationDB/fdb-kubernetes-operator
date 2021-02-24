@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -47,19 +49,8 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string)
 			}
-			metadata.Annotations[LastSpecKey] = instance.Metadata.Annotations[LastSpecKey]
-			metadataCorrect := true
 
-			if !reflect.DeepEqual(instance.Metadata.Labels, metadata.Labels) {
-				instance.Metadata.Labels = metadata.Labels
-				metadataCorrect = false
-			}
-
-			if mergeAnnotations(instance.Metadata, metadata) {
-				metadataCorrect = false
-			}
-
-			if !metadataCorrect {
+			if !podMetadataCorrect(metadata, &instance) {
 				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 				if err != nil {
 					return false, err
@@ -102,6 +93,21 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	return true, nil
+}
+
+func podMetadataCorrect(metadata metav1.ObjectMeta, instance *FdbInstance) bool {
+	metadataCorrect := true
+	metadata.Annotations[LastSpecKey] = instance.Metadata.Annotations[LastSpecKey]
+
+	if mergeLabelsInMetadata(instance.Metadata, metadata) {
+		metadataCorrect = false
+	}
+
+	if mergeAnnotations(instance.Metadata, metadata) {
+		metadataCorrect = false
+	}
+
+	return metadataCorrect
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
