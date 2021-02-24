@@ -51,6 +51,13 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		return true, nil
 	}
 
+	if cluster.ShouldUseLocks() {
+		hasLock, err := r.takeLock(cluster, fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
+		if !hasLock {
+			return false, err
+		}
+	}
+
 	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 	removedProcessGroups := make(map[string]bool)
 	allRemoved := true
