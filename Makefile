@@ -3,7 +3,9 @@
 IMG ?= fdb-kubernetes-operator:latest
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0"
+# TODO (johscheuer): #334
+CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1beta1"
+GENERATED_CRDS = ./config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml ./config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml ./config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 
 CONTROLLER_GEN_VERSION ?= 0.5.0
 
@@ -100,6 +102,10 @@ manifests: ${MANIFESTS}
 
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# TODO (johscheuer): #524 remove this workaround once we use apiextensions.k8s.io/v1
+	# ref: https://github.com/kubernetes/kubernetes/issues/91395
+	# in v1beta1 defaulting is not allowed so we remove the default value
+	sed -i '/default: TCP/d' $(GENERATED_CRDS)
 
 # Run go fmt against code
 fmt: bin/fmt_check
