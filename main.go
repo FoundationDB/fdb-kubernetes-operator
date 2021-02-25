@@ -45,6 +45,8 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+invalid
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
