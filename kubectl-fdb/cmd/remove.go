@@ -39,10 +39,14 @@ func newRemoveCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *
 		},
 		Example: `
 # Remove instances for a cluster in the current namespace
-kubectl fdb remove instances -c cluster instance-1 instance-2
+kubectl fdb remove instances -c cluster pod-1 -i pod-2
 
 # Remove instances for a cluster in the namespace default
-kubectl fdb -n default remove instances -c cluster instance-1 instance-2
+kubectl fdb -n default remove instances -c cluster pod-1 pod-2
+
+# Remove instances for a cluster with the instance ID.
+# The instance ID of a Pod can be fetched with "kubectl get po -L fdb-instance-id"
+kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
 `,
 	}
 
