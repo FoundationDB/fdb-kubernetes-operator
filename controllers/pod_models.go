@@ -94,9 +94,10 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass string, idNu
 	return &corev1.Service{
 		ObjectMeta: metadata,
 		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeClusterIP,
-			Ports:    generateServicePorts(processesPerPod),
-			Selector: getMinimalSinglePodLabels(cluster, id),
+			Type:                     corev1.ServiceTypeClusterIP,
+			Ports:                    generateServicePorts(processesPerPod),
+			PublishNotReadyAddresses: true,
+			Selector:                 getMinimalSinglePodLabels(cluster, id),
 		},
 	}, nil
 }
