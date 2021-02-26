@@ -172,7 +172,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		return nil
 	}
 
-	shrinkMap := make(map[string]int)
+	shrinkMap := make(map[fdbtypes.ProcessClass]int)
 
 	if withShrink {
 		var pods corev1.PodList

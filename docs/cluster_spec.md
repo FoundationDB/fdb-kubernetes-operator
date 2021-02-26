@@ -233,7 +233,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. | map[string]int | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
-| processes | Processes defines process-level settings. | map[string][ProcessSettings](#processsettings) | false |
+| processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
@@ -460,7 +460,7 @@ FoundationDBStatusProcessInfo describes the \"processes\" portion of the cluster
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | address | Address provides the address of the process. | string | false |
-| class_type | ProcessClass provides the process class the process has been given. | string | false |
+| class_type | ProcessClass provides the process class the process has been given. | ProcessClass | false |
 | command_line | CommandLine provides the command-line invocation for the process. | string | false |
 | excluded | Excluded indicates whether the process has been excluded. | bool | false |
 | locality | The locality information for the process. | map[string]string | false |
@@ -585,7 +585,7 @@ ProcessGroupStatus represents a the status of a ProcessGroup.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | processGroupID | ProcessGroupID represents the ID of the process group | string | false |
-| processClass | ProcessClass represents the class the process group has. | string | false |
+| processClass | ProcessClass represents the class the process group has. | ProcessClass | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
 | remove | Remove defines if the process group is marked for removal. | bool | false |
 | excluded | Excluded defines if the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | bool | false |

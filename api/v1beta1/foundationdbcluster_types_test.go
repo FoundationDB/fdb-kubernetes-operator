@@ -52,7 +52,7 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 		RemoteLogs: -1,
 		LogRouters: -1,
 	}))
-	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
+	g.Expect(counts.Map()).To(gomega.Equal(map[ProcessClass]int{
 		"logs":        3,
 		"proxies":     3,
 		"resolvers":   1,
@@ -71,7 +71,7 @@ func TestGetDefaultRoleCounts(t *testing.T) {
 		RemoteLogs: 3,
 		LogRouters: 3,
 	}))
-	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
+	g.Expect(counts.Map()).To(gomega.Equal(map[ProcessClass]int{
 		"logs":        3,
 		"proxies":     3,
 		"resolvers":   1,
@@ -150,7 +150,7 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 		Log:       4,
 		Stateless: 9,
 	}))
-	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
+	g.Expect(counts.Map()).To(gomega.Equal(map[ProcessClass]int{
 		ProcessClassStorage:   5,
 		ProcessClassLog:       4,
 		ProcessClassStateless: 9,
@@ -171,7 +171,7 @@ func TestGettingDefaultProcessCounts(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(counts.Stateless).To(gomega.Equal(8))
 	g.Expect(counts.ClusterController).To(gomega.Equal(3))
-	g.Expect(counts.Map()).To(gomega.Equal(map[string]int{
+	g.Expect(counts.Map()).To(gomega.Equal(map[ProcessClass]int{
 		ProcessClassStorage:           5,
 		ProcessClassLog:               4,
 		ProcessClassStateless:         8,
@@ -3071,7 +3071,7 @@ func TestGettingProcessSettings(t *testing.T) {
 
 	cluster := &FoundationDBCluster{
 		Spec: FoundationDBClusterSpec{
-			Processes: map[string]ProcessSettings{
+			Processes: map[ProcessClass]ProcessSettings{
 				ProcessClassGeneral: {
 					PodTemplate: &corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{

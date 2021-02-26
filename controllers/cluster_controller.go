@@ -292,7 +292,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	return true, nil
 }
 
-func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string, specHash string) metav1.ObjectMeta {
+func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string, specHash string) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -313,7 +313,7 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, 
 	return metadata
 }
 
-func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) metav1.ObjectMeta {
+func getPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -342,7 +342,7 @@ func getConfigMapMetadata(cluster *fdbtypes.FoundationDBCluster) metav1.ObjectMe
 	return metadata
 }
 
-func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass string, id string) metav1.ObjectMeta {
+func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbtypes.ProcessClass, id string) metav1.ObjectMeta {
 	var metadata *metav1.ObjectMeta
 
 	if base != nil {
@@ -362,13 +362,13 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 	return *metadata
 }
 
-func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) map[string]string {
+func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
 	labels[FDBClusterLabel] = cluster.ObjectMeta.Name
 
 	if processClass != "" {
-		labels[FDBProcessClassLabel] = processClass
+		labels[FDBProcessClassLabel] = string(processClass)
 	}
 
 	if id != "" {
@@ -382,7 +382,7 @@ func getMinimalSinglePodLabels(cluster *fdbtypes.FoundationDBCluster, id string)
 	return getMinimalPodLabels(cluster, "", id)
 }
 
-func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass string, id string) []client.ListOption {
+func getPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) []client.ListOption {
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(getMinimalPodLabels(cluster, processClass, id))}
 }
 
@@ -401,7 +401,7 @@ func buildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 	}}
 }
 
-func setMonitorConfForFilename(cluster *fdbtypes.FoundationDBCluster, data map[string]string, filename string, connectionString string, processClass string, serversPerPod int) error {
+func setMonitorConfForFilename(cluster *fdbtypes.FoundationDBCluster, data map[string]string, filename string, connectionString string, processClass fdbtypes.ProcessClass, serversPerPod int) error {
 	if connectionString == "" {
 		data[filename] = ""
 	} else {
@@ -551,7 +551,7 @@ func GetConfigMapHash(cluster *fdbtypes.FoundationDBCluster) (string, error) {
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass string, podClient FdbPodClient, serversPerPod int) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -603,7 +603,7 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 	return command, nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass string, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	var substitutions map[string]string
@@ -694,7 +694,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass st
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
-func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass string, id int, spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
 	var err error
 	if spec == nil {
 		spec, err = GetPodSpec(cluster, processClass, id)
@@ -878,13 +878,13 @@ func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
 }
 
 // GetProcessClass fetches the process class from an instance's metadata.
-func (instance FdbInstance) GetProcessClass() string {
+func (instance FdbInstance) GetProcessClass() fdbtypes.ProcessClass {
 	return GetProcessClassFromMeta(*instance.Metadata)
 }
 
 // GetProcessClassFromMeta fetches the process class from an object's metadata.
-func GetProcessClassFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels[FDBProcessClassLabel]
+func GetProcessClassFromMeta(metadata metav1.ObjectMeta) fdbtypes.ProcessClass {
+	return processClassFromLabels(metadata.Labels)
 }
 
 // GetPublicIPSource determines how an instance has gotten its public IP.
@@ -1002,7 +1002,7 @@ func (manager StandardPodLifecycleManager) InstanceIsUpdated(*FoundationDBCluste
 }
 
 // ParseInstanceID extracts the components of an instance ID.
-func ParseInstanceID(id string) (string, int, error) {
+func ParseInstanceID(id string) (fdbtypes.ProcessClass, int, error) {
 	result := instanceIDRegex.FindStringSubmatch(id)
 	if result == nil {
 		return "", 0, fmt.Errorf("could not parse instance ID %s", id)
@@ -1012,7 +1012,7 @@ func ParseInstanceID(id string) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	return prefix, number, nil
+	return fdbtypes.ProcessClass(prefix), number, nil
 }
 
 // GetInstanceIDFromProcessID returns the instance ID for the process ID

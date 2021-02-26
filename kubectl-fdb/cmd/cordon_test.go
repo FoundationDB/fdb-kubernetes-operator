@@ -64,7 +64,7 @@ func TestCordonNode(t *testing.T) {
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						controllers.FDBClusterLabel:      clusterName,
 						controllers.FDBInstanceIDLabel:   "instance-1",
 					},
@@ -78,7 +78,7 @@ func TestCordonNode(t *testing.T) {
 					Name:      "instance-2",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						controllers.FDBClusterLabel:      clusterName,
 						controllers.FDBInstanceIDLabel:   "instance-2",
 					},

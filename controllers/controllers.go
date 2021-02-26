@@ -23,6 +23,8 @@ package controllers
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 var log = logf.Log.WithName("controller")
@@ -115,6 +117,11 @@ func mergeMap(target map[string]string, desired map[string]string) bool {
 		}
 	}
 	return changed
+}
+
+// processClassFromLabel extracts the ProcessClass label from the metav1.ObjectMeta.Labels map
+func processClassFromLabels(labels map[string]string) fdbtypes.ProcessClass {
+	return fdbtypes.ProcessClass(labels[FDBProcessClassLabel])
 }
 
 // DeprecationOptions controls how deprecations and changes to defaults

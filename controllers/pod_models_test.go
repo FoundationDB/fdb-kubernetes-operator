@@ -59,7 +59,7 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "storage-1",
 				}))
 			})
@@ -81,7 +81,7 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassClusterController,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassClusterController),
 					FDBInstanceIDLabel:   "cluster_controller-1",
 				}))
 			})
@@ -107,7 +107,7 @@ var _ = Describe("pod_models", func() {
 			It("should contain the prefix in the instance labels labels", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "dc1-storage-1",
 				}))
 			})
@@ -126,7 +126,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should add the annotations to the metadata", func() {
-				hash, err := GetPodSpecHash(cluster, pod.Labels[FDBProcessClassLabel], 1, &pod.Spec)
+				hash, err := GetPodSpecHash(cluster, processClassFromLabels(pod.Labels), 1, &pod.Spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
@@ -139,7 +139,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom labels", func() {
 			BeforeEach(func() {
 				cluster = createDefaultCluster()
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"fdb-label": "value2",
@@ -156,7 +156,7 @@ var _ = Describe("pod_models", func() {
 			It("should add the labels to the metadata", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "storage-1",
 					"fdb-label":          "value2",
 				}))
@@ -656,7 +656,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom resources", func() {
 			BeforeEach(func() {
 				cluster = createDefaultCluster()
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -694,11 +694,11 @@ var _ = Describe("pod_models", func() {
 
 		Context("with no volume", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								fdbtypes.ProcessClassStorage: resource.MustParse("0"),
+								corev1.ResourceStorage: resource.MustParse("0"),
 							},
 						},
 					},
@@ -753,7 +753,7 @@ var _ = Describe("pod_models", func() {
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											FDBClusterLabel:      cluster.Name,
-											FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+											FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 										},
 									},
 								},
@@ -800,7 +800,7 @@ var _ = Describe("pod_models", func() {
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											FDBClusterLabel:      cluster.Name,
-											FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+											FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 										},
 									},
 								},
@@ -843,7 +843,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom containers", func() {
 			BeforeEach(func() {
 				cluster = createDefaultCluster()
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{
 							Name:    "test-container",
@@ -898,7 +898,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom container images with tag", func() {
 			BeforeEach(func() {
 				cluster = createDefaultCluster()
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{
 							Name:  "foundationdb-kubernetes-init",
@@ -941,7 +941,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom environment", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -1164,7 +1164,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom volumes", func() {
 			BeforeEach(func() {
 				cluster = createDefaultCluster()
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{{
 							Name: "test-secrets",
@@ -1284,7 +1284,7 @@ var _ = Describe("pod_models", func() {
 				*sidecarSecurityContext.RunAsGroup = 1000
 				*sidecarSecurityContext.RunAsUser = 2000
 
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						SecurityContext: podSecurityContext,
 						Containers: []corev1.Container{
@@ -1516,7 +1516,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
 				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1637,7 +1637,7 @@ var _ = Describe("pod_models", func() {
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "storage-1",
 				}))
 			})
@@ -1673,7 +1673,7 @@ var _ = Describe("pod_models", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "storage-1",
 				}))
 			})
@@ -1683,7 +1683,7 @@ var _ = Describe("pod_models", func() {
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							fdbtypes.ProcessClassStorage: resource.MustParse("128G"),
+							corev1.ResourceStorage: resource.MustParse("128G"),
 						},
 					},
 				}))
@@ -1692,11 +1692,11 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a custom storage size", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								fdbtypes.ProcessClassStorage: resource.MustParse("64G"),
+								corev1.ResourceStorage: resource.MustParse("64G"),
 							},
 						},
 					},
@@ -1708,7 +1708,7 @@ var _ = Describe("pod_models", func() {
 			It("should set the storage size on the resources", func() {
 				Expect(pvc.Spec.Resources).To(Equal(corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
-						fdbtypes.ProcessClassStorage: resource.MustParse("64G"),
+						corev1.ResourceStorage: resource.MustParse("64G"),
 					},
 				}))
 			})
@@ -1716,7 +1716,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom metadata", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"fdb-annotation": "value1",
@@ -1739,7 +1739,7 @@ var _ = Describe("pod_models", func() {
 				}))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "storage-1",
 					"fdb-label":          "value2",
 				}))
@@ -1748,11 +1748,11 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a volume size of 0", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								fdbtypes.ProcessClassStorage: resource.MustParse("0"),
+								corev1.ResourceStorage: resource.MustParse("0"),
 							},
 						},
 					},
@@ -1770,7 +1770,7 @@ var _ = Describe("pod_models", func() {
 			var class string
 			BeforeEach(func() {
 				class = "local"
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					Spec: corev1.PersistentVolumeClaimSpec{
 						StorageClassName: &class,
 					},
@@ -1806,7 +1806,7 @@ var _ = Describe("pod_models", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
 					FDBClusterLabel:      cluster.Name,
-					FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+					FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					FDBInstanceIDLabel:   "dc1-storage-1",
 				}))
 			})
@@ -1814,7 +1814,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom name in the suffix", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{Name: "pvc1"},
 				}}}
 				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -2466,7 +2466,7 @@ var _ = Describe("pod_models", func() {
 						Spec: corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									fdbtypes.ProcessClassStorage: resource.MustParse("256Gi"),
+									corev1.ResourceStorage: resource.MustParse("256Gi"),
 								},
 							},
 						},
@@ -2476,20 +2476,20 @@ var _ = Describe("pod_models", func() {
 				It("should put the volume claim template in the process settings", func() {
 					volumeClaim := spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate
 					Expect(volumeClaim).NotTo(BeNil())
-					Expect(volumeClaim.Spec.Resources.Requests[fdbtypes.ProcessClassStorage]).To(Equal(resource.MustParse("256Gi")))
+					Expect(volumeClaim.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("256Gi")))
 					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaim).To(BeNil())
 				})
 			})
 
 			Context("with a custom value for the VolumeClaim field in the process settings", func() {
 				BeforeEach(func() {
-					spec.Processes = map[string]fdbtypes.ProcessSettings{
+					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {
 							VolumeClaim: &corev1.PersistentVolumeClaim{
 								Spec: corev1.PersistentVolumeClaimSpec{
 									Resources: corev1.ResourceRequirements{
 										Requests: corev1.ResourceList{
-											fdbtypes.ProcessClassStorage: resource.MustParse("256Gi"),
+											corev1.ResourceStorage: resource.MustParse("256Gi"),
 										},
 									},
 								},
@@ -2501,7 +2501,7 @@ var _ = Describe("pod_models", func() {
 				It("should put the volume claim template in the process settings", func() {
 					volumeClaim := spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate
 					Expect(volumeClaim).NotTo(BeNil())
-					Expect(volumeClaim.Spec.Resources.Requests[fdbtypes.ProcessClassStorage]).To(Equal(resource.MustParse("256Gi")))
+					Expect(volumeClaim.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("256Gi")))
 					Expect(spec.VolumeClaim).To(BeNil())
 				})
 			})
@@ -2548,7 +2548,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("sets the field in the process settings", func() {
-					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate.Spec.Resources.Requests[fdbtypes.ProcessClassStorage]).To(Equal(resource.MustParse("16Gi")))
+					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("16Gi")))
 					Expect(spec.VolumeSize).To(Equal(""))
 				})
 			})
@@ -2613,7 +2613,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with a duplicated custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[string]fdbtypes.ProcessSettings{
+					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {
 							CustomParameters: &[]string{
 								"knob_disable_posix_kernel_aio = 1",
@@ -2628,7 +2628,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with a protected custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[string]fdbtypes.ProcessSettings{
+					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {
 							CustomParameters: &[]string{
 								"datadir=1",
@@ -2693,7 +2693,7 @@ var _ = Describe("pod_models", func() {
 
 				Context("with explicit resource requests for the main container", func() {
 					BeforeEach(func() {
-						spec.Processes = map[string]fdbtypes.ProcessSettings{
+						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
@@ -2731,7 +2731,7 @@ var _ = Describe("pod_models", func() {
 
 				Context("with explicit resource requests for the sidecar", func() {
 					BeforeEach(func() {
-						spec.Processes = map[string]fdbtypes.ProcessSettings{
+						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
@@ -2841,7 +2841,7 @@ var _ = Describe("pod_models", func() {
 
 				Context("with explicit resource requests", func() {
 					BeforeEach(func() {
-						spec.Processes = map[string]fdbtypes.ProcessSettings{
+						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
@@ -2879,7 +2879,7 @@ var _ = Describe("pod_models", func() {
 
 				Context("with explicit resource requirements for requests only", func() {
 					BeforeEach(func() {
-						spec.Processes = map[string]fdbtypes.ProcessSettings{
+						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
@@ -2914,7 +2914,7 @@ var _ = Describe("pod_models", func() {
 
 				Context("with explicitly empty resource requirements", func() {
 					BeforeEach(func() {
-						spec.Processes = map[string]fdbtypes.ProcessSettings{
+						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
