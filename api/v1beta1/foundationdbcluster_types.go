@@ -357,6 +357,16 @@ type FoundationDBClusterStatus struct {
 	// ProcessGroups contain information about a process group.
 	// This information is used in multiple places to trigger the according action.
 	ProcessGroups []*ProcessGroupStatus `json:"processGroups,omitempty"`
+
+	// Locks contains information about the locking system.
+	Locks LockSystemStatus `json:"locks,omitempty"`
+}
+
+// LockSystemStatus provides a summary of the status of the locking system.
+type LockSystemStatus struct {
+	// DenyList contains a list of operator instances that are prevented
+	// from taking locks.
+	DenyList []string `json:"lockDenyList,omitempty"`
 }
 
 // ProcessGroupStatus represents a the status of a ProcessGroup.
@@ -654,6 +664,10 @@ type ClusterGenerationStatus struct {
 	// HasUnhealthyProcess provides the last generation that has at least one
 	// process group with a negative condition.
 	HasUnhealthyProcess int64 `json:"hasUnhealthyProcess,omitempty"`
+
+	// NeedsLockConfigurationChanges provides the last generation that is
+	// pending a change to the configuration of the locking system.
+	NeedsLockConfigurationChanges int64 `json:"needsLockConfigurationChanges,omitempty"`
 }
 
 // ClusterHealth represents different views into health in the cluster status.
@@ -1231,11 +1245,38 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		reconciled = false
 	}
 
+	lockDenyMap := make(map[string]bool, len(cluster.Spec.LockOptions.DenyList))
+	for _, denyListEntry := range cluster.Spec.LockOptions.DenyList {
+		lockDenyMap[denyListEntry.ID] = denyListEntry.Allow
+	}
+
+	for _, denyListID := range cluster.Status.Locks.DenyList {
+		allow, present := lockDenyMap[denyListID]
+		if !present {
+			continue
+		}
+		if allow {
+			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
+			reconciled = false
+		} else {
+			delete(lockDenyMap, denyListID)
+		}
+	}
+
+	for _, allow := range lockDenyMap {
+		if !allow {
+			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
+			reconciled = false
+			break
+		}
+	}
+
 	if reconciled {
 		cluster.Status.Generations.Reconciled = cluster.ObjectMeta.Generation
 	} else if cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation {
 		cluster.Status.Generations.Reconciled = 0
 	}
+
 	return reconciled, nil
 }
 
@@ -2292,6 +2333,19 @@ type LockOptions struct {
 	// LockDurationMinutes determines the duration that locks should be valid
 	// for.
 	LockDurationMinutes *int `json:"lockDurationMinutes,omitempty"`
+
+	// DenyList manages configuration for whether an instance of the operator
+	// should be denied from taking locks.
+	DenyList []LockDenyListEntry `json:"denyList,omitempty"`
+}
+
+// LockDenyListEntry models an entry in the deny list for the locking system.
+type LockDenyListEntry struct {
+	// The ID of the operator instance this entry is targeting.
+	ID string `json:"id,omitempty"`
+
+	// Whether the instance is allowed to take locks.
+	Allow bool `json:"allow,omitempty"`
 }
 
 // ServiceConfig allows configuring services that sit in front of our pods.

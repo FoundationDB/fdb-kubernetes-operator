@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -49,6 +50,12 @@ type LockClient interface {
 	// ClearPendingUpgrades clears any stored information about pending
 	// upgrades.
 	ClearPendingUpgrades() error
+
+	// GetDenyList retrieves the current deny list from the database.
+	GetDenyList() ([]string, error)
+
+	// UpdateDenyList updates the deny list to match a list of entries.
+	UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error
 }
 
 // LockClientProvider provides a dependency injection for creating a lock client.
@@ -130,8 +137,16 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	}
 
 	cluster := client.cluster
+	newOwnerDenied := transaction.Get(client.getDenyListKey(cluster.GetLockID())).MustGet() != nil
+	if newOwnerDenied {
+		log.Info("Failed to get lock due to deny list", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		return false, nil
+	}
 
-	if endTime < time.Now().Unix() {
+	oldOwnerDenied := transaction.Get(client.getDenyListKey(ownerID)).MustGet() != nil
+	shouldClear := endTime < time.Now().Unix() || oldOwnerDenied
+
+	if shouldClear {
 		log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 		client.updateLock(transaction, startTime)
 		return true, nil
@@ -233,6 +248,78 @@ func (client *RealLockClient) ClearPendingUpgrades() error {
 	return err
 }
 
+// GetDenyList retrieves the current deny list from the database.
+func (client *RealLockClient) GetDenyList() ([]string, error) {
+	list, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetReadSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		keyRange, err := client.getDenyListKeyRange()
+		if err != nil {
+			return nil, err
+		}
+
+		values := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+		list := make([]string, len(values))
+		for index, value := range values {
+			list[index] = string(value.Value)
+		}
+		return list, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return list.([]string), nil
+}
+
+// UpdateDenyList updates the deny list to match a list of entries.
+func (client *RealLockClient) UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error {
+	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		err := tr.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		keyRange, err := client.getDenyListKeyRange()
+		if err != nil {
+			return nil, err
+		}
+
+		values := tr.GetRange(keyRange, fdb.RangeOptions{}).GetSliceOrPanic()
+		denyListMap := make(map[string]bool, len(values))
+		for _, value := range values {
+			denyListMap[string(value.Value)] = true
+		}
+
+		for _, entry := range locks {
+			if entry.Allow && denyListMap[entry.ID] {
+				tr.Clear(client.getDenyListKey(entry.ID))
+			} else if !entry.Allow && !denyListMap[entry.ID] {
+				tr.Set(client.getDenyListKey(entry.ID), []byte(entry.ID))
+			}
+		}
+		return nil, nil
+	})
+
+	return err
+}
+
+// getDenyListKeyRange defines a key range containing the full deny list.
+func (client *RealLockClient) getDenyListKeyRange() (fdb.KeyRange, error) {
+	keyPrefix := []byte(fmt.Sprintf("%s/denyList/", client.cluster.GetLockPrefix()))
+	return fdb.PrefixRange(keyPrefix)
+}
+
+// getDenyListKeyRange defines a key range containing a potential deny list
+// entry for an owner ID.
+func (client *RealLockClient) getDenyListKey(id string) fdb.Key {
+	return fdb.Key(fmt.Sprintf("%s/denyList/%s", client.cluster.GetLockPrefix(), id))
+}
+
 // InvalidLockValue is an error we can return when we cannot parse the existing
 // values in the locking system.
 type InvalidLockValue struct {
@@ -263,6 +350,9 @@ func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error
 type MockLockClient struct {
 	// cluster stores the cluster this client is working with.
 	cluster *fdbtypes.FoundationDBCluster
+
+	// owner stores the deny list for lock acquisition.
+	denyList []string
 
 	// pendingUpgrades stores data about process groups that have a pending
 	// upgrade.
@@ -299,6 +389,39 @@ func (client *MockLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (m
 		return make(map[string]bool), nil
 	}
 	return upgrades, nil
+}
+
+// GetDenyList retrieves the current deny list from the database.
+func (client *MockLockClient) GetDenyList() ([]string, error) {
+	return client.denyList, nil
+}
+
+// UpdateDenyList updates the deny list to match a list of entries.
+// This will return the complete deny list after these changes are made.
+func (client *MockLockClient) UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error {
+	newDenyList := make([]string, 0, len(client.denyList)+len(locks))
+	newDenyMap := make(map[string]bool)
+	for _, id := range client.denyList {
+		allowed := false
+		for _, entry := range locks {
+			allowed = allowed || (entry.ID == id && entry.Allow)
+		}
+		if !allowed {
+			newDenyList = append(newDenyList, id)
+			newDenyMap[id] = true
+		}
+	}
+
+	for _, entry := range locks {
+		if !newDenyMap[entry.ID] && !entry.Allow {
+			newDenyList = append(newDenyList, entry.ID)
+			newDenyMap[entry.ID] = true
+		}
+	}
+
+	sort.Strings(newDenyList)
+	client.denyList = newDenyList
+	return nil
 }
 
 // lockClientCache provides a cache of mock lock clients.

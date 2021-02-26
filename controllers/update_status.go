@@ -299,6 +299,21 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.FailingPods = nil
 	}
 
+	if len(cluster.Spec.LockOptions.DenyList) > 0 && cluster.ShouldUseLocks() && status.Configured {
+		lockClient, err := r.getLockClient(cluster)
+		if err != nil {
+			return false, err
+		}
+		denyList, err := lockClient.GetDenyList()
+		if err != nil {
+			return false, err
+		}
+		if len(denyList) == 0 {
+			denyList = nil
+		}
+		status.Locks.DenyList = denyList
+	}
+
 	// Sort the storage servers per Disk to prevent a reodering to issue a new reconcile loop.
 	sort.Ints(status.StorageServersPerDisk)
 

@@ -3058,6 +3058,46 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 		Reconciled:          1,
 		HasUnhealthyProcess: 2,
 	}))
+
+	cluster = createCluster()
+	cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:                    1,
+		NeedsLockConfigurationChanges: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+	cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+	cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeFalse())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:                    1,
+		NeedsLockConfigurationChanges: 2,
+	}))
+
+	cluster = createCluster()
+	cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled: 2,
+	}))
 }
 
 func TestGettingProcessSettings(t *testing.T) {
