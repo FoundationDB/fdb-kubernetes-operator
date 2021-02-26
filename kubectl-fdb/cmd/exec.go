@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	controllers "github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 )
 
 func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -95,6 +95,9 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	if err != nil {
 		log.Fatal(err)
 	}
+	cmd.SetOut(o.Out)
+	cmd.SetErr(o.ErrOut)
+	cmd.SetIn(o.In)
 
 	o.configFlags.AddFlags(cmd.Flags())
 

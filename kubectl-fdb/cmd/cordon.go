@@ -111,6 +111,9 @@ kubectl fdb cordon -n default -c cluster node-1
 kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 `,
 	}
+	cmd.SetOut(o.Out)
+	cmd.SetErr(o.ErrOut)
+	cmd.SetIn(o.In)
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate instance(s) from the provided cluster.")
 	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")

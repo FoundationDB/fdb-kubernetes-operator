@@ -61,6 +61,9 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	cmd.SetOut(o.Out)
+	cmd.SetErr(o.ErrOut)
+	cmd.SetIn(o.In)
 
 	viper.SetDefault("license", "apache 2")
 	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
