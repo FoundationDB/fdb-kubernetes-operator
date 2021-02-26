@@ -122,7 +122,6 @@ func main() {
 		Client:              mgr.GetClient(),
 		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Scheme:              mgr.GetScheme(),
 		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
 		PodClientProvider:   controllers.NewFdbPodClient,
 		AdminClientProvider: controllers.NewCliAdminClient,
@@ -131,6 +130,8 @@ func main() {
 		Namespace:           namespace,
 		DeprecationOptions:  deprecationOptions,
 	}
+
+	clusterReconciler.SetScheme(mgr.GetScheme())
 
 	if checkDeprecations {
 		go startCache(mgr)
@@ -151,9 +152,10 @@ func main() {
 		Client:              mgr.GetClient(),
 		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Scheme:              mgr.GetScheme(),
 		AdminClientProvider: controllers.NewCliAdminClient,
 	}
+
+	backupReconciler.SetScheme(mgr.GetScheme())
 
 	if err = backupReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
@@ -164,9 +166,10 @@ func main() {
 		Client:              mgr.GetClient(),
 		Recorder:            mgr.GetEventRecorderFor("foundationdbrestore-controller"),
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		Scheme:              mgr.GetScheme(),
 		AdminClientProvider: controllers.NewCliAdminClient,
 	}
+
+	restoreReconciler.SetScheme(mgr.GetScheme())
 
 	if err = restoreReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")

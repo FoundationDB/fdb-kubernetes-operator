@@ -29,12 +29,14 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -56,6 +58,16 @@ type MockClient struct {
 // Clear erases any mock data.
 func (client *MockClient) Clear() {
 	client.data = make(map[string]map[string]map[string]interface{})
+}
+
+// Scheme returns the runtime Scheme
+func (client *MockClient) Scheme() *runtime.Scheme {
+	return nil
+}
+
+// RESTMapper retruns the RESTMapper
+func (client *MockClient) RESTMapper() meta.RESTMapper {
+	return nil
 }
 
 // buildKindKey gets the key identifying an object's type.
@@ -93,7 +105,7 @@ func buildJSONObjectKey(jsonData []byte) (string, error) {
 }
 
 // buildRuntimeObjectKey gets the key identifying an object.
-func buildRuntimeObjectKey(object runtime.Object) (string, error) {
+func buildRuntimeObjectKey(object ctrlClient.Object) (string, error) {
 	jsonData, err := json.Marshal(object)
 	if err != nil {
 		return "", err
@@ -280,7 +292,7 @@ func (client *MockClient) checkPresence(kindKey string, objectKey string) error 
 }
 
 // Create creates a new object
-func (client *MockClient) Create(context ctx.Context, object runtime.Object, options ...ctrlClient.CreateOption) error {
+func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.CreateOption) error {
 	jsonData, err := json.Marshal(object)
 	if err != nil {
 		return err
@@ -350,7 +362,7 @@ func (client *MockClient) Create(context ctx.Context, object runtime.Object, opt
 }
 
 // Get retrieves an object.
-func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, object runtime.Object) error {
+func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, object ctrlClient.Object) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -374,7 +386,7 @@ func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, obj
 }
 
 // List lists objects.
-func (client *MockClient) List(context ctx.Context, list runtime.Object, options ...ctrlClient.ListOption) error {
+func (client *MockClient) List(context ctx.Context, list ctrlClient.ObjectList, options ...ctrlClient.ListOption) error {
 	kindKey, err := buildKindKey(list)
 	if err != nil {
 		return err
@@ -390,10 +402,6 @@ func (client *MockClient) List(context ctx.Context, list runtime.Object, options
 
 	client.fillInMaps(kindKey)
 	for _, object := range client.data[kindKey] {
-		if err != nil {
-			return err
-		}
-
 		if fullListOptions.Namespace != "" {
 			namespace, err := lookupJSONString(object, "metadata", "namespace")
 			if err != nil {
@@ -416,9 +424,6 @@ func (client *MockClient) List(context ctx.Context, list runtime.Object, options
 
 		if fullListOptions.FieldSelector != nil {
 			objectFields := lookupJSONStringFields(object)
-			if err != nil {
-				return err
-			}
 			if !fullListOptions.FieldSelector.Matches(fields.Set(objectFields)) {
 				continue
 			}
@@ -445,7 +450,7 @@ func (client *MockClient) List(context ctx.Context, list runtime.Object, options
 
 // Delete deletes an object.
 // This does not support the options argument yet.
-func (client *MockClient) Delete(context ctx.Context, object runtime.Object, options ...ctrlClient.DeleteOption) error {
+func (client *MockClient) Delete(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.DeleteOption) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -469,7 +474,7 @@ func (client *MockClient) Delete(context ctx.Context, object runtime.Object, opt
 
 // Update updates an object.
 // This does not support the options argument yet.
-func (client *MockClient) Update(context ctx.Context, object runtime.Object, options ...ctrlClient.UpdateOption) error {
+func (client *MockClient) Update(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.UpdateOption) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -528,13 +533,13 @@ func (client *MockClient) Update(context ctx.Context, object runtime.Object, opt
 
 // Patch patches an object.
 // This is not yet implemented.
-func (client *MockClient) Patch(context ctx.Context, object runtime.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
+func (client *MockClient) Patch(context ctx.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
 	return fmt.Errorf("Not implemented")
 }
 
 // DeleteAllOf deletes all objects of the given type matching the given options.
 // This is not yet implemented.
-func (client *MockClient) DeleteAllOf(context ctx.Context, object runtime.Object, options ...ctrlClient.DeleteAllOfOption) error {
+func (client *MockClient) DeleteAllOf(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.DeleteAllOfOption) error {
 	return fmt.Errorf("Not implemented")
 }
 
@@ -546,7 +551,7 @@ type MockStatusClient struct {
 
 // Update updates an object.
 // This does not support the options argument yet.
-func (client MockStatusClient) Update(context ctx.Context, object runtime.Object, options ...ctrlClient.UpdateOption) error {
+func (client MockStatusClient) Update(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.UpdateOption) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -585,7 +590,7 @@ func (client MockStatusClient) Update(context ctx.Context, object runtime.Object
 
 // Patch patches an object's status.
 // This is not yet implemented.
-func (client MockStatusClient) Patch(context ctx.Context, object runtime.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
+func (client MockStatusClient) Patch(context ctx.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
 	return fmt.Errorf("Not implemented")
 }
 

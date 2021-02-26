@@ -308,7 +308,7 @@ func TestListingObjectsByField(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	pods := &corev1.PodList{}
-	err = client.List(context.TODO(), pods, ctrlClient.MatchingField("metadata.name", "pod1"))
+	err = client.List(context.TODO(), pods, ctrlClient.MatchingFields{"metadata.name": "pod1"})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(len(pods.Items)).To(Equal(1))
 	g.Expect(pods.Items[0].Name).To(Equal("pod1"))

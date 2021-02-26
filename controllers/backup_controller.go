@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/net/context"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,9 +43,19 @@ type FoundationDBBackupReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
-	Scheme              *runtime.Scheme
+	scheme              *runtime.Scheme
 	InSimulation        bool
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
+}
+
+// SetScheme sets the current runtime Scheme
+func (r *FoundationDBBackupReconciler) SetScheme(scheme *runtime.Scheme) {
+	r.scheme = scheme
+}
+
+// Scheme returns the current runtime Scheme
+func (r *FoundationDBBackupReconciler) Scheme() *runtime.Scheme {
+	return r.scheme
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -51,11 +63,10 @@ type FoundationDBBackupReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	backup := &fdbtypes.FoundationDBBackup{}
-	context := ctx.Background()
 
-	err := r.Get(context, request.NamespacedName, backup)
+	err := r.Get(ctx, request.NamespacedName, backup)
 
 	originalGeneration := backup.ObjectMeta.Generation
 
@@ -80,7 +91,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(request ctrl.Request) (ctrl.Res
 	}
 
 	for _, subReconciler := range subReconcilers {
-		canContinue, err := subReconciler.Reconcile(r, context, backup)
+		canContinue, err := subReconciler.Reconcile(r, ctx, backup)
 		if !canContinue || err != nil {
 			log.Info("Reconciliation terminated early", "namespace", backup.Namespace, "backup", backup.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
@@ -120,7 +131,7 @@ func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context,
 
 // SetupWithManager prepares a reconciler for use.
 func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := mgr.GetFieldIndexer().IndexField(&appsv1.Deployment{}, "metadata.name", func(o runtime.Object) []string {
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*appsv1.Deployment).Name}
 	})
 	if err != nil {

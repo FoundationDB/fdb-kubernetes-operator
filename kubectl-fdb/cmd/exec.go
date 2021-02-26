@@ -116,7 +116,7 @@ func buildCommand(kubeClient client.Client, clusterName string, context string, 
 	err = kubeClient.List(ctx.Background(), pods,
 		client.InNamespace(namespace),
 		client.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*clusterRequirement, *processClassRequirement)},
-		client.MatchingField("status.phase", "Running"),
+		client.MatchingFields{"status.phase": "Running"},
 	)
 	if err != nil {
 		return exec.Cmd{}, err

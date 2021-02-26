@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/net/context"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,20 +42,28 @@ type FoundationDBRestoreReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
-	Scheme              *runtime.Scheme
+	scheme              *runtime.Scheme
 	InSimulation        bool
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
+}
+
+// SetScheme sets the current runtime Scheme
+func (r *FoundationDBRestoreReconciler) SetScheme(scheme *runtime.Scheme) {
+	r.scheme = scheme
+}
+
+// Scheme returns the current runtime Scheme
+func (r *FoundationDBRestoreReconciler) Scheme() *runtime.Scheme {
+	return r.scheme
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores/status,verbs=get;update;patch
 
 // Reconcile runs the reconciliation logic.
-func (r *FoundationDBRestoreReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	restore := &fdbtypes.FoundationDBRestore{}
-	context := ctx.Background()
-
-	err := r.Get(context, request.NamespacedName, restore)
+	err := r.Get(ctx, request.NamespacedName, restore)
 
 	originalGeneration := restore.ObjectMeta.Generation
 
@@ -72,7 +82,7 @@ func (r *FoundationDBRestoreReconciler) Reconcile(request ctrl.Request) (ctrl.Re
 	}
 
 	for _, subReconciler := range subReconcilers {
-		canContinue, err := subReconciler.Reconcile(r, context, restore)
+		canContinue, err := subReconciler.Reconcile(r, ctx, restore)
 		if !canContinue || err != nil {
 			log.Info("Reconciliation terminated early", "namespace", restore.Namespace, "restore", restore.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
