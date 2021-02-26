@@ -81,10 +81,10 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 				if err != nil {
 					return err
 				}
-				fmt.Printf("foundationdb-operator: %s\n", operatorVersion)
+				cmd.Printf("foundationdb-operator: %s\n", operatorVersion)
 			}
 
-			fmt.Printf("kubectl-fdb: %s\n", pluginVersion)
+			cmd.Printf("kubectl-fdb: %s\n", pluginVersion)
 
 			return nil
 		},

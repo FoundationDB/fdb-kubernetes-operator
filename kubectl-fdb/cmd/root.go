@@ -53,13 +53,12 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
-		Use:   "kubectl-fdb",
-		Short: "kubectl plugin for the FoundationDB operator.",
-		Long:  `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
-		// TODO: Example:      fmt.Sprintf(fdbexample, "kubectl"),
+		Use:          "kubectl-fdb",
+		Short:        "kubectl plugin for the FoundationDB operator.",
+		Long:         `kubectl fdb plugin for the interaction with the FoundationDB operator.`,
 		SilenceUsage: true,
-		RunE: func(c *cobra.Command, args []string) error {
-			return nil
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
 		},
 	}
 
