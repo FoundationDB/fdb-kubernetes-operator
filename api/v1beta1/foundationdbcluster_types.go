@@ -535,6 +535,20 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 	return result
 }
 
+// ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
+func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass string) []*ProcessGroupStatus {
+	result := make([]*ProcessGroupStatus, 0)
+
+	for _, groupStatus := range clusterStatus.ProcessGroups {
+		if groupStatus.ProcessClass == processClass {
+			result = append(result, groupStatus)
+		}
+
+	}
+
+	return result
+}
+
 // GetConditionTime returns the timestamp when we detected a condition on a
 // process group.
 // If there is no matching condition this will return nil.

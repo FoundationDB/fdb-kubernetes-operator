@@ -63,6 +63,8 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		localityMap[id] = localityInfo{ID: id, Address: process.Address, LocalityData: process.Locality}
 	}
 
+	remainingProcessMap := make(map[string]bool, len(cluster.Status.ProcessGroups))
+
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 
@@ -70,17 +72,13 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 
 		processClassLocality := make([]localityInfo, 0, currentCounts[processClass])
 
-		for _, processGroup := range cluster.Status.ProcessGroups {
-			if processGroup.ProcessClass == processClass {
-				if processGroup.Remove {
-					if processGroup.ProcessClass == processClass && processGroup.Remove {
-						removedCount--
-					}
-				} else {
-					locality, present := localityMap[processGroup.ProcessGroupID]
-					if present {
-						processClassLocality = append(processClassLocality, locality)
-					}
+		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
+			if processGroup.Remove {
+				removedCount--
+			} else {
+				locality, present := localityMap[processGroup.ProcessGroupID]
+				if present {
+					processClassLocality = append(processClassLocality, locality)
 				}
 			}
 		}
@@ -95,21 +93,24 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 
 			log.Info("Chose remaining processes after shrink", "desiredCount", desiredCount, "options", processClassLocality, "selected", remainingProcesses)
 
-			remainingProcessMap := make(map[string]bool, len(remainingProcesses))
 			for _, localityInfo := range remainingProcesses {
 				remainingProcessMap[localityInfo.ID] = true
 			}
 
-			for _, processGroup := range cluster.Status.ProcessGroups {
-				if processGroup.ProcessClass == processClass && !remainingProcessMap[processGroup.ProcessGroupID] {
-					processGroup.Remove = true
-				}
-			}
 			hasNewRemovals = true
+		} else {
+			for _, localityInfo := range processClassLocality {
+				remainingProcessMap[localityInfo.ID] = true
+			}
 		}
 	}
 
 	if hasNewRemovals {
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			if !remainingProcessMap[processGroup.ProcessGroupID] {
+				processGroup.Remove = true
+			}
+		}
 		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return false, err
