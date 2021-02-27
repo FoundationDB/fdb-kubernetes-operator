@@ -41,7 +41,7 @@ spec:
       type: integer
       JSONPath: ".spec.replicas"
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: minio-operator-role
@@ -101,7 +101,7 @@ metadata:
   namespace: minio-operator-ns
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: minio-operator-binding
   namespace: minio-operator-ns

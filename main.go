@@ -48,6 +48,7 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var leaderElectionID string
 	var logFile string
 	var cliTimeout int
 	var deprecationOptions controllers.DeprecationOptions
@@ -60,8 +61,8 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", true,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
-	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
+	flag.StringVar(&leaderElectionID, "leader-election-id", "fdb-kubernetes-operator",
+		"LeaderElectionID determines the name of the resource that leader election will use for holding the leader lock.")
 	flag.BoolVar(&deprecationOptions.UseFutureDefaults, "use-future-defaults", false,
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
@@ -104,6 +105,7 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   leaderElectionID,
 		Port:               9443,
 	}
 
