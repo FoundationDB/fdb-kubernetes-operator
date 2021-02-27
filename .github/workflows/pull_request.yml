@@ -89,6 +89,9 @@ jobs:
         # Wait for the operator to start
         kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
         # TODO run some e2e tests e.g. create cluster/delete cluster
-        # kubectl apply -f ./config/samples/cluster_local.yamlq
+        # kubectl apply -f ./config/samples/cluster_local.yaml
+        # Change the image back to the default otherwise the next check will complain
+        # TODO: changes should be ignored here e.g. template file.
+        cd config/manager && kustomize edit set image controller=fdb-kubernetes-operator:latest
     - name: Check for uncommitted changes
       run: git diff --exit-code
