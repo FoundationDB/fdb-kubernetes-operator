@@ -600,6 +600,11 @@ func (client *CliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 	}
 
 	status := &fdbtypes.FoundationDBLiveBackupStatus{}
+	statusString, err = removeWarningsInJSON(statusString)
+	if err != nil {
+		return nil, err
+	}
+
 	err = json.Unmarshal([]byte(statusString), &status)
 	if err != nil {
 		return nil, err
@@ -638,6 +643,15 @@ func (client *CliAdminClient) Close() error {
 		return err
 	}
 	return nil
+}
+
+func removeWarningsInJSON(jsonString string) (string, error) {
+	idx := strings.Index(jsonString, "{")
+	if idx == -1 {
+		return "", fmt.Errorf("the JSON string doesn't contain a starting '{'")
+	}
+
+	return strings.TrimSpace(jsonString[idx:]), nil
 }
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
