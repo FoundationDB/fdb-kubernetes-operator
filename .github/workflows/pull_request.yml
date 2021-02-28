@@ -7,13 +7,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go
+      - uses: actions/cache@v2
+        id: fdb_cache
+        with:
+          path: |
+            fdb.deb
+          key: ${{ runner.os }}-${{ hashFiles('fdb.deb') }}
+          restore-keys: |
+            ${{ runner.os }}-fdb
       - name: Get dependencies
+        if: steps.fdb_cache.outputs.cache-hit != 'true'
         env:
           FDB_VER: "6.2.29"
         run: |
           curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
                --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
-          sudo dpkg -i fdb.deb
+      - name: Install dependencies
+        run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
@@ -28,6 +44,12 @@ jobs:
         with:
           python-version: '3.9'
           architecture: 'x64'
+      - uses: actions/cache@v2
+        with:
+          path: .cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('./foundationdb-kubernetes-sidecar/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Get Python dependencies
         run: |
           python3 -m pip install -r ./foundationdb-kubernetes-sidecar/requirements.txt
@@ -51,7 +73,24 @@ jobs:
         go-version: 1.15
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go
+    - uses: actions/cache@v2
+      id: dependency_cache
+      with:
+        path: |
+          kustomize.tar.gz
+          fdb.deb
+          kubebuilder.tar.gz
+        key: ${{ runner.os }}-${{ hashFiles('kustomize.tar.gz', 'fdb.deb', 'kubebuilder.tar.gz', 'kind') }}
+        restore-keys: |
+          ${{ runner.os }}-dependencies
     - name: Get dependencies
+      if: steps.dependency_cache.outputs.cache-hit != 'true'
       env:
         KUBEBUILDER_VER: "2.2.0"
         KUSTOMIZE_VER: "v3.9.4"
@@ -59,17 +98,27 @@ jobs:
         FDB_VER: "6.2.29"
         KIND_VER: "v0.10.0"
       run: |
+        # Only download all dependencies
         go get -v -t -d ./...
-        curl --fail -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz"
-        tar xvfz kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz
-        sudo mv kustomize /usr/local/bin/
+        curl --fail -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz" -o kustomize.tar.gz
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        curl --fail -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VER}/${os}/${arch}" | tar -xz -C /tmp/
-        sudo mv "/tmp/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}" /usr/local/kubebuilder
-        export PATH=$PATH:/usr/local/kubebuilder/bin
+        curl --fail -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VER}/${os}/${arch}" -o kubebuilder.tar.gz
         curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
              --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+        curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
+        chmod +x kind
+    - name: Install dependencies
+      env:
+        KUBEBUILDER_VER: "2.2.0"
+      run: |
+        # Install dependencies either from cache or freshly downloaded
+        tar xvfz kustomize.tar.gz
+        sudo mv kustomize /usr/local/bin/
+        tar -xz -C /tmp/ -f kubebuilder.tar.gz
+        os=$(go env GOOS)
+        arch=$(go env GOARCH)
+        sudo mv "/tmp/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}" /usr/local/kubebuilder
         sudo dpkg -i fdb.deb
         # Install Kind and start a local Kubernetes cluster
         curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
