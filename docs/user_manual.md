@@ -17,6 +17,7 @@
 1. [Using Multiple Namespaces](#using-multiple-namespaces)
 1. [Choosing Your Public IP Source](choosing-your-public-ip-source)
 1. [Renaming a Cluster](#renaming-a-cluster)
+1. [Coordinating Global Operations](#coordinating-global-operations)
 
 # Introduction
 
@@ -430,6 +431,7 @@ Our second strategy is to run multiple Kubernetes cluster, each as its own fault
       name: sample-cluster
     spec:
       version: 6.2.20
+      instanceIDPrefix: zone2
       databaseConfiguration:
         storage: 5
       volumeSize: "128G"
@@ -443,26 +445,7 @@ This tells the operator to use the value "zone2" as the fault domain for every p
 
 When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration. You can set different flags in `automationOptions` to control what the operator can change about the cluster. You can use these fields to designate a master instance of the operator which will handle things like reconfiguring the database.
 
-When upgrading a cluster, you will need to bounce instances simultaneously across all of your KCs. The best way to do this is to disable killing processes through `automationOptions`, and then kill them outside of the reconciliation loop. You can determine if each instance of the operator is ready for the kill by checking the `generations` field in the cluster status. The new generation will appear there under the field `needsBounce` when the operator is ready to do a bounce, but is forbidden from doing so by the automation options.
-
-Example with automation options disabled:
-
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-        name: sample-cluster
-    spec:
-      version: 6.2.20
-      databaseConfiguration:
-        storage: 5
-      automationOptions:
-        configureDatabase: false
-        killProcesses: false
-      faultDomain:
-        key: foundationdb.org/kubernetes-cluster
-        value: zone2
-        zoneIndex: 2
-        zoneCount: 5
+You must always specify an `instanceIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters. You must set it to a different value in each Kubernetes cluster. This will prevent instance ID duplicates in the different Kubernetes clusters.
 
 ## Option 3: Fake Replication
 
@@ -588,3 +571,42 @@ The name of a cluster is immutable, and it is included in the names of all of th
 4.  Delete the `sample-cluster` resource.
 
 At that point, you will be left with just the resources for `sample-cluster-2`. You can continue performing operations on `sample-cluster-2` as normal. You can also change or remove the `instanceIDPrefix` if you had to set it to a different value earlier in the process.
+
+# Coordinating Global Operations
+
+When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration. The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, or a `zoneCount` greater than 1 in its fault domain configuration.
+
+The locking system uses the `instanceIDPrefix` from the cluster spec to identify an instance of the operator. Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate instance IDs.
+
+This locking system uses the FoundationDB cluster as its data source. This means that if the cluster is unavailable, no instance of the operator will be able to get a lock. If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
+
+In most cases, restarts will be done independently in each Kubernetes cluster, and the locking system will be used to ensure a minimum time between the different restarts and avoid multiple recoveries in a short span of time. During upgrades, however, all instances must be restarted at the same time. The operator will use the locking system to coordinate this. Each instance of the operator will store records indicating what processes it is managing and what version they will be running after the restart. Each instance will then try to acquire a lock and confirm that every process reporting to the cluster is ready for the upgrade. If all processes are prepared, the operator will restart all of them at once. If any instance of the operator is stuck and unable to prepare its processes for the upgrade, the restart will not occur.
+
+## Deny List
+
+There are some situations where an instance of the operator is able to get locks but should not be trusted to perform global actions. For instance, the operator could be partitioned in a way where it cannot access the Kubernetes API but can access the FoundationDB cluster. To block such an instance from taking locks, you can add it to the `denyList` in the lock options. You can set this in the cluster spec on any Kubernetes cluster.
+
+    apiVersion: apps.foundationdb.org/v1beta1
+    kind: FoundationDBCluster
+    metadata:
+      name: sample-cluster
+    spec:
+      instanceIDPrefix: dc1
+      lockOptions:
+        denyList:
+          - id: dc2
+
+This will clear any locks held by `dc2`, and prevent it from taking further locks. In order to clear this deny list, you must change it to allow that instance again:
+
+    apiVersion: apps.foundationdb.org/v1beta1
+    kind: FoundationDBCluster
+    metadata:
+      name: sample-cluster
+    spec:
+      instanceIDPrefix: dc1
+      lockOptions:
+        denyList:
+          - id: dc2
+            allow: true
+
+Once that change is fully reconciled, you can clear the deny list from the spec.
