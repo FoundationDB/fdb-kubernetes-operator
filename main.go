@@ -66,6 +66,8 @@ func main() {
 	flag.BoolVar(&deprecationOptions.UseFutureDefaults, "use-future-defaults", false,
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
+	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
+	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
 	flag.BoolVar(&checkDeprecations, "check-deprecations", false,
 		"Check for deprecated fields and then exit",
 	)
