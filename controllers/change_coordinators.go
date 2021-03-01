@@ -95,7 +95,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 		coordinatorCount := cluster.DesiredCoordinatorCount()
 		coordinators, err := chooseDistributedProcesses(candidates, coordinatorCount, processSelectionConstraint{
-			HardLimits: map[string]int{"zoneid": 1},
+			HardLimits: map[string]int{FDBLocalityZoneIDKey: 1},
 		})
 		if err != nil {
 			return false, err

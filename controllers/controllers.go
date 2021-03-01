@@ -67,6 +67,18 @@ const (
 
 	// NodeSelectorNoScheduleLabel is a label used when adding node selectors to block scheduling.
 	NodeSelectorNoScheduleLabel = "foundationdb.org/no-schedule-allowed"
+
+	// FDBLocalityInstanceIDKey represents the key in the locality map that
+	// holds the instance ID.
+	FDBLocalityInstanceIDKey = "instance_id"
+
+	// FDBLocalityZoneIDKey represents the key in the locality map that holds
+	// the zone ID.
+	FDBLocalityZoneIDKey = "zoneid"
+
+	// FDBLocalityDCIDKey represents the key in the locality map that holds
+	// the DC ID.
+	FDBLocalityDCIDKey = "dcid"
 )
 
 // metadataMatches determines if the current metadata on an object matches the

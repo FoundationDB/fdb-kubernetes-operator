@@ -654,6 +654,7 @@ type MockAdminClient struct {
 	clientVersions        map[string][]string
 	missingProcessGroups  map[string]bool
 	additionalProcesses   []fdbtypes.ProcessGroupStatus
+	localityInfo          map[string]map[string]string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -680,6 +681,7 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 			KubeClient:           kubeClient,
 			ReincludedAddresses:  make(map[string]bool),
 			missingProcessGroups: make(map[string]bool),
+			localityInfo:         make(map[string]map[string]string),
 		}
 		adminClientCache[cluster.Name] = client
 		client.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
@@ -767,6 +769,10 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				"dcid":        client.Cluster.Spec.DataCenter,
 			}
 
+			for key, value := range client.localityInfo[instance.GetInstanceID()] {
+				locality[key] = value
+			}
+
 			if processCount > 1 {
 				locality["process_id"] = fmt.Sprintf("%s-%d", instance.GetInstanceID(), processIndex)
 			}
@@ -786,6 +792,10 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			locality := map[string]string{
 				"instance_id": processGroup.ProcessGroupID,
 				"zoneid":      processGroup.ProcessGroupID,
+			}
+
+			for key, value := range client.localityInfo[instance.GetInstanceID()] {
+				locality[key] = value
 			}
 
 			fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
@@ -1135,6 +1145,11 @@ func (client *MockAdminClient) MockAdditionalProcesses(processes []fdbtypes.Proc
 // be missing from the cluster status.
 func (client *MockAdminClient) MockMissingProcessGroup(instanceID string, missing bool) {
 	client.missingProcessGroups[instanceID] = missing
+}
+
+// MockLocalityInfo sets mock locality information for a process.
+func (client *MockAdminClient) MockLocalityInfo(processGroupID string, locality map[string]string) {
+	client.localityInfo[processGroupID] = locality
 }
 
 // Close shuts down any resources for the client once it is no longer

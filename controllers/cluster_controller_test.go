@@ -226,7 +226,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
 
-				processCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups)
+				processCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 				Expect(processCounts).To(Equal(fdbtypes.ProcessCounts{
 					Storage:           4,
 					Log:               4,
@@ -3259,7 +3259,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				zone := ""
 				for _, process := range status.Cluster.Processes {
 					if process.Address == status.Client.Coordinators.Coordinators[0].Address {
-						zone = process.Locality["zoneid"]
+						zone = process.Locality[FDBLocalityZoneIDKey]
 					}
 				}
 				for _, process := range status.Cluster.Processes {
