@@ -86,6 +86,7 @@ jobs:
           kustomize.tar.gz
           fdb.deb
           kubebuilder.tar.gz
+          kind
         key: ${{ runner.os }}-${{ hashFiles('kustomize.tar.gz', 'fdb.deb', 'kubebuilder.tar.gz', 'kind') }}
         restore-keys: |
           ${{ runner.os }}-dependencies
@@ -107,7 +108,6 @@ jobs:
         curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
              --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
-        chmod +x kind
     - name: Install dependencies
       env:
         KUBEBUILDER_VER: "2.2.0"
@@ -121,9 +121,8 @@ jobs:
         sudo mv "/tmp/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}" /usr/local/kubebuilder
         sudo dpkg -i fdb.deb
         # Install Kind and start a local Kubernetes cluster
-        curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
-        chmod +x ./kind
-        sudo mv ./kind /usr/local/bin/kind
+        chmod +x kind
+        sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
     - name: Run tests
       # Currently the default runner has 2 vCPU:
