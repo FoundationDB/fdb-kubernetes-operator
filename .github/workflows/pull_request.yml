@@ -40,6 +40,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # With a new supported Kubernetes version we should adjust the version
+        kubever: [ "v1.17.0", "v1.18.0", "v1.19.0", "v1.20.0" ]
     steps:
     - name: Set up Go 1.15
       uses: actions/setup-go@v1
@@ -53,6 +57,7 @@ jobs:
         KUSTOMIZE_VER: "v3.9.4"
         TEST_RACE_CONDITIONS: "1"
         FDB_VER: "6.2.29"
+        KIND_VER: "v0.10.0"
       run: |
         go get -v -t -d ./...
         curl --fail -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz"
@@ -66,12 +71,27 @@ jobs:
         curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
              --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
         sudo dpkg -i fdb.deb
-    - name: Build
+        # Install Kind and start a local Kubernetes cluster
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
+        chmod +x ./kind
+        sudo mv ./kind /usr/local/bin/kind
+        ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
+    - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
       env:
         GOMAXPROCS: "2"
-      run: make clean all
-
+      run: |
+        # Ensure the Minio CRD is installed and in place
+        kubectl apply -f ./config/minio/operator.yaml
+        ./config/test-certs/generate_secrets.bash
+        IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
+        # Wait for the operator to start
+        kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
+        # TODO run some e2e tests e.g. create cluster/delete cluster
+        # kubectl apply -f ./config/samples/cluster_local.yaml
+        # Change the image back to the default otherwise the next check will complain
+        # TODO: changes should be ignored here e.g. template file.
+        cd config/manager && kustomize edit set image controller=fdb-kubernetes-operator:latest
     - name: Check for uncommitted changes
       run: git diff --exit-code

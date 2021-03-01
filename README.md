@@ -47,6 +47,7 @@ the [API documentation](docs/cluster_spec.md).
 3. Set your $GOPATH, e.x. `/Users/me/Code/go`.
 4. Install [kustomize](https://github.com/kubernetes-sigs/kustomize).
 5. Install the [foundationDB client package](https://www.foundationdb.org/download).
+6. If you want to modify the manifests you currently need [gnu-sed](https://formulae.brew.sh/formula/gnu-sed).
 
 ### Running Locally
 

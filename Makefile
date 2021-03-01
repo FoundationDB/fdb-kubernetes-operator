@@ -106,6 +106,8 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	# ref: https://github.com/kubernetes/kubernetes/issues/91395
 	# in v1beta1 defaulting is not allowed so we remove the default value
 	sed -i '/default: TCP/d' $(GENERATED_CRDS)
+	# See: https://github.com/kubernetes-sigs/controller-tools/issues/529
+	sed -i  '/- protocol/d' $(GENERATED_CRDS)
 
 # Run go fmt against code
 fmt: bin/fmt_check
