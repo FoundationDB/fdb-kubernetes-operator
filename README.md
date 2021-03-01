@@ -1,5 +1,9 @@
 # Overview
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/FoundationDB/fdb-kubernetes-operator)](https://goreportcard.com/report/github.com/FoundationDB/fdb-kubernetes-operator)
+![GitHub](https://img.shields.io/github/license/FoundationDB/fdb-kubernetes-operator)
+[![CI for master branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/master.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/master.yml)
+
 This project provides an experimental operator for managing FoundationDB
 clusters on Kubernetes.
 
