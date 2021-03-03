@@ -237,7 +237,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				desiredCounts, err := cluster.GetProcessCountsWithDefaults()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(processCounts).To(Equal(desiredCounts))
-				Expect(cluster.Status.IncorrectProcesses).To(BeNil())
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine))).To(Equal(0))
 				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses))).To(Equal(0))
 
@@ -883,7 +882,6 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 						Reconciled:             originalVersion,
 						NeedsBounce:            originalVersion + 1,
 						NeedsMonitorConfUpdate: originalVersion + 1,
-						NeedsPodDeletion:       originalVersion + 1,
 						HasUnhealthyProcess:    originalVersion + 1,
 					}))
 				})

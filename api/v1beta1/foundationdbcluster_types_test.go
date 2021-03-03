@@ -2933,30 +2933,6 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Status.IncorrectProcesses = map[string]int64{
-		"sample-cluster-storage-1": 123,
-	}
-	result, err = cluster.CheckReconciliation()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
-		Reconciled:             1,
-		NeedsMonitorConfUpdate: 2,
-	}))
-
-	cluster = createCluster()
-	cluster.Status.IncorrectPods = []string{
-		"sample-cluster-storage-1",
-	}
-	result, err = cluster.CheckReconciliation()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
-		Reconciled:       1,
-		NeedsPodDeletion: 2,
-	}))
-
-	cluster = createCluster()
 	cluster.Status.Health.Available = false
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -3040,19 +3016,7 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
-	cluster.Status.FailingPods = []string{
-		"sample-cluster-storage-1",
-	}
-	result, err = cluster.CheckReconciliation()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(result).To(gomega.BeFalse())
-	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
-		Reconciled:     1,
-		HasFailingPods: 2,
-	}))
-
-	cluster = createCluster()
-	cluster.Status.ProcessGroups[0].UpdateCondition(MissingProcesses, true, nil, "storage-1")
+	cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(result).To(gomega.BeFalse())

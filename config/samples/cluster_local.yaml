@@ -20,6 +20,7 @@ spec:
     general:
       customParameters:
         - "knob_disable_posix_kernel_aio=1"
+        - "locality_test=1"
       volumeClaimTemplate:
         spec:
           resources:

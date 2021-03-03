@@ -48,27 +48,24 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	minimumUptime := math.Inf(1)
-	addressMap := make(map[string]string, len(status.Cluster.Processes))
+	addressMap := make(map[string][]string, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		if _, ok := process.Locality["process_id"]; ok {
-			addressMap[process.Locality["process_id"]] = process.Address
-		} else {
-			addressMap[process.Locality["instance_id"]] = process.Address
-		}
+		addressMap[process.Locality["instance_id"]] = append(addressMap[process.Locality["instance_id"]], process.Address)
 
 		if process.UptimeSeconds < minimumUptime {
 			minimumUptime = process.UptimeSeconds
 		}
 	}
 
-	addresses := make([]string, 0, len(cluster.Status.IncorrectProcesses))
+	processesToBounce := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine)
+	addresses := make([]string, 0, len(processesToBounce))
 
-	for process := range cluster.Status.IncorrectProcesses {
-		if addressMap[process] == "" {
+	for _, process := range processesToBounce {
+		if addressMap[process] == nil {
 			return false, fmt.Errorf("could not find address for process: %s", process)
 		}
 
-		addresses = append(addresses, addressMap[process])
+		addresses = append(addresses, addressMap[process]...)
 
 		instanceID := GetInstanceIDFromProcessID(process)
 		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)

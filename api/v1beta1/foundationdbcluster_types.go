@@ -601,7 +601,7 @@ const (
 	// IncorrectCommandLine represents a process group that has an incorrect commandline configuration.
 	IncorrectCommandLine ProcessGroupConditionType = "IncorrectCommandLine"
 	// PodFailing represents a process group which Pod keeps failing.
-	PodFailing ProcessGroupConditionType = "IncorrectPodSpec"
+	PodFailing ProcessGroupConditionType = "PodFailing"
 	// MissingPod represents a process group that doesn't have a Pod assigned.
 	MissingPod ProcessGroupConditionType = "MissingPod"
 	// MissingPVC represents a process group that doesn't have a PVC assigned.
@@ -675,6 +675,7 @@ type ClusterGenerationStatus struct {
 
 	// HasFailingPods provides the last generation that has pods that are
 	// failing to start.
+	// Deprecated: This is no longer used.
 	HasFailingPods int64 `json:"hasFailingPods,omitempty"`
 
 	// HasUnhealthyProcess provides the last generation that has at least one
@@ -1206,21 +1207,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
-	}
-
-	if len(cluster.Status.IncorrectProcesses) > 0 {
-		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
-		reconciled = false
-	}
-
-	if len(cluster.Status.IncorrectPods) > 0 {
-		cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
-		reconciled = false
-	}
-
-	if len(cluster.Status.FailingPods) > 0 {
-		cluster.Status.Generations.HasFailingPods = cluster.ObjectMeta.Generation
-		reconciled = false
 	}
 
 	if !cluster.Status.Health.Available {
