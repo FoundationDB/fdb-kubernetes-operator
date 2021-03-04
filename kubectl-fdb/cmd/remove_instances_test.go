@@ -60,7 +60,7 @@ func TestRemoveInstances(t *testing.T) {
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						controllers.FDBClusterLabel:      clusterName,
 					},
 				},
@@ -172,7 +172,7 @@ func TestGetInstanceIDsFromPod(t *testing.T) {
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						controllers.FDBClusterLabel:      clusterName,
 						controllers.FDBInstanceIDLabel:   "storage-1",
 					},
@@ -183,7 +183,7 @@ func TestGetInstanceIDsFromPod(t *testing.T) {
 					Name:      "instance-2",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: fdbtypes.ProcessClassStorage,
+						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						controllers.FDBClusterLabel:      clusterName,
 						controllers.FDBInstanceIDLabel:   "storage-2",
 					},

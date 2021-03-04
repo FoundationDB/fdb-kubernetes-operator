@@ -477,7 +477,7 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	in.DatabaseConfiguration.DeepCopyInto(&out.DatabaseConfiguration)
 	if in.Processes != nil {
 		in, out := &in.Processes, &out.Processes
-		*out = make(map[string]ProcessSettings, len(*in))
+		*out = make(map[ProcessClass]ProcessSettings, len(*in))
 		for key, val := range *in {
 			(*out)[key] = *val.DeepCopy()
 		}

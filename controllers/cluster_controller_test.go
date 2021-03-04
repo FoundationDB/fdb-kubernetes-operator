@@ -75,7 +75,7 @@ func getListOptions(cluster *fdbtypes.FoundationDBCluster) []client.ListOption {
 	}
 }
 
-var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
+var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var fakeConnectionString string
 
@@ -169,7 +169,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(pods.Items[16].Name).To(Equal("operator-test-1-storage-4"))
 				Expect(pods.Items[16].Labels[FDBInstanceIDLabel]).To(Equal("storage-4"))
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 					fdbtypes.ProcessClassStorage:           4,
 					fdbtypes.ProcessClassLog:               4,
 					fdbtypes.ProcessClassStateless:         8,
@@ -273,7 +273,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(pods.Items[1].Name).To(Equal(originalPods.Items[1].Name))
 				Expect(pods.Items[2].Name).To(Equal(originalPods.Items[2].Name))
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 					fdbtypes.ProcessClassStorage:           3,
 					fdbtypes.ProcessClassLog:               4,
 					fdbtypes.ProcessClassStateless:         8,
@@ -309,7 +309,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) + 1))
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 					fdbtypes.ProcessClassStorage:           5,
 					fdbtypes.ProcessClassLog:               4,
 					fdbtypes.ProcessClassStateless:         8,
@@ -340,7 +340,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(18))
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 					fdbtypes.ProcessClassStorage:           4,
 					fdbtypes.ProcessClassLog:               4,
 					fdbtypes.ProcessClassStateless:         9,
@@ -372,7 +372,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(18))
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 					fdbtypes.ProcessClassStorage:           4,
 					fdbtypes.ProcessClassLog:               4,
 					fdbtypes.ProcessClassStateless:         9,
@@ -394,7 +394,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(9))
 
-				Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+				Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 					fdbtypes.ProcessClassStorage:           4,
 					fdbtypes.ProcessClassLog:               4,
 					fdbtypes.ProcessClassClusterController: 1,
@@ -437,7 +437,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(pods.Items)).To(Equal(17))
 
-					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+					Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 						fdbtypes.ProcessClassStorage:           4,
 						fdbtypes.ProcessClassLog:               4,
 						fdbtypes.ProcessClassStateless:         8,
@@ -519,7 +519,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(pods.Items)).To(Equal(17))
 
-					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+					Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 						fdbtypes.ProcessClassStorage:           4,
 						fdbtypes.ProcessClassLog:               4,
 						fdbtypes.ProcessClassStateless:         8,
@@ -581,7 +581,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 					Expect(len(pods.Items)).To(Equal(17))
 
-					Expect(getProcessClassMap(pods.Items)).To(Equal(map[string]int{
+					Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
 						fdbtypes.ProcessClassStorage:           4,
 						fdbtypes.ProcessClassLog:               4,
 						fdbtypes.ProcessClassStateless:         8,
@@ -831,7 +831,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				Expect(err).NotTo(HaveOccurred())
 				err = adminClient.FreezeStatus()
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
 			})
 
 			Context("with bounces enabled", func() {
@@ -902,7 +902,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("with multiple storage servers per pod", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{}}}
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{}}}
 					cluster.Spec.StorageServersPerPod = 2
 					adminClient.UnfreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
@@ -926,7 +926,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					err = adminClient.FreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -935,7 +935,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 1))
-						if pod.ObjectMeta.Labels[FDBProcessClassLabel] == fdbtypes.ProcessClassStorage {
+						if processClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
 							addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 2))
 						}
 					}
@@ -1047,7 +1047,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		Context("with a change to pod labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"fdb-label": "value3",
@@ -1096,7 +1096,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				err = k8sClient.Update(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"fdb-annotation": "value1",
@@ -1122,7 +1122,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					_, id, err := ParseInstanceID(item.Labels[FDBInstanceIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, item.Labels[FDBProcessClassLabel], id, nil)
+					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := GetConfigMapHash(cluster)
@@ -1169,7 +1169,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		Context("with a change to the PVC labels", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"fdb-label": "value3",
@@ -1218,7 +1218,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					err = k8sClient.Update(context.TODO(), pvc)
 					Expect(err).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
 								"fdb-annotation": "value1",
@@ -1262,7 +1262,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 						_, id, err := ParseInstanceID(item.Labels[FDBInstanceIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
-						hash, err := GetPodSpecHash(cluster, item.Labels[FDBProcessClassLabel], id, nil)
+						hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						configMapHash, err := GetConfigMapHash(cluster)
@@ -1371,7 +1371,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					_, id, err := ParseInstanceID(item.Labels[FDBInstanceIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, item.Labels[FDBProcessClassLabel], id, nil)
+					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := GetConfigMapHash(cluster)
@@ -1397,7 +1397,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		Context("with a change to environment variables", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -1647,7 +1647,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 				for _, pod := range pods.Items {
 					Expect(pod.Annotations[PublicIPSourceAnnotation]).To(Equal("service"))
 
-					if pod.Labels[FDBProcessClassLabel] == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if processClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 					}
 				}
@@ -1688,7 +1688,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 				var storagePod corev1.Pod
 				for _, pod := range pods.Items {
-					if pod.Labels[FDBProcessClassLabel] == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if processClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 						break
 					}
@@ -1938,11 +1938,11 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		Context("with a change to the volume size", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									fdbtypes.ProcessClassStorage: resource.MustParse("32Gi"),
+									corev1.ResourceStorage: resource.MustParse("32Gi"),
 								},
 							},
 						},
@@ -1973,7 +1973,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pvc := range pvcs.Items {
-						Expect(pvc.Spec.Resources.Requests[fdbtypes.ProcessClassStorage]).To(Equal(resource.MustParse("32Gi")))
+						Expect(pvc.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("32Gi")))
 					}
 				})
 			})
@@ -2560,7 +2560,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 		Context("with custom parameters", func() {
 			Context("with general parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
 					conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
@@ -2591,7 +2591,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 			Context("with process-class parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
 							"knob_disable_posix_kernel_aio = 1",
 						}},
@@ -3043,7 +3043,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			It("parses the prefix", func() {
 				prefix, id, err := ParseInstanceID("dc1-storage-12")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal("dc1-storage"))
+				Expect(prefix).To(Equal(fdbtypes.ProcessClass("dc1-storage")))
 				Expect(id).To(Equal(12))
 			})
 		})
@@ -3058,7 +3058,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 
 		Context("with no numbers", func() {
 			It("gives a parsing error", func() {
-				_, _, err := ParseInstanceID(fdbtypes.ProcessClassStorage)
+				_, _, err := ParseInstanceID("storage")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("could not parse instance ID storage"))
 			})
@@ -3347,7 +3347,7 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 			deprecationOptions = DeprecationOptions{OnlyShowChanges: true}
 			reconciler = createTestClusterReconciler()
 
-			cluster.Spec.Processes = map[string]fdbtypes.ProcessSettings{
+			cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 				fdbtypes.ProcessClassGeneral: {
 					PodTemplate: &corev1.PodTemplateSpec{},
 				},
@@ -3511,10 +3511,10 @@ var _ = Describe(fdbtypes.ProcessClassClusterController, func() {
 	})
 })
 
-func getProcessClassMap(pods []corev1.Pod) map[string]int {
-	counts := make(map[string]int)
+func getProcessClassMap(pods []corev1.Pod) map[fdbtypes.ProcessClass]int {
+	counts := make(map[fdbtypes.ProcessClass]int)
 	for _, pod := range pods {
-		ProcessClass := pod.Labels[FDBProcessClassLabel]
+		ProcessClass := processClassFromLabels(pod.Labels)
 		counts[ProcessClass]++
 	}
 	return counts

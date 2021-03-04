@@ -78,7 +78,7 @@ type FoundationDBClusterSpec struct {
 	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Processes defines process-level settings.
-	Processes map[string]ProcessSettings `json:"processes,omitempty"`
+	Processes map[ProcessClass]ProcessSettings `json:"processes,omitempty"`
 
 	// ProcessCounts defines the number of processes to configure for each
 	// process class. You can generally omit this, to allow the operator to
@@ -374,7 +374,7 @@ type ProcessGroupStatus struct {
 	// ProcessGroupID represents the ID of the process group
 	ProcessGroupID string `json:"processGroupID,omitempty"`
 	// ProcessClass represents the class the process group has.
-	ProcessClass string `json:"processClass,omitempty"`
+	ProcessClass ProcessClass `json:"processClass,omitempty"`
 	// Addresses represents the list of addresses the process group has been known to have.
 	Addresses []string `json:"addresses,omitempty"`
 	// Remove defines if the process group is marked for removal.
@@ -389,7 +389,7 @@ type ProcessGroupStatus struct {
 }
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
-func NewProcessGroupStatus(processGroupID string, processClass string, addresses []string) *ProcessGroupStatus {
+func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{
 		ProcessGroupID:         processGroupID,
 		ProcessClass:           processClass,
@@ -417,7 +417,7 @@ func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID 
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
-func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass string, address string) (bool, *ProcessGroupStatus) {
+func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass ProcessClass, address string) (bool, *ProcessGroupStatus) {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID != processGroupID {
 			continue
@@ -546,7 +546,7 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 }
 
 // ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
-func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass string) []*ProcessGroupStatus {
+func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass ProcessClass) []*ProcessGroupStatus {
 	result := make([]*ProcessGroupStatus, 0)
 
 	for _, groupStatus := range clusterStatus.ProcessGroups {
@@ -735,8 +735,8 @@ type RoleCounts struct {
 }
 
 // Map returns a map from process classes to the desired count for that role
-func (counts RoleCounts) Map() map[string]int {
-	countMap := make(map[string]int, len(roleIndices))
+func (counts RoleCounts) Map() map[ProcessClass]int {
+	countMap := make(map[ProcessClass]int, len(roleIndices))
 	countValue := reflect.ValueOf(counts)
 	for role, index := range roleIndices {
 		if role != ProcessClassStorage {
@@ -799,8 +799,8 @@ type ProcessCounts struct {
 
 // Map returns a map from process classes to the number of processes with that
 // class.
-func (counts ProcessCounts) Map() map[string]int {
-	countMap := make(map[string]int, len(processClassIndices))
+func (counts ProcessCounts) Map() map[ProcessClass]int {
+	countMap := make(map[ProcessClass]int, len(processClassIndices))
 	countValue := reflect.ValueOf(counts)
 	for processClass, index := range processClassIndices {
 		value := int(countValue.Field(index).Int())
@@ -812,7 +812,7 @@ func (counts ProcessCounts) Map() map[string]int {
 }
 
 // IncreaseCount adds to one of the process counts based on the name.
-func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
+func (counts *ProcessCounts) IncreaseCount(name ProcessClass, amount int) {
 	index, present := processClassIndices[name]
 	if present {
 		countValue := reflect.ValueOf(counts)
@@ -822,7 +822,7 @@ func (counts *ProcessCounts) IncreaseCount(name string, amount int) {
 }
 
 // DecreaseCount adds to one of the process counts based on the name.
-func (counts *ProcessCounts) DecreaseCount(name string, amount int) {
+func (counts *ProcessCounts) DecreaseCount(name ProcessClass, amount int) {
 	index, present := processClassIndices[name]
 	if present {
 		countValue := reflect.ValueOf(counts)
@@ -832,26 +832,25 @@ func (counts *ProcessCounts) DecreaseCount(name string, amount int) {
 }
 
 // fieldNames provides the names of fields on a structure.
-func fieldNames(value interface{}) []string {
+func fieldNames(value interface{}) []ProcessClass {
 	countType := reflect.TypeOf(value)
-	names := make([]string, 0, countType.NumField())
+	names := make([]ProcessClass, 0, countType.NumField())
 	for index := 0; index < countType.NumField(); index++ {
 		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
-		names = append(names, tag[0])
+		names = append(names, ProcessClass(tag[0]))
 	}
 	return names
 }
 
 // fieldIndices provides a map from the names of fields in a structure to the
 // index of each field in the list of fields.
-func fieldIndices(value interface{}) map[string]int {
+func fieldIndices(value interface{}, result interface{}, keyType reflect.Type) {
 	countType := reflect.TypeOf(value)
-	indices := make(map[string]int, countType.NumField())
+	resultValue := reflect.ValueOf(result)
 	for index := 0; index < countType.NumField(); index++ {
 		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
-		indices[tag[0]] = index
+		resultValue.SetMapIndex(reflect.ValueOf(tag[0]).Convert(keyType), reflect.ValueOf(index))
 	}
-	return indices
 }
 
 // ProcessClasses provides a consistent ordered list of the supported process
@@ -860,17 +859,23 @@ var ProcessClasses = fieldNames(ProcessCounts{})
 
 // processClassIndices provides the indices of each process class in the list
 // of process classes.
-var processClassIndices = fieldIndices(ProcessCounts{})
+var processClassIndices = make(map[ProcessClass]int)
 
 // roleNames provides a consistent ordered list of the supported roles.
 var roleNames = fieldNames(RoleCounts{})
 
 // roleIndices provides the indices of each role in the list of roles.
-var roleIndices = fieldIndices(RoleCounts{})
+var roleIndices = make(map[ProcessClass]int)
 
 // versionFlagIndices provides the indices of each flag in the list of supported
 // version flags..
-var versionFlagIndices = fieldIndices(VersionFlags{})
+var versionFlagIndices = make(map[string]int)
+
+func init() {
+	fieldIndices(ProcessCounts{}, processClassIndices, reflect.TypeOf(ProcessClassStorage))
+	fieldIndices(RoleCounts{}, roleIndices, reflect.TypeOf(ProcessClassStorage))
+	fieldIndices(VersionFlags{}, versionFlagIndices, reflect.TypeOf(""))
+}
 
 // FoundationDBClusterAutomationOptions provides flags for enabling or disabling
 // operations that can be performed on a cluster.
@@ -926,7 +931,7 @@ type ProcessSettings struct {
 }
 
 // GetProcessSettings gets settings for a process.
-func (cluster *FoundationDBCluster) GetProcessSettings(processClass string) ProcessSettings {
+func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass) ProcessSettings {
 	merged := ProcessSettings{}
 	entries := make([]ProcessSettings, 0, 2)
 
@@ -1298,8 +1303,8 @@ func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool
 }
 
 // diff gets the diff between two sets of process counts.
-func (counts ProcessCounts) diff(currentCounts ProcessCounts) map[string]int64 {
-	diff := make(map[string]int64)
+func (counts ProcessCounts) diff(currentCounts ProcessCounts) map[ProcessClass]int64 {
+	diff := make(map[ProcessClass]int64)
 	desiredValue := reflect.ValueOf(counts)
 	currentValue := reflect.ValueOf(currentCounts)
 	for label, index := range processClassIndices {
@@ -1382,7 +1387,7 @@ type FoundationDBStatusProcessInfo struct {
 	Address string `json:"address,omitempty"`
 
 	// ProcessClass provides the process class the process has been given.
-	ProcessClass string `json:"class_type,omitempty"`
+	ProcessClass ProcessClass `json:"class_type,omitempty"`
 
 	// CommandLine provides the command-line invocation for the process.
 	CommandLine string `json:"command_line,omitempty"`
@@ -2514,19 +2519,22 @@ const (
 	PublicIPSourceService PublicIPSource = "service"
 )
 
+// ProcessClass models the role of a pod
+type ProcessClass string
+
 const (
 	// ProcessClassStorage model for FDB class storage
-	ProcessClassStorage = "storage"
+	ProcessClassStorage ProcessClass = "storage"
 	// ProcessClassLog model for FDB class log
-	ProcessClassLog = "log"
+	ProcessClassLog ProcessClass = "log"
 	// ProcessClassTransaction model for FDB class transaction
-	ProcessClassTransaction = "transaction"
+	ProcessClassTransaction ProcessClass = "transaction"
 	// ProcessClassStateless model for FDB stateless processes
-	ProcessClassStateless = "stateless"
+	ProcessClassStateless ProcessClass = "stateless"
 	// ProcessClassGeneral model for FDB general processes
-	ProcessClassGeneral = "general"
+	ProcessClassGeneral ProcessClass = "general"
 	// ProcessClassClusterController model for FDB class cluster_controller
-	ProcessClassClusterController = "cluster_controller"
+	ProcessClassClusterController ProcessClass = "cluster_controller"
 )
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept

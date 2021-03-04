@@ -29,6 +29,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -153,7 +154,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			continue
 		}
 
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, pvc.Labels[FDBProcessClassLabel], nil))
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClassFromLabels(pvc.Labels), nil))
 	}
 
 	// Track all Services
@@ -169,7 +170,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			continue
 		}
 
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, service.Labels[FDBProcessClassLabel], nil))
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClassFromLabels(service.Labels), nil))
 	}
 
 	// Ensure that anything the user has explicitly chosen to remove is marked
@@ -228,7 +229,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 			if len(pods.Items) > 0 {
 				instanceID := pods.Items[0].ObjectMeta.Labels[FDBInstanceIDLabel]
-				processClass := pods.Items[0].ObjectMeta.Labels[FDBProcessClassLabel]
+				processClass := processClassFromLabels(pods.Items[0].ObjectMeta.Labels)
 				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
 				if !included {
 					status.ProcessGroups = append(status.ProcessGroups, newStatus)
@@ -244,9 +245,9 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			if err != nil {
 				return false, err
 			}
-			processClass := ""
+			var processClass fdbtypes.ProcessClass
 			if len(pods.Items) > 0 {
-				processClass = pods.Items[0].ObjectMeta.Labels[FDBProcessClassLabel]
+				processClass = processClassFromLabels(pods.Items[0].ObjectMeta.Labels)
 			}
 			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, state.Address)
 			if !included {

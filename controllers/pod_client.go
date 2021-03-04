@@ -261,7 +261,7 @@ func MockPodIP(pod *corev1.Pod) string {
 	}
 	components := strings.Split(GetInstanceIDFromMeta(pod.ObjectMeta), "-")
 	for index, class := range fdbtypes.ProcessClasses {
-		if class == components[len(components)-2] {
+		if string(class) == components[len(components)-2] {
 			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
 		}
 	}

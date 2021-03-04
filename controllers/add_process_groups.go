@@ -39,8 +39,8 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	processCounts := make(map[string]int)
-	processGroupIDs := make(map[string]map[int]bool)
+	processCounts := make(map[fdbtypes.ProcessClass]int)
+	processGroupIDs := make(map[fdbtypes.ProcessClass]map[int]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 
 		processGroupID := processGroup.ProcessGroupID
