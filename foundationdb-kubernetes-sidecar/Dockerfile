@@ -23,6 +23,8 @@ WORKDIR /var/fdb/tmp
 ARG FDB_VERSION=6.2.22
 ARG FDB_LIBRARY_VERSIONS="6.2.22 6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
+# Adding tini as PID 1 https://github.com/krallin/tini
+ARG TINI_VERSION=v0.19.0
 
 COPY website /mnt/website
 # FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
@@ -38,6 +40,12 @@ RUN apt-get update && \
 	mv fdbbackup fdbcli fdbdr fdbmonitor fdbrestore fdbserver backup_agent dr_agent /usr/bin && \
 	echo ${FDB_VERSION} > /var/fdb/version && mkdir -p /var/fdb/lib && \
 	for version in $FDB_LIBRARY_VERSIONS; do curl --fail $FDB_WEBSITE/downloads/$version/linux/libfdb_c_$version.so -o /var/fdb/lib/libfdb_c_${version%.*}.so; done && \
+	curl -LO https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-amd64 && \
+    curl -LO https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-amd64.sha256sum && \
+	sha256sum -c tini-amd64.sha256sum && \
+	rm -f tini-amd64.sha256sum && \
+    chmod +x tini-amd64 && \
+	mv tini-amd64 /usr/bin/tini && \
 	rm -r /var/fdb/tmp && \
 	groupadd --gid 4059 fdb && \
 	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb && \
@@ -60,4 +68,5 @@ VOLUME /var/output-files
 USER fdb
 
 ENV LISTEN_PORT 8080
-ENTRYPOINT ["/entrypoint.bash"]
+
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/entrypoint.bash"]
