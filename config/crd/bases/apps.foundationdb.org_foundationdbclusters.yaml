@@ -669,6 +669,8 @@ spec:
                             priority:
                               type: integer
                             satellite:
+                              maximum: 1
+                              minimum: 0
                               type: integer
                           type: object
                         type: array
@@ -8387,6 +8389,8 @@ spec:
                             priority:
                               type: integer
                             satellite:
+                              maximum: 1
+                              minimum: 0
                               type: integer
                           type: object
                         type: array

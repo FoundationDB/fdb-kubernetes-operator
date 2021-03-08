@@ -1697,6 +1697,8 @@ type DataCenter struct {
 	// Satellite indicates whether the data center is serving as a satellite for
 	// the region. A value of 1 indicates that it is a satellite, and a value of
 	// 0 indicates that it is not a satellite.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
 	Satellite int `json:"satellite,omitempty"`
 }
 
