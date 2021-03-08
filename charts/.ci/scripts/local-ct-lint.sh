@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-docker run --rm -it -w /repo -v `pwd`:/repo quay.io/helmpack/chart-testing ct lint --all
+docker run --rm -it -w /repo -v `pwd`:/repo quay.io/helmpack/chart-testing:v3.3.1 ct lint --all
