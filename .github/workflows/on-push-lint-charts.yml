@@ -8,6 +8,7 @@ on:
 env:
   KUBE_SCORE_VERSION: 1.10.1
   HELM_VERSION: 3.5.2
+  CHECK_VERSION_INCREMENT: false # avoid tests failing when multiple attempts to push chart changes are made
 
 jobs:
   lint-test:
