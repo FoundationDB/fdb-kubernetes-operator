@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 helm template --values charts/.ci/values-kube-score.yaml charts/* -f charts/.ci/values-kube-score.yaml | kube-score score - \
     --ignore-test pod-networkpolicy \
