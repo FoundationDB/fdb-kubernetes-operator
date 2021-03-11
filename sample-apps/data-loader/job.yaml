@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-      - image: fdb-data-loader
+      - image: foundationdb/fdb-data-loader:latest
         imagePullPolicy: IfNotPresent
         name: fdb-data-loader
         env:
@@ -30,8 +30,6 @@ spec:
             - "fdb.cluster"
             - "--copy-library"
             - "6.3"
-            - "--copy-library"
-            - "6.1"
             - "--copy-library"
             - "6.2"
             - "--init-mode"
