@@ -689,6 +689,8 @@ spec:
                 usable_regions:
                   type: integer
               type: object
+            enablePodDisruptionBudget:
+              type: boolean
             faultDomain:
               properties:
                 key:

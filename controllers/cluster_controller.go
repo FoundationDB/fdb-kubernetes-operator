@@ -141,6 +141,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		AddServices{},
 		AddPVCs{},
 		AddPods{},
+		UpdatePDBs{},
 		GenerateInitialClusterFile{},
 		UpdateSidecarVersions{},
 		UpdateConfigMap{},

@@ -514,6 +514,11 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 	in.AutomationOptions.DeepCopyInto(&out.AutomationOptions)
 	in.LockOptions.DeepCopyInto(&out.LockOptions)
 	in.Services.DeepCopyInto(&out.Services)
+	if in.EnablePodDisruptionBudget != nil {
+		in, out := &in.EnablePodDisruptionBudget, &out.EnablePodDisruptionBudget
+		*out = new(bool)
+		**out = **in
+	}
 	in.Buggify.DeepCopyInto(&out.Buggify)
 	if in.PodLabels != nil {
 		in, out := &in.PodLabels, &out.PodLabels

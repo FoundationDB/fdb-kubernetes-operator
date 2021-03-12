@@ -161,6 +161,10 @@ type FoundationDBClusterSpec struct {
 	// client compatibility when performing an upgrade.
 	IgnoreUpgradabilityChecks bool `json:"ignoreUpgradabilityChecks,omitempty"`
 
+	// EnablePodDisruptionBudget determines whether we should configure a
+	// PodDisruptionBudget for our pods.
+	EnablePodDisruptionBudget *bool `json:"enablePodDisruptionBudget,omitempty"`
+
 	// Buggify defines settings for injecting faults into a cluster for testing.
 	Buggify BuggifyConfig `json:"buggify,omitempty"`
 
