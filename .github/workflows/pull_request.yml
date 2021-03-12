@@ -79,19 +79,19 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go
-    - uses: actions/cache@v2
-      id: dependency_cache
-      with:
-        path: |
-          kustomize.tar.gz
-          fdb.deb
-          kubebuilder.tar.gz
-          kind
-        key: ${{ runner.os }}-${{ hashFiles('kustomize.tar.gz', 'fdb.deb', 'kubebuilder.tar.gz', 'kind') }}
-        restore-keys: |
-          ${{ runner.os }}-dependencies
+    # - uses: actions/cache@v2
+    #   id: dependency_cache
+    #   with:
+    #     path: |
+    #       kustomize.tar.gz
+    #       fdb.deb
+    #       kubebuilder.tar.gz
+    #       kind
+    #     key: ${{ runner.os }}-${{ hashFiles('kustomize.tar.gz', 'fdb.deb', 'kubebuilder.tar.gz', 'kind') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-dependencies
     - name: Get dependencies
-      if: steps.dependency_cache.outputs.cache-hit != 'true'
+      # if: steps.dependency_cache.outputs.cache-hit != 'true'
       env:
         KUBEBUILDER_VER: "2.2.0"
         KUSTOMIZE_VER: "v3.9.4"
