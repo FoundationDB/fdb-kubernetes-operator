@@ -1,5 +1,5 @@
 # This file provides an example of a cluster you can run in a local testing
-# environment to create a simultation of a multi-DC cluster.
+# environment to create a simulation of a multi-DC cluster.
 #
 # This requires variables to be interpolated for $dc, $logCount,
 # and $connectionString

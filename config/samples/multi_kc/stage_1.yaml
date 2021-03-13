@@ -1,5 +1,5 @@
 # This file provides an example of a cluster you can run in a local testing
-# environment to create a simultation of a multi-KC cluster.
+# environment to create a simulation of a multi-KC cluster.
 #
 # This requires variables to be interpolated for $zone, $zoneIndex,
 # and $connectionString.
