@@ -21,6 +21,10 @@ spec:
     description: Database health
     name: Healthy
     type: boolean
+  - JSONPath: .status.runningVersion
+    description: Running version
+    name: Version
+    type: string
   group: apps.foundationdb.org
   names:
     kind: FoundationDBCluster
