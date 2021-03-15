@@ -1,0 +1,12 @@
+# This file sets some opinionated values for kube-score to use
+# when parsing the chart
+operator:
+  imagePullPolicy: Always
+
+resources:
+  requests:
+    cpu: 1
+    memory: 100Mi
+  limits:
+    cpu: 1
+    memory: 100Mi

@@ -1,0 +1,2 @@
+# This file defines the config for "ct" (chart tester) used by the helm linting GitHub workflow
+lint-conf: .ci/lint-config.yaml
