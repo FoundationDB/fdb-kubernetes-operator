@@ -121,7 +121,7 @@ jobs:
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
         tar xvfz yq.tar.gz
-        sudo mv yq /usr/bin/yq
+        sudo mv ./yq_linux_amd64 /usr/bin/yq
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources

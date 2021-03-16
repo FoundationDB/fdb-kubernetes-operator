@@ -6,29 +6,6 @@ metadata:
   creationTimestamp: null
   name: foundationdbclusters.apps.foundationdb.org
 spec:
-<<<<<<< HEAD
-  additionalPrinterColumns:
-  - JSONPath: .metadata.generation
-    description: Latest generation of the spec
-    name: Generation
-    type: integer
-  - JSONPath: .status.generations.reconciled
-    description: Last reconciled generation of the spec
-    name: Reconciled
-    type: integer
-  - JSONPath: .status.health.healthy
-    description: Database health
-    name: Healthy
-    type: boolean
-  - JSONPath: .status.runningVersion
-    description: Running version
-    name: Version
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: date
-=======
->>>>>>> Update to apiextensions/v1
   group: apps.foundationdb.org
   names:
     kind: FoundationDBCluster
@@ -56,6 +33,9 @@ spec:
           jsonPath: .status.runningVersion
           name: Version
           type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
       name: v1beta1
       schema:
         openAPIV3Schema:
