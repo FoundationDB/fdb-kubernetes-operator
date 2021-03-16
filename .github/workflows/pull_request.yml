@@ -120,7 +120,7 @@ jobs:
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
-        tar xz yq.tar.gz
+        tar xvfz yq.tar.gz
         sudo mv yq /usr/bin/yq
     - name: Run tests
       # Currently the default runner has 2 vCPU:
