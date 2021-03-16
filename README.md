@@ -47,7 +47,7 @@ the [API documentation](docs/cluster_spec.md).
 ### Environment Set-up
 
 1. Install GO on your machine, see the [Getting Started](https://golang.org/doc/install) guide for more information.
-2. Install KubeBuilder and its dependencies on your machine, see [The KubeBuilder Book](https://book.kubebuilder.io/quick-start.html) for more information (currently version `2.2.0` is used).
+2. Install KubeBuilder and its dependencies on your machine, see [The KubeBuilder Book](https://book.kubebuilder.io/quick-start.html) for more information (currently version `2.3.2` is used).
 3. Set your $GOPATH, e.x. `/Users/me/Code/go`.
 4. Install [kustomize](https://github.com/kubernetes-sigs/kustomize).
 5. Install the [foundationDB client package](https://www.foundationdb.org/download).
