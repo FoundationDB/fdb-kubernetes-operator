@@ -151,6 +151,7 @@ jobs:
       run: git diff --exit-code
   push_images:
     if: github.ref == 'refs/heads/master'
+    needs: build
     name: Push Docker images
     runs-on: ubuntu-latest
     strategy:
