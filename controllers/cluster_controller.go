@@ -173,7 +173,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 			}
 			return result, nil
 		} else if cluster.ObjectMeta.Generation != originalGeneration {
-			log.Info("Ending reconciliation early because cluster has been updated")
+			log.Info("Ending reconciliation early because cluster has been updated", "namespace", cluster.Namespace, "name", cluster.Name)
 			return ctrl.Result{}, nil
 		} else if !canContinue {
 			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)

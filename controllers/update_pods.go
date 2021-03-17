@@ -75,6 +75,12 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if instance.Metadata.Annotations[LastSpecKey] != specHash {
+			log.Info("Update Pod",
+				"namespace", cluster.Namespace,
+				"name", cluster.Name,
+				"processGroupID", instanceID,
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[LastSpecKey]))
+
 			podClient, err := r.getPodClient(cluster, instance)
 			if err != nil {
 				return false, err
@@ -107,8 +113,8 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 				return false, err
 			}
 
-			r.Recorder.Event(cluster, "Normal", "NeedsPodsDeletion",
-				"Spec require deleting some pods, but deleting pods is disabled")
+			r.Recorder.Event(cluster, "Normal",
+				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {
