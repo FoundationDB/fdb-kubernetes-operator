@@ -53,11 +53,15 @@ type MockClient struct {
 
 	// ipCounter provides monotonically incrementing IP addresses.
 	ipCounter int
+
+	// stuckTerminatingObjects tracks which objects should be stuck in terminating.
+	stuckTerminatingObjects map[string]map[string]bool
 }
 
 // Clear erases any mock data.
 func (client *MockClient) Clear() {
 	client.data = make(map[string]map[string]map[string]interface{})
+	client.stuckTerminatingObjects = nil
 }
 
 // Scheme returns the runtime Scheme
@@ -468,7 +472,11 @@ func (client *MockClient) Delete(context ctx.Context, object ctrlClient.Object, 
 		return err
 	}
 
-	delete(client.data[kindKey], objectKey)
+	stuckTerminating := client.stuckTerminatingObjects != nil && client.stuckTerminatingObjects[kindKey] != nil && client.stuckTerminatingObjects[kindKey][objectKey]
+	if !stuckTerminating {
+		delete(client.data[kindKey], objectKey)
+	}
+
 	return nil
 }
 
@@ -541,6 +549,30 @@ func (client *MockClient) Patch(context ctx.Context, object ctrlClient.Object, p
 // This is not yet implemented.
 func (client *MockClient) DeleteAllOf(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.DeleteAllOfOption) error {
 	return fmt.Errorf("Not implemented")
+}
+
+// MockStuckTermination sets a flag determining whether an object should get stuck in terminating when it is deleted.
+func (client *MockClient) MockStuckTermination(object ctrlClient.Object, terminating bool) error {
+	kindKey, err := buildKindKey(object)
+	if err != nil {
+		return err
+	}
+
+	objectKey, err := buildRuntimeObjectKey(object)
+	if err != nil {
+		return err
+	}
+
+	if client.stuckTerminatingObjects == nil {
+		client.stuckTerminatingObjects = make(map[string]map[string]bool)
+	}
+
+	if client.stuckTerminatingObjects[kindKey] == nil {
+		client.stuckTerminatingObjects[kindKey] = make(map[string]bool)
+	}
+
+	client.stuckTerminatingObjects[kindKey][objectKey] = terminating
+	return nil
 }
 
 // MockStatusClient wraps a client to provide specialized operations for

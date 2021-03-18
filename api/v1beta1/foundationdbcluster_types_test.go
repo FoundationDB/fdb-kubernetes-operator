@@ -2996,6 +2996,19 @@ func TestCheckingReconciliationForCluster(t *testing.T) {
 	}))
 
 	cluster = createCluster()
+	cluster.Spec.ProcessCounts.Storage = 2
+	cluster.Status.ProcessGroups[0].Remove = true
+	cluster.Status.ProcessGroups[0].Excluded = true
+	cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+	result, err = cluster.CheckReconciliation()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(result).To(gomega.BeTrue())
+	g.Expect(cluster.Status.Generations).To(gomega.Equal(ClusterGenerationStatus{
+		Reconciled:        2,
+		HasPendingRemoval: 2,
+	}))
+
+	cluster = createCluster()
 	cluster.Status.HasIncorrectServiceConfig = true
 	result, err = cluster.CheckReconciliation()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
