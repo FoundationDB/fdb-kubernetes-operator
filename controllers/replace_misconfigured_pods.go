@@ -99,7 +99,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 				processGroupStatus.Remove = true
 				hasNewRemovals = true
 
-				log.Info("replace instance",
+				log.Info("Replace instance",
 					"namespace", cluster.Namespace,
 					"name", cluster.Name,
 					"processGroupID", instanceID,
