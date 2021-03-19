@@ -153,6 +153,37 @@ func TestDeletingObject(t *testing.T) {
 	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 }
 
+func TestDeletingPodInTerminating(t *testing.T) {
+	g := NewWithT(t)
+	client := &MockClient{}
+
+	pod1 := createDummyPod()
+	pod2 := createDummyPod()
+	pod2.Name = "pod2"
+
+	err := client.Create(context.TODO(), pod1)
+	g.Expect(err).NotTo(HaveOccurred())
+	err = client.Create(context.TODO(), pod2)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = client.MockStuckTermination(pod1, true)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = client.Delete(context.TODO(), pod1)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	podCopy := &corev1.Pod{}
+	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = client.Delete(context.TODO(), pod2)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod2"}, podCopy)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+}
+
 func TestUpdatingObject(t *testing.T) {
 	g := NewWithT(t)
 	client := &MockClient{}

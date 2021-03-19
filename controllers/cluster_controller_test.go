@@ -494,6 +494,45 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Expect(group.Remove).To(BeFalse())
 					}
 				})
+
+				Context("with a pod stuck in terminating", func() {
+					BeforeEach(func() {
+						pod := originalPods.Items[firstStorageIndex]
+						for _, processGroup := range cluster.Status.ProcessGroups {
+							if processGroup.ProcessGroupID == pod.ObjectMeta.Labels[FDBInstanceIDLabel] {
+								processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
+							}
+						}
+
+						err = k8sClient.Status().Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+
+						err = k8sClient.MockStuckTermination(&pod, true)
+						Expect(err).NotTo(HaveOccurred())
+
+						shouldCompleteReconciliation = false
+					})
+
+					It("should set the generation to both reconciled and pending removal", func() {
+						_, err = reloadCluster(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(cluster.Status.Generations).To(Equal(fdbtypes.ClusterGenerationStatus{
+							Reconciled:        2,
+							HasPendingRemoval: 2,
+						}))
+					})
+
+					It("should exclude but not re-include the instance", func() {
+						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(adminClient).NotTo(BeNil())
+						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
+
+						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
+							MockPodIP(&originalPods.Items[firstStorageIndex]),
+						}))
+					})
+				})
 			})
 
 			Context("with an entry in the pendingRemovals map", func() {
