@@ -41,6 +41,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	defer adminClient.Close()
 
 	addresses := make([]string, 0)
+	missingProcesses := make([]string, 0)
 
 	exclusions, err := adminClient.GetExclusions()
 	if err != nil {
@@ -58,35 +59,35 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 				addresses = append(addresses, address)
 			}
 		}
+
+		// Block excludes on missing processes/Pods not marked for removal
+		processMissingTime := processGroup.GetConditionTime(fdbtypes.MissingProcesses)
+		podMissingTime := processGroup.GetConditionTime(fdbtypes.MissingPod)
+		if (processMissingTime != nil || podMissingTime != nil) && !processGroup.Remove {
+			missingProcesses = append(missingProcesses, processGroup.ProcessGroupID)
+		}
 	}
 
-	if len(addresses) > 0 {
-		// Block excludes on missing processes not marked for removal
-		missingProcesses := make([]string, 0)
-		for _, processGroupStatus := range cluster.Status.ProcessGroups {
-			processMissingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
-			podMissingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingPod)
-			if (processMissingTime != nil || podMissingTime != nil) && !processGroupStatus.Remove {
-				missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
-			}
-		}
-		if len(missingProcesses) > 0 {
-			log.Info("Waiting for missing processes", "namespace", cluster.Namespace, "cluster", cluster.Name, "missingProcesses", missingProcesses)
-			return false, nil
-		}
+	if len(missingProcesses) > 0 {
+		log.Info("Waiting for missing processes", "namespace", cluster.Namespace, "cluster", cluster.Name, "missingProcesses", missingProcesses)
+		return false, nil
+	}
 
-		hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding instances: %v", addresses))
-		if !hasLock {
-			return false, err
-		}
+	if len(addresses) == 0 {
+		return true, nil
+	}
 
-		r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
+	hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding instances: %v", addresses))
+	if !hasLock {
+		return false, err
+	}
 
-		err = adminClient.ExcludeInstances(addresses)
+	r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
 
-		if err != nil {
-			return false, err
-		}
+	err = adminClient.ExcludeInstances(addresses)
+
+	if err != nil {
+		return false, err
 	}
 
 	return true, nil
