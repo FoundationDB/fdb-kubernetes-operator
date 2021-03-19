@@ -773,6 +773,50 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("with a missing process and pending exclusion", func() {
+			var adminClient *MockAdminClient
+
+			BeforeEach(func() {
+				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.InstancesToRemove = []string{
+					originalPods.Items[firstStorageIndex].ObjectMeta.Labels[FDBInstanceIDLabel],
+				}
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				adminClient.MockMissingProcessGroup("storage-2", true)
+				shouldCompleteReconciliation = false
+				generationGap = 0
+			})
+
+			JustBeforeEach(func() {
+				generations, err := reloadClusterGenerations(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(generations).To(Equal(fdbtypes.ClusterGenerationStatus{
+					Reconciled:             originalVersion,
+					NeedsCoordinatorChange: originalVersion + 1,
+					NeedsShrink:            originalVersion + 1,
+					HasUnhealthyProcess:    originalVersion + 1,
+				}))
+			})
+
+			It("should not exclude or remove the process", func() {
+				Expect(adminClient.ExcludedAddresses).To(BeNil())
+				Expect(len(adminClient.ReincludedAddresses)).To(Equal(0))
+
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getSinglePodListOptions(cluster, "storage-2")...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(1))
+
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(18))
+			})
+		})
+
 		Context("with multiple replacements", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstancesToRemove = []string{

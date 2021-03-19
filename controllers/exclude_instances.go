@@ -70,6 +70,20 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	if len(addresses) > 0 {
+		// Block excludes on missing processes not marked for removal
+		missingProcesses := make([]string, 0)
+		for _, processGroupStatus := range cluster.Status.ProcessGroups {
+			processMissingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
+			podMissingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingPod)
+			if (processMissingTime != nil || podMissingTime != nil) && !processGroupStatus.Remove {
+				missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
+			}
+		}
+		if len(missingProcesses) > 0 {
+			log.Info("Waiting for missing processes", "namespace", cluster.Namespace, "cluster", cluster.Name, "missingProcesses", missingProcesses)
+			return false, nil
+		}
+
 		hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding instances: %v", addresses))
 		if !hasLock {
 			return false, err
