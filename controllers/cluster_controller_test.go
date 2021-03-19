@@ -514,7 +514,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					})
 
 					It("should set the generation to both reconciled and pending removal", func() {
-						reloadCluster(cluster)
+						_, err = reloadCluster(cluster)
+						Expect(err).NotTo(HaveOccurred())
 						Expect(cluster.Status.Generations).To(Equal(fdbtypes.ClusterGenerationStatus{
 							Reconciled:        2,
 							HasPendingRemoval: 2,
