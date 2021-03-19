@@ -73,8 +73,9 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		// Block excludes on missing processes not marked for removal
 		missingProcesses := make([]string, 0)
 		for _, processGroupStatus := range cluster.Status.ProcessGroups {
-			missingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
-			if missingTime != nil && !processGroupStatus.Remove {
+			processMissingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
+			podMissingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingPod)
+			if (processMissingTime != nil || podMissingTime != nil) && !processGroupStatus.Remove {
 				missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
 			}
 		}
