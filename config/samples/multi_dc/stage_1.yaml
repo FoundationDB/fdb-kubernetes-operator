@@ -11,7 +11,7 @@ metadata:
     cluster-group: sample-cluster
   name: sample-cluster-$dc
 spec:
-  version: 6.2.20
+  version: 6.2.30
   faultDomain:
     key: foundationdb.org/none
   instanceIDPrefix: $dc

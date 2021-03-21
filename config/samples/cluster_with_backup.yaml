@@ -28,7 +28,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
-  version: 6.2.20
+  version: 6.2.30
   faultDomain:
     key: foundationdb.org/none
   processCounts:

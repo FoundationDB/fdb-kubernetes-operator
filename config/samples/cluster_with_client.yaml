@@ -10,7 +10,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
-  version: 6.2.20
+  version: 6.2.30
   faultDomain:
     key: foundationdb.org/none
   services:
@@ -78,7 +78,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: foundationdb-kubernetes-init
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
           args:
             - "--copy-file"
             - "fdb.cluster"
