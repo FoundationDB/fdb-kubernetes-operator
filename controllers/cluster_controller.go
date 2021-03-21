@@ -268,13 +268,13 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		return false, err
 	}
 
-	synced, err := UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
-	if !synced {
-		return false, err
-	}
+	syncedFDBcluster, clusterErr := UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
+	syncedFDBMonitor, err := UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
+	if !syncedFDBcluster || !syncedFDBMonitor {
+		if clusterErr != nil {
+			return false, clusterErr
+		}
 
-	synced, err = UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
-	if !synced {
 		return false, err
 	}
 
