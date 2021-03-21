@@ -6,8 +6,6 @@
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
   version: 6.2.20
@@ -28,12 +26,8 @@ spec:
               storage: "16G"
       podTemplate:
         spec:
-          securityContext:
-            fsGroup: 0
           containers:
             - name: foundationdb
-              securityContext:
-                runAsUser: 0
               resources:
                 requests:
                   cpu: 250m
@@ -46,8 +40,6 @@ spec:
                 limits:
                   cpu: 100m
                   memory: 128Mi
-              securityContext:
-                runAsUser: 0
           initContainers:
             - name: foundationdb-kubernetes-init
               resources:
@@ -57,8 +49,6 @@ spec:
                 limits:
                   cpu: 100m
                   memory: 128Mi
-              securityContext:
-                runAsUser: 0
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -116,9 +106,6 @@ spec:
             requests:
               cpu: 250m
               memory: 128Mi
-          securityContext:
-            runAsGroup: 0
-            runAsUser: 0
           volumeMounts:
             - name: dynamic-conf
               mountPath: /var/dynamic-conf

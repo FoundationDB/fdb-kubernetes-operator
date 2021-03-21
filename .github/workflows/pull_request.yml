@@ -136,6 +136,8 @@ jobs:
         IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
         # Wait for the operator to start
         kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
+        # Check if all resources can be applied
+        kubectl apply --dry-run=server -f ./config/samples
         # TODO run some e2e tests e.g. create cluster/delete cluster
         # kubectl apply -f ./config/samples/cluster_local.yaml
         # Change the image back to the default otherwise the next check will complain
