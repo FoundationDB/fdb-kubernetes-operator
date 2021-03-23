@@ -85,25 +85,14 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go
-    # - uses: actions/cache@v2
-    #   id: dependency_cache
-    #   with:
-    #     path: |
-    #       kustomize.tar.gz
-    #       fdb.deb
-    #       kubebuilder.tar.gz
-    #       kind
-    #     key: ${{ runner.os }}-${{ hashFiles('kustomize.tar.gz', 'fdb.deb', 'kubebuilder.tar.gz', 'kind') }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-dependencies
     - name: Get dependencies
-      # if: steps.dependency_cache.outputs.cache-hit != 'true'
       env:
-        KUBEBUILDER_VER: "2.2.0"
+        KUBEBUILDER_VER: "2.3.2"
         KUSTOMIZE_VER: "v3.9.4"
         TEST_RACE_CONDITIONS: "1"
         FDB_VER: "6.2.29"
         KIND_VER: "v0.10.0"
+        YQ_VERSION: "v4.6.1"
       run: |
         # Only download all dependencies
         go get -v -t -d ./...
@@ -114,9 +103,10 @@ jobs:
         curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
              --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
+        curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz
     - name: Install dependencies
       env:
-        KUBEBUILDER_VER: "2.2.0"
+        KUBEBUILDER_VER: "2.3.2"
       run: |
         # Install dependencies either from cache or freshly downloaded
         tar xvfz kustomize.tar.gz
@@ -130,6 +120,8 @@ jobs:
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
+        tar xvfz yq.tar.gz
+        sudo mv ./yq_linux_amd64 /usr/bin/yq
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
@@ -138,6 +130,11 @@ jobs:
       run: |
         # Ensure the Minio CRD is installed and in place
         kubectl apply -f ./config/minio/operator.yaml
+        # Install the current manifests to ensure we can upgrade/apply the manifests without any issue
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+        # Generate secrets used by the operator
         ./config/test-certs/generate_secrets.bash
         IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
         # Wait for the operator to start
