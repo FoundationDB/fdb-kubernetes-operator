@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
@@ -88,12 +89,13 @@ func main() {
 		logWriter = os.Stdout
 	}
 
-	ctrl.SetLogger(
-		zap.New(
-			zap.UseFlagOptions(&opts),
-			zap.WriteTo(logWriter),
-		),
-	)
+	logger := zap.New(
+		zap.UseFlagOptions(&opts),
+		zap.WriteTo(logWriter))
+	ctrl.SetLogger(logger)
+
+	// Might be called by controller-runtime in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/1420
+	klog.SetLogger(logger)
 
 	controllers.DefaultCLITimeout = cliTimeout
 
