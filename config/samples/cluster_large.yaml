@@ -3,8 +3,6 @@
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
   version: 6.2.30

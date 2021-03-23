@@ -3,8 +3,6 @@
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
   name: sample-cluster
 spec:
   version: 6.2.30
@@ -28,19 +26,13 @@ spec:
               storage: "16G"
       podTemplate:
         spec:
-          securityContext:
-            fsGroup: 0
           containers:
             - name: foundationdb
-              securityContext:
-                runAsUser: 0
               resources:
                 requests:
                   cpu: 250m
                   memory: 128Mi
             - name: foundationdb-kubernetes-sidecar
-              securityContext:
-                runAsUser: 0
               resources:
                 requests:
                   cpu: 100m
@@ -50,8 +42,6 @@ spec:
                   memory: 128Mi
           initContainers:
             - name: foundationdb-kubernetes-init
-              securityContext:
-                runAsUser: 0
               resources:
                 requests:
                   cpu: 100m
