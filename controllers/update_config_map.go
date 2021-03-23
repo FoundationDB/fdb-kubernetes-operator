@@ -22,8 +22,11 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"reflect"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -61,7 +64,7 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		metadataCorrect = false
 	}
 
-	if !reflect.DeepEqual(existing.Data, configMap.Data) || !metadataCorrect {
+	if !equality.Semantic.DeepEqual(existing.Data, configMap.Data) || !metadataCorrect {
 		log.Info("Updating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
 		r.Recorder.Event(cluster, "Normal", "UpdatingConfigMap", "")
 		existing.Data = configMap.Data
@@ -81,20 +84,39 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		return false, err
 	}
 
+	var errs []error
+	// We try to update all instances and if we observe an error we add it to the error list.
+	// TODO: should we try to update the instances concurrently?
 	for index := range instances {
 		instance := instances[index]
-		if instance.Metadata.Annotations[LastConfigMapKey] != configMapHash {
-			synced, err := r.updatePodDynamicConf(cluster, instance)
-			if !synced {
-				return synced, err
+		if instance.Metadata.Annotations[LastConfigMapKey] == configMapHash {
+			continue
+		}
+
+		synced, err := r.updatePodDynamicConf(cluster, instance)
+		if !synced {
+			log.Info("Update dynamic Pod config", "namespace", configMap.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "synced", synced)
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				errs = append(errs, fmt.Errorf("processGroupID %s not synced", instance.GetInstanceID()))
 			}
 
-			instance.Metadata.Annotations[LastConfigMapKey] = configMapHash
-			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
-			if err != nil {
-				return false, err
-			}
+			continue
 		}
+
+		instance.Metadata.Annotations[LastConfigMapKey] = configMapHash
+		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
+		if err != nil {
+			log.Info("Update Pod metadata", "namespace", configMap.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "error", err)
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		// If we return an error we don't requeue
+		// So we just return that we can't continue but don't have an error
+		return false, nil
 	}
 
 	return true, nil
@@ -103,5 +125,5 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 // RequeueAfter returns the delay before we should run the reconciliation
 // again.
 func (u UpdateConfigMap) RequeueAfter() time.Duration {
-	return time.Duration(30) * time.Second
+	return 30 * time.Second
 }

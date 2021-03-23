@@ -171,12 +171,13 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 				log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
 				return ctrl.Result{}, err
 			}
+
 			return result, nil
 		} else if cluster.ObjectMeta.Generation != originalGeneration {
 			log.Info("Ending reconciliation early because cluster has been updated", "namespace", cluster.Namespace, "name", cluster.Name)
 			return ctrl.Result{}, nil
 		} else if !canContinue {
-			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
+			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name, "requeueAfter", subReconciler.RequeueAfter())
 			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
 		}
 	}
@@ -267,14 +268,14 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		return false, err
 	}
 
-	synced, err := UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
-	if !synced {
-		return synced, err
-	}
+	syncedFDBcluster, clusterErr := UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client FdbPodClient) error { return client.CopyFiles() })
+	syncedFDBMonitor, err := UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
+	if !syncedFDBcluster || !syncedFDBMonitor {
+		if clusterErr != nil {
+			return false, clusterErr
+		}
 
-	synced, err = UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client FdbPodClient) error { return client.GenerateMonitorConf() })
-	if !synced {
-		return synced, err
+		return false, err
 	}
 
 	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
@@ -283,10 +284,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	}
 
 	if !version.SupportsUsingBinariesFromMainContainer() || cluster.IsBeingUpgraded() {
-		synced, err = CheckDynamicFilePresent(podClient, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
-		if !synced {
-			return synced, err
-		}
+		return CheckDynamicFilePresent(podClient, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
 	}
 
 	return true, nil

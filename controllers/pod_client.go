@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -33,8 +34,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -143,30 +146,39 @@ func (client *realFdbPodClient) getListenIP() string {
 
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodClient) makeRequest(method string, path string) (string, error) {
-	var protocol string
-	if client.useTLS {
-		protocol = "https"
-	} else {
-		protocol = "http"
-	}
-
-	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
 	var resp *http.Response
 	var err error
 
-	httpClient := &http.Client{}
-	if client.useTLS {
-		httpClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
+	protocol := "http"
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 10
+	retryClient.RetryWaitMax = 5 * time.Second
+	// Prevent logging
+	retryClient.Logger = nil
+	retryClient.CheckRetry = func(c context.Context, resp *http.Response, err error) (bool, error) {
+		if resp.StatusCode >= 400 {
+			return true, nil
+		}
+
+		// All other go to default policy
+		return retryablehttp.DefaultRetryPolicy(c, resp, err)
 	}
 
+	if client.useTLS {
+		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
+		protocol = "https"
+	}
+
+	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
 	switch method {
 	case "GET":
-		resp, err = httpClient.Get(url)
+		resp, err = retryClient.Get(url)
 	case "POST":
-		resp, err = httpClient.Post(url, "application/json", strings.NewReader(""))
+		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
 	default:
-		return "", fmt.Errorf("Unknown HTTP method %s", method)
+		return "", fmt.Errorf("unknown HTTP method %s", method)
 	}
+
 	if err != nil {
 		return "", err
 	}
@@ -183,6 +195,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	if resp.StatusCode >= 400 {
 		return "", failedResponse{response: resp, body: bodyText}
 	}
+
 	return bodyText, nil
 }
 
@@ -320,13 +333,18 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, u
 	}
 
 	if !match {
-		log.Info("Waiting for config update", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
 		err = updateFunc(client)
 		if err != nil {
 			return false, err
 		}
 
-		return client.CheckHash(filename, contents)
+		// We check this more or less instantly, maybe we should add some delay?
+		match, err = client.CheckHash(filename, contents)
+		if !match {
+			log.Info("Waiting for config update", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
+		}
+
+		return match, err
 	}
 
 	return true, nil
