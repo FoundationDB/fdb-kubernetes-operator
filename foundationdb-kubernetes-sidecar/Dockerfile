@@ -20,8 +20,8 @@
 FROM python:3.9-slim
 
 WORKDIR /var/fdb/tmp
-ARG FDB_VERSION=6.2.22
-ARG FDB_LIBRARY_VERSIONS="6.2.22 6.1.13"
+ARG FDB_VERSION=6.2.30
+ARG FDB_LIBRARY_VERSIONS="6.2.30 6.1.13"
 ARG FDB_WEBSITE=https://www.foundationdb.org
 # Adding tini as PID 1 https://github.com/krallin/tini
 ARG TINI_VERSION=v0.19.0
