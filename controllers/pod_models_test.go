@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -2244,6 +2245,72 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
+	Describe("GetPodDisruptionBudgets", func() {
+		var enabled bool
+		var pdbs []policyv1beta1.PodDisruptionBudget
+
+		Context("with PDBs disabled", func() {
+			BeforeEach(func() {
+				enabled = false
+				cluster.Spec.EnablePodDisruptionBudget = &enabled
+				pdbs, err = GetPodDisruptionBudgets(cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should have zero PDBs", func() {
+				Expect(pdbs).To(HaveLen(0))
+			})
+		})
+
+		Context("with PDBs enabled", func() {
+			BeforeEach(func() {
+				enabled = true
+				cluster.Spec.EnablePodDisruptionBudget = &enabled
+				pdbs, err = GetPodDisruptionBudgets(cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should have a PDB for each instance type with instances", func() {
+				Expect(pdbs).To(HaveLen(4))
+				Expect(pdbs[0].Name).To(Equal("operator-test-1-storage"))
+				Expect(pdbs[1].Name).To(Equal("operator-test-1-stateless"))
+				Expect(pdbs[2].Name).To(Equal("operator-test-1-log"))
+				Expect(pdbs[3].Name).To(Equal("operator-test-1-cluster-controller"))
+			})
+
+			It("should set the instance type labels on the PDBs", func() {
+				Expect(len(pdbs)).To(BeNumerically(">=", 2))
+				Expect(pdbs[0].Labels).To(Equal(map[string]string{
+					"fdb-cluster-name":  "operator-test-1",
+					"fdb-process-class": "storage",
+				}))
+				Expect(pdbs[0].Spec.Selector).NotTo(BeNil())
+				Expect(pdbs[0].Spec.Selector.MatchLabels).To(Equal(map[string]string{
+					"fdb-cluster-name":  "operator-test-1",
+					"fdb-process-class": "storage",
+				}))
+
+				Expect(pdbs[1].Labels).To(Equal(map[string]string{
+					"fdb-cluster-name":  "operator-test-1",
+					"fdb-process-class": "stateless",
+				}))
+				Expect(pdbs[1].Spec.Selector.MatchLabels).To(Equal(map[string]string{
+					"fdb-cluster-name":  "operator-test-1",
+					"fdb-process-class": "stateless",
+				}))
+			})
+
+			It("should set the min available instances based on the process count", func() {
+				Expect(len(pdbs)).To(BeNumerically(">=", 2))
+				processCounts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pdbs[0].Spec.MinAvailable).NotTo(BeNil())
+				Expect(pdbs[0].Spec.MinAvailable.IntVal).To(Equal(int32(processCounts.Storage - 1)))
+				Expect(pdbs[1].Spec.MinAvailable.IntVal).To(Equal(int32(processCounts.Stateless - 1)))
+			})
+		})
+	})
+
 	Describe("NormalizeClusterSpec", func() {
 		var spec *fdbtypes.FoundationDBClusterSpec
 
@@ -2778,6 +2845,11 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
 				})
+
+				It("should disable pod disruption budgets", func() {
+					Expect(spec.EnablePodDisruptionBudget).NotTo(BeNil())
+					Expect(*spec.EnablePodDisruptionBudget).To(BeFalse())
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -2815,6 +2887,11 @@ var _ = Describe("pod_models", func() {
 					Expect(spec.AutomationOptions.Replacements.Enabled).To(BeNil())
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
 				})
+
+				It("should disable pod disruption budgets", func() {
+					Expect(spec.EnablePodDisruptionBudget).NotTo(BeNil())
+					Expect(*spec.EnablePodDisruptionBudget).To(BeFalse())
+				})
 			})
 
 			Context("with the future defaults", func() {
@@ -2837,6 +2914,11 @@ var _ = Describe("pod_models", func() {
 						"cpu":    resource.MustParse("100m"),
 						"memory": resource.MustParse("256Mi"),
 					}))
+				})
+
+				It("should enable pod disruption budgets", func() {
+					Expect(spec.EnablePodDisruptionBudget).NotTo(BeNil())
+					Expect(*spec.EnablePodDisruptionBudget).To(BeTrue())
 				})
 
 				Context("with explicit resource requests", func() {

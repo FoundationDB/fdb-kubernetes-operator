@@ -30,6 +30,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1155,6 +1156,11 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		spec.CustomParameters = nil
 	}
 
+	if spec.EnablePodDisruptionBudget == nil {
+		enabled := options.UseFutureDefaults
+		spec.EnablePodDisruptionBudget = &enabled
+	}
+
 	// Validate customParameters
 	for processClass := range spec.Processes {
 		if setting, ok := spec.Processes[processClass]; ok {
@@ -1248,6 +1254,39 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
 	})
 	return nil
+}
+
+// GetPodDisruptionBudgets generates the disruption budgets that we need to
+// configure for a cluster.
+func GetPodDisruptionBudgets(cluster *fdbtypes.FoundationDBCluster) ([]policyv1beta1.PodDisruptionBudget, error) {
+	if !*cluster.Spec.EnablePodDisruptionBudget {
+		return nil, nil
+	}
+	budgets := make([]policyv1beta1.PodDisruptionBudget, 0, len(fdbtypes.ProcessClasses))
+	processCounts, err := cluster.GetProcessCountsWithDefaults()
+	if err != nil {
+		return nil, err
+	}
+	processCountsMap := processCounts.Map()
+	for _, processClass := range fdbtypes.ProcessClasses {
+		count := processCountsMap[processClass]
+		if count > 0 {
+			metadata := getObjectMetadata(cluster, nil, processClass, "")
+			metadata.OwnerReferences = buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+			metadata.Name = fmt.Sprintf("%s-%s", cluster.Name, processClassSanitizationPattern.ReplaceAllString(string(processClass), "-"))
+			minAvailable := intstr.FromInt(count - 1)
+			budgets = append(budgets, policyv1beta1.PodDisruptionBudget{
+				ObjectMeta: metadata,
+				Spec: policyv1beta1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: getMinimalPodLabels(cluster, processClass, ""),
+					},
+				},
+			})
+		}
+	}
+	return budgets, nil
 }
 
 func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {

@@ -10,6 +10,7 @@ rules:
   - pods
   - configmaps
   - persistentvolumeclaims
+  - poddisruptionbudgets
   - events
   - secrets
   - services

@@ -37,6 +37,7 @@ import (
 	gomegatypes "github.com/onsi/gomega/types"
 
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,6 +189,17 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err := k8sClient.List(context.TODO(), services, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(services.Items)).To(Equal(0))
+			})
+
+			It("should create pod disruption budgets", func() {
+				budgets := &policyv1beta1.PodDisruptionBudgetList{}
+				err := k8sClient.List(context.TODO(), budgets, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(budgets.Items)).To(Equal(4))
+				sort.Slice(budgets.Items, func(i, j int) bool {
+					return budgets.Items[i].Name < budgets.Items[j].Name
+				})
+				Expect(budgets.Items[0].Name).To(Equal("operator-test-1-cluster-controller"))
 			})
 
 			It("should fill in the required fields in the configuration", func() {

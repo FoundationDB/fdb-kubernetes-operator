@@ -253,6 +253,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
 | services | Services defines the configuration for services that sit in front of our pods. | [ServiceConfig](#serviceconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
+| enablePodDisruptionBudget | EnablePodDisruptionBudget determines whether we should configure a PodDisruptionBudget for our pods. | *bool | false |
 | buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
 | podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
