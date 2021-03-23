@@ -130,6 +130,11 @@ jobs:
       run: |
         # Ensure the Minio CRD is installed and in place
         kubectl apply -f ./config/minio/operator.yaml
+        # Install the current manifests to ensure we can upgrade/apply the manifests without any issue
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+        # Generate secrets used by the operator
         ./config/test-certs/generate_secrets.bash
         IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
         # Wait for the operator to start
