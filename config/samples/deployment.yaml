@@ -129,6 +129,9 @@ spec:
               fieldPath: metadata.namespace
         image: foundationdb/fdb-kubernetes-operator:v0.30.0
         name: manager
+        ports:
+        - containerPort: 8080
+          name: metrics
         resources:
           limits:
             cpu: 500m
