@@ -51,7 +51,7 @@ the [API documentation](docs/cluster_spec.md).
 3. Set your $GOPATH, e.x. `/Users/me/Code/go`.
 4. Install [kustomize](https://github.com/kubernetes-sigs/kustomize).
 5. Install the [foundationDB client package](https://www.foundationdb.org/download).
-6. If you want to modify the manifests you currently need [gnu-sed](https://formulae.brew.sh/formula/gnu-sed).
+6. If you want to modify the manifests you currently need [yq](https://github.com/mikefarah/yq), we use the `v4.6.1` version.
 
 ### Running Locally
 
@@ -60,7 +60,7 @@ To get this controller running in a local Kubernetes cluster:
 1. Change your current directory to $GOPATH/src/github.com using the
    command `cd $GOPATH/src/github.com` and run `mkdir foundationdb`
    to create the directory `foundationdb`.
-2. CD into newly created directory and clone this github repo inside
+2. CD into the newly created directory and clone this github repo inside
    `$GOPATH/src/github.com/foundationdb`.
 3. Run `config/test-certs/generate_secrets.bash` to set up a secret with
    self-signed test certs.
