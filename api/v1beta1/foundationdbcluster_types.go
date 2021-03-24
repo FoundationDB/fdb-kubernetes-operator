@@ -2386,6 +2386,10 @@ type RequiredAddressSet struct {
 type BuggifyConfig struct {
 	// NoSchedule defines a list of instance IDs that should fail to schedule.
 	NoSchedule []string `json:"noSchedule,omitempty"`
+
+	// CrashLoops defines a list of instance IDs that should be put into a
+	// crash looping state.
+	CrashLoop []string `json:"crashLoop,omitempty"`
 }
 
 // FdbVersion represents a version of FoundationDB.

@@ -141,7 +141,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
-		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances)
+		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances, false)
 		if err != nil {
 			return false, err
 		}

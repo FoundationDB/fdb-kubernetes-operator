@@ -27,7 +27,7 @@ spec:
     regions:
       - datacenters:
           - id: $dc
-        priority: 1
+            priority: 1
   processes:
     general:
       volumeClaimTemplate:

@@ -381,8 +381,6 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 		"namespace", cluster.Namespace, "cluster", cluster.Name,
 		"version", versions, "connectionString", connectionStrings)
 
-	var firstError error = nil
-
 	defer func() { cluster.Status.RunningVersion = originalVersion }()
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
@@ -410,12 +408,9 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 			log.Error(err, "Error getting status from cluster",
 				"namespace", cluster.Namespace, "cluster", cluster.Name,
 				"version", version, "connectionString", connectionString)
-			if firstError == nil {
-				firstError = err
-			}
 		}
 	}
-	return originalVersion, originalConnectionString, firstError
+	return originalVersion, originalConnectionString, nil
 }
 
 // CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field

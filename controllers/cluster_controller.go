@@ -137,6 +137,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		CheckClientCompatibility{},
 		ReplaceMisconfiguredPods{},
 		ReplaceFailedPods{},
+		DeletePodsForBuggification{},
 		AddProcessGroups{},
 		AddServices{},
 		AddPVCs{},
@@ -835,7 +836,7 @@ type PodLifecycleManager interface {
 	CanDeletePods(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster) (bool, error)
 
 	// UpdatePods updates a list of pods to match the latest specs.
-	UpdatePods(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, []FdbInstance) error
+	UpdatePods(reconciler *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instances []FdbInstance, unsafe bool) error
 
 	// UpdateImageVersion updates a container's image.
 	UpdateImageVersion(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance, int, string) error
@@ -965,7 +966,7 @@ func (manager StandardPodLifecycleManager) CanDeletePods(r *FoundationDBClusterR
 }
 
 // UpdatePods updates a list of pods to match the latest specs.
-func (manager StandardPodLifecycleManager) UpdatePods(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instances []FdbInstance) error {
+func (manager StandardPodLifecycleManager) UpdatePods(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instances []FdbInstance, unsafe bool) error {
 	for _, instance := range instances {
 		err := r.Delete(context, instance.Pod)
 		if err != nil {
