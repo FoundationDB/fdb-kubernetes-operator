@@ -104,6 +104,28 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		})
 	})
 
+	Context("with a wildcard buggification", func() {
+		BeforeEach(func() {
+			cluster.Spec.Buggify.CrashLoop = []string{"*"}
+		})
+
+		It("should requeue", func() {
+			Expect(shouldContinue).To(BeFalse())
+		})
+
+		It("should delete the pods", func() {
+			pods := &corev1.PodList{}
+			err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(0))
+
+			pod := &corev1.Pod{}
+			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+			Expect(err).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+
 	Context("with a buggification that needs to be disabled", func() {
 		BeforeEach(func() {
 			pod := &corev1.Pod{}
@@ -118,7 +140,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should requeue", func() {
+		It("should not requeue", func() {
 			Expect(shouldContinue).To(BeFalse())
 		})
 
@@ -132,6 +154,37 @@ var _ = Describe("delete_pods_for_buggification", func() {
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
 			Expect(err).To(HaveOccurred())
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+
+	Context("with a buggification that is already on", func() {
+		BeforeEach(func() {
+			pod := &corev1.Pod{}
+			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = k8sClient.Delete(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
+
+			pod.Spec.Containers[0].Args = []string{"crash-loop"}
+			err = k8sClient.Create(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
+			cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+		})
+
+		It("should not requeue", func() {
+			Expect(shouldContinue).To(BeTrue())
+		})
+
+		It("should not delete any pods", func() {
+			pods := &corev1.PodList{}
+			err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+
+			pod := &corev1.Pod{}
+			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 

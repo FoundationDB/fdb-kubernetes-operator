@@ -48,8 +48,13 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 	}
 
 	crashLoopPods := make(map[string]bool, len(cluster.Spec.Buggify.CrashLoop))
+	crashLoopAll := false
 	for _, instanceID := range cluster.Spec.Buggify.CrashLoop {
-		crashLoopPods[instanceID] = true
+		if instanceID == "*" {
+			crashLoopAll = true
+		} else {
+			crashLoopPods[instanceID] = true
+		}
 	}
 
 	for _, instance := range instances {
@@ -70,7 +75,10 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 			}
 		}
 
-		if crashLoopPods[instanceID] != inCrashLoop {
+		shouldCrashLoop := crashLoopAll || crashLoopPods[instanceID]
+
+		if shouldCrashLoop != inCrashLoop {
+			log.Info("Deleting pod for buggification", "instanceID", instanceID, "shouldCrashLoop", shouldCrashLoop, "inCrashLoop", inCrashLoop)
 			updates = append(updates, instance)
 		}
 	}

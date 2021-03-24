@@ -223,7 +223,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
 
 	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-		if instanceID == crashLoopInstanceID {
+		if instanceID == crashLoopInstanceID || crashLoopInstanceID == "*" {
 			args = "crash-loop"
 		}
 	}

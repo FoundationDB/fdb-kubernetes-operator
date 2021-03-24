@@ -335,6 +335,37 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with all instances crash looping", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"*"}
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should have a crash loop arg", func() {
+				mainContainer := spec.Containers[0]
+				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
+			})
+		})
+
+		Context("with a different instance crash looping", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should have the normal start command", func() {
+				mainContainer := spec.Containers[0]
+				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Args).To(Equal([]string{
+					"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+						" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+						" --loggroup operator-test-1" +
+						" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
+				}))
+			})
+		})
+
 		Context("with an instance with scheduling broken", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
