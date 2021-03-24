@@ -18,13 +18,15 @@
  * limitations under the License.
  */
 
-package controllers
+package fdbclient
 
 import (
 	"fmt"
 	"sort"
 	"sync"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -107,7 +109,7 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	lockValue := transaction.Get(lockKey).MustGet()
 
 	if len(lockValue) == 0 {
-		log.Info("Setting initial lock")
+		log.Log.Info("Setting initial lock")
 		client.updateLock(transaction, 0)
 		return true, nil
 	}
@@ -139,7 +141,7 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	cluster := client.cluster
 	newOwnerDenied := transaction.Get(client.getDenyListKey(cluster.GetLockID())).MustGet() != nil
 	if newOwnerDenied {
-		log.Info("Failed to get lock due to deny list", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		log.Log.Info("Failed to get lock due to deny list", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		return false, nil
 	}
 
@@ -147,18 +149,18 @@ func (client *RealLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	shouldClear := endTime < time.Now().Unix() || oldOwnerDenied
 
 	if shouldClear {
-		log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		log.Log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 		client.updateLock(transaction, startTime)
 		return true, nil
 	}
 
 	if ownerID == client.cluster.GetLockID() {
-		log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		log.Log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 		client.updateLock(transaction, startTime)
 		return true, nil
 	}
 
-	log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+	log.Log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 	return false, nil
 }
 
@@ -175,7 +177,7 @@ func (client *RealLockClient) updateLock(transaction fdb.Transaction, start int6
 		start,
 		end,
 	}
-	log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
+	log.Log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
 	transaction.Set(lockKey, lockValue.Pack())
 }
 
@@ -354,9 +356,9 @@ type MockLockClient struct {
 	// owner stores the deny list for lock acquisition.
 	denyList []string
 
-	// pendingUpgrades stores data about process groups that have a pending
+	// PendingUpgrades stores data about process groups that have a pending
 	// upgrade.
-	pendingUpgrades map[fdbtypes.FdbVersion]map[string]bool
+	PendingUpgrades map[fdbtypes.FdbVersion]map[string]bool
 }
 
 // TakeLock attempts to acquire a lock.
@@ -372,11 +374,11 @@ func (client *MockLockClient) Disabled() bool {
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
 func (client *MockLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error {
-	if client.pendingUpgrades[version] == nil {
-		client.pendingUpgrades[version] = make(map[string]bool)
+	if client.PendingUpgrades[version] == nil {
+		client.PendingUpgrades[version] = make(map[string]bool)
 	}
 	for _, processGroupID := range processGroupIDs {
-		client.pendingUpgrades[version][processGroupID] = true
+		client.PendingUpgrades[version][processGroupID] = true
 	}
 	return nil
 }
@@ -384,7 +386,7 @@ func (client *MockLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, pr
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
 func (client *MockLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error) {
-	upgrades := client.pendingUpgrades[version]
+	upgrades := client.PendingUpgrades[version]
 	if upgrades == nil {
 		return make(map[string]bool), nil
 	}
@@ -430,17 +432,17 @@ var lockClientMutex sync.Mutex
 
 // NewMockLockClient creates a mock lock client.
 func NewMockLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	return newMockLockClientUncast(cluster), nil
+	return NewMockLockClientUncast(cluster), nil
 }
 
 // NewMockLockClientUncast creates a mock lock client.
-func newMockLockClientUncast(cluster *fdbtypes.FoundationDBCluster) *MockLockClient {
+func NewMockLockClientUncast(cluster *fdbtypes.FoundationDBCluster) *MockLockClient {
 	lockClientMutex.Lock()
 	defer lockClientMutex.Unlock()
 
 	client := lockClientCache[cluster.Name]
 	if client == nil {
-		client = &MockLockClient{cluster: cluster, pendingUpgrades: make(map[fdbtypes.FdbVersion]map[string]bool)}
+		client = &MockLockClient{cluster: cluster, PendingUpgrades: make(map[fdbtypes.FdbVersion]map[string]bool)}
 		lockClientCache[cluster.Name] = client
 	}
 	return client

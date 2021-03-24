@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -30,7 +32,7 @@ import (
 
 var _ = Describe("update_lock_configuration", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var lockClient *MockLockClient
+	var lockClient *fdbclient.MockLockClient
 	var err error
 	var shouldContinue bool
 
@@ -53,7 +55,7 @@ var _ = Describe("update_lock_configuration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		lockClient = newMockLockClientUncast(cluster)
+		lockClient = fdbclient.NewMockLockClientUncast(cluster)
 	})
 
 	JustBeforeEach(func() {

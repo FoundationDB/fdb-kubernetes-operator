@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -65,7 +67,7 @@ type FoundationDBClusterReconciler struct {
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
 	PodIPProvider       func(*corev1.Pod) string
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
-	LockClientProvider  LockClientProvider
+	LockClientProvider  fdbclient.LockClientProvider
 	UseFutureDefaults   bool
 	Namespace           string
 	DeprecationOptions  DeprecationOptions
@@ -98,7 +100,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		if k8serrors.IsNotFound(err) {
 			// Object not found, return. Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
-			cleanUpDBCache(request.Namespace, request.Name)
+			fdbclient.CleanUpDBCache(request.Namespace, request.Name)
 
 			if r.RequeueOnNotFound {
 				return ctrl.Result{Requeue: true}, nil
@@ -746,7 +748,7 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.Foundatio
 	return client, nil
 }
 
-func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
+func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbclient.LockClient, error) {
 	return r.LockClientProvider(cluster)
 }
 

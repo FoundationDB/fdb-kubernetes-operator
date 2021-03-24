@@ -34,6 +34,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -270,7 +272,7 @@ func (client *CliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 	defer adminClientMutex.Unlock()
 	// This will call directly the database and fetch the status information
 	// from the system key.
-	return getStatusFromDB(client.Cluster)
+	return fdbclient.GetStatusFromDB(client.Cluster, DefaultCLITimeout)
 }
 
 // ConfigureDatabase sets the database configuration

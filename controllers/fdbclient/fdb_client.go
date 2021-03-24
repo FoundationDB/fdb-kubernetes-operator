@@ -1,9 +1,11 @@
-package controllers
+package fdbclient
 
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -56,15 +58,15 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 	return database, nil
 }
 
-// cleanUpDBCache removes the FDB DB connection for the deleted cluster.
+// CleanUpDBCache removes the FDB DB connection for the deleted cluster.
 // Otherwise the controller will connect to an old cluster.
-func cleanUpDBCache(namespace string, name string) {
+func CleanUpDBCache(namespace string, name string) {
 	delete(fdbDatabaseCache, fmt.Sprintf("%s/%s", namespace, name))
 }
 
-// getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.FoundationDBStatus, error) {
-	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
+// GetStatusFromDB gets the database's status directly from the system key
+func GetStatusFromDB(cluster *fdbtypes.FoundationDBCluster, timeout int) (*fdbtypes.FoundationDBStatus, error) {
+	log.Log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	statusKey := "\xff\xff/status/json"
 
 	database, err := getFDBDatabase(cluster)
@@ -78,7 +80,7 @@ func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.Foundatio
 			return nil, err
 		}
 		// Wait default timeout seconds to receive status for larger clusters.
-		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout * 1000))
+		err = transaction.Options().SetTimeout(int64(timeout * 1000))
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +105,7 @@ func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.Foundatio
 	status := &fdbtypes.FoundationDBStatus{}
 	err = json.Unmarshal(statusBytes, &status)
 	if err == nil {
-		log.Info("Successfully fetched status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		log.Log.Info("Successfully fetched status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	}
 
 	return status, err

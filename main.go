@@ -21,6 +21,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -123,7 +125,7 @@ func main() {
 		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
 		PodClientProvider:   controllers.NewFdbPodClient,
 		AdminClientProvider: controllers.NewCliAdminClient,
-		LockClientProvider:  controllers.NewRealLockClient,
+		LockClientProvider:  fdbclient.NewRealLockClient,
 		UseFutureDefaults:   useFutureDefaults,
 		Namespace:           namespace,
 		DeprecationOptions:  deprecationOptions,

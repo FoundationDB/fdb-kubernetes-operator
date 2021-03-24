@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -115,7 +117,7 @@ var _ = AfterSuite(func() {
 var _ = AfterEach(func() {
 	k8sClient.Clear()
 	ClearMockAdminClients()
-	ClearMockLockClients()
+	fdbclient.ClearMockLockClients()
 })
 
 var Versions = struct {
@@ -285,6 +287,6 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		PodClientProvider:   NewMockFdbPodClient,
 		PodIPProvider:       MockPodIP,
 		AdminClientProvider: NewMockAdminClient,
-		LockClientProvider:  NewMockLockClient,
+		LockClientProvider:  fdbclient.NewMockLockClient,
 	}
 }

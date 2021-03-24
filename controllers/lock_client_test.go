@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -31,7 +32,7 @@ import (
 
 var _ = Describe("lock_client_test", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var client *MockLockClient
+	var client *fdbclient.MockLockClient
 
 	var err error
 
@@ -40,7 +41,7 @@ var _ = Describe("lock_client_test", func() {
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		client = newMockLockClientUncast(cluster)
+		client = fdbclient.NewMockLockClientUncast(cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -63,7 +64,7 @@ var _ = Describe("lock_client_test", func() {
 			err = client.AddPendingUpgrades(Versions.NextMajorVersion, []string{"storage-3", "storage-4"})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(client.pendingUpgrades).To(Equal(map[fdbtypes.FdbVersion]map[string]bool{
+			Expect(client.PendingUpgrades).To(Equal(map[fdbtypes.FdbVersion]map[string]bool{
 				Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,
@@ -79,7 +80,7 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("GetPendingUpgrades", func() {
 		BeforeEach(func() {
-			client.pendingUpgrades = map[fdbtypes.FdbVersion]map[string]bool{
+			client.PendingUpgrades = map[fdbtypes.FdbVersion]map[string]bool{
 				Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,

@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -34,7 +36,7 @@ import (
 var _ = Describe("BounceProcesses", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var adminClient *MockAdminClient
-	var lockClient *MockLockClient
+	var lockClient *fdbclient.MockLockClient
 	var shouldContinue bool
 	var err error
 
@@ -48,7 +50,7 @@ var _ = Describe("BounceProcesses", func() {
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		lockClient = newMockLockClientUncast(cluster)
+		lockClient = fdbclient.NewMockLockClientUncast(cluster)
 
 	})
 
@@ -168,7 +170,7 @@ var _ = Describe("BounceProcesses", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				expectedUpgrades[processGroup.ProcessGroupID] = true
 			}
-			Expect(lockClient.pendingUpgrades[Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+			Expect(lockClient.PendingUpgrades[Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
 		})
 
 		Context("with an unknown process", func() {
@@ -199,7 +201,7 @@ var _ = Describe("BounceProcesses", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
-				Expect(lockClient.pendingUpgrades[Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+				Expect(lockClient.PendingUpgrades[Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
 			})
 
 			Context("with a pending upgrade for the unknown process", func() {
@@ -264,7 +266,7 @@ var _ = Describe("BounceProcesses", func() {
 				})
 
 				It("should not submit pending upgrade information", func() {
-					Expect(lockClient.pendingUpgrades).To(BeEmpty())
+					Expect(lockClient.PendingUpgrades).To(BeEmpty())
 				})
 			})
 		})

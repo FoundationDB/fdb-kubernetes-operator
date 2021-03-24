@@ -26,6 +26,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers/fdbclient"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -115,7 +117,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, ReconciliationNotReadyError{message: "Cluster needs to stabilize before bouncing"}
 		}
 
-		var lockClient LockClient
+		var lockClient fdbclient.LockClient
 		useLocks := cluster.ShouldUseLocks()
 		if useLocks {
 			lockClient, err = r.getLockClient(cluster)
@@ -178,7 +180,7 @@ func (b BounceProcesses) RequeueAfter() time.Duration {
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]string, error) {
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient fdbclient.LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]string, error) {
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {
 		return nil, err
