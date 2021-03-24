@@ -45,11 +45,6 @@ const (
 	// deployments to a cluster.
 	BackupDeploymentLabel = "foundationdb.org/backup-for"
 
-	// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
-	// processes in the cluster must have been up for before the operator can
-	// execute a bounce.
-	MinimumUptimeSecondsForBounce = 600
-
 	// PublicIPSourceAnnotation is an annotation key that specifies where a pod
 	// gets its public IP from.
 	PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"

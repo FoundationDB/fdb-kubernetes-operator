@@ -105,7 +105,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, ReconciliationNotReadyError{message: "Kills are disabled"}
 		}
 
-		if minimumUptime < MinimumUptimeSecondsForBounce {
+		if minimumUptime < float64(cluster.Spec.MinimumUptimeSecondsForBounce) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation

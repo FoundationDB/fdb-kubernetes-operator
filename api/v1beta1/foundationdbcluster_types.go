@@ -269,6 +269,13 @@ type FoundationDBClusterSpec struct {
 	// This means that you end up with ProcessCounts["storage"] * StorageServersPerPod
 	// storage processes
 	StorageServersPerPod int `json:"storageServersPerPod,omitempty"`
+
+	// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
+	// processes in the cluster must have been up for before the operator can
+	// execute a bounce.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default:=600
+	MinimumUptimeSecondsForBounce int `json:"minimumUptimeSecondsForBounce,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

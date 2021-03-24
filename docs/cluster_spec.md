@@ -273,6 +273,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. **Deprecated: use the Processes field instead.** | []string | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP.  **Deprecated: To indicate that a process should be removed, use the InstancesToRemove field. To get information about pending removals, use the PendingRemovals field in the status.** | map[string]string | false |
 | storageServersPerPod | StorageServersPerPod defines how many Storage Servers should run in a single Instance (Pod). This number defines the number of processes running in one Pod whereas the ProcessCounts defines the number of Pods created. This means that you end up with ProcessCounts[\"storage\"] * StorageServersPerPod storage processes | int | false |
+| minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
 
 [Back to TOC](#table-of-contents)
 
