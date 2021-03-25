@@ -1439,7 +1439,7 @@ spec:
                   type: object
                 minimumUptimeSecondsForBounce:
                   default: 600
-                  minimum: 0
+                  minimum: 1
                   type: integer
                 nextInstanceID:
                   type: integer

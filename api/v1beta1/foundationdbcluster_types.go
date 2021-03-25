@@ -273,7 +273,7 @@ type FoundationDBClusterSpec struct {
 	// MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the
 	// processes in the cluster must have been up for before the operator can
 	// execute a bounce.
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default:=600
 	MinimumUptimeSecondsForBounce int `json:"minimumUptimeSecondsForBounce,omitempty"`
 }

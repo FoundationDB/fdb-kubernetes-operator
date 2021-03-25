@@ -1247,6 +1247,12 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
 		template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
 	})
+
+	// Setting the default since the CRD default enforces the default in the runtime
+	if spec.MinimumUptimeSecondsForBounce == 0 {
+		spec.MinimumUptimeSecondsForBounce = 600
+	}
+
 	return nil
 }
 
