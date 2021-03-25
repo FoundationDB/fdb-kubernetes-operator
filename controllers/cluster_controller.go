@@ -93,6 +93,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	err := r.Get(ctx, request.NamespacedName, cluster)
 
 	originalGeneration := cluster.ObjectMeta.Generation
+	originalResourceVersion := cluster.ObjectMeta.ResourceVersion
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -173,8 +174,9 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 			}
 
 			return result, nil
-		} else if cluster.ObjectMeta.Generation != originalGeneration {
-			log.Info("Ending reconciliation early because cluster has been updated", "namespace", cluster.Namespace, "name", cluster.Name)
+		} else if cluster.ObjectMeta.Generation != originalGeneration ||
+			cluster.ObjectMeta.ResourceVersion != originalResourceVersion {
+			log.Info("Ending reconciliation early because cluster has been updated", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 			return ctrl.Result{}, nil
 		} else if !canContinue {
 			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name, "requeueAfter", subReconciler.RequeueAfter())
