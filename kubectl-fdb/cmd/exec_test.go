@@ -96,7 +96,7 @@ func TestBuildCommand(t *testing.T) {
 			scheme := runtime.NewScheme()
 			_ = clientgoscheme.AddToScheme(scheme)
 			_ = fdbtypes.AddToScheme(scheme)
-			kubeClient := fake.NewFakeClientWithScheme(scheme, &cluster, &podList)
+			kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 
 			command, err := buildCommand(kubeClient, tc.ClusterName, tc.Context, namespace, tc.Command)
 

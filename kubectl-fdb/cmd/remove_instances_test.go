@@ -128,7 +128,7 @@ func TestRemoveInstances(t *testing.T) {
 			scheme := runtime.NewScheme()
 			_ = clientgoscheme.AddToScheme(scheme)
 			_ = fdbtypes.AddToScheme(scheme)
-			kubeClient := fake.NewFakeClientWithScheme(scheme, &cluster, &podList)
+			kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 
 			err := removeInstances(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true)
 			if err != nil {
@@ -219,7 +219,7 @@ func TestGetInstanceIDsFromPod(t *testing.T) {
 			scheme := runtime.NewScheme()
 			_ = clientgoscheme.AddToScheme(scheme)
 			_ = fdbtypes.AddToScheme(scheme)
-			kubeClient := fake.NewFakeClientWithScheme(scheme, &podList)
+			kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&podList).Build()
 
 			instances, err := getInstanceIDsFromPod(kubeClient, clusterName, tc.Instances, namespace)
 			if err != nil {
