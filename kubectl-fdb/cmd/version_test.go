@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"reflect"
 	"testing"
 
@@ -118,5 +120,27 @@ func TestVersion(t *testing.T) {
 				t.Errorf("expected version: %s, but got: %s", tc.expected, operatorVersion)
 			}
 		})
+	}
+}
+
+func TestVersionClientOnly(t *testing.T) {
+	// We use these buffers to check the input/output
+	outBuffer := bytes.Buffer{}
+	errBuffer := bytes.Buffer{}
+	inBuffer := bytes.Buffer{}
+
+	rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+
+	args := []string{"version", "--client-only"}
+	rootCmd.SetArgs(args)
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Error(err)
+	}
+
+	expectedStr := "kubectl-fdb: latest\n"
+	if outBuffer.String() != expectedStr {
+		t.Errorf("expected: %s\n got:%s\n", expectedStr, outBuffer.String())
 	}
 }
