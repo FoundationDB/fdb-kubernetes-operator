@@ -3,9 +3,10 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"reflect"
 	"testing"
+
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
