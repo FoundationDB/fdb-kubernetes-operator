@@ -22,6 +22,9 @@ spec:
         image: controller:latest
         imagePullPolicy: IfNotPresent
         name: manager
+        ports:
+          - name: metrics
+            containerPort: 8080
         resources:
           limits:
             cpu: 500m
@@ -29,4 +32,22 @@ spec:
           requests:
             cpu: 500m
             memory: 128Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          privileged: false
+        volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+          - name: logs
+            mountPath: /var/log/fdb
       terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsUser: 4059
+        runAsGroup: 4059
+        fsGroup: 4059
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

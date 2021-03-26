@@ -36,6 +36,9 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+        ports:
+          - name: metrics
+            containerPort: 8080
         resources:
           limits:
             cpu: 500m
