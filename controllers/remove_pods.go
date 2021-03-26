@@ -58,7 +58,7 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 	}
 
-	r.Recorder.Event(cluster, "Normal", "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 	removedProcessGroups := make(map[string]bool)
 	allRemoved := true
 	for _, id := range processGroupsToRemove {
@@ -211,7 +211,7 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 	}
 
 	if len(addresses) > 0 {
-		r.Recorder.Event(cluster, "Normal", "IncludingInstances", fmt.Sprintf("Including removed processes: %v", addresses))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingInstances", fmt.Sprintf("Including removed processes: %v", addresses))
 
 		err = adminClient.IncludeInstances(addresses)
 		if err != nil {

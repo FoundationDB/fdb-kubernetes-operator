@@ -26,6 +26,8 @@ import (
 	"math"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -92,7 +94,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 				return false, err
 			}
 
-			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				"Spec require a bounce of some processes, but killing processes is disabled")
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
@@ -104,7 +106,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 
 		if minimumUptime < MinimumUptimeSecondsForBounce {
-			r.Recorder.Event(cluster, "Normal", "NeedsBounce",
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
@@ -152,7 +154,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 
 		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
-		r.Recorder.Event(cluster, "Normal", "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {
 			return false, err
@@ -191,7 +193,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 
 	if !databaseStatus.Client.DatabaseStatus.Available {
 		log.Info("Deferring upgrade until database is available")
-		r.Recorder.Event(cluster, "Normal", "UpgradeRequeued", "Database is unavailable")
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
 		return nil, nil
 	}
 
@@ -207,7 +209,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 	}
 	if len(notReadyProcesses) > 0 {
 		log.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
-		r.Recorder.Event(cluster, "Normal", "UpgradeRequeued", fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses))
 		return nil, nil
 	}
 	err = lockClient.ClearPendingUpgrades()

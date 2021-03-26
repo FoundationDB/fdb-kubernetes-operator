@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -71,7 +73,7 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 		if newCount <= 0 {
 			continue
 		}
-		r.Recorder.Event(cluster, "Normal", "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "AddingProcesses", fmt.Sprintf("Adding %d %s processes", newCount, processClass))
 		idNum := 1
 
 		if processGroupIDs[processClass] == nil {
