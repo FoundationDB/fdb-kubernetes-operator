@@ -192,6 +192,8 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		}
 	}
 
+	patch := client.MergeFrom(cluster.DeepCopy())
+
 	for class, amount := range shrinkMap {
 		cluster.Spec.ProcessCounts.DecreaseCount(class, amount)
 	}
@@ -209,5 +211,5 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
 	}
 
-	return kubeClient.Update(ctx.TODO(), &cluster)
+	return kubeClient.Patch(ctx.TODO(), &cluster, patch)
 }
