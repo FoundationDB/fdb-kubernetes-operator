@@ -94,6 +94,13 @@ type FoundationDBBackupSpec struct {
 	// CustomParameters defines additional parameters to pass to the backup
 	// agents.
 	CustomParameters []string `json:"customParameters,omitempty"`
+
+	// This setting defines if a user provided image can have it's own tag
+	// rather than getting the provided version appended.
+	// You have to ensure that the specified version in the Spec is compatible
+	// with the given version in your custom image.
+	// +kubebuilder:default:=false
+	AllowTagOverride *bool `json:"allowTagOverride,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
@@ -266,4 +273,13 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 	}
 
 	return reconciled, nil
+}
+
+// GetAllowTagOverride returns the bool value for AllowTagOverride
+func (foundationDBBackupSpec *FoundationDBBackupSpec) GetAllowTagOverride() bool {
+	if foundationDBBackupSpec.AllowTagOverride == nil {
+		return false
+	}
+
+	return *foundationDBBackupSpec.AllowTagOverride
 }

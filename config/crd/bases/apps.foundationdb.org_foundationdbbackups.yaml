@@ -41,6 +41,9 @@ spec:
                   type: string
                 agentCount:
                   type: integer
+                allowTagOverride:
+                  default: false
+                  type: boolean
                 backupDeploymentMetadata:
                   type: object
                 backupName:

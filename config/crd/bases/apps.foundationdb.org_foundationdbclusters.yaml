@@ -4348,6 +4348,9 @@ spec:
                 processes:
                   additionalProperties:
                     properties:
+                      allowTagOverride:
+                        default: false
+                        type: boolean
                       customParameters:
                         items:
                           type: string

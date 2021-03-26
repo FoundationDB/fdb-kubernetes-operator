@@ -127,7 +127,7 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 	}, nil
 }
 
-func getImage(imageName, curImage, defaultImage, versionString string) (string, error) {
+func getImage(imageName, curImage, defaultImage, versionString string, allowOverride bool) (string, error) {
 	var resImage string
 	if imageName != "" {
 		resImage = imageName
@@ -141,9 +141,13 @@ func getImage(imageName, curImage, defaultImage, versionString string) (string, 
 		resImage = defaultImage
 	}
 
-	// If the specified image contains a tag return an error
 	res := strings.Split(resImage, ":")
 	if len(res) > 1 {
+		if allowOverride {
+			return resImage, nil
+		}
+
+		// If the specified image contains a tag and allowOverride is false return an error
 		return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", res[1])
 	}
 
@@ -192,7 +196,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		versionString = cluster.Spec.Version
 	}
 
-	image, err := getImage(cluster.Spec.MainContainer.ImageName, mainContainer.Image, "foundationdb/foundationdb", versionString)
+	image, err := getImage(cluster.Spec.MainContainer.ImageName, mainContainer.Image, "foundationdb/foundationdb", versionString, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -238,13 +242,13 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 
 	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
-	err = configureSidecarContainerForCluster(cluster, initContainer, true, instanceID)
+	err = configureSidecarContainerForCluster(cluster, initContainer, true, instanceID, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
 
 	customizeContainer(sidecarContainer, cluster.Spec.SidecarContainer)
-	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID)
+	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -365,24 +369,24 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string) error {
+func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string, allowOverride bool) error {
 	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
 
-	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster)
+	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster, allowOverride)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil)
+	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, backup.Spec.GetAllowTagOverride())
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster, allowOverride bool) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
@@ -532,7 +536,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 
-	image, err := getImage(overrides.ImageName, container.Image, "foundationdb/foundationdb-kubernetes-sidecar", sidecarVersion)
+	image, err := getImage(overrides.ImageName, container.Image, "foundationdb/foundationdb-kubernetes-sidecar", sidecarVersion, allowOverride)
 	if err != nil {
 		return err
 	}
@@ -751,7 +755,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := getImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version)
+	image, err := getImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version, backup.Spec.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
