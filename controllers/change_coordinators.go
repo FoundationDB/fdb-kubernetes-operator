@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -51,7 +53,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	if connectionString != cluster.Status.ConnectionString {
 		log.Info("Updating out-of-date connection string", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		r.Recorder.Event(cluster, "Normal", "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Status.ConnectionString = connectionString
 		err = r.Status().Update(context, cluster)
 
@@ -78,12 +80,12 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 		if !allAddressesValid {
 			log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
-			r.Recorder.Event(cluster, "Normal", "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
 			return true, nil
 		}
 
 		log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing new coordinators")
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
 
 		candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 		for _, process := range status.Cluster.Processes {

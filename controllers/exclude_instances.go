@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -89,7 +91,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 			return false, err
 		}
 
-		r.Recorder.Event(cluster, "Normal", "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
 
 		err = adminClient.ExcludeInstances(addresses)
 

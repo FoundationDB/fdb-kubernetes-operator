@@ -26,6 +26,8 @@ import (
 	"reflect"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -79,7 +81,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 		if !healthy {
 			log.Info("Waiting for database to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name)
-			r.Recorder.Event(cluster, "Normal", "NeedsConfigurationChange",
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but cluster is not healthy", configurationString))
 			return false, nil
 		}
@@ -89,7 +91,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 				return false, err
 			}
 
-			r.Recorder.Event(cluster, "Normal", "NeedsConfigurationChange",
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
@@ -108,7 +110,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		}
 
 		log.Info("Configuring database", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		r.Recorder.Event(cluster, "Normal", "ConfiguringDatabase",
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
 		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)

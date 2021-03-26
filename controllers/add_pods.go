@@ -77,7 +77,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 			pod, err := GetPod(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
-				r.Recorder.Event(cluster, "Error", "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
+				r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
 				return false, err
 			}
 

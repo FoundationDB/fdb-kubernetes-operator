@@ -764,7 +764,7 @@ func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBC
 	}
 
 	if !hasLock {
-		r.Recorder.Event(cluster, "Normal", "LockAcquisitionFailed", fmt.Sprintf("Lock required before %s", action))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "LockAcquisitionFailed", fmt.Sprintf("Lock required before %s", action))
 	}
 	return hasLock, nil
 }

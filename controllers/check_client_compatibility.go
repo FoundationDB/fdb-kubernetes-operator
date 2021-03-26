@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -118,7 +120,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 				"%d clients do not support version %s: %s", len(unsupportedClients),
 				cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
 			)
-			r.Recorder.Event(cluster, "Normal", "UnsupportedClient", message)
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
 			log.Info("Deferring reconciliation due to unsupported clients", "namespace", cluster.Namespace, "name", cluster.Name, "message", message)
 			return false, nil
 		}

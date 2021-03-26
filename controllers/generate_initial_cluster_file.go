@@ -25,6 +25,8 @@ import (
 	"errors"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -39,7 +41,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	}
 
 	log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
-	r.Recorder.Event(cluster, "Normal", "ChangingCoordinators", "Choosing initial coordinators")
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
 		return false, err

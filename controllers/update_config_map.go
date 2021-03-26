@@ -66,7 +66,7 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 	if !equality.Semantic.DeepEqual(existing.Data, configMap.Data) || !metadataCorrect {
 		log.Info("Updating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
-		r.Recorder.Event(cluster, "Normal", "UpdatingConfigMap", "")
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConfigMap", "")
 		existing.Data = configMap.Data
 		err = r.Update(context, existing)
 		if err != nil {

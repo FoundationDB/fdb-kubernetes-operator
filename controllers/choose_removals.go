@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -84,7 +86,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 
 		if removedCount > 0 {
-			r.Recorder.Event(cluster, "Normal", "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
+			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 
 			remainingProcesses, err := chooseDistributedProcesses(processClassLocality, desiredCount, processSelectionConstraint{})
 			if err != nil {
