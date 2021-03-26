@@ -1437,6 +1437,10 @@ spec:
                         type: object
                       type: array
                   type: object
+                minimumUptimeSecondsForBounce:
+                  default: 600
+                  minimum: 1
+                  type: integer
                 nextInstanceID:
                   type: integer
                 pendingRemovals:

@@ -166,6 +166,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 					FailureDetectionTimeSeconds: &failureDetectionWindow,
 				},
 			},
+			MinimumUptimeSecondsForBounce: 1,
 		},
 		Status: fdbtypes.FoundationDBClusterStatus{
 			RequiredAddresses: fdbtypes.RequiredAddressSet{
