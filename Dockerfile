@@ -11,16 +11,10 @@ ARG FDB_WEBSITE=https://www.foundationdb.org
 
 COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
 
-# FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
-# adds GeoTrust_Global_CA.crt during install and removes it afterwards
-COPY ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
 RUN set -eux && \
-	update-ca-certificates --fresh && \
 	curl --fail ${FDB_WEBSITE}/downloads/${FDB_VERSION}/ubuntu/installers/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
-	mkdir -p /usr/lib/fdb && \
-	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
-	update-ca-certificates --fresh
+	mkdir -p /usr/lib/fdb
 
 # Copy 6.2 binaries
 COPY --from=fdb62 /usr/bin/fdb* /usr/bin/fdb/6.2/

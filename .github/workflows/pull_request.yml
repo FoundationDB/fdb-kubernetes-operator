@@ -32,8 +32,7 @@ jobs:
         env:
           FDB_VER: "6.2.29"
         run: |
-          curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
-               --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+          curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
@@ -100,8 +99,7 @@ jobs:
         os=$(go env GOOS)
         arch=$(go env GOARCH)
         curl --fail -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VER}/${os}/${arch}" -o kubebuilder.tar.gz
-        curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
-             --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+        curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
         curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz
     - name: Install dependencies

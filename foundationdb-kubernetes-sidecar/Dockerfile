@@ -27,13 +27,9 @@ ARG FDB_WEBSITE=https://www.foundationdb.org
 ARG TINI_VERSION=v0.19.0
 
 COPY website /mnt/website
-# FIXME: Workaround for (https://github.com/FoundationDB/fdb-kubernetes-operator/issues/252#issuecomment-643812649)
-# download GeoTrust_Global_CA.crt during install and remove it afterwards
-COPY ./files/GeoTrust_Global_CA.pem /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends curl && \
-	update-ca-certificates --fresh && \
-    curl --fail $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
+	curl --fail $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
 	tar -xzf fdb_$FDB_VERSION.tar.gz --strip-components=1 && \
 	rm fdb_$FDB_VERSION.tar.gz && \
 	chmod u+x fdbbackup fdbcli fdbdr fdbmonitor fdbrestore fdbserver backup_agent dr_agent && \
@@ -49,8 +45,6 @@ RUN apt-get update && \
 	rm -r /var/fdb/tmp && \
 	groupadd --gid 4059 fdb && \
 	useradd --gid 4059 --uid 4059 --no-create-home --shell /bin/bash fdb && \
-	rm /usr/local/share/ca-certificates/GeoTrust_Global_CA.crt && \
-	update-ca-certificates --fresh && \
 	apt-get remove -y curl && \
 	rm -rf /var/lib/apt/lists/*
 

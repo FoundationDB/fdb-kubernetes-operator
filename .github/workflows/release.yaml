@@ -53,12 +53,10 @@ jobs:
         run: |
           go get -v -t -d ./...
           if [[ "${RUNNER_OS}" == "macOS" ]];then
-              curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
-                   --fail "https://www.foundationdb.org/downloads/${FDB_VER}/macOS/installers/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
+              curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/macOS/installers/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
               sudo installer -allowUntrusted -verbose -pkg ./fdb.pkg -target /
           else
-              curl --cacert ./foundationdb-kubernetes-sidecar/files/GeoTrust_Global_CA.pem \
-                   --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+              curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
               sudo dpkg -i fdb.deb
           fi
       # - name: Get FDB client (windows-only)
