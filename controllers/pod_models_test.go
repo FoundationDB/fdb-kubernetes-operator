@@ -28,6 +28,7 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -3001,6 +3002,108 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 		})
+
+		Context("when setting an image with a tag with override", func() {
+			BeforeEach(func() {
+				allowTagOverride := true
+				processSetting := cluster.Spec.Processes[fdbtypes.ProcessClassGeneral]
+				processSetting.PodTemplate = &corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "foundationdb",
+								Image: "foundationdb/foundationdb:peperoni",
+							},
+							{
+								Name:  "foundationdb-kubernetes-sidecar",
+								Image: "foundationdb/foundationdb:peperoni",
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								Name:  "foundationdb-kubernetes-init",
+								Image: "foundationdb/foundationdb:peperoni",
+							},
+						},
+					},
+				}
+				processSetting.AllowTagOverride = &allowTagOverride
+				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = processSetting
+
+				err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should set the image name with tag", func() {
+				spec, err := GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, c := range spec.Containers {
+					Expect(c.Image).To(Equal("foundationdb/foundationdb:peperoni"))
+				}
+			})
+		})
+	})
+
+	Context("Get image for container", func() {
+		type testCase struct {
+			imageName     string
+			curImage      string
+			defaultImage  string
+			versionString string
+			allowOverride bool
+		}
+
+		DescribeTable("should return the correct image",
+			func(input testCase, expected string) {
+				image, _ := getImage(
+					input.imageName,
+					input.curImage,
+					input.defaultImage,
+					input.versionString,
+					input.allowOverride)
+				Expect(image).To(Equal(expected))
+			},
+			Entry("only defaults used",
+				testCase{
+					imageName:     "",
+					curImage:      "",
+					defaultImage:  "test/test",
+					versionString: "6.3.10",
+					allowOverride: false,
+				}, "test/test:6.3.10"),
+			Entry("imageName is set",
+				testCase{
+					imageName:     "test/imageName",
+					curImage:      "",
+					defaultImage:  "test/test",
+					versionString: "6.3.10",
+					allowOverride: false,
+				}, "test/imageName:6.3.10"),
+			Entry("curImage is set",
+				testCase{
+					imageName:     "test/imageName",
+					curImage:      "test/curImage",
+					defaultImage:  "test/test",
+					versionString: "6.3.10",
+					allowOverride: false,
+				}, "test/curImage:6.3.10"),
+			Entry("image tag is set but not allowOverride",
+				testCase{
+					imageName:     "test/imageName",
+					curImage:      "test/curImage:6.3.10",
+					defaultImage:  "test/test",
+					versionString: "6.3.10",
+					allowOverride: false,
+				}, ""),
+			Entry("image tag and allowOverride is set",
+				testCase{
+					imageName:     "test/imageName",
+					curImage:      "test/curImage:6.2.20",
+					defaultImage:  "test/test",
+					versionString: "6.3.10",
+					allowOverride: true,
+				}, "test/curImage:6.2.20"),
+		)
 	})
 })
 

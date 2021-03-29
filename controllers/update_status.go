@@ -443,10 +443,19 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 			if err != nil {
 				return err
 			}
-			correct = commandLine == process.CommandLine && (process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version))
+			correct = commandLine == process.CommandLine
+
+			settings := cluster.GetProcessSettings(instance.GetProcessClass())
+			versionMatch := true
+			// if we allow to override the tag we can't compare the versions here
+			if !settings.GetAllowTagOverride() {
+				versionMatch = process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
+			}
+
+			correct = correct && versionMatch
 
 			if !correct {
-				log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine)
+				log.Info("IncorrectProcess", "namespace", cluster.Namespace, "cluster", cluster.Name, "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version)
 			}
 		}
 	}

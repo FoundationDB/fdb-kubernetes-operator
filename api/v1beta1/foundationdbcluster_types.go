@@ -937,6 +937,22 @@ type ProcessSettings struct {
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// process.
 	CustomParameters *[]string `json:"customParameters,omitempty"`
+
+	// This setting defines if a user provided image can have it's own tag
+	// rather than getting the provided version appended.
+	// You have to ensure that the specified version in the Spec is compatible
+	// with the given version in your custom image.
+	// +kubebuilder:default:=false
+	AllowTagOverride *bool `json:"allowTagOverride,omitempty"`
+}
+
+// GetAllowTagOverride returns the bool value for AllowTagOverride
+func (processSettings *ProcessSettings) GetAllowTagOverride() bool {
+	if processSettings.AllowTagOverride == nil {
+		return false
+	}
+
+	return *processSettings.AllowTagOverride
 }
 
 // GetProcessSettings gets settings for a process.
@@ -950,7 +966,6 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 	}
 
 	entries = append(entries, cluster.Spec.Processes[ProcessClassGeneral])
-
 	for _, entry := range entries {
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
@@ -960,6 +975,10 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 		}
 		if merged.CustomParameters == nil {
 			merged.CustomParameters = entry.CustomParameters
+		}
+
+		if merged.AllowTagOverride == nil {
+			merged.AllowTagOverride = entry.AllowTagOverride
 		}
 	}
 	return merged
