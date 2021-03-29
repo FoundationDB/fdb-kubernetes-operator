@@ -4,7 +4,7 @@
 
 * Authors: @johscheuer
 * Created: 2021-03-06
-* Updated: 2021-03-06
+* Updated: 2021-03-29
 
 ## Background
 
@@ -33,7 +33,6 @@ name: sample-cluster-dc3 # Optional: Will overwrite the cluster name in the resu
 dcID: dc3 # Must match with the data center ID specified under datacenters
 context: my-kube-ctx 3 # Optional: the kubconfig context to use otherwise the current context will be used
 namespace: dc3 # Optional: Otherwise the namespace from the metadata will be used
-processCounts: # Optional: otherwise the processCounts from he cluster Spec will be used (useful to change cluster specific fields e.g. satellites without SS)
 ```
 
 The `targetClusters` will contain a list of all `cluster objects` and the `seedCluster` will contain the `cluster object` to bootstrap the initial
@@ -87,12 +86,10 @@ spec:
     dcID: dc3
     context: my-kube-ctx
     namespace: dc3
-    processCounts:
-      log: 0
 ```
 
 The `databaseConfiguration` must be configured how it should be when all FDB clusters are up and running.
-The following field will be automatically set by the `kubectl fdb plugin` when creating the object in Kubernetes:
+The following fields will be automatically set by the `kubectl fdb plugin` when creating the object in Kubernetes:
 
 ```yaml
 instanceIDPrefix: $dcID
@@ -101,12 +98,12 @@ seedConnectionString: $connectionString # The seed connection string will be set
 ```
 
 The Operator will be configured to ignore the fields `seedCluster` and `targetClusters` which means that these fields
-are only used by the `kubectl fdb plugin` and maybe the human operator. Also these fields are optional, if a FDB cluster
-is limited to a single namespace in a single Kubernetes cluster these fields can be omitted.
+are only used by the `kubectl fdb plugin` and maybe the human operator.
+Also these fields are optional, if a FDB cluster is limited to a single namespace in a single Kubernetes cluster these fields can be omitted.
 
 The `kubectl fdb plugin` will take the following steps when creating a FDB cluster across multiple Kubernetes clusters (or namespaces):
 
-1. Create the seed cluster in the `seedcluster`.
+1. Create the seed cluster in the `seedcluster` with a single region configuration.
 1. Wait until the cluster has fully reconciled.
 1. Fetch the connection string from the seed cluster.
 1. Update the seed cluster with the database configuration.
