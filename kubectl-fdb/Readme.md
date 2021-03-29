@@ -1,10 +1,5 @@
 # Kubectl plugin for FDB on Kubernetes
 
-## Dependencies
-
-Currently the plugin requires the fdb [foundationDB client package](https://www.foundationdb.org/download).
-We are working on removing this dependency.
-
 ## Installation
 
 The `kubectl fdb plugin` is released as a binary as part of our release process.
@@ -74,6 +69,6 @@ Use "kubectl-fdb [command] --help" for more information about a command.
 
 ### Planned operations
 
-Currently we have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
+We have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
 that we want to implement.
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.
