@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -381,6 +382,196 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("when the memory resources are changed", func() {
+		var status *fdbtypes.ProcessGroupStatus
+		var instance FdbInstance
+
+		BeforeEach(func() {
+			err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{UseFutureDefaults: true})
+			Expect(err).NotTo(HaveOccurred())
+			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
+			instance = FdbInstance{
+				Metadata: &metav1.ObjectMeta{
+					Labels: map[string]string{
+						FDBInstanceIDLabel:   pod.ObjectMeta.Labels[FDBInstanceIDLabel],
+						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					},
+					Annotations: map[string]string{},
+				},
+				Pod: pod,
+			}
+
+			status = &fdbtypes.ProcessGroupStatus{
+				ProcessGroupID: instanceName,
+				Remove:         false,
+			}
+
+			needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+			Expect(needsRemoval).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("replacement for resource changes is activated", func() {
+			BeforeEach(func() {
+				t := true
+				cluster.Spec.ReplaceInstancesWhenResourcesChange = &t
+			})
+
+			When("the memory is increased", func() {
+				BeforeEach(func() {
+					newMemory, err := resource.ParseQuantity("1Ti")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: newMemory,
+						},
+					}
+				})
+
+				It("should need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("the memory is decreased", func() {
+				BeforeEach(func() {
+					newMemory, err := resource.ParseQuantity("1Ki")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: newMemory,
+						},
+					}
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("the CPU is increased", func() {
+				BeforeEach(func() {
+					newCPU, err := resource.ParseQuantity("1000")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: newCPU,
+						},
+					}
+				})
+
+				It("should need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("the CPU is decreased", func() {
+				BeforeEach(func() {
+					newCPU, err := resource.ParseQuantity("1m")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: newCPU,
+						},
+					}
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+		})
+
+		When("replacement for resource changes is deactivated", func() {
+			BeforeEach(func() {
+				t := false
+				cluster.Spec.ReplaceInstancesWhenResourcesChange = &t
+			})
+
+			When("the memory is increased", func() {
+				BeforeEach(func() {
+					newMemory, err := resource.ParseQuantity("1Ti")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: newMemory,
+						},
+					}
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("the memory is decreased", func() {
+				BeforeEach(func() {
+					newMemory, err := resource.ParseQuantity("1Ki")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: newMemory,
+						},
+					}
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("the CPU is increased", func() {
+				BeforeEach(func() {
+					newCPU, err := resource.ParseQuantity("1000")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: newCPU,
+						},
+					}
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("the CPU is decreased", func() {
+				BeforeEach(func() {
+					newCPU, err := resource.ParseQuantity("1m")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: newCPU,
+						},
+					}
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
 		})
 	})
 })

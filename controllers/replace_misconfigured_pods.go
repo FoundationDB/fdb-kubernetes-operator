@@ -221,7 +221,59 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 		}
 	}
 
+	if cluster.Spec.ReplaceInstancesWhenResourcesChange != nil && *cluster.Spec.ReplaceInstancesWhenResourcesChange {
+		desiredSpec, err := GetPodSpec(cluster, instance.GetProcessClass(), idNum)
+		if err != nil {
+			return false, err
+		}
+
+		for idx, container := range desiredSpec.Containers {
+			if equality.Semantic.DeepEqual(container.Resources, instance.Pod.Spec.Containers[idx].Resources) {
+				continue
+			}
+
+			if resourcesNeedsReplacement(container.Resources, instance.Pod.Spec.Containers[idx].Resources) {
+				log.Info("Replace instance",
+					"namespace", cluster.Namespace,
+					"name", cluster.Name,
+					"processGroupID", instanceID,
+					"reason", "Resource requests have changed")
+				return true, nil
+			}
+		}
+
+		for idx, container := range desiredSpec.InitContainers {
+			if equality.Semantic.DeepEqual(container.Resources, instance.Pod.Spec.InitContainers[idx].Resources) {
+				continue
+			}
+
+			if resourcesNeedsReplacement(container.Resources, instance.Pod.Spec.InitContainers[idx].Resources) {
+				log.Info("Replace instance",
+					"namespace", cluster.Namespace,
+					"name", cluster.Name,
+					"processGroupID", instanceID,
+					"reason", "Resource requests have changed")
+				return true, nil
+			}
+		}
+	}
+
 	return false, nil
+}
+
+func resourcesNeedsReplacement(desired corev1.ResourceRequirements, current corev1.ResourceRequirements) bool {
+	// We only care about requests since limits are ignored during scheduling
+	desiredCPURequests := desired.Requests[corev1.ResourceCPU]
+	desiredCPURequestsPtr := &desiredCPURequests
+
+	if desiredCPURequestsPtr.Cmp(current.Requests[corev1.ResourceCPU]) == 1 {
+		return true
+	}
+
+	desiredMemoryRequests := desired.Requests[corev1.ResourceMemory]
+	desiredMemoryRequestsPtr := &desiredMemoryRequests
+
+	return desiredMemoryRequestsPtr.Cmp(current.Requests[corev1.ResourceMemory]) == 1
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

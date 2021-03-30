@@ -7394,6 +7394,9 @@ spec:
                         type: object
                     type: object
                   type: object
+                replaceInstancesWhenResourcesChange:
+                  default: false
+                  type: boolean
                 resources:
                   properties:
                     limits:
