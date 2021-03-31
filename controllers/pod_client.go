@@ -156,7 +156,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	// Prevent logging
 	retryClient.Logger = nil
 	retryClient.CheckRetry = func(c context.Context, resp *http.Response, err error) (bool, error) {
-		if resp.StatusCode >= 400 {
+		if c.Err() != nil && err != nil && resp != nil && resp.StatusCode >= 400 {
 			return true, nil
 		}
 
