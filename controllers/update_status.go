@@ -388,7 +388,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 
 	for _, version := range versions {
 		for _, connectionString := range connectionStrings {
-			log.Info("Attempting to get status from cluster",
+			log.Info("Attempting to get connection string from cluster",
 				"namespace", cluster.Namespace, "cluster", cluster.Name,
 				"version", version, "connectionString", connectionString)
 			cluster.Status.RunningVersion = version
@@ -407,7 +407,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 					"version", version, "connectionString", activeConnectionString)
 				return version, activeConnectionString, err
 			}
-			log.Error(err, "Error getting status from cluster",
+			log.Error(err, "Error getting connection string from cluster",
 				"namespace", cluster.Namespace, "cluster", cluster.Name,
 				"version", version, "connectionString", connectionString)
 			if firstError == nil {

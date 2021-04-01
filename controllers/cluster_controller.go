@@ -160,9 +160,12 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 	for _, subReconciler := range subReconcilers {
 		cluster.Spec = *(normalizedSpec.DeepCopy())
+
+		log.Info("Attempting to run sub-reconciler", "namespace", cluster.Namespace, "cluster", cluster.Name, "subReconciler", fmt.Sprintf("%T", subReconciler))
+
 		canContinue, err := subReconciler.Reconcile(r, ctx, cluster)
 		if !canContinue || err != nil {
-			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "cluster", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
 
 		if err != nil {
