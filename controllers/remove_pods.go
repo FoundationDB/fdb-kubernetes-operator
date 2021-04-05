@@ -40,7 +40,7 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		if processGroup.Remove {
 			excluded := processGroup.Excluded || processGroup.ExclusionSkipped
 			if !excluded {
-				log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "name", cluster.Name, "instance", processGroup.ProcessGroupID)
+				log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", processGroup.ProcessGroupID)
 				return false, nil
 			}
 			processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
