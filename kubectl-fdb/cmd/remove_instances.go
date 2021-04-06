@@ -69,6 +69,10 @@ func newRemoveInstancesCmd(streams genericclioptions.IOStreams, rootCmd *cobra.C
 			if err != nil {
 				return err
 			}
+			removeAllFailed, err := cmd.Flags().GetBool("remove-all-failed")
+			if err != nil {
+				return err
+			}
 
 			config, err := o.configFlags.ToRESTConfig()
 			if err != nil {
@@ -97,7 +101,7 @@ func newRemoveInstancesCmd(streams genericclioptions.IOStreams, rootCmd *cobra.C
 				}
 			}
 
-			return removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force)
+			return removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force, removeAllFailed)
 		},
 		Example: `
 # Remove instances for a cluster in the current namespace
@@ -109,6 +113,9 @@ kubectl fdb -n default remove instances -c cluster pod-1 pod-2
 # Remove instances for a cluster with the instance ID.
 # The instance ID of a Pod can be fetched with "kubectl get po -L fdb-instance-id"
 kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
+
+# Remove all failed instances for a cluster (all instances that have a missing process)
+kubectl fdb -n default remove instances -c cluster --remove-all-failed
 `,
 	}
 
@@ -116,6 +123,7 @@ kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 s
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be removed with exclusion.")
 	cmd.Flags().Bool("use-instance-id", false, "if set the operator will use the instance ID to remove it rather than the Pod(s) name.")
 	cmd.Flags().Bool("shrink", false, "define if the removed instances should not be replaced.")
+	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
 		log.Fatal(err)
@@ -154,7 +162,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 }
 
 // removeInstances adds instances to the instancesToRemove field
-func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool) error {
+func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
 	var cluster fdbtypes.FoundationDBCluster
 	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
 		Namespace: namespace,
@@ -168,7 +176,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		return err
 	}
 
-	if len(instances) == 0 {
+	if len(instances) == 0 && !removeAllFailed {
 		return nil
 	}
 
@@ -193,6 +201,15 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 	}
 
 	patch := client.MergeFrom(cluster.DeepCopy())
+
+	if removeAllFailed {
+		for _, processGroupStatus := range cluster.Status.ProcessGroups {
+			needsReplacement, _ := processGroupStatus.NeedsReplacement(0)
+			if needsReplacement {
+				instances = append(instances, processGroupStatus.ProcessGroupID)
+			}
+		}
+	}
 
 	for class, amount := range shrinkMap {
 		cluster.Spec.ProcessCounts.DecreaseCount(class, amount)

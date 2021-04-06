@@ -61,11 +61,9 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 	}
 
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		missingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
-		failureWindowStart := time.Now().Add(-1 * time.Duration(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds) * time.Second).Unix()
-		needsReplacement := missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.Remove
-		if needsReplacement {
-			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", *missingTime)
+		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)
+		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
+			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", missingTime)
 			processGroupStatus.Remove = true
 			return true
 		}
