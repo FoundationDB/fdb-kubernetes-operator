@@ -276,6 +276,12 @@ type FoundationDBClusterSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default:=600
 	MinimumUptimeSecondsForBounce int `json:"minimumUptimeSecondsForBounce,omitempty"`
+
+	// ReplaceInstancesWhenResourcesChange defines if an instance should be replaced
+	// when the resource requirements are increased. This can be useful with the combination of
+	// local storage.
+	// +kubebuilder:default:=false
+	ReplaceInstancesWhenResourcesChange *bool `json:"replaceInstancesWhenResourcesChange,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
