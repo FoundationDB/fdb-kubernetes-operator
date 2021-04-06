@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -227,53 +229,55 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 			return false, err
 		}
 
-		for idx, container := range desiredSpec.Containers {
-			if equality.Semantic.DeepEqual(container.Resources, instance.Pod.Spec.Containers[idx].Resources) {
-				continue
-			}
-
-			if resourcesNeedsReplacement(container.Resources, instance.Pod.Spec.Containers[idx].Resources) {
-				log.Info("Replace instance",
-					"namespace", cluster.Namespace,
-					"name", cluster.Name,
-					"processGroupID", instanceID,
-					"reason", "Resource requests have changed")
-				return true, nil
-			}
+		if resourcesNeedsReplacement(desiredSpec.Containers, instance.Pod.Spec.Containers) {
+			log.Info("Replace instance",
+				"namespace", cluster.Namespace,
+				"name", cluster.Name,
+				"processGroupID", instanceID,
+				"reason", "Resource requests have changed")
+			return true, nil
 		}
 
-		for idx, container := range desiredSpec.InitContainers {
-			if equality.Semantic.DeepEqual(container.Resources, instance.Pod.Spec.InitContainers[idx].Resources) {
-				continue
-			}
-
-			if resourcesNeedsReplacement(container.Resources, instance.Pod.Spec.InitContainers[idx].Resources) {
-				log.Info("Replace instance",
-					"namespace", cluster.Namespace,
-					"name", cluster.Name,
-					"processGroupID", instanceID,
-					"reason", "Resource requests have changed")
-				return true, nil
-			}
+		if resourcesNeedsReplacement(desiredSpec.InitContainers, instance.Pod.Spec.InitContainers) {
+			log.Info("Replace instance",
+				"namespace", cluster.Namespace,
+				"name", cluster.Name,
+				"processGroupID", instanceID,
+				"reason", "Resource requests have changed")
+			return true, nil
 		}
 	}
 
 	return false, nil
 }
 
-func resourcesNeedsReplacement(desired corev1.ResourceRequirements, current corev1.ResourceRequirements) bool {
+func resourcesNeedsReplacement(desired []corev1.Container, current []corev1.Container) bool {
 	// We only care about requests since limits are ignored during scheduling
-	desiredCPURequests := desired.Requests[corev1.ResourceCPU]
-	desiredCPURequestsPtr := &desiredCPURequests
+	desiredCPURequests, desiredMemoryRequests := getCPUandMemoryRequests(desired)
+	currentCPURequests, currentMemoryRequests := getCPUandMemoryRequests(current)
 
-	if desiredCPURequestsPtr.Cmp(current.Requests[corev1.ResourceCPU]) == 1 {
-		return true
+	return desiredCPURequests.Cmp(*currentCPURequests) == 1 || desiredMemoryRequests.Cmp(*currentMemoryRequests) == 1
+}
+
+func getCPUandMemoryRequests(containers []corev1.Container) (*resource.Quantity, *resource.Quantity) {
+	cpuRequests := &resource.Quantity{}
+	memoryRequests := &resource.Quantity{}
+
+	for _, container := range containers {
+		cpu := container.Resources.Requests.Cpu()
+
+		if cpu != nil {
+			cpuRequests.Add(*cpu)
+		}
+
+		memory := container.Resources.Requests.Memory()
+
+		if memory != nil {
+			memoryRequests.Add(*memory)
+		}
 	}
 
-	desiredMemoryRequests := desired.Requests[corev1.ResourceMemory]
-	desiredMemoryRequestsPtr := &desiredMemoryRequests
-
-	return desiredMemoryRequestsPtr.Cmp(current.Requests[corev1.ResourceMemory]) == 1
+	return cpuRequests, memoryRequests
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
