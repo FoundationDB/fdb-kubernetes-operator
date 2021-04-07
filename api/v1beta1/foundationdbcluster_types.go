@@ -607,8 +607,6 @@ type ProcessGroupCondition struct {
 type ProcessGroupConditionType string
 
 const (
-	// NotConnecting represents a process group that doesn't connect to the cluster.
-	NotConnecting ProcessGroupConditionType = "NotConnecting"
 	// IncorrectPodSpec represents a process group that has an incorrect Pod spec.
 	IncorrectPodSpec ProcessGroupConditionType = "IncorrectPodSpec"
 	// IncorrectConfigMap represents a process group that has an incorrect ConfigMap.
