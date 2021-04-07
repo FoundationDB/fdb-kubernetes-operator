@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/prometheus/common/expfmt"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -2203,11 +2204,13 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				recreatedPod = pods.Items[0]
 				err = k8sClient.SetPodIntoFailed(context.Background(), &recreatedPod, "NodeAffinity")
 				Expect(err).NotTo(HaveOccurred())
+				// We have to sleep 1 second otherwise the creation timestamp will be the same
+				time.Sleep(1 * time.Second)
 
 				generationGap = 0
 			})
 
-			PIt("should recreate the Pod", func() {
+			It("should recreate the Pod", func() {
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())

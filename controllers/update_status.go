@@ -638,7 +638,7 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 				"cluster", cluster.Name,
 				"processGroupID", instanceID)
 
-			err = r.Delete(context, instance.Pod)
+			err = r.PodLifecycleManager.DeleteInstance(r, context, instance)
 			if err != nil {
 				return needsSidecarConfInConfigMap, err
 			}
