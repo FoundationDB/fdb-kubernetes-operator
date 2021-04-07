@@ -297,6 +297,8 @@ func (client *MockClient) checkPresence(kindKey string, objectKey string) error 
 
 // Create creates a new object
 func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.CreateOption) error {
+	object.SetCreationTimestamp(metav1.Time{Time: time.Now()})
+
 	jsonData, err := json.Marshal(object)
 	if err != nil {
 		return err
@@ -702,4 +704,24 @@ func (client *MockClient) AnnotatedEventf(object runtime.Object, annotations map
 	event := buildEvent(object, eventType, reason, fmt.Sprintf(messageFormat, args...))
 	event.ObjectMeta.Annotations = annotations
 	client.createEvent(event)
+}
+
+// SetPodIntoFailed sets a Pod into a failed status with the given reason
+func (client *MockClient) SetPodIntoFailed(context ctx.Context, object ctrlClient.Object, reason string) error {
+	data, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	pod := &corev1.Pod{}
+	err = json.Unmarshal(data, pod)
+	if err != nil {
+		return err
+	}
+
+	pod.Status.Phase = corev1.PodFailed
+	pod.Status.Reason = reason
+	pod.CreationTimestamp = metav1.Time{Time: time.Now().Add(-30 * time.Minute)}
+
+	return client.Update(context, pod)
 }

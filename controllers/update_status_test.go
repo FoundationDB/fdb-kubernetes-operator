@@ -134,7 +134,7 @@ var _ = Describe("update_status", func() {
 	})
 
 	Describe("validateInstance", func() {
-		Context("when instance has no Pod", func() {
+		When("instance has no Pod", func() {
 			It("should be added to the failing Pods", func() {
 				instance := FdbInstance{
 					Metadata: &metav1.ObjectMeta{
@@ -197,7 +197,7 @@ var _ = Describe("update_status", func() {
 			}
 		})
 
-		Context("when an instance is fine", func() {
+		When("an instance is fine", func() {
 			It("should not get any condition assigned", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
@@ -208,7 +208,7 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		Context("when the pod for instance is missing", func() {
+		When("the pod for instance is missing", func() {
 			It("should get a condition assigned", func() {
 				instances[0].Pod = nil
 				Expect(err).NotTo(HaveOccurred())
@@ -226,7 +226,7 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		Context("when an instance has the wrong command line", func() {
+		When("an instance has the wrong command line", func() {
 			BeforeEach(func() {
 				adminClient.MockIncorrectCommandLine("storage-1", true)
 			})
@@ -245,7 +245,7 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		Context("when an instance is not reporting to the cluster", func() {
+		When("an instance is not reporting to the cluster", func() {
 			BeforeEach(func() {
 				adminClient.MockMissingProcessGroup("storage-1", true)
 			})
@@ -264,7 +264,7 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		Context("when the pod has the wrong spec", func() {
+		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
 				instances[0].Metadata.Annotations[LastSpecKey] = "bad"
 			})
@@ -283,9 +283,28 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
-		Context("when the pod is failing to launch", func() {
+		When("the pod is failing to launch", func() {
 			BeforeEach(func() {
 				instances[0].Pod.Status.ContainerStatuses[0].Ready = false
+			})
+
+			It("should get a condition assigned", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing)
+				Expect(failingPods).To(Equal([]string{"storage-1"}))
+
+				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
+				processGroup := processGroupStatus[len(processGroupStatus)-4]
+				Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
+			})
+		})
+
+		When("the pod is failed", func() {
+			BeforeEach(func() {
+				instances[0].Pod.Status.Phase = corev1.PodFailed
 			})
 
 			It("should get a condition assigned", func() {
