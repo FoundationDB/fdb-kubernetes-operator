@@ -237,7 +237,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	if mainContainer.SecurityContext == nil {
 		mainContainer.SecurityContext = &corev1.SecurityContext{}
 	}
-	mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
+
+	if mainContainer.SecurityContext.ReadOnlyRootFilesystem == nil {
+		mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
+	}
 
 	customizeContainer(mainContainer, cluster.Spec.MainContainer)
 

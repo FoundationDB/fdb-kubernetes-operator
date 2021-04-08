@@ -1622,6 +1622,80 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with ReadOnlyRootFilesystem disabled", func() {
+			BeforeEach(func() {
+				var enabled = false
+				cluster.Spec.Processes["general"] = fdbtypes.ProcessSettings{
+					PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "foundationdb",
+									SecurityContext: &corev1.SecurityContext{
+										ReadOnlyRootFilesystem: &enabled,
+									},
+								},
+							},
+						},
+					},
+				}
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should have ReadOnlyRootFilesystem set to false", func() {
+				checked := false
+
+				for _, container := range spec.Containers {
+					if container.Name != "foundationdb" {
+						continue
+					}
+					Expect(container.SecurityContext).ToNot(BeNil())
+					Expect(*container.SecurityContext.ReadOnlyRootFilesystem).To(BeFalse())
+					checked = true
+				}
+
+				Expect(checked).To(BeTrue())
+			})
+		})
+
+		Context("with an empty SecurityContext", func() {
+			BeforeEach(func() {
+				cluster.Spec.Processes["general"] = fdbtypes.ProcessSettings{
+					PodTemplate: &corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "foundationdb",
+								},
+							},
+						},
+					},
+				}
+				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should have ReadOnlyRootFilesystem set to true", func() {
+				checked := false
+
+				for _, container := range spec.Containers {
+					if container.Name != "foundationdb" {
+						continue
+					}
+					Expect(container.SecurityContext).ToNot(BeNil())
+					Expect(*container.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+					checked = true
+				}
+
+				Expect(checked).To(BeTrue())
+			})
+		})
 	})
 
 	Describe("GetService", func() {
