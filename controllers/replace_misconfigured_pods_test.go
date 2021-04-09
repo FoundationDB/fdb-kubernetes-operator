@@ -493,6 +493,27 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 			})
+
+			When("adding another sidecar", func() {
+				BeforeEach(func() {
+					newCPU, err := resource.ParseQuantity("1000")
+					Expect(err).NotTo(HaveOccurred())
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers,
+						corev1.Container{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU: newCPU,
+								},
+							},
+						})
+				})
+
+				It("should need a removal", func() {
+					needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
 		})
 
 		When("replacement for resource changes is deactivated", func() {
