@@ -220,12 +220,18 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	}
 
 	mainContainer.Command = []string{"sh", "-c"}
-	mainContainer.Args = []string{
-		"fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
-			" --loggroup " + logGroup +
-			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1",
+
+	args := "fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+		" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+		" --loggroup " + logGroup +
+		" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
+
+	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
+		if instanceID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+			args = "crash-loop"
+		}
 	}
+	mainContainer.Args = []string{args}
 
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
 		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},

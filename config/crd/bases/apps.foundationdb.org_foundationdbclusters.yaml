@@ -68,6 +68,10 @@ spec:
                   type: boolean
                 buggify:
                   properties:
+                    crashLoop:
+                      items:
+                        type: string
+                      type: array
                     noSchedule:
                       items:
                         type: string

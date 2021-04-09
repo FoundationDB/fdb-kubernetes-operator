@@ -67,6 +67,7 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | noSchedule | NoSchedule defines a list of instance IDs that should fail to schedule. | []string | false |
+| crashLoop | CrashLoops defines a list of instance IDs that should be put into a crash looping state. | []string | false |
 
 [Back to TOC](#table-of-contents)
 

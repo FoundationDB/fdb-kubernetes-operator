@@ -257,6 +257,28 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("when buggifying a pod to make it crash loop", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should add the crash loop flag", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+				sortPodsByID(pods)
+
+				pod := pods.Items[firstStorageIndex]
+				Expect(pod.ObjectMeta.Labels[FDBInstanceIDLabel]).To(Equal("storage-1"))
+
+				mainContainer := pod.Spec.Containers[0]
+				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
+			})
+		})
+
 		Context("with a decreased process count", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessCounts.Storage = 3

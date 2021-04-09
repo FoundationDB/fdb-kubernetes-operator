@@ -31,12 +31,18 @@ spec:
             priority: 1
           - id: dc3
             satellite: 1
+            priority: 2
+          - id: dc2
+            satellite: 1
             priority: 1
         satellite_logs: 3
       - datacenters:
           - id: dc2
             priority: 0
           - id: dc3
+            satellite: 1
+            priority: 2
+          - id: dc1
             satellite: 1
             priority: 1
         satellite_logs: 3
