@@ -10,7 +10,7 @@ Install from release:
 ```bash
 pushd $TMPDIR
 OS=macos
-VERSION="v0.27.1"
+VERSION="v0.30.0"
 curl -sLo kubectl-fdb.tar.gz "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/kubectl-fdb-${VERSION}-${OS}.tar.gz"
 tar xfz kubectl-fdb.tar.gz
 sudo mv ./kubectl-fdb /usr/local/bin
@@ -69,6 +69,6 @@ Use "kubectl-fdb [command] --help" for more information about a command.
 
 ### Planned operations
 
-Currently we have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
+We have a list of [planned operations](https://github.com/FoundationDB/fdb-kubernetes-operator/issues?q=is%3Aissue+is%3Aopen+label%3Aplugin)
 that we want to implement.
 Raise an issue if you miss a specific command to operate FDB on Kubernetes.

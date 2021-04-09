@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"testing"
 
@@ -34,7 +33,7 @@ func TestRootCmd(t *testing.T) {
 	errBuffer := bytes.Buffer{}
 	inBuffer := bytes.Buffer{}
 
-	cmd := NewRootCmd(genericclioptions.IOStreams{In: bufio.NewReader(&inBuffer), Out: bufio.NewWriter(&outBuffer), ErrOut: bufio.NewWriter(&errBuffer)})
+	cmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
 	err := cmd.Execute()
 	if err != nil {
 		t.Error(err)
