@@ -169,5 +169,5 @@ func cordonNode(kubeClient client.Client, clusterName string, nodes []string, na
 		}
 	}
 
-	return removeInstances(kubeClient, clusterName, instances, namespace, withExclusion, false, force)
+	return removeInstances(kubeClient, clusterName, instances, namespace, withExclusion, false, force, false)
 }

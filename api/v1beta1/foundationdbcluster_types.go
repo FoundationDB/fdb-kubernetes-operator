@@ -403,6 +403,17 @@ type ProcessGroupStatus struct {
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 }
 
+// NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
+func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) (bool, int64) {
+	missingTime := processGroupStatus.GetConditionTime(MissingProcesses)
+	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
+	if missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.Remove {
+		return true, *missingTime
+	}
+
+	return false, 0
+}
+
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
 func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{

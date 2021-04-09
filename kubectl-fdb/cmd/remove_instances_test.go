@@ -51,6 +51,17 @@ func TestRemoveInstances(t *testing.T) {
 				Storage: 1,
 			},
 		},
+		Status: fdbtypes.FoundationDBClusterStatus{
+			ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+				{
+					ProcessGroupID: "failed",
+					Addresses:      []string{"1.2.3.4"},
+					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+						fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+					},
+				},
+			},
+		},
 	}
 
 	podList := corev1.PodList{
@@ -76,6 +87,7 @@ func TestRemoveInstances(t *testing.T) {
 		ExpectedInstancesToRemove                 []string
 		ExpectedInstancesToRemoveWithoutExclusion []string
 		ExpectedProcessCounts                     fdbtypes.ProcessCounts
+		RemoveAllFailed                           bool
 	}{
 		{
 			Name:                      "Remove instance with exclusion",
@@ -87,6 +99,7 @@ func TestRemoveInstances(t *testing.T) {
 			ExpectedProcessCounts: fdbtypes.ProcessCounts{
 				Storage: 1,
 			},
+			RemoveAllFailed: false,
 		},
 		{
 			Name:                      "Remove instance without exclusion",
@@ -109,6 +122,7 @@ func TestRemoveInstances(t *testing.T) {
 			ExpectedProcessCounts: fdbtypes.ProcessCounts{
 				Storage: 0,
 			},
+			RemoveAllFailed: false,
 		},
 		{
 			Name:                      "Remove instance without exclusion and shrink",
@@ -120,6 +134,19 @@ func TestRemoveInstances(t *testing.T) {
 			ExpectedProcessCounts: fdbtypes.ProcessCounts{
 				Storage: 0,
 			},
+			RemoveAllFailed: false,
+		},
+		{
+			Name:                      "Remove all failed instances",
+			Instances:                 []string{"failed"},
+			WithExclusion:             true,
+			WithShrink:                false,
+			ExpectedInstancesToRemove: []string{"failed"},
+			ExpectedInstancesToRemoveWithoutExclusion: []string{},
+			ExpectedProcessCounts: fdbtypes.ProcessCounts{
+				Storage: 1,
+			},
+			RemoveAllFailed: true,
 		},
 	}
 
@@ -130,7 +157,7 @@ func TestRemoveInstances(t *testing.T) {
 			_ = fdbtypes.AddToScheme(scheme)
 			kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 
-			err := removeInstances(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true)
+			err := removeInstances(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed)
 			if err != nil {
 				t.Error(err)
 				return
