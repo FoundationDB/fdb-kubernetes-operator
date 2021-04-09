@@ -419,7 +419,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 }
 
 // CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, status *fdbtypes.FoundationDBClusterStatus, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
+func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
 	instanceID := instance.GetInstanceID()
 
 	if processCount > 1 {
@@ -434,6 +434,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	}
 
 	podClient, err := r.getPodClient(cluster, instance)
+
 	correct := false
 	if err != nil {
 		log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
@@ -496,7 +497,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			processGroupStatus.Addresses = append(processGroupStatus.Addresses, r.PodIPProvider(instance.Pod))
 		}
 
-		processGroupStatus.Addresses = cleanAddressList((processGroupStatus.Addresses))
+		processGroupStatus.Addresses = cleanAddressList(processGroupStatus.Addresses)
 
 		processCount := 1
 
@@ -528,7 +529,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
-			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, status, i, processCount, processGroupStatus)
+			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, i, processCount, processGroupStatus)
 			if err != nil {
 				return processGroups, err
 			}
@@ -620,6 +621,27 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		if !container.Ready {
 			failing = true
 			break
+		}
+	}
+
+	// Fix for https://github.com/kubernetes/kubernetes/issues/92067
+	// This will delete the Pod that is stuck in the "NodeAffinity"
+	// at a later stage the Pod will be recreated by the operator.
+	if instance.Pod.Status.Phase == corev1.PodFailed {
+		failing = true
+
+		// Only recreate the Pod if it is already 5 minutes up (just to prevent to recreate the Pod multiple times
+		// and give the cluster some time to get the kubelet up
+		if instance.Pod.Status.Reason == "NodeAffinity" && instance.Pod.CreationTimestamp.Add(5*time.Minute).Before(time.Now()) {
+			log.Info("Delete Pod that is stuck in NodeAffinity",
+				"namespace", cluster.Namespace,
+				"cluster", cluster.Name,
+				"processGroupID", instanceID)
+
+			err = r.PodLifecycleManager.DeleteInstance(r, context, instance)
+			if err != nil {
+				return needsSidecarConfInConfigMap, err
+			}
 		}
 	}
 

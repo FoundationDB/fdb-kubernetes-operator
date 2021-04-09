@@ -48,6 +48,10 @@ func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context c
 // chooseNewRemovals flags failed processes for removal and returns an indicator
 // of whether any processes were thus flagged.
 func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
+	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
+		return false
+	}
+
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.Remove && !processGroupStatus.Excluded {
 			// If we already have a removal in-flight, we should not try
@@ -60,7 +64,7 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 		missingTime := processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses)
 		failureWindowStart := time.Now().Add(-1 * time.Duration(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds) * time.Second).Unix()
 		needsReplacement := missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.Remove
-		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
+		if needsReplacement {
 			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", *missingTime)
 			processGroupStatus.Remove = true
 			return true

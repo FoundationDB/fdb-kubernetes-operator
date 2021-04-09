@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/prometheus/common/expfmt"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -123,7 +124,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				return
 			}
 
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(result.Requeue).To(Equal(!shouldCompleteReconciliation))
 
@@ -891,7 +892,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 				pod = pods.Items[0]
-
 				err := k8sClient.Delete(context.TODO(), &pod)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2189,6 +2189,38 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					regexp.MustCompile(replMetricOutput),
 				} {
 					Expect(re.Match(buf.Bytes())).To(Equal(true))
+				}
+			})
+		})
+
+		Context("with a failing Pod", func() {
+			var recreatedPod corev1.Pod
+
+			BeforeEach(func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+
+				recreatedPod = pods.Items[0]
+				err = k8sClient.SetPodIntoFailed(context.Background(), &recreatedPod, "NodeAffinity")
+				Expect(err).NotTo(HaveOccurred())
+				// We have to sleep 1 second otherwise the creation timestamp will be the same
+				time.Sleep(1 * time.Second)
+
+				generationGap = 0
+			})
+
+			It("should recreate the Pod", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					if pod.GetName() != recreatedPod.GetName() {
+						continue
+					}
+
+					Expect(recreatedPod.CreationTimestamp.UnixNano()).To(BeNumerically("<", pod.CreationTimestamp.UnixNano()))
 				}
 			})
 		})
