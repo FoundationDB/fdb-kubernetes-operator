@@ -76,6 +76,9 @@ const (
 	// FDBLocalityDCIDKey represents the key in the locality map that holds
 	// the DC ID.
 	FDBLocalityDCIDKey = "dcid"
+
+	// FDBManagedByLabel represents the label that is used to represent that the resource is managed by the operator
+	FDBManagedByLabel = "fdb-managed-by-operator"
 )
 
 // metadataMatches determines if the current metadata on an object matches the

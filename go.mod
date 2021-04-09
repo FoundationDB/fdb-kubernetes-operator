@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c
+	github.com/fatih/color v1.10.0
 	github.com/go-logr/logr v0.3.0
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/onsi/ginkgo v1.14.1
@@ -18,7 +19,7 @@ require (
 	k8s.io/apimachinery v0.20.4
 	k8s.io/cli-runtime v0.20.4
 	k8s.io/client-go v0.20.4
-	sigs.k8s.io/controller-runtime v0.8.3
 	k8s.io/klog/v2 v2.4.0
+	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/yaml v1.2.0
 )
