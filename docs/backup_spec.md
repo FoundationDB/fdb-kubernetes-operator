@@ -57,7 +57,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| version | The version of FoundationDB that the backup agents should run. | string | true |
+| version | The version of FoundationDB that the backup agents should run. **Deprecated: Will be removed in the future and defaults to the cluster version.** | string | true |
 | clusterName | The cluster this backup is for. | string | true |
 | backupState | The desired state of the backup. The default is Running. | string | false |
 | backupName | The name for the backup. The default is to use the name from the backup metadata. | string | false |
