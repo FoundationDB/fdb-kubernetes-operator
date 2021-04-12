@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"log"
 
+	corev1 "k8s.io/api/core/v1"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/spf13/cobra"
@@ -156,6 +158,10 @@ func getAllPodsFromCluster(kubeClient client.Client, clusterName string, namespa
 	for _, pod := range pods.Items {
 		found := false
 		for _, incorrectProcess := range incorrectProcesses {
+			if pod.Status.Phase != corev1.PodRunning {
+				continue
+			}
+
 			if pod.Labels[controllers.FDBInstanceIDLabel] == incorrectProcess {
 				found = true
 				break
