@@ -22,6 +22,7 @@ package cmd
 
 import (
 	ctx "context"
+	"fmt"
 	"log"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func newRestartCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -45,6 +46,10 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Restarts process(es) in a given FDB cluster.",
 		Long:  "Restarts process(es) in a given FDB cluster.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			force, err := rootCmd.Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
 			clusterName, err := cmd.Flags().GetString("fdb-cluster")
 			if err != nil {
 				return err
@@ -104,7 +109,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				processes = args
 			}
 
-			return restartProcesses(cmd, config, clientSet, processes, namespace)
+			return restartProcesses(cmd, config, clientSet, processes, namespace, clusterName, force)
 		},
 		Example: `
 # Restart processes for a cluster in the current namespace
@@ -178,7 +183,14 @@ func getAllPodsFromCluster(kubeClient client.Client, clusterName string, namespa
 	return processes, nil
 }
 
-func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string) error {
+func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, force bool) error {
+	if !force {
+		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", processes, namespace, clusterName))
+		if !confirmed {
+			return fmt.Errorf("user aborted the removal")
+		}
+	}
+
 	for _, process := range processes {
 		cmd.Printf("Restart process: %s\n", process)
 		_, _, err := executeCmd(restConfig, kubeClient, process, namespace, "pkill fdbserver")
