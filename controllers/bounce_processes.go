@@ -61,10 +61,13 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 	processesToBounce := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, true)
 	addresses := make([]string, 0, len(processesToBounce))
+	allSynced := true
+	var missingAddress []string
 
 	for _, process := range processesToBounce {
 		if addressMap[process] == nil {
-			return false, fmt.Errorf("could not find address for process: %s", process)
+			missingAddress = append(missingAddress, process)
+			continue
 		}
 
 		addresses = append(addresses, addressMap[process]...)
@@ -78,10 +81,19 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, MissingPodErrorByName(process, cluster)
 		}
 
-		synced, err := r.updatePodDynamicConf(cluster, instances[0])
+		synced, _ := r.updatePodDynamicConf(cluster, instances[0])
 		if !synced {
-			return synced, err
+			log.Info("Update dynamic Pod config", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "synced", synced)
+			allSynced = false
 		}
+	}
+
+	if len(missingAddress) > 0 {
+		return false, fmt.Errorf("could not find address for processes: %s", missingAddress)
+	}
+
+	if !allSynced {
+		return false, nil
 	}
 
 	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
