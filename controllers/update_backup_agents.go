@@ -54,7 +54,12 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		}
 	}
 
-	deployment, err := GetBackupDeployment(backup)
+	version, err := r.getBackupVersion(context, backup)
+	if err != nil {
+		return false, err
+	}
+
+	deployment, err := GetBackupDeployment(backup, version)
 	if err != nil {
 		r.Recorder.Event(backup, corev1.EventTypeWarning, "GetBackupDeployment", err.Error())
 		return false, err
@@ -88,6 +93,7 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 			return false, err
 		}
 	}
+
 	return true, nil
 }
 

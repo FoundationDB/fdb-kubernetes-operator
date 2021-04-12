@@ -167,3 +167,20 @@ type BackupSubReconciler interface {
 	*/
 	RequeueAfter() time.Duration
 }
+
+func (r *FoundationDBBackupReconciler) getBackupVersion(context context.Context, backup *fdbtypes.FoundationDBBackup) (string, error) {
+	if backup.Spec.Version != "" {
+		return backup.Spec.Version, nil
+	}
+
+	cluster := &fdbtypes.FoundationDBCluster{}
+	err := r.Get(context, client.ObjectKey{
+		Namespace: backup.Namespace,
+		Name:      backup.Spec.ClusterName,
+	}, cluster)
+	if err != nil {
+		return "", err
+	}
+
+	return cluster.Status.RunningVersion, nil
+}

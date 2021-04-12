@@ -188,7 +188,6 @@ func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Founda
 			AccountName: "test@test-service",
 			BackupName:  "test-backup",
 			BackupState: "Running",
-			Version:     cluster.Spec.Version,
 			ClusterName: cluster.Name,
 			AgentCount:  &agentCount,
 		},

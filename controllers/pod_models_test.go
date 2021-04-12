@@ -2020,7 +2020,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a basic deployment", func() {
 			BeforeEach(func() {
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -2165,7 +2165,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -2222,7 +2222,7 @@ var _ = Describe("pod_models", func() {
 						"fdb-test": "test-value",
 					},
 				}
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -2238,7 +2238,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a nil agent count", func() {
 			BeforeEach(func() {
 				backup.Spec.AgentCount = nil
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2252,7 +2252,7 @@ var _ = Describe("pod_models", func() {
 			BeforeEach(func() {
 				agentCount := 0
 				backup.Spec.AgentCount = &agentCount
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2274,7 +2274,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2289,8 +2289,8 @@ var _ = Describe("pod_models", func() {
 
 		Context("with the sidecar require-not-empty field", func() {
 			BeforeEach(func() {
-				backup.Spec.Version = Versions.WithSidecarCrashOnEmpty.String()
-				deployment, err = GetBackupDeployment(backup)
+				version := Versions.WithSidecarCrashOnEmpty.String()
+				deployment, err = GetBackupDeployment(backup, version)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -2316,8 +2316,8 @@ var _ = Describe("pod_models", func() {
 
 		Context("without the sidecar require-not-empty field", func() {
 			BeforeEach(func() {
-				backup.Spec.Version = Versions.WithoutSidecarCrashOnEmpty.String()
-				deployment, err = GetBackupDeployment(backup)
+				version := Versions.WithoutSidecarCrashOnEmpty.String()
+				deployment, err = GetBackupDeployment(backup, version)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})
@@ -2342,7 +2342,7 @@ var _ = Describe("pod_models", func() {
 		Context("with customParameters", func() {
 			BeforeEach(func() {
 				backup.Spec.CustomParameters = []string{"customParameter=1337"}
-				deployment, err = GetBackupDeployment(backup)
+				deployment, err = GetBackupDeployment(backup, cluster.Spec.Version)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
 			})

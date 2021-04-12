@@ -32,6 +32,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Generation",type="integer",JSONPath=".metadata.generation",description="Latest generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // FoundationDBBackup is the Schema for the FoundationDB Backup API
 type FoundationDBBackup struct {
@@ -54,6 +55,7 @@ type FoundationDBBackupList struct {
 // FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 type FoundationDBBackupSpec struct {
 	// The version of FoundationDB that the backup agents should run.
+	// Deprecated: Will be removed in the future and defaults to the cluster version.
 	Version string `json:"version"`
 
 	// The cluster this backup is for.

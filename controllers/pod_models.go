@@ -389,8 +389,8 @@ func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, 
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
-func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, backup.Spec.GetAllowTagOverride())
+func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container, version string) error {
+	return configureSidecarContainer(container, true, "", version, nil, backup.Spec.GetAllowTagOverride())
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
@@ -706,7 +706,11 @@ func customizeContainer(container *corev1.Container, overrides fdbtypes.Containe
 }
 
 // GetBackupDeployment builds a deployment for backup agents for a cluster.
-func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deployment, error) {
+func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup, version string) (*appsv1.Deployment, error) {
+	if version == "" {
+		return nil, fmt.Errorf("version: \"%s\" is not valid", version)
+	}
+
 	agentCount := int32(backup.GetDesiredAgentCount())
 	if agentCount == 0 {
 		return nil, nil
@@ -764,7 +768,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := getImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version, backup.Spec.GetAllowTagOverride())
+	image, err := getImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", version, backup.Spec.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -812,7 +816,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 
-	err = configureSidecarContainerForBackup(backup, initContainer)
+	err = configureSidecarContainerForBackup(backup, initContainer, version)
 	if err != nil {
 		return nil, err
 	}

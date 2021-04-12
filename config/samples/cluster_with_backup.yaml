@@ -75,7 +75,6 @@ kind: FoundationDBBackup
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.20
   clusterName: sample-cluster
   accountName: minio@minio-service:9000
   snapshotPeriodSeconds: 60
