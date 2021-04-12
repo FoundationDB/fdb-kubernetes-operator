@@ -56,6 +56,7 @@ type FoundationDBBackupList struct {
 type FoundationDBBackupSpec struct {
 	// The version of FoundationDB that the backup agents should run.
 	// Deprecated: Will be removed in the future and defaults to the cluster version.
+	// +kubebuilder:validation:Optional
 	Version string `json:"version"`
 
 	// The cluster this backup is for.

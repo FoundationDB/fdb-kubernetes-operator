@@ -2875,7 +2875,6 @@ spec:
               required:
                 - accountName
                 - clusterName
-                - version
               type: object
             status:
               properties:
