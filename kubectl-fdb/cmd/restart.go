@@ -119,10 +119,10 @@ kubectl fdb restart -c cluster pod-1 -i pod-2
 kubectl fdb -n default restart -c cluster pod-1 pod-2
 
 # Restart all processes for a cluster
-kubectl fdb restart-c cluster --all-processes
+kubectl fdb restart -c cluster --all-processes
 
 # Restart all processes for a cluster that have the condition IncorrectCommandLine
-kubectl fdb restart-c cluster --all-processes-with-incorrect-cmd
+kubectl fdb restart -c cluster --all-processes-with-incorrect-cmd
 `,
 	}
 
