@@ -152,10 +152,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		ExcludeInstances{},
 		ChangeCoordinators{},
 		ConfirmExclusionCompletion{},
+		RemovePods{},
 		BounceProcesses{},
 		UpdatePods{},
 		RemoveServices{},
-		RemovePods{},
 		UpdateStatus{},
 	}
 
