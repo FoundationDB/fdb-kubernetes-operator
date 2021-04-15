@@ -305,7 +305,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	sort.Ints(status.StorageServersPerDisk)
 
 	originalStatus := cluster.Status.DeepCopy()
-
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
 	sort.SliceStable(status.ProcessGroups, func(i, j int) bool {
