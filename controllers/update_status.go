@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -599,8 +598,7 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	var needsSidecarConfInConfigMap bool
 	for _, container := range instance.Pod.Spec.Containers {
 		if container.Name == "foundationdb" {
-			image := strings.Split(container.Image, ":")
-			version, err := fdbtypes.ParseFdbVersion(image[len(image)-1])
+			version, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 			if err != nil {
 				return false, err
 			}
