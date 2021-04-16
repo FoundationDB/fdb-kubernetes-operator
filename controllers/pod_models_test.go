@@ -3222,6 +3222,57 @@ var _ = Describe("pod_models", func() {
 					allowOverride: true,
 				}, "test/curImage:6.2.20"),
 		)
+
+		Context("Configure the sidecar image", func() {
+			type testCase struct {
+				container     *corev1.Container
+				initMode      bool
+				instanceID    string
+				allowOverride bool
+				hasError      bool
+			}
+
+			DescribeTable("should return the correct image",
+				func(input testCase, expected string) {
+					err = configureSidecarContainerForCluster(cluster, input.container, input.initMode, input.instanceID, input.allowOverride)
+					if input.hasError {
+						Expect(err).To(HaveOccurred())
+					} else {
+						Expect(err).NotTo(HaveOccurred())
+					}
+
+					Expect(input.container.Image).To(Equal(expected))
+				},
+				Entry("only defaults used",
+					testCase{
+						container:     &corev1.Container{},
+						initMode:      false,
+						instanceID:    "123",
+						allowOverride: false,
+						hasError:      false,
+					}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
+				Entry("set a tag in the image without override",
+					testCase{
+						container: &corev1.Container{
+							Image: "myimage:mytag",
+						},
+						initMode:      false,
+						instanceID:    "123",
+						allowOverride: false,
+						hasError:      true,
+					}, "myimage:mytag"),
+				Entry("set a tag in the image with override",
+					testCase{
+						container: &corev1.Container{
+							Image: "myimage:mytag",
+						},
+						initMode:      false,
+						instanceID:    "123",
+						allowOverride: true,
+						hasError:      false,
+					}, "myimage:mytag"),
+			)
+		})
 	})
 })
 
