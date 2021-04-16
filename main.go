@@ -131,8 +131,6 @@ func main() {
 		DeprecationOptions:  deprecationOptions,
 	}
 
-	clusterReconciler.SetScheme(mgr.GetScheme())
-
 	if checkDeprecations {
 		go startCache(mgr)
 		err = clusterReconciler.CheckDeprecations(context.Background())
@@ -155,8 +153,6 @@ func main() {
 		AdminClientProvider: controllers.NewCliAdminClient,
 	}
 
-	backupReconciler.SetScheme(mgr.GetScheme())
-
 	if err = backupReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
 		os.Exit(1)
@@ -168,8 +164,6 @@ func main() {
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
 		AdminClientProvider: controllers.NewCliAdminClient,
 	}
-
-	restoreReconciler.SetScheme(mgr.GetScheme())
 
 	if err = restoreReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")

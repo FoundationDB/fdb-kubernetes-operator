@@ -42,7 +42,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,7 +58,6 @@ type FoundationDBClusterReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
-	scheme              *runtime.Scheme
 	InSimulation        bool
 	PodLifecycleManager PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
@@ -70,16 +68,6 @@ type FoundationDBClusterReconciler struct {
 	Namespace           string
 	DeprecationOptions  DeprecationOptions
 	RequeueOnNotFound   bool
-}
-
-// SetScheme sets the current runtime Scheme
-func (r *FoundationDBClusterReconciler) SetScheme(scheme *runtime.Scheme) {
-	r.scheme = scheme
-}
-
-// Scheme returns the current runtime Scheme
-func (r *FoundationDBClusterReconciler) Scheme() *runtime.Scheme {
-	return r.scheme
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
