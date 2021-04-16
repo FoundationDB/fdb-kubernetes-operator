@@ -23,7 +23,6 @@ package client
 import (
 	"context"
 	"sort"
-	"testing"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
@@ -56,368 +56,364 @@ func createDummyPod() *corev1.Pod {
 	}
 }
 
-func TestBasicCreateAndGetOperations(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-	pod := createDummyPod()
-	err := client.Create(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+var _ = Describe("[mock client]", func() {
+	var client *MockClient
+	BeforeEach(func() {
+		client = &MockClient{}
+	})
 
-	podCopy := &corev1.Pod{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(podCopy.Name).To(Equal("pod1"))
-	g.Expect(len(podCopy.Spec.Containers)).To(Equal(1))
-	g.Expect(podCopy.Spec.Containers[0].Name).To(Equal("test-container"))
-	g.Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
-}
+	When("creating and getting an object", func() {
+		It("should create and get the object", func() {
+			pod := createDummyPod()
+			err := client.Create(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
 
-func TestCreatingObjectTwice(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-	err := client.Create(context.TODO(), createDummyPod())
-	g.Expect(err).NotTo(HaveOccurred())
+			podCopy := &corev1.Pod{}
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(podCopy.Name).To(Equal("pod1"))
+			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
+			Expect(podCopy.Spec.Containers[0].Name).To(Equal("test-container"))
+			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+		})
+	})
 
-	err = client.Create(context.TODO(), createDummyPod())
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(Equal("Conflict"))
-}
+	When("creating and getting twice object", func() {
+		It("should return an error", func() {
+			err := client.Create(context.TODO(), createDummyPod())
+			Expect(err).NotTo(HaveOccurred())
 
-func TestCreatingService(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "service1",
-		},
-	}
-	err := client.Create(context.TODO(), service)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
-	g.Expect(service.Spec.ClusterIP).To(Equal("192.168.0.1"))
+			err = client.Create(context.TODO(), createDummyPod())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("Conflict"))
+		})
+	})
 
-	service = &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "service2",
-		},
-		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
-		},
-	}
-	err = client.Create(context.TODO(), service)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
-	g.Expect(service.Spec.ClusterIP).To(Equal("None"))
-}
+	When("creating a service", func() {
+		It("should create the service", func() {
+			service := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "service1",
+				},
+			}
+			err := client.Create(context.TODO(), service)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(service.Spec.ClusterIP).To(Equal("192.168.0.1"))
 
-func TestGettingMissingObject(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
+			service = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "service2",
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "None",
+				},
+			}
+			err = client.Create(context.TODO(), service)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(service.ObjectMeta.Generation).To(Equal(int64(1)))
+			Expect(service.Spec.ClusterIP).To(Equal("None"))
+		})
+	})
 
-	err := client.Create(context.TODO(), createDummyPod())
-	g.Expect(err).NotTo(HaveOccurred())
+	When("getting a missing object", func() {
+		It("return an is not found error", func() {
+			err := client.Create(context.TODO(), createDummyPod())
+			Expect(err).NotTo(HaveOccurred())
 
-	pod := &corev1.Pod{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod2"}, pod)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			pod := &corev1.Pod{}
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod2"}, pod)
+			Expect(err).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
-	deployment := &appsv1.Deployment{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, deployment)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-}
+			deployment := &appsv1.Deployment{}
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, deployment)
+			Expect(err).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
 
-func TestDeletingObject(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
+	When("deleting an object", func() {
+		It("it should be able to delete the object or return an error", func() {
+			pod := createDummyPod()
+			err := client.Create(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
 
-	pod := createDummyPod()
-	err := client.Create(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
+			objectKey := types.NamespacedName{Namespace: "default", Name: "pod1"}
+			err = client.Delete(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
 
-	objectKey := types.NamespacedName{Namespace: "default", Name: "pod1"}
-	err = client.Delete(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
+			podCopy := &corev1.Pod{}
+			err = client.Get(context.TODO(), objectKey, podCopy)
+			Expect(err).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 
-	podCopy := &corev1.Pod{}
-	err = client.Get(context.TODO(), objectKey, podCopy)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			err = client.Delete(context.TODO(), pod)
+			Expect(err).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
 
-	err = client.Delete(context.TODO(), pod)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-}
+	When("deleting a Pod in terminating state", func() {
+		It("the stuck Pod will stay in the registry", func() {
+			pod1 := createDummyPod()
+			pod2 := createDummyPod()
+			pod2.Name = "pod2"
 
-func TestDeletingPodInTerminating(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
+			err := client.Create(context.TODO(), pod1)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.Create(context.TODO(), pod2)
+			Expect(err).NotTo(HaveOccurred())
 
-	pod1 := createDummyPod()
-	pod2 := createDummyPod()
-	pod2.Name = "pod2"
+			err = client.MockStuckTermination(pod1, true)
+			Expect(err).NotTo(HaveOccurred())
 
-	err := client.Create(context.TODO(), pod1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = client.Create(context.TODO(), pod2)
-	g.Expect(err).NotTo(HaveOccurred())
+			err = client.Delete(context.TODO(), pod1)
+			Expect(err).NotTo(HaveOccurred())
 
-	err = client.MockStuckTermination(pod1, true)
-	g.Expect(err).NotTo(HaveOccurred())
+			podCopy := &corev1.Pod{}
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
+			Expect(err).NotTo(HaveOccurred())
 
-	err = client.Delete(context.TODO(), pod1)
-	g.Expect(err).NotTo(HaveOccurred())
+			err = client.Delete(context.TODO(), pod2)
+			Expect(err).NotTo(HaveOccurred())
 
-	podCopy := &corev1.Pod{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
-	g.Expect(err).NotTo(HaveOccurred())
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod2"}, podCopy)
+			Expect(err).To(HaveOccurred())
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
 
-	err = client.Delete(context.TODO(), pod2)
-	g.Expect(err).NotTo(HaveOccurred())
+	When("updating an object", func() {
+		It("the object should be updated", func() {
+			pod := createDummyPod()
+			err := client.Create(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
 
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod2"}, podCopy)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-}
+			container := &pod.Spec.Containers[0]
+			container.Env = append(container.Env, corev1.EnvVar{Name: "test-env"})
 
-func TestUpdatingObject(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
+			err = client.Update(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod.ObjectMeta.Generation).To(Equal(int64(2)))
 
-	pod := createDummyPod()
-	err := client.Create(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
+			podCopy := &corev1.Pod{}
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
+			Expect(len(podCopy.Spec.Containers[0].Env)).To(Equal(1))
+			Expect(podCopy.Spec.Containers[0].Env[0].Name).To(Equal("test-env"))
+			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(2)))
 
-	container := &pod.Spec.Containers[0]
-	container.Env = append(container.Env, corev1.EnvVar{Name: "test-env"})
+			err = client.Update(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod.ObjectMeta.Generation).To(Equal(int64(2)))
+		})
+	})
 
-	err = client.Update(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(pod.ObjectMeta.Generation).To(Equal(int64(2)))
+	When("updating the object status", func() {
+		It("should update the object status", func() {
+			pod := createDummyPod()
+			err := client.Create(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
 
-	podCopy := &corev1.Pod{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(podCopy.Spec.Containers)).To(Equal(1))
-	g.Expect(len(podCopy.Spec.Containers[0].Env)).To(Equal(1))
-	g.Expect(podCopy.Spec.Containers[0].Env[0].Name).To(Equal("test-env"))
-	g.Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(2)))
+			container := &pod.Spec.Containers[0]
+			container.Env = append(container.Env, corev1.EnvVar{Name: "test-env"})
+			pod.Status.HostIP = "foo"
 
-	err = client.Update(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(pod.ObjectMeta.Generation).To(Equal(int64(2)))
-}
+			err = client.Status().Update(context.TODO(), pod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
 
-func TestUpdatingObjectStatus(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
+			podCopy := &corev1.Pod{}
+			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
+			Expect(len(podCopy.Spec.Containers[0].Env)).To(Equal(0))
+			Expect(podCopy.Status.HostIP).To(Equal("foo"))
+			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
+		})
+	})
 
-	pod := createDummyPod()
-	err := client.Create(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
+	When("listing objects", func() {
+		It("should list the objects", func() {
+			pod1 := createDummyPod()
+			pod2 := createDummyPod()
+			pod2.Name = "pod2"
 
-	container := &pod.Spec.Containers[0]
-	container.Env = append(container.Env, corev1.EnvVar{Name: "test-env"})
-	pod.Status.HostIP = "foo"
+			err := client.Create(context.TODO(), pod1)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.Create(context.TODO(), pod2)
+			Expect(err).NotTo(HaveOccurred())
 
-	err = client.Status().Update(context.TODO(), pod)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
+			pods := &corev1.PodList{}
+			err = client.List(context.TODO(), pods)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(2))
 
-	podCopy := &corev1.Pod{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(podCopy.Spec.Containers)).To(Equal(1))
-	g.Expect(len(podCopy.Spec.Containers[0].Env)).To(Equal(0))
-	g.Expect(podCopy.Status.HostIP).To(Equal("foo"))
-	g.Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
-}
+			sortPodsByName(pods)
+			Expect(pods.Items[0].Name).To(Equal("pod1"))
+			Expect(pods.Items[1].Name).To(Equal("pod2"))
+		})
+	})
+
+	When("listing objects by namespace", func() {
+		It("should list the objects in the namespace", func() {
+			pod1 := createDummyPod()
+			pod2 := createDummyPod()
+			pod2.Name = "pod2"
+
+			err := client.Create(context.TODO(), pod1)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.Create(context.TODO(), pod2)
+			Expect(err).NotTo(HaveOccurred())
+
+			pods := &corev1.PodList{}
+			err = client.List(context.TODO(), pods, ctrlClient.InNamespace("default"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(2))
+
+			err = client.List(context.TODO(), pods, ctrlClient.InNamespace("not-default"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(0))
+		})
+	})
+
+	When("listing objects by label", func() {
+		It("should list the objects with the label", func() {
+			pod1 := createDummyPod()
+			pod2 := createDummyPod()
+			pod2.Name = "pod2"
+			pod2.ObjectMeta.Labels["app"] = "app2"
+			pod3 := createDummyPod()
+			pod3.Name = "pod3"
+			pod3.Labels = nil
+
+			err := client.Create(context.TODO(), pod1)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.Create(context.TODO(), pod2)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.Create(context.TODO(), pod3)
+			Expect(err).NotTo(HaveOccurred())
+
+			pods := &corev1.PodList{}
+			err = client.List(context.TODO(), pods, ctrlClient.MatchingLabels(map[string]string{"app": "app2"}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			Expect(pods.Items[0].Name).To(Equal("pod2"))
+
+			appRequirement, err := labels.NewRequirement("app", selection.Exists, nil)
+			Expect(err).NotTo(HaveOccurred())
+			pods = &corev1.PodList{}
+			err = client.List(context.TODO(), pods, ctrlClient.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*appRequirement)})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(2))
+			sortPodsByName(pods)
+			Expect(pods.Items[0].Name).To(Equal("pod1"))
+			Expect(pods.Items[1].Name).To(Equal("pod2"))
+		})
+	})
+
+	When("listing objects by field", func() {
+		It("should list the objects with the field set", func() {
+			pod1 := createDummyPod()
+			pod2 := createDummyPod()
+			pod2.Name = "pod2"
+
+			err := client.Create(context.TODO(), pod1)
+			Expect(err).NotTo(HaveOccurred())
+			err = client.Create(context.TODO(), pod2)
+			Expect(err).NotTo(HaveOccurred())
+
+			pods := &corev1.PodList{}
+			err = client.List(context.TODO(), pods, ctrlClient.MatchingFields{"metadata.name": "pod1"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			Expect(pods.Items[0].Name).To(Equal("pod1"))
+		})
+	})
+
+	When("creating an event", func() {
+		It("should create the event", func() {
+			pod := createDummyPod()
+			pod.ObjectMeta.UID = uuid.NewUUID()
+			client.Event(pod, "Testing", "This is a test", "Test message")
+			events := &corev1.EventList{}
+			err := client.List(context.TODO(), events)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(events.Items)).To(Equal(1))
+			Expect(events.Items[0].Namespace).To(Equal("default"))
+			Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+			Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+			Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+			Expect(events.Items[0].InvolvedObject.UID).To(Equal(pod.ObjectMeta.UID))
+			Expect(events.Items[0].Type).To(Equal("Testing"))
+			Expect(events.Items[0].Reason).To(Equal("This is a test"))
+			Expect(events.Items[0].Message).To(Equal("Test message"))
+			Expect(events.Items[0].EventTime.UnixNano()).NotTo(Equal(0))
+		})
+	})
+
+	When("creating an event with a message format", func() {
+		It("should create the event", func() {
+			client.Eventf(createDummyPod(), "Testing", "This is a test", "Test message: %d", 5)
+			events := &corev1.EventList{}
+			err := client.List(context.TODO(), events)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(events.Items)).To(Equal(1))
+			Expect(events.Items[0].Namespace).To(Equal("default"))
+			Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+			Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+			Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+			Expect(events.Items[0].Type).To(Equal("Testing"))
+			Expect(events.Items[0].Reason).To(Equal("This is a test"))
+			Expect(events.Items[0].Message).To(Equal("Test message: 5"))
+		})
+	})
+
+	When("creating an event with in the past", func() {
+		It("should create the event", func() {
+			timestamp := metav1.Time{Time: time.Now().Add(-1 * time.Minute)}
+			client.PastEventf(createDummyPod(), timestamp, "Testing", "This is a test", "Test message: %d", 5)
+			events := &corev1.EventList{}
+			err := client.List(context.TODO(), events)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(events.Items)).To(Equal(1))
+			Expect(events.Items[0].Namespace).To(Equal("default"))
+			Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+			Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+			Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+			Expect(events.Items[0].Type).To(Equal("Testing"))
+			Expect(events.Items[0].Reason).To(Equal("This is a test"))
+			Expect(events.Items[0].Message).To(Equal("Test message: 5"))
+			Expect(events.Items[0].EventTime.Unix()).To(Equal(timestamp.Unix()))
+		})
+	})
+
+	When("creating an event with annotations", func() {
+		It("should create the event", func() {
+			client.AnnotatedEventf(createDummyPod(), map[string]string{"anno": "value"}, "Testing", "This is a test", "Test message: %d", 5)
+			events := &corev1.EventList{}
+			err := client.List(context.TODO(), events)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(events.Items)).To(Equal(1))
+			Expect(events.Items[0].Namespace).To(Equal("default"))
+			Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
+			Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
+			Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
+			Expect(events.Items[0].Type).To(Equal("Testing"))
+			Expect(events.Items[0].Reason).To(Equal("This is a test"))
+			Expect(events.Items[0].Message).To(Equal("Test message: 5"))
+			Expect(events.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{"anno": "value"}))
+		})
+	})
+})
 
 func sortPodsByName(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
 		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
 	})
-}
-
-func TestListingObjects(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-
-	pod1 := createDummyPod()
-	pod2 := createDummyPod()
-	pod2.Name = "pod2"
-
-	err := client.Create(context.TODO(), pod1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = client.Create(context.TODO(), pod2)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	pods := &corev1.PodList{}
-	err = client.List(context.TODO(), pods)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(pods.Items)).To(Equal(2))
-
-	sortPodsByName(pods)
-	g.Expect(pods.Items[0].Name).To(Equal("pod1"))
-	g.Expect(pods.Items[1].Name).To(Equal("pod2"))
-}
-
-func TestListingObjectsByNamespace(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-
-	pod1 := createDummyPod()
-	pod2 := createDummyPod()
-	pod2.Name = "pod2"
-
-	err := client.Create(context.TODO(), pod1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = client.Create(context.TODO(), pod2)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	pods := &corev1.PodList{}
-	err = client.List(context.TODO(), pods, ctrlClient.InNamespace("default"))
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(pods.Items)).To(Equal(2))
-
-	err = client.List(context.TODO(), pods, ctrlClient.InNamespace("not-default"))
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(pods.Items)).To(Equal(0))
-}
-
-func TestListingObjectsByLabel(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-
-	pod1 := createDummyPod()
-	pod2 := createDummyPod()
-	pod2.Name = "pod2"
-	pod2.ObjectMeta.Labels["app"] = "app2"
-	pod3 := createDummyPod()
-	pod3.Name = "pod3"
-	pod3.Labels = nil
-
-	err := client.Create(context.TODO(), pod1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = client.Create(context.TODO(), pod2)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = client.Create(context.TODO(), pod3)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	pods := &corev1.PodList{}
-	err = client.List(context.TODO(), pods, ctrlClient.MatchingLabels(map[string]string{"app": "app2"}))
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(pods.Items)).To(Equal(1))
-	g.Expect(pods.Items[0].Name).To(Equal("pod2"))
-
-	appRequirement, err := labels.NewRequirement("app", selection.Exists, nil)
-	g.Expect(err).NotTo(HaveOccurred())
-	pods = &corev1.PodList{}
-	err = client.List(context.TODO(), pods, ctrlClient.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*appRequirement)})
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(pods.Items)).To(Equal(2))
-	sortPodsByName(pods)
-	g.Expect(pods.Items[0].Name).To(Equal("pod1"))
-	g.Expect(pods.Items[1].Name).To(Equal("pod2"))
-}
-
-func TestListingObjectsByField(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-
-	pod1 := createDummyPod()
-	pod2 := createDummyPod()
-	pod2.Name = "pod2"
-
-	err := client.Create(context.TODO(), pod1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = client.Create(context.TODO(), pod2)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	pods := &corev1.PodList{}
-	err = client.List(context.TODO(), pods, ctrlClient.MatchingFields{"metadata.name": "pod1"})
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(pods.Items)).To(Equal(1))
-	g.Expect(pods.Items[0].Name).To(Equal("pod1"))
-}
-
-func TestCreatingEvent(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-	pod := createDummyPod()
-	pod.ObjectMeta.UID = uuid.NewUUID()
-	client.Event(pod, "Testing", "This is a test", "Test message")
-	events := &corev1.EventList{}
-	err := client.List(context.TODO(), events)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(events.Items)).To(Equal(1))
-	g.Expect(events.Items[0].Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
-	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
-	g.Expect(events.Items[0].InvolvedObject.UID).To(Equal(pod.ObjectMeta.UID))
-	g.Expect(events.Items[0].Type).To(Equal("Testing"))
-	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
-	g.Expect(events.Items[0].Message).To(Equal("Test message"))
-	g.Expect(events.Items[0].EventTime.UnixNano()).NotTo(Equal(0))
-}
-
-func TestCreatingEventWithMessageFormat(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-	client.Eventf(createDummyPod(), "Testing", "This is a test", "Test message: %d", 5)
-	events := &corev1.EventList{}
-	err := client.List(context.TODO(), events)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(events.Items)).To(Equal(1))
-	g.Expect(events.Items[0].Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
-	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
-	g.Expect(events.Items[0].Type).To(Equal("Testing"))
-	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
-	g.Expect(events.Items[0].Message).To(Equal("Test message: 5"))
-}
-
-func TestCreatingEventInPast(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-	timestamp := metav1.Time{Time: time.Now().Add(-1 * time.Minute)}
-
-	client.PastEventf(createDummyPod(), timestamp, "Testing", "This is a test", "Test message: %d", 5)
-	events := &corev1.EventList{}
-	err := client.List(context.TODO(), events)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(events.Items)).To(Equal(1))
-	g.Expect(events.Items[0].Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
-	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
-	g.Expect(events.Items[0].Type).To(Equal("Testing"))
-	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
-	g.Expect(events.Items[0].Message).To(Equal("Test message: 5"))
-	g.Expect(events.Items[0].EventTime.Unix()).To(Equal(timestamp.Unix()))
-}
-
-func TestCreatingEventWithAnnotations(t *testing.T) {
-	g := NewWithT(t)
-	client := &MockClient{}
-
-	client.AnnotatedEventf(createDummyPod(), map[string]string{"anno": "value"}, "Testing", "This is a test", "Test message: %d", 5)
-	events := &corev1.EventList{}
-	err := client.List(context.TODO(), events)
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(len(events.Items)).To(Equal(1))
-	g.Expect(events.Items[0].Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].Name).To(HavePrefix("Testing-"))
-	g.Expect(events.Items[0].InvolvedObject.Namespace).To(Equal("default"))
-	g.Expect(events.Items[0].InvolvedObject.Name).To(Equal("pod1"))
-	g.Expect(events.Items[0].Type).To(Equal("Testing"))
-	g.Expect(events.Items[0].Reason).To(Equal("This is a test"))
-	g.Expect(events.Items[0].Message).To(Equal("Test message: 5"))
-	g.Expect(events.Items[0].ObjectMeta.Annotations).To(Equal(map[string]string{"anno": "value"}))
 }
