@@ -117,7 +117,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 	if !supportedVersion {
-		return ctrl.Result{}, fmt.Errorf("Version %s is not supported", cluster.Spec.Version)
+		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
 	}
 
 	subReconcilers := []ClusterSubReconciler{

@@ -12,7 +12,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ContainerOverrides](#containeroverrides)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
-* [FdbVersion](#fdbversion)
 * [FoundationDBCluster](#foundationdbcluster)
 * [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
 * [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
@@ -160,18 +159,6 @@ DatabaseConfiguration represents the configuration of the database
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
 | RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
 | VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
-
-[Back to TOC](#table-of-contents)
-
-## FdbVersion
-
-FdbVersion represents a version of FoundationDB.  This provides convenience methods for checking features available in different versions.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| Major | Major is the major version | int | false |
-| Minor | Minor is the minor version | int | false |
-| Patch | Patch is the patch version | int | false |
 
 [Back to TOC](#table-of-contents)
 

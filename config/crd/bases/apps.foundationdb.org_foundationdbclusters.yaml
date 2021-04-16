@@ -7600,6 +7600,7 @@ spec:
                 updatePodsByReplacement:
                   type: boolean
                 version:
+                  pattern: ^(\d+)\.(\d+)\.(\d+)$
                   type: string
                 volumeClaim:
                   properties:
