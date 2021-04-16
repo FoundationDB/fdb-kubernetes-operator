@@ -2,6 +2,10 @@ package e2e
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
+	"time"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,11 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"math/rand"
 	controllerRuntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"time"
 )
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz123456789")
@@ -58,6 +59,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 		_ = clientgoscheme.AddToScheme(scheme)
 		_ = fdbtypes.AddToScheme(scheme)
 		runtimeClient, err = client.New(config, client.Options{Scheme: scheme})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
@@ -79,7 +81,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 
 			testCluster = &fdbtypes.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: randStringRunes(32),
+					Name:      randStringRunes(32),
 					Namespace: namespace,
 				},
 				Spec: fdbtypes.FoundationDBClusterSpec{
@@ -91,10 +93,10 @@ var _ = Describe("[e2e] cluster tests", func() {
 						RedundancyMode: "single",
 					},
 					ProcessCounts: fdbtypes.ProcessCounts{
-						Storage: 1,
-						Log: -1,
+						Storage:           1,
+						Log:               -1,
 						ClusterController: -1,
-						Stateless: -1,
+						Stateless:         -1,
 					},
 					Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {
@@ -105,7 +107,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 											Name: "foundationdb",
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
-													corev1.ResourceCPU: desiredCPU,
+													corev1.ResourceCPU:    desiredCPU,
 													corev1.ResourceMemory: desiredMemory,
 												},
 											},
@@ -114,7 +116,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 											Name: "foundationdb-kubernetes-sidecar",
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
-													corev1.ResourceCPU: desiredCPU,
+													corev1.ResourceCPU:    desiredCPU,
 													corev1.ResourceMemory: desiredMemory,
 												},
 											},
@@ -125,7 +127,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 											Name: "foundationdb-kubernetes-init",
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
-													corev1.ResourceCPU: desiredCPU,
+													corev1.ResourceCPU:    desiredCPU,
 													corev1.ResourceMemory: desiredMemory,
 												},
 											},
@@ -133,7 +135,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 									},
 								},
 							},
-						VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+							VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 								Spec: corev1.PersistentVolumeClaimSpec{
 									Resources: corev1.ResourceRequirements{
 										Requests: corev1.ResourceList{
@@ -141,7 +143,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 										},
 									},
 								},
-						},
+							},
 						},
 					},
 				},
@@ -156,7 +158,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 			Eventually(func() bool {
 				resCluster := &fdbtypes.FoundationDBCluster{}
 				_ = runtimeClient.Get(context.Background(), client.ObjectKey{
-					Name: testCluster.Name,
+					Name:      testCluster.Name,
 					Namespace: testCluster.Namespace,
 				}, resCluster)
 
@@ -183,7 +185,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 				counter++
 
 				return false
-			}, 180 * time.Second, 1 * time.Second).Should(BeTrue())
+			}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			Expect(true).To(BeTrue())
 		})
 
