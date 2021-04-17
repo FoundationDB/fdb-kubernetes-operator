@@ -20,6 +20,8 @@ jobs:
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
+        # Otherwise we can't rerun this to build new binaries
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -55,6 +57,8 @@ jobs:
           if [[ "${RUNNER_OS}" == "macOS" ]];then
               curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/macOS/installers/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
               sudo installer -allowUntrusted -verbose -pkg ./fdb.pkg -target /
+              # required later for calculating the sha256
+              brew install coreutils
           else
               curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
               sudo dpkg -i fdb.deb
@@ -68,6 +72,12 @@ jobs:
       #     go get -v -t -d ./...
       - name: Build
         run: TAG=${{ needs.create-release.outputs.tag }} make plugin package
+      - name: Test binary
+        run: ./bin/kubectl-fdb version --client-only
+      - name: Create sha256 for assert
+        run: |
+          cp ./bin/kubectl-fdb.tar.gz ${{ steps.set_package_name.outputs.package_name }}
+          sha256sum ${{ steps.set_package_name.outputs.package_name }} > ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
       - name: Upload Release asset
         uses: actions/upload-release-asset@v1
         env:
@@ -77,8 +87,6 @@ jobs:
           asset_path: ./bin/kubectl-fdb.tar.gz
           asset_name: ${{ steps.set_package_name.outputs.package_name }}
           asset_content_type: application/gzip
-      - name: Create sha256 for assert
-        run: echo "${{ hashFiles('./bin/kubectl-fdb.tar.gz') }}" > ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
       - name: Upload sha256 for asset
         uses: actions/upload-release-asset@v1
         env:
