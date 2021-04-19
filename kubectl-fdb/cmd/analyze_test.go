@@ -341,8 +341,10 @@ func TestAnalyze(t *testing.T) {
 			outBuffer := bytes.Buffer{}
 			errBuffer := bytes.Buffer{}
 			inBuffer := bytes.Buffer{}
-			cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-			err := analyzeCluster(cmd, kubeClient, clusterName, namespace, false)
+
+			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+			cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, rootCmd)
+			err := analyzeCluster(cmd, kubeClient, clusterName, namespace, false, false)
 
 			if err != nil && !tc.HasErrors {
 				t.Errorf("Expected no error but got: %s\n", err.Error())
