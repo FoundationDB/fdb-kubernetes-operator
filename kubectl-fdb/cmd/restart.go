@@ -21,14 +21,10 @@
 package cmd
 
 import (
-	ctx "context"
 	"fmt"
 	"log"
 
-	corev1 "k8s.io/api/core/v1"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -58,12 +54,16 @@ func newRestartCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 			if err != nil {
 				return err
 			}
-			allProcessesIncorrectCMD, err := cmd.Flags().GetBool("all-processes-with-incorrect-cmd")
+			processConditions, err := cmd.Flags().GetStringArray("process-condition")
+			if err != nil {
+				return err
+			}
+			conditions, err := convertConditions(processConditions)
 			if err != nil {
 				return err
 			}
 
-			if len(args) == 0 && !allProcesses && !allProcessesIncorrectCMD {
+			if len(args) == 0 && !allProcesses && len(conditions) == 0 {
 				return cmd.Help()
 			}
 
@@ -100,8 +100,8 @@ func newRestartCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 				for _, pod := range pods.Items {
 					processes = append(processes, pod.Name)
 				}
-			} else if allProcessesIncorrectCMD {
-				processes, err = getAllPodsFromCluster(kubeClient, clusterName, namespace)
+			} else if len(conditions) > 0 {
+				processes, err = getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, conditions)
 				if err != nil {
 					return err
 				}
@@ -121,14 +121,14 @@ kubectl fdb -n default restart -c cluster pod-1 pod-2
 # Restart all processes for a cluster
 kubectl fdb restart -c cluster --all-processes
 
-# Restart all processes for a cluster that have the condition IncorrectCommandLine
-kubectl fdb restart -c cluster --all-processes-with-incorrect-cmd
+# Restart all processes for a cluster that have the given condition
+kubectl fdb restart -c cluster --process-condition=MissingProcesses
 `,
 	}
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "restart processes(s) from the provided cluster.")
 	cmd.Flags().Bool("all-processes", false, "restart all processes of this cluster.")
-	cmd.Flags().Bool("all-processes-with-incorrect-cmd", false, "restart all processes of this cluster with the condition \"IncorrectCommandLine\".")
+	cmd.Flags().StringArray("process-condition", []string{}, "restart all processes with the given process conditions.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
 		log.Fatal(err)
@@ -142,45 +142,19 @@ kubectl fdb restart -c cluster --all-processes-with-incorrect-cmd
 	return cmd
 }
 
-func getAllPodsFromCluster(kubeClient client.Client, clusterName string, namespace string) ([]string, error) {
-	var cluster fdbtypes.FoundationDBCluster
-	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      clusterName,
-	}, &cluster)
-	if err != nil {
-		return []string{}, err
-	}
+func convertConditions(inputConditions []string) ([]fdbtypes.ProcessGroupConditionType, error) {
+	res := make([]fdbtypes.ProcessGroupConditionType, 0, len(inputConditions))
 
-	incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine)
-	processes := make([]string, 0, len(incorrectProcesses))
-
-	pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
-	if err != nil {
-		return processes, err
-	}
-
-	for _, pod := range pods.Items {
-		found := false
-		for _, incorrectProcess := range incorrectProcesses {
-			if pod.Status.Phase != corev1.PodRunning {
-				continue
-			}
-
-			if pod.Labels[controllers.FDBInstanceIDLabel] == incorrectProcess {
-				found = true
-				break
-			}
+	for _, inputCondition := range inputConditions {
+		cond, err := fdbtypes.GetProcessGroupConditionType(inputCondition)
+		if err != nil {
+			return res, err
 		}
 
-		if !found {
-			continue
-		}
-
-		processes = append(processes, pod.Name)
+		res = append(res, cond)
 	}
 
-	return processes, nil
+	return res, nil
 }
 
 func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, force bool) error {

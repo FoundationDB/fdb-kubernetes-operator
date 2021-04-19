@@ -24,6 +24,8 @@ import (
 	"bytes"
 	ctx "context"
 
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -124,4 +126,49 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, name 
 	})
 
 	return &stdout, &stderr, err
+}
+
+func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbtypes.ProcessGroupConditionType) ([]string, error) {
+	var cluster fdbtypes.FoundationDBCluster
+	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      clusterName,
+	}, &cluster)
+	if err != nil {
+		return []string{}, err
+	}
+
+	processesSet := make(map[string]bool)
+
+	for _, condition := range conditions {
+		for _, process := range fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, condition) {
+			if _, ok := processesSet[process]; ok {
+				continue
+			}
+
+			processesSet[process] = true
+		}
+	}
+
+	processes := make([]string, 0, len(processesSet))
+	pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
+	if err != nil {
+		return processes, err
+	}
+
+	for _, pod := range pods.Items {
+		for process := range processesSet {
+			if pod.Status.Phase != corev1.PodRunning {
+				continue
+			}
+
+			if pod.Labels[controllers.FDBInstanceIDLabel] != process {
+				continue
+			}
+
+			processes = append(processes, pod.Name)
+		}
+	}
+
+	return processes, nil
 }

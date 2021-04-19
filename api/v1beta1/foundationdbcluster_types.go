@@ -640,6 +640,30 @@ const (
 	MissingProcesses ProcessGroupConditionType = "MissingProcesses"
 )
 
+// GetProcessGroupConditionType returns the ProcessGroupConditionType for the matching string or an error
+func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGroupConditionType, error) {
+	switch processGroupConditionType {
+	case "IncorrectPodSpec":
+		return IncorrectPodSpec, nil
+	case "IncorrectConfigMap":
+		return IncorrectConfigMap, nil
+	case "IncorrectCommandLine":
+		return IncorrectCommandLine, nil
+	case "PodFailing":
+		return PodFailing, nil
+	case "MissingPod":
+		return MissingPod, nil
+	case "MissingPVC":
+		return MissingPVC, nil
+	case "MissingService":
+		return MissingService, nil
+	case "MissingProcesses":
+		return MissingProcesses, nil
+	}
+
+	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
+}
+
 // ClusterGenerationStatus stores information on which generations have reached
 // different stages in reconciliation for the cluster.
 type ClusterGenerationStatus struct {
