@@ -44,7 +44,6 @@ var _ = Describe("[plugin] exec command", func() {
 		var podList corev1.PodList
 
 		type testCase struct {
-			Name          string
 			ClusterName   string
 			Context       string
 			Command       []string

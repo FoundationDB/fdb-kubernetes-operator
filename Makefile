@@ -8,6 +8,12 @@ ifneq "$(FDB_WEBSITE)" ""
 	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
 endif
 
+ifndef RUN_E2E
+	 GINKGO_SKIP := -ginkgo.skip='[e2e]'
+endif
+
+
+
 # TAG is used to define the version in the kubectl-fdb plugin.
 # If not defined we use the current git hash.
 ifndef TAG
@@ -46,14 +52,14 @@ clean:
 # Run tests
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out
+	go test ${go_test_flags} ./... -coverprofile cover.out $(GINKGO_SKIP)
 endif
 
 test_if_changed: cover.out
 
 cover.out: ${GO_ALL} ${MANIFESTS}
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -tags test
+	go test ${go_test_flags} ./... -coverprofile cover.out -tags test $(GINKGO_SKIP)
 endif
 
 # Build manager binary

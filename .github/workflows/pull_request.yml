@@ -139,7 +139,7 @@ jobs:
         kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
         # Check if all resources can be applied
         kubectl apply --dry-run=server -f ./config/samples
-        make test
+        RUN_E2E=true make test
         # Change the image back to the default otherwise the next check will complain
         cd config/manager && kustomize edit set image controller=fdb-kubernetes-operator:latest
     - name: Check for uncommitted changes
