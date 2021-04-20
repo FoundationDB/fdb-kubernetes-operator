@@ -47,20 +47,10 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 			return false, MissingPodError(instance, cluster)
 		}
 
-		settings := cluster.GetProcessSettings(instance.GetProcessClass())
-
-		image := cluster.Spec.SidecarContainer.ImageName
-		if settings.PodTemplate != nil {
-			for _, container := range settings.PodTemplate.Spec.Containers {
-				if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
-					image = container.Image
-				}
-			}
+		image, err := getSidecarImage(cluster, instance)
+		if err != nil {
+			return false, err
 		}
-		if image == "" {
-			image = "foundationdb/foundationdb-kubernetes-sidecar"
-		}
-		image = fmt.Sprintf("%s:%s", image, cluster.GetFullSidecarVersion(false))
 
 		for containerIndex, container := range instance.Pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
@@ -73,10 +63,27 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 			}
 		}
 	}
+
 	if upgraded {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "SidecarUpgraded", fmt.Sprintf("New version: %s", cluster.Spec.Version))
 	}
+
 	return true, nil
+}
+
+func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (string, error) {
+	settings := cluster.GetProcessSettings(instance.GetProcessClass())
+
+	image := ""
+	if settings.PodTemplate != nil {
+		for _, container := range settings.PodTemplate.Spec.Containers {
+			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+				image = container.Image
+			}
+		}
+	}
+
+	return getImage(cluster.Spec.SidecarContainer.ImageName, image, "foundationdb/foundationdb-kubernetes-sidecar", cluster.GetFullSidecarVersion(false), settings.GetAllowTagOverride())
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
