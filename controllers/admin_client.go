@@ -503,6 +503,7 @@ func (client *CliAdminClient) VersionSupported(versionString string) (bool, erro
 		}
 		return false, err
 	}
+
 	return true, nil
 }
 
