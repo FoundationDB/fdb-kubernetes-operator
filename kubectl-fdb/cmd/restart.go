@@ -157,6 +157,7 @@ func convertConditions(inputConditions []string) ([]fdbtypes.ProcessGroupConditi
 	return res, nil
 }
 
+//nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
 func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, force bool) error {
 	if !force {
 		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", processes, namespace, clusterName))
