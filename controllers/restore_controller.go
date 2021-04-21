@@ -30,7 +30,6 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,19 +41,8 @@ type FoundationDBRestoreReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
-	scheme              *runtime.Scheme
 	InSimulation        bool
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
-}
-
-// SetScheme sets the current runtime Scheme
-func (r *FoundationDBRestoreReconciler) SetScheme(scheme *runtime.Scheme) {
-	r.scheme = scheme
-}
-
-// Scheme returns the current runtime Scheme
-func (r *FoundationDBRestoreReconciler) Scheme() *runtime.Scheme {
-	return r.scheme
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores,verbs=get;list;watch;create;update;patch;delete

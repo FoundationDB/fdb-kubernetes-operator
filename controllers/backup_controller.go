@@ -31,7 +31,6 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,19 +42,8 @@ type FoundationDBBackupReconciler struct {
 	client.Client
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
-	scheme              *runtime.Scheme
 	InSimulation        bool
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
-}
-
-// SetScheme sets the current runtime Scheme
-func (r *FoundationDBBackupReconciler) SetScheme(scheme *runtime.Scheme) {
-	r.scheme = scheme
-}
-
-// Scheme returns the current runtime Scheme
-func (r *FoundationDBBackupReconciler) Scheme() *runtime.Scheme {
-	return r.scheme
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
