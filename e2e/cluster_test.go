@@ -154,47 +154,23 @@ var _ = Describe("[e2e] cluster tests", func() {
 		})
 
 		It("should reconcile successfully", func() {
-			counter := 0
-			Eventually(func() bool {
-				resCluster := &fdbtypes.FoundationDBCluster{}
-				_ = runtimeClient.Get(context.Background(), client.ObjectKey{
-					Name:      testCluster.Name,
-					Namespace: testCluster.Namespace,
-				}, resCluster)
-
-				if resCluster.Status.Generations.Reconciled == resCluster.ObjectMeta.Generation && resCluster.Status.Health.Available {
-					return true
-				}
-
-				// roughly every 10 seconds force a reconcile if something takes longer
-				if counter >= 10 {
-					patch := client.MergeFrom(resCluster.DeepCopy())
-					if resCluster.Annotations == nil {
-						resCluster.Annotations = make(map[string]string)
-					}
-					resCluster.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(time.Now().UnixNano(), 10)
-					// This will apply an Annotation to the object which will trigger the reconcile loop.
-					// This should speed up the reconcile phase.
-					_ = runtimeClient.Patch(
-						context.Background(),
-						resCluster,
-						patch)
-
-					counter = 0
-				}
-				counter++
-
-				return false
-			}, 180*time.Second, 1*time.Second).Should(BeTrue())
-			Expect(true).To(BeTrue())
+			clusterReconciled(runtimeClient, testCluster)
 		})
 
-		AfterEach(func() {
-			err := runtimeClient.Delete(context.Background(), testCluster)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		When("changing the storageServerPerPod", func() {
+			BeforeEach(func() {
+				clusterReconciled(runtimeClient, testCluster)
+				// Change the number of storage servers per pod
+				patch := client.MergeFrom(testCluster.DeepCopy())
+				testCluster.Spec.StorageServersPerPod = 2
+				err := runtimeClient.Patch(context.TODO(), testCluster, patch)
+				Expect(err).NotTo(HaveOccurred())
+			})
 
-		// TODO: test an upgrade
+			It("should reconcile successfully", func() {
+				clusterReconciled(runtimeClient, testCluster)
+			})
+		})
 	})
 
 	AfterEach(func() {
@@ -202,3 +178,38 @@ var _ = Describe("[e2e] cluster tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
+
+func clusterReconciled(runtimeClient client.Client, testCluster *fdbtypes.FoundationDBCluster) {
+	counter := 0
+	Eventually(func() bool {
+		resCluster := &fdbtypes.FoundationDBCluster{}
+		_ = runtimeClient.Get(context.Background(), client.ObjectKey{
+			Name:      testCluster.Name,
+			Namespace: testCluster.Namespace,
+		}, resCluster)
+
+		if resCluster.Status.Generations.Reconciled == resCluster.ObjectMeta.Generation && resCluster.Status.Health.Available {
+			return true
+		}
+
+		// roughly every 10 seconds force a reconcile if something takes longer
+		if counter >= 10 {
+			patch := client.MergeFrom(resCluster.DeepCopy())
+			if resCluster.Annotations == nil {
+				resCluster.Annotations = make(map[string]string)
+			}
+			resCluster.Annotations["foundationdb.org/reconcile"] = strconv.FormatInt(time.Now().UnixNano(), 10)
+			// This will apply an Annotation to the object which will trigger the reconcile loop.
+			// This should speed up the reconcile phase.
+			_ = runtimeClient.Patch(
+				context.Background(),
+				resCluster,
+				patch)
+
+			counter = 0
+		}
+		counter++
+
+		return false
+	}, 180*time.Second, 1*time.Second).Should(BeTrue())
+}

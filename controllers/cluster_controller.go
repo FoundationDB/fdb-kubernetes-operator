@@ -123,6 +123,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	subReconcilers := []ClusterSubReconciler{
 		UpdateStatus{},
 		UpdateLockConfiguration{},
+		UpdateConfigMap{},
 		CheckClientCompatibility{},
 		ReplaceMisconfiguredPods{},
 		ReplaceFailedPods{},
@@ -133,7 +134,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		AddPods{},
 		GenerateInitialClusterFile{},
 		UpdateSidecarVersions{},
-		UpdateConfigMap{},
+		UpdatePodConfig{},
 		UpdateLabels{},
 		UpdateDatabaseConfiguration{},
 		ChooseRemovals{},
