@@ -22,24 +22,31 @@ package cmd
 
 import (
 	"bytes"
-	"testing"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-func TestRestartCmdFlags(t *testing.T) {
-	// We use these buffers to check the input/output
-	outBuffer := bytes.Buffer{}
-	errBuffer := bytes.Buffer{}
-	inBuffer := bytes.Buffer{}
+var _ = Describe("[plugin] root command", func() {
+	When("running the root command without args", func() {
+		var outBuffer bytes.Buffer
+		var errBuffer bytes.Buffer
+		var inBuffer bytes.Buffer
 
-	rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+		BeforeEach(func() {
+			// We use these buffers to check the input/output
+			outBuffer = bytes.Buffer{}
+			errBuffer = bytes.Buffer{}
+			inBuffer = bytes.Buffer{}
+		})
 
-	args := []string{"restart", "-c", "sample"}
-	rootCmd.SetArgs(args)
+		It("should not throw an error", func() {
+			cmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
 
-	err := rootCmd.Execute()
-	if err != nil {
-		t.Error(err)
-	}
-}
+			args := []string{"restart", "-c", "sample"}
+			cmd.SetArgs(args)
+			Expect(cmd.Execute()).NotTo(HaveOccurred())
+		})
+	})
+})
