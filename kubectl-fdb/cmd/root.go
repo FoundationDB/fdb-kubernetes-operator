@@ -75,6 +75,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		newRemoveCmd(streams, cmd),
 		newExecCmd(streams),
 		newCordonCmd(streams, cmd),
+		newRestartCmd(streams, cmd),
 	)
 
 	return cmd
