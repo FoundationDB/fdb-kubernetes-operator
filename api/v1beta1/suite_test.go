@@ -16,6 +16,13 @@ limitations under the License.
 
 package v1beta1
 
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
 var Versions = struct {
 	NextMajorVersion,
 	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
@@ -37,4 +44,9 @@ var Versions = struct {
 	WithoutRatekeeperRole:                FdbVersion{Major: 6, Minor: 1, Patch: 12},
 	WithSidecarCrashOnEmpty:              FdbVersion{Major: 6, Minor: 2, Patch: 20},
 	WithoutSidecarCrashOnEmpty:           FdbVersion{Major: 6, Minor: 2, Patch: 15},
+}
+
+func TestCmd(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "FDB API")
 }

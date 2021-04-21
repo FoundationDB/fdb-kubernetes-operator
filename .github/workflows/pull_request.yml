@@ -134,15 +134,13 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
         # Generate secrets used by the operator
         ./config/test-certs/generate_secrets.bash
-        IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
+        SKIP_TEST=1 IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
         # Wait for the operator to start
         kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
         # Check if all resources can be applied
         kubectl apply --dry-run=server -f ./config/samples
-        # TODO run some e2e tests e.g. create cluster/delete cluster
-        # kubectl apply -f ./config/samples/cluster_local.yaml
+        RUN_E2E=true make test
         # Change the image back to the default otherwise the next check will complain
-        # TODO: changes should be ignored here e.g. template file.
         cd config/manager && kustomize edit set image controller=fdb-kubernetes-operator:latest
     - name: Check for uncommitted changes
       run: git diff --exit-code
