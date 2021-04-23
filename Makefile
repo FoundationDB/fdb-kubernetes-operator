@@ -52,14 +52,14 @@ clean:
 # Run tests
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out $(GINKGO_SKIP)
+	go test ${go_test_flags} ./... -coverprofile cover.out --ginkgo.randomizeAllSpecs $(GINKGO_SKIP)
 endif
 
 test_if_changed: cover.out
 
 cover.out: ${GO_ALL} ${MANIFESTS}
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -tags test $(GINKGO_SKIP)
+	go test ${go_test_flags} ./... -coverprofile cover.out --ginkgo.randomizeAllSpecs -tags test $(GINKGO_SKIP)
 endif
 
 # Build manager binary
