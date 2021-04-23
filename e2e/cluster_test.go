@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"io"
 	"log"
 	"math/rand"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 )
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz123456789")
+var failed = false
 
 // RandStringRunes randomly generates a string of length n
 func randStringRunes(n int) string {
@@ -47,6 +49,46 @@ func createNamespace(kubeClient *kubernetes.Clientset, namespace string) error {
 	_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{FieldManager: "foundationdb-ci"})
 	return err
 }
+
+var _ = AfterSuite(func() {
+	if !failed {
+		return
+	}
+
+	config, err := controllerRuntime.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+	kubeClient, err := kubernetes.NewForConfig(config)
+	Expect(err).NotTo(HaveOccurred())
+
+	operatorPod, err := kubeClient.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"app": "fdb-kubernetes-operator-controller-manager",
+		}).String()},
+	)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(len(operatorPod.Items)).To(BeNumerically("==", 1))
+	var sinceSeconds int64 = 300
+	podLogRequest := kubeClient.CoreV1().Pods("default").GetLogs(operatorPod.Items[0].Name, &corev1.PodLogOptions{
+		Follow:       false,
+		SinceSeconds:q&sinceSeconds,
+	})
+	stream, err := podLogRequest.Stream(context.TODO())
+	Expect(err).NotTo(HaveOccurred())
+	defer stream.Close()
+
+	for {
+		buf := make([]byte, 10000)
+		numBytes, err := stream.Read(buf)
+		if numBytes == 0 {
+			continue
+		}
+		if err == io.EOF {
+			break
+		}
+		Expect(err).NotTo(HaveOccurred())
+		log.Println(string(buf[:numBytes]))
+	}
+})
 
 var _ = Describe("[e2e] cluster tests", func() {
 	var namespace string
@@ -76,9 +118,9 @@ var _ = Describe("[e2e] cluster tests", func() {
 
 		BeforeEach(func() {
 			// This will bootstrap a minimal cluster with 1 Pod
-			desiredCPU, err := resource.ParseQuantity("10m")
+			desiredCPU, err := resource.ParseQuantity("100m")
 			Expect(err).NotTo(HaveOccurred())
-			desiredMemory, err := resource.ParseQuantity("64Mi")
+			desiredMemory, err := resource.ParseQuantity("128Mi")
 			Expect(err).NotTo(HaveOccurred())
 			desiredStorage, err := resource.ParseQuantity("8Gi")
 			Expect(err).NotTo(HaveOccurred())
@@ -178,6 +220,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 	})
 
 	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
 		err := kubeClient.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -230,5 +273,5 @@ func clusterReconciled(runtimeClient client.Client, testCluster *fdbtypes.Founda
 		counter++
 
 		return false
-	}, 180*time.Second, 1*time.Second).Should(BeTrue())
+	}, 300*time.Second, 1*time.Second).Should(BeTrue())
 }
