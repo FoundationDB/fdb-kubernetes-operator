@@ -70,7 +70,7 @@ var _ = AfterSuite(func() {
 	var sinceSeconds int64 = 300
 	podLogRequest := kubeClient.CoreV1().Pods("default").GetLogs(operatorPod.Items[0].Name, &corev1.PodLogOptions{
 		Follow:       false,
-		SinceSeconds:q&sinceSeconds,
+		SinceSeconds: &sinceSeconds,
 	})
 	stream, err := podLogRequest.Stream(context.TODO())
 	Expect(err).NotTo(HaveOccurred())
@@ -79,10 +79,7 @@ var _ = AfterSuite(func() {
 	for {
 		buf := make([]byte, 10000)
 		numBytes, err := stream.Read(buf)
-		if numBytes == 0 {
-			continue
-		}
-		if err == io.EOF {
+		if numBytes == 0 || err == io.EOF {
 			break
 		}
 		Expect(err).NotTo(HaveOccurred())
