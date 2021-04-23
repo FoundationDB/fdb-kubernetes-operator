@@ -2,9 +2,13 @@ package e2e
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"strconv"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"k8s.io/apimachinery/pkg/labels"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -72,11 +76,11 @@ var _ = Describe("[e2e] cluster tests", func() {
 
 		BeforeEach(func() {
 			// This will bootstrap a minimal cluster with 1 Pod
-			desiredCPU, err := resource.ParseQuantity("100m")
+			desiredCPU, err := resource.ParseQuantity("10m")
 			Expect(err).NotTo(HaveOccurred())
-			desiredMemory, err := resource.ParseQuantity("128Mi")
+			desiredMemory, err := resource.ParseQuantity("64Mi")
 			Expect(err).NotTo(HaveOccurred())
-			desiredStorage, err := resource.ParseQuantity("16Gi")
+			desiredStorage, err := resource.ParseQuantity("8Gi")
 			Expect(err).NotTo(HaveOccurred())
 
 			testCluster = &fdbtypes.FoundationDBCluster{
@@ -154,12 +158,12 @@ var _ = Describe("[e2e] cluster tests", func() {
 		})
 
 		It("should reconcile successfully", func() {
-			clusterReconciled(runtimeClient, testCluster)
+			clusterReconciled(runtimeClient, testCluster, kubeClient)
 		})
 
 		When("changing the storageServerPerPod", func() {
 			BeforeEach(func() {
-				clusterReconciled(runtimeClient, testCluster)
+				clusterReconciled(runtimeClient, testCluster, kubeClient)
 				// Change the number of storage servers per pod
 				patch := client.MergeFrom(testCluster.DeepCopy())
 				testCluster.Spec.StorageServersPerPod = 2
@@ -168,7 +172,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 			})
 
 			It("should reconcile successfully", func() {
-				clusterReconciled(runtimeClient, testCluster)
+				clusterReconciled(runtimeClient, testCluster, kubeClient)
 			})
 		})
 	})
@@ -179,7 +183,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 	})
 })
 
-func clusterReconciled(runtimeClient client.Client, testCluster *fdbtypes.FoundationDBCluster) {
+func clusterReconciled(runtimeClient client.Client, testCluster *fdbtypes.FoundationDBCluster, kubeClient *kubernetes.Clientset) {
 	counter := 0
 	Eventually(func() bool {
 		resCluster := &fdbtypes.FoundationDBCluster{}
@@ -205,6 +209,21 @@ func clusterReconciled(runtimeClient client.Client, testCluster *fdbtypes.Founda
 				context.Background(),
 				resCluster,
 				patch)
+
+			pods, err := kubeClient.CoreV1().Pods(resCluster.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labels.SelectorFromSet(map[string]string{
+					controllers.FDBClusterLabel: resCluster.Name,
+				}).String()},
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, pod := range pods.Items {
+				if pod.Status.Phase == corev1.PodRunning {
+					continue
+				}
+
+				log.Printf("Pod name: %s status: %s, %s\n", pod.Name, pod.Status.Phase, pod.Status.Reason)
+			}
 
 			counter = 0
 		}
