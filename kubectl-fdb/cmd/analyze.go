@@ -211,19 +211,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	cmd.Printf("Checking cluster: %s/%s\n", namespace, clusterName)
 	patch := client.MergeFrom(cluster.DeepCopy())
 
-	// 1. Check if the cluster is available and healthy!
+	// 1. Check if the cluster is available
 	if cluster.Status.Health.Available {
 		printStatement(cmd, "Cluster is available", false)
 	} else {
 		foundIssues = true
 		printStatement(cmd, "Cluster is not available", true)
-	}
-
-	if cluster.Status.Health.Healthy {
-		printStatement(cmd, "Cluster is healthy", false)
-	} else {
-		foundIssues = true
-		printStatement(cmd, "Cluster is not healthy", true)
 	}
 
 	if cluster.Status.Health.FullReplication {
@@ -241,8 +234,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		printStatement(cmd, "Cluster is not reconciled", true)
 	}
 
-	// We could add here more field from cluster.Status.Generations and check if they are present.
-
+	// We could add here more fields from cluster.Status.Generations and check if they are present.
 	var replaceInstances []string
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
@@ -317,7 +309,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
 			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s stuck in terminating should be deleted since %s", namespace, pod.Name, pod.DeletionTimestamp)
+			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", namespace, pod.Name, pod.DeletionTimestamp)
 			printStatement(cmd, statement, true)
 
 			// The instance should be delete so we can safely replace it

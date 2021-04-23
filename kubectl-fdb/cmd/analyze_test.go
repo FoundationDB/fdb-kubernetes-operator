@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"testing"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -35,6 +34,10 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 )
 
 func getCluster(clusterName string, namespace string, available bool, healthy bool, fullReplication bool, reconciled int64, processGroups []*fdbtypes.ProcessGroupStatus) *fdbtypes.FoundationDBCluster {
@@ -73,7 +76,6 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 					Labels: map[string]string{
 						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						controllers.FDBClusterLabel:      clusterName,
-						controllers.FDBManagedByLabel:    "true",
 					},
 					DeletionTimestamp: deletionTimestamp,
 				},
@@ -84,296 +86,278 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 
 }
 
-func TestAnalyze(t *testing.T) {
+var _ = Describe("[plugin] analyze cluster", func() {
 	clusterName := "test"
 	namespace := "test"
 
-	tt := []struct {
-		Name             string
-		cluster          *fdbtypes.FoundationDBCluster
-		podList          *corev1.PodList
-		ExpectedErrMsg   string
-		ExpectedStdouMsg string
-		AutoFix          bool
-		HasErrors        bool
-	}{
-		{
-			Name: "Cluster is fine",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
-				{ProcessGroupID: "instance-1"},
-			}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: "",
-			ExpectedStdouMsg: `Checking cluster: test/test
-✔ Cluster is available
-✔ Cluster is healthy
-✔ Cluster is fully replicated
-✔ Cluster is reconciled
-✔ ProcessGroups are all in ready condition
-✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: false,
-		},
-		{
-			Name:    "Cluster is unavailable",
-			cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: "✖ Cluster is not available",
-			ExpectedStdouMsg: `Checking cluster: test/test
-✔ Cluster is healthy
-✔ Cluster is fully replicated
-✔ Cluster is reconciled
-✔ ProcessGroups are all in ready condition
-✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name:    "Cluster is unhealthy",
-			cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: "✖ Cluster is not healthy",
-			ExpectedStdouMsg: `Checking cluster: test/test
+	When("analyzing the cluster", func() {
+		type testCase struct {
+			cluster          *fdbtypes.FoundationDBCluster
+			podList          *corev1.PodList
+			ExpectedErrMsg   string
+			ExpectedStdouMsg string
+			AutoFix          bool
+			Force            bool
+			HasErrors        bool
+		}
+
+		DescribeTable("return all successful and failed checks",
+			func(tc testCase) {
+				scheme := runtime.NewScheme()
+				_ = clientgoscheme.AddToScheme(scheme)
+				_ = fdbtypes.AddToScheme(scheme)
+				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.cluster, tc.podList).Build()
+
+				// We use these buffers to check the input/output
+				outBuffer := bytes.Buffer{}
+				errBuffer := bytes.Buffer{}
+				inBuffer := bytes.Buffer{}
+
+				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
+				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, rootCmd)
+				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force)
+
+				if err != nil && !tc.HasErrors {
+					Expect(err).To(HaveOccurred())
+				}
+
+				Expect(strings.TrimSpace(tc.ExpectedErrMsg)).To(Equal(strings.TrimSpace(errBuffer.String())))
+				Expect(strings.TrimSpace(tc.ExpectedStdouMsg)).To(Equal(strings.TrimSpace(outBuffer.String())))
+			},
+			Entry("Cluster is fine",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "",
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name:    "Cluster is not fully replicated",
-			cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: "✖ Cluster is not fully replicated",
-			ExpectedStdouMsg: `Checking cluster: test/test
-✔ Cluster is available
-✔ Cluster is healthy
-✔ Cluster is reconciled
-✔ ProcessGroups are all in ready condition
-✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name:    "Cluster is not reconciled",
-			cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: "✖ Cluster is not reconciled",
-			ExpectedStdouMsg: `Checking cluster: test/test
-✔ Cluster is available
-✔ Cluster is healthy
-✔ Cluster is fully replicated
-✔ ProcessGroups are all in ready condition
-✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name: "ProcessGroup has a missing process",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
-				{
-					ProcessGroupID: "instance-1",
-					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-						fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
-					},
-				},
-			}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
-			ExpectedStdouMsg: `Checking cluster: test/test
-✔ Cluster is available
-✔ Cluster is healthy
-✔ Cluster is fully replicated
-✔ Cluster is reconciled
-✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name: "ProcessGroup has a missing process but is marked for removal",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
-				{
-					ProcessGroupID: "instance-1",
-					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-						fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
-					},
-					Remove: true,
-				},
-			}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			}, nil),
-			ExpectedErrMsg: "",
-			ExpectedStdouMsg: `Checking cluster: test/test
-✔ Cluster is available
-✔ Cluster is healthy
+					AutoFix:   false,
+					HasErrors: false,
+				}),
+			Entry("Cluster is unavailable",
+				testCase{
+					cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "✖ Cluster is not available",
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: false,
-		},
-		{
-			Name:    "Pod is in Pending phase",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodPending,
-			}, nil),
-			ExpectedErrMsg: "✖ Pod test/instance-1 has unexpected Phase Pending with Reason:",
-			ExpectedStdouMsg: `Checking cluster: test/test
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Cluster is unhealthy",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "",
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
-✔ Cluster is healthy
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
-✔ ProcessGroups are all in ready condition`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name:    "Container is in terminated state",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-				ContainerStatuses: []corev1.ContainerStatus{
-					{
-						Name:  "foundationdb",
-						Ready: false,
-						State: corev1.ContainerState{
-							Terminated: &corev1.ContainerStateTerminated{
-								ExitCode:   137,
-								FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+✔ ProcessGroups are all in ready condition
+✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Cluster is not fully replicated",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "✖ Cluster is not fully replicated",
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition
+✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Cluster is not reconciled",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "✖ Cluster is not reconciled",
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ ProcessGroups are all in ready condition
+✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("ProcessGroup has a missing process",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{
+							ProcessGroupID: "instance-1",
+							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
 							},
 						},
-					},
-				},
-			}, nil),
-			ExpectedErrMsg: "✖ Pod test/instance-1 has an unready container: foundationdb",
-			ExpectedStdouMsg: `Checking cluster: test/test
+					}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
-✔ Cluster is healthy
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
-✔ ProcessGroups are all in ready condition`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name:    "Container is in ready state",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase: corev1.PodRunning,
-				ContainerStatuses: []corev1.ContainerStatus{
-					{
-						Name:  "foundationdb",
-						Ready: true,
-					},
-				},
-			}, nil),
-			ExpectedErrMsg: "",
-			ExpectedStdouMsg: `Checking cluster: test/test
+✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("ProcessGroup has a missing process but is marked for removal",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{
+							ProcessGroupID: "instance-1",
+							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+							},
+							Remove: true,
+						},
+					}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "",
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
-✔ Cluster is healthy
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: false,
-		},
-		{
-			Name:    "Pod is stuck in terminating",
-			cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList: getPodList(clusterName, namespace, corev1.PodStatus{
-				Phase:             corev1.PodRunning,
-				ContainerStatuses: []corev1.ContainerStatus{},
-			}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-			ExpectedErrMsg: fmt.Sprintf("✖ Pod test/instance-1 stuck in terminating should be deleted since %s", time.Unix(time.Now().Add(-1*time.Hour).Unix(), 0).String()),
-			ExpectedStdouMsg: `Checking cluster: test/test
+					AutoFix:   false,
+					HasErrors: false,
+				}),
+			Entry("Pod is in Pending phase",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodPending,
+					}, nil),
+					ExpectedErrMsg: "✖ Pod test/instance-1 has unexpected Phase Pending with Reason:",
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
-✔ Cluster is healthy
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-		{
-			Name:           "Missing Pods",
-			cluster:        getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
-			podList:        &corev1.PodList{},
-			ExpectedErrMsg: "✖ Found no Pods for this cluster",
-			ExpectedStdouMsg: `Checking cluster: test/test
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Container is in terminated state",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "foundationdb",
+								Ready: false,
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{
+										ExitCode:   137,
+										FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+									},
+								},
+							},
+						},
+					}, nil),
+					ExpectedErrMsg: "✖ Pod test/instance-1 has an unready container: foundationdb",
+					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
-✔ Cluster is healthy
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Container is in ready state",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "foundationdb",
+								Ready: true,
+							},
+						},
+					}, nil),
+					ExpectedErrMsg: "",
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-			AutoFix:   false,
-			HasErrors: true,
-		},
-	}
+					AutoFix:   false,
+					HasErrors: false,
+				}),
+			Entry("Pod is stuck in terminating",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase:             corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{},
+					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
+					ExpectedErrMsg: fmt.Sprintf("✖ Pod test/instance-1 has been stuck in terminating since %s", time.Unix(time.Now().Add(-1*time.Hour).Unix(), 0).String()),
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Missing Pods",
+				testCase{
+					cluster:        getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList:        &corev1.PodList{},
+					ExpectedErrMsg: "✖ Found no Pods for this cluster",
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition
+✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			// TODO: test cases for auto-fix
+		)
+	})
 
-	// TODO: test cases for auto-fix
-	for _, tc := range tt {
-		t.Run(tc.Name, func(t *testing.T) {
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-			kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.cluster, tc.podList).Build()
-
-			// We use these buffers to check the input/output
+	When("running analyze without arguments", func() {
+		It("should printout the help text", func() {
 			outBuffer := bytes.Buffer{}
 			errBuffer := bytes.Buffer{}
 			inBuffer := bytes.Buffer{}
 
 			rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-			cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, rootCmd)
-			err := analyzeCluster(cmd, kubeClient, clusterName, namespace, false, false)
+			rootCmd.SetArgs([]string{"analyze"})
 
-			if err != nil && !tc.HasErrors {
-				t.Errorf("Expected no error but got: %s\n", err.Error())
-			}
-
-			if strings.TrimSpace(tc.ExpectedErrMsg) != strings.TrimSpace(errBuffer.String()) {
-				t.Errorf("Expected error message:\n%s\ngot:\n%s", tc.ExpectedErrMsg, errBuffer.String())
-			}
-
-			if strings.TrimSpace(tc.ExpectedStdouMsg) != strings.TrimSpace(outBuffer.String()) {
-				t.Errorf("Expected stdout message:\n%s\ngot:\n%s", tc.ExpectedStdouMsg, outBuffer.String())
-			}
+			err := rootCmd.Execute()
+			Expect(err).NotTo(HaveOccurred())
 		})
-	}
-}
-
-func TestAnalyzeCmdFlags(t *testing.T) {
-	// We use these buffers to check the input/output
-	outBuffer := bytes.Buffer{}
-	errBuffer := bytes.Buffer{}
-	inBuffer := bytes.Buffer{}
-
-	rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-
-	args := []string{"analyze"}
-	rootCmd.SetArgs(args)
-
-	err := rootCmd.Execute()
-	if err != nil {
-		t.Error(err)
-	}
-}
+	})
+})
