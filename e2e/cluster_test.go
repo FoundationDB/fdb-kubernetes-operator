@@ -210,7 +210,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should reconcile successfully", func() {
+			PIt("should reconcile successfully", func() {
 				clusterReconciled(runtimeClient, testCluster, kubeClient)
 			})
 		})
