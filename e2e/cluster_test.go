@@ -119,7 +119,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			desiredMemory, err := resource.ParseQuantity("128Mi")
 			Expect(err).NotTo(HaveOccurred())
-			desiredStorage, err := resource.ParseQuantity("8Gi")
+			desiredStorage, err := resource.ParseQuantity("16Gi")
 			Expect(err).NotTo(HaveOccurred())
 
 			testCluster = &fdbtypes.FoundationDBCluster{
