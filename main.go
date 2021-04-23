@@ -17,8 +17,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"os"
+	"path"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
@@ -123,6 +125,11 @@ func main() {
 		DeprecationOptions:  deprecationOptions,
 	}
 
+	if err = MoveFDBBinaries(); err != nil {
+		setupLog.Error(err, "unable to move FDB binaries")
+		os.Exit(1)
+	}
+
 	if err = clusterReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 		os.Exit(1)
@@ -163,4 +170,63 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// MoveFDBBinaries moves FDB binaries that are pulled from init containers into
+// the correct locations.
+func MoveFDBBinaries() error {
+	binFile, err := os.Open(os.Getenv("FDB_BINARY_DIR"))
+	if err != nil {
+		return err
+	}
+	binDir, err := binFile.Readdir(0)
+	if err != nil {
+		return err
+	}
+	for _, binEntry := range binDir {
+		if binEntry.IsDir() && fdbtypes.FDBVersionRegex.Match([]byte(binEntry.Name())) {
+			version, err := fdbtypes.ParseFdbVersion(binEntry.Name())
+			if err != nil {
+				return err
+			}
+
+			versionBinFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "bin", binEntry.Name()))
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			if err == nil {
+				minorVersionPath := path.Join(binFile.Name(), fmt.Sprintf("%d.%d", version.Major, version.Minor))
+				os.MkdirAll(minorVersionPath, os.ModeDir|os.ModePerm)
+
+				versionBinDir, err := versionBinFile.Readdir(0)
+				if err != nil {
+					return err
+				}
+				for _, versionBinEntry := range versionBinDir {
+					currentPath := path.Join(versionBinFile.Name(), versionBinEntry.Name())
+					newPath := path.Join(minorVersionPath, versionBinEntry.Name())
+					setupLog.Info("Moving FDB binary file", "currentPath", currentPath, "newPath", newPath)
+					err = os.Rename(currentPath, newPath)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			versionLibFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "lib", "libfdb_c.so"))
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			if err == nil {
+				currentPath := path.Join(versionLibFile.Name())
+				newPath := path.Join(binFile.Name(), fmt.Sprintf("libfdb_c_%s.so", version))
+				setupLog.Info("Moving FDB library file", "currentPath", currentPath, "newPath", newPath)
+				err = os.Rename(currentPath, newPath)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

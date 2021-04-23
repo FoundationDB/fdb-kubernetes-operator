@@ -25,13 +25,69 @@ spec:
         emptyDir: {}
       - name: logs
         emptyDir: {}
+      - name: fdb-binaries
+        emptyDir: {}
       serviceAccountName: fdb-kubernetes-operator-controller-manager
+      initContainers:
+        - name: foundationdb-kubernetes-init-6-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.1.13-1
+          args:
+            - "--copy-library"
+            - "6.1"
+            - "--copy-binary"
+            - "fdbcli"
+            - "--copy-binary"
+            - "fdbbackup"
+            - "--copy-binary"
+            - "fdbrestore"
+            - "--output-dir"
+            - "/var/output-files/6.1.12"
+            - "--init-mode"
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
+        - name: foundationdb-kubernetes-init-6-2
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
+          args:
+            - "--copy-library"
+            - "6.2"
+            - "--copy-binary"
+            - "fdbcli"
+            - "--copy-binary"
+            - "fdbbackup"
+            - "--copy-binary"
+            - "fdbrestore"
+            - "--output-dir"
+            - "/var/output-files/6.2.30"
+            - "--init-mode"
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
+        - name: foundationdb-kubernetes-init-6-3
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.10-1
+          args:
+            - "--copy-library"
+            - "6.3"
+            - "--copy-binary"
+            - "fdbcli"
+            - "--copy-binary"
+            - "fdbbackup"
+            - "--copy-binary"
+            - "fdbrestore"
+            - "--output-dir"
+            - "/var/output-files/6.3.10"
+            - "--init-mode"
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
       containers:
       - command:
         - /manager
         image: foundationdb/fdb-kubernetes-operator:v0.33.0
         name: manager
         env:
+          - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+            value: /usr/bin/fdb
           - name: WATCH_NAMESPACE
             valueFrom:
               fieldRef:
@@ -55,6 +111,8 @@ spec:
           mountPath: /tmp
         - name: logs
           mountPath: /var/log/fdb
+        - name: fdb-binaries
+          mountPath: /usr/bin/fdb
       terminationGracePeriodSeconds: 10
 ---
 apiVersion: v1
