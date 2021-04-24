@@ -148,7 +148,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, pvc := range pvcs.Items {
-		processGroupID := pvc.Labels[FDBInstanceIDLabel]
+		processGroupID := pvc.Labels[fdbtypes.FDBInstanceIDLabel]
 		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
@@ -164,7 +164,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, service := range services.Items {
-		processGroupID := service.Labels[FDBInstanceIDLabel]
+		processGroupID := service.Labels[fdbtypes.FDBInstanceIDLabel]
 		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
@@ -227,7 +227,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				return false, err
 			}
 			if len(pods.Items) > 0 {
-				instanceID := pods.Items[0].ObjectMeta.Labels[FDBInstanceIDLabel]
+				instanceID := pods.Items[0].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel]
 				processClass := processClassFromLabels(pods.Items[0].ObjectMeta.Labels)
 				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
 				if !included {
@@ -574,7 +574,7 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, instanceID)
 
-	incorrectConfigMap := instance.Metadata.Annotations[LastConfigMapKey] != configMapHash
+	incorrectConfigMap := instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] != configMapHash
 
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, instanceID)
 

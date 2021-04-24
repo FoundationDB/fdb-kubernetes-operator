@@ -32,52 +32,6 @@ var log = logf.Log.WithName("controller")
 // DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10
 
-const (
-	// LastSpecKey provides the annotation name we use to store the hash of the
-	// pod spec.
-	LastSpecKey = "foundationdb.org/last-applied-spec"
-
-	// LastConfigMapKey provides the annotation name we use to store the hash of the
-	// config map.
-	LastConfigMapKey = "foundationdb.org/last-applied-config-map"
-
-	// BackupDeploymentLabel provides the label we use to connect backup
-	// deployments to a cluster.
-	BackupDeploymentLabel = "foundationdb.org/backup-for"
-
-	// PublicIPSourceAnnotation is an annotation key that specifies where a pod
-	// gets its public IP from.
-	PublicIPSourceAnnotation = "foundationdb.org/public-ip-source"
-
-	// PublicIPAnnotation is an annotation key that specifies the current public
-	// IP for a pod.
-	PublicIPAnnotation = "foundationdb.org/public-ip"
-
-	// FDBInstanceIDLabel represents the label that is used to represent a instance ID
-	FDBInstanceIDLabel = "fdb-instance-id"
-
-	// FDBProcessClassLabel represents the label that is used to represent the process class
-	FDBProcessClassLabel = "fdb-process-class"
-
-	// FDBClusterLabel represents the label that is used to represent the cluster of an instance
-	FDBClusterLabel = "fdb-cluster-name"
-
-	// NodeSelectorNoScheduleLabel is a label used when adding node selectors to block scheduling.
-	NodeSelectorNoScheduleLabel = "foundationdb.org/no-schedule-allowed"
-
-	// FDBLocalityInstanceIDKey represents the key in the locality map that
-	// holds the instance ID.
-	FDBLocalityInstanceIDKey = "instance_id"
-
-	// FDBLocalityZoneIDKey represents the key in the locality map that holds
-	// the zone ID.
-	FDBLocalityZoneIDKey = "zoneid"
-
-	// FDBLocalityDCIDKey represents the key in the locality map that holds
-	// the DC ID.
-	FDBLocalityDCIDKey = "dcid"
-)
-
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
 func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
@@ -116,7 +70,7 @@ func mergeMap(target map[string]string, desired map[string]string) bool {
 
 // processClassFromLabel extracts the ProcessClass label from the metav1.ObjectMeta.Labels map
 func processClassFromLabels(labels map[string]string) fdbtypes.ProcessClass {
-	return fdbtypes.ProcessClass(labels[FDBProcessClassLabel])
+	return fdbtypes.ProcessClass(labels[fdbtypes.FDBProcessClassLabel])
 }
 
 // DeprecationOptions controls how deprecations and changes to defaults

@@ -53,7 +53,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	// We try to update all instances and if we observe an error we add it to the error list.
 	for index := range instances {
 		instance := instances[index]
-		if instance.Metadata.Annotations[LastConfigMapKey] == configMapHash {
+		if instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
 			continue
 		}
 
@@ -69,7 +69,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			continue
 		}
 
-		instance.Metadata.Annotations[LastConfigMapKey] = configMapHash
+		instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
 		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 		if err != nil {
 			log.Info("Update Pod metadata", "namespace", configMap.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "error", err)

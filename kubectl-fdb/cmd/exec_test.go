@@ -21,8 +21,6 @@
 package cmd
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,8 +69,8 @@ var _ = Describe("[plugin] exec command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-								controllers.FDBClusterLabel:      clusterName,
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBClusterLabel:      clusterName,
 							},
 						},
 					},

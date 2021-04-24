@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,9 +73,9 @@ func TestGetAllPodsFromClusterWithCondition(t *testing.T) {
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-						controllers.FDBClusterLabel:      clusterName,
-						controllers.FDBInstanceIDLabel:   "instance-1",
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBClusterLabel:      clusterName,
+						fdbtypes.FDBInstanceIDLabel:   "instance-1",
 					},
 				},
 			},
@@ -85,9 +84,9 @@ func TestGetAllPodsFromClusterWithCondition(t *testing.T) {
 					Name:      "instance-2",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-						controllers.FDBClusterLabel:      clusterName,
-						controllers.FDBInstanceIDLabel:   "instance-2",
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBClusterLabel:      clusterName,
+						fdbtypes.FDBInstanceIDLabel:   "instance-2",
 					},
 				},
 			},

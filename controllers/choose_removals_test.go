@@ -110,8 +110,8 @@ var _ = Describe("choose_removals", func() {
 
 		Context("with multiple processes on one rack", func() {
 			BeforeEach(func() {
-				adminClient.MockLocalityInfo("storage-1", map[string]string{FDBLocalityZoneIDKey: "r1"})
-				adminClient.MockLocalityInfo("storage-2", map[string]string{FDBLocalityZoneIDKey: "r1"})
+				adminClient.MockLocalityInfo("storage-1", map[string]string{fdbtypes.FDBLocalityZoneIDKey: "r1"})
+				adminClient.MockLocalityInfo("storage-2", map[string]string{fdbtypes.FDBLocalityZoneIDKey: "r1"})
 			})
 
 			It("should not requeue", func() {

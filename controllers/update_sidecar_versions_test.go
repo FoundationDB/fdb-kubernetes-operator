@@ -66,7 +66,7 @@ var _ = Describe("update_sidecar_versions", func() {
 					instance: FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
-								FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 							},
 						},
 					},
@@ -80,7 +80,7 @@ var _ = Describe("update_sidecar_versions", func() {
 					instance: FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
-								FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 							},
 						},
 					},
@@ -94,7 +94,7 @@ var _ = Describe("update_sidecar_versions", func() {
 					instance: FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
-								FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 							},
 						},
 					},
@@ -121,7 +121,7 @@ var _ = Describe("update_sidecar_versions", func() {
 					instance: FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
-								FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 							},
 						},
 					},
@@ -148,7 +148,7 @@ var _ = Describe("update_sidecar_versions", func() {
 					instance: FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
-								FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 							},
 						},
 					},

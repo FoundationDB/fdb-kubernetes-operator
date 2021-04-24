@@ -72,7 +72,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		if metadata.Annotations == nil {
 			metadata.Annotations = make(map[string]string, 1)
 		}
-		metadata.Annotations[LastSpecKey] = pvc.ObjectMeta.Annotations[LastSpecKey]
+		metadata.Annotations[fdbtypes.LastSpecKey] = pvc.ObjectMeta.Annotations[fdbtypes.LastSpecKey]
 
 		metadataCorrect := true
 		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, metadata.Labels) {
@@ -97,7 +97,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 func podMetadataCorrect(metadata metav1.ObjectMeta, instance *FdbInstance) bool {
 	metadataCorrect := true
-	metadata.Annotations[LastSpecKey] = instance.Metadata.Annotations[LastSpecKey]
+	metadata.Annotations[fdbtypes.LastSpecKey] = instance.Metadata.Annotations[fdbtypes.LastSpecKey]
 
 	if mergeLabelsInMetadata(instance.Metadata, metadata) {
 		metadataCorrect = false

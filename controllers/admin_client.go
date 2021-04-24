@@ -229,7 +229,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	if command.hasTimeoutArg() {
-		args = append(args, "--timeout", fmt.Sprintf("%d", DefaultCLITimeout))
+		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout
 	}
 	if command.hasDashInLogDir() {

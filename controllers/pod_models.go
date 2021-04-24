@@ -332,8 +332,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 						PodAffinityTerm: corev1.PodAffinityTerm{
 							TopologyKey: faultDomainKey,
 							LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-								FDBClusterLabel:      cluster.ObjectMeta.Name,
-								FDBProcessClassLabel: string(processClass),
+								fdbtypes.FDBClusterLabel:      cluster.ObjectMeta.Name,
+								fdbtypes.FDBProcessClassLabel: string(processClass),
 							}},
 						},
 					},
@@ -355,7 +355,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			}
 			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, corev1.NodeSelectorTerm{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{
-					Key: NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
+					Key: fdbtypes.NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
 				}},
 			})
 		}
@@ -457,7 +457,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 
 		var publicIPKey string
 		if usePublicIPFromService {
-			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", PublicIPAnnotation)
+			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
 		} else {
 			publicIPKey = "status.podIP"
 		}
@@ -643,7 +643,7 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 	if pvc.ObjectMeta.Annotations == nil {
 		pvc.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
-	pvc.ObjectMeta.Annotations[LastSpecKey] = specHash
+	pvc.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = specHash
 
 	return pvc, nil
 }
@@ -731,7 +731,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 			deployment.ObjectMeta.Annotations[key] = value
 		}
 	}
-	deployment.ObjectMeta.Labels[BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
+	deployment.ObjectMeta.Labels[fdbtypes.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
 
 	var podTemplate *corev1.PodTemplateSpec
 	if backup.Spec.PodTemplateSpec != nil {
@@ -846,7 +846,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		return nil, err
 	}
 
-	deployment.ObjectMeta.Annotations[LastSpecKey] = specHash
+	deployment.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = specHash
 
 	return deployment, nil
 }

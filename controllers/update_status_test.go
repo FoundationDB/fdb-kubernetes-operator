@@ -139,8 +139,8 @@ var _ = Describe("update_status", func() {
 				instance := FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
-							FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-							FDBInstanceIDLabel:   "1337",
+							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+							fdbtypes.FDBInstanceIDLabel:   "1337",
 						},
 					},
 				}
@@ -266,7 +266,7 @@ var _ = Describe("update_status", func() {
 
 		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
-				instances[0].Metadata.Annotations[LastSpecKey] = "bad"
+				instances[0].Metadata.Annotations[fdbtypes.LastSpecKey] = "bad"
 			})
 
 			It("should get a condition assigned", func() {

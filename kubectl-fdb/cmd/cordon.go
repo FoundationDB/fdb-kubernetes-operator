@@ -28,7 +28,6 @@ import (
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/spf13/cobra"
@@ -142,7 +141,7 @@ func cordonNode(kubeClient client.Client, clusterName string, nodes []string, na
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
 			client.MatchingLabels(map[string]string{
-				controllers.FDBClusterLabel: clusterName,
+				fdbtypes.FDBClusterLabel: clusterName,
 			}),
 			client.MatchingFieldsSelector{
 				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
@@ -160,7 +159,7 @@ func cordonNode(kubeClient client.Client, clusterName string, nodes []string, na
 				continue
 			}
 
-			instanceID, ok := pod.Labels[controllers.FDBInstanceIDLabel]
+			instanceID, ok := pod.Labels[fdbtypes.FDBInstanceIDLabel]
 			if !ok {
 				fmt.Printf("could not fetch instance ID from Pod: %s\n", pod.Name)
 				continue
