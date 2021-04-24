@@ -94,21 +94,21 @@ var _ = Describe("Update labels", func() {
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
-							"special":           "43",
+							"special":            "43",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"special":           "42",
+						"special":            "42",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"special":           "42",
+						"special":            "42",
 					},
 				},
 			},
@@ -125,14 +125,14 @@ var _ = Describe("Update labels", func() {
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"controller/X":      "wrong",
+						"controller/X":       "wrong",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"controller/X":      "wrong",
+						"controller/X":       "wrong",
 					},
 				},
 			},
@@ -143,7 +143,7 @@ var _ = Describe("Update labels", func() {
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
-							"controller/X":      "wrong",
+							"controller/X":       "wrong",
 						},
 					},
 				},
@@ -156,7 +156,7 @@ var _ = Describe("Update labels", func() {
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"controller/X":      "wrong",
+						"controller/X":       "wrong",
 					},
 				},
 			},
@@ -167,21 +167,21 @@ var _ = Describe("Update labels", func() {
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
-							"controller/X":      "true",
+							"controller/X":       "true",
 						},
 					},
 				},
 				metadata: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"controller/X":      "wrong",
+						"controller/X":       "wrong",
 					},
 				},
 				expected: false,
 				expectedMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						fdbtypes.LastSpecKey: "1",
-						"controller/X":      "wrong",
+						"controller/X":       "wrong",
 					},
 				},
 			},
