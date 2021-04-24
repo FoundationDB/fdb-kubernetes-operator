@@ -5,6 +5,8 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
+  podLabels:
+    test: test
   version: 6.2.30
   faultDomain:
     key: foundationdb.org/none
