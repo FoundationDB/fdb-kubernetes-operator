@@ -27,7 +27,6 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,8 +73,8 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-						controllers.FDBClusterLabel:      clusterName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBClusterLabel:      clusterName,
 					},
 					DeletionTimestamp: deletionTimestamp,
 				},

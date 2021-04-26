@@ -124,7 +124,7 @@ func buildCommand(kubeClient client.Client, clusterName string, context string, 
 		return exec.Cmd{}, err
 	}
 	if len(pods.Items) == 0 {
-		return exec.Cmd{}, fmt.Errorf("No usable pods found for cluster %s", clusterName)
+		return exec.Cmd{}, fmt.Errorf("no usable pods found for cluster %s", clusterName)
 	}
 	kubectlPath, err := exec.LookPath("kubectl")
 	if err != nil {
