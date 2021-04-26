@@ -54,6 +54,11 @@ Deprecated settings that should be replace by a newer setting (or removed) are p
 			if err != nil {
 				return err
 			}
+			showClusterSpec, err := cmd.Flags().GetBool("show-cluster-spec")
+			if err != nil {
+				return err
+			}
+
 			config, err := o.configFlags.ToRESTConfig()
 			if err != nil {
 				return err
@@ -76,7 +81,7 @@ Deprecated settings that should be replace by a newer setting (or removed) are p
 			return checkDeprecation(cmd, kubeClient, args, namespace, controllers.DeprecationOptions{
 				UseFutureDefaults: useFutureDefaults,
 				OnlyShowChanges:   onlyShowChanges,
-			})
+			}, showClusterSpec)
 		},
 		Example: `
 # Shows deprecations for all clusters in the current namespace
@@ -92,7 +97,11 @@ kubectl fdb deprecation sample-cluster
 kubectl fdb deprecation --use-future-defaults
 
 # Shows deprecations for all clusters in the current namespace including unset defaults
-kubectl fdb deprecation --only-show-changes=false`,
+kubectl fdb deprecation --only-show-changes=false
+
+# Shows the cluster spec for all clusters in the current namespace with deprecations
+# This option can be used to pipe the new spec into a file or directly into kubectl
+kubectl fdb deprecation --show-cluster-spec`,
 	}
 
 	cmd.Flags().Bool("use-future-defaults", false,
@@ -100,6 +109,9 @@ kubectl fdb deprecation --only-show-changes=false`,
 	)
 	cmd.Flags().Bool("only-show-changes", true,
 		"Whether we should only fill in defaults that have changes between major versions of the operator.",
+	)
+	cmd.Flags().Bool("show-cluster-spec", false,
+		"Instead of a diff this will printout the new expected cluster spec.",
 	)
 
 	cmd.SetOut(o.Out)
@@ -110,7 +122,7 @@ kubectl fdb deprecation --only-show-changes=false`,
 	return cmd
 }
 
-func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputClusters []string, namespace string, deprecationOptions controllers.DeprecationOptions) error {
+func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputClusters []string, namespace string, deprecationOptions controllers.DeprecationOptions, showClusterSpec bool) error {
 	clusters := &fdbtypes.FoundationDBClusterList{}
 
 	err := kubeClient.List(context.Background(), clusters, client.InNamespace(namespace))
@@ -157,12 +169,20 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 
 		diff := cmp.Diff(originalYAML, normalizedYAML)
 		if diff == "" {
-			cmd.Printf("Cluster %s has no deprecation\n", cluster.Name)
+			if !showClusterSpec {
+				cmd.Printf("Cluster %s has no deprecation\n", cluster.Name)
+			}
 			continue
 		}
 
-		cmd.Printf("Cluster %s has deprecations\n", cluster.Name)
-		cmd.Println(strings.TrimSpace(diff))
+		if showClusterSpec {
+			cmd.Println("---")
+			cmd.Println(string(normalizedYAML))
+		} else {
+			cmd.Printf("Cluster %s has deprecations\n", cluster.Name)
+			cmd.Println(strings.TrimSpace(diff))
+		}
+
 		deprecationCounter++
 	}
 

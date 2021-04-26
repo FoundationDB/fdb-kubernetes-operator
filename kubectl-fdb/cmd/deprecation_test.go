@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/spf13/cobra"
@@ -49,6 +50,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 			cluster            fdbtypes.FoundationDBCluster
 			inputClusters      []string
 			deprecationOptions controllers.DeprecationOptions
+			showClusterSpec    bool
+			checkOutput        bool
 			expectedOutput     string
 			expectedError      string
 		}
@@ -66,12 +69,15 @@ var _ = Describe("[plugin] deprecation command", func() {
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&tc.cluster).Build()
 
 				cmd := newDeprecationCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := checkDeprecation(cmd, kubeClient, tc.inputClusters, namespace, tc.deprecationOptions)
+				err := checkDeprecation(cmd, kubeClient, tc.inputClusters, namespace, tc.deprecationOptions, tc.showClusterSpec)
 				if tc.expectedError != "" {
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Equal(tc.expectedError))
 					// We don't compare the diff output since it includes some special
 					// whitespace characters
+					if tc.checkOutput {
+						Expect(strings.TrimSpace(outBuffer.String())).To(Equal(strings.TrimSpace(tc.expectedOutput)))
+					}
 					return
 				}
 
@@ -92,8 +98,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 						UseFutureDefaults: false,
 						OnlyShowChanges:   false,
 					},
-					expectedOutput: "0 cluster(s) without deprecations",
-					expectedError:  "",
+					expectedOutput:  "0 cluster(s) without deprecations",
+					expectedError:   "",
+					showClusterSpec: false,
 				}),
 			Entry("Cluster has no deprecations",
 				testCase{
@@ -147,7 +154,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 					},
 					expectedOutput: `Cluster test has no deprecation
 1 cluster(s) without deprecations`,
-					expectedError: "",
+					expectedError:   "",
+					showClusterSpec: false,
 				}),
 			Entry("Cluster has no deprecations but unset defaults",
 				testCase{
@@ -199,8 +207,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 						UseFutureDefaults: false,
 						OnlyShowChanges:   false,
 					},
-					expectedOutput: `Cluster test has deprecations`,
-					expectedError:  "1/1 cluster(s) with deprecations",
+					expectedOutput:  `Cluster test has deprecations`,
+					expectedError:   "1/1 cluster(s) with deprecations",
+					showClusterSpec: false,
 				}),
 			Entry("Cluster has deprecations",
 				testCase{
@@ -253,8 +262,264 @@ var _ = Describe("[plugin] deprecation command", func() {
 						UseFutureDefaults: false,
 						OnlyShowChanges:   true,
 					},
-					expectedOutput: "Cluster test has deprecations",
-					expectedError:  "1/1 cluster(s) with deprecations",
+					expectedOutput:  "Cluster test has deprecations",
+					expectedError:   "1/1 cluster(s) with deprecations",
+					showClusterSpec: false,
+				}),
+			Entry("Cluster has no deprecations and set show cluster spec",
+				testCase{
+					cluster: fdbtypes.FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      clusterName,
+							Namespace: namespace,
+						},
+						Spec: fdbtypes.FoundationDBClusterSpec{
+							MinimumUptimeSecondsForBounce: 600,
+							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+								"general": {
+									PodTemplate: &corev1.PodTemplateSpec{
+										Spec: corev1.PodSpec{
+											Containers: []corev1.Container{
+												{
+													Name: "foundationdb-kubernetes-sidecar",
+													Resources: corev1.ResourceRequirements{
+														Limits: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+														Requests: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+													},
+												},
+											},
+											InitContainers: []corev1.Container{
+												{
+													Name: "foundationdb-kubernetes-init",
+													Resources: corev1.ResourceRequirements{
+														Limits: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+														Requests: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					inputClusters: []string{},
+					deprecationOptions: controllers.DeprecationOptions{
+						UseFutureDefaults: false,
+						OnlyShowChanges:   true,
+					},
+					expectedOutput:  "1 cluster(s) without deprecations",
+					expectedError:   "",
+					showClusterSpec: true,
+				}),
+			Entry("Cluster has no deprecations but unset defaults and show cluster spec",
+				testCase{
+					cluster: fdbtypes.FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      clusterName,
+							Namespace: namespace,
+						},
+						Spec: fdbtypes.FoundationDBClusterSpec{
+							MinimumUptimeSecondsForBounce: 600,
+							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+								"general": {
+									PodTemplate: &corev1.PodTemplateSpec{
+										Spec: corev1.PodSpec{
+											Containers: []corev1.Container{
+												{
+													Name: "foundationdb-kubernetes-sidecar",
+													Resources: corev1.ResourceRequirements{
+														Limits: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+														Requests: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+													},
+												},
+											},
+											InitContainers: []corev1.Container{
+												{
+													Name: "foundationdb-kubernetes-init",
+													Resources: corev1.ResourceRequirements{
+														Limits: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+														Requests: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					inputClusters: []string{},
+					deprecationOptions: controllers.DeprecationOptions{
+						UseFutureDefaults: false,
+						OnlyShowChanges:   false,
+					},
+					expectedOutput: `---
+automationOptions:
+  replacements:
+    enabled: false
+    failureDetectionTimeSeconds: 1800
+buggify: {}
+databaseConfiguration: {}
+faultDomain: {}
+lockOptions: {}
+mainContainer: {}
+minimumUptimeSecondsForBounce: 600
+processCounts: {}
+processes:
+  general:
+    podTemplate:
+      metadata:
+        creationTimestamp: null
+      spec:
+        containers:
+        - name: foundationdb
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "1"
+              memory: 1Gi
+        - name: foundationdb-kubernetes-sidecar
+          resources:
+            limits:
+              org.foundationdb/empty: "0"
+            requests:
+              org.foundationdb/empty: "0"
+        initContainers:
+        - name: foundationdb-kubernetes-init
+          resources:
+            limits:
+              org.foundationdb/empty: "0"
+            requests:
+              org.foundationdb/empty: "0"
+services:
+  publicIPSource: pod
+sidecarContainer: {}
+version: ""`,
+					expectedError:   "1/1 cluster(s) with deprecations",
+					showClusterSpec: true,
+					checkOutput:     true,
+				}),
+			Entry("Cluster has deprecations and show cluster spec flag",
+				testCase{
+					cluster: fdbtypes.FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      clusterName,
+							Namespace: namespace,
+						},
+						Spec: fdbtypes.FoundationDBClusterSpec{
+							PodLabels:                     map[string]string{"test": "test"},
+							MinimumUptimeSecondsForBounce: 600,
+							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+								"general": {
+									PodTemplate: &corev1.PodTemplateSpec{
+										Spec: corev1.PodSpec{
+											Containers: []corev1.Container{
+												{
+													Name: "foundationdb-kubernetes-sidecar",
+													Resources: corev1.ResourceRequirements{
+														Limits: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+														Requests: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+													},
+												},
+											},
+											InitContainers: []corev1.Container{
+												{
+													Name: "foundationdb-kubernetes-init",
+													Resources: corev1.ResourceRequirements{
+														Limits: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+														Requests: corev1.ResourceList{
+															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					inputClusters: []string{},
+					deprecationOptions: controllers.DeprecationOptions{
+						UseFutureDefaults: false,
+						OnlyShowChanges:   true,
+					},
+					expectedOutput: `---
+automationOptions:
+  replacements: {}
+buggify: {}
+configMap:
+  metadata:
+    creationTimestamp: null
+    labels:
+      test: test
+databaseConfiguration: {}
+faultDomain: {}
+lockOptions: {}
+mainContainer: {}
+minimumUptimeSecondsForBounce: 600
+processCounts: {}
+processes:
+  general:
+    podTemplate:
+      metadata:
+        creationTimestamp: null
+        labels:
+          test: test
+      spec:
+        containers:
+        - name: foundationdb-kubernetes-sidecar
+          resources:
+            limits:
+              org.foundationdb/empty: "0"
+            requests:
+              org.foundationdb/empty: "0"
+        initContainers:
+        - name: foundationdb-kubernetes-init
+          resources:
+            limits:
+              org.foundationdb/empty: "0"
+            requests:
+              org.foundationdb/empty: "0"
+    volumeClaimTemplate:
+      metadata:
+        creationTimestamp: null
+        labels:
+          test: test
+      spec:
+        resources: {}
+      status: {}
+services: {}
+sidecarContainer: {}
+version: ""`,
+					expectedError:   "1/1 cluster(s) with deprecations",
+					showClusterSpec: true,
+					checkOutput:     true,
 				}),
 		)
 	})
