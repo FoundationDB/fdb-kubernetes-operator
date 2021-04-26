@@ -21,7 +21,7 @@ import (
 	"io"
 	"os"
 
-	appsv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,8 +40,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
-	_ = appsv1beta1.AddToScheme(scheme)
+	_ = fdbtypes.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 

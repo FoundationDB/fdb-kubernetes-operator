@@ -155,7 +155,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 			continue
 		}
 
-		instances = append(instances, pod.Labels[controllers.FDBInstanceIDLabel])
+		instances = append(instances, pod.Labels[fdbtypes.FDBInstanceIDLabel])
 	}
 
 	return instances, nil
@@ -187,7 +187,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
 			client.MatchingLabels(map[string]string{
-				controllers.FDBClusterLabel: clusterName,
+				fdbtypes.FDBClusterLabel: clusterName,
 			}))
 
 		if err != nil {

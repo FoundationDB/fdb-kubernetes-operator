@@ -81,7 +81,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				return false, err
 			}
 
-			pod.ObjectMeta.Annotations[LastConfigMapKey] = configMapHash
+			pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
 
 			if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
 				service := &corev1.Service{}
@@ -94,7 +94,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 					log.Info("Service does not have an IP address", "namespace", cluster.Namespace, "cluster", cluster.Name, "podName", pod.Name)
 					return false, nil
 				}
-				pod.Annotations[PublicIPAnnotation] = ip
+				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
 			}
 
 			err = r.PodLifecycleManager.CreateInstance(r, context, pod)

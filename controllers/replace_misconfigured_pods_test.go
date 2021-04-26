@@ -62,7 +62,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				instance := FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
-							FDBInstanceIDLabel: instanceName,
+							fdbtypes.FDBInstanceIDLabel: instanceName,
 						},
 					},
 					Pod: &corev1.Pod{
@@ -83,7 +83,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				instance := FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
-							FDBInstanceIDLabel: instanceName,
+							fdbtypes.FDBInstanceIDLabel: instanceName,
 						},
 					},
 					Pod: &corev1.Pod{
@@ -107,8 +107,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				instance := FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
-							FDBInstanceIDLabel:   instanceName,
-							FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+							fdbtypes.FDBInstanceIDLabel:   instanceName,
+							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						},
 					},
 					Pod: &corev1.Pod{
@@ -138,8 +138,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				instance := FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
-							FDBInstanceIDLabel:   instanceName,
-							FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+							fdbtypes.FDBInstanceIDLabel:   instanceName,
+							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						},
 						Annotations: map[string]string{},
 					},
@@ -171,11 +171,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   instanceName,
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{
-						PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
+						fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
 					},
 				},
 				Pod: &corev1.Pod{
@@ -207,8 +207,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   instanceName,
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{},
 				},
@@ -239,8 +239,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   instanceName,
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{},
 				},
@@ -270,8 +270,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassLog),
+						fdbtypes.FDBInstanceIDLabel:   fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassLog),
 					},
 					Annotations: map[string]string{},
 				},
@@ -301,8 +301,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   instanceName,
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{},
 				},
@@ -334,8 +334,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   instanceName,
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{},
 				},
@@ -360,8 +360,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance := FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   instanceName,
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{},
 				},
@@ -398,8 +398,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			instance = FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
-						FDBInstanceIDLabel:   pod.ObjectMeta.Labels[FDBInstanceIDLabel],
-						FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBInstanceIDLabel:   pod.ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 					},
 					Annotations: map[string]string{},
 				},

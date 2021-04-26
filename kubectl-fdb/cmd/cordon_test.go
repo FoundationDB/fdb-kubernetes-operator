@@ -25,8 +25,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,9 +79,9 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-								controllers.FDBClusterLabel:      clusterName,
-								controllers.FDBInstanceIDLabel:   "instance-1",
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBClusterLabel:      clusterName,
+								fdbtypes.FDBInstanceIDLabel:   "instance-1",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -95,9 +93,9 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-2",
 							Namespace: namespace,
 							Labels: map[string]string{
-								controllers.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-								controllers.FDBClusterLabel:      clusterName,
-								controllers.FDBInstanceIDLabel:   "instance-2",
+								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+								fdbtypes.FDBClusterLabel:      clusterName,
+								fdbtypes.FDBInstanceIDLabel:   "instance-2",
 							},
 						},
 						Spec: corev1.PodSpec{

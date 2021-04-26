@@ -41,7 +41,7 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
 	backupDeployments := &appsv1.DeploymentList{}
-	err := r.List(context, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
+	err := r.List(context, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbtypes.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
 	if err != nil {
 		return false, err
 	}

@@ -61,7 +61,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	}
 	localityMap := make(map[string]localityInfo)
 	for _, process := range status.Cluster.Processes {
-		id := process.Locality[FDBLocalityInstanceIDKey]
+		id := process.Locality[fdbtypes.FDBLocalityInstanceIDKey]
 		localityMap[id] = localityInfo{ID: id, Address: process.Address, LocalityData: process.Locality}
 	}
 

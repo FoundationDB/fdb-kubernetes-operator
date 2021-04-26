@@ -107,7 +107,7 @@ func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) *corev1.Service {
 	}
 	service.ObjectMeta.Name = cluster.ObjectMeta.Name
 	service.Spec.ClusterIP = "None"
-	service.Spec.Selector = map[string]string{FDBClusterLabel: cluster.Name}
+	service.Spec.Selector = map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}
 
 	return service
 }

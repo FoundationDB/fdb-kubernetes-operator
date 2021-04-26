@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"k8s.io/apimachinery/pkg/labels"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -252,7 +251,7 @@ func clusterReconciled(runtimeClient client.Client, testCluster *fdbtypes.Founda
 
 			pods, err := kubeClient.CoreV1().Pods(resCluster.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(map[string]string{
-					controllers.FDBClusterLabel: resCluster.Name,
+					fdbtypes.FDBClusterLabel: resCluster.Name,
 				}).String()},
 			)
 			Expect(err).NotTo(HaveOccurred())

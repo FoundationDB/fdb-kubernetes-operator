@@ -95,8 +95,8 @@ var _ = Describe("add_pvcs", func() {
 			Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
 			lastPVC := newPVCs.Items[len(newPVCs.Items)-1]
 			Expect(lastPVC.Name).To(Equal("operator-test-1-storage-9-data"))
-			Expect(lastPVC.Labels[FDBInstanceIDLabel]).To(Equal("storage-9"))
-			Expect(lastPVC.Labels[FDBProcessClassLabel]).To(Equal("storage"))
+			Expect(lastPVC.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
+			Expect(lastPVC.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
 
 			Expect(lastPVC.OwnerReferences).To(Equal(buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})

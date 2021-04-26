@@ -91,7 +91,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			return false, err
 		}
 
-		if pvc.Annotations[LastSpecKey] != pvcHash {
+		if pvc.Annotations[fdbtypes.LastSpecKey] != pvcHash {
 			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
 				return false, err
@@ -106,7 +106,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 					"name", cluster.Name,
 					"processGroupID", instanceID,
 					"pvc", pvc.Name,
-					"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[LastSpecKey]))
+					"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbtypes.LastSpecKey]))
 			}
 		}
 	}
@@ -213,12 +213,12 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 			return false, err
 		}
 
-		if instance.Metadata.Annotations[LastSpecKey] != specHash {
+		if instance.Metadata.Annotations[fdbtypes.LastSpecKey] != specHash {
 			log.Info("Replace instance",
 				"namespace", cluster.Namespace,
 				"name", cluster.Name,
 				"processGroupID", instanceID,
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[LastSpecKey]))
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[fdbtypes.LastSpecKey]))
 			return true, nil
 		}
 	}

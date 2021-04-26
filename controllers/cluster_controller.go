@@ -299,8 +299,8 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[LastSpecKey] = specHash
-	metadata.Annotations[PublicIPSourceAnnotation] = string(*cluster.Spec.Services.PublicIPSource)
+	metadata.Annotations[fdbtypes.LastSpecKey] = specHash
+	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Services.PublicIPSource)
 
 	return metadata
 }
@@ -357,14 +357,14 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
-	labels[FDBClusterLabel] = cluster.ObjectMeta.Name
+	labels[fdbtypes.FDBClusterLabel] = cluster.ObjectMeta.Name
 
 	if processClass != "" {
-		labels[FDBProcessClassLabel] = string(processClass)
+		labels[fdbtypes.FDBProcessClassLabel] = string(processClass)
 	}
 
 	if id != "" {
-		labels[FDBInstanceIDLabel] = id
+		labels[fdbtypes.FDBInstanceIDLabel] = id
 	}
 
 	return labels
@@ -415,16 +415,16 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 	data["cluster-file"] = connectionString
 	data["running-version"] = cluster.Status.RunningVersion
 
-	caFile := ""
+	var caFile strings.Builder
 	for _, ca := range cluster.Spec.TrustedCAs {
-		if caFile != "" {
-			caFile += "\n"
+		if caFile.Len() > 0 {
+			caFile.WriteString("\n")
 		}
-		caFile += ca
+		caFile.WriteString(ca)
 	}
 
-	if caFile != "" {
-		data["ca-file"] = caFile
+	if caFile.Len() > 0 {
+		data["ca-file"] = caFile.String()
 	}
 
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
@@ -458,7 +458,6 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 					}
 				}
 				continue
-
 			}
 
 			err := setMonitorConfForFilename(cluster, data, fmt.Sprintf("fdbmonitor-conf-%s", processClass), connectionString, processClass, 1)
@@ -866,7 +865,7 @@ func (instance FdbInstance) GetInstanceID() string {
 
 // GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
 func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels[FDBInstanceIDLabel]
+	return metadata.Labels[fdbtypes.FDBInstanceIDLabel]
 }
 
 // GetProcessClass fetches the process class from an instance's metadata.
@@ -881,7 +880,7 @@ func GetProcessClassFromMeta(metadata metav1.ObjectMeta) fdbtypes.ProcessClass {
 
 // GetPublicIPSource determines how an instance has gotten its public IP.
 func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
-	source := instance.Metadata.Annotations[PublicIPSourceAnnotation]
+	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
 	if source == "" {
 		return fdbtypes.PublicIPSourcePod
 	}
@@ -894,13 +893,13 @@ func (instance FdbInstance) GetPublicIPs() []string {
 		return []string{}
 	}
 
-	source := instance.Metadata.Annotations[PublicIPSourceAnnotation]
+	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
 		// TODO for dual-stack support return PodIPs
 		return []string{instance.Pod.Status.PodIP}
 	}
 
-	return []string{instance.Pod.ObjectMeta.Annotations[PublicIPAnnotation]}
+	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
 }
 
 // GetProcessID fetches the instance ID from an instance's metadata.
@@ -1113,7 +1112,7 @@ func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client FdbPo
 		ID:      substitutions["FDB_INSTANCE_ID"],
 		Address: address,
 		LocalityData: map[string]string{
-			FDBLocalityZoneIDKey: substitutions["FDB_ZONE_ID"],
+			fdbtypes.FDBLocalityZoneIDKey: substitutions["FDB_ZONE_ID"],
 		},
 	}, nil
 }
@@ -1155,7 +1154,7 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 
 	fields := constraint.Fields
 	if len(fields) == 0 {
-		fields = []string{FDBLocalityZoneIDKey, FDBLocalityDCIDKey}
+		fields = []string{fdbtypes.FDBLocalityZoneIDKey, fdbtypes.FDBLocalityDCIDKey}
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))
@@ -1263,8 +1262,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 
 		if isCoordinator {
-			coordinatorZones[process.Locality[FDBLocalityZoneIDKey]]++
-			coordinatorDCs[process.Locality[FDBLocalityDCIDKey]]++
+			coordinatorZones[process.Locality[fdbtypes.FDBLocalityZoneIDKey]]++
+			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
 		}
 
 		if process.Address == "" {

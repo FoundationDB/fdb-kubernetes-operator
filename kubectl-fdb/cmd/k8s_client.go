@@ -26,7 +26,6 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -84,7 +83,7 @@ func getPodsForCluster(kubeClient client.Client, clusterName string, namespace s
 		ctx.Background(),
 		&podList,
 		client.MatchingLabels(map[string]string{
-			controllers.FDBClusterLabel: clusterName,
+			fdbtypes.FDBClusterLabel: clusterName,
 		}),
 		client.InNamespace(namespace))
 
@@ -162,7 +161,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 				continue
 			}
 
-			if pod.Labels[controllers.FDBInstanceIDLabel] != process {
+			if pod.Labels[fdbtypes.FDBInstanceIDLabel] != process {
 				continue
 			}
 
