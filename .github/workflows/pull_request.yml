@@ -13,22 +13,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go
-      - uses: actions/cache@v2
-        id: fdb_cache
-        with:
-          path: |
-            fdb.deb
-          key: ${{ runner.os }}-${{ hashFiles('fdb.deb') }}
-          restore-keys: |
-            ${{ runner.os }}-fdb
       - name: Get dependencies
-        if: steps.fdb_cache.outputs.cache-hit != 'true'
         env:
           FDB_VER: "6.2.29"
         run: |
@@ -49,12 +34,6 @@ jobs:
         with:
           python-version: '3.9'
           architecture: 'x64'
-      - uses: actions/cache@v2
-        with:
-          path: .cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('./foundationdb-kubernetes-sidecar/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
       - name: Get Python dependencies
         run: |
           python3 -m pip install -r ./foundationdb-kubernetes-sidecar/requirements.txt
@@ -78,12 +57,6 @@ jobs:
         go-version: 1.15
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
-    - uses: actions/cache@v2
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go
     - name: Get dependencies
       env:
         KUBEBUILDER_VER: "2.3.2"
@@ -106,7 +79,6 @@ jobs:
       env:
         KUBEBUILDER_VER: "2.3.2"
       run: |
-        # Install dependencies either from cache or freshly downloaded
         tar xvfz kustomize.tar.gz
         sudo mv kustomize /usr/local/bin/
         tar -xz -C /tmp/ -f kubebuilder.tar.gz
