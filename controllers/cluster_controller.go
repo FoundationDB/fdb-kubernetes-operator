@@ -76,10 +76,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	cluster := &fdbtypes.FoundationDBCluster{}
 
 	err := r.Get(ctx, request.NamespacedName, cluster)
-
-	originalGeneration := cluster.ObjectMeta.Generation
-	originalResourceVersion := cluster.ObjectMeta.ResourceVersion
-
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Object not found, return. Created objects are automatically garbage collected.
@@ -100,8 +96,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	normalizedSpec := cluster.Spec.DeepCopy()
 
 	adminClient, err := r.AdminClientProvider(cluster, r)
 	if err != nil {
@@ -145,41 +139,44 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		UpdateStatus{},
 	}
 
+	originalGeneration := cluster.ObjectMeta.Generation
+	normalizedSpec := cluster.Spec.DeepCopy()
+	curLogger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 	for _, subReconciler := range subReconcilers {
+		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
+		// will reset all normalized fields...
 		cluster.Spec = *(normalizedSpec.DeepCopy())
-
-		log.Info("Attempting to run sub-reconciler", "namespace", cluster.Namespace, "cluster", cluster.Name, "subReconciler", fmt.Sprintf("%T", subReconciler))
+		curLogger.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
 		canContinue, err := subReconciler.Reconcile(r, ctx, cluster)
 		if !canContinue || err != nil {
-			log.Info("Reconciliation terminated early", "namespace", cluster.Namespace, "cluster", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+			curLogger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler))
 		}
 
 		if err != nil {
 			result, err := r.checkRetryableError(err)
 			if err != nil {
-				log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name)
+				curLogger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler))
 				return ctrl.Result{}, err
 			}
 
 			return result, nil
-		} else if cluster.ObjectMeta.Generation != originalGeneration ||
-			cluster.ObjectMeta.ResourceVersion != originalResourceVersion {
-			log.Info("Ending reconciliation early because cluster has been updated", "namespace", cluster.Namespace, "name", cluster.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+		} else if cluster.ObjectMeta.Generation != originalGeneration {
+			curLogger.Info("Ending reconciliation early because cluster has been updated", "lastAction", fmt.Sprintf("%T", subReconciler))
 			return ctrl.Result{}, nil
 		} else if !canContinue {
-			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", cluster.Namespace, "cluster", cluster.Name, "requeueAfter", subReconciler.RequeueAfter())
+			curLogger.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", subReconciler.RequeueAfter())
 			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
 		}
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration {
-		log.Info("Cluster was not fully reconciled by reconciliation process", "namespace", cluster.Namespace, "cluster", cluster.Name, "status", cluster.Status)
+		curLogger.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status)
 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	log.Info("Reconciliation complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "generation", cluster.Status.Generations.Reconciled)
+	curLogger.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)
 
 	return ctrl.Result{}, nil
 }
@@ -759,17 +756,11 @@ func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBC
 	return hasLock, nil
 }
 
-// clearPendingRemovalsFromSpec removes the pending removals from the cluster
-// spec.
+// clearPendingRemovalsFromSpec removes the pending removals from the cluster spec.
 func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
-	modifiedCluster := &fdbtypes.FoundationDBCluster{}
-	err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, modifiedCluster)
-	if err != nil {
-		return err
-	}
+	modifiedCluster := cluster.DeepCopy()
 	modifiedCluster.Spec.PendingRemovals = nil
-	err = r.Update(context, modifiedCluster)
-	return err
+	return r.Update(context, modifiedCluster)
 }
 
 func sortPodsByID(pods *corev1.PodList) {
@@ -832,13 +823,6 @@ type PodLifecycleManager interface {
 
 	// UpdateMetadata updates an instance's metadata.
 	UpdateMetadata(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) error
-
-	// InstanceIsUpdated determines whether an instance is up to date.
-	//
-	// This does not need to check the metadata or the pod spec hash. This only
-	// needs to check aspects of the rollout that are not available in the
-	// instance metadata.
-	InstanceIsUpdated(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error)
 }
 
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
@@ -978,15 +962,6 @@ func (manager StandardPodLifecycleManager) UpdateImageVersion(r *FoundationDBClu
 func (manager StandardPodLifecycleManager) UpdateMetadata(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) error {
 	instance.Pod.ObjectMeta = *instance.Metadata
 	return r.Update(context, instance.Pod)
-}
-
-// InstanceIsUpdated determines whether an instance is up to date.
-//
-// This does not need to check the metadata or the pod spec hash. This only
-// needs to check aspects of the rollout that are not available in the
-// instance metadata.
-func (manager StandardPodLifecycleManager) InstanceIsUpdated(*FoundationDBClusterReconciler, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error) {
-	return true, nil
 }
 
 // ParseInstanceID extracts the components of an instance ID.

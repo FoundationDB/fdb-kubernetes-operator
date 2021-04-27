@@ -1042,6 +1042,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 			merged.AllowTagOverride = entry.AllowTagOverride
 		}
 	}
+
 	return merged
 }
 

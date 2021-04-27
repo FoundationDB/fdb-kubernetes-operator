@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // UpdateDatabaseConfiguration provides a reconciliation step for changing the
@@ -86,11 +85,6 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			return false, nil
 		}
 		if enabled != nil && !*enabled {
-			err := r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
-			if err != nil {
-				return false, err
-			}
-
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
