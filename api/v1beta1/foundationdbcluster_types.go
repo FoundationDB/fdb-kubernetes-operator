@@ -2010,6 +2010,7 @@ func (cluster *FoundationDBCluster) ShouldUseLocks() bool {
 	if disabled != nil {
 		return !*disabled
 	}
+
 	return cluster.Spec.FaultDomain.ZoneCount > 1 || len(cluster.Spec.DatabaseConfiguration.Regions) > 1
 }
 

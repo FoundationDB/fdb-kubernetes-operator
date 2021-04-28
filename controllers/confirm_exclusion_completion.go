@@ -45,7 +45,7 @@ func (c ConfirmExclusionCompletion) Reconcile(r *FoundationDBClusterReconciler, 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove && !processGroup.ExclusionSkipped {
 			if len(processGroup.Addresses) == 0 {
-				return false, fmt.Errorf("Cannot check the exclusion state of instance %s, which has no IP address", processGroup.ProcessGroupID)
+				return false, fmt.Errorf("cannot check the exclusion state of instance %s, which has no IP address", processGroup.ProcessGroupID)
 			}
 
 			addresses = append(addresses, processGroup.Addresses...)
