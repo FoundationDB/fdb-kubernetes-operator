@@ -227,7 +227,12 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 		args = append(args, "--exec", command.command)
 	}
 
-	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
+	format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
+	if format == "" {
+		format = "xml"
+	}
+
+	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log", "--trace-format", format)
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout
