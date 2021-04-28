@@ -232,7 +232,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 		format = "xml"
 	}
 
-	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log", "--trace-format", format)
+	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log", "--trace_format", format)
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout
