@@ -12,6 +12,6 @@ import (
 func TestE2e(t *testing.T) {
 	SetDefaultEventuallyTimeout(180 * time.Second)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "FDB operator e2e")
+	RunSpecs(t, "[e2e] FDB operator e2e")
 	log.SetOutput(GinkgoWriter)
 }

@@ -9,7 +9,7 @@ ifneq "$(FDB_WEBSITE)" ""
 endif
 
 ifndef RUN_E2E
-	 GINKGO_SKIP := -ginkgo.skip='[e2e]'
+	 GINKGO_SKIP := -ginkgo.skip='^\[e2e\]'
 endif
 
 
