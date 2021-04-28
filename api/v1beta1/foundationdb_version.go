@@ -41,6 +41,7 @@ type FdbVersion struct {
 	Patch int
 }
 
+// FDBVersionRegex describes the format of a FoundationDB version.
 var FDBVersionRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)$`)
 
 // ParseFdbVersion parses a version from its string representation.
