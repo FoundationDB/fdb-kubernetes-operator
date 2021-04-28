@@ -112,7 +112,7 @@ var _ = Describe("[plugin] exec command", func() {
 			Entry("Exec into instance with missing pod",
 				testCase{
 					ClusterName:   "test-2",
-					ExpectedError: "No usable pods found for cluster test-2",
+					ExpectedError: "no usable pods found for cluster test-2",
 				}),
 		)
 	})
