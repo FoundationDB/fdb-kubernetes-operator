@@ -63,6 +63,11 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)
 		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
+			if len(processGroupStatus.Addresses) == 0 {
+				log.Info("Ignore failed process group with missing address", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", missingTime)
+				continue
+			}
+
 			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", missingTime)
 			processGroupStatus.Remove = true
 			return true
