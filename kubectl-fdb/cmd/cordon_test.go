@@ -48,7 +48,6 @@ var _ = Describe("[plugin] cordon command", func() {
 		var podList corev1.PodList
 
 		type testCase struct {
-			Name                                      string
 			nodes                                     []string
 			WithExclusion                             bool
 			ExpectedInstancesToRemove                 []string

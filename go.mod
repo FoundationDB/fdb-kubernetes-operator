@@ -6,6 +6,7 @@ require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c
 	github.com/fatih/color v1.10.0
 	github.com/go-logr/logr v0.3.0
+	github.com/google/go-cmp v0.5.2
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2

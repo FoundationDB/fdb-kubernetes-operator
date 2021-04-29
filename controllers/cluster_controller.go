@@ -21,7 +21,6 @@
 package controllers
 
 import (
-	"bytes"
 	ctx "context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -45,9 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	ctrlCache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
@@ -1310,81 +1307,4 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	coordinatorsValid := hasEnoughZones && hasEnoughDCs && allHealthy
 
 	return coordinatorsValid, allAddressesValid, nil
-}
-
-// CheckDeprecations checks for any deprecated clusters in the controller's
-// scope.
-func (r *FoundationDBClusterReconciler) CheckDeprecations(context ctx.Context) error {
-	deprecations, err := r.GetDeprecations(context)
-	if err != nil {
-		return err
-	}
-	for _, deprecation := range deprecations {
-		newMeta := metav1.ObjectMeta{
-			Namespace: deprecation.Namespace,
-			Name:      deprecation.Name,
-		}
-		deprecation.ObjectMeta = newMeta
-		deprecation.Status = fdbtypes.FoundationDBClusterStatus{}
-		yamlOutput, err := yaml.Marshal(deprecation)
-		if err != nil {
-			return err
-		}
-		fmt.Print(string(yamlOutput))
-		fmt.Print("\n---\n")
-	}
-	if len(deprecations) == 0 {
-		fmt.Print("No deprecated specs found.\n")
-	}
-	return nil
-}
-
-// GetDeprecations returns a list of clusters that have deprecated options in
-// their specs.
-func (r *FoundationDBClusterReconciler) GetDeprecations(context ctx.Context) ([]fdbtypes.FoundationDBCluster, error) {
-	return r.getDeprecationsWithRetry(context, 5)
-}
-
-// getDeprecationsWithRetry returns a list of clusters that have deprecated
-// options in their specs.
-func (r *FoundationDBClusterReconciler) getDeprecationsWithRetry(context ctx.Context, retries int) ([]fdbtypes.FoundationDBCluster, error) {
-	clusters := &fdbtypes.FoundationDBClusterList{}
-
-	listOptions := make([]client.ListOption, 0, 1)
-	if r.Namespace != "" {
-		listOptions = append(listOptions, client.InNamespace(r.Namespace))
-	}
-
-	err := r.List(context, clusters, listOptions...)
-	if err != nil {
-		_, notStarted := err.(*ctrlCache.ErrCacheNotStarted)
-		if notStarted && retries > 0 {
-			time.Sleep(5 * time.Second)
-			return r.getDeprecationsWithRetry(context, retries-1)
-		}
-		return nil, err
-	}
-	deprecations := make([]fdbtypes.FoundationDBCluster, 0, len(clusters.Items))
-	for _, cluster := range clusters.Items {
-		originalSpec := cluster.Spec.DeepCopy()
-		err = NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
-		if err != nil {
-			return nil, err
-		}
-
-		originalYAML, err := json.Marshal(originalSpec)
-		if err != nil {
-			return nil, err
-		}
-
-		normalizedYAML, err := json.Marshal(cluster.Spec)
-		if err != nil {
-			return nil, err
-		}
-
-		if !bytes.Equal(originalYAML, normalizedYAML) {
-			deprecations = append(deprecations, cluster)
-		}
-	}
-	return deprecations, nil
 }
