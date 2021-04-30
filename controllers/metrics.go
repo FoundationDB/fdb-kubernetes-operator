@@ -31,37 +31,65 @@ import (
 var (
 	descClusterDefaultLabels = []string{"namespace", "name"}
 
-	descClusterCreated = prometheus.NewDesc(
+	deprecatedDescClusterCreated = prometheus.NewDesc(
 		"fdb_cluster_created_time",
+		"(Deprecated since 0.33.0) Creation time in unix timestamp for Fdb Cluster.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	deprecatedDescClusterStatus = prometheus.NewDesc(
+		"fdb_cluster_status",
+		"(Deprecated since 0.33.0) status of the Fdb Cluster.",
+		append(descClusterDefaultLabels, "status_type"),
+		nil,
+	)
+
+	descClusterCreated = prometheus.NewDesc(
+		"fdb_operator_cluster_created_time",
 		"Creation time in unix timestamp for Fdb Cluster.",
 		descClusterDefaultLabels,
 		nil,
 	)
 
 	descClusterStatus = prometheus.NewDesc(
-		"fdb_cluster_status",
+		"fdb_operator_cluster_status",
 		"status of the Fdb Cluster.",
 		append(descClusterDefaultLabels, "status_type"),
 		nil,
 	)
 
 	descClusterLastReconciled = prometheus.NewDesc(
-		"fdb_cluster_latest_reconciled",
+		"fdb_operator_cluster_latest_reconciled_status",
 		"the latest generation that was reconciled.",
 		descClusterDefaultLabels,
 		nil,
 	)
 
+	descInstancesToRemove = prometheus.NewDesc(
+		"fdb_operator_instances_to_remove_total",
+		"the count of instances that should be removed from the cluster.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	descInstancesToRemoveWithoutExclusion = prometheus.NewDesc(
+		"fdb_operator_instances_to_remove_without_exclusion_total",
+		"the count of instances that should be removed from the cluster without excluding.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
 	descClusterReconciled = prometheus.NewDesc(
-		"fdb_cluster_reconciled_status",
+		"fdb_operator_cluster_reconciled_status",
 		"status if the Fdb Cluster is reconciled.",
 		descClusterDefaultLabels,
 		nil,
 	)
 
 	descProcessGroupStatus = prometheus.NewDesc(
-		"fdb_process_group_status",
-		"status of the Fdb process group.",
+		"fdb_operator_process_group_total",
+		"the count of Fdb process groups in a specific condition.",
 		append(descClusterDefaultLabels, "process_class", "condition"),
 		nil,
 	)
@@ -101,6 +129,13 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
 		addConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
+	// TODO (johscheuer): remove these after 0.34.0
+	addGauge(deprecatedDescClusterCreated, float64(cluster.CreationTimestamp.Unix()))
+	addGauge(deprecatedDescClusterStatus, boolFloat64(cluster.Status.Health.Healthy), "health")
+	addGauge(deprecatedDescClusterStatus, boolFloat64(cluster.Status.Health.Available), "available")
+	addGauge(deprecatedDescClusterStatus, boolFloat64(cluster.Status.Health.FullReplication), "replication")
+	addGauge(deprecatedDescClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
+	// These are the correct metrics with the prefix "fdb_operator"
 	addGauge(descClusterCreated, float64(cluster.CreationTimestamp.Unix()))
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy), "health")
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available), "available")
@@ -108,6 +143,8 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
 	addGauge(descClusterLastReconciled, float64(cluster.Status.Generations.Reconciled))
 	addGauge(descClusterReconciled, boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled))
+	addGauge(descInstancesToRemove, float64(len(cluster.Spec.InstancesToRemove)))
+	addGauge(descInstancesToRemoveWithoutExclusion, float64(len(cluster.Spec.InstancesToRemoveWithoutExclusion)))
 
 	// Calculate the process group metrics
 	for pclass, conditionMap := range getProcessGroupMetrics(cluster) {
