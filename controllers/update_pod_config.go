@@ -38,11 +38,6 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		return false, err
 	}
 
-	configMapHash, err := GetDynamicConfHash(configMap)
-	if err != nil {
-		return false, err
-	}
-
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
@@ -52,6 +47,17 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	// We try to update all instances and if we observe an error we add it to the error list.
 	for index := range instances {
 		instance := instances[index]
+
+		serverPerPod, err := getStorageServersPerPodForInstance(&instance)
+		if err != nil {
+			return false, err
+		}
+
+		configMapHash, err := getDynamicConfHash(configMap, instance.GetProcessClass(), serverPerPod)
+		if err != nil {
+			return false, err
+		}
+
 		if instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
 			continue
 		}

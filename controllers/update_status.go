@@ -212,7 +212,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.ConnectionString = cluster.Status.ConnectionString
 	if status.ConnectionString == "" {
-		status.ConnectionString = existingConfigMap.Data["cluster-file"]
+		status.ConnectionString = existingConfigMap.Data[clusterFile]
 	}
 
 	if status.ConnectionString == "" {
@@ -467,12 +467,6 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		processGroupMap[processGroup.ProcessGroupID] = processGroup
 	}
 
-	// TODO (johscheuer): should be process specific #377
-	configMapHash, err := GetDynamicConfHash(configMap)
-	if err != nil {
-		return processGroups, err
-	}
-
 	for _, instance := range instances {
 		processClass := instance.GetProcessClass()
 		instanceID := instance.GetInstanceID()
@@ -506,6 +500,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		// Even the instance will be removed we need to keep the config around.
 		// Set the processCount for the instance specific storage servers per pod
+		var err error
 		if processClass == fdbtypes.ProcessClassStorage {
 			processCount, err = getStorageServersPerPodForInstance(&instance)
 			if err != nil {
@@ -526,6 +521,16 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			if err != nil {
 				return processGroups, err
 			}
+		}
+
+		serverPerPod, err := getStorageServersPerPodForInstance(&instance)
+		if err != nil {
+			return processGroups, err
+		}
+
+		configMapHash, err := getDynamicConfHash(configMap, instance.GetProcessClass(), serverPerPod)
+		if err != nil {
+			return processGroups, err
 		}
 
 		needsSidecarConfInConfigMap, err := validateInstance(r, context, cluster, instance, configMapHash, processGroupStatus)
