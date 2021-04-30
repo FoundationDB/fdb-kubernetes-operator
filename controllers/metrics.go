@@ -1,9 +1,29 @@
+/*
+ * metrics.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package controllers
 
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -17,10 +37,32 @@ var (
 		descClusterDefaultLabels,
 		nil,
 	)
+
 	descClusterStatus = prometheus.NewDesc(
 		"fdb_cluster_status",
 		"status of the Fdb Cluster.",
 		append(descClusterDefaultLabels, "status_type"),
+		nil,
+	)
+
+	descClusterLastReconciled = prometheus.NewDesc(
+		"fdb_cluster_latest_reconciled",
+		"the latest generation that was reconciled.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	descClusterReconciled = prometheus.NewDesc(
+		"fdb_cluster_reconciled_status",
+		"status if the Fdb Cluster is reconciled.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	descProcessGroupStatus = prometheus.NewDesc(
+		"fdb_process_group_status",
+		"status of the Fdb process group.",
+		append(descClusterDefaultLabels, "process_class", "condition"),
 		nil,
 	)
 )
@@ -41,7 +83,7 @@ func (c *fdbClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the prometheus.Collector interface
 func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
-	clusters := &v1beta1.FoundationDBClusterList{}
+	clusters := &fdbtypes.FoundationDBClusterList{}
 	err := c.reconciler.List(context.Background(), clusters)
 	if err != nil {
 		return
@@ -51,8 +93,7 @@ func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func collectMetrics(ch chan<- prometheus.Metric, cluster *v1beta1.FoundationDBCluster) {
-
+func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBCluster) {
 	addConstMetric := func(desc *prometheus.Desc, t prometheus.ValueType, v float64, lv ...string) {
 		lv = append([]string{cluster.Namespace, cluster.Name}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, t, v, lv...)
@@ -65,6 +106,48 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *v1beta1.FoundationDBCl
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Available), "available")
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.FullReplication), "replication")
 	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
+	addGauge(descClusterLastReconciled, float64(cluster.Status.Generations.Reconciled))
+	addGauge(descClusterReconciled, boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled))
+
+	// Calculate the process group metrics
+	for pclass, conditionMap := range getProcessGroupMetrics(cluster) {
+		for condition, count := range conditionMap {
+			addGauge(descProcessGroupStatus, float64(count), string(pclass), string(condition))
+		}
+	}
+}
+
+func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) map[fdbtypes.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int {
+	metricMap := map[fdbtypes.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int{}
+
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if _, exits := metricMap[processGroup.ProcessClass]; !exits {
+			metricMap[processGroup.ProcessClass] = map[fdbtypes.ProcessGroupConditionType]int{}
+		}
+
+		if len(processGroup.ProcessGroupConditions) == 0 {
+			metricMap[processGroup.ProcessClass][fdbtypes.ReadyCondition]++
+		}
+
+		for _, condition := range processGroup.ProcessGroupConditions {
+			metricMap[processGroup.ProcessClass][condition.ProcessGroupConditionType]++
+		}
+	}
+
+	// Ensure that all conditions are present
+	for pClass := range metricMap {
+		if _, exits := metricMap[pClass]; !exits {
+			metricMap[pClass] = map[fdbtypes.ProcessGroupConditionType]int{}
+		}
+
+		for _, condition := range fdbtypes.AllProcessGroupConditionTypes() {
+			if _, exists := metricMap[pClass][condition]; !exists {
+				metricMap[pClass][condition] = 0
+			}
+		}
+	}
+
+	return metricMap
 }
 
 // InitCustomMetrics initializes the metrics collectors for the operator.

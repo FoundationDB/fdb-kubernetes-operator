@@ -639,7 +639,24 @@ const (
 	MissingService ProcessGroupConditionType = "MissingService"
 	// MissingProcesses represents a process group that misses a process.
 	MissingProcesses ProcessGroupConditionType = "MissingProcesses"
+	// ReadyCondition is currently only used in the metrics.
+	ReadyCondition ProcessGroupConditionType = "Ready"
 )
+
+// AllProcessGroupConditionTypes returns all ProcessGroupConditionType
+func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
+	return []ProcessGroupConditionType{
+		IncorrectPodSpec,
+		IncorrectConfigMap,
+		IncorrectCommandLine,
+		PodFailing,
+		MissingPod,
+		MissingPVC,
+		MissingService,
+		MissingProcesses,
+		ReadyCondition,
+	}
+}
 
 // GetProcessGroupConditionType returns the ProcessGroupConditionType for the matching string or an error
 func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGroupConditionType, error) {
