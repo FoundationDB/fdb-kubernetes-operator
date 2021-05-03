@@ -112,8 +112,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				rootCmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer}, rootCmd)
+				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
 				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force)
 
 				if err != nil && !tc.HasErrors {

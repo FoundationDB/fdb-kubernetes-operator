@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func newAnalyzeCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -46,7 +46,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 		Short: "Analyze if the given clusters have any issues",
 		Long:  "Analyze if the given clusters have any issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := rootCmd.Flags().GetBool("force")
+			force, err := cmd.Root().Flags().GetBool("force")
 			if err != nil {
 				return err
 			}

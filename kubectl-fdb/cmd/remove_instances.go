@@ -41,7 +41,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-func newRemoveInstancesCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newRemoveInstancesCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -49,7 +49,7 @@ func newRemoveInstancesCmd(streams genericclioptions.IOStreams, rootCmd *cobra.C
 		Short: "Adds an instance (or multiple) to the remove list of the given cluster",
 		Long:  "Adds an instance (or multiple) to the remove list field of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := rootCmd.Flags().GetBool("force")
+			force, err := cmd.Root().Flags().GetBool("force")
 			if err != nil {
 				return err
 			}
