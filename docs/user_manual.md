@@ -32,10 +32,12 @@ When you make a change to the cluster spec, it will increment the `generation` f
 To run the operator in your environment, you need to install the controller and
 the CRDs:
 
-    kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
-    kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
-    kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
-    kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+```bash
+kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+```
 
 You can see logs from the operator by running
 `kubectl logs -f -l app=fdb-kubernetes-operator-controller-manager --container=manager`. You will likely want to watch these logs as you make changes to get a better understanding of what the operator is doing.
@@ -56,14 +58,16 @@ This operator aims to support as many different environments and use cases as we
 
 To start with, we are going to be creating a cluster with the following configuration:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+```
 
 This will create a cluster with 5 storage processes, 4 log processes, and 7 stateless processes. Each fdbserver process will be in a separate pod, and the pods will have names of the form `sample-cluster-$role-$n`, where `$n` is the instance ID and `$role` is the role for the process.
 
@@ -74,41 +78,42 @@ This example requires non-trivial resources, based on what a process will need i
 In addition to the pods, the operator will create a Persistent Volume Claim for any stateful
 processes in the cluster. In this example, each volume will be 128 GB.
 
-By default each pod will have two containers and one init container.. The `foundationdb` container will run fdbmonitor and fdbserver, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes. It is responsible for managing the fdbmonitor conf files and providing FDB binaries to the `foundationdb` container. The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume. The "Upgrading a Cluster" has more detail on we manage binaries. The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the fdbmonitor process starts.
+By default each pod will have two containers and one init container. The `foundationdb` container will run fdbmonitor and fdbserver, and is the main container for the pod. The `foundationdb-kubernetes-sidecar` container will run a sidecar image designed to help run FDB on Kubernetes. It is responsible for managing the fdbmonitor conf files and providing FDB binaries to the `foundationdb` container. The operator will create a config map that contains a template for the monitor conf file, and the sidecar will interpolate instance-specific fields into the conf and make it available to the fdbmonitor process through a shared volume. The "Upgrading a Cluster" has more detail on we manage binaries. The init container will run the same sidecar image, and will ensure that the initial binaries and dynamic conf are ready before the fdbmonitor process starts.
 
 # Accessing a cluster
 
 Now that your cluster is deployed, you can easily access the cluster. As an example, we are going to deploy a [Kubernetes Job](https://kubernetes.io/docs/tasks/job/) that will check the status of the cluster every minute. The `cluster file` is available through the exposed `config map` that can be mounted as follows:
 
-
-    apiVersion: batch/v1beta1
-    kind: CronJob
-    metadata:
-      name: fdbcli-status-cronjob
+```yaml
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: fdbcli-status-cronjob
+spec:
+  schedule: "*/1 * * * *" # every minute
+  jobTemplate:
     spec:
-      schedule: "*/1 * * * *" # every minute
-      jobTemplate:
+      template:
         spec:
-          template:
-            spec:
-              restartPolicy: OnFailure
-              containers:
-              - name: fdbcli-status-cronjob
-                image: foundationdb/foundationdb:6.2.30
-                args:
-                - /usr/bin/fdbcli
-                - --exec
-                - 'status'
-                env:
-                - name: FDB_CLUSTER_FILE
-                  value: /mnt/config-volume/cluster-file
-                volumeMounts:
-                - name: config-volume
-                  mountPath: /mnt/config-volume
-              volumes:
-              - name: config-volume
-                configMap:
-                  name: sample-cluster-config
+          restartPolicy: OnFailure
+          containers:
+          - name: fdbcli-status-cronjob
+            image: foundationdb/foundationdb:6.2.30
+            args:
+            - /usr/bin/fdbcli
+            - --exec
+            - 'status'
+            env:
+            - name: FDB_CLUSTER_FILE
+              value: /mnt/config-volume/cluster-file
+            volumeMounts:
+            - name: config-volume
+              mountPath: /mnt/config-volume
+          volumes:
+          - name: config-volume
+            configMap:
+              name: sample-cluster-config
+```
 
 Be careful that:
 
@@ -121,17 +126,18 @@ You can manage process counts in either the database configuration or in the pro
 
 To explicitly set process counts, you could configure the cluster as follows:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      processCounts:
-        storage: 6
-        log: 5
-        stateless: 4
-
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  processCounts:
+    storage: 6
+    log: 5
+    stateless: 4
+```
 
 This will configure 6 storage processes, 5 log processes, and 4 stateless processes. This is fewer stateless processes that we had by default, which means that some processes will be running multiple roles. This is generally something you want to avoid in a production configuration, as it can lead to high activity on one role starving another role of resources.
 
@@ -147,17 +153,19 @@ You can also set a process count to -1 to tell the operator not to provision any
 
 Instead of setting the counts directly, let's update the counts of recruited roles in the database configuration:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 6
-        logs: 4 # default is 3
-        proxies: 5 # default is 3
-        resolvers: 2 # default is 1
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 6
+    logs: 4 # default is 3
+    proxies: 5 # default is 3
+    resolvers: 2 # default is 1
+```
 
 This will provision 1 additional log process and 3 additional stateless processes. After launching those processes, it will change the database configuration to recruit 1 additional log, 2 additional proxies, and 1 additional resolver.
 
@@ -165,14 +173,16 @@ This will provision 1 additional log process and 3 additional stateless processe
 
 You can shrink a cluster by changing the database configuration or process count, just like when we grew a cluster:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 4
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 4
+```
 
 The operator will determine which processes to remove and store them in the `instancesToRemove` field in the cluster spec to make sure the choice of removal stays consistent across repeated runs of the reconciliation loop. Once the processes are in the `instancesToRemove` list, we will exclude them from the database, which moves all of the roles and data off of the process. Once the exclusion is complete, it is safe to remove the processes, and the operator will delete both the pods and the PVCs. Once the processes are shut down, the operator will re-include them to make sure the exclusion state doesn't get cluttered. It will also remove the process from the `instancesToRemove` list.
 
@@ -188,16 +198,18 @@ If you delete a pod, the operator will automatically create a new pod to replace
 
 As an alternative, you can replace a pod by explicitly placing it in the pending removals list:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
-      instancesToRemove:
-        - storage-1
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+  instancesToRemove:
+    - storage-1
+```
 
 When comparing the desired process count with the current pod count, any pods that are in the pending removal list are not counted. This means that the operator will only consider there to be 4 running storage pods, rather than 5, and will create a new one to fill the gap. Once this is done, it will go through the same removal process described above under "Shrinking a Cluster". The cluster will remain at full fault tolerance throughout the reconciliation. This allows you to replace an arbitrarily large number of processes in a cluster without any risk of availability loss.
 
@@ -205,15 +217,17 @@ When comparing the desired process count with the current pod count, any pods th
 
 You can reconfigure the database by changing the fields in the database configuration:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        redundancy_mode: triple
-        storage: 5
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    redundancy_mode: triple
+    storage: 5
+```
 
 This will run the configuration command on the database, and may also add or remove processes to match the new configuration.
 
@@ -221,16 +235,18 @@ This will run the configuration command on the database, and may also add or rem
 
 To add a knob, you can change the customParameters in the cluster spec:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
-      customParameters:
-        - "knob_always_causal_read_risky=1"
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+  customParameters:
+    - "knob_always_causal_read_risky=1"
+```
 
 The operator will update the monitor conf to contain the new knob, and will then bounce all of the fdbserver processes. As soon as fdbmonitor detects that the fdbserver process has died, it will create a new fdbserver process with the latest config. The cluster should be fully available within 10 seconds of executing the bounce, though this can vary based on cluster size.
 
@@ -240,14 +256,16 @@ The process for updating the monitor conf can take several minutes, based on the
 
 To upgrade a cluster, you can change the version in the cluster spec:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+```
 
 This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver processes.
 
@@ -301,46 +319,50 @@ In this example, we are going to add a volume that mounts certificates from a Ku
 
 Before you apply this change, you will need to create a secret. You can apply the following YAML to your environment to set up a secret with the self-signed cert that we use for testing the operator:
 
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: fdb-kubernetes-operator-secrets
-    data:
-      tls.crt: |
-        LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZ4RENDQTZ3Q0NRQ29Bd2FySFhWeWtEQU5CZ2txaGtpRzl3MEJBUXNGQURDQm96RUxNQWtHQTFVRUJoTUMKVlZNeEN6QUpCZ05WQkFnTUFrTkJNUkl3RUFZRFZRUUhEQWxEZFhCbGNuUnBibTh4RlRBVEJnTlZCQW9NREVadgpkVzVrWVhScGIyNUVRakVWTUJNR0ExVUVDd3dNUm05MWJtUmhkR2x2YmtSQ01Sa3dGd1lEVlFRRERCQm1iM1Z1ClpHRjBhVzl1WkdJdWIzSm5NU293S0FZSktvWklodmNOQVFrQkZodGtiMjV2ZEhKbGNHeDVRR1p2ZFc1a1lYUnAKYjI1a1lpNXZjbWN3SGhjTk1Ua3dOak13TWpNME9URTFXaGNOTWpBd05qSTVNak0wT1RFMVdqQ0JvekVMTUFrRwpBMVVFQmhNQ1ZWTXhDekFKQmdOVkJBZ01Ba05CTVJJd0VBWURWUVFIREFsRGRYQmxjblJwYm04eEZUQVRCZ05WCkJBb01ERVp2ZFc1a1lYUnBiMjVFUWpFVk1CTUdBMVVFQ3d3TVJtOTFibVJoZEdsdmJrUkNNUmt3RndZRFZRUUQKREJCbWIzVnVaR0YwYVc5dVpHSXViM0puTVNvd0tBWUpLb1pJaHZjTkFRa0JGaHRrYjI1dmRISmxjR3g1UUdadgpkVzVrWVhScGIyNWtZaTV2Y21jd2dnSWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUNEd0F3Z2dJS0FvSUNBUUNmCjRrNDRUTEhvQ2hYQmFCVHVhTWs2WURHQTNyN1VJR1BhOVJWeCsxVFFjNUZnL2Z6VFBtOG80dml5eDBwK0diUUcKWC9TM0hqcTJrSGh4NUJLV3A3NEVFWGE1ODJBTTRKU3hRV1kwVzVVVlV3QWR5dkxXZEY1OGRSOTJGMDQwWVJyZwpPOTFGaW5hRFZndUVUN1NVZlN6eGpnUUc4RXIyZmRTVzJLMy9CZDJBT2FwaVFGbzRWYlBPL3ZqMlhxNU5iSk05CmhtZ254aWZhZ2c0UjRPc25SbzN5YUpjNE5DRDRBamFLQ29kVFR1RmV2cGx3RDJ6QnBrdlo4TEpGUkZscDUzVWYKYjZBZGNQK2VibHU0b3ZoWWFpUWVUZ2htRzRvSy9KVFRwYWgwbHlHbUVmcXJrYTVrblBLWlJoQnBSWVZ1VVJUbwpoVEdvMGVGNzBscGExRjVRZWoza1BzWDBta0JpbmNmbkY0di9YdE9pNmNZK3Q3eG5ldzhQMGlNemw5MWNuNXpHCm9CRjNjamx5amVlNnh6WWxxbUhqbGg5OUs2OEZkQzM3TTl2R29LcGJNT3lNZ1AvQTJsdjh2UGw3eG8xQlBQUnIKZlpOWWpta3UwY212UmszbDVWbDFONzh3N3VrMCtqeHF3RXVFeVN3cVJxdHJ6TlRSbWdUMWxReTJlNzVVSlVxUQoxSDlnMk1CajB5c01tUHJaTWZEejRuUlpWa09XdWorMTFUVEUwTHBZb0lxYTdjNm5wUk12TmxyRjhNQTB1VUlBCjdDY01Qc2FUQjNWTmpHck5ueEZrUTh2UFRpQnRWU2NRQVNBc3V5Q3psNHJ5d210eXVmTEh2ZDJxeU8rWGFrL3YKY0hvT2I4bndsWG9VRS9DbmNyYWpqaFdCbWU5SVI4MWxxSVFNKzNBQ0l3SURBUUFCTUEwR0NTcUdTSWIzRFFFQgpDd1VBQTRJQ0FRQm1CUWxDczNRSmtUSEpsT0g4UjU0WTlPWFEzbWxzVmpsYThQemE3dkpIL2l6bTJGdk5EK1lVCjBDT2V6MDE4MlpXbGtqcllOWTdVblk5aVp1ODNWSVpFc1VjVlc3M05NajN0Zi80dG1aZlRPR1JLYmhoZUtNMUcKRDR0T3dwNjVlWExwbFlRazltSEIvenFDWk9vUmwwMHByNlFWYU5oUUlQdzJ1eTkyL2thVlhNOGhqVTBKOWhHNApwdis4MEpYc3A2bk1aNVQxY3FWdWZta3REektyUmxZNmkzUDBTbHdZNE9OTy9LSzcwNTJUS1RKOG5tZDFuYnpwClJXNG5iRTVnbzlYc2xSWDlQTS9jWW1rSTFwdk5vdFN6T2l3OWJ6UWo1ME45cWVVNTBwSU9WL2JZRkQrVU5rNEcKRDJ3Sk55YW9GRGlWS3U2ajRkaDFxQW93NkNsdEV1dWYydi91S0NUd2QyRzF2UlVFZTRVUDlVREoxeDZlVVVJYQoxMm1sbCtXdUt0NXNUWlRCelczYkhTRXRuQnZyMVVxWlFHdmw4UHlhK1FmV2FWcEtWRVZuYlJpSW5MVkhOa2EzCkwrTm5acGE0WmFWUU9KYlpLbFNQUy9ucDNRL3cvZU1weGdEL2hacTVXMTB2dzM5YVBqZEF6NndIZGpuN1RmWG4KbGN1WnBIWjdNWlZBTERNbDFFdE9aQW5LYjhJajVLNWpWbTFGSGZsMXJWY0MzS2tIdU56TzU0OUNxYkVqelNkdgp5ZEVHbUZBZEpTYllwdnRHUWFtVHA0RnVheEdtbWxOME5mMDNIVmFSVnRUVml1SDB2MUViNDc2MVpKWjczbE55CnVmUkFXMnVDZUlRU1ZmdW1pcVJ5WmhFaEh3MmQ2WnlJMzY1TTQyaGtpZXI0M2E2QlJCVzEvdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
-      tls.key: |
-        LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUpRZ0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQ1N3d2dna29BZ0VBQW9JQ0FRQ2Y0azQ0VExIb0NoWEIKYUJUdWFNazZZREdBM3I3VUlHUGE5UlZ4KzFUUWM1RmcvZnpUUG04bzR2aXl4MHArR2JRR1gvUzNIanEya0hoeAo1QktXcDc0RUVYYTU4MkFNNEpTeFFXWTBXNVVWVXdBZHl2TFdkRjU4ZFI5MkYwNDBZUnJnTzkxRmluYURWZ3VFClQ3U1VmU3p4amdRRzhFcjJmZFNXMkszL0JkMkFPYXBpUUZvNFZiUE8vdmoyWHE1TmJKTTlobWdueGlmYWdnNFIKNE9zblJvM3lhSmM0TkNENEFqYUtDb2RUVHVGZXZwbHdEMnpCcGt2WjhMSkZSRmxwNTNVZmI2QWRjUCtlYmx1NApvdmhZYWlRZVRnaG1HNG9LL0pUVHBhaDBseUdtRWZxcmthNWtuUEtaUmhCcFJZVnVVUlRvaFRHbzBlRjcwbHBhCjFGNVFlajNrUHNYMG1rQmluY2ZuRjR2L1h0T2k2Y1krdDd4bmV3OFAwaU16bDkxY241ekdvQkYzY2pseWplZTYKeHpZbHFtSGpsaDk5SzY4RmRDMzdNOXZHb0twYk1PeU1nUC9BMmx2OHZQbDd4bzFCUFBScmZaTllqbWt1MGNtdgpSazNsNVZsMU43OHc3dWswK2p4cXdFdUV5U3dxUnF0cnpOVFJtZ1QxbFF5MmU3NVVKVXFRMUg5ZzJNQmoweXNNCm1QclpNZkR6NG5SWlZrT1d1aisxMVRURTBMcFlvSXFhN2M2bnBSTXZObHJGOE1BMHVVSUE3Q2NNUHNhVEIzVk4KakdyTm54RmtROHZQVGlCdFZTY1FBU0FzdXlDemw0cnl3bXR5dWZMSHZkMnF5TytYYWsvdmNIb09iOG53bFhvVQpFL0NuY3JhampoV0JtZTlJUjgxbHFJUU0rM0FDSXdJREFRQUJBb0lDQUdQRzlDK1lWVkpNc09VQkVrYnlaOW9oClcrTmpuczE4NVRRb3pOaFVFOHIreEZRMlRVaDdaeDJwLzdCNlJKZkxiSmlwMjJ0SDF6WkZsSlRtMDE3bmtlS3kKRDFqZWRDdTFIN1k2N1JCeHN1a2E0akMxamJTZDdMVlkxbWg1Qk5vVlc1TmlhS1ZVVXIrRnZDdzNIYWVwTXBvUQptWnpHNnRGSEY1dUgzNVlPVC93TWdMTk9HNythWkZzaXJiWDZ3bVlaQXc1YlNiYkFwL0JxUjJPSzdOV1c1MURIClNzL05ZR0hGNThsZjVySHJ3U1BDYUxrUk56cm1qK0dUbjMwd3VXZ3BCT080WXNEYzJ2bEJQOFpMRmhiL0xra24KUTRDTllTbVlGVHk3M2hQY21TZ3RnalQ5OWtwZDA5d3BhR1o1OTFvd0NZOU9SLzVsOUlTMGNxVEtjWTFockNzLwpIWlNJNUNMaFpYMUN3a1BCeGlIYXhnVkJlZ2dRQ0hXTmJtM0lHQjZSYjV0U1pKaVd0OElUL1h3TlJJaEpibnQ0Cm1BdUVnN2dUU1UxNG8weUZjNEk3cXhxZnRTUFRIK0ZEUEx3L2xDbzdLVU0wNzNnRjcydkpqR1R1RUNVYTBqSVoKMmNtajE3Q0tFWk5XUktvSGJyM2x5cjVRRmdLNXBFMjlWbDkwV0d4NkUvV3FGYXpORmJydEZBbDZnL1RTQ1VmaApLY0gyMnY5RlJ6eGJISWc4MGEzQ1hmTS9EbklQaUVRYUYvZTRZSCtobXMvcXp6ZWRvNjJldEh3cUM5am1FS1RnClk3Z3RpZUJ6Q2VSQ3psTzEwMDZnYUJacGZLeEtnY3lCSzRxV3BCVVkvNU5HTDNwVWZJdUQ1MitEQXlLNC9uVHEKdTZDanpSM1pMQUU0UEZsYUdUSjVBb0lCQVFET1Q4cVh4RGVPSXNjNVFhM3NSS3hwSC9YSFprT2FjWFlJUk9iNwpYV3BTN21Jd3JCYVlMa1ZDRWJncHQzeGZ3MEd6MXNKS0FXMzA4V3g0MTQvTE1wT2RZMDZuSHNqSk03QVdpczNTCmFNdnRIL0tzUGlmMllwSHh1eUxIY0NuNE1TNzdneExQRjEwTHJvdEdJU3JNckhIdExsZFcxcUxGVHpDVE90QnUKQXhQZlZCM3B1bVU3WnBCTDdDbEE4Sko2dkJOSEZJNG9yY3BKU1BybnBoQUpjSkFaZWVwaENxZTVISlZKUTVzSwpGbk5rbC9xalJlWDdYd0N1dS9aU003ZndPK2hPVkZCelNLL2x6ZUVNRU1kYWlQTC9JVEQ2ZG0zejhaM0gwNERECmROdUtEcDhaN1VPNXNrNWUyaFVwMHNFQ3BQRzBCb2tmN2ZNQjJ0WU5NVHRZa085dkFvSUJBUURHWkFCeDRsMlcKMjBoRHNieloyQjR2N2h4R2cxWFlYTkhBK3ZES1FZeW1vNXZwV00ydjFiclltc2NxYlE1K0QybldaUGlyaWl3Lwo4SjczczdmajN0S1JDdk9pcjRFb015Z3JpVzNHWHlXWFVJa2cxWjVzYzdDQk1IMTRaL09ObnBIY01VZWJiVDNFCktsUVRxMFhjcS9QaWlFMWZLY0x5aVJncUdSTWZYVjVkYnJMR1BvTzdPc1I0TmdQZXdiMjVZL0t2OVFWM29IMGQKZXVSTXhtTU1YZHAwT2Zqb1YyZnUybUZhSlc4SnNGdlZ6Yi9lbzZGVUp4WWxqMFF5Ry9uVjlTRzN6d2pyM2lTeQpEVVM4UHpINWpUMTI0S0Q5dkpZRGZVTGF4N0txNGxJdjFQbk1WdVZXczNjNHQwV0Y2M2JWVUFIQU4zS0RDNUc4CmladkVYL1cwdFA2TkFvSUJBUUNqV1BldDNCU2tmQkxDMmFiTUI3OSthR2lmM084dnJCL3BBaXpqM3AyZFZkTDIKZUhwWE9XTnFvVDd3QUsvLzNrZjZETks5NTQzWXZ3SEVWK0FvNFQyUkFweTJveUFVZGRFNHQrT29jWUxzbHp2NwpkaWNMNUJWcmtHQkVDaUdndWNoYUtQaE9jVkFoUEt4VzlWRyt4ZFphRlRQZnRJY2hzOFpnKzlNbEYxaTNuUkVtCkNvZTJWVWx3WTJaeVhVZU0xN1pucy9XdWJaTlpIT2hUV3Q4ZHFqcmRnUEs2ck1ZSlFZRk5oYktPZFNJZUJsclMKeFRnSEk3d1ZuUXExSU8vRXpKbnMwc0x6MUJ3NDFoNFdBSDdteHNHbWtQQUhqcGNWNnpxaWlXcE0xd3d2cmMzNApxQ3ZVTGtId3hiaTE2WUVhQitDN1NlVnVHMmNwRTh3Z205ZENFMWNQQW9JQkFHUDVqUWZXN1JiU2xrNFd5WFoyCkpIQSs2OXpVM25QVUFwZmZYV3h2TC9QaHl2WUNuRlNadmpqZGRyUjRsSzhPRVdYTEtFMDVxaWJtbVJWMmFacloKZFA5R3A1UTZJVG9pM1lGakZnQzdmZlFNejYzT09MR3FjeTRIUTVOanZ5YUUzRGc4VlR1TUIyNU5ibVVqRUdldAo5NDhXNVBhcDB1WHFGRlZTb1lKU3lQVUlqZXE5SWlFOThqZ3A4RFZYS01hK0NWU0dneVRQcVgwcnF0VE52S2hFCnU0dUtrMVp5aFp1bVRSemlkRnhMbFZ2ZS9XdXl4ZC9rZXBLZTZkemVvRDRqODhQdS95M3Rta3hueDFXZCt3OHAKRCtwU05JN3BkQ2Q1L2pER0pkRmJqOU11M2xzTkJ6Rno2d2FYeE45QjAzYVhoT3BhaHNobkVpQVNzSDU3WlJTVgppUmtDZ2dFQUtPR1NibXkrUEl3dTA5WHI0a2RGWlZqc3F2S0NrZHBFTEVXWmhJT2pQanVVV1BvRXllL0xxR3NCCmFqd3pTdlFLQmU2U2xLeXZ4SVNsdmJmWktseG5JUW1SRHpoZ0x0SGo1dG1ZRDV4dHJmM1BtYUVmUlhMSy93bG8KNk1aRnczK21qaTNORmtPN0F5M3NoVzMwYnlKcDRyeHhrWUgvOHpnMjN3dnZNY2RXOHNBVXJlWW5BWkpSM1lxdQpoeS91aDlJajNDdXBSc1Q3Nyttb3o4YlZReEN0aGxFK2s0NG54ZWNqMUw0SzZuWEpnOHUxV3BPN0FNc1l3aXFKClJxVEJXeXV3UXR3QkxMUWxiQVBTTmlxaXZtb2pyTGdNZmdXam90SWFqYTRFV0RzcmlkaTRkcXVTb2Irc0tXRjIKYU1HYXRWRzQvbjNsdmphTDNNbGRuaENOWXB4TmdBPT0KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fdb-kubernetes-operator-secrets
+data:
+  tls.crt: |
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZ4RENDQTZ3Q0NRQ29Bd2FySFhWeWtEQU5CZ2txaGtpRzl3MEJBUXNGQURDQm96RUxNQWtHQTFVRUJoTUMKVlZNeEN6QUpCZ05WQkFnTUFrTkJNUkl3RUFZRFZRUUhEQWxEZFhCbGNuUnBibTh4RlRBVEJnTlZCQW9NREVadgpkVzVrWVhScGIyNUVRakVWTUJNR0ExVUVDd3dNUm05MWJtUmhkR2x2YmtSQ01Sa3dGd1lEVlFRRERCQm1iM1Z1ClpHRjBhVzl1WkdJdWIzSm5NU293S0FZSktvWklodmNOQVFrQkZodGtiMjV2ZEhKbGNHeDVRR1p2ZFc1a1lYUnAKYjI1a1lpNXZjbWN3SGhjTk1Ua3dOak13TWpNME9URTFXaGNOTWpBd05qSTVNak0wT1RFMVdqQ0JvekVMTUFrRwpBMVVFQmhNQ1ZWTXhDekFKQmdOVkJBZ01Ba05CTVJJd0VBWURWUVFIREFsRGRYQmxjblJwYm04eEZUQVRCZ05WCkJBb01ERVp2ZFc1a1lYUnBiMjVFUWpFVk1CTUdBMVVFQ3d3TVJtOTFibVJoZEdsdmJrUkNNUmt3RndZRFZRUUQKREJCbWIzVnVaR0YwYVc5dVpHSXViM0puTVNvd0tBWUpLb1pJaHZjTkFRa0JGaHRrYjI1dmRISmxjR3g1UUdadgpkVzVrWVhScGIyNWtZaTV2Y21jd2dnSWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUNEd0F3Z2dJS0FvSUNBUUNmCjRrNDRUTEhvQ2hYQmFCVHVhTWs2WURHQTNyN1VJR1BhOVJWeCsxVFFjNUZnL2Z6VFBtOG80dml5eDBwK0diUUcKWC9TM0hqcTJrSGh4NUJLV3A3NEVFWGE1ODJBTTRKU3hRV1kwVzVVVlV3QWR5dkxXZEY1OGRSOTJGMDQwWVJyZwpPOTFGaW5hRFZndUVUN1NVZlN6eGpnUUc4RXIyZmRTVzJLMy9CZDJBT2FwaVFGbzRWYlBPL3ZqMlhxNU5iSk05CmhtZ254aWZhZ2c0UjRPc25SbzN5YUpjNE5DRDRBamFLQ29kVFR1RmV2cGx3RDJ6QnBrdlo4TEpGUkZscDUzVWYKYjZBZGNQK2VibHU0b3ZoWWFpUWVUZ2htRzRvSy9KVFRwYWgwbHlHbUVmcXJrYTVrblBLWlJoQnBSWVZ1VVJUbwpoVEdvMGVGNzBscGExRjVRZWoza1BzWDBta0JpbmNmbkY0di9YdE9pNmNZK3Q3eG5ldzhQMGlNemw5MWNuNXpHCm9CRjNjamx5amVlNnh6WWxxbUhqbGg5OUs2OEZkQzM3TTl2R29LcGJNT3lNZ1AvQTJsdjh2UGw3eG8xQlBQUnIKZlpOWWpta3UwY212UmszbDVWbDFONzh3N3VrMCtqeHF3RXVFeVN3cVJxdHJ6TlRSbWdUMWxReTJlNzVVSlVxUQoxSDlnMk1CajB5c01tUHJaTWZEejRuUlpWa09XdWorMTFUVEUwTHBZb0lxYTdjNm5wUk12TmxyRjhNQTB1VUlBCjdDY01Qc2FUQjNWTmpHck5ueEZrUTh2UFRpQnRWU2NRQVNBc3V5Q3psNHJ5d210eXVmTEh2ZDJxeU8rWGFrL3YKY0hvT2I4bndsWG9VRS9DbmNyYWpqaFdCbWU5SVI4MWxxSVFNKzNBQ0l3SURBUUFCTUEwR0NTcUdTSWIzRFFFQgpDd1VBQTRJQ0FRQm1CUWxDczNRSmtUSEpsT0g4UjU0WTlPWFEzbWxzVmpsYThQemE3dkpIL2l6bTJGdk5EK1lVCjBDT2V6MDE4MlpXbGtqcllOWTdVblk5aVp1ODNWSVpFc1VjVlc3M05NajN0Zi80dG1aZlRPR1JLYmhoZUtNMUcKRDR0T3dwNjVlWExwbFlRazltSEIvenFDWk9vUmwwMHByNlFWYU5oUUlQdzJ1eTkyL2thVlhNOGhqVTBKOWhHNApwdis4MEpYc3A2bk1aNVQxY3FWdWZta3REektyUmxZNmkzUDBTbHdZNE9OTy9LSzcwNTJUS1RKOG5tZDFuYnpwClJXNG5iRTVnbzlYc2xSWDlQTS9jWW1rSTFwdk5vdFN6T2l3OWJ6UWo1ME45cWVVNTBwSU9WL2JZRkQrVU5rNEcKRDJ3Sk55YW9GRGlWS3U2ajRkaDFxQW93NkNsdEV1dWYydi91S0NUd2QyRzF2UlVFZTRVUDlVREoxeDZlVVVJYQoxMm1sbCtXdUt0NXNUWlRCelczYkhTRXRuQnZyMVVxWlFHdmw4UHlhK1FmV2FWcEtWRVZuYlJpSW5MVkhOa2EzCkwrTm5acGE0WmFWUU9KYlpLbFNQUy9ucDNRL3cvZU1weGdEL2hacTVXMTB2dzM5YVBqZEF6NndIZGpuN1RmWG4KbGN1WnBIWjdNWlZBTERNbDFFdE9aQW5LYjhJajVLNWpWbTFGSGZsMXJWY0MzS2tIdU56TzU0OUNxYkVqelNkdgp5ZEVHbUZBZEpTYllwdnRHUWFtVHA0RnVheEdtbWxOME5mMDNIVmFSVnRUVml1SDB2MUViNDc2MVpKWjczbE55CnVmUkFXMnVDZUlRU1ZmdW1pcVJ5WmhFaEh3MmQ2WnlJMzY1TTQyaGtpZXI0M2E2QlJCVzEvdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: |
+    LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUpRZ0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQ1N3d2dna29BZ0VBQW9JQ0FRQ2Y0azQ0VExIb0NoWEIKYUJUdWFNazZZREdBM3I3VUlHUGE5UlZ4KzFUUWM1RmcvZnpUUG04bzR2aXl4MHArR2JRR1gvUzNIanEya0hoeAo1QktXcDc0RUVYYTU4MkFNNEpTeFFXWTBXNVVWVXdBZHl2TFdkRjU4ZFI5MkYwNDBZUnJnTzkxRmluYURWZ3VFClQ3U1VmU3p4amdRRzhFcjJmZFNXMkszL0JkMkFPYXBpUUZvNFZiUE8vdmoyWHE1TmJKTTlobWdueGlmYWdnNFIKNE9zblJvM3lhSmM0TkNENEFqYUtDb2RUVHVGZXZwbHdEMnpCcGt2WjhMSkZSRmxwNTNVZmI2QWRjUCtlYmx1NApvdmhZYWlRZVRnaG1HNG9LL0pUVHBhaDBseUdtRWZxcmthNWtuUEtaUmhCcFJZVnVVUlRvaFRHbzBlRjcwbHBhCjFGNVFlajNrUHNYMG1rQmluY2ZuRjR2L1h0T2k2Y1krdDd4bmV3OFAwaU16bDkxY241ekdvQkYzY2pseWplZTYKeHpZbHFtSGpsaDk5SzY4RmRDMzdNOXZHb0twYk1PeU1nUC9BMmx2OHZQbDd4bzFCUFBScmZaTllqbWt1MGNtdgpSazNsNVZsMU43OHc3dWswK2p4cXdFdUV5U3dxUnF0cnpOVFJtZ1QxbFF5MmU3NVVKVXFRMUg5ZzJNQmoweXNNCm1QclpNZkR6NG5SWlZrT1d1aisxMVRURTBMcFlvSXFhN2M2bnBSTXZObHJGOE1BMHVVSUE3Q2NNUHNhVEIzVk4KakdyTm54RmtROHZQVGlCdFZTY1FBU0FzdXlDemw0cnl3bXR5dWZMSHZkMnF5TytYYWsvdmNIb09iOG53bFhvVQpFL0NuY3JhampoV0JtZTlJUjgxbHFJUU0rM0FDSXdJREFRQUJBb0lDQUdQRzlDK1lWVkpNc09VQkVrYnlaOW9oClcrTmpuczE4NVRRb3pOaFVFOHIreEZRMlRVaDdaeDJwLzdCNlJKZkxiSmlwMjJ0SDF6WkZsSlRtMDE3bmtlS3kKRDFqZWRDdTFIN1k2N1JCeHN1a2E0akMxamJTZDdMVlkxbWg1Qk5vVlc1TmlhS1ZVVXIrRnZDdzNIYWVwTXBvUQptWnpHNnRGSEY1dUgzNVlPVC93TWdMTk9HNythWkZzaXJiWDZ3bVlaQXc1YlNiYkFwL0JxUjJPSzdOV1c1MURIClNzL05ZR0hGNThsZjVySHJ3U1BDYUxrUk56cm1qK0dUbjMwd3VXZ3BCT080WXNEYzJ2bEJQOFpMRmhiL0xra24KUTRDTllTbVlGVHk3M2hQY21TZ3RnalQ5OWtwZDA5d3BhR1o1OTFvd0NZOU9SLzVsOUlTMGNxVEtjWTFockNzLwpIWlNJNUNMaFpYMUN3a1BCeGlIYXhnVkJlZ2dRQ0hXTmJtM0lHQjZSYjV0U1pKaVd0OElUL1h3TlJJaEpibnQ0Cm1BdUVnN2dUU1UxNG8weUZjNEk3cXhxZnRTUFRIK0ZEUEx3L2xDbzdLVU0wNzNnRjcydkpqR1R1RUNVYTBqSVoKMmNtajE3Q0tFWk5XUktvSGJyM2x5cjVRRmdLNXBFMjlWbDkwV0d4NkUvV3FGYXpORmJydEZBbDZnL1RTQ1VmaApLY0gyMnY5RlJ6eGJISWc4MGEzQ1hmTS9EbklQaUVRYUYvZTRZSCtobXMvcXp6ZWRvNjJldEh3cUM5am1FS1RnClk3Z3RpZUJ6Q2VSQ3psTzEwMDZnYUJacGZLeEtnY3lCSzRxV3BCVVkvNU5HTDNwVWZJdUQ1MitEQXlLNC9uVHEKdTZDanpSM1pMQUU0UEZsYUdUSjVBb0lCQVFET1Q4cVh4RGVPSXNjNVFhM3NSS3hwSC9YSFprT2FjWFlJUk9iNwpYV3BTN21Jd3JCYVlMa1ZDRWJncHQzeGZ3MEd6MXNKS0FXMzA4V3g0MTQvTE1wT2RZMDZuSHNqSk03QVdpczNTCmFNdnRIL0tzUGlmMllwSHh1eUxIY0NuNE1TNzdneExQRjEwTHJvdEdJU3JNckhIdExsZFcxcUxGVHpDVE90QnUKQXhQZlZCM3B1bVU3WnBCTDdDbEE4Sko2dkJOSEZJNG9yY3BKU1BybnBoQUpjSkFaZWVwaENxZTVISlZKUTVzSwpGbk5rbC9xalJlWDdYd0N1dS9aU003ZndPK2hPVkZCelNLL2x6ZUVNRU1kYWlQTC9JVEQ2ZG0zejhaM0gwNERECmROdUtEcDhaN1VPNXNrNWUyaFVwMHNFQ3BQRzBCb2tmN2ZNQjJ0WU5NVHRZa085dkFvSUJBUURHWkFCeDRsMlcKMjBoRHNieloyQjR2N2h4R2cxWFlYTkhBK3ZES1FZeW1vNXZwV00ydjFiclltc2NxYlE1K0QybldaUGlyaWl3Lwo4SjczczdmajN0S1JDdk9pcjRFb015Z3JpVzNHWHlXWFVJa2cxWjVzYzdDQk1IMTRaL09ObnBIY01VZWJiVDNFCktsUVRxMFhjcS9QaWlFMWZLY0x5aVJncUdSTWZYVjVkYnJMR1BvTzdPc1I0TmdQZXdiMjVZL0t2OVFWM29IMGQKZXVSTXhtTU1YZHAwT2Zqb1YyZnUybUZhSlc4SnNGdlZ6Yi9lbzZGVUp4WWxqMFF5Ry9uVjlTRzN6d2pyM2lTeQpEVVM4UHpINWpUMTI0S0Q5dkpZRGZVTGF4N0txNGxJdjFQbk1WdVZXczNjNHQwV0Y2M2JWVUFIQU4zS0RDNUc4CmladkVYL1cwdFA2TkFvSUJBUUNqV1BldDNCU2tmQkxDMmFiTUI3OSthR2lmM084dnJCL3BBaXpqM3AyZFZkTDIKZUhwWE9XTnFvVDd3QUsvLzNrZjZETks5NTQzWXZ3SEVWK0FvNFQyUkFweTJveUFVZGRFNHQrT29jWUxzbHp2NwpkaWNMNUJWcmtHQkVDaUdndWNoYUtQaE9jVkFoUEt4VzlWRyt4ZFphRlRQZnRJY2hzOFpnKzlNbEYxaTNuUkVtCkNvZTJWVWx3WTJaeVhVZU0xN1pucy9XdWJaTlpIT2hUV3Q4ZHFqcmRnUEs2ck1ZSlFZRk5oYktPZFNJZUJsclMKeFRnSEk3d1ZuUXExSU8vRXpKbnMwc0x6MUJ3NDFoNFdBSDdteHNHbWtQQUhqcGNWNnpxaWlXcE0xd3d2cmMzNApxQ3ZVTGtId3hiaTE2WUVhQitDN1NlVnVHMmNwRTh3Z205ZENFMWNQQW9JQkFHUDVqUWZXN1JiU2xrNFd5WFoyCkpIQSs2OXpVM25QVUFwZmZYV3h2TC9QaHl2WUNuRlNadmpqZGRyUjRsSzhPRVdYTEtFMDVxaWJtbVJWMmFacloKZFA5R3A1UTZJVG9pM1lGakZnQzdmZlFNejYzT09MR3FjeTRIUTVOanZ5YUUzRGc4VlR1TUIyNU5ibVVqRUdldAo5NDhXNVBhcDB1WHFGRlZTb1lKU3lQVUlqZXE5SWlFOThqZ3A4RFZYS01hK0NWU0dneVRQcVgwcnF0VE52S2hFCnU0dUtrMVp5aFp1bVRSemlkRnhMbFZ2ZS9XdXl4ZC9rZXBLZTZkemVvRDRqODhQdS95M3Rta3hueDFXZCt3OHAKRCtwU05JN3BkQ2Q1L2pER0pkRmJqOU11M2xzTkJ6Rno2d2FYeE45QjAzYVhoT3BhaHNobkVpQVNzSDU3WlJTVgppUmtDZ2dFQUtPR1NibXkrUEl3dTA5WHI0a2RGWlZqc3F2S0NrZHBFTEVXWmhJT2pQanVVV1BvRXllL0xxR3NCCmFqd3pTdlFLQmU2U2xLeXZ4SVNsdmJmWktseG5JUW1SRHpoZ0x0SGo1dG1ZRDV4dHJmM1BtYUVmUlhMSy93bG8KNk1aRnczK21qaTNORmtPN0F5M3NoVzMwYnlKcDRyeHhrWUgvOHpnMjN3dnZNY2RXOHNBVXJlWW5BWkpSM1lxdQpoeS91aDlJajNDdXBSc1Q3Nyttb3o4YlZReEN0aGxFK2s0NG54ZWNqMUw0SzZuWEpnOHUxV3BPN0FNc1l3aXFKClJxVEJXeXV3UXR3QkxMUWxiQVBTTmlxaXZtb2pyTGdNZmdXam90SWFqYTRFV0RzcmlkaTRkcXVTb2Irc0tXRjIKYU1HYXRWRzQvbjNsdmphTDNNbGRuaENOWXB4TmdBPT0KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=
+```
 
 You can make the values from this secret available through a custom volume mount:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-        name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
-      processes:
-        general:
-          podTemplate:
-            spec:
-              volumes:
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+  processes:
+    general:
+      podTemplate:
+        spec:
+          volumes:
+            - name: fdb-certs
+              secret:
+                secretName: fdb-kubernetes-operator-secrets
+          containers:
+            - name: foundationdb
+              env:
+                - name: FDB_TLS_CERTIFICATE_FILE
+                  value: /tmp/fdb-certs/tls.crt
+                - name: FDB_TLS_CA_FILE
+                  value: /tmp/fdb-certs/tls.crt
+                - name: FDB_TLS_KEY_FILE
+                  value: /tmp/fdb-certs/tls.key
+              volumeMounts:
                 - name: fdb-certs
-                  secret:
-                    secretName: fdb-kubernetes-operator-secrets
-              containers:
-                - name: foundationdb
-                  env:
-                    - name: FDB_TLS_CERTIFICATE_FILE
-                      value: /tmp/fdb-certs/tls.crt
-                    - name: FDB_TLS_CA_FILE
-                      value: /tmp/fdb-certs/tls.crt
-                    - name: FDB_TLS_KEY_FILE
-                      value: /tmp/fdb-certs/tls.key
-                  volumeMounts:
-                    - name: fdb-certs
-                      mountPath: /tmp/fdb-certs
+                  mountPath: /tmp/fdb-certs
+```
 
 This will delete the pods in the cluster and recreate them with the new environment variables and volumes.
 
@@ -391,55 +413,58 @@ Fault domains are controlled through the `faultDomain` field in the cluster spec
 
 The default fault domain strategy is to replicate across nodes in a single Kubernetes cluster. If you do not specify any fault domain option, we will replicate across nodes.
 
-
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
-      faultDomain:
-        key: topology.kubernetes.io/zone # default: kubernetes.io/hostname
-        valueFrom: spec.zoneName # default: spec.nodeName
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+  faultDomain:
+    key: topology.kubernetes.io/zone # default: kubernetes.io/hostname
+    valueFrom: spec.zoneName # default: spec.nodeName
+```
 
 The example above divides processes across nodes based on the label `topology.kubernetes.io/zone` on the node, and sets the zone locality information in FDB based on the field `spec.zoneName` on the pod. The latter field does not exist, so this configuration cannot work. There is no clear pattern in Kubernetes for allowing pods to access node information other than the host name, which presents challenges using any other kind of fault domain.
 
 If you have some other mechanism to make this information available in your pod's environment, you can tell the operator to use an environment varilable as the source for the zone locality:
 
-
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
-      faultDomain:
-        key: topology.kubernetes.io/zone
-        valueFrom: $RACK
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+  faultDomain:
+    key: topology.kubernetes.io/zone
+    valueFrom: $RACK
+```
 
 ## Option 2: Multi-Kubernetes Replication
 
 Our second strategy is to run multiple Kubernetes cluster, each as its own fault domain. This strategy adds significant operational complexity, but may allow you to have stronger fault domains and thus more reliable deployments. You can enable this strategy by using a special key in the fault domain:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      instanceIDPrefix: zone2
-      databaseConfiguration:
-        storage: 5
-      volumeSize: "128G"
-      faultDomain:
-        key: foundationdb.org/kubernetes-cluster
-        value: zone2
-        zoneIndex: 2
-        zoneCount: 5
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  instanceIDPrefix: zone2
+  databaseConfiguration:
+    storage: 5
+  faultDomain:
+    key: foundationdb.org/kubernetes-cluster
+    value: zone2
+    zoneIndex: 2
+    zoneCount: 5
+```
 
 This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide processes across fault domains. For instance, this configuration has 7 stateless processes, which need to be divided across 5 fault domains. The zones with zoneIndex 1 and 2 will allocate 2 stateless processes each. The zones with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
 
@@ -451,19 +476,21 @@ You must always specify an `instanceIDPrefix` when deploying an FDB cluster to m
 
 In local test environments, you may not having any real fault domains to use, and may not care about availability. You can test in this environment while still having replication enabled by using fake fault domains:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      databaseConfiguration:
-        storage: 5
-      automationOptions:
-        configureDatabase: false
-        killProcesses: false
-      faultDomain:
-        key: foundationdb.org/none
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  databaseConfiguration:
+    storage: 5
+  automationOptions:
+    configureDatabase: false
+    killProcesses: false
+  faultDomain:
+    key: foundationdb.org/none
+```
 
 This strategy uses the pod name as the fault domain, which allows each process to act as a separate failure domain. Any hardware failure could lead to a complete loss of the cluster. This configuration should not be used in any production environment.
 
@@ -471,22 +498,23 @@ This strategy uses the pod name as the fault domain, which allows each process t
 
 The replication strategies above all describe how data is replicated within a data center. They control the `zoneid` field in the cluster's locality. If you want to run a cluster across multiple data centers, you can use FoundationDB's multi-region replication. This can work with any of the replication stragies above. The data center will be a separate fault domain from whatever you provide for the zone.
 
-
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      version: 6.2.30
-      dataCenter: dc1
-      processCounts:
-        stateless: -1
-      databaseConfiguration:
-        storage: 5
-        regions:
-          - datacenters:
-              - id: dc1
-                priority: 1
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  dataCenter: dc1
+  processCounts:
+    stateless: -1
+  databaseConfiguration:
+    storage: 5
+    regions:
+      - datacenters:
+          - id: dc1
+            priority: 1
+```
 
 The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions.
 
@@ -586,27 +614,31 @@ In most cases, restarts will be done independently in each Kubernetes cluster, a
 
 There are some situations where an instance of the operator is able to get locks but should not be trusted to perform global actions. For instance, the operator could be partitioned in a way where it cannot access the Kubernetes API but can access the FoundationDB cluster. To block such an instance from taking locks, you can add it to the `denyList` in the lock options. You can set this in the cluster spec on any Kubernetes cluster.
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      instanceIDPrefix: dc1
-      lockOptions:
-        denyList:
-          - id: dc2
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  instanceIDPrefix: dc1
+  lockOptions:
+    denyList:
+      - id: dc2
+```
 
 This will clear any locks held by `dc2`, and prevent it from taking further locks. In order to clear this deny list, you must change it to allow that instance again:
 
-    apiVersion: apps.foundationdb.org/v1beta1
-    kind: FoundationDBCluster
-    metadata:
-      name: sample-cluster
-    spec:
-      instanceIDPrefix: dc1
-      lockOptions:
-        denyList:
-          - id: dc2
-            allow: true
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  instanceIDPrefix: dc1
+  lockOptions:
+    denyList:
+      - id: dc2
+        allow: true
+```
 
 Once that change is fully reconciled, you can clear the deny list from the spec.

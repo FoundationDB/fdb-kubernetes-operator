@@ -100,7 +100,6 @@ kubectl fdb deprecation --use-future-defaults
 kubectl fdb deprecation --only-show-changes=false
 
 # Shows the cluster spec for all clusters in the current namespace with deprecations
-# This option can be used to pipe the new spec into a file or directly into kubectl
 kubectl fdb deprecation --show-cluster-spec`,
 	}
 
@@ -190,6 +189,6 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 		return fmt.Errorf("%d/%d cluster(s) with deprecations", deprecationCounter, clusterCounter)
 	}
 
-	cmd.Printf("%d cluster(s) without deprecations", clusterCounter)
+	cmd.Printf("%d cluster(s) without deprecations\n", clusterCounter)
 	return nil
 }
