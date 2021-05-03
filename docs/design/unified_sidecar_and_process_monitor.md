@@ -19,7 +19,7 @@ We currently make use of three different containers in our Kubernetes deployment
 
 We will build a new process called `fdb-kubernetes-monitor` that is designed to run fdbserver processes itself. It will take a configuration file that specifies the processes to launch, including explicit environment variable substitutions, and will not have any mechanism for fdbmonitor conf file management. It will also have APIs to copy files into another folder, and to check the hashes of files, like the sidecar does. This process will not be a drop-in replacement for either the sidecar or fdbmonitor, and will be designed specifically for use within the Kubernetes operator. It will be available to use for other purposes, such as injecting FDB client libraries into a client application.
 
-fdb-kubernetes-monitor will watch the configuration file for changes and automatically reload the desired process state, but will not automatically kill processes. It will watch for its child processes to die and relaunch them with the latest configuration. It will also do appropriate signal handling for SIGKILL and SIGTERM images in accordance with Docker best practices. The configuration file will be designed such that all of the processes of a single machine class can share a configuration file, with environment variables for command-line arguments that vary between processes. fdb-kubernetes-monitor will have an option for how many fdbserver processes to spawn, and the configuration file will support defining arguments that vary between different processes in the pod based on the process number.
+fdb-kubernetes-monitor will have APIs for loading new configuration from the local copy of the config map, but will not automatically relaunch processes with new configuration. Instead, it will rely on having the operator do a synchronized kill so that we can instantly bounce all of the processes in a coordinated fashion. When fdb-kubernetes-monitor detects that a child process has been killed, it will launch a new child process with the latest configuration. It will also do appropriate signal handling for SIGKILL and SIGTERM signals in accordance with Docker best practices. The configuration file will be designed such that all of the processes of a single machine class can share a configuration file, with environment variables for command-line arguments that vary between processes. fdb-kubernetes-monitor will have a command-line option for how many fdbserver processes to spawn, and the configuration file will support defining arguments that vary between different processes in the pod based on the process number.
 
 During upgrades, we will have a sidecar container that we upgrade to the new version, with instructions to copy the binary into a shared volume. We will then update the configuration for fdb-kubernetes-monitor in the main container to tell it to use a newer version, which will cause it to use the version-scoped binary in the shared volume. We will include the sidecar container all the time in the initial work for this feature. In the future, we will explore an option to deploy it as an ephemeral container, once that feature is sufficiently stable in Kubernetes.
 
@@ -35,10 +35,13 @@ When the new launcher is used, both the main container and the sidecar container
 
 * `get_current_configuration` - returns the current process configuration
 * `check_hash` - check the hash of a file inside its configuration directory
+* `load_configuration` - load the latest configuration from the configuration directory into memory.
 * `ready` - returns an `OK` response
 * `substitutions` - returns the values for any environment variables that are used in the process configuration
 
 When we are transitioning from the old launcher to the new launcher for a cluster, we will include both a monitor conf file and the kubernetes-monitor conf file in the config map. Once the transition is complete, we will remove the monitor conf file from the sidecar.
+
+This API will have an option to listen on a TLS connection and restrict the incoming connections using the same peer verification options we support in the current sidecar.
 
 ### Process Configuration
 
@@ -67,52 +70,54 @@ The process configuration will be represented in a JSON file that contains a Pro
 
 Example configuration, in JSON form:
 
-	{
-		"version": "6.3.0",
-		"arguments": [
-			{"value": "--public-address"},
-			{"type": "Concatenate", "values": [
-				{"type": "EnvVar", "source": "FDB_PUBLIC_IP"},
-				{"value": ":"},
-				{"type": "ProcessNumber", "offset": 4498, "multiplier": 2},
-				{"value": ":tls"}
-			]},
-			{"value": "--listen-address"},
-			{"type": "Concatenate", "values": [
-				{"type": "EnvVar", "source": "FDB_POD_IP"},
-				{"value": ":"},
-				{"type": "ProcessNumber", "offset": 4498, "multiplier": 2},
-				{"value": ":tls"}
-			]},
-			{"value": "--datadir"},
-			{"type": "Concatenate", "values": [
-				{"value": "/var/fdb/data/"},
-				{"type": "ProcessNumber"}
-			]},
-			{"value": "--class"},
-			{"value": "storage"},
-			{"value": "--locality-zoneid"},
-			{"type": "Environment", "source": "FDB_ZONE_ID"},
-			{"value": "--locality-instance-id"},
+```json
+{
+	"version": "6.3.0",
+	"arguments": [
+		{"value": "--public-address"},
+		{"type": "Concatenate", "values": [
+			{"type": "Environment", "source": "FDB_PUBLIC_IP"},
+			{"value": ":"},
+			{"type": "ProcessNumber", "offset": 4498, "multiplier": 2},
+			{"value": ":tls"}
+		]},
+		{"value": "--listen-address"},
+		{"type": "Concatenate", "values": [
+			{"type": "Environment", "source": "FDB_POD_IP"},
+			{"value": ":"},
+			{"type": "ProcessNumber", "offset": 4498, "multiplier": 2},
+			{"value": ":tls"}
+		]},
+		{"value": "--datadir"},
+		{"type": "Concatenate", "values": [
+			{"value": "/var/fdb/data/"},
+			{"type": "ProcessNumber"}
+		]},
+		{"value": "--class"},
+		{"value": "storage"},
+		{"value": "--locality-zoneid"},
+		{"type": "Environment", "source": "FDB_ZONE_ID"},
+		{"value": "--locality-instance-id"},
+		{"type": "Environment", "source": "FDB_INSTANCE_ID"},
+		{"value": "--locality-process-id"},
+		{"type": "Concatenate", "values": [
 			{"type": "Environment", "source": "FDB_INSTANCE_ID"},
-			{"value": "--locality-process-id"},
-			{"type": "Concatenate", "values": [
-				{"type": "Environment", "source": "FDB_INSTANCE_ID"},
-				{"value": "-"},
-				{"type": "ProcessNumber"}
-			},
-		]
-	}
+			{"value": "-"},
+			{"type": "ProcessNumber"}
+		]}
+	]
+}
+```
 
 Let's assume this is run with a process count of 2, that 6.3.0 is the version of the main container, and that the following environment variables are set:
 
-	FDB_PUBLIC_IP=127.0.0.1
-	FDB_POD_IP=127.0.0.2
+	FDB_PUBLIC_IP=10.0.0.1
+	FDB_POD_IP=192.168.0.1
 	FDB_ZONE_ID=zone1
 	FDB_INSTANCE_ID=storage-1
 
 This would spawn two processes, with the following configuration:
 
-	/usr/bin/fdbserver --public-address 127.0.0.1:4500:tls --listen-address 127.0.0.2:4500:tls --datadir /var/fdb/data/1 --class storage --locality-zoneid zone1 --locality_instance_id storage-1 --locality-procerss-id storage-1-1
+	/usr/bin/fdbserver --public-address 10.0.0.1:4500:tls --listen-address 192.168.0.1:4500:tls --datadir /var/fdb/data/1 --class storage --locality-zoneid zone1 --locality_instance_id storage-1 --locality-process-id storage-1-1
 
-	/usr/bin/fdbserver --public-address 127.0.0.1:4502:tls --listen-address 127.0.0.2:4502:tls --datadir /var/fdb/data/2 --class storage --locality-zoneid zone1 --locality_instance_id storage-1 --locality-procerss-id storage-1-2
+	/usr/bin/fdbserver --public-address 10.0.0.1:4502:tls --listen-address 192.168.0.1:4502:tls --datadir /var/fdb/data/2 --class storage --locality-zoneid zone1 --locality_instance_id storage-1 --locality-process-id storage-1-2
