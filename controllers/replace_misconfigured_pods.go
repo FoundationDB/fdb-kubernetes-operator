@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -65,7 +67,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			continue
 		}
 
-		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
 		processGroupStatus := processGroups[instanceID]
 		if processGroupStatus == nil {
 			return false, fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)
@@ -80,7 +82,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			return false, err
 		}
 
-		processClass := GetProcessClassFromMeta(pvc.ObjectMeta)
+		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
 		desiredPVC, err := GetPvc(cluster, processClass, idNum)
 		if err != nil {
 			return false, err
@@ -141,7 +143,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	return true, nil
 }
 
-func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance internal.FdbInstance, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
 	if instance.Pod == nil {
 		return false, nil
 	}

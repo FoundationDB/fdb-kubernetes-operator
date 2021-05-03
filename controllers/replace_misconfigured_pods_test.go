@@ -23,6 +23,8 @@ package controllers
 import (
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -50,7 +52,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	Describe("Check instance", func() {
 		Context("when instance has no Pod", func() {
 			It("should not need removal", func() {
-				instance := FdbInstance{}
+				instance := internal.FdbInstance{}
 				needsRemoval, err := instanceNeedsRemoval(cluster, instance, nil)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
@@ -59,7 +61,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when processGroupStatus is missing", func() {
 			It("should return an error", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
 							fdbtypes.FDBInstanceIDLabel: instanceName,
@@ -80,7 +82,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when processGroupStatus has remove flag", func() {
 			It("should not need a removal", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
 							fdbtypes.FDBInstanceIDLabel: instanceName,
@@ -104,7 +106,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when instanceID prefix changes", func() {
 			It("should need a removal", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
 							fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -135,7 +137,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when the public IP source changes", func() {
 			It("should need a removal", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
 							fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -168,7 +170,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when the public IP source is removed", func() {
 		It("should need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -204,7 +206,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when the public IP source is set to default", func() {
 		It("should not need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -236,7 +238,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when the storageServersPerPod is changed for a storage class instance", func() {
 		It("should need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -267,7 +269,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when the storageServersPerPod is changed for a non storage class instance", func() {
 		It("should not need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
@@ -298,7 +300,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when the nodeSelector changes", func() {
 		It("should need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -331,7 +333,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 		It("should not need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -357,7 +359,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when UpdatePodsByReplacement is set and the PodSpecHash doesn't match", func() {
 		It("should need a removal", func() {
-			instance := FdbInstance{
+			instance := internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
@@ -375,7 +377,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				ProcessGroupID: instanceName,
 				Remove:         false,
 			}
-			err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 
 			cluster.Spec.UpdatePodsByReplacement = true
@@ -387,15 +389,15 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 	Context("when the memory resources are changed", func() {
 		var status *fdbtypes.ProcessGroupStatus
-		var instance FdbInstance
+		var instance internal.FdbInstance
 
 		BeforeEach(func() {
-			err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(err).NotTo(HaveOccurred())
-			instance = FdbInstance{
+			instance = internal.FdbInstance{
 				Metadata: &metav1.ObjectMeta{
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   pod.ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],

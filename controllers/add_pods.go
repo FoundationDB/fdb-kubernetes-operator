@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,7 +64,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return false, err
 	}
 
-	instanceMap := make(map[string]FdbInstance, len(instances))
+	instanceMap := make(map[string]internal.FdbInstance, len(instances))
 	for _, instance := range instances {
 		instanceMap[instance.GetInstanceID()] = instance
 	}

@@ -34,6 +34,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -762,7 +764,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
-		instance := newFdbInstance(pod)
+		instance := internal.NewFdbInstance(pod)
 		instanceID := instance.GetInstanceID()
 
 		if client.missingProcessGroups[instanceID] {
@@ -803,7 +805,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbtypes.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
-				ProcessClass:  GetProcessClassFromMeta(pod.ObjectMeta),
+				ProcessClass:  internal.GetProcessClassFromMeta(pod.ObjectMeta),
 				CommandLine:   command,
 				Excluded:      excluded,
 				Locality:      locality,

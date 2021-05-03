@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"github.com/prometheus/common/expfmt"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -1040,7 +1042,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 1))
-						if processClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
+						if internal.ProcessClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
 							addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 2))
 						}
 					}
@@ -1220,14 +1222,14 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels[fdbtypes.FDBInstanceIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
+					hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := GetConfigMapHash(cluster)
@@ -1358,7 +1360,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should not update the annotations on other resources", func() {
 					pods := &corev1.PodList{}
 
-					err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+					err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
@@ -1367,7 +1369,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						_, id, err := ParseInstanceID(item.Labels[fdbtypes.FDBInstanceIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
-						hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
+						hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(item.Labels), id, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						configMapHash, err := GetConfigMapHash(cluster)
@@ -1469,14 +1471,14 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels[fdbtypes.FDBInstanceIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
+					hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
 					configMapHash, err := GetConfigMapHash(cluster)
@@ -1752,7 +1754,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				for _, pod := range pods.Items {
 					Expect(pod.Annotations[fdbtypes.PublicIPSourceAnnotation]).To(Equal("service"))
 
-					if processClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if internal.ProcessClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 					}
 				}
@@ -1793,7 +1795,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				var storagePod corev1.Pod
 				for _, pod := range pods.Items {
-					if processClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if internal.ProcessClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 						break
 					}
@@ -2063,7 +2065,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
+						processClass := internal.GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
 							replacements[MockPodIP(&pod)] = true
 						}
@@ -2976,7 +2978,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("for a basic storage process", func() {
 			It("should substitute the variables in the start command", func() {
-				instance := newFdbInstance(pods.Items[firstStorageIndex])
+				instance := internal.NewFdbInstance(pods.Items[firstStorageIndex])
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: instance.Pod}
 				command, err = GetStartCommand(cluster, instance, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -3000,7 +3002,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("for a basic storage process with multiple storage servers per Pod", func() {
 			It("should substitute the variables in the start command", func() {
-				instance := newFdbInstance(pods.Items[firstStorageIndex])
+				instance := internal.NewFdbInstance(pods.Items[firstStorageIndex])
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: instance.Pod}
 				command, err = GetStartCommand(cluster, instance, podClient, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
@@ -3047,7 +3049,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
 
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
+				command, err = GetStartCommand(cluster, internal.NewFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3079,7 +3081,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}
 
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
+				command, err = GetStartCommand(cluster, internal.NewFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3106,7 +3108,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
+				command, err = GetStartCommand(cluster, internal.NewFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3134,7 +3136,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
-				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
+				command, err = GetStartCommand(cluster, internal.NewFdbInstance(pod), podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3480,7 +3482,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 func getProcessClassMap(pods []corev1.Pod) map[fdbtypes.ProcessClass]int {
 	counts := make(map[fdbtypes.ProcessClass]int)
 	for _, pod := range pods {
-		ProcessClass := processClassFromLabels(pod.Labels)
+		ProcessClass := internal.ProcessClassFromLabels(pod.Labels)
 		counts[ProcessClass]++
 	}
 	return counts

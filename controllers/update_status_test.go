@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,7 +37,7 @@ var _ = Describe("update_status", func() {
 	Describe("getStorageServersPerPodForInstance", func() {
 		Context("when env var is set with 1", func() {
 			It("should return 1", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Pod: &corev1.Pod{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{{
@@ -58,7 +60,7 @@ var _ = Describe("update_status", func() {
 
 		Context("when env var is set with 2", func() {
 			It("should return 2", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Pod: &corev1.Pod{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{{
@@ -81,7 +83,7 @@ var _ = Describe("update_status", func() {
 
 		Context("when env var is unset", func() {
 			It("should return 1", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Pod: &corev1.Pod{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{{
@@ -99,7 +101,7 @@ var _ = Describe("update_status", func() {
 
 		Context("when instance is missing Pod", func() {
 			It("should return 1", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Pod: &corev1.Pod{},
 				}
 
@@ -111,7 +113,7 @@ var _ = Describe("update_status", func() {
 
 		Context("when Pod doesn't contain a Spec", func() {
 			It("should return 1", func() {
-				instance := FdbInstance{}
+				instance := internal.FdbInstance{}
 				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
@@ -120,7 +122,7 @@ var _ = Describe("update_status", func() {
 
 		Context("when Pod doesn't contain a containers", func() {
 			It("should return 1", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Pod: &corev1.Pod{
 						Spec: corev1.PodSpec{},
 					},
@@ -136,7 +138,7 @@ var _ = Describe("update_status", func() {
 	Describe("validateInstance", func() {
 		When("instance has no Pod", func() {
 			It("should be added to the failing Pods", func() {
-				instance := FdbInstance{
+				instance := internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Labels: map[string]string{
 							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
@@ -159,7 +161,7 @@ var _ = Describe("update_status", func() {
 		var cluster *fdbtypes.FoundationDBCluster
 		var configMap *corev1.ConfigMap
 		var adminClient *MockAdminClient
-		var instances []FdbInstance
+		var instances []internal.FdbInstance
 		var processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo
 		var err error
 

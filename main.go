@@ -20,6 +20,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -49,7 +51,7 @@ func main() {
 	var leaderElectionID string
 	var logFile string
 	var cliTimeout int
-	var deprecationOptions controllers.DeprecationOptions
+	var deprecationOptions internal.DeprecationOptions
 	var useFutureDefaults bool
 
 	fdb.MustAPIVersion(610)

@@ -22,6 +22,7 @@ package controllers
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -31,7 +32,7 @@ import (
 
 var _ = Describe("Update labels", func() {
 	type testCase struct {
-		instance     FdbInstance
+		instance     internal.FdbInstance
 		metadata     metav1.ObjectMeta
 		expected     bool
 		expectedMeta metav1.ObjectMeta
@@ -46,7 +47,7 @@ var _ = Describe("Update labels", func() {
 		},
 		Entry("Metadata matches with instance metadata",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -68,7 +69,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Metadata last spec is not matching",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -90,7 +91,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Metadata Annotation is not matching",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -115,7 +116,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Missing annotation on metadata",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -139,7 +140,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Ignore additional annotation",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -163,7 +164,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Annotation has wrong value",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -188,7 +189,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Ignore additional label",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
@@ -216,7 +217,7 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Label has wrong value",
 			testCase{
-				instance: FdbInstance{
+				instance: internal.FdbInstance{
 					Metadata: &metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",

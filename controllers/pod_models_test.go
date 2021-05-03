@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -42,7 +44,7 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+		err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -126,7 +128,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should add the annotations to the metadata", func() {
-				hash, err := GetPodSpecHash(cluster, processClassFromLabels(pod.Labels), 1, &pod.Spec)
+				hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(pod.Labels), 1, &pod.Spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
@@ -146,7 +148,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -719,7 +721,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -747,7 +749,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -901,7 +903,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -957,7 +959,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1227,7 +1229,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1561,7 +1563,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1683,7 +1685,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -1718,7 +1720,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -2362,7 +2364,7 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 
-	Describe("NormalizeClusterSpec", func() {
+	Describe("internal.NormalizeClusterSpec", func() {
 		var spec *fdbtypes.FoundationDBClusterSpec
 
 		BeforeEach(func() {
@@ -2373,7 +2375,7 @@ var _ = Describe("pod_models", func() {
 
 		Describe("deprecations", func() {
 			JustBeforeEach(func() {
-				err := NormalizeClusterSpec(spec, DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2714,7 +2716,7 @@ var _ = Describe("pod_models", func() {
 						"knob_disable_posix_kernel_aio = 1",
 						"knob_disable_posix_kernel_aio = 1",
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -2724,7 +2726,7 @@ var _ = Describe("pod_models", func() {
 					spec.CustomParameters = []string{
 						"datadir=1",
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -2739,7 +2741,7 @@ var _ = Describe("pod_models", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -2753,7 +2755,7 @@ var _ = Describe("pod_models", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -2762,7 +2764,7 @@ var _ = Describe("pod_models", func() {
 		Describe("defaults", func() {
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2900,7 +2902,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the current defaults, changes only", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2937,7 +2939,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the future defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3075,7 +3077,7 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the future defaults, changes only", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err := internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3104,13 +3106,13 @@ var _ = Describe("pod_models", func() {
 				var originalSpec *fdbtypes.FoundationDBClusterSpec
 
 				BeforeEach(func() {
-					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err = internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 					originalSpec = spec.DeepCopy()
 				})
 
 				JustBeforeEach(func() {
-					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err = internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3147,7 +3149,7 @@ var _ = Describe("pod_models", func() {
 				processSetting.AllowTagOverride = &allowTagOverride
 				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = processSetting
 
-				err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+				err = internal.NormalizeClusterSpec(spec, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("should set the image name with tag", func() {
@@ -3282,7 +3284,7 @@ var _ = Describe("pod_models", func() {
 
 		DescribeTable("should set the expected parameter or print the violation",
 			func(tc testCase) {
-				err := ValidateCustomParameters(tc.Input)
+				err := internal.ValidateCustomParameters(tc.Input)
 				var errMsg error
 				if len(tc.ExpectedViolations) > 0 {
 					errMsg = fmt.Errorf("found the following customParameters violations:\n%s", strings.Join(tc.ExpectedViolations, "\n"))

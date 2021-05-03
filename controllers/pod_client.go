@@ -36,6 +36,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
@@ -272,7 +274,7 @@ func MockPodIP(pod *corev1.Pod) string {
 	if mockMissingPodIPs != nil && mockMissingPodIPs[pod.ObjectMeta.Name] {
 		return ""
 	}
-	components := strings.Split(GetInstanceIDFromMeta(pod.ObjectMeta), "-")
+	components := strings.Split(internal.GetInstanceIDFromMeta(pod.ObjectMeta), "-")
 	for index, class := range fdbtypes.ProcessClasses {
 		if string(class) == components[len(components)-2] {
 			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
@@ -386,7 +388,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		}
 	}
 
-	substitutions["FDB_INSTANCE_ID"] = GetInstanceIDFromMeta(client.Pod.ObjectMeta)
+	substitutions["FDB_INSTANCE_ID"] = internal.GetInstanceIDFromMeta(client.Pod.ObjectMeta)
 
 	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {

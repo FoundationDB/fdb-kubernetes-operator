@@ -22,6 +22,7 @@ package controllers
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -42,14 +43,14 @@ var _ = Describe("update_sidecar_versions", func() {
 	trueBool := true
 	Context("When fetching the sidecar image", func() {
 		type testCase struct {
-			instance FdbInstance
+			instance internal.FdbInstance
 			cluster  *fdbtypes.FoundationDBCluster
 			hasError bool
 		}
 
 		DescribeTable("should return the correct image",
 			func(input testCase, expected string) {
-				err := NormalizeClusterSpec(&input.cluster.Spec, DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(&input.cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				image, err := getSidecarImage(input.cluster, input.instance)
@@ -63,7 +64,7 @@ var _ = Describe("update_sidecar_versions", func() {
 			},
 			Entry("only defaults used",
 				testCase{
-					instance: FdbInstance{
+					instance: internal.FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
 								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
@@ -77,7 +78,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
 			Entry("sidecar override is set",
 				testCase{
-					instance: FdbInstance{
+					instance: internal.FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
 								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
@@ -91,7 +92,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "sidecar-override:6.2.20-1"),
 			Entry("settings override sidecar",
 				testCase{
-					instance: FdbInstance{
+					instance: internal.FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
 								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
@@ -118,7 +119,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "settings-override:6.2.20-1"),
 			Entry("settings override sidecar with tag without override",
 				testCase{
-					instance: FdbInstance{
+					instance: internal.FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
 								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
@@ -145,7 +146,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, ""),
 			Entry("settings override sidecar with tag with override",
 				testCase{
-					instance: FdbInstance{
+					instance: internal.FdbInstance{
 						Metadata: &metav1.ObjectMeta{
 							Labels: map[string]string{
 								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),

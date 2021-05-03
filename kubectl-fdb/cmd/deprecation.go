@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
@@ -78,7 +79,7 @@ Deprecated settings that should be replace by a newer setting (or removed) are p
 				return err
 			}
 
-			return checkDeprecation(cmd, kubeClient, args, namespace, controllers.DeprecationOptions{
+			return checkDeprecation(cmd, kubeClient, args, namespace, internal.DeprecationOptions{
 				UseFutureDefaults: useFutureDefaults,
 				OnlyShowChanges:   onlyShowChanges,
 			}, showClusterSpec)
@@ -122,7 +123,7 @@ kubectl fdb deprecation --show-cluster-spec`,
 	return cmd
 }
 
-func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputClusters []string, namespace string, deprecationOptions controllers.DeprecationOptions, showClusterSpec bool) error {
+func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputClusters []string, namespace string, deprecationOptions internal.DeprecationOptions, showClusterSpec bool) error {
 	clusters := &fdbtypes.FoundationDBClusterList{}
 
 	err := kubeClient.List(context.Background(), clusters, client.InNamespace(namespace))
@@ -152,7 +153,7 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 
 		clusterCounter++
 		originalSpec := cluster.Spec.DeepCopy()
-		err = controllers.NormalizeClusterSpec(&cluster.Spec, deprecationOptions)
+		err = internal.NormalizeClusterSpec(&cluster.Spec, deprecationOptions)
 		if err != nil {
 			return err
 		}

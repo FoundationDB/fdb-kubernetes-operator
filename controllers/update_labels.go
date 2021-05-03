@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -65,8 +67,8 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return false, err
 	}
 	for _, pvc := range pvcs.Items {
-		processClass := GetProcessClassFromMeta(pvc.ObjectMeta)
-		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
+		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
 
 		metadata := getPvcMetadata(cluster, processClass, instanceID)
 		if metadata.Annotations == nil {
@@ -95,7 +97,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	return true, nil
 }
 
-func podMetadataCorrect(metadata metav1.ObjectMeta, instance *FdbInstance) bool {
+func podMetadataCorrect(metadata metav1.ObjectMeta, instance *internal.FdbInstance) bool {
 	metadataCorrect := true
 	metadata.Annotations[fdbtypes.LastSpecKey] = instance.Metadata.Annotations[fdbtypes.LastSpecKey]
 

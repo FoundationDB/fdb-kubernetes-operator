@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -42,7 +44,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		return false, err
 	}
 
-	updates := make(map[string][]FdbInstance)
+	updates := make(map[string][]internal.FdbInstance)
 
 	removals := make(map[string]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -96,7 +98,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 				zone = "simulation"
 			}
 			if updates[zone] == nil {
-				updates[zone] = make([]FdbInstance, 0)
+				updates[zone] = make([]internal.FdbInstance, 0)
 			}
 			updates[zone] = append(updates[zone], instance)
 		}

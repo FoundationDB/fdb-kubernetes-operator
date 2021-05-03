@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -71,7 +73,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 	return true, nil
 }
 
-func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (string, error) {
+func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance internal.FdbInstance) (string, error) {
 	settings := cluster.GetProcessSettings(instance.GetProcessClass())
 
 	image := ""

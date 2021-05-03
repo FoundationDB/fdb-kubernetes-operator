@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -38,7 +40,7 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 		return false, err
 	}
 
-	updates := make([]FdbInstance, 0)
+	updates := make([]internal.FdbInstance, 0)
 
 	removals := make(map[string]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {

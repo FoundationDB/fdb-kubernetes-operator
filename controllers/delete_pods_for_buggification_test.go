@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -50,7 +52,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		originalPods = &corev1.PodList{}
@@ -205,7 +207,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 					},
 				},
 			}}}
-			err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+			err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 

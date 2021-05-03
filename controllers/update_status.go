@@ -27,6 +27,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -153,7 +155,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			continue
 		}
 
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClassFromLabels(pvc.Labels), nil))
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(pvc.Labels), nil))
 	}
 
 	// Track all Services
@@ -169,7 +171,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			continue
 		}
 
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClassFromLabels(service.Labels), nil))
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(service.Labels), nil))
 	}
 
 	// Ensure that anything the user has explicitly chosen to remove is marked
@@ -228,7 +230,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 			if len(pods.Items) > 0 {
 				instanceID := pods.Items[0].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel]
-				processClass := processClassFromLabels(pods.Items[0].ObjectMeta.Labels)
+				processClass := internal.ProcessClassFromLabels(pods.Items[0].ObjectMeta.Labels)
 				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
 				if !included {
 					status.ProcessGroups = append(status.ProcessGroups, newStatus)
@@ -246,7 +248,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 			var processClass fdbtypes.ProcessClass
 			if len(pods.Items) > 0 {
-				processClass = processClassFromLabels(pods.Items[0].ObjectMeta.Labels)
+				processClass = internal.ProcessClassFromLabels(pods.Items[0].ObjectMeta.Labels)
 			}
 			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, state.Address)
 			if !included {
@@ -412,7 +414,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 }
 
 // CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
+func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance internal.FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
 	instanceID := instance.GetInstanceID()
 
 	if processCount > 1 {
@@ -459,7 +461,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	return nil
 }
 
-func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []FdbInstance, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
+func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []internal.FdbInstance, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
 	processGroupMap := make(map[string]*fdbtypes.ProcessGroupStatus, len(processGroups))
 
@@ -544,7 +546,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 // validateInstance runs specific checks for the status of an instance.
 // returns failing, incorrect, error
-func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance internal.FdbInstance, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
 	processClass := instance.GetProcessClass()
 	instanceID := instance.GetInstanceID()
 

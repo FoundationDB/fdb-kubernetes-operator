@@ -24,11 +24,12 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/spf13/cobra"
@@ -195,7 +196,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		}
 
 		for _, pod := range pods.Items {
-			class := controllers.GetProcessClassFromMeta(pod.ObjectMeta)
+			class := internal.GetProcessClassFromMeta(pod.ObjectMeta)
 			shrinkMap[class]++
 		}
 	}
