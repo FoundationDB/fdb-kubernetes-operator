@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"fmt"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -49,7 +48,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		return false, err
 	}
 
-	var errs []error
+	allSynced := true
 	// We try to update all instances and if we observe an error we add it to the error list.
 	for index := range instances {
 		instance := instances[index]
@@ -59,31 +58,22 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 		synced, err := r.updatePodDynamicConf(cluster, instance)
 		if !synced {
-			log.Info("Update dynamic Pod config", "namespace", configMap.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "synced", synced)
-			if err != nil {
-				errs = append(errs, err)
-			} else {
-				errs = append(errs, fmt.Errorf("processGroupID %s not synced", instance.GetInstanceID()))
-			}
-
+			allSynced = false
+			log.Info("Update dynamic Pod config", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "synced", synced, "error", err)
 			continue
 		}
 
 		instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
 		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 		if err != nil {
+			allSynced = false
 			log.Info("Update Pod metadata", "namespace", configMap.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "error", err)
-			errs = append(errs, err)
 		}
 	}
 
-	if len(errs) > 0 {
-		// If we return an error we don't requeue
-		// So we just return that we can't continue but don't have an error
-		return false, nil
-	}
-
-	return true, nil
+	// If we return an error we don't requeue
+	// So we just return that we can't continue but don't have an error
+	return allSynced, nil
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
