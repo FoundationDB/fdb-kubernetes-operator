@@ -37,32 +37,26 @@ type RemovePods struct{}
 func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove {
-			excluded := processGroup.Excluded || processGroup.ExclusionSkipped
-			if !excluded {
-				log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", processGroup.ProcessGroupID)
-				return false, nil
-			}
-			processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
+		if !processGroup.Remove {
+			continue
 		}
+
+		if !(processGroup.Excluded || processGroup.ExclusionSkipped) {
+			log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", processGroup.ProcessGroupID)
+			return false, nil
+		}
+
+		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
 	}
 
 	if len(processGroupsToRemove) == 0 {
 		return true, nil
 	}
 
-	if cluster.ShouldUseLocks() {
-		hasLock, err := r.takeLock(cluster, fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
-		if !hasLock {
-			return false, err
-		}
-	}
-
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 	removedProcessGroups := make(map[string]bool)
 	allRemoved := true
 	for _, id := range processGroupsToRemove {
-
 		err := removePod(r, context, cluster, id)
 		if err != nil {
 			return false, err
@@ -102,7 +96,7 @@ func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *f
 			return err
 		}
 	} else if len(instances) > 0 {
-		return fmt.Errorf("Multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return fmt.Errorf("multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -116,7 +110,7 @@ func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *f
 			return err
 		}
 	} else if len(pvcs.Items) > 0 {
-		return fmt.Errorf("Multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return fmt.Errorf("multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	services := &corev1.ServiceList{}
@@ -130,7 +124,7 @@ func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *f
 			return err
 		}
 	} else if len(services.Items) > 0 {
-		return fmt.Errorf("Multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return fmt.Errorf("multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	return nil
@@ -147,7 +141,7 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		log.Info("Waiting for instance to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", instances[0].Metadata.Name)
 		return false, nil
 	} else if len(instances) > 0 {
-		return false, fmt.Errorf("Multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, fmt.Errorf("multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pods := &corev1.PodList{}
@@ -159,7 +153,7 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		log.Info("Waiting for pod to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", pods.Items[0].Name)
 		return false, nil
 	} else if len(pods.Items) > 0 {
-		return false, fmt.Errorf("Multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, fmt.Errorf("multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -171,7 +165,7 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		log.Info("Waiting for volume claim to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pvc", pvcs.Items[0].Name)
 		return false, nil
 	} else if len(pvcs.Items) > 0 {
-		return false, fmt.Errorf("Multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, fmt.Errorf("multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	services := &corev1.ServiceList{}
@@ -183,7 +177,7 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		log.Info("Waiting for service to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "service", services.Items[0].Name)
 		return false, nil
 	} else if len(services.Items) > 0 {
-		return false, fmt.Errorf("Multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, fmt.Errorf("multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	return true, nil
