@@ -41,11 +41,12 @@ type FdbVersion struct {
 	Patch int
 }
 
-var fdbVersionRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)$`)
+// FDBVersionRegex describes the format of a FoundationDB version.
+var FDBVersionRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)$`)
 
 // ParseFdbVersion parses a version from its string representation.
 func ParseFdbVersion(version string) (FdbVersion, error) {
-	matches := fdbVersionRegex.FindStringSubmatch(version)
+	matches := FDBVersionRegex.FindStringSubmatch(version)
 	if matches == nil {
 		return FdbVersion{}, fmt.Errorf("could not parse FDB version from %s", version)
 	}
