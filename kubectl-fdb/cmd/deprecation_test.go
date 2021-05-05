@@ -98,7 +98,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						UseFutureDefaults: false,
 						OnlyShowChanges:   false,
 					},
-					expectedOutput:  "0 cluster(s) without deprecations",
+					expectedOutput:  "0 cluster(s) without deprecations\n",
 					expectedError:   "",
 					showClusterSpec: false,
 				}),
@@ -153,7 +153,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 						OnlyShowChanges:   true,
 					},
 					expectedOutput: `Cluster test has no deprecation
-1 cluster(s) without deprecations`,
+1 cluster(s) without deprecations
+`,
 					expectedError:   "",
 					showClusterSpec: false,
 				}),
@@ -316,7 +317,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						UseFutureDefaults: false,
 						OnlyShowChanges:   true,
 					},
-					expectedOutput:  "1 cluster(s) without deprecations",
+					expectedOutput:  "1 cluster(s) without deprecations\n",
 					expectedError:   "",
 					showClusterSpec: true,
 				}),
