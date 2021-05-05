@@ -130,6 +130,21 @@ var _ = Describe("replace_failed_pods", func() {
 					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2", "storage-3"}))
 				})
 			})
+
+			Context("with no addresses", func() {
+				BeforeEach(func() {
+					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+					processGroup.Addresses = []string{}
+				})
+
+				It("should return false", func() {
+					Expect(result).To(BeFalse())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
 		})
 
 		Context("with a process that has been missing for a brief time", func() {
