@@ -518,6 +518,21 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		}
 
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+
+		if !initMode && cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
+			// We can't use a HTTP handler here since the server
+			// requires a client certificate
+			container.LivenessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.IntOrString{IntVal: 8080},
+					},
+				},
+				TimeoutSeconds:   1,
+				PeriodSeconds:    30,
+				FailureThreshold: 5,
+			}
+		}
 	}
 
 	if version.PrefersCommandLineArgumentsInSidecar() && initMode {

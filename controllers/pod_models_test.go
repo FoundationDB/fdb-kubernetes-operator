@@ -320,6 +320,25 @@ var _ = Describe("pod_models", func() {
 			It("should have no affinity rules", func() {
 				Expect(spec.Affinity).To(BeNil())
 			})
+
+			Context("with the livenessProbe enabled", func() {
+				BeforeEach(func() {
+					cluster.Spec.SidecarContainer.EnableLivenessProbe = true
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have a livenessProbe for the sidecar", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.LivenessProbe).NotTo(BeNil())
+				})
+
+				It("should not have a livenessProbe for the init container", func() {
+					sidecarContainer := spec.InitContainers[0]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.LivenessProbe).To(BeNil())
+				})
+			})
 		})
 
 		Context("with an instance that is crash looping", func() {
