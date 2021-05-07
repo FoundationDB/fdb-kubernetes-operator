@@ -1295,6 +1295,8 @@ spec:
                   type: string
                 mainContainer:
                   properties:
+                    enableLivenessProbe:
+                      type: boolean
                     enableTls:
                       type: boolean
                     env:
@@ -7433,6 +7435,8 @@ spec:
                   type: object
                 sidecarContainer:
                   properties:
+                    enableLivenessProbe:
+                      type: boolean
                     enableTls:
                       type: boolean
                     env:

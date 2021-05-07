@@ -1882,6 +1882,10 @@ type FoundationDBStatusBackupTag struct {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
+	// EnableLivenessProbe defines if the sidecar should have a livenessProbe in addition
+	// to the readinessProbe. This setting will be enabled per default in the 1.0.0 release.
+	// This setting will be ignored on the main container.
+	EnableLivenessProbe bool `json:"enableLivenessProbe,omitempty"`
 
 	// EnableTLS controls whether we should be listening on a TLS connection.
 	EnableTLS bool `json:"enableTls,omitempty"`
