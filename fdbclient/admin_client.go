@@ -201,7 +201,7 @@ func (client *cliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 	// This will call directly the database and fetch the status information
-	// from the system key.
+	// from the system key space.
 	return getStatusFromDB(client.Cluster)
 }
 
