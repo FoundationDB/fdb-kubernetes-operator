@@ -81,10 +81,10 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return false, MissingPodErrorByName(process, cluster)
 		}
 
-		synced, _ := r.updatePodDynamicConf(cluster, instances[0])
+		synced, err := r.updatePodDynamicConf(cluster, instances[0])
 		if !synced {
-			log.Info("Update dynamic Pod config", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "synced", synced)
 			allSynced = false
+			log.Info("Update dynamic Pod config", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "synced", synced, "error", err)
 		}
 	}
 
