@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,98 +35,18 @@ type RemovePods struct{}
 
 // Reconcile runs the reconciler's work.
 func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
 		return false, err
 	}
-	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.Remove || processGroup.ExclusionSkipped {
-			continue
-		}
-
-		if len(processGroup.Addresses) == 0 {
-			// TODO (johscheuer): do we really want to skip further actions?
-			return false, fmt.Errorf("cannot check the exclusion state of instance %s, which has no IP address", processGroup.ProcessGroupID)
-		}
-
-		addresses = append(addresses, processGroup.Addresses...)
-	}
-
-	var remaining []string
-	if len(addresses) > 0 {
-		remaining, err = adminClient.CanSafelyRemove(addresses)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	// Check wif we have process groups that are not fully excluded
-	if len(remaining) > 0 {
-		log.Info("Exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
-	}
-
-	remainingMap := make(map[string]bool, len(remaining))
-	for _, address := range addresses {
-		remainingMap[address] = false
-	}
-	for _, address := range remaining {
-		remainingMap[address] = true
-	}
-
-	allExcluded := true
-	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.Remove {
-			continue
-		}
-
-		excluded, err := processGroup.IsExcluded(remainingMap)
-		if !excluded || err != nil {
-			log.Info("Incomplete exclusion still present in RemovePods step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
-			allExcluded = false
-		}
-
-		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
-		processGroup.Excluded = true
-		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
-	}
-
+	allExcluded, processGroupsToRemove := getProcessGroupsToRemove(cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		return allExcluded, nil
 	}
 
-	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
-	removedProcessGroups := make(map[string]bool)
-	allRemoved := true
-	for _, id := range processGroupsToRemove {
-		err := removePod(r, context, cluster, id)
-		if err != nil {
-			allRemoved = false
-			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
-			continue
-		}
-
-		removed, include, err := confirmPodRemoval(r, context, cluster, id)
-		if err != nil {
-			allRemoved = false
-			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
-			continue
-		}
-
-		if removed {
-			// Pods that are stuck in terminating shouldn't block reconciliation but we also
-			// don't want to include them since they have an unkown state.
-			removedProcessGroups[id] = include
-			continue
-		}
-
-		allRemoved = false
-	}
-
+	allRemoved, removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
 	err = includeInstance(r, context, cluster, removedProcessGroups)
 	if err != nil {
 		return false, err
@@ -277,6 +197,105 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 	}
 
 	return nil
+}
+
+func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.FoundationDBCluster) (map[string]bool, error) {
+	adminClient, err := r.AdminClientProvider(cluster, r)
+	if err != nil {
+		return map[string]bool{}, err
+	}
+	defer adminClient.Close()
+
+	addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if !processGroup.Remove || processGroup.ExclusionSkipped {
+			continue
+		}
+
+		if len(processGroup.Addresses) == 0 {
+			// TODO (johscheuer): do we really want to skip further actions?
+			return map[string]bool{}, fmt.Errorf("cannot check the exclusion state of instance %s, which has no IP address", processGroup.ProcessGroupID)
+		}
+
+		addresses = append(addresses, processGroup.Addresses...)
+	}
+
+	var remaining []string
+	if len(addresses) > 0 {
+		remaining, err = adminClient.CanSafelyRemove(addresses)
+		if err != nil {
+			return map[string]bool{}, err
+		}
+	}
+
+	if len(remaining) > 0 {
+		log.Info("Exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
+	}
+
+	remainingMap := make(map[string]bool, len(remaining))
+	for _, address := range addresses {
+		remainingMap[address] = false
+	}
+	for _, address := range remaining {
+		remainingMap[address] = true
+	}
+
+	return remainingMap, nil
+}
+
+func getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
+	allExcluded := true
+	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if !processGroup.Remove {
+			continue
+		}
+
+		excluded, err := processGroup.IsExcluded(remainingMap)
+		if !excluded || err != nil {
+			log.Info("Incomplete exclusion still present in RemovePods step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
+			allExcluded = false
+		}
+
+		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+		processGroup.Excluded = true
+		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
+	}
+
+	return allExcluded, processGroupsToRemove
+}
+
+func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupsToRemove []string) (bool, map[string]bool) {
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
+
+	removedProcessGroups := make(map[string]bool)
+	allRemoved := true
+	for _, id := range processGroupsToRemove {
+		err := removePod(r, context, cluster, id)
+		if err != nil {
+			allRemoved = false
+			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			continue
+		}
+
+		removed, include, err := confirmPodRemoval(r, context, cluster, id)
+		if err != nil {
+			allRemoved = false
+			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			continue
+		}
+
+		if removed {
+			// Pods that are stuck in terminating shouldn't block reconciliation but we also
+			// don't want to include them since they have an unknown state.
+			removedProcessGroups[id] = include
+			continue
+		}
+
+		allRemoved = false
+	}
+
+	return allRemoved, removedProcessGroups
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation
