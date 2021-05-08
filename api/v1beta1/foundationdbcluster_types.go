@@ -415,6 +415,25 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) 
 	return false, 0
 }
 
+// IsExcluded checks if the process group is excluded or if there are still addresses included in the remainingMap.
+// This will return true if the process group skips exclusion, is not removed or has no remaining addresses.
+func (processGroupStatus *ProcessGroupStatus) IsExcluded(remainingMap map[string]bool) (bool, error) {
+	// The process group counts as excluded if we skip the exclusion or if the process group shouldn't
+	// be removed
+	if processGroupStatus.Remove || processGroupStatus.ExclusionSkipped {
+		return true, nil
+	}
+
+	for _, address := range processGroupStatus.Addresses {
+		isRemaining, isPresent := remainingMap[address]
+		if !isPresent || isRemaining {
+			return false, fmt.Errorf("process has missing address in exclusion results: %s", address)
+		}
+	}
+
+	return true, nil
+}
+
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
 func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{

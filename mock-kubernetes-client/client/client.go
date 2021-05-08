@@ -560,6 +560,18 @@ func (client *MockClient) MockStuckTermination(object ctrlClient.Object, termina
 		return err
 	}
 
+	if terminating {
+		object.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
+	} else {
+		object.SetDeletionTimestamp(nil)
+	}
+
+	// We have to update the state in the mock client
+	err = client.Update(context.Background(), object)
+	if err != nil {
+		return err
+	}
+
 	objectKey, err := buildRuntimeObjectKey(object)
 	if err != nil {
 		return err

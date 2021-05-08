@@ -35,22 +35,68 @@ type RemovePods struct{}
 
 // Reconcile runs the reconciler's work.
 func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	adminClient, err := r.AdminClientProvider(cluster, r)
+	if err != nil {
+		return false, err
+	}
+	defer adminClient.Close()
+
+	addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if !processGroup.Remove || processGroup.ExclusionSkipped {
+			continue
+		}
+
+		if len(processGroup.Addresses) == 0 {
+			// TODO (johscheuer): do we really want to skip further actions?
+			return false, fmt.Errorf("cannot check the exclusion state of instance %s, which has no IP address", processGroup.ProcessGroupID)
+		}
+
+		addresses = append(addresses, processGroup.Addresses...)
+	}
+
+	var remaining []string
+	if len(addresses) > 0 {
+		remaining, err = adminClient.CanSafelyRemove(addresses)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Check wif we have process groups that are not fully excluded
+	if len(remaining) > 0 {
+		log.Info("Exclusions to complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingServers", remaining)
+	}
+
+	remainingMap := make(map[string]bool, len(remaining))
+	for _, address := range addresses {
+		remainingMap[address] = false
+	}
+	for _, address := range remaining {
+		remainingMap[address] = true
+	}
+
+	allExcluded := true
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.Remove {
 			continue
 		}
 
-		if !(processGroup.Excluded || processGroup.ExclusionSkipped) {
-			log.Info("Incomplete exclusion still present in RemovePods step. Retrying reconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", processGroup.ProcessGroupID)
-			return false, nil
+		excluded, err := processGroup.IsExcluded(remainingMap)
+		if !excluded || err != nil {
+			log.Info("Incomplete exclusion still present in RemovePods step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
+			allExcluded = false
 		}
 
+		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+		processGroup.Excluded = true
 		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
 	}
 
+	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
-		return true, nil
+		return allExcluded, nil
 	}
 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
@@ -59,27 +105,34 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	for _, id := range processGroupsToRemove {
 		err := removePod(r, context, cluster, id)
 		if err != nil {
-			return false, err
-		}
-
-		removed, err := confirmPodRemoval(r, context, cluster, id)
-		if err != nil {
-			return false, err
-		}
-		if removed {
-			removedProcessGroups[id] = true
-		} else {
 			allRemoved = false
+			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
 			continue
 		}
+
+		removed, include, err := confirmPodRemoval(r, context, cluster, id)
+		if err != nil {
+			allRemoved = false
+			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			continue
+		}
+
+		if removed {
+			// Pods that are stuck in terminating shouldn't block reconciliation but we also
+			// don't want to include them since they have an unkown state.
+			removedProcessGroups[id] = include
+			continue
+		}
+
+		allRemoved = false
 	}
 
-	err := includeInstance(r, context, cluster, removedProcessGroups)
+	err = includeInstance(r, context, cluster, removedProcessGroups)
 	if err != nil {
 		return false, err
 	}
 
-	return allRemoved, nil
+	return allRemoved && allExcluded, nil
 }
 
 func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
@@ -130,57 +183,52 @@ func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *f
 	return nil
 }
 
-func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, error) {
+func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, bool, error) {
+	canBeIncluded := true
 	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
-		return false, err
-	}
-	if len(instances) == 1 {
-		log.Info("Waiting for instance to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", instances[0].Metadata.Name)
-		return false, nil
-	} else if len(instances) > 0 {
-		return false, fmt.Errorf("multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, false, err
 	}
 
-	pods := &corev1.PodList{}
-	err = r.List(context, pods, instanceListOptions...)
-	if err != nil {
-		return false, err
-	}
-	if len(pods.Items) == 1 {
-		log.Info("Waiting for pod to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", pods.Items[0].Name)
-		return false, nil
-	} else if len(pods.Items) > 0 {
-		return false, fmt.Errorf("multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
+	if len(instances) == 1 {
+		// If the Pod is already in a terminating state we don't have to care for it
+		if instances[0].Pod.DeletionTimestamp == nil {
+			log.Info("Waiting for instance to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", instances[0].Metadata.Name)
+			return false, false, nil
+		}
+		// Pod is in terminating state so we don't want to block but we also don't want to include it
+		canBeIncluded = false
+	} else if len(instances) > 0 {
+		return false, false, fmt.Errorf("multiple pods found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcs, instanceListOptions...)
 	if err != nil {
-		return false, err
+		return false, canBeIncluded, err
 	}
 	if len(pvcs.Items) == 1 {
 		log.Info("Waiting for volume claim to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pvc", pvcs.Items[0].Name)
-		return false, nil
+		return false, canBeIncluded, nil
 	} else if len(pvcs.Items) > 0 {
-		return false, fmt.Errorf("multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, canBeIncluded, fmt.Errorf("multiple PVCs found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
 	services := &corev1.ServiceList{}
 	err = r.List(context, services, instanceListOptions...)
 	if err != nil {
-		return false, err
+		return false, canBeIncluded, err
 	}
 	if len(services.Items) == 1 {
 		log.Info("Waiting for service to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "service", services.Items[0].Name)
-		return false, nil
+		return false, canBeIncluded, nil
 	} else if len(services.Items) > 0 {
-		return false, fmt.Errorf("multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
+		return false, canBeIncluded, fmt.Errorf("multiple services found for cluster %s, instance ID %s", cluster.Name, instanceID)
 	}
 
-	return true, nil
+	return true, canBeIncluded, nil
 }
 
 func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, removedProcessGroups map[string]bool) error {

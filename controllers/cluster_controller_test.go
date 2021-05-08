@@ -532,8 +532,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 						err = k8sClient.MockStuckTermination(&pod, true)
 						Expect(err).NotTo(HaveOccurred())
-
-						shouldCompleteReconciliation = false
+						// The returned generation in the test case will be 0 since we have 2 pending removals
+						// which is expected.
+						generationGap = -1
 					})
 
 					It("should set the generation to both reconciled and pending removal", func() {
