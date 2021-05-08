@@ -248,7 +248,7 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
 
-	output, err := execCommand.Output()
+	output, err := execCommand.CombinedOutput()
 	if err != nil {
 		exitError, canCast := err.(*exec.ExitError)
 		if canCast {
