@@ -1195,6 +1195,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
 
+			version, err = ParseFdbVersion("prerelease-6.2.11")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
+
+			version, err = ParseFdbVersion("test-6.2.11-test")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
+
 			_, err = ParseFdbVersion("6.2")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("could not parse FDB version from 6.2"))
