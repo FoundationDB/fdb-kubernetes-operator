@@ -227,12 +227,16 @@ func (client *CliAdminClient) runCommand(command cliCommand) (string, error) {
 		args = append(args, "--exec", command.command)
 	}
 
-	format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
-	if format == "" {
-		format = "xml"
-	}
+	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 
-	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log", "--trace_format", format)
+	if binaryName == "fdbcli" {
+		format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
+		if format == "" {
+			format = "xml"
+		}
+
+		args = append(args, "--trace_format", format)
+	}
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout

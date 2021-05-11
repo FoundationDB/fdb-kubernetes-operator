@@ -21,6 +21,24 @@
 # If you are testing this in Docker Desktop, you can browse the local MinIO
 # instance at https://localhost:9000. Note: This will use a certificate that
 # is not in your browser's trust store, so you will get a security warning.
+#
+# If you want to test a restore, you can take the following steps:
+#
+# 1. Apply this YAML file.
+# 2. Wait for all resources to be reconciled.
+# 3. Set a test key.
+# 4. Confirm through `fdbbackup status` that the backup is up-to-date. You can
+#    do this by checking the current time and then waiting for the "Last
+#    complete log version and timestamp" to be after that time
+# 5. Uncomment the line in the backup spec that says `backupState:Stopped` and
+#    apply the YAML again.
+# 6. Wait for all resources to be reconciled.
+# 7. Confirm through `fdbbackup status` that the backup has been stopped.
+# 9. Open a CLI and run `writemode on; clearrange '' \xff`.
+# 9. Confirm in the CLI that the test key is cleared.
+# 10. Uncomment the FoundationDBRestore section below and apply the YAML again.
+# 11. Wait for all resources to be reconciled.
+# 12. Open a CLI and check the test key.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
@@ -78,7 +96,8 @@ spec:
   version: 6.2.20
   clusterName: sample-cluster
   accountName: minio@minio-service:9000
-  snapshotPeriodSeconds: 60
+  #backupState: Stopped
+  snapshotPeriodSeconds: 3600
   podTemplateSpec:
     spec:
       containers:
@@ -125,3 +144,11 @@ spec:
         - name: fdb-certs
           secret:
             secretName: fdb-kubernetes-operator-secrets
+---
+#apiVersion: apps.foundationdb.org/v1beta1
+#kind: FoundationDBRestore
+#metadata:
+#  name: sample-cluster
+#spec:
+#  destinationClusterName: sample-cluster
+#  backupURL: "blobstore://minio@minio-service:9000/sample-cluster?bucket=fdb-backups"
