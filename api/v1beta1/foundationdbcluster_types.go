@@ -70,7 +70,7 @@ func init() {
 // FoundationDBClusterSpec defines the desired state of a cluster.
 type FoundationDBClusterSpec struct {
 	// Version defines the version of FoundationDB the cluster should run.
-	// +kubebuilder:validation:Pattern:=^(\d+)\.(\d+)\.(\d+)$
+	// +kubebuilder:validation:Pattern:=(\d+)\.(\d+)\.(\d+)
 	Version string `json:"version"`
 
 	// SidecarVersions defines the build version of the sidecar to run. This
