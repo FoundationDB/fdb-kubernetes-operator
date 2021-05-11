@@ -39,6 +39,10 @@
 # 10. Uncomment the FoundationDBRestore section below and apply the YAML again.
 # 11. Wait for all resources to be reconciled.
 # 12. Open a CLI and check the test key.
+#
+# Once that is done, you can clean up the backup by running:
+#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/sample-cluster?bucket=fdb-backups"
+#
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
