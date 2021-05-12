@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRemoveCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newRemoveCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -52,7 +52,7 @@ kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 s
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.AddCommand(newRemoveInstancesCmd(streams, rootCmd))
+	cmd.AddCommand(newRemoveInstancesCmd(streams))
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd

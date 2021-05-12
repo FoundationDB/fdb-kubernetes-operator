@@ -36,7 +36,7 @@ import (
 
 var pluginVersion = "latest"
 
-func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -44,7 +44,7 @@ func newVersionCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 		Short: "version of kubectl-fdb & foundationdb-operator",
 		Long:  `version of kubectl-fdb and current running foundationdb-operator`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			operatorName, err := rootCmd.Flags().GetString("operator-name")
+			operatorName, err := cmd.Root().Flags().GetString("operator-name")
 			if err != nil {
 				return err
 			}

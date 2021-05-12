@@ -40,7 +40,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-func newCordonCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 	var nodeSelectors map[string]string
 
@@ -49,7 +49,7 @@ func newCordonCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *
 		Short: "Adds all instance (or multiple) that run on a node to the remove list of the given cluster",
 		Long:  "Adds all instance (or multiple) that run on a node to the remove list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := rootCmd.Flags().GetBool("force")
+			force, err := cmd.Root().Flags().GetBool("force")
 			if err != nil {
 				return err
 			}

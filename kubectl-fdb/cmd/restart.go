@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func newRestartCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) *cobra.Command {
+func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := NewFDBOptions(streams)
 
 	cmd := &cobra.Command{
@@ -42,7 +42,7 @@ func newRestartCmd(streams genericclioptions.IOStreams, rootCmd *cobra.Command) 
 		Short: "Restarts process(es) in a given FDB cluster.",
 		Long:  "Restarts process(es) in a given FDB cluster.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := rootCmd.Flags().GetBool("force")
+			force, err := cmd.Root().Flags().GetBool("force")
 			if err != nil {
 				return err
 			}
