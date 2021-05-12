@@ -192,7 +192,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watch
 		return err
 	}
 
-	for _, watchedObject := range watchedObjects{
+	for _, watchedObject := range watchedObjects {
 		err := mgr.GetFieldIndexer().IndexField(ctx.Background(), watchedObject, "metadata.name", func(o client.Object) []string {
 			return []string{o.(*corev1.Pod).Name}
 		})
