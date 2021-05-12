@@ -27,6 +27,8 @@ import (
 	"os"
 	"path"
 
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,7 +74,7 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
-	watchedObjects ...client.Object) {
+	watchedObjects ...client.Object) manager.Manager {
 	var logWriter io.Writer
 	if operatorOpts.LogFile != "" {
 		file, err := os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
@@ -156,11 +158,8 @@ func StartManager(
 	}
 
 	// +kubebuilder:scaffold:builder
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
+	setupLog.Info("setup manager")
+	return mgr
 }
 
 // MoveFDBBinaries moves FDB binaries that are pulled from setup containers into

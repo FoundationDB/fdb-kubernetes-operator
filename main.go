@@ -17,6 +17,7 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
@@ -68,11 +69,16 @@ func main() {
 		AdminClientProvider: controllers.NewCliAdminClient,
 	}
 
-	setup.StartManager(
+	mgr := setup.StartManager(
 		scheme,
 		operatorOpts,
 		logOpts,
 		clusterReconciler,
 		backupReconciler,
 		restoreReconciler)
+
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		ctrl.Log.Error(err, "problem starting manager")
+		os.Exit(1)
+	}
 }
