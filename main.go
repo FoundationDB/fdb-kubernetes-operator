@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
@@ -113,7 +114,8 @@ func StartManager(
 	logOpts zap.Options,
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
-	restoreReconciler *controllers.FoundationDBRestoreReconciler) {
+	restoreReconciler *controllers.FoundationDBRestoreReconciler,
+	watchedObjects ...client.Object) {
 	var logWriter io.Writer
 	if operatorOpts.LogFile != "" {
 		file, err := os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
@@ -166,7 +168,7 @@ func StartManager(
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.Namespace = namespace
 
-		if err := clusterReconciler.SetupWithManager(mgr); err != nil {
+		if err := clusterReconciler.SetupWithManager(mgr, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)
 		}
