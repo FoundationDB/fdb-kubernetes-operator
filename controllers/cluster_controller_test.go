@@ -2273,7 +2273,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(configMap.Data[clusterFile]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
+				Expect(configMap.Data[clusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["running-version"]).To(Equal(Versions.Default.String()))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
@@ -2357,7 +2357,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should empty the monitor conf and cluster file", func() {
-				Expect(configMap.Data[clusterFile]).To(Equal(""))
+				Expect(configMap.Data[clusterFileKey]).To(Equal(""))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(""))
 			})
 		})

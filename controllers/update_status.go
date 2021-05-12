@@ -212,7 +212,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.ConnectionString = cluster.Status.ConnectionString
 	if status.ConnectionString == "" {
-		status.ConnectionString = existingConfigMap.Data[clusterFile]
+		status.ConnectionString = existingConfigMap.Data[clusterFileKey]
 	}
 
 	if status.ConnectionString == "" {

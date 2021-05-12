@@ -288,7 +288,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 	configMapItems := []corev1.KeyToPath{
 		{Key: monitorConf, Path: "fdbmonitor.conf"},
-		{Key: clusterFile, Path: "fdb.cluster"},
+		{Key: clusterFileKey, Path: "fdb.cluster"},
 	}
 
 	if useCustomCAs {
@@ -848,7 +848,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
 				Items: []corev1.KeyToPath{
-					{Key: clusterFile, Path: "fdb.cluster"},
+					{Key: clusterFileKey, Path: "fdb.cluster"},
 				},
 			}},
 		},

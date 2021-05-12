@@ -307,7 +307,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFile, Path: "fdb.cluster"},
+							{Key: clusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -545,7 +545,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage-density-2", Path: "fdbmonitor.conf"},
-							{Key: clusterFile, Path: "fdb.cluster"},
+							{Key: clusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1299,7 +1299,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFile, Path: "fdb.cluster"},
+							{Key: clusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1485,7 +1485,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFile, Path: "fdb.cluster"},
+							{Key: clusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1547,7 +1547,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFile, Path: "fdb.cluster"},
+							{Key: clusterFileKey, Path: "fdb.cluster"},
 							{Key: "sidecar-conf", Path: "config.json"},
 						},
 					}},
@@ -1677,7 +1677,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFile, Path: "fdb.cluster"},
+							{Key: clusterFileKey, Path: "fdb.cluster"},
 							{Key: "ca-file", Path: "ca.pem"},
 						},
 					}},
@@ -2083,7 +2083,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: clusterFile, Path: "fdb.cluster"},
+								{Key: clusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					},
@@ -2198,7 +2198,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: clusterFile, Path: "fdb.cluster"},
+								{Key: clusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					},

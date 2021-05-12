@@ -33,7 +33,7 @@ var log = logf.Log.WithName("controller")
 var DefaultCLITimeout = 10
 
 const (
-	clusterFile = "cluster-file"
+	clusterFileKey = "cluster-file"
 )
 
 // metadataMatches determines if the current metadata on an object matches the

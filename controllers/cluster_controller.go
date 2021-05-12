@@ -404,7 +404,7 @@ func setMonitorConfForFilename(cluster *fdbtypes.FoundationDBCluster, data map[s
 	return nil
 }
 
-func getConfigMapEntry(pClass fdbtypes.ProcessClass, serversPerPod int) string {
+func getConfigMapMonitorConfEntry(pClass fdbtypes.ProcessClass, serversPerPod int) string {
 	if serversPerPod > 1 {
 		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
 	}
@@ -417,7 +417,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 	data := make(map[string]string)
 
 	connectionString := cluster.Status.ConnectionString
-	data[clusterFile] = connectionString
+	data[clusterFileKey] = connectionString
 	data["running-version"] = cluster.Status.RunningVersion
 
 	var caFile strings.Builder
@@ -449,7 +449,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 				}
 
 				for _, serversPerPod := range storageServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, getConfigMapEntry(processClass, serversPerPod), connectionString, processClass, serversPerPod)
+					err := setMonitorConfForFilename(cluster, data, getConfigMapMonitorConfEntry(processClass, serversPerPod), connectionString, processClass, serversPerPod)
 					if err != nil {
 						return nil, err
 					}
@@ -457,7 +457,7 @@ func GetConfigMap(cluster *fdbtypes.FoundationDBCluster) (*corev1.ConfigMap, err
 				continue
 			}
 
-			err := setMonitorConfForFilename(cluster, data, getConfigMapEntry(processClass, 1), connectionString, processClass, 1)
+			err := setMonitorConfForFilename(cluster, data, getConfigMapMonitorConfEntry(processClass, 1), connectionString, processClass, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -701,17 +701,21 @@ func GetJSONHash(object interface{}) (string, error) {
 // getDynamicConfHash gets a hash of the data from the config map holding the
 // cluster's dynamic conf.
 //
-// This will omit keys that we do not expect the pods to reference.
+// This will omit keys that we do not expect the Pods to reference e.g. for storage Pods only include the storage config.
 func getDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbtypes.ProcessClass, serversPerPod int) (string, error) {
-	var data = make(map[string]string, 2)
-
-	if val, ok := configMap.Data[clusterFile]; ok {
-		data[clusterFile] = val
+	fields := []string{
+		clusterFileKey,
+		getConfigMapMonitorConfEntry(pClass, serversPerPod),
+		"running-version",
+		"ca-file",
+		"sidecar-conf",
 	}
+	var data = make(map[string]string, len(fields))
 
-	classFile := getConfigMapEntry(pClass, serversPerPod)
-	if val, ok := configMap.Data[classFile]; ok {
-		data[classFile] = val
+	for _, field := range fields {
+		if val, ok := configMap.Data[field]; ok {
+			data[field] = val
+		}
 	}
 
 	return GetJSONHash(data)
