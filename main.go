@@ -45,34 +45,78 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var leaderElectionID string
-	var logFile string
-	var cliTimeout int
-	var deprecationOptions controllers.DeprecationOptions
-	var useFutureDefaults bool
+// Options provides all configuration Options for the operator
+type Options struct {
+	MetricsAddr          string
+	EnableLeaderElection bool
+	LeaderElectionID     string
+	LogFile              string
+	CliTimeout           int
+	DeprecationOptions   controllers.DeprecationOptions
+}
 
-	fdb.MustAPIVersion(610)
-
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", true,
+// BindFlags will parse the given flagset for the operator option flags
+func (o *Options) BindFlags(fs *flag.FlagSet) {
+	fs.StringVar(&o.MetricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	fs.BoolVar(&o.EnableLeaderElection, "enable-leader-election", true,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&leaderElectionID, "leader-election-id", "fdb-kubernetes-operator",
+	fs.StringVar(&o.LeaderElectionID, "leader-election-id", "fdb-kubernetes-operator",
 		"LeaderElectionID determines the name of the resource that leader election will use for holding the leader lock.")
-	flag.BoolVar(&deprecationOptions.UseFutureDefaults, "use-future-defaults", false,
+	fs.BoolVar(&o.DeprecationOptions.UseFutureDefaults, "use-future-defaults", false,
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
-	flag.StringVar(&logFile, "log-file", "", "The path to a file to write logs to.")
-	flag.IntVar(&cliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
-	opts := zap.Options{}
-	opts.BindFlags(flag.CommandLine)
+	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
+	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
+}
+
+func main() {
+	fdb.MustAPIVersion(610)
+	operatorOpts := Options{}
+	operatorOpts.BindFlags(flag.CommandLine)
+
+	logOpts := zap.Options{}
+	logOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	clusterReconciler := &controllers.FoundationDBClusterReconciler{
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
+		PodClientProvider:   controllers.NewFdbPodClient,
+		AdminClientProvider: controllers.NewCliAdminClient,
+		LockClientProvider:  controllers.NewRealLockClient,
+		DeprecationOptions:  operatorOpts.DeprecationOptions,
+	}
+
+	backupReconciler := &controllers.FoundationDBBackupReconciler{
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		AdminClientProvider: controllers.NewCliAdminClient,
+	}
+
+	restoreReconciler := &controllers.FoundationDBRestoreReconciler{
+		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
+		AdminClientProvider: controllers.NewCliAdminClient,
+	}
+
+	StartManager(
+		operatorOpts,
+		logOpts,
+		clusterReconciler,
+		backupReconciler,
+		restoreReconciler)
+}
+
+// StartManager will start the FoundtionDB operator manager.
+// Each reconciler that is not nil will be added to the list of reconcilers
+// For all reconcilers the Client, Recorder and if appropriate the namespace will be set.
+func StartManager(
+	operatorOpts Options,
+	logOpts zap.Options,
+	clusterReconciler *controllers.FoundationDBClusterReconciler,
+	backupReconciler *controllers.FoundationDBBackupReconciler,
+	restoreReconciler *controllers.FoundationDBRestoreReconciler) {
 	var logWriter io.Writer
-	if logFile != "" {
-		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if operatorOpts.LogFile != "" {
+		file, err := os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			_, _ = os.Stderr.WriteString(err.Error())
 			os.Exit(1)
@@ -84,20 +128,20 @@ func main() {
 	}
 
 	logger := zap.New(
-		zap.UseFlagOptions(&opts),
+		zap.UseFlagOptions(&logOpts),
 		zap.WriteTo(logWriter))
 	ctrl.SetLogger(logger)
 
 	// Might be called by controller-runtime in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/1420
 	klog.SetLogger(logger)
 
-	controllers.DefaultCLITimeout = cliTimeout
+	controllers.DefaultCLITimeout = operatorOpts.CliTimeout
 
 	options := ctrl.Options{
 		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   leaderElectionID,
+		MetricsBindAddress: operatorOpts.MetricsAddr,
+		LeaderElection:     operatorOpts.EnableLeaderElection,
+		LeaderElectionID:   operatorOpts.LeaderElectionID,
 		Port:               9443,
 	}
 
@@ -112,55 +156,44 @@ func main() {
 		os.Exit(1)
 	}
 
-	clusterReconciler := &controllers.FoundationDBClusterReconciler{
-		Client:              mgr.GetClient(),
-		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
-		PodClientProvider:   controllers.NewFdbPodClient,
-		AdminClientProvider: controllers.NewCliAdminClient,
-		LockClientProvider:  controllers.NewRealLockClient,
-		UseFutureDefaults:   useFutureDefaults,
-		Namespace:           namespace,
-		DeprecationOptions:  deprecationOptions,
-	}
-
-	if err = MoveFDBBinaries(); err != nil {
+	if err := MoveFDBBinaries(); err != nil {
 		setupLog.Error(err, "unable to move FDB binaries")
 		os.Exit(1)
 	}
 
-	if err = clusterReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
-		os.Exit(1)
+	if clusterReconciler != nil {
+		clusterReconciler.Client = mgr.GetClient()
+		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
+		clusterReconciler.Namespace = namespace
+
+		if err := clusterReconciler.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
+			os.Exit(1)
+		}
+
+		if operatorOpts.MetricsAddr != "0" {
+			controllers.InitCustomMetrics(clusterReconciler)
+		}
 	}
 
-	backupReconciler := &controllers.FoundationDBBackupReconciler{
-		Client:              mgr.GetClient(),
-		Recorder:            mgr.GetEventRecorderFor("foundationdbcluster-controller"),
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		AdminClientProvider: controllers.NewCliAdminClient,
+	if backupReconciler != nil {
+		backupReconciler.Client = mgr.GetClient()
+		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
+
+		if err := backupReconciler.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
+			os.Exit(1)
+		}
 	}
 
-	if err = backupReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
-		os.Exit(1)
-	}
+	if restoreReconciler != nil {
+		restoreReconciler.Client = mgr.GetClient()
+		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
 
-	restoreReconciler := &controllers.FoundationDBRestoreReconciler{
-		Client:              mgr.GetClient(),
-		Recorder:            mgr.GetEventRecorderFor("foundationdbrestore-controller"),
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		AdminClientProvider: controllers.NewCliAdminClient,
-	}
-
-	if err = restoreReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
-		os.Exit(1)
-	}
-
-	if metricsAddr != "0" {
-		controllers.InitCustomMetrics(clusterReconciler)
+		if err := restoreReconciler.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
+			os.Exit(1)
+		}
 	}
 
 	// +kubebuilder:scaffold:builder
