@@ -74,15 +74,17 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
-	watchedObjects ...client.Object) manager.Manager {
+	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
+	var file *os.File
+
 	if operatorOpts.LogFile != "" {
-		file, err := os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		var err error
+		file, err = os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			_, _ = os.Stderr.WriteString(err.Error())
 			os.Exit(1)
 		}
-		defer file.Close()
 		logWriter = io.MultiWriter(os.Stdout, file)
 	} else {
 		logWriter = os.Stdout
@@ -159,7 +161,7 @@ func StartManager(
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("setup manager")
-	return mgr
+	return mgr, file
 }
 
 // MoveFDBBinaries moves FDB binaries that are pulled from setup containers into

@@ -69,13 +69,17 @@ func main() {
 		AdminClientProvider: controllers.NewCliAdminClient,
 	}
 
-	mgr := setup.StartManager(
+	mgr, file := setup.StartManager(
 		scheme,
 		operatorOpts,
 		logOpts,
 		clusterReconciler,
 		backupReconciler,
 		restoreReconciler)
+
+	if file != nil {
+		defer file.Close()
+	}
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		ctrl.Log.Error(err, "problem starting manager")
