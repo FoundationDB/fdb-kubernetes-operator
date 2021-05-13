@@ -427,30 +427,30 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	}
 
 	podClient, err := r.getPodClient(cluster, instance)
-
-	correct := false
 	if err != nil {
 		log.Error(err, "Error getting pod client", "instance", instance.Metadata.Name)
-	} else {
-		for _, process := range processStatus {
-			commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
-			if err != nil {
-				return err
-			}
-			correct = commandLine == process.CommandLine
+		return nil
+	}
 
-			settings := cluster.GetProcessSettings(instance.GetProcessClass())
-			versionMatch := true
-			// if we allow to override the tag we can't compare the versions here
-			if !settings.GetAllowTagOverride() {
-				versionMatch = process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
-			}
+	correct := false
+	for _, process := range processStatus {
+		commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
+		if err != nil {
+			return err
+		}
+		correct = commandLine == process.CommandLine
 
-			correct = correct && versionMatch
+		settings := cluster.GetProcessSettings(instance.GetProcessClass())
+		versionMatch := true
+		// if we allow to override the tag we can't compare the versions here
+		if !settings.GetAllowTagOverride() {
+			versionMatch = process.Version == cluster.Spec.Version || process.Version == fmt.Sprintf("%s-PRERELEASE", cluster.Spec.Version)
+		}
 
-			if !correct {
-				log.Info("IncorrectProcess", "namespace", cluster.Namespace, "cluster", cluster.Name, "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version)
-			}
+		correct = correct && versionMatch
+
+		if !correct {
+			log.Info("IncorrectProcess", "namespace", cluster.Namespace, "cluster", cluster.Name, "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version, "processGroupID", instanceID)
 		}
 	}
 
