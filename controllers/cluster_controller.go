@@ -61,7 +61,6 @@ type FoundationDBClusterReconciler struct {
 	PodIPProvider       func(*corev1.Pod) string
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 	LockClientProvider  LockClientProvider
-	UseFutureDefaults   bool
 	Namespace           string
 	DeprecationOptions  DeprecationOptions
 	RequeueOnNotFound   bool
