@@ -97,7 +97,7 @@ kind: FoundationDBBackup
 metadata:
   name: sample-cluster
 spec:
-  version: 6.2.20
+  version: 6.2.30
   clusterName: sample-cluster
   accountName: minio@minio-service:9000
   #backupState: Stopped
