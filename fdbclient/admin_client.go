@@ -154,12 +154,16 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		args = append(args, "--exec", command.command)
 	}
 
-	format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
-	if format == "" {
-		format = "xml"
-	}
+	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 
-	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log", "--trace_format", format)
+	if binaryName == "fdbcli" {
+		format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
+		if format == "" {
+			format = "xml"
+		}
+
+		args = append(args, "--trace_format", format)
+	}
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout
@@ -175,7 +179,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
 
-	output, err := execCommand.Output()
+	output, err := execCommand.CombinedOutput()
 	if err != nil {
 		exitError, canCast := err.(*exec.ExitError)
 		if canCast {

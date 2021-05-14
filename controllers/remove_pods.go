@@ -200,7 +200,7 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 }
 
 func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.FoundationDBCluster) (map[string]bool, error) {
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return map[string]bool{}, err
 	}

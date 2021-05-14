@@ -31,6 +31,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/fdbclient"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,7 +99,7 @@ func StartManager(
 	// Might be called by controller-runtime in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/1420
 	klog.SetLogger(logger)
 
-	controllers.DefaultCLITimeout = operatorOpts.CliTimeout
+	fdbclient.DefaultCLITimeout = operatorOpts.CliTimeout
 
 	options := ctrl.Options{
 		Scheme:             scheme,
