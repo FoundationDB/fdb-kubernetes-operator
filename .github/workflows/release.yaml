@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Set package name
         id: set_package_name
-        run: echo ::set-output name=package_name::kubectl-fdb-${{ needs.create-release.outputs.tag }}-$(echo ${RUNNER_OS} | tr [:upper:] [:lower:]).tar.gz
+        run: echo ::set-output name=package_name::kubectl-fdb-${{ needs.create-release.outputs.tag }}-$(echo ${RUNNER_OS} | tr [:upper:] [:lower:])
       - name: Set up Go 1.15
         uses: actions/setup-go@v1
         with:
@@ -76,7 +76,7 @@ jobs:
         run: ./bin/kubectl-fdb version --client-only
       - name: Create sha256 for assert
         run: |
-          cp ./bin/kubectl-fdb.tar.gz ${{ steps.set_package_name.outputs.package_name }}
+          cp ./bin/kubectl-fdb ${{ steps.set_package_name.outputs.package_name }}
           sha256sum ${{ steps.set_package_name.outputs.package_name }} > ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
       - name: Upload Release asset
         uses: actions/upload-release-asset@v1
@@ -84,9 +84,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./bin/kubectl-fdb.tar.gz
+          asset_path: ./bin/kubectl-fdb
           asset_name: ${{ steps.set_package_name.outputs.package_name }}
-          asset_content_type: application/gzip
+          asset_content_type: application/octet-stream
       - name: Upload sha256 for asset
         uses: actions/upload-release-asset@v1
         env:
