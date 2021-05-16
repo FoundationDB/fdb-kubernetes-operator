@@ -359,7 +359,12 @@ class Server(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response)
 
-    def check_request_cert(self):
+    def check_request_cert(self, path):
+        # The ready endpoint will not require a client certificate
+        # to allow the kubelet to do HTTP probes.
+        if path == "/ready":
+            return True
+
         config = Config.shared()
         approved = not config.enable_tls or self.check_cert(
             self.connection.getpeercert(), config.peer_verification_rules
@@ -456,7 +461,7 @@ class Server(http.server.BaseHTTPRequestHandler):
         This method executes a GET request.
         """
         try:
-            if not self.check_request_cert():
+            if not self.check_request_cert(self.path):
                 return
             if self.path.startswith("/check_hash/"):
                 try:
@@ -483,7 +488,7 @@ class Server(http.server.BaseHTTPRequestHandler):
         This method executes a POST request.
         """
         try:
-            if not self.check_request_cert():
+            if not self.check_request_cert(self.path):
                 return
             if self.path == "/copy_files":
                 self.send_text(copy_files())
