@@ -35,9 +35,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn
-import threading
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -309,10 +307,6 @@ class Config(object):
         )
 
 
-class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    """Handle requests in a separate thread."""
-
-
 class Server(BaseHTTPRequestHandler):
     ssl_context = None
 
@@ -324,7 +318,7 @@ class Server(BaseHTTPRequestHandler):
         config = Config.shared()
         (address, port) = config.bind_address.split(":")
         log.info(f"Listening on {address}:{port}")
-        server = ThreadedHTTPServer((address, int(port)), cls)
+        server = ThreadingHTTPServer((address, int(port)), cls)
 
         if config.enable_tls:
             context = Server.load_ssl_context()
@@ -644,5 +638,7 @@ if __name__ == "__main__":
     copy_libraries()
     copy_monitor_conf()
 
-    if not Config.shared().init_mode:
-        Server.start()
+    if Config.shared().init_mode:
+        sys.exit(0)
+
+    Server.start()
