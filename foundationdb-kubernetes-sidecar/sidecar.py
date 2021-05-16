@@ -487,17 +487,8 @@ class Server(http.server.BaseHTTPRequestHandler):
                 return
             if self.path == "/copy_files":
                 self.send_text(copy_files())
-            elif self.path == "/copy_binaries":
-                self.send_text(copy_binaries())
-            elif self.path == "/copy_libraries":
-                self.send_text(copy_libraries())
             elif self.path == "/copy_monitor_conf":
                 self.send_text(copy_monitor_conf())
-            elif self.path == "/refresh_certs":
-                self.send_text(refresh_certs())
-            elif self.path == "/restart":
-                self.send_text("OK")
-                exit(1)
             else:
                 self.send_error(404, "Path not found")
                 self.end_headers()
