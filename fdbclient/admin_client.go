@@ -126,7 +126,6 @@ func (command cliCommand) getClusterFileFlag() string {
 
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
-
 	shortVersion := version[:strings.LastIndex(version, ".")]
 	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), shortVersion, binaryName)
 }
@@ -364,7 +363,6 @@ func parseExclusionOutput(output string) map[string]string {
 
 // KillInstances restarts processes
 func (client *cliAdminClient) KillInstances(addresses []string) error {
-
 	if len(addresses) == 0 {
 		return nil
 	}
