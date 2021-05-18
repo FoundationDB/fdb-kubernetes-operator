@@ -363,6 +363,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 	replaceContainers(podSpec.InitContainers, initContainer)
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
+
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)
 	podSpec.Affinity = affinity
 
@@ -696,8 +697,7 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 func customizeContainer(container *corev1.Container, overrides fdbtypes.ContainerOverrides) {
 	envOverrides := make(map[string]bool)
 
-	fullEnv := []corev1.EnvVar{}
-
+	fullEnv := make([]corev1.EnvVar, 0)
 	for _, envVar := range overrides.Env {
 		fullEnv = append(fullEnv, *envVar.DeepCopy())
 		envOverrides[envVar.Name] = true
@@ -1236,9 +1236,7 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 	// When we update the defaults in the next release, the following sections
 	// should be moved under the `!OnlyShowChanges` section, and we should use
 	// the latest defaults as the active defaults.
-
 	// Set up sidecar resource requirements
-
 	zeroQuantity, err := resource.ParseQuantity("0")
 	if err != nil {
 		return err

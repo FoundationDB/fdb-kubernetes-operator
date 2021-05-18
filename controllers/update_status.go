@@ -345,6 +345,7 @@ func containsAll(current map[string]string, desired map[string]string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -580,7 +581,6 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, instanceID)
 
 	incorrectConfigMap := instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] != configMapHash
-
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, instanceID)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
