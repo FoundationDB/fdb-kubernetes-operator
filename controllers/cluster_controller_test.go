@@ -177,10 +177,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					fdbtypes.ProcessClassClusterController: 1,
 				}))
 
-				configMapHash, err := GetConfigMapHash(cluster)
+				pod := &pods.Items[0]
+				configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(pod.ObjectMeta), pod)
 				Expect(err).NotTo(HaveOccurred())
-
-				Expect(pods.Items[0].ObjectMeta.Annotations[fdbtypes.LastConfigMapKey]).To(Equal(configMapHash))
+				Expect(pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey]).To(Equal(configMapHash))
 				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
 			})
 
@@ -1015,7 +1015,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					err = k8sClient.Update(context.TODO(), cluster)
 
 					result, err := reconcileCluster(cluster)
-					Expect(err).NotTo((HaveOccurred()))
+					Expect(err).NotTo(HaveOccurred())
 					Expect(result.Requeue).To(BeFalse())
 
 					generation, err := reloadCluster(cluster)
@@ -1231,9 +1231,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := GetConfigMapHash(cluster)
+					configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(item.ObjectMeta), &item)
 					Expect(err).NotTo(HaveOccurred())
-
 					if item.Labels[fdbtypes.FDBInstanceIDLabel] == "storage-1" {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
@@ -1371,9 +1370,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
 						Expect(err).NotTo(HaveOccurred())
 
-						configMapHash, err := GetConfigMapHash(cluster)
+						configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(item.ObjectMeta), &item)
 						Expect(err).NotTo(HaveOccurred())
-
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
 							"foundationdb.org/last-applied-spec":       hash,
@@ -1480,9 +1478,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := GetConfigMapHash(cluster)
+					configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(item.ObjectMeta), &item)
 					Expect(err).NotTo(HaveOccurred())
-
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 						"foundationdb.org/last-applied-config-map": configMapHash,
 						"foundationdb.org/last-applied-spec":       hash,
@@ -2277,7 +2274,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(configMap.Data["cluster-file"]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
+				Expect(configMap.Data[clusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["running-version"]).To(Equal(Versions.Default.String()))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
@@ -2361,7 +2358,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should empty the monitor conf and cluster file", func() {
-				Expect(configMap.Data["cluster-file"]).To(Equal(""))
+				Expect(configMap.Data[clusterFileKey]).To(Equal(""))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(""))
 			})
 		})
@@ -3485,4 +3482,19 @@ func getProcessClassMap(pods []corev1.Pod) map[fdbtypes.ProcessClass]int {
 		counts[ProcessClass]++
 	}
 	return counts
+}
+
+// getConfigMapHash gets the hash of the data for a cluster's dynamic config.
+func getConfigMapHash(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.ProcessClass, pod *corev1.Pod) (string, error) {
+	configMap, err := GetConfigMap(cluster)
+	if err != nil {
+		return "", err
+	}
+
+	serversPerPod, err := getStorageServersPerPodForPod(pod)
+	if err != nil {
+		return "", err
+	}
+
+	return getDynamicConfHash(configMap, pClass, serversPerPod)
 }

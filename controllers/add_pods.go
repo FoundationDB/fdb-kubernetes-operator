@@ -52,11 +52,6 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return false, err
 	}
 
-	configMapHash, err := GetDynamicConfHash(configMap)
-	if err != nil {
-		return false, err
-	}
-
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return false, err
@@ -78,6 +73,16 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			pod, err := GetPod(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
 				r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
+				return false, err
+			}
+
+			serverPerPod, err := getStorageServersPerPodForPod(pod)
+			if err != nil {
+				return false, err
+			}
+
+			configMapHash, err := getDynamicConfHash(configMap, processGroup.ProcessClass, serverPerPod)
+			if err != nil {
 				return false, err
 			}
 

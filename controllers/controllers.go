@@ -32,6 +32,10 @@ var log = logf.Log.WithName("controller")
 // DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10
 
+const (
+	clusterFileKey = "cluster-file"
+)
+
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
 func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
