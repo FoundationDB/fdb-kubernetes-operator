@@ -565,6 +565,14 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	}
 
 	incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, instanceID, specHash))
+	if !incorrectPod {
+		updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
+		if err != nil {
+			return false, err
+		}
+		incorrectPod = !updated
+	}
+
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, instanceID)
 
 	incorrectConfigMap := instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] != configMapHash
