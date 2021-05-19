@@ -31,6 +31,7 @@ var log = logf.Log.WithName("controller")
 
 const (
 	clusterFileKey = "cluster-file"
+)
 
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
