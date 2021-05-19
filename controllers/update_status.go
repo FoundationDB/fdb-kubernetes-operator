@@ -69,7 +69,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		cluster.Status.RunningVersion = version
 		cluster.Status.ConnectionString = connectionString
 
-		adminClient, err := r.AdminClientProvider(cluster, r)
+		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 		if err != nil {
 			return false, err
 		}
@@ -390,7 +390,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 				"version", version, "connectionString", connectionString)
 			cluster.Status.RunningVersion = version
 			cluster.Status.ConnectionString = connectionString
-			adminClient, clientErr := r.AdminClientProvider(cluster, r)
+			adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
 			if clientErr != nil {
 				return originalVersion, originalConnectionString, clientErr

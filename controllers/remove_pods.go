@@ -152,7 +152,7 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 }
 
 func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, removedProcessGroups map[string]bool) error {
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return err
 	}

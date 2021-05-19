@@ -36,7 +36,7 @@ type ExcludeInstances struct{}
 
 // Reconcile runs the reconciler's work.
 func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return false, err
 	}

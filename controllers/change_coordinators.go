@@ -40,7 +40,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return true, nil
 	}
 
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return false, err
 	}

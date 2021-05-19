@@ -40,9 +40,11 @@ import (
 // FoundationDBBackupReconciler reconciles a FoundationDBCluster object
 type FoundationDBBackupReconciler struct {
 	client.Client
-	Recorder            record.EventRecorder
-	Log                 logr.Logger
-	InSimulation        bool
+	Recorder               record.EventRecorder
+	Log                    logr.Logger
+	InSimulation           bool
+	DatabaseClientProvider DatabaseClientProvider
+	// Deprecated: Use DatabaseClientProvider instead
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
@@ -106,6 +108,17 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 	return ctrl.Result{}, nil
 }
 
+// getDatabaseClientProvider gets the client provider for a reconciler.
+func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() DatabaseClientProvider {
+	if r.DatabaseClientProvider != nil {
+		return r.DatabaseClientProvider
+	}
+	if r.AdminClientProvider != nil {
+		return legacyDatabaseClientProvider{AdminClientProvider: r.AdminClientProvider}
+	}
+	panic("Backup reconciler does not have a DatabaseClientProvider defined")
+}
+
 // AdminClientForBackup provides an admin client for a backup reconciler.
 func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context, backup *fdbtypes.FoundationDBBackup) (AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
@@ -114,7 +127,7 @@ func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context,
 		return nil, err
 	}
 
-	return r.AdminClientProvider(cluster, r)
+	return r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 }
 
 // SetupWithManager prepares a reconciler for use.
