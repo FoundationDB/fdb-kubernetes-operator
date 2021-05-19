@@ -21,6 +21,7 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/fdbclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,19 +55,19 @@ func main() {
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
 		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
 		PodClientProvider:   controllers.NewFdbPodClient,
-		AdminClientProvider: controllers.NewCliAdminClient,
-		LockClientProvider:  controllers.NewRealLockClient,
+		AdminClientProvider: fdbclient.NewCliAdminClient,
+		LockClientProvider:  fdbclient.NewRealLockClient,
 		DeprecationOptions:  operatorOpts.DeprecationOptions,
 	}
 
 	backupReconciler := &controllers.FoundationDBBackupReconciler{
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		AdminClientProvider: controllers.NewCliAdminClient,
+		AdminClientProvider: fdbclient.NewCliAdminClient,
 	}
 
 	restoreReconciler := &controllers.FoundationDBRestoreReconciler{
 		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		AdminClientProvider: controllers.NewCliAdminClient,
+		AdminClientProvider: fdbclient.NewCliAdminClient,
 	}
 
 	mgr, file := setup.StartManager(

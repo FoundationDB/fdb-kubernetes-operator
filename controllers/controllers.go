@@ -29,9 +29,6 @@ import (
 
 var log = logf.Log.WithName("controller")
 
-// DefaultCLITimeout is the default timeout for CLI commands.
-var DefaultCLITimeout = 10
-
 const (
 	clusterFileKey = "cluster-file"
 )

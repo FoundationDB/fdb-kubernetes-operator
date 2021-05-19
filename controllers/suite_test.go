@@ -87,19 +87,19 @@ var _ = BeforeSuite(func(done Done) {
 	clusterReconciler = createTestClusterReconciler()
 
 	backupReconciler = &FoundationDBBackupReconciler{
-		Client:              k8sClient,
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
-		Recorder:            k8sClient,
-		InSimulation:        true,
-		AdminClientProvider: NewMockAdminClient,
+		Client:                 k8sClient,
+		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBBackup"),
+		Recorder:               k8sClient,
+		InSimulation:           true,
+		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 
 	restoreReconciler = &FoundationDBRestoreReconciler{
-		Client:              k8sClient,
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		Recorder:            k8sClient,
-		InSimulation:        true,
-		AdminClientProvider: NewMockAdminClient,
+		Client:                 k8sClient,
+		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
+		Recorder:               k8sClient,
+		InSimulation:           true,
+		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 
 	close(done)
@@ -278,14 +278,13 @@ func setupClusterForTest(cluster *fdbtypes.FoundationDBCluster) error {
 
 func createTestClusterReconciler() *FoundationDBClusterReconciler {
 	return &FoundationDBClusterReconciler{
-		Client:              k8sClient,
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		Recorder:            k8sClient,
-		InSimulation:        true,
-		PodLifecycleManager: StandardPodLifecycleManager{},
-		PodClientProvider:   NewMockFdbPodClient,
-		PodIPProvider:       MockPodIP,
-		AdminClientProvider: NewMockAdminClient,
-		LockClientProvider:  NewMockLockClient,
+		Client:                 k8sClient,
+		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		Recorder:               k8sClient,
+		InSimulation:           true,
+		PodLifecycleManager:    StandardPodLifecycleManager{},
+		PodClientProvider:      NewMockFdbPodClient,
+		PodIPProvider:          MockPodIP,
+		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 }

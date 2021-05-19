@@ -59,11 +59,18 @@ type FoundationDBClusterReconciler struct {
 	PodLifecycleManager PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
 	PodIPProvider       func(*corev1.Pod) string
+
+	DatabaseClientProvider DatabaseClientProvider
+
+	Namespace          string
+	DeprecationOptions DeprecationOptions
+	RequeueOnNotFound  bool
+
+	// Deprecated: Use DatabaseClientProvider instead
 	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
-	LockClientProvider  LockClientProvider
-	Namespace           string
-	DeprecationOptions  DeprecationOptions
-	RequeueOnNotFound   bool
+
+	// Deprecated: Use DatabaseClientProvider instead
+	LockClientProvider LockClientProvider
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -79,7 +86,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		if k8serrors.IsNotFound(err) {
 			// Object not found, return. Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
-			cleanUpDBCache(request.Namespace, request.Name)
+			r.getDatabaseClientProvider().CleanUpCache(request.Namespace, request.Name)
 
 			if r.RequeueOnNotFound {
 				return ctrl.Result{Requeue: true}, nil
@@ -96,7 +103,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -733,8 +740,19 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.Foundatio
 	return client, nil
 }
 
+// getDatabaseClientProvider gets the client provider for a reconciler.
+func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() DatabaseClientProvider {
+	if r.DatabaseClientProvider != nil {
+		return r.DatabaseClientProvider
+	}
+	if r.AdminClientProvider != nil || r.LockClientProvider != nil {
+		return legacyDatabaseClientProvider{AdminClientProvider: r.AdminClientProvider, LockClientProvider: r.LockClientProvider}
+	}
+	panic("Cluster reconciler does not have a DatabaseClientProvider defined")
+}
+
 func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	return r.LockClientProvider(cluster)
+	return r.getDatabaseClientProvider().GetLockClient(cluster)
 }
 
 // takeLock attempts to acquire a lock.
@@ -932,7 +950,7 @@ func (manager StandardPodLifecycleManager) DeleteInstance(r *FoundationDBCluster
 
 // CanDeletePods checks whether it is safe to delete pods.
 func (manager StandardPodLifecycleManager) CanDeletePods(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	adminClient, err := r.AdminClientProvider(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return false, err
 	}
