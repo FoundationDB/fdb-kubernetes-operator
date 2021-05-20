@@ -7593,6 +7593,9 @@ spec:
                   additionalProperties:
                     type: integer
                   type: object
+                skip:
+                  default: false
+                  type: boolean
                 storageClass:
                   type: string
                 storageServersPerPod:

@@ -98,6 +98,14 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
+	curLogger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+
+	if cluster.Spec.Skip {
+		curLogger.Info("Skipping cluster with skip value true", "skip", cluster.Spec.Skip)
+		// Don't requeue
+		return ctrl.Result{}, nil
+	}
+
 	err = NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -146,7 +154,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 	originalGeneration := cluster.ObjectMeta.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
-	curLogger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
 		// will reset all normalized fields...

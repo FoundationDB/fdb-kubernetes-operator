@@ -559,6 +559,38 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 			})
 
+			Context("with cluster skip enabled", func() {
+				BeforeEach(func() {
+					cluster.Spec.Skip = true
+					// Since we don't reconcile we don't expect a generationGap
+					generationGap = 0
+				})
+
+				Context("with an entry in the instances to remove list", func() {
+					BeforeEach(func() {
+						cluster.Spec.InstancesToRemove = []string{
+							originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],
+						}
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+
+					It("should not replace the pod", func() {
+						pods := &corev1.PodList{}
+						err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(len(pods.Items)).To(Equal(17))
+
+						sortPodsByID(pods)
+
+						for i := 0; i <4; i++ {
+							Expect(pods.Items[firstStorageIndex+i].Name).To(Equal(originalPods.Items[firstStorageIndex+i].Name))
+						}
+					})
+				})
+			})
+
 			Context("with an entry in the pendingRemovals map", func() {
 				BeforeEach(func() {
 					pod := originalPods.Items[firstStorageIndex]

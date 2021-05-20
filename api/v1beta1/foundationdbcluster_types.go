@@ -283,6 +283,11 @@ type FoundationDBClusterSpec struct {
 	// local storage.
 	// +kubebuilder:default:=false
 	ReplaceInstancesWhenResourcesChange *bool `json:"replaceInstancesWhenResourcesChange,omitempty"`
+
+	// Skip defines if the cluster should be skipped for reconciliation. This can be useful for
+	// investigating in issues or if the environment is unstable.
+	// +kubebuilder:default:=false
+	Skip bool `json:"skip,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
