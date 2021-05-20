@@ -397,7 +397,7 @@ When you need to update your pods in a way that requires recreating them, there 
 
 The default strategy is to do a rolling bounce, where at most one fault domain is bounced at a time. While a pod is being recreated, it is unavailable, so this will degrade the availability fault tolerance for the cluster. The operator will ensure that pods are not deleted unless the cluster is at full fault tolerance, so if all goes well this will not create an availability loss for clients.
 
-Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will be considered unavailable when it comes back up. The operator will detect this condition after creating the new pod, and will change the coordinators automatically to ensure that we regain fault tolerance.
+Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will still be considered unavailable after the replaced pod starts. The operator will detect this condition, and will change the coordinators automatically to ensure that we regain fault tolerance.
 
 The other strategy you can use is to do a migration, where we replace all of the instances in the cluster. If you want to opt in to this strategy, you can set the field `updatePodsByReplacement` in the cluster spec to `true`. This strategy will temporarily use more resources, and requires moving all of the data to a new set of pods, but it will not degrade fault tolerance, and will require fewer recoveries and coordinator changes.
 
@@ -405,7 +405,7 @@ There are some changes that require a migration regardless of the value for the 
 
 # Controlling Fault Domains
 
-The operator provides multiple options for defining fault domains for your cluster. The fault domain defines how data is replicated and how processes are distributed across machines. Choosing a fault domain is an important process of managing your deployments.
+The operator provides multiple options for defining fault domains for your cluster. The fault domain defines how data is replicated and how processes and coordinators are distributed across machines. Choosing a fault domain is an important process of managing your deployments.
 
 Fault domains are controlled through the `faultDomain` field in the cluster spec.
 
@@ -519,6 +519,17 @@ spec:
 The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions.
 
 Replicating across data centers will likely mean running your cluster across multiple Kubernetes clusters, even if you are using a single-Kubernetes replication strategy within each DC. This will mean taking on the operational challenges described in the "Multi-Kubernetes Replication" section above.
+
+# Managing disruption
+
+[Pod disruption budgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
+are a good idea to prevent simultaneous disruption to many components in a
+cluster, particularly during the upgrade of nodepools in public clouds. The
+operator does not yet create these automatically. To aid in creation of PDBs the
+operator preferentially selects coordinators from just storage pods, then if
+there are not enough storage pods, or the storage pods are not spread across
+enough fault domains it also considers log pods, and finally transaction pods as
+well.
 
 # Using Multiple Namespaces
 
