@@ -1,8 +1,8 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
-CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1"
-CONTROLLER_GEN_VERSION ?= 0.5.0
+CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
+CONTROLLER_GEN_VERSION ?= 0.6.0-beta.0
 
 ifneq "$(FDB_WEBSITE)" ""
 	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
