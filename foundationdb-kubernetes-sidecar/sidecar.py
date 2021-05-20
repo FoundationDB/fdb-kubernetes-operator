@@ -341,7 +341,7 @@ class Server(BaseHTTPRequestHandler):
         if not cls.ssl_context:
             cls.ssl_context = ssl.create_default_context(cafile=config.ca_file)
             cls.ssl_context.check_hostname = False
-            cls.ssl_context.verify_mode = ssl.CERT_REQUIRED
+            cls.ssl_context.verify_mode = ssl.CERT_OPTIONAL
         cls.ssl_context.load_cert_chain(config.certificate_file, config.key_file)
         return cls.ssl_context
 
@@ -359,13 +359,21 @@ class Server(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response)
 
-    def check_request_cert(self):
+    def check_request_cert(self, path):
         config = Config.shared()
-        approved = not config.enable_tls or self.check_cert(
+
+        if path == "/ready":
+            return True
+
+        if not config.enable_tls:
+            return True
+
+        approved = self.check_cert(
             self.connection.getpeercert(), config.peer_verification_rules
         )
         if not approved:
             self.send_error(401, "Client certificate was not approved")
+
         return approved
 
     def check_cert(self, cert, rules):
@@ -375,6 +383,9 @@ class Server(BaseHTTPRequestHandler):
         If there is any problem with the certificate, this will return a string
         describing the error.
         """
+        if cert is None:
+            return False
+
         if not rules:
             return True
 
@@ -456,7 +467,7 @@ class Server(BaseHTTPRequestHandler):
         This method executes a GET request.
         """
         try:
-            if not self.check_request_cert():
+            if not self.check_request_cert(self.path):
                 return
             if self.path.startswith("/check_hash/"):
                 try:
@@ -483,7 +494,7 @@ class Server(BaseHTTPRequestHandler):
         This method executes a POST request.
         """
         try:
-            if not self.check_request_cert():
+            if not self.check_request_cert(self.path):
                 return
             if self.path == "/copy_files":
                 self.send_text(copy_files())
