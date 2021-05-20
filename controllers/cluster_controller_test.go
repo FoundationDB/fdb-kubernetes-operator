@@ -575,7 +575,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-
 					It("should not replace the pod", func() {
 						pods := &corev1.PodList{}
 						err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
@@ -584,7 +583,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 						sortPodsByID(pods)
 
-						for i := 0; i <4; i++ {
+						for i := 0; i < 4; i++ {
 							Expect(pods.Items[firstStorageIndex+i].Name).To(Equal(originalPods.Items[firstStorageIndex+i].Name))
 						}
 					})
