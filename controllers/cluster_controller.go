@@ -263,6 +263,10 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 			return false, err
 		}
 	}
+	// Don't instantiate any servers if the `EmptyMonitorConf` buggify option is engaged.
+	if cluster.Spec.Buggify.EmptyMonitorConf {
+		serversPerPod = 0
+	}
 
 	conf, err := GetMonitorConf(cluster, instance.GetProcessClass(), podClient, serversPerPod)
 	if err != nil {

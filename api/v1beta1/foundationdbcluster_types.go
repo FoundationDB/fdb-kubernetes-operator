@@ -2505,6 +2505,10 @@ type BuggifyConfig struct {
 	// CrashLoops defines a list of instance IDs that should be put into a
 	// crash looping state.
 	CrashLoop []string `json:"crashLoop,omitempty"`
+
+	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
+	// files to have zero fdbserver processes configured.
+	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
