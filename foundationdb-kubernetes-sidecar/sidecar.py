@@ -21,7 +21,6 @@
 
 import argparse
 import hashlib
-import http.server
 import logging
 import json
 import os
@@ -360,12 +359,7 @@ class Server(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response)
 
-    def check_request_cert(self, path):
-        # The ready endpoint will not require a client certificate
-        # to allow the kubelet to do HTTP probes.
-        if path == "/ready":
-            return True
-
+    def check_request_cert(self):
         config = Config.shared()
         approved = not config.enable_tls or self.check_cert(
             self.connection.getpeercert(), config.peer_verification_rules
@@ -462,7 +456,7 @@ class Server(BaseHTTPRequestHandler):
         This method executes a GET request.
         """
         try:
-            if not self.check_request_cert(self.path):
+            if not self.check_request_cert():
                 return
             if self.path.startswith("/check_hash/"):
                 try:
@@ -489,12 +483,21 @@ class Server(BaseHTTPRequestHandler):
         This method executes a POST request.
         """
         try:
-            if not self.check_request_cert(self.path):
+            if not self.check_request_cert():
                 return
             if self.path == "/copy_files":
                 self.send_text(copy_files())
+            elif self.path == "/copy_binaries":
+                self.send_text(copy_binaries())
+            elif self.path == "/copy_libraries":
+                self.send_text(copy_libraries())
             elif self.path == "/copy_monitor_conf":
                 self.send_text(copy_monitor_conf())
+            elif self.path == "/refresh_certs":
+                self.send_text(refresh_certs())
+            elif self.path == "/restart":
+                self.send_text("OK")
+                exit(1)
             else:
                 self.send_error(404, "Path not found")
                 self.end_headers()
@@ -513,7 +516,19 @@ class Server(BaseHTTPRequestHandler):
 
 class CertificateEventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
-        log.info(f"Detected change to certificates {event}")
+        if event.is_directory:
+            return None
+
+        if event.event_type not in ["created", "modified"]:
+            return None
+
+        # We ignore all old files
+        if event.src_path.endswith(".old"):
+            return None
+
+        log.info(
+            f"Detected change to certificates path: {event.src_path}, type: {event.event_type }"
+        )
         time.sleep(10)
         log.info("Reloading certificates")
         Server.load_ssl_context()
