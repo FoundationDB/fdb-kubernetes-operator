@@ -263,10 +263,6 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 			return false, err
 		}
 	}
-	// Don't instantiate any servers if the `EmptyMonitorConf` buggify option is engaged.
-	if cluster.Spec.Buggify.EmptyMonitorConf {
-		serversPerPod = 0
-	}
 
 	conf, err := GetMonitorConf(cluster, instance.GetProcessClass(), podClient, serversPerPod)
 	if err != nil {
@@ -556,13 +552,16 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 		"restart_delay = 60",
 	)
 
-	for i := 1; i <= serversPerPod; i++ {
-		confLines = append(confLines, fmt.Sprintf("[fdbserver.%d]", i))
-		commands, err := getStartCommandLines(cluster, processClass, podClient, i, serversPerPod)
-		if err != nil {
-			return "", err
+	// Don't instantiate any servers if the `EmptyMonitorConf` buggify option is engaged.
+	if !cluster.Spec.Buggify.EmptyMonitorConf {
+		for i := 1; i <= serversPerPod; i++ {
+			confLines = append(confLines, fmt.Sprintf("[fdbserver.%d]", i))
+			commands, err := getStartCommandLines(cluster, processClass, podClient, i, serversPerPod)
+			if err != nil {
+				return "", err
+			}
+			confLines = append(confLines, commands...)
 		}
-		confLines = append(confLines, commands...)
 	}
 
 	return strings.Join(confLines, "\n"), nil

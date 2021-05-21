@@ -279,6 +279,53 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("when buggifying an empty fdbmonitor conf", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.EmptyMonitorConf = true
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				// The buggify config causes the reconciliation loop to never finish with the mock admin client.
+				shouldCompleteReconciliation = false
+			})
+
+			It("should update conf and bounce processes", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+				sortPodsByID(pods)
+
+				cm, _ := GetConfigMap(cluster)
+
+				for _, file := range cm.Data {
+					Expect(file).To(Not(ContainSubstring("fdbserver")))
+				}
+
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(adminClient).NotTo(BeNil())
+
+				// Converted the killed servers into a set since they may have been killed more than once during
+				// reconciliation.
+				killedSet := map[string]struct{}{}
+				for _, addr := range adminClient.KilledAddresses {
+					killedSet[addr] = struct{}{}
+				}
+
+				// All of the processes in the cluster should be killed.
+				processes := map[string]struct{}{}
+				for _, processGroup := range cluster.Status.ProcessGroups {
+					for i, addr := range processGroup.Addresses {
+						// +1 since the process list uses 1-based indexing.
+						fullAddr := cluster.GetFullAddress(addr, i+1)
+						processes[fullAddr] = struct{}{}
+					}
+				}
+
+				Expect(killedSet).To(Equal(processes))
+			})
+		})
+
 		Context("with a decreased process count", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessCounts.Storage = 3
