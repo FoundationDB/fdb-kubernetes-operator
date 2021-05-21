@@ -72,6 +72,8 @@ spec:
                       items:
                         type: string
                       type: array
+                    emptyMonitorConf:
+                      type: boolean
                     noSchedule:
                       items:
                         type: string
