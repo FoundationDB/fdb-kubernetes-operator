@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -267,7 +269,7 @@ func setupClusterForTest(cluster *fdbtypes.FoundationDBCluster) error {
 		return err
 	}
 
-	err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+	err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 	if err != nil {
 		return err
 	}

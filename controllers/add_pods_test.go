@@ -24,6 +24,8 @@ import (
 	"context"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -39,7 +41,7 @@ var _ = Describe("add_pods", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		err = k8sClient.Create(context.TODO(), cluster)

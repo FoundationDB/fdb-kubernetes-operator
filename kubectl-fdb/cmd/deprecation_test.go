@@ -24,7 +24,8 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,7 +50,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 		type testCase struct {
 			cluster            fdbtypes.FoundationDBCluster
 			inputClusters      []string
-			deprecationOptions controllers.DeprecationOptions
+			deprecationOptions internal.DeprecationOptions
 			showClusterSpec    bool
 			checkOutput        bool
 			expectedOutput     string
@@ -94,7 +95,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						Spec: fdbtypes.FoundationDBClusterSpec{},
 					},
 					inputClusters: []string{"no-match"},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   false,
 					},
@@ -148,7 +149,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 					},
 					inputClusters: []string{},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   true,
 					},
@@ -204,7 +205,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 					},
 					inputClusters: []string{},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   false,
 					},
@@ -259,7 +260,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 					},
 					inputClusters: []string{},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   true,
 					},
@@ -313,7 +314,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 					},
 					inputClusters: []string{},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   true,
 					},
@@ -367,7 +368,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 					},
 					inputClusters: []string{},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   false,
 					},
@@ -466,7 +467,7 @@ version: ""`,
 						},
 					},
 					inputClusters: []string{},
-					deprecationOptions: controllers.DeprecationOptions{
+					deprecationOptions: internal.DeprecationOptions{
 						UseFutureDefaults: false,
 						OnlyShowChanges:   true,
 					},

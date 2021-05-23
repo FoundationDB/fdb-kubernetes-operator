@@ -23,6 +23,8 @@ package controllers
 import (
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -375,7 +377,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				ProcessGroupID: instanceName,
 				Remove:         false,
 			}
-			err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 
 			cluster.Spec.UpdatePodsByReplacement = true
@@ -390,7 +392,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		var instance FdbInstance
 
 		BeforeEach(func() {
-			err := NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
 			Expect(err).NotTo(HaveOccurred())

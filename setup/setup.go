@@ -27,6 +27,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -48,7 +50,7 @@ type Options struct {
 	LeaderElectionID     string
 	LogFile              string
 	CliTimeout           int
-	DeprecationOptions   controllers.DeprecationOptions
+	DeprecationOptions   internal.DeprecationOptions
 }
 
 // BindFlags will parse the given flagset for the operator option flags

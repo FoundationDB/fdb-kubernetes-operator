@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"github.com/prometheus/common/expfmt"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -178,7 +180,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}))
 
 				pod := &pods.Items[0]
-				configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(pod.ObjectMeta), pod)
+				configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(pod.ObjectMeta), pod)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey]).To(Equal(configMapHash))
 				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
@@ -1063,7 +1065,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1))
-						if processClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
+						if internal.ProcessClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
 							addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 2))
 						}
 					}
@@ -1243,17 +1245,17 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels[fdbtypes.FDBInstanceIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
+					hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(item.ObjectMeta), &item)
+					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(item.ObjectMeta), &item)
 					Expect(err).NotTo(HaveOccurred())
 					if item.Labels[fdbtypes.FDBInstanceIDLabel] == "storage-1" {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
@@ -1380,7 +1382,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should not update the annotations on other resources", func() {
 					pods := &corev1.PodList{}
 
-					err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+					err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
@@ -1389,10 +1391,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						_, id, err := ParseInstanceID(item.Labels[fdbtypes.FDBInstanceIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
-						hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
+						hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(item.Labels), id, nil)
 						Expect(err).NotTo(HaveOccurred())
 
-						configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(item.ObjectMeta), &item)
+						configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(item.ObjectMeta), &item)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
@@ -1490,17 +1492,17 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
 					_, id, err := ParseInstanceID(item.Labels[fdbtypes.FDBInstanceIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
-					hash, err := GetPodSpecHash(cluster, processClassFromLabels(item.Labels), id, nil)
+					hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(item.Labels), id, nil)
 					Expect(err).NotTo(HaveOccurred())
 
-					configMapHash, err := getConfigMapHash(cluster, GetProcessClassFromMeta(item.ObjectMeta), &item)
+					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(item.ObjectMeta), &item)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 						"foundationdb.org/last-applied-config-map": configMapHash,
@@ -1772,7 +1774,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				for _, pod := range pods.Items {
 					Expect(pod.Annotations[fdbtypes.PublicIPSourceAnnotation]).To(Equal("service"))
 
-					if processClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if internal.ProcessClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 					}
 				}
@@ -1813,7 +1815,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				var storagePod corev1.Pod
 				for _, pod := range pods.Items {
-					if processClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if internal.ProcessClassFromLabels(pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 						break
 					}
@@ -2083,7 +2085,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
+						processClass := internal.GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
 							replacements[pod.Status.PodIP] = true
 						}
@@ -3561,7 +3563,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 func getProcessClassMap(pods []corev1.Pod) map[fdbtypes.ProcessClass]int {
 	counts := make(map[fdbtypes.ProcessClass]int)
 	for _, pod := range pods {
-		ProcessClass := processClassFromLabels(pod.Labels)
+		ProcessClass := internal.ProcessClassFromLabels(pod.Labels)
 		counts[ProcessClass]++
 	}
 	return counts
