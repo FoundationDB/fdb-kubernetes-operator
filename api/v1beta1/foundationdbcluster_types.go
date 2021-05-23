@@ -423,7 +423,31 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) 
 // AddAddresses adds the new address to the ProcessGroupStatus and removes duplicates and old addresses
 // if the process group is not marked as removal.
 func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string) {
-	processGroupStatus.Addresses = cleanAddressList(append(processGroupStatus.Addresses, addresses...))
+	newAddresses := make([]string, 0, len(addresses))
+	// Currently this only contains one address but might include in the future multiple addresses
+	// e.g. for dual stack
+	for _, addr := range addresses {
+		// empty address in the address list that means the Pod has no IP address assigned
+		if addr == "" {
+			continue
+		}
+
+		newAddresses = append(newAddresses, addr)
+	}
+
+	// If the newAddresses contains at least one IP address use this list as the new addresses
+	// and return
+	if len(newAddresses) > 0 && !processGroupStatus.Remove {
+		processGroupStatus.Addresses = newAddresses
+		return
+	}
+
+	// The process group is marked for removal so we want to track all addresses during that removal
+	// to ensure we exclude and include all addresses during the removal process.
+	if processGroupStatus.Remove {
+		processGroupStatus.Addresses = cleanAddressList(append(processGroupStatus.Addresses, newAddresses...))
+		return
+	}
 }
 
 // This method removes duplicates and empty strings from a list of addresses.
@@ -436,6 +460,7 @@ func cleanAddressList(addresses []string) []string {
 			resultMap[value] = true
 		}
 	}
+
 	return result
 }
 

@@ -3292,4 +3292,37 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 		)
 	})
+
+	When("adding addresses to a process group", func() {
+		type testCase struct {
+			initialProcessGroup  ProcessGroupStatus
+			inputAddresses       []string
+			expectedProcessGroup ProcessGroupStatus
+		}
+
+		DescribeTable("should add or ignore the addresses",
+			func(tc testCase) {
+				tc.initialProcessGroup.AddAddresses(tc.inputAddresses)
+				Expect(tc.expectedProcessGroup).To(Equal(tc.initialProcessGroup))
+			},
+			Entry("Empty input address",
+				testCase{
+					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
+					inputAddresses:       []string{""},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
+				}),
+			Entry("New Pod IP",
+				testCase{
+					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
+					inputAddresses:       []string{"2.2.2.2"},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"2.2.2.2"}},
+				}),
+			Entry("New Pod IP and process group is marked for removal",
+				testCase{
+					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}, Remove: true},
+					inputAddresses:       []string{"2.2.2.2"},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"1.1.1.1", "2.2.2.2"}, Remove: true},
+				}),
+		)
+	})
 })
