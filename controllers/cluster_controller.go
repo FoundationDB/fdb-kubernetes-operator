@@ -58,7 +58,6 @@ type FoundationDBClusterReconciler struct {
 	InSimulation        bool
 	PodLifecycleManager PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (FdbPodClient, error)
-	PodIPProvider       func(*corev1.Pod) string
 
 	DatabaseClientProvider DatabaseClientProvider
 

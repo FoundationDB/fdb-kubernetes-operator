@@ -200,7 +200,6 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	for _, pod := range pods.Items {
-		ip := MockPodIP(&pod)
 		podClient := &mockFdbPodClient{Cluster: client.Cluster, Pod: &pod}
 
 		processCount, err := getStorageServersPerPodForPod(&pod)
@@ -216,9 +215,9 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		}
 
 		for processIndex := 1; processIndex <= processCount; processIndex++ {
-			fullAddress := client.Cluster.GetFullAddress(ip, processIndex)
+			fullAddress := client.Cluster.GetFullAddress(pod.Status.PodIP, processIndex)
 
-			_, ipExcluded := exclusionMap[ip]
+			_, ipExcluded := exclusionMap[pod.Status.PodIP]
 			_, addressExcluded := exclusionMap[fullAddress]
 			excluded := ipExcluded || addressExcluded
 			_, isCoordinator := coordinators[fullAddress]

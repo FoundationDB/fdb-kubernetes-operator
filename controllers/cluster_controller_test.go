@@ -97,7 +97,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
 			generation, err := reloadCluster(cluster)
@@ -314,7 +314,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				removedItem := originalPods.Items[16]
 				Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-					MockPodIP(&removedItem): true,
+					removedItem.Status.PodIP: true,
 				}))
 			})
 		})
@@ -489,7 +489,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						MockPodIP(&originalPods.Items[firstStorageIndex]): true,
+						originalPods.Items[firstStorageIndex].Status.PodIP: true,
 					}))
 				})
 
@@ -553,7 +553,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
 
 						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
-							MockPodIP(&originalPods.Items[firstStorageIndex]),
+							originalPods.Items[firstStorageIndex].Status.PodIP,
 						}))
 					})
 				})
@@ -596,7 +596,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					cluster.Status.PendingRemovals = map[string]fdbtypes.PendingRemovalState{
 						pod.ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel]: {
 							PodName: pod.Name,
-							Address: MockPodIP(&pod),
+							Address: pod.Status.PodIP,
 						},
 					}
 					err := k8sClient.Status().Update(context.TODO(), cluster)
@@ -642,7 +642,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						MockPodIP(&originalPods.Items[firstStorageIndex]): true,
+						originalPods.Items[firstStorageIndex].Status.PodIP: true,
 					}))
 				})
 
@@ -661,7 +661,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				BeforeEach(func() {
 					pod := originalPods.Items[firstStorageIndex]
 					cluster.Spec.PendingRemovals = map[string]string{
-						pod.Name: MockPodIP(&pod),
+						pod.Name: pod.Status.PodIP,
 					}
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -703,7 +703,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						MockPodIP(&originalPods.Items[firstStorageIndex]): true,
+						originalPods.Items[firstStorageIndex].Status.PodIP: true,
 					}))
 				})
 
@@ -725,20 +725,16 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				var podIP string
 
 				BeforeEach(func() {
-					podIP = MockPodIP(&originalPods.Items[firstStorageIndex])
+					podIP = originalPods.Items[firstStorageIndex].Status.PodIP
 
-					mockMissingPodIPs = map[string]bool{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Name: true,
-					}
+					err := k8sClient.RemovePodIP(&originalPods.Items[firstStorageIndex])
+					Expect(err).NotTo(HaveOccurred())
+
 					cluster.Spec.InstancesToRemove = []string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],
 					}
-					err := k8sClient.Update(context.TODO(), cluster)
+					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					mockMissingPodIPs = nil
 				})
 
 				It("should replace one of the pods", func() {
@@ -774,18 +770,13 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with a removal with no exclusion", func() {
 				BeforeEach(func() {
-					setMissingPodIPs(map[string]bool{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Name: true,
-					})
+					err := k8sClient.RemovePodIP(&originalPods.Items[firstStorageIndex])
+					Expect(err).NotTo(HaveOccurred())
 					cluster.Spec.InstancesToRemoveWithoutExclusion = []string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],
 					}
-					err := k8sClient.Update(context.TODO(), cluster)
+					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					setMissingPodIPs(nil)
 				})
 
 				It("should replace one of the pods", func() {
@@ -981,7 +972,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						// TODO: johscheuer get real process number !
-						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 1))
+						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1))
 					}
 
 					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
@@ -1071,9 +1062,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should bounce the processes", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 1))
+						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1))
 						if processClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
-							addresses = append(addresses, cluster.GetFullAddress(MockPodIP(&pod), 2))
+							addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 2))
 						}
 					}
 
@@ -1592,7 +1583,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[MockPodIP(&pod)] = true
+						replacements[pod.Status.PodIP] = true
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1745,7 +1736,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				replacements := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[MockPodIP(&pod)] = true
+					replacements[pod.Status.PodIP] = true
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1841,7 +1832,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				replacements := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[MockPodIP(&pod)] = true
+					replacements[pod.Status.PodIP] = true
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -1858,7 +1849,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("should bounce the processes", func() {
 				addresses := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					addresses[fmt.Sprintf("%s:4500:tls", MockPodIP(&pod))] = true
+					addresses[fmt.Sprintf("%s:4500:tls", pod.Status.PodIP)] = true
 				}
 
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
@@ -1918,7 +1909,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should bounce the processes", func() {
 					addresses := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
 					}
 
 					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
@@ -1953,7 +1944,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should bounce the processes", func() {
 					addresses := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses[fmt.Sprintf("%s:4501", MockPodIP(&pod))] = true
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
 					}
 
 					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
@@ -1976,7 +1967,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should replace the instances", func() {
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[MockPodIP(&pod)] = true
+						replacements[pod.Status.PodIP] = true
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
@@ -2094,7 +2085,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					for _, pod := range originalPods.Items {
 						processClass := GetProcessClassFromMeta(pod.ObjectMeta)
 						if isStateful(processClass) {
-							replacements[MockPodIP(&pod)] = true
+							replacements[pod.Status.PodIP] = true
 						}
 					}
 
@@ -2127,7 +2118,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				replacements := make(map[string]bool, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[MockPodIP(&pod)] = true
+					replacements[pod.Status.PodIP] = true
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))

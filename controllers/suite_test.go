@@ -284,7 +284,6 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		InSimulation:           true,
 		PodLifecycleManager:    StandardPodLifecycleManager{},
 		PodClientProvider:      NewMockFdbPodClient,
-		PodIPProvider:          MockPodIP,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 }
