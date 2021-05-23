@@ -2275,6 +2275,42 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}
 			})
 		})
+
+		When("When a process have an incorrect commandline", func() {
+			var adminClient *MockAdminClient
+
+			BeforeEach(func() {
+				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.MockIncorrectCommandLine("storage-1", true)
+				generationGap = 0
+				shouldCompleteReconciliation = false
+			})
+
+			It("It should report the incorrect commandline in the process groups", func() {
+				// We have to reload the cluster because we don't reach the reconcile state
+				_, err = reloadClusterGenerations(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
+				Expect(incorrectProcesses).To(Equal([]string{"storage-1"}))
+			})
+
+			When("When an additional process have an incorrect commandline", func() {
+				BeforeEach(func() {
+					adminClient.MockIncorrectCommandLine("storage-2", true)
+					generationGap = 0
+					shouldCompleteReconciliation = false
+				})
+
+				It("It should report the incorrect commandline in the process groups", func() {
+					// We have to reload the cluster because we don't reach the reconcile state
+					_, err = reloadClusterGenerations(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
+					Expect(incorrectProcesses).To(Equal([]string{"storage-1", "storage-2"}))
+				})
+			})
+		})
 	})
 
 	Describe("GetConfigMap", func() {

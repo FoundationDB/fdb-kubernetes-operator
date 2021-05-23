@@ -44,6 +44,7 @@ type UpdateStatus struct {
 
 // Reconcile runs the reconciler's work.
 func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	originalStatus := cluster.Status.DeepCopy()
 	status := fdbtypes.FoundationDBClusterStatus{}
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 
@@ -302,8 +303,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	// Sort the storage servers per Disk to prevent a reodering to issue a new reconcile loop.
 	sort.Ints(status.StorageServersPerDisk)
-
-	originalStatus := cluster.Status.DeepCopy()
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
 	sort.SliceStable(status.ProcessGroups, func(i, j int) bool {
