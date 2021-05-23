@@ -345,16 +345,9 @@ func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, 
 			}
 		}
 	} else if kindKey == "/v1/Pod" {
-		podIP, err := lookupJSONString(genericObject, "status", "podIP")
+		err = setJSONValue(genericObject, []string{"status", "podIP"}, generatePodIP(object.GetLabels()))
 		if err != nil {
 			return err
-		}
-
-		if podIP == "" {
-			err = setJSONValue(genericObject, []string{"status", "podIP"}, generatePodIP(object.GetLabels()))
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -651,7 +644,7 @@ func (client MockStatusClient) Update(context ctx.Context, object ctrlClient.Obj
 // Patch patches an object's status.
 // This is not yet implemented.
 func (client MockStatusClient) Patch(context ctx.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
-	return fmt.Errorf("Not implemented")
+	return fmt.Errorf("not implemented")
 }
 
 // Status returns a writer for updating status.
