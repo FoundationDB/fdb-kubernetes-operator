@@ -46,7 +46,7 @@ func (s StartRestore) Reconcile(r *FoundationDBRestoreReconciler, context ctx.Co
 	}
 
 	if len(strings.TrimSpace(status)) == 0 {
-		err = adminClient.StartRestore(restore.Spec.BackupURL)
+		err = adminClient.StartRestore(restore.Spec.BackupURL, restore.Spec.KeyRanges)
 		if err != nil {
 			return false, err
 		}
