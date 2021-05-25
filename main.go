@@ -52,22 +52,21 @@ func main() {
 	flag.Parse()
 
 	clusterReconciler := &controllers.FoundationDBClusterReconciler{
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		PodLifecycleManager: controllers.StandardPodLifecycleManager{},
-		PodClientProvider:   controllers.NewFdbPodClient,
-		AdminClientProvider: fdbclient.NewCliAdminClient,
-		LockClientProvider:  fdbclient.NewRealLockClient,
-		DeprecationOptions:  operatorOpts.DeprecationOptions,
+		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		PodLifecycleManager:    controllers.StandardPodLifecycleManager{},
+		PodClientProvider:      controllers.NewFdbPodClient,
+		DatabaseClientProvider: fdbclient.NewDatabaseClientProvider(),
+		DeprecationOptions:     operatorOpts.DeprecationOptions,
 	}
 
 	backupReconciler := &controllers.FoundationDBBackupReconciler{
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		AdminClientProvider: fdbclient.NewCliAdminClient,
+		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
+		DatabaseClientProvider: fdbclient.NewDatabaseClientProvider(),
 	}
 
 	restoreReconciler := &controllers.FoundationDBRestoreReconciler{
-		Log:                 ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		AdminClientProvider: fdbclient.NewCliAdminClient,
+		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
+		DatabaseClientProvider: fdbclient.NewDatabaseClientProvider(),
 	}
 
 	mgr, file := setup.StartManager(
