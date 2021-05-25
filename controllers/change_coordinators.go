@@ -72,60 +72,45 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return false, err
 	}
 
-	if !hasValidCoordinators {
-		hasLock, err := r.takeLock(cluster, "changing coordinators")
-		if !hasLock {
-			return false, err
-		}
-
-		if !allAddressesValid {
-			log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
-			return true, nil
-		}
-
-		log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
-
-		coordinatorCount := cluster.DesiredCoordinatorCount()
-		candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
-		chooseCoordinators := func(candidates []localityInfo) ([]localityInfo, error) {
-			return chooseDistributedProcesses(candidates, coordinatorCount, processSelectionConstraint{
-				HardLimits: map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1},
-			})
-		}
-		// Use all stateful pods if needed, but only storage if possible.
-		candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassStorage)
-		coordinators, err := chooseCoordinators(candidates)
-		if err != nil {
-			// Add in tLogs as candidates
-			candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassLog)
-			coordinators, err = chooseCoordinators(candidates)
-			if err != nil {
-				// Add in transaction roles too
-				candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassTransaction)
-				coordinators, err = chooseCoordinators(candidates)
-				if err != nil {
-					return false, err
-				}
-			}
-		}
-
-		coordinatorAddresses := make([]string, len(coordinators))
-		for index, process := range coordinators {
-			coordinatorAddresses[index] = process.Address
-		}
-
-		connectionString, err := adminClient.ChangeCoordinators(coordinatorAddresses)
-		if err != nil {
-			return false, err
-		}
-		cluster.Status.ConnectionString = connectionString
-		err = r.Status().Update(context, cluster)
-		if err != nil {
-			return false, err
-		}
+	if hasValidCoordinators {
+		return true, nil
 	}
+
+	hasLock, err := r.takeLock(cluster, "changing coordinators")
+	if !hasLock {
+		return false, err
+	}
+
+	if !allAddressesValid {
+		log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
+		return true, nil
+	}
+
+	log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
+
+	coordinators, err := selectCoordinators(cluster, status)
+	if err != nil {
+		return false, err
+	}
+
+	coordinatorAddresses := make([]string, len(coordinators))
+	for index, process := range coordinators {
+		coordinatorAddresses[index] = process.Address
+	}
+
+	log.Info("Final coordinators candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinatorAddresses)
+	connectionString, err = adminClient.ChangeCoordinators(coordinatorAddresses)
+	if err != nil {
+		return false, err
+	}
+	cluster.Status.ConnectionString = connectionString
+	err = r.Status().Update(context, cluster)
+	if err != nil {
+		return false, err
+	}
+
 
 	return true, nil
 }
@@ -139,10 +124,53 @@ func (c ChangeCoordinators) RequeueAfter() time.Duration {
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching instances.
 func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, candidates []localityInfo, class fdbtypes.ProcessClass) []localityInfo {
 	for _, process := range status.Cluster.Processes {
-		eligible := !process.Excluded && process.ProcessClass == class && !cluster.InstanceIsBeingRemoved(process.Locality[fdbtypes.FDBInstanceIDLabel])
-		if eligible {
-			candidates = append(candidates, localityInfoForProcess(process))
+		if process.Excluded {
+			continue
+		}
+
+		if  process.ProcessClass != class {
+			continue
+		}
+
+		if cluster.InstanceIsBeingRemoved(process.Locality[fdbtypes.FDBLocalityInstanceIDKey]) {
+			continue
+		}
+
+		candidates = append(candidates, localityInfoForProcess(process))
+	}
+
+	return candidates
+}
+
+func selectCoordinators(cluster *fdbtypes.FoundationDBCluster,  status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+	coordinatorCount := cluster.DesiredCoordinatorCount()
+	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
+	chooseCoordinators := func(candidates []localityInfo) ([]localityInfo, error) {
+		return chooseDistributedProcesses(candidates, coordinatorCount, processSelectionConstraint{
+			HardLimits: getHardLimits(cluster),
+		})
+	}
+
+	// Use all stateful pods if needed, but only storage if possible.
+	candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassStorage)
+	coordinators, err := chooseCoordinators(candidates)
+	log.Info("Current coordinators added (storage) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
+
+	if err != nil {
+		// Add in tLogs as candidates
+		candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassLog)
+		log.Info("Current coordinators added (TLog) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
+		coordinators, err = chooseCoordinators(candidates)
+		if err != nil {
+			// Add in transaction roles too
+			candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassTransaction)
+			log.Info("Current coordinators added (transaction) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
+			coordinators, err = chooseCoordinators(candidates)
+			if err != nil {
+				return candidates, err
+			}
 		}
 	}
-	return candidates
+
+	return coordinators, nil
 }

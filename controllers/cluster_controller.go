@@ -1202,6 +1202,7 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 						break
 					}
 				}
+
 				if eligible {
 					chosen = append(chosen, process)
 					chosenIDs[process.ID] = true
@@ -1231,12 +1232,23 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 				}
 			}
 			if !incrementedLimits {
-				return nil, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
+				return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
 			}
 		}
 	}
 
 	return chosen, nil
+}
+
+func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
+	if cluster.Spec.UsableRegions <= 1 {
+		return map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1}
+	}
+
+	// TODO (johscheuer): should we calculate that based on the number of DCs?
+	maxCoordinatorsPerDC := int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
+
+	return map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1, fdbtypes.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
 }
 
 // checkCoordinatorValidity determines if the cluster's current coordinators
@@ -1254,7 +1266,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	}
 
 	if len(coordinatorStatus) == 0 {
-		return false, false, errors.New("Unable to get coordinator status")
+		return false, false, errors.New("unable to get coordinator status")
 	}
 
 	allAddressesValid := true
