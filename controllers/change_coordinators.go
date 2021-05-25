@@ -111,7 +111,6 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return false, err
 	}
 
-
 	return true, nil
 }
 
@@ -128,7 +127,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 			continue
 		}
 
-		if  process.ProcessClass != class {
+		if process.ProcessClass != class {
 			continue
 		}
 
@@ -142,7 +141,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 	return candidates
 }
 
-func selectCoordinators(cluster *fdbtypes.FoundationDBCluster,  status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 	chooseCoordinators := func(candidates []localityInfo) ([]localityInfo, error) {
