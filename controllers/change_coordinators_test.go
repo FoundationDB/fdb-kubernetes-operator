@@ -157,9 +157,18 @@ var _ = Describe("Change coordinators", func() {
 		var satCnt int
 		var shouldFail bool
 
+		BeforeEach(func() {
+			// ensure a clean state
+			candidates = []localityInfo{}
+			excludes = []string{}
+			removals = []string{}
+			shouldFail = false
+		})
+
 		JustBeforeEach(func() {
 			cluster.Spec.UsableRegions = 2
 			cluster.Spec.DataCenter = "primary"
+			cluster.Spec.InstancesToRemove = removals
 
 			var err error
 			status, err = adminClient.GetStatus()
@@ -332,10 +341,6 @@ var _ = Describe("Change coordinators", func() {
 
 				It("should fail to select coordinators since we can only select 4 processes per dc", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
-				})
-
-				AfterEach(func() {
-					shouldFail = false
 				})
 			})
 		})
