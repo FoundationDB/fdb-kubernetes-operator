@@ -1259,12 +1259,7 @@ func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
 // matching the cluster spec.
 // The third return value will hold any errors encountered when checking the
 // coordinators.
-func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) (bool, bool, error) {
-	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
-	for _, coordinator := range status.Client.Coordinators.Coordinators {
-		coordinatorStatus[coordinator.Address] = false
-	}
-
+func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
 	if len(coordinatorStatus) == 0 {
 		return false, false, errors.New("unable to get coordinator status")
 	}
@@ -1333,7 +1328,5 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 	}
 
-	coordinatorsValid := hasEnoughZones && hasEnoughDCs && allHealthy
-
-	return coordinatorsValid, allAddressesValid, nil
+	return hasEnoughDCs && hasEnoughZones && allHealthy, allAddressesValid, nil
 }

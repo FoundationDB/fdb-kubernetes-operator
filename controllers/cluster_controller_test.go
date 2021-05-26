@@ -3398,7 +3398,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with the default configuration", func() {
 			It("should report the coordinators as valid", func() {
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+				for _, coordinator := range status.Client.Coordinators.Coordinators {
+					coordinatorStatus[coordinator.Address] = false
+				}
+
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3411,7 +3416,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should report the coordinators as not valid", func() {
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+				for _, coordinator := range status.Client.Coordinators.Coordinators {
+					coordinatorStatus[coordinator.Address] = false
+				}
+
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3434,7 +3444,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should report the coordinators as not valid", func() {
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+				for _, coordinator := range status.Client.Coordinators.Coordinators {
+					coordinatorStatus[coordinator.Address] = false
+				}
+
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3480,7 +3495,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with coordinators divided across three DCs", func() {
 				It("should report the coordinators as valid", func() {
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinatorStatus[coordinator.Address] = false
+					}
+
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 					Expect(coordinatorsValid).To(BeTrue())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
@@ -3496,7 +3516,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					}
 				})
 				It("should report the coordinators as not valid", func() {
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status)
+					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinatorStatus[coordinator.Address] = false
+					}
+
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())

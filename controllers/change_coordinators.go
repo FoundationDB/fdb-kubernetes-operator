@@ -67,7 +67,12 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return false, err
 	}
 
-	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status)
+	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+	for _, coordinator := range status.Client.Coordinators.Coordinators {
+		coordinatorStatus[coordinator.Address] = false
+	}
+
+	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 	if err != nil {
 		return false, err
 	}
@@ -141,6 +146,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 	return candidates
 }
 
+// selectCoordinators is not a deterministic method and can return different coordinators for the same input arguments
 func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
@@ -169,6 +175,24 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 				return candidates, err
 			}
 		}
+	}
+
+	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+	for _, coordinator := range coordinators {
+		coordinatorStatus[coordinator.Address] = false
+	}
+
+	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+	if err != nil {
+		return coordinators, err
+	}
+
+	if !hasValidCoordinators {
+		return coordinators, fmt.Errorf("new coordinators are not valid")
+	}
+
+	if !allAddressesValid {
+		return coordinators, fmt.Errorf("new coordinators contain invalid addresses")
 	}
 
 	return coordinators, nil
