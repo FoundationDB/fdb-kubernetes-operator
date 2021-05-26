@@ -1277,6 +1277,7 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 	if cluster.Spec.UsableRegions > 1 {
 		return 9
 	}
+
 	return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
 }
 

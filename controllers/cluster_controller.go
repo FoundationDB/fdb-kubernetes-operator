@@ -1202,6 +1202,7 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 						break
 					}
 				}
+
 				if eligible {
 					chosen = append(chosen, process)
 					chosenIDs[process.ID] = true
@@ -1231,12 +1232,23 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 				}
 			}
 			if !incrementedLimits {
-				return nil, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
+				return chosen, notEnoughProcessesError{Desired: count, Chosen: len(chosen), Options: processes}
 			}
 		}
 	}
 
 	return chosen, nil
+}
+
+func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
+	if cluster.Spec.UsableRegions <= 1 {
+		return map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1}
+	}
+
+	// TODO (johscheuer): should we calculate that based on the number of DCs?
+	maxCoordinatorsPerDC := int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
+
+	return map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1, fdbtypes.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
 }
 
 // checkCoordinatorValidity determines if the cluster's current coordinators
@@ -1247,14 +1259,9 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 // matching the cluster spec.
 // The third return value will hold any errors encountered when checking the
 // coordinators.
-func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) (bool, bool, error) {
-	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
-	for _, coordinator := range status.Client.Coordinators.Coordinators {
-		coordinatorStatus[coordinator.Address] = false
-	}
-
+func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
 	if len(coordinatorStatus) == 0 {
-		return false, false, errors.New("Unable to get coordinator status")
+		return false, false, errors.New("unable to get coordinator status")
 	}
 
 	allAddressesValid := true
@@ -1321,7 +1328,5 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 	}
 
-	coordinatorsValid := hasEnoughZones && hasEnoughDCs && allHealthy
-
-	return coordinatorsValid, allAddressesValid, nil
+	return hasEnoughDCs && hasEnoughZones && allHealthy, allAddressesValid, nil
 }

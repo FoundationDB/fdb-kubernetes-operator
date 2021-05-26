@@ -277,7 +277,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	if status.Configured && cluster.Status.ConnectionString != "" {
-		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus)
+		coordinatorStatus := make(map[string]bool, len(databaseStatus.Client.Coordinators.Coordinators))
+		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
+			coordinatorStatus[coordinator.Address] = false
+		}
+
+		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus, coordinatorStatus)
 		if err != nil {
 			return false, err
 		}

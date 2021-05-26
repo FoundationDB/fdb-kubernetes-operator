@@ -4,7 +4,7 @@ function applyFile() {
 	connectionString=$3
 	zoneIndex=${zone:2:1}
 	
-	cat $path | sed -e "s/\$zoneIndex/$zoneIndex/" | sed -e "s/\$zone/$zone/" | sed -e "s/\$connectionString/$connectionString/" | kubectl apply -f -
+	sed -e "s/\$zoneIndex/$zoneIndex/" $path | sed -e "s/\$zone/$zone/" | sed -e "s/\$connectionString/$connectionString/" | kubectl apply -f -
 }
 
 function checkReconciliation() {

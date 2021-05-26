@@ -4,7 +4,6 @@ DIR="${BASH_SOURCE%/*}"
 
 . $DIR/functions.bash
 
-
 originalConnectionString=$(getConnectionString sample-cluster-dc1)
 
 function applyAll() {
