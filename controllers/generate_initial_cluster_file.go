@@ -56,11 +56,21 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 		return false, errors.New("Cannot find enough pods to recruit coordinators")
 	}
 
-	clusterName := connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
+	var clusterName string
+	if cluster.Spec.PartialConnectionString.DatabaseName != "" {
+		clusterName = cluster.Spec.PartialConnectionString.DatabaseName
+	} else {
+		clusterName = connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
+	}
+
 	connectionString := fdbtypes.ConnectionString{DatabaseName: clusterName}
-	err = connectionString.GenerateNewGenerationID()
-	if err != nil {
-		return false, err
+	if cluster.Spec.PartialConnectionString.GenerationID != "" {
+		connectionString.GenerationID = cluster.Spec.PartialConnectionString.GenerationID
+	} else {
+		err = connectionString.GenerateNewGenerationID()
+		if err != nil {
+			return false, err
+		}
 	}
 
 	processLocality := make([]localityInfo, len(instances))
@@ -88,10 +98,6 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	cluster.Status.ConnectionString = connectionString.String()
 
 	err = r.Status().Update(context, cluster)
-	if err != nil {
-		return false, err
-	}
-
 	return false, err
 }
 

@@ -3605,6 +3605,57 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 	})
+	Context("Setting the partial connection string", func() {
+		var partialConnectionString fdbtypes.ConnectionString
+
+		JustBeforeEach(func() {
+			cluster = createDefaultCluster()
+			cluster.Spec.PartialConnectionString = partialConnectionString
+
+			err := k8sClient.Create(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo((HaveOccurred()))
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).To(Equal(int64(1)))
+		})
+
+		Context("with the database name", func() {
+			BeforeEach(func() {
+				partialConnectionString.DatabaseName = "foo"
+			})
+
+			It("should set the database name", func() {
+				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
+
+				conn, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(conn.DatabaseName).To(Equal("foo"))
+			})
+		})
+
+		Context("with the database name and generation ID", func() {
+			BeforeEach(func() {
+				partialConnectionString.DatabaseName = "foo"
+				partialConnectionString.GenerationID = "bar"
+			})
+
+			It("should set the database name", func() {
+				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
+
+				conn, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(conn.DatabaseName).To(Equal("foo"))
+				Expect(conn.GenerationID).To(Equal("bar"))
+			})
+		})
+	})
 })
 
 func getProcessClassMap(pods []corev1.Pod) map[fdbtypes.ProcessClass]int {
