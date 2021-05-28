@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -80,7 +82,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			return false, err
 		}
 
-		processClass := GetProcessClassFromMeta(pvc.ObjectMeta)
+		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
 		desiredPVC, err := GetPvc(cluster, processClass, idNum)
 		if err != nil {
 			return false, err

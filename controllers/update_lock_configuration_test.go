@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -39,7 +41,7 @@ var _ = Describe("update_lock_configuration", func() {
 		cluster.Spec.InstanceIDPrefix = "dc1"
 		var locksDisabled = false
 		cluster.Spec.LockOptions.DisableLocks = &locksDisabled
-		err = NormalizeClusterSpec(&cluster.Spec, DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		err = k8sClient.Create(context.TODO(), cluster)

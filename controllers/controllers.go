@@ -23,8 +23,6 @@ package controllers
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 var log = logf.Log.WithName("controller")
@@ -67,21 +65,4 @@ func mergeMap(target map[string]string, desired map[string]string) bool {
 		}
 	}
 	return changed
-}
-
-// processClassFromLabel extracts the ProcessClass label from the metav1.ObjectMeta.Labels map
-func processClassFromLabels(labels map[string]string) fdbtypes.ProcessClass {
-	return fdbtypes.ProcessClass(labels[fdbtypes.FDBProcessClassLabel])
-}
-
-// DeprecationOptions controls how deprecations and changes to defaults
-// get applied to our specs.
-type DeprecationOptions struct {
-	// Whether we should apply the latest defaults rather than the defaults that
-	// were initially established for this major version.
-	UseFutureDefaults bool
-
-	// Whether we should only fill in defaults that have changes between major
-	// versions of the operator.
-	OnlyShowChanges bool
 }

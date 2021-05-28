@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -62,7 +64,7 @@ type FoundationDBClusterReconciler struct {
 	DatabaseClientProvider DatabaseClientProvider
 
 	Namespace          string
-	DeprecationOptions DeprecationOptions
+	DeprecationOptions internal.DeprecationOptions
 	RequeueOnNotFound  bool
 
 	// Deprecated: Use DatabaseClientProvider instead
@@ -105,7 +107,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, nil
 	}
 
-	err = NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+	err = internal.NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -883,12 +885,7 @@ func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
 
 // GetProcessClass fetches the process class from an instance's metadata.
 func (instance FdbInstance) GetProcessClass() fdbtypes.ProcessClass {
-	return GetProcessClassFromMeta(*instance.Metadata)
-}
-
-// GetProcessClassFromMeta fetches the process class from an object's metadata.
-func GetProcessClassFromMeta(metadata metav1.ObjectMeta) fdbtypes.ProcessClass {
-	return processClassFromLabels(metadata.Labels)
+	return internal.GetProcessClassFromMeta(*instance.Metadata)
 }
 
 // GetPublicIPSource determines how an instance has gotten its public IP.
