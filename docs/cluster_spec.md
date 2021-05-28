@@ -67,6 +67,7 @@ BuggifyConfig provides options for injecting faults into a cluster for testing.
 | ----- | ----------- | ------ | -------- |
 | noSchedule | NoSchedule defines a list of instance IDs that should fail to schedule. | []string | false |
 | crashLoop | CrashLoops defines a list of instance IDs that should be put into a crash looping state. | []string | false |
+| emptyMonitorConf | EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf files to have zero fdbserver processes configured. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
