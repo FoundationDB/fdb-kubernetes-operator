@@ -484,13 +484,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			processGroupMap[instanceID] = processGroupStatus
 		}
 
-		processGroupStatus.Addresses = append(processGroupStatus.Addresses, instance.GetPublicIPs()...)
-
-		if r.PodIPProvider != nil && instance.Pod != nil {
-			processGroupStatus.Addresses = append(processGroupStatus.Addresses, r.PodIPProvider(instance.Pod))
-		}
-
-		processGroupStatus.Addresses = cleanAddressList(processGroupStatus.Addresses)
+		processGroupStatus.AddAddresses(instance.GetPublicIPs())
 
 		processCount := 1
 
@@ -671,17 +665,4 @@ func removeDuplicateConditions(status fdbtypes.FoundationDBClusterStatus) {
 		}
 		processGroupStatus.ProcessGroupConditions = conditions
 	}
-}
-
-// This method removes duplicates and empty strings from a list of addresses.
-func cleanAddressList(addresses []string) []string {
-	result := make([]string, 0, len(addresses))
-	resultMap := make(map[string]bool)
-	for _, value := range addresses {
-		if value != "" && !resultMap[value] {
-			result = append(result, value)
-			resultMap[value] = true
-		}
-	}
-	return result
 }

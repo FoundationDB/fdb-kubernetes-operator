@@ -420,6 +420,50 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) 
 	return false, 0
 }
 
+// AddAddresses adds the new address to the ProcessGroupStatus and removes duplicates and old addresses
+// if the process group is not marked as removal.
+func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string) {
+	newAddresses := make([]string, 0, len(addresses))
+	// Currently this only contains one address but might include in the future multiple addresses
+	// e.g. for dual stack
+	for _, addr := range addresses {
+		// empty address in the address list that means the Pod has no IP address assigned
+		if addr == "" {
+			continue
+		}
+
+		newAddresses = append(newAddresses, addr)
+	}
+
+	// If the newAddresses contains at least one IP address use this list as the new addresses
+	// and return
+	if len(newAddresses) > 0 && !processGroupStatus.Remove {
+		processGroupStatus.Addresses = newAddresses
+		return
+	}
+
+	// The process group is marked for removal so we want to track all addresses during that removal
+	// to ensure we exclude and include all addresses during the removal process.
+	if processGroupStatus.Remove {
+		processGroupStatus.Addresses = cleanAddressList(append(processGroupStatus.Addresses, newAddresses...))
+		return
+	}
+}
+
+// This method removes duplicates and empty strings from a list of addresses.
+func cleanAddressList(addresses []string) []string {
+	result := make([]string, 0, len(addresses))
+	resultMap := make(map[string]bool)
+	for _, value := range addresses {
+		if value != "" && !resultMap[value] {
+			result = append(result, value)
+			resultMap[value] = true
+		}
+	}
+
+	return result
+}
+
 // IsExcluded checks if the process group is excluded or if there are still addresses included in the remainingMap.
 // This will return true if the process group skips exclusion or has no remaining addresses.
 func (processGroupStatus *ProcessGroupStatus) IsExcluded(remainingMap map[string]bool) (bool, error) {

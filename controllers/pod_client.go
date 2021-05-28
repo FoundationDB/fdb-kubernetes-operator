@@ -33,7 +33,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -261,34 +260,6 @@ func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod)
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
-var mockMissingPodIPs map[string]bool
-var mockPodClientMutex sync.Mutex
-
-// MockPodIP generates a mock IP for FDB pod
-func MockPodIP(pod *corev1.Pod) string {
-	mockPodClientMutex.Lock()
-	defer mockPodClientMutex.Unlock()
-
-	if mockMissingPodIPs != nil && mockMissingPodIPs[pod.ObjectMeta.Name] {
-		return ""
-	}
-	components := strings.Split(GetInstanceIDFromMeta(pod.ObjectMeta), "-")
-	for index, class := range fdbtypes.ProcessClasses {
-		if string(class) == components[len(components)-2] {
-			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
-		}
-	}
-	return "0.0.0.0"
-}
-
-// setMissingPodIPs sets the pod IPs that should be missing when fetching mock
-// pod IPs.
-func setMissingPodIPs(ips map[string]bool) {
-	mockPodClientMutex.Lock()
-	defer mockPodClientMutex.Unlock()
-	mockMissingPodIPs = ips
-}
-
 // GetCluster returns the cluster associated with a client
 func (client *mockFdbPodClient) GetCluster() *fdbtypes.FoundationDBCluster {
 	return client.Cluster
@@ -365,7 +336,8 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 // instance will substitute into its monitor conf.
 func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	substitutions := map[string]string{}
-	substitutions["FDB_PUBLIC_IP"] = MockPodIP(client.Pod)
+
+	substitutions["FDB_PUBLIC_IP"] = newFdbInstance(*client.Pod).GetPublicIPs()[0]
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name
@@ -382,7 +354,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		if faultDomainSource == "spec.nodeName" {
 			substitutions["FDB_ZONE_ID"] = client.Pod.Spec.NodeName
 		} else {
-			return nil, fmt.Errorf("Unsupported fault domain source %s", faultDomainSource)
+			return nil, fmt.Errorf("unsupported fault domain source %s", faultDomainSource)
 		}
 	}
 

@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -69,7 +71,7 @@ func (client *MockClient) Scheme() *runtime.Scheme {
 	return nil
 }
 
-// RESTMapper retruns the RESTMapper
+// RESTMapper returns the RESTMapper
 func (client *MockClient) RESTMapper() meta.RESTMapper {
 	return nil
 }
@@ -162,7 +164,7 @@ func lookupJSONString(genericData map[string]interface{}, path ...string) (strin
 	}
 	stringResult, isString := result.(string)
 	if !isString {
-		return "", fmt.Errorf("Type error for key %v", path)
+		return "", fmt.Errorf("type error for key %v", path)
 	}
 	return stringResult, nil
 }
@@ -341,6 +343,11 @@ func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, 
 			if err != nil {
 				return err
 			}
+		}
+	} else if kindKey == "/v1/Pod" {
+		err = setJSONValue(genericObject, []string{"status", "podIP"}, generatePodIP(object.GetLabels()))
+		if err != nil {
+			return err
 		}
 	}
 
@@ -637,7 +644,7 @@ func (client MockStatusClient) Update(context ctx.Context, object ctrlClient.Obj
 // Patch patches an object's status.
 // This is not yet implemented.
 func (client MockStatusClient) Patch(context ctx.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
-	return fmt.Errorf("Not implemented")
+	return fmt.Errorf("not implemented")
 }
 
 // Status returns a writer for updating status.
@@ -736,4 +743,28 @@ func (client *MockClient) SetPodIntoFailed(context ctx.Context, object ctrlClien
 	pod.CreationTimestamp = metav1.Time{Time: time.Now().Add(-30 * time.Minute)}
 
 	return client.Update(context, pod)
+}
+
+// RemovePodIP sets the IP address of the Pod to an empty string
+func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
+	pod.Status.PodIP = ""
+
+	return client.Update(ctx.TODO(), pod)
+}
+
+// generatePodIP generates a mock IP for Pods
+func generatePodIP(labels map[string]string) string {
+	instanceID, ok := labels[fdbtypes.FDBInstanceIDLabel]
+	if !ok {
+		return ""
+	}
+
+	components := strings.Split(instanceID, "-")
+	for index, class := range fdbtypes.ProcessClasses {
+		if string(class) == components[len(components)-2] {
+			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
+		}
+	}
+
+	return "0.0.0.0"
 }
