@@ -4,10 +4,10 @@
 # is reconciled, you can run backup commands from the backup agent containers:
 #
 #     # Check Status
-#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup status
+#     kubectl exec deployment/test-cluster-backup-agents -- fdbbackup status
 #
 #     # List Backups
-#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup list -b "blobstore://minio@minio-service:9000?bucket=fdb-backups"
+#     kubectl exec deployment/test-cluster-backup-agents -- fdbbackup list -b "blobstore://minio@minio-service:9000?bucket=fdb-backups"
 #
 # This example uses configuration for a local MinIO instance, which is set up as
 # part of the local testing environment for the operator. This instance has
@@ -41,64 +41,16 @@
 # 12. Open a CLI and check the test key.
 #
 # Once that is done, you can clean up the backup by running:
-#     kubectl exec deployment/sample-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/sample-cluster?bucket=fdb-backups"
+#     kubectl exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
 #
-apiVersion: apps.foundationdb.org/v1beta1
-kind: FoundationDBCluster
-metadata:
-  name: sample-cluster
-spec:
-  version: 6.2.30
-  faultDomain:
-    key: foundationdb.org/none
-  processCounts:
-    stateless: -1
-  services:
-    headless: true
-  processes:
-    general:
-      customParameters:
-        - "knob_disable_posix_kernel_aio=1"
-      volumeClaimTemplate:
-        spec:
-          resources:
-            requests:
-              storage: "16G"
-      podTemplate:
-        spec:
-          securityContext:
-            fsGroup: 0
-          containers:
-            - name: foundationdb
-              securityContext:
-                runAsUser: 0
-              resources:
-                requests:
-                  cpu: 250m
-                  memory: 128Mi
-            - name: foundationdb-kubernetes-sidecar
-              resources:
-                requests:
-                  cpu: 250m
-                  memory: 128Mi
-              securityContext:
-                runAsUser: 0
-          initContainers:
-            - name: foundationdb-kubernetes-init
-              resources:
-                requests:
-                  cpu: 250m
-                  memory: 128Mi
-              securityContext:
-                runAsUser: 0
 ---
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBBackup
 metadata:
-  name: sample-cluster
+  name: test-cluster
 spec:
   version: 6.2.30
-  clusterName: sample-cluster
+  clusterName: test-cluster
   accountName: minio@minio-service:9000
   #backupState: Stopped
   snapshotPeriodSeconds: 3600
@@ -152,7 +104,7 @@ spec:
 #apiVersion: apps.foundationdb.org/v1beta1
 #kind: FoundationDBRestore
 #metadata:
-#  name: sample-cluster
+#  name: test-cluster
 #spec:
-#  destinationClusterName: sample-cluster
-#  backupURL: "blobstore://minio@minio-service:9000/sample-cluster?bucket=fdb-backups"
+#  destinationClusterName: test-cluster
+#  backupURL: "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"

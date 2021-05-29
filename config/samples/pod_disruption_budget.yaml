@@ -15,7 +15,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: my-fdb-cluster-storage
+  name: my-fdb-cluster-log
   namespace: default
 spec:
   minAvailable: 3
@@ -27,7 +27,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: my-fdb-cluster-storage
+  name: my-fdb-cluster-transaction
   namespace: default
 spec:
   minAvailable: 3
