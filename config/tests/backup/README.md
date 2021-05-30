@@ -42,4 +42,5 @@ If you want to test a restore, you can take the following steps:
 13. Open a CLI and check the test key.
 
 Once that is done, you can clean up the backup by running:
+
     kubectl exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
