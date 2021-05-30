@@ -16,13 +16,13 @@ DIR="${BASH_SOURCE%/*}"
 . $DIR/functions.bash
 
 applyFile $DIR/stage_1.yaml dc1 '""'
-checkReconciliationLoop sample-cluster-dc1
-connectionString=$(getConnectionString sample-cluster-dc1)
+checkReconciliationLoop test-cluster-dc1
+connectionString=$(getConnectionString test-cluster-dc1)
 
 applyFile $DIR/final.yaml dc1 $connectionString
 applyFile $DIR/final.yaml dc2 $connectionString
 applyFile $DIR/final.yaml dc3 $connectionString
 
-checkReconciliationLoop sample-cluster-dc1
-checkReconciliationLoop sample-cluster-dc2
-checkReconciliationLoop sample-cluster-dc3
+checkReconciliationLoop test-cluster-dc1
+checkReconciliationLoop test-cluster-dc2
+checkReconciliationLoop test-cluster-dc3

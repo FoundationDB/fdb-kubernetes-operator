@@ -1,4 +1,4 @@
 bases:
 - "../base"
-resources:
+patchesStrategicMerge:
 - backup.yaml

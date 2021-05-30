@@ -1,8 +1,3 @@
-# This file provides an example of a cluster with a client app connected.
-#
-# The client app will get its cluster file from a config map that is managed
-# by the operator. It will also use the sidecar to include multiple client
-# libraries to support upgrades of FoundationDB.
 ---
 apiVersion: apps/v1
 kind: Deployment

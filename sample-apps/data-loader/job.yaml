@@ -44,7 +44,7 @@ spec:
       volumes:
         - name: config-map
           configMap:
-            name: sample-cluster-config
+            name: test-cluster-config
             items:
               - key: cluster-file
                 path: fdb.cluster

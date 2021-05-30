@@ -1,0 +1,7 @@
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBRestore
+metadata:
+ name: test-cluster
+spec:
+ destinationClusterName: test-cluster
+ backupURL: "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
