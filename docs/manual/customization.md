@@ -192,3 +192,7 @@ You can build this kind of configuration easily from the sample deployment by ch
 * Delete the configuration for the `WATCH_NAMESPACE` variable
 * Change the Roles to ClusterRoles
 * Change the RoleBindings to ClusterRoleBindings
+
+## Next
+
+You can continue on to the [next section](fault_domains.md) or go back to the [table of contents](index.md).

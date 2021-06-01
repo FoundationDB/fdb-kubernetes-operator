@@ -96,3 +96,7 @@ If you want to run any clusters with TLS, you must configure the operator to sup
 Connections to FDB will use the peer verification logic provided by the FDB client, which can be configured with peer verification rules in the same way as we support for the server. However, there is no mechanism to set these rules on a per-cluster basis, so it may not be beneficial to define them on the operator's side of the connection.
 
 Connections to the sidecar will use the peer verification logic provided by go's tls library. This means that the sidecar's certificate must be valid for the pod's IP. You can disable verification for the connections to the sidecar by setting the environment variable `DISABLE_SIDECAR_TLS_CHECK=1` on the operator, but this will also disable the validation of the certificate chain, so it is not recommended to use this in real environments.
+
+## Next
+
+You can go back to the [table of contents](index.md).

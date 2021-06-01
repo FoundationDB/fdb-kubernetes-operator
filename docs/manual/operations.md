@@ -65,3 +65,7 @@ The name of a cluster is immutable, and it is included in the names of all of th
 4.  Delete the `sample-cluster` resource.
 
 At that point, you will be left with just the resources for `sample-cluster-2`. You can continue performing operations on `sample-cluster-2` as normal. You can also change or remove the `instanceIDPrefix` if you had to set it to a different value earlier in the process.
+
+## Next
+
+You can continue on to the [next section](scaling.md) or go back to the [table of contents](index.md).

@@ -40,3 +40,7 @@ The `podTemplate` field allows you to customize nearly every part of the pods th
 You should be careful when changing images, environment variables, commands, or arguments for the built-in containers. Your custom values may interfere with how the operator is using them. Even if you can make your usage work with the current version of the operator, subsequent releases of the operator may change its behavior in a way that introduces conflicts.
 
 Other than the above, you can make any modifications to the pod definition you need to suit your requirements.
+
+## Next
+
+You can continue on to the [next section](operations.md) or go back to the [table of contents](index.md).

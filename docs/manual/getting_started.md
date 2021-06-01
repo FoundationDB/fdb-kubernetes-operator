@@ -87,3 +87,6 @@ Note that:
 * The name of the config map will depend on the name of your cluster.
 * For long-running applications you should ensure that your cluster file is writeable by your application.
 
+## Next
+
+You can continue on to the [next section](warnings.md) or go back to the [table of contents](index.md).

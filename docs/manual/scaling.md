@@ -89,3 +89,7 @@ spec:
 ```
 
 This will run the configuration command on the database, and may also add or remove processes to match the new configuration.
+
+## Next
+
+You can continue on to the [next section](customization.md) or go back to the [table of contents](index.md).

@@ -182,3 +182,7 @@ operator preferentially selects coordinators from just storage pods, then if
 there are not enough storage pods, or the storage pods are not spread across
 enough fault domains it also considers log pods, and finally transaction pods as
 well.
+
+## Next
+
+You can continue on to the [next section](tls.md) or go back to the [table of contents](index.md).
