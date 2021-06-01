@@ -96,7 +96,7 @@ type FoundationDBClusterSpec struct {
 
 	// PartialConnectionString provides a way to specify part of the connection string
 	// (e.g. the database name and coordinator generation) without specifying the entire
-	// string.
+	// string. This does not allow for setting the coordinator IPs.
 	PartialConnectionString ConnectionString `json:"partialConnectionString,omitempty"`
 
 	// FaultDomain defines the rules for what fault domain to replicate across.
