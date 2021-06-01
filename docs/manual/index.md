@@ -12,3 +12,4 @@ This document assumes that you are generally familiar with Kubernetes. For more 
 1. [Scaling](scaling.md)
 1. [Customization](customization.md)
 1. [Controlling Fault Domains](fault_domains.md)
+1. [Running with TLS](tls.md)

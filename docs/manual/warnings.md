@@ -8,6 +8,10 @@ FoundationDB's service discovery works through a cluster file, which contains a 
 
 One way to mitigate this risk is by using service IPs rather than pod IPs as the public IP for your processes. There is more discussion on how to do this in the section on [Choosing your Public IP Source](customization.md#choosing-your-public-ip-source). You may also want to look into using [Pod Disruption Budgets](fault_domains.md#managing-disruption).
 
+## Securing Connections
+
+The operator runs clusters with insecure connections by default, so the clusters are only as secure as your network and your ACLs allow it to be. We also support using [TLS](tls.md) to secure connections, but this will require additional configuration management.
+
 ## Resource Requirements
 
 In the interest of giving everyone a good configuration out of the box, the operator applies resource requirements to the built-in containers. The main foundationdb container is configured with 1 CPU and 1 Gi of memory as its requests. It is also configured to use the same values for limits and requests. You can change this behavior by specifying your own resource values in the pod template. If you want your container to have no values set for the CPU or memory, and use whatever values are set by default in your Kubernetes environments, you can accomplish this by specifying a resource request for `org.foundationdb/empty: 0`. This resource constraint will have no direct effect, but it will ensure that the resource object has a non-empty value, and the operator will then pass that on to the container spec.
