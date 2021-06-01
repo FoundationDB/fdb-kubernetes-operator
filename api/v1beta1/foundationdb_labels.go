@@ -29,6 +29,10 @@ const (
 	// config map.
 	LastConfigMapKey = "foundationdb.org/last-applied-config-map"
 
+	// OutdatedConfigMapKey provides the annotation name we use to store the
+	// timestamp when we saw an outdated config map.
+	OutdatedConfigMapKey = "foundationdb.org/outdated-config-map-seen"
+
 	// BackupDeploymentLabel provides the label we use to connect backup
 	// deployments to a cluster.
 	BackupDeploymentLabel = "foundationdb.org/backup-for"
