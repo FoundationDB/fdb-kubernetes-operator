@@ -6,7 +6,8 @@ Fault domains are controlled through the `faultDomain` field in the cluster spec
 
 ## Option 1: Single-Kubernetes Replication
 
-The default fault domain strategy is to replicate across nodes in a single Kubernetes cluster. If you do not specify any fault domain option, we will replicate across nodes.
+The default fault domain strategy is to replicate across nodes in a single Kubernetes cluster. If you do not specify any fault domain option, we will replicate across nodes. This is equivalent to the following configuration:
+
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
@@ -15,11 +16,25 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  databaseConfiguration:
-    storage: 5
   faultDomain:
-    key: topology.kubernetes.io/zone # default: kubernetes.io/hostname
-    valueFrom: spec.zoneName # default: spec.nodeName
+    key: kubernetes.io/hostname
+    valueFrom: spec.nodeName
+```
+
+This will create a pod anti-affinity rule preventing multiple pods of the same process class for the same cluster from being on the same node. This will also set up the monitor conf so that it uses the value from `spec.nodeName` on the pod as the `zoneid` locality field.
+
+You can change the fault domain configuration to use a different field as well:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  faultDomain:
+    key: topology.kubernetes.io/zone
+    valueFrom: spec.zoneName
 ```
 
 The example above divides processes across nodes based on the label `topology.kubernetes.io/zone` on the node, and sets the zone locality information in FDB based on the field `spec.zoneName` on the pod. The latter field does not exist, so this configuration cannot work. There is no clear pattern in Kubernetes for allowing pods to access node information other than the host name, which presents challenges using any other kind of fault domain.
@@ -33,12 +48,12 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  databaseConfiguration:
-    storage: 5
   faultDomain:
     key: topology.kubernetes.io/zone
     valueFrom: $RACK
 ```
+
+This will set the `zoneid` locality to whatever is in the `RACK` environment variable for the containers providing the monitor conf, which are `foundationdb-kubernetes-init` and `foundationdb-kubernetes-sidecar`.
 
 ## Option 2: Multi-Kubernetes Replication
 
@@ -52,8 +67,6 @@ metadata:
 spec:
   version: 6.2.30
   instanceIDPrefix: zone2
-  databaseConfiguration:
-    storage: 5
   faultDomain:
     key: foundationdb.org/kubernetes-cluster
     value: zone2
@@ -63,13 +76,13 @@ spec:
 
 This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide processes across fault domains. For instance, this configuration has 7 stateless processes, which need to be divided across 5 fault domains. The zones with zoneIndex 1 and 2 will allocate 2 stateless processes each. The zones with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
 
-When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration. You can set different flags in `automationOptions` to control what the operator can change about the cluster. You can use these fields to designate a master instance of the operator which will handle things like reconfiguring the database.
+When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration. 
 
 You must always specify an `instanceIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters. You must set it to a different value in each Kubernetes cluster. This will prevent instance ID duplicates in the different Kubernetes clusters.
 
 ## Option 3: Fake Replication
 
-In local test environments, you may not having any real fault domains to use, and may not care about availability. You can test in this environment while still having replication enabled by using fake fault domains:
+In local test environments, you may not have any real fault domains to use, and may not care about availability. You can test in this environment while still having replication enabled by using fake fault domains:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
@@ -78,11 +91,6 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  databaseConfiguration:
-    storage: 5
-  automationOptions:
-    configureDatabase: false
-    killProcesses: false
   faultDomain:
     key: foundationdb.org/none
 ```
@@ -101,14 +109,20 @@ metadata:
 spec:
   version: 6.2.30
   dataCenter: dc1
-  processCounts:
-    stateless: -1
   databaseConfiguration:
-    storage: 5
     regions:
       - datacenters:
           - id: dc1
             priority: 1
+          - id: dc2
+            priority: 1
+            satellite: 1
+      - datacenters:
+          - id: dc3
+            priority: 0
+          - id: dc4
+            priority: 1
+            satellite: 1
 ```
 
 The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions.
@@ -158,7 +172,7 @@ spec:
 
 Once that change is fully reconciled, you can clear the deny list from the spec.
 
-## Managing disruption
+## Managing Disruption
 
 [Pod disruption budgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
 are a good idea to prevent simultaneous disruption to many components in a

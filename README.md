@@ -31,15 +31,9 @@ spec and the last reconciled generation of the spec. Once reconciliation has com
 
 Once the reconciliation is complete, you can run `kubectl exec -it my-cluster-log-1 -- fdbcli` to open up a CLI on your cluster.
 
-You can also browse the [sample directory](config/samples) for more examples of how to configure a cluster.
+You can also browse the [sample directory](config/samples) for more examples of different resource configurations.
 
-Most of these examples are designed for doing local development on the operator, so there may be aspects of them that you need to adapt if you want to run in a more realistic environment.
-
-The `faultDomain` stanzas in the local examples disable the operator's placement logic.  This allows the operator to place multiple replicas on the same node, which is necessary for single-machine testing.
-
-The TLS examples assume you have a certificate and key stored in Kubernetes secrets, which may not be the mechanism you want to use for your certificates. The backup examples assume you have backup credentials stored in Kubernetes secrets, so the same consideration applies.
-
-For more information about using the operator, see the [user manual](docs/user_manual.md).
+For more information about using the operator, including detailed discussion of how to customize your deployments, see the [user manual](docs/manual/index.md).
 
 For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
 

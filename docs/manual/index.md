@@ -7,6 +7,7 @@ This document assumes that you are generally familiar with Kubernetes. For more 
 ## Table of Contents
 
 1. [Getting Started](getting_started.md)
+1. [Warnings](warnings.md)
 1. [Lifecycle Operations](operations.md)
 1. [Scaling](scaling.md)
 1. [Customization](customization.md)

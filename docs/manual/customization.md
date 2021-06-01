@@ -132,27 +132,6 @@ You can customize the same kind of fields on the sidecar container by adding the
 
 Note: The example above adds certificates to the environment, but it does not enable TLS for the cluster. We do not currently have a way to enable TLS once a cluster is running. If you set the `enableTls` flag on the container when you create the cluster, it will be created with TLS enabled.
 
-The `podTemplate` field allows you to customize nearly every part of the pods this cluster creates. There are some limitations on what you can configure:
-
-* The pod will always have a container called `foundationdb`, a container called `foundationdb-kubernetes-sidecar`, and an init container called `foundationdb-kubernetes-init`. If you do not define containers with these names, the operator will add them. If you define containers with these names, the operator will modify them to add the necessary fields and default values.
-* You cannot define a command or arguments for the `foundationdb` container.
-* The image version for the built-in containers will be set by the operator. If you define a custom image, the operator will add a tag to the end with the image version the operator needs.
-* You cannot directly set the affinity for the pod.
-* The pod will always have volumes named `data`, `dynamic-conf`, `config-map`, and `fdb-trace-logs`, which will be defined by the operator. You cannot define custom volumes with these names.
-* The `foundationdb` container will always have volume mounts with the names `data`, `dynamic-conf`, and `fdb-trace-logs`, which will be defined by the operator. You cannot define volume mounts with these names.
-* The `foundationdb-kubernetes-sidecar` and `foundationdb-kubernetes-init` containers will always have volume mounts with the names `config-map` and `dynamic-conf`, which will be defined by the operator. You cannot define volume mounts with these names.
-* The `foundationdb` container will always have environment variables with the names `FDB_CLUSTER_FILE` and `FDB_TLS_CA_FILE`. You can define custom values for these environment variables. If you do not define them, the operator will provide a value.
-* The `foundationdb-kubernetes-sidecar` and `foundationdb-kubernetes-init` containers will always have environment variables with the names `SIDECAR_CONF_DIR`, `FDB_PUBLIC_IP`, `FDB_MACHINE_ID`, `FDB_ZONE_ID`, and `FDB_INSTANCE_ID`. You can define custom values for these environment variables. If you do not define them, the operator will provide a value.
-* The `foundationdb-kubernetes-init` container will always have an environment variable with the names `COPY_ONCE`. You can define custom values for these environment variables. If you do not define them, the operator will provide a value.
-* The `foundationdb-kubernetes-sidecar` container will always have environment variables with the names `FDB_TLS_VERIFY_PEERS` and `FDB_TLS_CA_FILE`. You can define custom values for these environment variables. If you do not define them, the operator will provide a value.
-* The `foundationdb-kubernetes-sidecar` container will always have a readiness probe defined. If you do not define one, the operator will provide a default readiness probe.
-* If you enable TLS for the Kubernetes sidecar, the operator will add `--tls` to the args for the `foundationdb-kubernetes-sidecar` container.
-* The `foundationdb` container will always have resources requests and resource limits defined. If you do not define them yourself, the operator will provide them.
-
-You should be careful when changing images, environment variables, commands, or arguments for the built-in containers. Your custom values may interfere with how the operator is using them. Even if you can make your usage work with the current version of the operator, subsequent releases of the operator may change its behavior in a way that introduces conflicts.
-
-Other than the above, you can make any modifications to the pod definition you need to suit your requirements.
-
 ## Pod Update Strategy
 
 When you need to update your pods in a way that requires recreating them, there are two strategies you can use.

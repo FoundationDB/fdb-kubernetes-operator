@@ -23,11 +23,6 @@ For more information on the fields you can define on the cluster resource, see t
 
 For more information on version compatibility, see our [compatibility guide](/docs/compatibility.md).
 
-## Before You Create a Cluster
-
-This operator aims to support as many different environments and use cases as we can, by offering a variety of customization options. You may find that the stock configurations don't work as desired in your environment. We recommend reading through this entire manual in order to get a feel for how the operator works. There are a few sections that are most likely to be relevant before you create a cluster: [Customizing Your Pods](#customizing-your-pods), [Controlling Fault Domains](#controlling-fault-domains), and [Using Multiple Namespaces](#using-multiple-namespaces).
-
-
 ## Creating a Cluster
 
 To start with, we are going to be creating a cluster with the following configuration:
