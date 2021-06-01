@@ -9,7 +9,7 @@ kind: FoundationDBRestore
 metadata:
   name: sample-cluster
 spec:
-  destinationClusterName: test-cluster
+  destinationClusterName: sample-cluster
 
   # This assumes that you have an account called `account` at an S3-compatible
   # object store at `https://object-store.example:443`. It also assumes that you

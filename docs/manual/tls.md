@@ -11,7 +11,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: fdb-certs
-data:
+stringData:
   cert.pem: |
     # Put your certificate here.
   key.pem: |
@@ -99,4 +99,4 @@ Connections to the sidecar will use the peer verification logic provided by go's
 
 ## Next
 
-You can go back to the [table of contents](index.md).
+You can continue on to the [next section](backup.md) or go back to the [table of contents](index.md).
