@@ -32,6 +32,20 @@ spec:
                   type: string
                 destinationClusterName:
                   type: string
+                keyRanges:
+                  items:
+                    properties:
+                      end:
+                        pattern: ^[A-Za-z0-9\/\\-]+$
+                        type: string
+                      start:
+                        pattern: ^[A-Za-z0-9\/\\-]+$
+                        type: string
+                    required:
+                      - end
+                      - start
+                    type: object
+                  type: array
               required:
                 - backupURL
                 - destinationClusterName

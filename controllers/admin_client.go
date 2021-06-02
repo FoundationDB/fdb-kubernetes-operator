@@ -98,7 +98,7 @@ type AdminClient interface {
 	GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error)
 
 	// StartRestore starts a new restore.
-	StartRestore(url string) error
+	StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error
 
 	// GetRestoreStatus gets the status of the current restore.
 	GetRestoreStatus() (string, error)
@@ -577,7 +577,7 @@ func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBack
 }
 
 // StartRestore starts a new restore.
-func (client *MockAdminClient) StartRestore(url string) error {
+func (client *MockAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 

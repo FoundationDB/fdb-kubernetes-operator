@@ -549,14 +549,26 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 }
 
 // StartRestore starts a new restore.
-func (client *cliAdminClient) StartRestore(url string) error {
+func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
+	args := []string{
+		"start",
+		"-r",
+		url,
+	}
+
+	if keyRanges != nil {
+		keyRangeString := ""
+		for _, keyRange := range keyRanges {
+			if keyRangeString != "" {
+				keyRangeString += ";"
+			}
+			keyRangeString += keyRange.Start + " " + keyRange.End
+		}
+		args = append(args, "-k", keyRangeString)
+	}
 	_, err := client.runCommand(cliCommand{
 		binary: "fdbrestore",
-		args: []string{
-			"start",
-			"-r",
-			url,
-		},
+		args:   args,
 	})
 	return err
 }

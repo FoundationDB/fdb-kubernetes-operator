@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,10 +54,28 @@ type FoundationDBRestoreSpec struct {
 
 	// BackupURL provides the URL for the backup.
 	BackupURL string `json:"backupURL"`
+
+	// The key ranges to restore.
+	KeyRanges []FoundationDBKeyRange `json:"keyRanges,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.
 type FoundationDBRestoreStatus struct {
 	// Running describes whether the restore is currently running.
 	Running bool `json:"running,omitempty"`
+}
+
+// FoundationDBKeyRange describes a range of keys for a command.
+//
+// The keys in the key range must match the following pattern:
+// `^[A-Za-z0-9\/\\-]+$`. All other characters can be escaped with `\xBB`, where
+// `BB` is the hexadecimal value of the byte.
+type FoundationDBKeyRange struct {
+	// Start provides the beginning of the key range.
+	// +kubebuilder:validation:Pattern:=^[A-Za-z0-9\/\\-]+$
+	Start string `json:"start"`
+
+	// End provides the end of the key range.
+	// +kubebuilder:validation:Pattern:=^[A-Za-z0-9\/\\-]+$
+	End string `json:"end"`
 }

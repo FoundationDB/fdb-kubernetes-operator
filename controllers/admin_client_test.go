@@ -270,7 +270,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a restore running", func() {
 			BeforeEach(func() {
-				err = client.StartRestore("blobstore://test@test-service/test-backup")
+				err = client.StartRestore("blobstore://test@test-service/test-backup", nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				status, err = client.GetRestoreStatus()

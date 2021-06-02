@@ -4,10 +4,22 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [FoundationDBKeyRange](#foundationdbkeyrange)
 * [FoundationDBRestore](#foundationdbrestore)
 * [FoundationDBRestoreList](#foundationdbrestorelist)
 * [FoundationDBRestoreSpec](#foundationdbrestorespec)
 * [FoundationDBRestoreStatus](#foundationdbrestorestatus)
+
+## FoundationDBKeyRange
+
+FoundationDBKeyRange describes a range of keys for a command.  The keys in the key range must match the following pattern: `^[A-Za-z0-9\/\\-]+$`. All other characters can be escaped with `\xBB`, where `BB` is the hexadecimal value of the byte.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| start | Start provides the beginning of the key range. | string | true |
+| end | End provides the end of the key range. | string | true |
+
+[Back to TOC](#table-of-contents)
 
 ## FoundationDBRestore
 
@@ -40,6 +52,7 @@ FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
 | ----- | ----------- | ------ | -------- |
 | destinationClusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
 | backupURL | BackupURL provides the URL for the backup. | string | true |
+| keyRanges | The key ranges to restore. | [][FoundationDBKeyRange](#foundationdbkeyrange) | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -40,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -52,7 +50,6 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var k8sClient *mockclient.MockClient
-var testEnv *envtest.Environment
 var clusterReconciler *FoundationDBClusterReconciler
 var backupReconciler *FoundationDBBackupReconciler
 var restoreReconciler *FoundationDBRestoreReconciler
@@ -68,16 +65,7 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
-	}
-
-	cfg, err := testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
-
-	err = scheme.AddToScheme(scheme.Scheme)
+	err := scheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = fdbtypes.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -110,8 +98,6 @@ var _ = BeforeSuite(func(done Done) {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	gexec.KillAndWait(5 * time.Second)
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterEach(func() {
