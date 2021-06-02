@@ -146,6 +146,8 @@ var _ = Describe("update_status", func() {
 				}
 				cluster := createDefaultCluster()
 				processGroupStatus := fdbtypes.NewProcessGroupStatus("1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
+				// Reset the status to only tests for the missing Pod
+				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
 
 				_, err := validateInstance(clusterReconciler, context.TODO(), cluster, instance, "", processGroupStatus)
 				Expect(err).NotTo(HaveOccurred())
