@@ -71,7 +71,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 			if err != nil {
 				allSynced = false
-				log.Info("Update Pod metadata", "namespace", configMap.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "error", err)
+				log.Info("Update Pod ConfigMap annotation", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "error", err)
 			}
 			continue
 		}
