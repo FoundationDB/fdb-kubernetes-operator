@@ -114,7 +114,7 @@ func confirmPodRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 	if len(instances) == 1 {
 		// If the Pod is already in a terminating state we don't have to care for it
-		if instances[0].Pod.DeletionTimestamp == nil {
+		if instances[0].Metadata != nil && instances[0].Metadata.DeletionTimestamp == nil {
 			log.Info("Waiting for instance to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "instanceID", instanceID, "pod", instances[0].Metadata.Name)
 			return false, false, nil
 		}
