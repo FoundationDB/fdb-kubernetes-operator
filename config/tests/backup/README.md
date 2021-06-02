@@ -4,11 +4,9 @@ local development environment.
 The backup resource will bring up backup agents and start a backup. Once it
 is reconciled, you can run backup commands from the backup agent containers:
 
-    # Check Status
-    kubectl exec deployment/test-cluster-backup-agents -- fdbbackup status
-
-    # List Backups
-    kubectl exec deployment/test-cluster-backup-agents -- fdbbackup list -b "blobstore://minio@minio-service:9000?bucket=fdb-backups"
+```bash
+# Check status
+kubectl exec deployment/test-cluster-backup-agents -- fdbbackup status
 
 This example uses configuration for a local MinIO instance, which is set up as
 part of the local testing environment for the operator. This instance has
@@ -43,4 +41,5 @@ If you want to test a restore, you can take the following steps:
 
 Once that is done, you can clean up the backup by running:
 
-    kubectl exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
+```bash
+kubectl exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
