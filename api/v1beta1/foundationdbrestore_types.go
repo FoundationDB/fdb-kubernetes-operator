@@ -55,7 +55,7 @@ type FoundationDBRestoreSpec struct {
 	// BackupURL provides the URL for the backup.
 	BackupURL string `json:"backupURL"`
 
-	// The key ranges to restore;.
+	// The key ranges to restore.
 	KeyRanges []FoundationDBKeyRange `json:"keyRanges,omitempty"`
 }
 
