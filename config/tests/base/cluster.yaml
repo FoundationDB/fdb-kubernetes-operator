@@ -1,38 +1,44 @@
-# This file provides an example of a cluster you can run in a local testing
-# environment.
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-  name: sample-cluster
+  name: test-cluster
 spec:
   version: 6.2.30
   faultDomain:
+    # Use fake fault domains to support running in a single-node Kubernetes
+    # cluster.
     key: foundationdb.org/none
   services:
     headless: true
   processCounts:
+    # Disable stateless processes to save resources.
     stateless: -1
+    # Enable a dedicated cluster controller process to test for surprising
+    # behavior with having a process class with an underscore.
     cluster_controller: 1
-    storage: 4
   processes:
     general:
       customParameters:
+        # Disable AIO to work around limitations in Docker for Mac's volume
+        # options.
         - "knob_disable_posix_kernel_aio=1"
-        - "locality_test=1"
       volumeClaimTemplate:
         spec:
           resources:
             requests:
+              # Use small volumes to save space.
               storage: "16G"
       podTemplate:
         spec:
           containers:
             - name: foundationdb
+              # Use reduced resources to pack more processes on a node.
               resources:
                 requests:
-                  cpu: 250m
+                  cpu: 100m
                   memory: 128Mi
             - name: foundationdb-kubernetes-sidecar
+              # Use reduced resources to pack more processes on a node.
               resources:
                 requests:
                   cpu: 100m
@@ -42,6 +48,7 @@ spec:
                   memory: 128Mi
           initContainers:
             - name: foundationdb-kubernetes-init
+              # Use reduced resources to pack more processes on a node.
               resources:
                 requests:
                   cpu: 100m

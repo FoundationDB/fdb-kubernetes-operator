@@ -1,0 +1,7 @@
+# This is a sample configuration for running a FoundationDB cluster.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30

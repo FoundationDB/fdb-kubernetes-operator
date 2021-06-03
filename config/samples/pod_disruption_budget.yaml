@@ -3,35 +3,35 @@
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: my-fdb-cluster-storage
+  name: sample-cluster-storage
   namespace: default
 spec:
   minAvailable: 5
   selector:
     matchLabels:
-      fdb-cluster-name: my-fdb-cluster
+      fdb-cluster-name: sample-cluster
       fdb-process-class: storage
 ---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: my-fdb-cluster-storage
+  name: sample-cluster-log
   namespace: default
 spec:
   minAvailable: 3
   selector:
     matchLabels:
-      fdb-cluster-name: my-fdb-cluster
+      fdb-cluster-name: sample-cluster
       fdb-process-class: log
 ---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: my-fdb-cluster-storage
+  name: sample-cluster-transaction
   namespace: default
 spec:
   minAvailable: 3
   selector:
     matchLabels:
-      fdb-cluster-name: my-fdb-cluster
+      fdb-cluster-name: sample-cluster
       fdb-process-class: transaction

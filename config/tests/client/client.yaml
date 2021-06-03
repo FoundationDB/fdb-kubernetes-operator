@@ -1,69 +1,18 @@
-# This file provides an example of a cluster with a client app connected.
-#
-# The client app will get its cluster file from a config map that is managed
-# by the operator. It will also use the sidecar to include multiple client
-# libraries to support upgrades of FoundationDB.
-apiVersion: apps.foundationdb.org/v1beta1
-kind: FoundationDBCluster
-metadata:
-  name: sample-cluster
-spec:
-  version: 6.2.30
-  faultDomain:
-    key: foundationdb.org/none
-  services:
-    headless: true
-  processCounts:
-    stateless: -1
-  processes:
-    general:
-      customParameters:
-        - "knob_disable_posix_kernel_aio=1"
-      volumeClaimTemplate:
-        spec:
-          resources:
-            requests:
-              storage: "16G"
-      podTemplate:
-        spec:
-          containers:
-            - name: foundationdb
-              resources:
-                requests:
-                  cpu: 250m
-                  memory: 128Mi
-            - name: foundationdb-kubernetes-sidecar
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-                limits:
-                  cpu: 100m
-                  memory: 128Mi
-          initContainers:
-            - name: foundationdb-kubernetes-init
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-                limits:
-                  cpu: 100m
-                  memory: 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sample-cluster-client
+  name: test-cluster-client
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: sample-cluster-client
+      app: test-cluster-client
   template:
     metadata:
       labels:
-        app: sample-cluster-client
-      name: sample-cluster-client
+        app: test-cluster-client
+      name: test-cluster-client
     spec:
       automountServiceAccountToken: false
       initContainers:
@@ -94,7 +43,7 @@ spec:
             - name: FDB_API_VERSION
               value: "610"
             - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
-              value: sample-cluster-client
+              value: test-cluster-client
             - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
               value: /var/dynamic-conf/lib/multiversion
             - name: LD_LIBRARY_PATH
@@ -112,7 +61,7 @@ spec:
       volumes:
         - name: config-map
           configMap:
-            name: sample-cluster-config
+            name: test-cluster-config
             items:
               - key: cluster-file
                 path: fdb.cluster
@@ -122,12 +71,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sample-cluster-client
+  name: test-cluster-client
   labels:
-    app: sample-cluster-client
+    app: test-cluster-client
 spec:
   selector:
-    app: sample-cluster-client
+    app: test-cluster-client
   type: LoadBalancer
   ports:
     - port: 9562

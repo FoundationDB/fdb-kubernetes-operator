@@ -1,0 +1,53 @@
+# This is a sample configuration for running a continuous backup of a cluster.
+#
+# This sample assumes some configuration that you will need to fill in based on
+# the details of your environment. Those assumptions are explained in comments
+# below.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  clusterName: sample-cluster
+
+  # This assumes you have an account with the name `account` in an S3-compatible
+  # object store located at `https://object-store.example:443`. You will need
+  # to fill this in with the details of your real object storage.
+  accountName: account@object-store.example:443
+
+  podTemplateSpec:
+    spec:
+      volumes:
+        # This assumes the existence of a secret called `backup-credentials`,
+        # which contains a key called `credentials` containing the credentials
+        # file. For more information on the format of the credentials file, see
+        # the [FoundationDB docs](https://apple.github.io/foundationdb/backups.html#blob-credential-files).
+        - name: backup-credentials
+          secret:
+            secretName: backup-credentials
+            
+        # This assumes a secret called `fdb-certs` containing TLS configuration.
+        # This secret must contain keys called `tls.crt`, `tls.key`, `ca.crt`.
+        # `tls.crt` and `tls.key` contain the certificate and key file the
+        # backup agents will use for mutual TLS, and `ca.crt` contains the list
+        # of trusted CAs. All of these files must be in PEM format.
+        - name: fdb-certs
+          secret:
+            secretName: fdb-kubernetes-operator-secrets
+      containers:
+        - name: foundationdb
+          env:
+            - name: FDB_BLOB_CREDENTIALS
+              value: /var/backup-credentials/credentials
+            - name: FDB_TLS_CERTIFICATE_FILE
+              value: /tmp/fdb-certs/tls.crt
+            - name: FDB_TLS_CA_FILE
+              value: /tmp/fdb-certs/ca.crt
+            - name: FDB_TLS_KEY_FILE
+              value: /tmp/fdb-certs/tls.key
+          volumeMounts:
+            - name: fdb-certs
+              mountPath: /tmp/fdb-certs
+            - name: backup-credentials
+              mountPath: /var/backup-credentials

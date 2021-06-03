@@ -1,0 +1,42 @@
+- op: add
+  path: "/spec/processes/general/podTemplate/spec/volumes"
+  value: 
+    - name: fdb-certs
+      secret:
+        secretName: fdb-kubernetes-operator-secrets
+- op: add
+  path: "/spec/processes/general/podTemplate/spec/containers/0/env"
+  value:
+    - name: FDB_TLS_CERTIFICATE_FILE
+      value: /tmp/fdb-certs/tls.crt
+    - name: FDB_TLS_CA_FILE
+      value: /tmp/fdb-certs/tls.crt
+    - name: FDB_TLS_KEY_FILE
+      value: /tmp/fdb-certs/tls.key
+- op: add
+  path: "/spec/processes/general/podTemplate/spec/containers/0/volumeMounts"
+  value:
+    - name: fdb-certs
+      mountPath: /tmp/fdb-certs
+- op: add
+  path: "/spec/processes/general/podTemplate/spec/containers/1/env"
+  value:
+    - name: FDB_TLS_CERTIFICATE_FILE
+      value: /tmp/fdb-certs/tls.crt
+    - name: FDB_TLS_CA_FILE
+      value: /tmp/fdb-certs/tls.crt
+    - name: FDB_TLS_KEY_FILE
+      value: /tmp/fdb-certs/tls.key
+- op: add
+  path: "/spec/processes/general/podTemplate/spec/containers/1/volumeMounts"
+  value:
+    - name: fdb-certs
+      mountPath: /tmp/fdb-certs
+- op: add
+  path: "/spec/mainContainer"
+  value:
+    enableTls: true
+- op: add
+  path: "/spec/sidecarContainer"
+  value:
+    enableTls: true

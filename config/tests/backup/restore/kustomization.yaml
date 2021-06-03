@@ -1,0 +1,4 @@
+bases:
+- "../stopped"
+resources:
+- "restore.yaml"

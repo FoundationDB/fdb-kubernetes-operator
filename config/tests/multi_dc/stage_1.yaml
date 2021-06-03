@@ -7,9 +7,8 @@ apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
   labels:
-    controller-tools.k8s.io: "1.0"
-    cluster-group: sample-cluster
-  name: sample-cluster-$dc
+    cluster-group: test-cluster
+  name: test-cluster-$dc
 spec:
   version: 6.2.30
   faultDomain:
@@ -24,28 +23,11 @@ spec:
     - "knob_disable_posix_kernel_aio=1"
   databaseConfiguration:
     redundancy_mode: "double"
-    usable_regions: 2
+    usable_regions: 1
     regions:
       - datacenters:
-          - id: dc1
+          - id: $dc
             priority: 1
-          - id: dc3
-            satellite: 1
-            priority: 2
-          - id: dc2
-            satellite: 1
-            priority: 1
-        satellite_logs: 3
-      - datacenters:
-          - id: dc2
-            priority: 0
-          - id: dc3
-            satellite: 1
-            priority: 2
-          - id: dc1
-            satellite: 1
-            priority: 1
-        satellite_logs: 3
   processes:
     general:
       volumeClaimTemplate:

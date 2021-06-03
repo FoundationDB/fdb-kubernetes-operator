@@ -1,0 +1,3 @@
+# This file provides a basic cluster designed for local testing of the operator.
+resources:
+- cluster.yaml

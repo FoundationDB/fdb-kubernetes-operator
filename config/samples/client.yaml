@@ -1,0 +1,93 @@
+# This file provides an example of a cluster with a client app connected.
+#
+# The client app will get its cluster file from a config map that is managed
+# by the operator. It will also use the sidecar to include multiple client
+# libraries to support upgrades of FoundationDB.
+#
+# This assumes you have a cluster called `sample-cluster` that is already
+# running, and that the cluster is being managed through the operator.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-cluster-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-cluster-client
+  template:
+    metadata:
+      labels:
+        app: sample-cluster-client
+      name: sample-cluster-client
+    spec:
+      volumes:
+        # The config-map volume mounts configuration from the FDB cluster.
+        - name: config-map
+          configMap:
+            name: sample-cluster-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+
+        # The dynamic-conf volume holds shared configuration between the init
+        # container and the main container.
+        - name: dynamic-conf
+          emptyDir: {}
+
+      initContainers:
+        # This sample uses the official FDB sidecar to set up configuration for
+        # the application in a shared volume.
+        - name: foundationdb-kubernetes-init
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
+          args:
+            # This copies the cluster file from the cluster's config map into a
+            # shared volume, where it can be read by the application and updated
+            # by the application when the cluster file changes.
+            - "--copy-file"
+            - "fdb.cluster"
+
+            # This copies the 6.1 and 6.2 client libraries to allow the
+            # application to connect to an FDB cluster running either 6.1 or
+            # 6.2.
+            - "--copy-library"
+            - "6.1"
+            - "--copy-library"
+            - "6.2"
+            
+            - "--init-mode"
+
+            # This causes the init container to crash loop until the fdb.cluster
+            # file is non-empty. This can make things smoother when you are
+            # creating the cluster and the client deployment at the same time.
+            - "--require-not-empty"
+            - "fdb.cluster"
+          volumeMounts:
+            - name: config-map
+              mountPath: /var/input-files
+            - name: dynamic-conf
+              mountPath: /var/output-files
+      containers:
+        - name: client
+          # This is running a sample FDB app that provides a simple counter
+          # API.
+          image: foundationdb/foundationdb-sample-python-app:latest
+          imagePullPolicy: Always
+          env:
+            - name: FDB_CLUSTER_FILE
+              value: /var/dynamic-conf/fdb.cluster
+            - name: FDB_API_VERSION
+              value: "610"
+            - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+              value: sample-cluster-client
+            # These two environment variables set up the application to load the
+            # FDB client libraries from the dynamic-conf volume, using the
+            # folder structure set up by the init container.
+            - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+              value: /var/dynamic-conf/lib/multiversion
+            - name: LD_LIBRARY_PATH
+              value: /var/dynamic-conf/lib
+          volumeMounts:
+            - name: dynamic-conf
+              mountPath: /var/dynamic-conf

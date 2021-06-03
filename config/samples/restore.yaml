@@ -1,0 +1,18 @@
+# This is a sample configuratikon for restoring a FoundationDB cluster from a
+# backup.
+#
+# This sample assumes some configuration that you will need to fill in based on
+# the details of your environment. Those assumptions are explained in comments
+# below.
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBRestore
+metadata:
+  name: sample-cluster
+spec:
+  destinationClusterName: sample-cluster
+
+  # This assumes that you have an account called `account` at an S3-compatible
+  # object store at `https://object-store.example:443`. It also assumes that you
+  # have previously created a backup with the name `sample-cluster` using a
+  # bucket named `fdb-backups`.
+  backupURL: "blobstore://account@object-store.example:443/sample-cluster?bucket=fdb-backups"

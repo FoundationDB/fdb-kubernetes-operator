@@ -7,8 +7,8 @@ apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
   labels:
-    cluster-group: sample-cluster
-  name: sample-cluster-$zone
+    cluster-group: test-cluster
+  name: test-cluster-$zone
 spec:
   version: 6.2.30
   faultDomain:

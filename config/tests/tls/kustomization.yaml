@@ -1,0 +1,10 @@
+# This file provides a test cluster with TLS enabled.
+bases:
+- "../base"
+patchesJson6902:
+- path: tls.yaml
+  target:
+    group: apps.foundationdb.org
+    version: v1beta1
+    kind: FoundationDBCluster
+    name: test-cluster

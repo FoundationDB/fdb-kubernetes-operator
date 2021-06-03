@@ -1,0 +1,6 @@
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBBackup
+metadata:
+  name: test-cluster
+spec:
+  backupState: Stopped

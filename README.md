@@ -19,27 +19,21 @@ kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-o
 kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
 ```
 
-At that point, you can set up one of the sample clusters:
+At that point, you can set up a sample cluster:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/cluster_local.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/cluster.yaml
 ```
 
 You can see logs from the operator by running
-`kubectl logs -f -l app=fdb-kubernetes-operator-controller-manager --container=manager`. To determine whether the reconciliation has completed, you can run `kubectl get foundationdbcluster sample-cluster`. This will show the latest generation of the
+`kubectl logs -f -l app=fdb-kubernetes-operator-controller-manager --container=manager`. To determine whether the reconciliation has completed, you can run `kubectl get foundationdbcluster my-cluster`. This will show the latest generation of the
 spec and the last reconciled generation of the spec. Once reconciliation has completed, these values will be the same.
 
-Once the reconciliation is complete, you can run `kubectl exec -it sample-cluster-log-1 -- fdbcli` to open up a CLI on your cluster.
+Once the reconciliation is complete, you can run `kubectl exec -it my-cluster-log-1 -- fdbcli` to open up a CLI on your cluster.
 
-You can also browse the [sample directory](config/samples) for more examples of how to configure a cluster.
+You can also browse the [sample directory](config/samples) for more examples of different resource configurations.
 
-Most of these examples are designed for doing local development on the operator, so there may be aspects of them that you need to adapt if you want to run in a more realistic environment.
-
-The `faultDomain` stanzas in the local examples disable the operator's placement logic.  This allows the operator to place multiple replicas on the same node, which is necessary for single-machine testing.
-
-The TLS examples assume you have a certificate and key stored in Kubernetes secrets, which may not be the mechanism you want to use for your certificates. The backup examples assume you have backup credentials stored in Kubernetes secrets, so the same consideration applies.
-
-For more information about using the operator, see the [user manual](docs/user_manual.md).
+For more information about using the operator, including detailed discussion of how to customize your deployments, see the [user manual](docs/manual/index.md).
 
 For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
 

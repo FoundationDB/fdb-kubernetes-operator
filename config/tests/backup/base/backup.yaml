@@ -1,0 +1,55 @@
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBBackup
+metadata:
+  name: test-cluster
+spec:
+  version: 6.2.30
+  clusterName: test-cluster
+  accountName: minio@minio-service:9000
+  snapshotPeriodSeconds: 3600
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: foundationdb
+          env:
+            - name: FDB_BLOB_CREDENTIALS
+              value: /var/backup-credentials/credentials
+            - name: FDB_TLS_CERTIFICATE_FILE
+              value: /tmp/fdb-certs/tls.crt
+            - name: FDB_TLS_CA_FILE
+              value: /tmp/fdb-certs/tls.crt
+            - name: FDB_TLS_KEY_FILE
+              value: /tmp/fdb-certs/tls.key
+          volumeMounts:
+            - name: fdb-certs
+              mountPath: /tmp/fdb-certs
+            - name: backup-credentials
+              mountPath: /var/backup-credentials
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+      initContainers:
+        - name: foundationdb-kubernetes-init
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsUser: 0
+      volumes:
+        - name: backup-credentials
+          secret:
+            secretName: minio-credentials
+        - name: fdb-certs
+          secret:
+            secretName: fdb-kubernetes-operator-secrets
