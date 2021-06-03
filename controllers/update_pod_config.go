@@ -66,10 +66,18 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		if !synced {
 			allSynced = false
 			log.Info("Update dynamic Pod config", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "synced", synced, "error", err)
+
+			instance.Metadata.Annotations[fdbtypes.OutdatedConfigMapKey] = time.Now().Format(time.RFC3339)
+			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
+			if err != nil {
+				allSynced = false
+				log.Info("Update Pod ConfigMap annotation", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "error", err)
+			}
 			continue
 		}
 
 		instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
+		delete(instance.Metadata.Annotations, fdbtypes.OutdatedConfigMapKey)
 		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 		if err != nil {
 			allSynced = false
