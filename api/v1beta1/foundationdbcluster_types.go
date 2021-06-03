@@ -94,9 +94,12 @@ type FoundationDBClusterSpec struct {
 	// After the initial reconciliation, this will not be used.
 	SeedConnectionString string `json:"seedConnectionString,omitempty"`
 
-	// PartialConnectionString provides a way to specify part of the connection string
-	// (e.g. the database name and coordinator generation) without specifying the entire
-	// string. This does not allow for setting the coordinator IPs.
+	// PartialConnectionString provides a way to specify part of the
+	// connection string (e.g. the database name and coordinator generation)
+	// without specifying the entire string. This does not allow for setting
+	// the coordinator IPs. If `SeedConnectionString` is set,
+	// `PartialConnectionString` will have no effect. They cannot be used
+	// together.
 	PartialConnectionString ConnectionString `json:"partialConnectionString,omitempty"`
 
 	// FaultDomain defines the rules for what fault domain to replicate across.
