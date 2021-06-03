@@ -493,6 +493,7 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		}
 	}
 	out.ProcessCounts = in.ProcessCounts
+	in.PartialConnectionString.DeepCopyInto(&out.PartialConnectionString)
 	out.FaultDomain = in.FaultDomain
 	if in.InstancesToRemove != nil {
 		in, out := &in.InstancesToRemove, &out.InstancesToRemove

@@ -94,6 +94,14 @@ type FoundationDBClusterSpec struct {
 	// After the initial reconciliation, this will not be used.
 	SeedConnectionString string `json:"seedConnectionString,omitempty"`
 
+	// PartialConnectionString provides a way to specify part of the
+	// connection string (e.g. the database name and coordinator generation)
+	// without specifying the entire string. This does not allow for setting
+	// the coordinator IPs. If `SeedConnectionString` is set,
+	// `PartialConnectionString` will have no effect. They cannot be used
+	// together.
+	PartialConnectionString ConnectionString `json:"partialConnectionString,omitempty"`
+
 	// FaultDomain defines the rules for what fault domain to replicate across.
 	FaultDomain FoundationDBClusterFaultDomain `json:"faultDomain,omitempty"`
 
@@ -1604,14 +1612,14 @@ var connectionStringPattern = regexp.MustCompile("(?m)^([^#][^:@]+):([^:@]+)@(.*
 type ConnectionString struct {
 	// DatabaseName provides an identifier for the database which persists
 	// across coordinator changes.
-	DatabaseName string
+	DatabaseName string `json:"databaseName,omitempty"`
 
 	// GenerationID provides a unique ID for the current generation of
 	// coordinators.
-	GenerationID string
+	GenerationID string `json:"generationID,omitempty"`
 
 	// Coordinators provides the addresses of the current coordinators.
-	Coordinators []string
+	Coordinators []string `json:"coordinators,omitempty"`
 }
 
 // ParseConnectionString parses a connection string from its string

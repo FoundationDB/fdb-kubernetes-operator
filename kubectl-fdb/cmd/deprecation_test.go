@@ -383,6 +383,7 @@ faultDomain: {}
 lockOptions: {}
 mainContainer: {}
 minimumUptimeSecondsForBounce: 600
+partialConnectionString: {}
 processCounts: {}
 processes:
   general:
@@ -485,6 +486,7 @@ faultDomain: {}
 lockOptions: {}
 mainContainer: {}
 minimumUptimeSecondsForBounce: 600
+partialConnectionString: {}
 processCounts: {}
 processes:
   general:

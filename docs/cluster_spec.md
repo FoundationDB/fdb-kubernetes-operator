@@ -115,9 +115,9 @@ ConnectionString models the contents of a cluster file in a structured way
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| DatabaseName | DatabaseName provides an identifier for the database which persists across coordinator changes. | string | false |
-| GenerationID | GenerationID provides a unique ID for the current generation of coordinators. | string | false |
-| Coordinators | Coordinators provides the addresses of the current coordinators. | []string | false |
+| databaseName | DatabaseName provides an identifier for the database which persists across coordinator changes. | string | false |
+| generationID | GenerationID provides a unique ID for the current generation of coordinators. | string | false |
+| coordinators | Coordinators provides the addresses of the current coordinators. | []string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -226,6 +226,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
+| partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
 | instancesToRemove | InstancesToRemove defines the instances that we should remove from the cluster. This list contains the instance IDs. | []string | false |
 | instancesToRemoveWithoutExclusion | InstancesToRemoveWithoutExclusion defines the instances that we should remove from the cluster without excluding them. This list contains the instance IDs.  This should be used for cases where a pod does not have an IP address and you want to remove it and destroy its volume without confirming the data is fully replicated. | []string | false |

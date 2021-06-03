@@ -1468,6 +1468,17 @@ spec:
                   type: integer
                 nextInstanceID:
                   type: integer
+                partialConnectionString:
+                  properties:
+                    coordinators:
+                      items:
+                        type: string
+                      type: array
+                    databaseName:
+                      type: string
+                    generationID:
+                      type: string
+                  type: object
                 pendingRemovals:
                   additionalProperties:
                     type: string
