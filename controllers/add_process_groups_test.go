@@ -196,4 +196,20 @@ var _ = Describe("add_process_groups", func() {
 			})
 		})
 	})
+
+	When("a new processGroup is created", func() {
+		var processGroupStatus *fdbtypes.ProcessGroupStatus
+
+		BeforeEach(func() {
+			processGroupStatus = fdbtypes.NewProcessGroupStatus("1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
+		})
+
+		It("should have the missing conditions", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(3))
+			Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingProcesses))
+			Expect(processGroupStatus.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
+			Expect(processGroupStatus.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPVC))
+		})
+	})
 })

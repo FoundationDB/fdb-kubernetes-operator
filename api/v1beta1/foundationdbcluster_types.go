@@ -484,12 +484,18 @@ func (processGroupStatus *ProcessGroupStatus) IsExcluded(remainingMap map[string
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
 func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{
-		ProcessGroupID:         processGroupID,
-		ProcessClass:           processClass,
-		Addresses:              addresses,
-		Remove:                 false,
-		Excluded:               false,
-		ProcessGroupConditions: make([]*ProcessGroupCondition, 0),
+		ProcessGroupID: processGroupID,
+		ProcessClass:   processClass,
+		Addresses:      addresses,
+		Remove:         false,
+		Excluded:       false,
+		ProcessGroupConditions: []*ProcessGroupCondition{
+			NewProcessGroupCondition(MissingProcesses),
+			NewProcessGroupCondition(MissingPod),
+			NewProcessGroupCondition(MissingPVC),
+			// TODO(johscheuer): currently we never set this condition
+			// NewProcessGroupCondition(MissingService),
+		},
 	}
 }
 
