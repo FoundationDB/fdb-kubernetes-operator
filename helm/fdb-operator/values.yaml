@@ -1,7 +1,7 @@
 operator:
   name: fdb-kubernetes-operator-controller-manager
   image: foundationdb/fdb-kubernetes-operator
-  tag: v0.35.0
+  tag: v0.36.0
   role: fdb-kubernetes-operator-manager-role
   rolebinding: fdb-kubernetes-operator-manager-rolebinding
   replicas: 1

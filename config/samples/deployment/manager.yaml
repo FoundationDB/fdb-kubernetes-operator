@@ -83,7 +83,7 @@ spec:
       containers:
       - command:
         - /manager
-        image: foundationdb/fdb-kubernetes-operator:v0.35.0
+        image: foundationdb/fdb-kubernetes-operator:v0.36.0
         name: manager
         env:
           - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
