@@ -1,9 +1,18 @@
+ARG TAG=latest
+ARG TAG_VERSION=6.3
+ARG REGISTRY=docker.io
+
 FROM foundationdb/foundationdb:6.2.30 as fdb62
 FROM foundationdb/foundationdb:6.1.13 as fdb61
 FROM foundationdb/foundationdb:6.3.10 as fdb63
+FROM ${REGISTRY}/foundationdb/foundationdb:${TAG} as fdblatest
 
 # Build the manager binary
 FROM golang:1.15.8 as builder
+
+ARG TAG=latest
+ARG TAG_VERSION=6.3
+ARG REGISTRY=docker.io
 
 # Install FDB
 ARG FDB_VERSION=6.2.30
@@ -34,6 +43,10 @@ COPY --from=fdb61 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.1.so
 # Copy 6.3 binaries
 COPY --from=fdb63 /usr/bin/fdb* /usr/bin/fdb/6.3/
 COPY --from=fdb63 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.3.so
+
+ENV TAG_VERSION ${TAG_VERSION}
+COPY --from=fdblatest /usr/bin/fdb* /usr/bin/fdb/${TAG_VERSION}/
+COPY --from=fdblatest /var/fdb/lib/libfdb_c_${TAG_VERSION}.so /usr/lib/fdb/libfdb_c_${TAG_VERSION}.so
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
