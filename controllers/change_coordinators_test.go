@@ -146,6 +146,18 @@ var _ = Describe("Change coordinators", func() {
 				Expect(logCnt).To(BeNumerically("==", 1))
 			})
 		})
+
+		When("recruiting multiple times", func() {
+			It("should return always the same processes", func() {
+				initialCandidates := candidates
+
+				for i := 0; i < 100; i++ {
+					newCandidates, err := selectCoordinators(cluster, status)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(newCandidates).To(Equal(initialCandidates))
+				}
+			})
+		})
 	})
 
 	When("Using a HA clusters", func() {
@@ -343,6 +355,18 @@ var _ = Describe("Change coordinators", func() {
 					Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 9))
 				})
 			})
+
+			When("recruiting multiple times", func() {
+				It("should return always the same processes", func() {
+					initialCandidates := candidates
+
+					for i := 0; i < 100; i++ {
+						newCandidates, err := selectCoordinators(cluster, status)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(newCandidates).To(Equal(initialCandidates))
+					}
+				})
+			})
 		})
 
 		When("using 2 dcs and 2 satellites", func() {
@@ -529,10 +553,60 @@ var _ = Describe("Change coordinators", func() {
 					}
 				})
 			})
+
+			When("recruiting multiple times", func() {
+				It("should return always the same processes", func() {
+					initialCandidates := candidates
+
+					for i := 0; i < 100; i++ {
+						newCandidates, err := selectCoordinators(cluster, status)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(newCandidates).To(Equal(initialCandidates))
+					}
+				})
+			})
 		})
 	})
 
 	// TODO add test case for multi KC
+
+	When("Sorting the localities", func() {
+		var localities []localityInfo
+
+		BeforeEach(func() {
+			localities = []localityInfo{
+				{
+					ID:    "storage-1",
+					Class: fdbtypes.ProcessClassStorage,
+				},
+				{
+					ID:    "tlog-1",
+					Class: fdbtypes.ProcessClassTransaction,
+				},
+				{
+					ID:    "log-1",
+					Class: fdbtypes.ProcessClassLog,
+				},
+				{
+					ID:    "storage-51",
+					Class: fdbtypes.ProcessClassStorage,
+				},
+			}
+		})
+
+		It("", func() {
+			sortLocalities(localities)
+
+			Expect(localities[0].Class, fdbtypes.ProcessClassStorage)
+			Expect(localities[0].ID, "storage-1")
+			Expect(localities[0].Class, fdbtypes.ProcessClassStorage)
+			Expect(localities[0].ID, "storage-15")
+			Expect(localities[0].Class, fdbtypes.ProcessClassLog)
+			Expect(localities[0].ID, "log-1")
+			Expect(localities[0].Class, fdbtypes.ProcessClassTransaction)
+			Expect(localities[0].ID, "tlog-1")
+		})
+	})
 })
 
 func generateProcessInfo(dcCount int, satCount int, excludes []string) map[string]fdbtypes.FoundationDBStatusProcessInfo {

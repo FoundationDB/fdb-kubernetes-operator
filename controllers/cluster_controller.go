@@ -1097,6 +1097,39 @@ type localityInfo struct {
 
 	// The locality map.
 	LocalityData map[string]string
+
+	Class fdbtypes.ProcessClass
+}
+
+// These indexes are used for sorting and since we sort ascending
+func getClassIndex(cls fdbtypes.ProcessClass) int {
+	switch cls {
+	case fdbtypes.ProcessClassStorage:
+		return 0
+	case fdbtypes.ProcessClassLog:
+		return 1
+	case fdbtypes.ProcessClassTransaction:
+		return 2
+	}
+
+	return math.MaxInt32
+}
+
+// This will sort the processes according to the following rules:
+// First all storage processes next log processes and then tlog processes.
+// Inside each process class the processes will be sorted by the ID (lower IDs come first).
+// We have to do this to ensure we get a deterministic result for selecting the candidates
+// otherwise we get a (nearly) random result since processes are stored in a map which is by definition
+// not sorted and doesn't return values in a stable way.
+func sortLocalities(processes []localityInfo) {
+	// Sort the processes for ID to ensure we have a stable input
+	sort.SliceStable(processes, func(i, j int) bool {
+		if processes[i].Class == processes[j].Class {
+			return processes[i].ID < processes[j].ID
+		}
+
+		return getClassIndex(processes[i].Class) < getClassIndex(processes[j].Class)
+	})
 }
 
 // localityInfoForProcess converts the process information from the JSON status
@@ -1106,6 +1139,7 @@ func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo) loca
 		ID:           process.Locality["instance_id"],
 		Address:      process.Address,
 		LocalityData: process.Locality,
+		Class:        process.ProcessClass,
 	}
 }
 
@@ -1188,35 +1222,42 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 		currentLimits[field] = 1
 	}
 
+	// Sort the processes to ensure a deterministic result
+	sortLocalities(processes)
+
 	for len(chosen) < count {
 		choseAny := false
 
 		for _, process := range processes {
-			if !chosenIDs[process.ID] {
-				eligible := true
-				for _, field := range fields {
-					value := process.LocalityData[field]
-					if chosenCounts[field][value] >= currentLimits[field] {
-						eligible = false
-						break
-					}
+			if chosenIDs[process.ID] {
+				continue
+			}
+
+			eligible := true
+			for _, field := range fields {
+				value := process.LocalityData[field]
+				if chosenCounts[field][value] >= currentLimits[field] {
+					eligible = false
+					break
 				}
+			}
 
-				if eligible {
-					chosen = append(chosen, process)
-					chosenIDs[process.ID] = true
+			if !eligible {
+				continue
+			}
 
-					choseAny = true
+			chosen = append(chosen, process)
+			chosenIDs[process.ID] = true
 
-					for _, field := range fields {
-						value := process.LocalityData[field]
-						chosenCounts[field][value]++
-					}
+			choseAny = true
 
-					if len(chosen) == count {
-						break
-					}
-				}
+			for _, field := range fields {
+				value := process.LocalityData[field]
+				chosenCounts[field][value]++
+			}
+
+			if len(chosen) == count {
+				break
 			}
 		}
 

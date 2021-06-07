@@ -3420,9 +3420,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should recruit the processes across multiple zones and data centers", func() {
 					Expect(len(result)).To(Equal(5))
 					Expect(result[0].ID).To(Equal("p1"))
-					Expect(result[1].ID).To(Equal("p8"))
+					Expect(result[1].ID).To(Equal("p10"))
 					Expect(result[2].ID).To(Equal("p3"))
-					Expect(result[3].ID).To(Equal("p9"))
+					Expect(result[3].ID).To(Equal("p8"))
 					Expect(result[4].ID).To(Equal("p4"))
 				})
 			})
@@ -3439,9 +3439,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should recruit the processes across data centers", func() {
 					Expect(len(result)).To(Equal(5))
 					Expect(result[0].ID).To(Equal("p1"))
-					Expect(result[1].ID).To(Equal("p8"))
+					Expect(result[1].ID).To(Equal("p10"))
 					Expect(result[2].ID).To(Equal("p2"))
-					Expect(result[3].ID).To(Equal("p9"))
+					Expect(result[3].ID).To(Equal("p8"))
 					Expect(result[4].ID).To(Equal("p3"))
 				})
 			})
