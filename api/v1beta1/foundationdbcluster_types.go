@@ -2443,3 +2443,29 @@ func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversP
 
 	clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
 }
+
+// None represents an empty struct used for creating set where we don't care about the value.
+type None struct{}
+
+// GetCoordinatorSet returns the current coordinator addresses as a set based on the information
+// in the connection string of the FoundationDBClusterStatus
+func (cluster FoundationDBCluster) GetCoordinatorSet() map[string]None {
+	coordinators := make(map[string]None)
+	// Split the connection string to get only the addresses after the @
+	conSplit := strings.Split(cluster.Status.ConnectionString, "@")
+	if len(conSplit) < 2 {
+		return coordinators
+	}
+
+	for _, addr := range strings.Split(conSplit[1], ",") {
+		// We don't care about the tls suffix
+		addr = strings.TrimSuffix(addr, ":tls")
+		portIdx := strings.LastIndex(addr, ":")
+		// Remove the brackets for IPv6
+		cAddr := strings.TrimRight(strings.TrimLeft(addr[:portIdx], "["), "]")
+		// Add only the address to the set
+		coordinators[cAddr] = None{}
+	}
+
+	return coordinators
+}

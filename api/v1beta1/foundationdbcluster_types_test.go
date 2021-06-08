@@ -3371,8 +3371,74 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						{
 							IPAddress: "1.2.3.4",
 							Port:      4500,
-							Flags:     map[string]bool{"tls": true},
+							Flags: map[string]bool{
+								"tls": true,
+							},
 						},
+					},
+				}),
+		)
+	})
+
+	When("getting the coordinator set", func() {
+		type testCase struct {
+			fdbCluster *FoundationDBCluster
+			expected   map[string]None
+		}
+
+		DescribeTable("should add or ignore the addresses",
+			func(tc testCase) {
+				res := tc.fdbCluster.GetCoordinatorSet()
+				Expect(len(res)).To(BeNumerically("==", len(tc.expected)))
+				Expect(res).To(Equal(tc.expected))
+			},
+			Entry("Empty connection string",
+				testCase{
+					fdbCluster: &FoundationDBCluster{
+						Status: FoundationDBClusterStatus{},
+					},
+					expected: map[string]None{},
+				}),
+			Entry("connections string with IPv4",
+				testCase{
+					fdbCluster: &FoundationDBCluster{
+						Status: FoundationDBClusterStatus{
+							ConnectionString: "description:ID@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500",
+						},
+					},
+					expected: map[string]None{
+						"127.0.0.1": {},
+						"127.0.0.2": {},
+						"127.0.0.3": {},
+					},
+				}),
+			Entry("connections string with IPv6",
+				testCase{
+					fdbCluster: &FoundationDBCluster{
+						Status: FoundationDBClusterStatus{
+							ConnectionString: "description:ID@[::1]:4500,[::2]:4500,[::3]:4500",
+						},
+					},
+					expected: map[string]None{
+						"::1": {},
+						"::2": {},
+						"::3": {},
+					},
+				}),
+			Entry("connections string with dual stack",
+				testCase{
+					fdbCluster: &FoundationDBCluster{
+						Status: FoundationDBClusterStatus{
+							ConnectionString: "description:ID@[::1]:4500,[::2]:4500,[::3]:4500,127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500",
+						},
+					},
+					expected: map[string]None{
+						"::1":       {},
+						"::2":       {},
+						"::3":       {},
+						"127.0.0.1": {},
+						"127.0.0.2": {},
+						"127.0.0.3": {},
 					},
 				}),
 		)

@@ -244,6 +244,7 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 }
 
 func getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
+	cordSet := cluster.GetCoordinatorSet()
 	allExcluded := true
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -255,6 +256,22 @@ func getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMa
 		if !excluded || err != nil {
 			log.Info("Incomplete exclusion still present in RemovePods step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
 			allExcluded = false
+			continue
+		}
+
+		isCoordinator := false
+		for _, addr := range processGroup.Addresses {
+			if _, ok := cordSet[addr]; !ok {
+				continue
+			}
+
+			isCoordinator = true
+			break
+		}
+
+		if isCoordinator {
+			log.Info("Block removal of Coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID)
+			continue
 		}
 
 		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
