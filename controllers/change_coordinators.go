@@ -81,15 +81,15 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return true, nil
 	}
 
-	hasLock, err := r.takeLock(cluster, "changing coordinators")
-	if !hasLock {
-		return false, err
-	}
-
 	if !allAddressesValid {
 		log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
 		return true, nil
+	}
+
+	hasLock, err := r.takeLock(cluster, "changing coordinators")
+	if !hasLock {
+		return false, err
 	}
 
 	log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)

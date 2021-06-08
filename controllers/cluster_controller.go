@@ -1330,12 +1330,21 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		if process.Address == "" {
 			continue
 		}
-		address, err := fdbtypes.ParseProcessAddress(process.Address)
+
+		addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
 		if err != nil {
 			return false, false, err
 		}
 
-		if address.Flags["tls"] != cluster.Spec.MainContainer.EnableTLS {
+		hasValidAddress := false
+		for _, address := range addresses {
+			if address.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
+				hasValidAddress = true
+				break
+			}
+		}
+
+		if !hasValidAddress {
 			allAddressesValid = false
 		}
 	}

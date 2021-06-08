@@ -3325,4 +3325,56 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 		)
 	})
+
+	When("parsing the addresses from the process commandline", func() {
+		type testCase struct {
+			cmdline  string
+			expected []ProcessAddress
+		}
+
+		DescribeTable("should add or ignore the addresses",
+			func(tc testCase) {
+				res, err := ParseProcessAddressesFromCmdline(tc.cmdline)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(res)).To(BeNumerically("==", len(tc.expected)))
+				Expect(res).To(Equal(tc.expected))
+			},
+			Entry("Only no-tls",
+				testCase{
+					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					expected: []ProcessAddress{
+						{
+							IPAddress: "1.2.3.4",
+							Port:      4501,
+						},
+					},
+				}),
+			Entry("Only TLS",
+				testCase{
+					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					expected: []ProcessAddress{
+						{
+							IPAddress: "1.2.3.4",
+							Port:      4500,
+							Flags:     map[string]bool{"tls": true},
+						},
+					},
+				}),
+			Entry("TLS and no-TLS",
+				testCase{
+					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4501,1.2.3.4:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					expected: []ProcessAddress{
+						{
+							IPAddress: "1.2.3.4",
+							Port:      4501,
+						},
+						{
+							IPAddress: "1.2.3.4",
+							Port:      4500,
+							Flags:     map[string]bool{"tls": true},
+						},
+					},
+				}),
+		)
+	})
 })

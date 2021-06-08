@@ -3458,7 +3458,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
 			generations, err := reloadClusterGenerations(cluster)
@@ -3541,7 +3541,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				result, err := reconcileCluster(cluster)
-				Expect(err).NotTo((HaveOccurred()))
+				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Requeue).To(BeFalse())
 
 				generation, err := reloadCluster(cluster)
@@ -3598,6 +3598,75 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					}
 
 					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					Expect(coordinatorsValid).To(BeFalse())
+					Expect(addressesValid).To(BeTrue())
+					Expect(err).To(BeNil())
+				})
+			})
+		})
+
+		When("Changing the TLS setting", func() {
+
+			BeforeEach(func() {
+				cluster.Status.RequiredAddresses = fdbtypes.RequiredAddressSet{
+					TLS:    true,
+					NonTLS: true,
+				}
+			})
+
+			When("TLS is disabled", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+						EnableTLS: false,
+					}
+					cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+						EnableTLS: false,
+					}
+
+					adminClient, err = NewMockAdminClient(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					status, err = adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should report the coordinators as valid", func() {
+					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinatorStatus[coordinator.Address] = false
+					}
+
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					Expect(coordinatorsValid).To(BeTrue())
+					Expect(addressesValid).To(BeTrue())
+					Expect(err).To(BeNil())
+				})
+			})
+
+			When("TLS is enabled", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+						EnableTLS: true,
+					}
+					cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+						EnableTLS: true,
+					}
+
+					adminClient, err = NewMockAdminClient(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+
+					status, err = adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should report the coordinators as valid", func() {
+					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinatorStatus[coordinator.Address] = false
+					}
+
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					// coordinators are not valid since we didn't reconcile to tls
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())

@@ -1668,7 +1668,7 @@ func ParseProcessAddress(address string) (ProcessAddress, error) {
 	components := strings.Split(address, ":")
 
 	if len(components) < 2 {
-		return result, fmt.Errorf("Invalid address: %s", address)
+		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
 	result.IPAddress = components[0]
@@ -1687,6 +1687,34 @@ func ParseProcessAddress(address string) (ProcessAddress, error) {
 	}
 
 	return result, nil
+}
+
+// ParseProcessAddressesFromCmdline returns the ProcessAddress slice parsed from the commandline
+// of the process.
+func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) {
+	addrReg, err := regexp.Compile(`--public_address=(\S+)`)
+	if err != nil {
+		return nil, err
+	}
+
+	res := addrReg.FindStringSubmatch(cmdline)
+	if len(res) != 2 {
+		return nil, fmt.Errorf("invalid cmdlind with missing public_address: %s", cmdline)
+	}
+
+	addrs := strings.Split(res[1], ",")
+	pAddresses := make([]ProcessAddress, len(addrs))
+
+	for idx, addr := range addrs {
+		pAddr, err := ParseProcessAddress(addr)
+		if err != nil {
+			return pAddresses, err
+		}
+
+		pAddresses[idx] = pAddr
+	}
+
+	return pAddresses, nil
 }
 
 // String gets the string representation of an address.
