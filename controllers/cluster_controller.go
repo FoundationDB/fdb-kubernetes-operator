@@ -1323,25 +1323,12 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
-
 	processGroups := make(map[string]*fdbtypes.ProcessGroupStatus)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
 
 	for _, process := range status.Cluster.Processes {
-		_, isCoordinator := coordinatorStatus[process.Address]
-		processGroupStatus := processGroups[process.Locality["instance_id"]]
-		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
-		if isCoordinator && !process.Excluded && !pendingRemoval {
-			coordinatorStatus[process.Address] = true
-		}
-
-		if isCoordinator {
-			coordinatorZones[process.Locality[fdbtypes.FDBLocalityZoneIDKey]]++
-			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
-		}
-
 		if process.Address == "" {
 			continue
 		}
@@ -1351,15 +1338,29 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			return false, false, err
 		}
 
-		hasValidAddress := false
-		for _, address := range addresses {
-			if address.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
-				hasValidAddress = true
+		var address string
+		for _, addr := range addresses {
+			if addr.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
+				address = addr.String()
 				break
 			}
 		}
 
-		if !hasValidAddress {
+		_, isCoordinator := coordinatorStatus[address]
+		processGroupStatus := processGroups[process.Locality["instance_id"]]
+		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
+
+		if isCoordinator && !process.Excluded && !pendingRemoval {
+			coordinatorStatus[address] = true
+		}
+
+		if isCoordinator {
+			coordinatorZones[process.Locality[fdbtypes.FDBLocalityZoneIDKey]]++
+			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
+		}
+
+		if address == "" {
+			log.Info("Process has invalid address", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBInstanceIDLabel], "address", address)
 			allAddressesValid = false
 		}
 	}
