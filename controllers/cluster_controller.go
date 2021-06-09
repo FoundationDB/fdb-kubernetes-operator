@@ -1360,7 +1360,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 
 		if address == "" {
-			log.Info("Process has invalid address", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBInstanceIDLabel], "address", address)
+			log.Info("Process has invalid address", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "address", address)
 			allAddressesValid = false
 		}
 	}
