@@ -10,7 +10,6 @@ spec:
     key: foundationdb.org/none
   services:
     headless: true
-    publicIPSource: "pod"
   processCounts:
     # Disable stateless processes to save resources.
     stateless: -1

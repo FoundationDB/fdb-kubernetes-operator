@@ -174,3 +174,30 @@ func (client FoundationDBStatusConnectedClient) Description() string {
 	}
 	return fmt.Sprintf("%s (%s)", client.Address, client.LogGroup)
 }
+
+// FoundationDBStatusLayerInfo provides information about layers that are
+// running against the cluster.
+type FoundationDBStatusLayerInfo struct {
+	// Backup provides information about backups that have been started.
+	Backup FoundationDBStatusBackupInfo `json:"backup,omitempty"`
+
+	// The error from the layer status.
+	Error string `json:"_error,omitempty"`
+}
+
+// FoundationDBStatusBackupInfo provides information about backups that have been started.
+type FoundationDBStatusBackupInfo struct {
+	// Paused tells whether the backups are paused.
+	Paused bool `json:"paused,omitempty"`
+
+	// Tags provides information about specific backups.
+	Tags map[string]FoundationDBStatusBackupTag `json:"tags,omitempty"`
+}
+
+// FoundationDBStatusBackupTag provides information about a backup under a tag
+// in the cluster status.
+type FoundationDBStatusBackupTag struct {
+	CurrentContainer string `json:"current_container,omitempty"`
+	RunningBackup    bool   `json:"running_backup,omitempty"`
+	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
+}

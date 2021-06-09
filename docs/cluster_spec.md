@@ -18,9 +18,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
-* [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo)
-* [FoundationDBStatusBackupTag](#foundationdbstatusbackuptag)
-* [FoundationDBStatusLayerInfo](#foundationdbstatuslayerinfo)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
@@ -284,40 +281,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBStatusBackupInfo
-
-FoundationDBStatusBackupInfo provides information about backups that have been started.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| paused | Paused tells whether the backups are paused. | bool | false |
-| tags | Tags provides information about specific backups. | map[string][FoundationDBStatusBackupTag](#foundationdbstatusbackuptag) | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBStatusBackupTag
-
-FoundationDBStatusBackupTag provides information about a backup under a tag in the cluster status.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| current_container |  | string | false |
-| running_backup |  | bool | false |
-| running_backup_is_restorable |  | bool | false |
-
-[Back to TOC](#table-of-contents)
-
-## FoundationDBStatusLayerInfo
-
-FoundationDBStatusLayerInfo provides information about layers that are running against the cluster.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| backup | Backup provides information about backups that have been started. | [FoundationDBStatusBackupInfo](#foundationdbstatusbackupinfo) | false |
-| _error | The error from the layer status. | string | false |
 
 [Back to TOC](#table-of-contents)
 

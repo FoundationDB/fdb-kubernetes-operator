@@ -1658,7 +1658,7 @@ func GetProcessPort(processNumber int, tls bool) int {
 func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool, processNumber int) string {
 	addressMap := make(map[string]bool)
 
-	// When a TLS address is provided this will always be the primary address
+	// When a TLS address is provided the TLS address will always be the primary address
 	// see: https://github.com/apple/foundationdb/blob/master/fdbrpc/FlowTransport.h#L49-L56
 	if cluster.Status.RequiredAddresses.TLS {
 		addressMap[fmt.Sprintf("%s:%d:tls", ipAddress, GetProcessPort(processNumber, true))] = cluster.Status.RequiredAddresses.TLS
@@ -1793,33 +1793,6 @@ type DataCenter struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1
 	Satellite int `json:"satellite,omitempty"`
-}
-
-// FoundationDBStatusLayerInfo provides information about layers that are
-// running against the cluster.
-type FoundationDBStatusLayerInfo struct {
-	// Backup provides information about backups that have been started.
-	Backup FoundationDBStatusBackupInfo `json:"backup,omitempty"`
-
-	// The error from the layer status.
-	Error string `json:"_error,omitempty"`
-}
-
-// FoundationDBStatusBackupInfo provides information about backups that have been started.
-type FoundationDBStatusBackupInfo struct {
-	// Paused tells whether the backups are paused.
-	Paused bool `json:"paused,omitempty"`
-
-	// Tags provides information about specific backups.
-	Tags map[string]FoundationDBStatusBackupTag `json:"tags,omitempty"`
-}
-
-// FoundationDBStatusBackupTag provides information about a backup under a tag
-// in the cluster status.
-type FoundationDBStatusBackupTag struct {
-	CurrentContainer string `json:"current_container,omitempty"`
-	RunningBackup    bool   `json:"running_backup,omitempty"`
-	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
 }
 
 // ContainerOverrides provides options for customizing a container created by

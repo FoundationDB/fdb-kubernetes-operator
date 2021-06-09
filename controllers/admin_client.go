@@ -221,13 +221,13 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
-		podIP, ok := subs["FDB_PUBLIC_IP"]
+		processIP, ok := subs["FDB_PUBLIC_IP"]
 		if !ok {
-			podIP = pod.Status.PodIP
+			processIP = pod.Status.PodIP
 		}
 
 		for processIndex := 1; processIndex <= processCount; processIndex++ {
-			fullAddress := client.Cluster.GetFullAddress(podIP, processIndex)
+			fullAddress := client.Cluster.GetFullAddress(processIP, processIndex)
 			_, ipExcluded := exclusionMap[pod.Status.PodIP]
 			_, addressExcluded := exclusionMap[fullAddress]
 			excluded := ipExcluded || addressExcluded
