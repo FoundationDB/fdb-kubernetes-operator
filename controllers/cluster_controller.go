@@ -1134,13 +1134,28 @@ func sortLocalities(processes []localityInfo) {
 
 // localityInfoForProcess converts the process information from the JSON status
 // into locality info for selecting processes.
-func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo) localityInfo {
+func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo, mainContainerTLS bool) (localityInfo, error) {
+	addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
+	if err != nil {
+		return localityInfo{}, err
+	}
+
+	var addr string
+	// Iterate over the addresses and set the expected address as process address
+	// e.g. if we want to use TLS set it to the tls address otherwise use the non-TLS.
+	for _, address := range addresses {
+		if address.Flags["tls"] == mainContainerTLS {
+			addr = address.String()
+			break
+		}
+	}
+
 	return localityInfo{
 		ID:           process.Locality["instance_id"],
-		Address:      process.Address,
+		Address:      addr,
 		LocalityData: process.Locality,
 		Class:        process.ProcessClass,
-	}
+	}, nil
 }
 
 // localityInfoForProcess converts the process information from the sidecar's

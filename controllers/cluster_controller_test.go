@@ -2787,7 +2787,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					"command = $BINARY_DIR/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501,$FDB_PUBLIC_IP:4500:tls",
+					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
 					"class = storage",
 					"logdir = /var/log/fdb-trace-logs",
 					"loggroup = " + cluster.Name,
@@ -3605,8 +3605,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
-		When("Changing the TLS setting", func() {
-
+		When("changing the TLS setting", func() {
 			BeforeEach(func() {
 				cluster.Status.RequiredAddresses = fdbtypes.RequiredAddressSet{
 					TLS:    true,
@@ -3630,16 +3629,43 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should report the coordinators as valid", func() {
+				It("should report the coordinators addresses as valid", func() {
 					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 					for _, coordinator := range status.Client.Coordinators.Coordinators {
 						coordinatorStatus[coordinator.Address] = false
 					}
 
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
-					Expect(coordinatorsValid).To(BeTrue())
+					_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
+				})
+
+				When("converting back to TLS", func() {
+					BeforeEach(func() {
+						cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+							EnableTLS: true,
+						}
+						cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+							EnableTLS: true,
+						}
+
+						adminClient, err = NewMockAdminClient(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						status, err = adminClient.GetStatus()
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should report the coordinators addresses as valid", func() {
+						coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+						for _, coordinator := range status.Client.Coordinators.Coordinators {
+							coordinatorStatus[coordinator.Address] = false
+						}
+
+						_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+						Expect(addressesValid).To(BeTrue())
+						Expect(err).To(BeNil())
+					})
 				})
 			})
 
@@ -3659,21 +3685,101 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should report the coordinators as valid", func() {
+				It("should report the coordinators addresses as valid", func() {
 					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 					for _, coordinator := range status.Client.Coordinators.Coordinators {
 						coordinatorStatus[coordinator.Address] = false
 					}
 
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
-					// coordinators are not valid since we didn't reconcile to tls
-					Expect(coordinatorsValid).To(BeFalse())
+					_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
+				})
+
+				When("converting back to non-TLS", func() {
+					BeforeEach(func() {
+						cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+							EnableTLS: false,
+						}
+
+						cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+							EnableTLS: false,
+						}
+
+						adminClient, err = NewMockAdminClient(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+
+						status, err = adminClient.GetStatus()
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("should report the coordinators addresses as valid", func() {
+						coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+						for _, coordinator := range status.Client.Coordinators.Coordinators {
+							coordinatorStatus[coordinator.Address] = false
+						}
+
+						_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+						Expect(addressesValid).To(BeTrue())
+						Expect(err).To(BeNil())
+					})
+				})
+			})
+		})
+
+		When("Generating the locality info based on a process", func() {
+			BeforeEach(func() {
+				cluster.Status.RequiredAddresses = fdbtypes.RequiredAddressSet{
+					TLS:    true,
+					NonTLS: true,
+				}
+
+				cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+					EnableTLS: true,
+				}
+				cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+					EnableTLS: true,
+				}
+
+				adminClient, err = NewMockAdminClient(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("TLS is disabled", func() {
+				It("the locality address should not contain tls", func() {
+					var proc fdbtypes.FoundationDBStatusProcessInfo
+					for _, p := range status.Cluster.Processes {
+						proc = p
+						// Select the first process Info
+						break
+					}
+
+					info, err := localityInfoForProcess(proc, false)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(info.Address).NotTo(HaveSuffix("tls"))
+				})
+			})
+
+			When("TLS is enabled", func() {
+				It("the locality address should contain tls", func() {
+					var proc fdbtypes.FoundationDBStatusProcessInfo
+					for _, p := range status.Cluster.Processes {
+						proc = p
+						// Select the first process Info
+						break
+					}
+
+					info, err := localityInfoForProcess(proc, true)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(info.Address).To(HaveSuffix("tls"))
 				})
 			})
 		})
 	})
+
 	Context("Setting the partial connection string", func() {
 		var partialConnectionString fdbtypes.ConnectionString
 
@@ -3685,7 +3791,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
 			generation, err := reloadCluster(cluster)
