@@ -41,7 +41,7 @@ var _ = Describe("admin_client_test", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
-		Expect(err).NotTo((HaveOccurred()))
+		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Requeue).To(BeFalse())
 
 		generation, err := reloadCluster(cluster)
@@ -90,6 +90,11 @@ var _ = Describe("admin_client_test", func() {
 					},
 					Version:       "6.2.20",
 					UptimeSeconds: 60000,
+					Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
+						{
+							Role: string(fdbtypes.ProcessRoleCoordinator),
+						},
+					},
 				}))
 			})
 		})

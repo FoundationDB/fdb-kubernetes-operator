@@ -40,7 +40,7 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		return false, err
 	}
 
-	allExcluded, processGroupsToRemove := getProcessGroupsToRemove(cluster, remainingMap)
+	allExcluded, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		return allExcluded, nil
@@ -243,8 +243,18 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 	return remainingMap, nil
 }
 
-func getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
-	cordSet := cluster.GetCoordinatorSet()
+func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return false, []string{}
+	}
+	defer adminClient.Close()
+
+	cordSet, err := adminClient.GetCoordinatorSet()
+	if err != nil {
+		return false, []string{}
+	}
+
 	allExcluded := true
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -261,16 +271,22 @@ func getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMa
 
 		isCoordinator := false
 		for _, addr := range processGroup.Addresses {
-			if _, ok := cordSet[addr]; !ok {
-				continue
+			for i := 1; i <= cluster.GetStorageServersPerPod(); i++ {
+				if _, ok := cordSet[cluster.GetFullAddress(addr, 1)]; !ok {
+					continue
+				}
+				isCoordinator = true
+				break
 			}
 
-			isCoordinator = true
-			break
+			if isCoordinator {
+				break
+			}
 		}
 
 		if isCoordinator {
 			log.Info("Block removal of Coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID)
+			allExcluded = false
 			continue
 		}
 
