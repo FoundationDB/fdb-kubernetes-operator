@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -243,23 +245,35 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 	return remainingMap, nil
 }
 
-func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
+func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]internal.None, error) {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
-		return false, []string{}
+		log.Error(err, "Fetching coordinator set for removal", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		return map[string]internal.None{}, err
 	}
 	defer adminClient.Close()
 
-	cordSet, err := adminClient.GetCoordinatorSet()
-	if err != nil {
-		return false, []string{}
-	}
+	return adminClient.GetCoordinatorSet()
+}
 
+func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
+	var cordSet map[string]internal.None
 	allExcluded := true
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.Remove {
 			continue
+		}
+
+		// Only query FDB if we have a pending removal otherwise don't query FDB
+		if len(cordSet) == 0 {
+			var err error
+			cordSet, err = r.getCoordinatorSet(cluster)
+
+			if err != nil {
+				return false, []string{}
+			}
 		}
 
 		excluded, err := processGroup.IsExcluded(remainingMap)
