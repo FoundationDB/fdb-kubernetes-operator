@@ -113,6 +113,21 @@ var _ = Describe("replace_failed_pods", func() {
 				It("should not mark the process group for removal", func() {
 					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
 				})
+
+				When("max concurrent replacements is set to two", func() {
+					BeforeEach(func() {
+						replacements := 2
+						cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
+					})
+
+					It("should return true", func() {
+						Expect(result).To(BeTrue())
+					})
+
+					It("should mark the process group for removal", func() {
+						Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2", "storage-3"}))
+					})
+				})
 			})
 
 			Context("with another complete exclusion", func() {

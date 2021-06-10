@@ -1058,6 +1058,16 @@ type AutomaticReplacementOptions struct {
 	// failed or missing before it is automatically replaced.
 	// The default is 1800 seconds, or 30 minutes.
 	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
+
+	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.
+	// This will take the list of current replacements and then calculate the difference between
+	// maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are
+	// queued (e.g. in the instancesToRemove list) and maxConcurrentReplacements is 5 the operator
+	// is allowed to replace at most 2 process groups. Setting this to 0 will basically disable the automatic
+	// replacements.
+	// +kubebuilder:default:=1
+	// +kubebuilder:validation:Minimum=0
+	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.
@@ -2608,4 +2618,13 @@ func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversP
 	}
 
 	clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
+}
+
+// GetMaxConcurrentReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
+func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
+	if cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements == nil {
+		return 1
+	}
+
+	return *cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements
 }

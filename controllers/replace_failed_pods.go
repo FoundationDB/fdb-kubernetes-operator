@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -52,29 +53,50 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 		return false
 	}
 
+	// The maximum number of removals will be the defined number in the cluster spec
+	// minus all currently ongoing removals e.g. process groups marked fro removal but
+	// not fully excluded.
+	removalCnt := 0
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.Remove && !processGroupStatus.Excluded {
 			// If we already have a removal in-flight, we should not try
 			// replacing more failed pods.
-			return false
+			removalCnt++
 		}
 	}
+	maxReplacements := cluster.GetMaxConcurrentReplacements() - removalCnt
 
+	hasReplacement := false
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
+		if maxReplacements == 0 {
+			return hasReplacement
+		}
+
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)
 		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
 			if len(processGroupStatus.Addresses) == 0 {
-				log.Info("Ignore failed process group with missing address", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", missingTime)
+				log.Info(
+					"Ignore failed process group with missing address",
+					"namespace", cluster.Namespace,
+					"cluster", cluster.Name,
+					"processGroupID", processGroupStatus.ProcessGroupID,
+					"failureTime", time.Unix(missingTime, 0).UTC().String())
 				continue
 			}
 
-			log.Info("Replacing failed process group", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupStatus.ProcessGroupID, "failureTime", missingTime)
+			log.Info("Replace instance",
+				"namespace", cluster.Namespace,
+				"name", cluster.Name,
+				"processGroupID", processGroupStatus.ProcessGroupID,
+				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
+
 			processGroupStatus.Remove = true
-			return true
+			hasReplacement = true
+			maxReplacements--
 		}
 	}
 
-	return false
+	return hasReplacement
 }
 
 // RequeueAfter returns the delay before we should run the reconciliation

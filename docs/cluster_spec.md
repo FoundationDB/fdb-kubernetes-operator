@@ -56,6 +56,7 @@ AutomaticReplacementOptions controls options for automatically replacing failed 
 | ----- | ----------- | ------ | -------- |
 | enabled | Enabled controls whether automatic replacements are enabled. The default is false. | *bool | false |
 | failureDetectionTimeSeconds | FailureDetectionTimeSeconds controls how long a process must be failed or missing before it is automatically replaced. The default is 1800 seconds, or 30 minutes. | *int | false |
+| maxConcurrentReplacements | MaxConcurrentReplacements controls how many automatic replacements are allowed to take part. This will take the list of current replacements and then calculate the difference between maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are queued (e.g. in the instancesToRemove list) and maxConcurrentReplacements is 5 the operator is allowed to replace at most 2 process groups. Setting this to 0 will basically disable the automatic replacements. | *int | false |
 
 [Back to TOC](#table-of-contents)
 
