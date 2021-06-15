@@ -56,19 +56,19 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 	// The maximum number of removals will be the defined number in the cluster spec
 	// minus all currently ongoing removals e.g. process groups marked fro removal but
 	// not fully excluded.
-	removalCnt := 0
+	removalCount := 0
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.Remove && !processGroupStatus.Excluded {
 			// If we already have a removal in-flight, we should not try
 			// replacing more failed pods.
-			removalCnt++
+			removalCount++
 		}
 	}
-	maxReplacements := cluster.GetMaxConcurrentReplacements() - removalCnt
+	maxReplacements := cluster.GetMaxConcurrentReplacements() - removalCount
 
 	hasReplacement := false
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if maxReplacements == 0 {
+		if maxReplacements <= 0 {
 			return hasReplacement
 		}
 
