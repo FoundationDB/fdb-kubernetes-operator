@@ -81,15 +81,15 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return true, nil
 	}
 
-	hasLock, err := r.takeLock(cluster, "changing coordinators")
-	if !hasLock {
-		return false, err
-	}
-
 	if !allAddressesValid {
 		log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
 		return true, nil
+	}
+
+	hasLock, err := r.takeLock(cluster, "changing coordinators")
+	if !hasLock {
+		return false, err
 	}
 
 	log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
@@ -126,7 +126,7 @@ func (c ChangeCoordinators) RequeueAfter() time.Duration {
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching instances.
-func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, candidates []localityInfo, class fdbtypes.ProcessClass) []localityInfo {
+func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, candidates []localityInfo, class fdbtypes.ProcessClass) ([]localityInfo, error) {
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded {
 			continue
@@ -140,14 +140,20 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 			continue
 		}
 
-		candidates = append(candidates, localityInfoForProcess(process))
+		locality, err := localityInfoForProcess(process, cluster.Spec.MainContainer.EnableTLS)
+		if err != nil {
+			return candidates, err
+		}
+
+		candidates = append(candidates, locality)
 	}
 
-	return candidates
+	return candidates, nil
 }
 
 // selectCoordinators is not a deterministic method and can return different coordinators for the same input arguments
 func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 	chooseCoordinators := func(candidates []localityInfo) ([]localityInfo, error) {
@@ -157,18 +163,27 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 	}
 
 	// Use all stateful pods if needed, but only storage if possible.
-	candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassStorage)
+	candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassStorage)
+	if err != nil {
+		return []localityInfo{}, nil
+	}
 	coordinators, err := chooseCoordinators(candidates)
 	log.Info("Current coordinators added (storage) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 
 	if err != nil {
 		// Add in tLogs as candidates
-		candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassLog)
+		candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassLog)
+		if err != nil {
+			return []localityInfo{}, nil
+		}
 		log.Info("Current coordinators added (TLog) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 		coordinators, err = chooseCoordinators(candidates)
 		if err != nil {
 			// Add in transaction roles too
-			candidates = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassTransaction)
+			candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassTransaction)
+			if err != nil {
+				return []localityInfo{}, nil
+			}
 			log.Info("Current coordinators added (transaction) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 			coordinators, err = chooseCoordinators(candidates)
 			if err != nil {

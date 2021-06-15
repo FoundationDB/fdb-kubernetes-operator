@@ -1134,13 +1134,28 @@ func sortLocalities(processes []localityInfo) {
 
 // localityInfoForProcess converts the process information from the JSON status
 // into locality info for selecting processes.
-func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo) localityInfo {
+func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo, mainContainerTLS bool) (localityInfo, error) {
+	addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
+	if err != nil {
+		return localityInfo{}, err
+	}
+
+	var addr string
+	// Iterate over the addresses and set the expected address as process address
+	// e.g. if we want to use TLS set it to the tls address otherwise use the non-TLS.
+	for _, address := range addresses {
+		if address.Flags["tls"] == mainContainerTLS {
+			addr = address.String()
+			break
+		}
+	}
+
 	return localityInfo{
 		ID:           process.Locality["instance_id"],
-		Address:      process.Address,
+		Address:      addr,
 		LocalityData: process.Locality,
 		Class:        process.ProcessClass,
-	}
+	}, nil
 }
 
 // localityInfoForProcess converts the process information from the sidecar's
@@ -1308,18 +1323,35 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
-
 	processGroups := make(map[string]*fdbtypes.ProcessGroupStatus)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
 
 	for _, process := range status.Cluster.Processes {
-		_, isCoordinator := coordinatorStatus[process.Address]
+		if process.Address == "" {
+			continue
+		}
+
+		addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
+		if err != nil {
+			return false, false, err
+		}
+
+		var address string
+		for _, addr := range addresses {
+			if addr.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
+				address = addr.String()
+				break
+			}
+		}
+
+		_, isCoordinator := coordinatorStatus[address]
 		processGroupStatus := processGroups[process.Locality["instance_id"]]
 		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
+
 		if isCoordinator && !process.Excluded && !pendingRemoval {
-			coordinatorStatus[process.Address] = true
+			coordinatorStatus[address] = true
 		}
 
 		if isCoordinator {
@@ -1327,15 +1359,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
 		}
 
-		if process.Address == "" {
-			continue
-		}
-		address, err := fdbtypes.ParseProcessAddress(process.Address)
-		if err != nil {
-			return false, false, err
-		}
-
-		if address.Flags["tls"] != cluster.Spec.MainContainer.EnableTLS {
+		if address == "" {
+			log.Info("Process has invalid address", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "address", address)
 			allAddressesValid = false
 		}
 	}

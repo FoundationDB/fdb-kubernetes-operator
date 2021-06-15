@@ -643,6 +643,7 @@ func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProces
 			break
 		}
 
+		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
 		res[zondeid] = fdbtypes.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
 			Locality: map[string]string{
@@ -650,8 +651,9 @@ func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProces
 				fdbtypes.FDBLocalityZoneIDKey:     zondeid,
 				fdbtypes.FDBLocalityDCIDKey:       dcid,
 			},
-			Excluded: excluded,
-			Address:  fmt.Sprintf("1.1.1.%d:4501", len(res)),
+			Excluded:    excluded,
+			Address:     addr,
+			CommandLine: fmt.Sprintf("/fdbserver --public_address=%s", addr),
 		}
 	}
 }
