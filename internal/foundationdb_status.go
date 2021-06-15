@@ -22,7 +22,8 @@ package internal
 
 import fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 
-// GetCoordinatorsFromStatus gets the current coordinators from the status
+// GetCoordinatorsFromStatus gets the current coordinators from the status.
+// The returning set will contain all processes by their process group ID.
 func GetCoordinatorsFromStatus(status *fdbtypes.FoundationDBStatus) map[string]None {
 	coordinators := make(map[string]None)
 
@@ -32,7 +33,9 @@ func GetCoordinatorsFromStatus(status *fdbtypes.FoundationDBStatus) map[string]N
 				continue
 			}
 
-			coordinators[pInfo.Address] = None{}
+			// We don't have to check for duplicates here, if the process group ID is already
+			// set we just overwrite it.
+			coordinators[pInfo.Locality[fdbtypes.FDBLocalityInstanceIDKey]] = None{}
 			break
 		}
 	}

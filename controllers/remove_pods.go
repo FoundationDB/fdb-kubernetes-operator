@@ -283,22 +283,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 			continue
 		}
 
-		isCoordinator := false
-		for _, addr := range processGroup.Addresses {
-			for i := 1; i <= cluster.GetStorageServersPerPod(); i++ {
-				if _, ok := cordSet[cluster.GetFullAddress(addr, 1)]; !ok {
-					continue
-				}
-				isCoordinator = true
-				break
-			}
-
-			if isCoordinator {
-				break
-			}
-		}
-
-		if isCoordinator {
+		if _, ok := cordSet[processGroup.ProcessGroupID]; ok {
 			log.Info("Block removal of Coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID)
 			allExcluded = false
 			continue

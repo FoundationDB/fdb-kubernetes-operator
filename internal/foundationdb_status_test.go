@@ -50,7 +50,9 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
 							Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
 								"foo": {
-									Address: "10.10.0.1:4501",
+									Locality: map[string]string{
+										fdbtypes.FDBLocalityInstanceIDKey: "foo",
+									},
 									Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
@@ -58,13 +60,15 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 									},
 								},
 								"bar": {
-									Address: "10.10.0.2:4501",
+									Locality: map[string]string{
+										fdbtypes.FDBLocalityInstanceIDKey: "bar",
+									},
 								},
 							},
 						},
 					},
 					expected: map[string]None{
-						"10.10.0.1:4501": {},
+						"foo": {},
 					},
 				}),
 			Entry("multiple coordinators",
@@ -73,7 +77,9 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
 							Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
 								"foo": {
-									Address: "10.10.0.1:4501",
+									Locality: map[string]string{
+										fdbtypes.FDBLocalityInstanceIDKey: "foo",
+									},
 									Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
@@ -81,7 +87,9 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 									},
 								},
 								"bar": {
-									Address: "10.10.0.2:4501",
+									Locality: map[string]string{
+										fdbtypes.FDBLocalityInstanceIDKey: "bar",
+									},
 									Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
@@ -92,9 +100,10 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 						},
 					},
 					expected: map[string]None{
-						"10.10.0.1:4501": {},
-						"10.10.0.2:4501": {},
+						"foo": {},
+						"bar": {},
 					},
-				}))
+				}),
+		)
 	})
 })
