@@ -8,7 +8,6 @@ Fault domains are controlled through the `faultDomain` field in the cluster spec
 
 The default fault domain strategy is to replicate across nodes in a single Kubernetes cluster. If you do not specify any fault domain option, we will replicate across nodes. This is equivalent to the following configuration:
 
-
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
@@ -76,7 +75,7 @@ spec:
 
 This tells the operator to use the value "zone2" as the fault domain for every process it creates. The zoneIndex and zoneCount tell the operator where this fault domain is within the list of Kubernetes clusters (KCs) you are using in this DC. This is used to divide processes across fault domains. For instance, this configuration has 7 stateless processes, which need to be divided across 5 fault domains. The zones with zoneIndex 1 and 2 will allocate 2 stateless processes each. The zones with zoneIndex 3, 4, and 5 will allocate 1 stateless process each.
 
-When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration. 
+When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration.
 
 You must always specify an `instanceIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters. You must set it to a different value in each Kubernetes cluster. This will prevent instance ID duplicates in the different Kubernetes clusters.
 
