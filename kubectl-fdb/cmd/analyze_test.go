@@ -237,7 +237,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "",
+					ExpectedErrMsg: "✖ ProcessGroup: instance-1 is marked for removal, excluded state: false",
 					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated

@@ -245,6 +245,8 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		// Skip if the processGroup should be removed
 		// or should we check for how long they are marked as removed e.g. stuck in removal?
 		if processGroup.Remove {
+			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.Excluded)
+			printStatement(cmd, statement, true)
 			continue
 		}
 
@@ -328,11 +330,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	// We could add more auto fixes in the future.
 	if autoFix {
 		confirmed := false
-		if !force {
+		if !force && len(replaceInstances) > 0 {
 			confirmed = confirmAction(fmt.Sprintf("Replace instances %v in cluster %s/%s", replaceInstances, namespace, clusterName))
 		}
 
 		if force || confirmed {
+			cmd.Printf("Replacing the following instances: %s", replaceInstances)
 			replaceFailedInstances(&cluster, replaceInstances)
 			err := kubeClient.Patch(ctx.Background(), &cluster, patch)
 			if err != nil {
@@ -356,7 +359,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		}
 	}
 
-	if foundIssues {
+	if foundIssues && !autoFix {
 		return fmt.Errorf("found issues for cluster %s please check them", cluster.Name)
 	}
 
