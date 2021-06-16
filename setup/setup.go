@@ -45,12 +45,13 @@ var setupLog = ctrl.Log.WithName("setup")
 
 // Options provides all configuration Options for the operator
 type Options struct {
-	MetricsAddr          string
-	EnableLeaderElection bool
-	LeaderElectionID     string
-	LogFile              string
-	CliTimeout           int
-	DeprecationOptions   internal.DeprecationOptions
+	MetricsAddr             string
+	EnableLeaderElection    bool
+	LeaderElectionID        string
+	LogFile                 string
+	CliTimeout              int
+	DeprecationOptions      internal.DeprecationOptions
+	MaxConcurrentReconciles int
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -64,7 +65,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 		"Apply defaults from the next major version of the operator. This is only intended for use in development.",
 	)
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
-	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands")
+	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands.")
+	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
 }
 
 // StartManager will start the FoundtionDB operator manager.
@@ -132,7 +134,7 @@ func StartManager(
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.Namespace = namespace
 
-		if err := clusterReconciler.SetupWithManager(mgr, watchedObjects...); err != nil {
+		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)
 		}
@@ -146,7 +148,7 @@ func StartManager(
 		backupReconciler.Client = mgr.GetClient()
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
 
-		if err := backupReconciler.SetupWithManager(mgr); err != nil {
+		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
 			os.Exit(1)
 		}
@@ -156,7 +158,7 @@ func StartManager(
 		restoreReconciler.Client = mgr.GetClient()
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
 
-		if err := restoreReconciler.SetupWithManager(mgr); err != nil {
+		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
 			os.Exit(1)
 		}

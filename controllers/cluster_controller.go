@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -197,7 +199,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watchedObjects ...client.Object) error {
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, watchedObjects ...client.Object) error {
 	err := mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
@@ -220,6 +222,9 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watch
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: maxConcurrentReconciles},
+		).
 		For(&fdbtypes.FoundationDBCluster{}).
 		Owns(&corev1.Pod{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
