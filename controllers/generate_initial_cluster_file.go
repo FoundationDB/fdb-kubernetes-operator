@@ -53,7 +53,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
-		return false, errors.New("Cannot find enough pods to recruit coordinators")
+		return false, errors.New("cannot find enough pods to recruit coordinators")
 	}
 
 	var clusterName string
@@ -104,5 +104,5 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 // RequeueAfter returns the delay before we should run the reconciliation
 // again.
 func (g GenerateInitialClusterFile) RequeueAfter() time.Duration {
-	return 0
+	return 5 * time.Second
 }

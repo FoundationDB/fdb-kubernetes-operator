@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -121,6 +123,8 @@ func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Contex
 func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&fdbtypes.FoundationDBRestore{}).
+		// Only react on generation changes or annotation changes
+		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Complete(r)
 }
 

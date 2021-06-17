@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"golang.org/x/net/context"
 
@@ -223,7 +224,9 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watch
 		Owns(&corev1.Pod{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Service{})
+		Owns(&corev1.Service{}).
+		// Only react on generation changes or annotation changes
+		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
 	for _, object := range watchedObjects {
 		builder.Owns(object)
 	}
@@ -233,12 +236,13 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, watch
 func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Result, error) {
 	notReadyError, canCast := err.(ReconciliationNotReadyError)
 	if canCast && notReadyError.retryable {
-		log.Info("Retrying reconciliation", "reason", notReadyError.message)
-		return ctrl.Result{Requeue: true}, nil
+		log.Info("Retrying reconciliation", "reason", notReadyError.message, "requeueAfter", notReadyError.requeueAfter)
+		return ctrl.Result{Requeue: true, RequeueAfter: notReadyError.requeueAfter}, nil
 	}
+
 	if k8serrors.IsConflict(err) {
 		log.Info("Retrying reconciliation", "reason", "Conflict")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: notReadyError.requeueAfter}, nil
 	}
 
 	return ctrl.Result{}, err
@@ -743,12 +747,13 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.Foundatio
 	pod := instance.Pod
 	client, err := r.PodClientProvider(cluster, pod)
 	if err == fdbPodClientErrorNoIP {
-		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name), retryable: true}
+		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name), retryable: true, requeueAfter: 5 * time.Second}
 	} else if err == fdbPodClientErrorNotReady {
-		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name), retryable: true}
+		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name), retryable: true, requeueAfter: 5 * time.Second}
 	} else if err != nil {
 		return nil, err
 	}
+
 	return client, nil
 }
 
@@ -1048,8 +1053,9 @@ func MissingPodErrorByName(instanceName string, cluster *fdbtypes.FoundationDBCl
 // ReconciliationNotReadyError is returned when reconciliation cannot proceed
 // because of a temporary condition or because automation is disabled
 type ReconciliationNotReadyError struct {
-	message   string
-	retryable bool
+	message      string
+	retryable    bool
+	requeueAfter time.Duration
 }
 
 func (err ReconciliationNotReadyError) Error() string {

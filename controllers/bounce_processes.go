@@ -120,7 +120,11 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
 
-			return false, ReconciliationNotReadyError{message: "Cluster needs to stabilize before bouncing"}
+			// Retry after we waited the minimum uptime
+			return false, ReconciliationNotReadyError{
+				message:      "Cluster needs to stabilize before bouncing",
+				retryable:    true,
+				requeueAfter: time.Second * time.Duration(cluster.Spec.MinimumUptimeSecondsForBounce-int(minimumUptime))}
 		}
 
 		var lockClient LockClient
