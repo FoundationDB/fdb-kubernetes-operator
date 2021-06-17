@@ -175,23 +175,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(service.Labels), nil))
 	}
 
-	// Ensure that anything the user has explicitly chosen to remove is marked
-	// for removal.
-	for _, processGroupID := range cluster.Spec.InstancesToRemove {
-		for _, processGroup := range status.ProcessGroups {
-			if processGroup.ProcessGroupID == processGroupID {
-				processGroup.Remove = true
-			}
-		}
-	}
-	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
-		for _, processGroup := range status.ProcessGroups {
-			if processGroup.ProcessGroupID == processGroupID {
-				processGroup.ExclusionSkipped = true
-			}
-		}
-	}
-
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -471,6 +454,12 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []FdbInstance, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
 	processGroupMap := make(map[string]*fdbtypes.ProcessGroupStatus, len(processGroups))
+	// TODO (johscheuer): make use of internal.None once the other PR is merged
+	processGroupsWithoutExclusion := make(map[string]struct{}, len(cluster.Spec.InstancesToRemoveWithoutExclusion))
+
+	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
+		processGroupsWithoutExclusion[processGroupID] = struct{}{}
+	}
 
 	for _, processGroup := range processGroups {
 		processGroupMap[processGroup.ProcessGroupID] = processGroup
@@ -515,6 +504,9 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		if isBeingRemoved {
 			processGroupStatus.Remove = true
+			// Check if we should skip exclusion for the process group
+			_, ok := processGroupsWithoutExclusion[processGroupStatus.ProcessGroupID]
+			processGroupStatus.ExclusionSkipped = ok
 			continue
 		}
 

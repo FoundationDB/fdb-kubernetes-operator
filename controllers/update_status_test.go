@@ -322,5 +322,63 @@ var _ = Describe("update_status", func() {
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
 			})
 		})
+
+		When("adding an instance to the InstancesToRemove list", func() {
+			var removedProcessGroup string
+
+			BeforeEach(func() {
+				removedProcessGroup = "storage-1"
+				instances[0].Pod.Status.Phase = corev1.PodFailed
+				cluster.Spec.InstancesToRemove = []string{removedProcessGroup}
+			})
+
+			It("should mark the instance for removal", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				removalCnt := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == removedProcessGroup {
+						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.ExclusionSkipped).To(BeFalse())
+						removalCnt++
+						continue
+					}
+
+					Expect(processGroup.Remove).To(BeFalse())
+				}
+
+				Expect(removalCnt).To(BeNumerically("==", 1))
+			})
+		})
+
+		When("adding an instance to the InstancesToRemoveWithoutExclusion list", func() {
+			var removedProcessGroup string
+
+			BeforeEach(func() {
+				removedProcessGroup = "storage-1"
+				instances[0].Pod.Status.Phase = corev1.PodFailed
+				cluster.Spec.InstancesToRemoveWithoutExclusion = []string{removedProcessGroup}
+			})
+
+			It("should be mark the instance for removal without exclusion", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				removalCnt := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == removedProcessGroup {
+						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.ExclusionSkipped).To(BeTrue())
+						removalCnt++
+						continue
+					}
+
+					Expect(processGroup.Remove).To(BeFalse())
+				}
+
+				Expect(removalCnt).To(BeNumerically("==", 1))
+			})
+		})
 	})
 })
