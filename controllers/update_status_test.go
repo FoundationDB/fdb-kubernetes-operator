@@ -336,19 +336,19 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				removalCnt := 0
+				removalCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == removedProcessGroup {
 						Expect(processGroup.Remove).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeFalse())
-						removalCnt++
+						removalCount++
 						continue
 					}
 
 					Expect(processGroup.Remove).To(BeFalse())
 				}
 
-				Expect(removalCnt).To(BeNumerically("==", 1))
+				Expect(removalCount).To(BeNumerically("==", 1))
 			})
 		})
 
@@ -365,19 +365,19 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				removalCnt := 0
+				removalCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == removedProcessGroup {
 						Expect(processGroup.Remove).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeTrue())
-						removalCnt++
+						removalCount++
 						continue
 					}
 
 					Expect(processGroup.Remove).To(BeFalse())
 				}
 
-				Expect(removalCnt).To(BeNumerically("==", 1))
+				Expect(removalCount).To(BeNumerically("==", 1))
 			})
 		})
 	})
