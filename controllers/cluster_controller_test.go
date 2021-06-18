@@ -600,7 +600,52 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(adminClient).NotTo(BeNil())
 						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
+						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
+							originalPods.Items[firstStorageIndex].Status.PodIP,
+						}))
+					})
+				})
 
+				Context("with a PVC stuck in terminating", func() {
+					BeforeEach(func() {
+						originalPod := &originalPods.Items[firstStorageIndex]
+						for _, processGroup := range cluster.Status.ProcessGroups {
+							if processGroup.ProcessGroupID == originalPod.ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel] {
+								processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
+							}
+						}
+
+						pvc := &corev1.PersistentVolumeClaim{}
+						err = k8sClient.Get(context.TODO(), client.ObjectKey{
+							Namespace: originalPod.Namespace,
+							Name:      fmt.Sprintf("%s-data", originalPod.Name),
+						}, pvc)
+						Expect(err).NotTo(HaveOccurred())
+
+						err = k8sClient.Status().Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+
+						err = k8sClient.MockStuckTermination(pvc, true)
+						Expect(err).NotTo(HaveOccurred())
+						// The returned generation in the test case will be 0 since we have 2 pending removals
+						// which is expected.
+						generationGap = -1
+					})
+
+					It("should set the generation to both reconciled and pending removal", func() {
+						_, err = reloadCluster(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(cluster.Status.Generations).To(Equal(fdbtypes.ClusterGenerationStatus{
+							Reconciled:        2,
+							HasPendingRemoval: 2,
+						}))
+					})
+
+					It("should exclude but not re-include the instance", func() {
+						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(adminClient).NotTo(BeNil())
+						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
 						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
 							originalPods.Items[firstStorageIndex].Status.PodIP,
 						}))
