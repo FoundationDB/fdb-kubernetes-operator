@@ -40,14 +40,14 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-      - name: foundationdb-kubernetes-init-6-1
-        {{- with .Values.initContainers.init_6_1.image }}
-        image: {{ .repository }}:{{ .tag }}
-        imagePullPolicy: {{ .pullPolicy }}
-        {{- end }}
+      {{- range $name, $params := .Values.initContainers }}
+      {{- $version := $name | trimPrefix "init_" | replace "_" "." }}
+      - name: foundationdb-kubernetes-{{ $name | replace "_" "-" }}
+        image: {{ $params.image.repository }}:{{ $params.image.tag }}
+        imagePullPolicy: {{ $params.image.pullPolicy }}
         args:
         - "--copy-library"
-        - "6.1"
+        - "{{ $version }}"
         - "--copy-binary"
         - "fdbcli"
         - "--copy-binary"
@@ -55,57 +55,14 @@ spec:
         - "--copy-binary"
         - "fdbrestore"
         - "--output-dir"
-        - "/var/output-files/6.1.12"
+        - "/var/output-files/{{ regexSplit "-" $params.image.tag 2 | first }}"
         - "--init-mode"
         volumeMounts:
         - name: fdb-binaries
           mountPath: /var/output-files
         resources:
-          {{- toYaml .Values.initContainers.resources | nindent 10 }}
-      - name: foundationdb-kubernetes-init-6-2
-        {{- with .Values.initContainers.init_6_2.image }}
-        image: {{ .repository }}:{{ .tag }}
-        imagePullPolicy: {{ .pullPolicy }}
-        {{- end }}
-        args:
-        - "--copy-library"
-        - "6.2"
-        - "--copy-binary"
-        - "fdbcli"
-        - "--copy-binary"
-        - "fdbbackup"
-        - "--copy-binary"
-        - "fdbrestore"
-        - "--output-dir"
-        - "/var/output-files/6.2.30"
-        - "--init-mode"
-        volumeMounts:
-        - name: fdb-binaries
-          mountPath: /var/output-files
-        resources:
-          {{- toYaml .Values.initContainers.resources | nindent 10 }}
-      - name: foundationdb-kubernetes-init-6-3
-        {{- with .Values.initContainers.init_6_3.image }}
-        image: {{ .repository }}:{{ .tag }}
-        imagePullPolicy: {{ .pullPolicy }}
-        {{- end }}
-        args:
-        - "--copy-library"
-        - "6.3"
-        - "--copy-binary"
-        - "fdbcli"
-        - "--copy-binary"
-        - "fdbbackup"
-        - "--copy-binary"
-        - "fdbrestore"
-        - "--output-dir"
-        - "/var/output-files/6.3.10"
-        - "--init-mode"
-        volumeMounts:
-        - name: fdb-binaries
-          mountPath: /var/output-files
-        resources:
-          {{- toYaml .Values.initContainers.resources | nindent 10 }}
+          {{- toYaml $.Values.initContainersResources | nindent 10 }}
+      {{- end }}
       containers:
       - name: manager
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}

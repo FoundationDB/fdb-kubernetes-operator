@@ -5,14 +5,6 @@ image:
   pullPolicy: IfNotPresent
 
 initContainers:
-  resources:
-    limits:
-      cpu: 10m
-      memory: 50Mi
-    requests:
-      cpu: 10m
-      memory: 50Mi
-
   init_6_1:
     image:
       repository: foundationdb/foundationdb-kubernetes-sidecar
@@ -26,7 +18,7 @@ initContainers:
   init_6_3:
     image:
       repository: foundationdb/foundationdb-kubernetes-sidecar
-      tag: 6.3.10-1
+      tag: 6.3.13-1
       pullPolicy: IfNotPresent
 
 globalMode:
@@ -74,3 +66,11 @@ resources:
   requests:
     cpu: 500m
     memory: 256Mi
+
+initContainersResources:
+  limits:
+    cpu: 10m
+    memory: 50Mi
+  requests:
+    cpu: 10m
+    memory: 50Mi
