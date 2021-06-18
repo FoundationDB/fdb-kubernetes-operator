@@ -129,7 +129,7 @@ var _ = Describe("replace_failed_pods", func() {
 					})
 				})
 
-				When("max concurrent replacements is set to one", func() {
+				When("max concurrent replacements is set to zero", func() {
 					BeforeEach(func() {
 						replacements := 0
 						cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
