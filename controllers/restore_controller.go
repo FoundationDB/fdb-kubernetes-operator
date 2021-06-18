@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"golang.org/x/net/context"
@@ -120,8 +121,11 @@ func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Contex
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: maxConcurrentReconciles},
+		).
 		For(&fdbtypes.FoundationDBRestore{}).
 		// Only react on generation changes or annotation changes
 		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).

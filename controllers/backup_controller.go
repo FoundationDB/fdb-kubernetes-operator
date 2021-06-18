@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"golang.org/x/net/context"
@@ -133,7 +134,7 @@ func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context,
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int) error {
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*appsv1.Deployment).Name}
 	})
@@ -142,6 +143,9 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: maxConcurrentReconciles},
+		).
 		For(&fdbtypes.FoundationDBBackup{}).
 		Owns(&appsv1.Deployment{}).
 		// Only react on generation changes or annotation changes
