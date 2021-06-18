@@ -62,6 +62,10 @@ spec:
                           type: boolean
                         failureDetectionTimeSeconds:
                           type: integer
+                        maxConcurrentReplacements:
+                          default: 1
+                          minimum: 0
+                          type: integer
                       type: object
                   type: object
                 automountServiceAccountToken:
