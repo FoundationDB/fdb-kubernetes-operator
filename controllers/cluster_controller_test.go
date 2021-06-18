@@ -607,10 +607,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				Context("with a PVC stuck in terminating", func() {
-					var originalPod *corev1.Pod
-
 					BeforeEach(func() {
-						originalPod = &originalPods.Items[firstStorageIndex]
+						originalPod := &originalPods.Items[firstStorageIndex]
 						for _, processGroup := range cluster.Status.ProcessGroups {
 							if processGroup.ProcessGroupID == originalPod.ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel] {
 								processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
@@ -618,7 +616,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						}
 
 						pvc := &corev1.PersistentVolumeClaim{}
-
 						err = k8sClient.Get(context.TODO(), client.ObjectKey{
 							Namespace: originalPod.Namespace,
 							Name:      fmt.Sprintf("%s-data", originalPod.Name),
@@ -652,17 +649,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Expect(adminClient.ExcludedAddresses).To(Equal([]string{
 							originalPods.Items[firstStorageIndex].Status.PodIP,
 						}))
-					})
-
-					It("should remove the Pod", func() {
-						pod := &corev1.Pod{}
-						err = k8sClient.Get(context.TODO(), client.ObjectKey{
-							Namespace: originalPod.Namespace,
-							Name:      originalPod.Name,
-						}, pod)
-
-						Expect(err).To(HaveOccurred())
-						Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 					})
 				})
 			})
