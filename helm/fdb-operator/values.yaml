@@ -1,12 +1,71 @@
-operator:
-  name: fdb-kubernetes-operator-controller-manager
-  image: foundationdb/fdb-kubernetes-operator
+---
+image:
+  repository: foundationdb/fdb-kubernetes-operator
   tag: v0.36.0
-  role: fdb-kubernetes-operator-manager-role
-  rolebinding: fdb-kubernetes-operator-manager-rolebinding
-  replicas: 1
-  globalMode:
-    enabled: false
+  pullPolicy: IfNotPresent
+
+initContainers:
+  resources:
+    limits:
+      cpu: 10m
+      memory: 50Mi
+    requests:
+      cpu: 10m
+      memory: 50Mi
+
+  init_6_1:
+    image:
+      repository: foundationdb/foundationdb-kubernetes-sidecar
+      tag: 6.1.13-1
+      pullPolicy: IfNotPresent
+  init_6_2:
+    image:
+      repository: foundationdb/foundationdb-kubernetes-sidecar
+      tag: 6.2.30-1
+      pullPolicy: IfNotPresent
+  init_6_3:
+    image:
+      repository: foundationdb/foundationdb-kubernetes-sidecar
+      tag: 6.3.10-1
+      pullPolicy: IfNotPresent
+
+globalMode:
+  enabled: false
+
+replicas: null
+
+imagePullSecrets: []
+
+annotations: {}
+podAnnotations: {}
+podLabels: {}
+
+serviceAccount:
+  create: true
+  name: null
+  imagePullSecrets: []
+  annotations: {}
+
+priorityClassName: null
+
+securityContext:
+  runAsUser: 4059
+  runAsGroup: 4059
+  fsGroup: 4059
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  capabilities:
+    drop:
+    - all
+  readOnlyRootFilesystem: true
+
+nodeSelector: {}
+
+affinity: {}
+
+tolerations: {}
 
 resources:
   limits:
