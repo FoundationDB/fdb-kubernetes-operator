@@ -40,9 +40,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-      {{- range $name, $params := .Values.initContainers }}
-      {{- $version := $name | trimPrefix "init_" | replace "_" "." }}
-      - name: foundationdb-kubernetes-{{ $name | replace "_" "-" }}
+      {{- range $version, $params := .Values.initContainers }}
+      - name: foundationdb-kubernetes-init-{{ $version | replace "." "-" }}
         image: {{ $params.image.repository }}:{{ $params.image.tag }}
         imagePullPolicy: {{ $params.image.pullPolicy }}
         args:
@@ -55,7 +54,7 @@ spec:
         - "--copy-binary"
         - "fdbrestore"
         - "--output-dir"
-        - "/var/output-files/{{ regexSplit "-" $params.image.tag 2 | first }}"
+        - "/var/output-files/{{ regexFind "^[0-9.]+" $params.image.tag }}"
         - "--init-mode"
         volumeMounts:
         - name: fdb-binaries
