@@ -1,103 +1,82 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: fdb-kubernetes-operator-controller-manager
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: {{ include "fdb-operator.fullname" . }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
-  name: {{ .Values.operator.name }}
+    {{- include "fdb-operator.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  replicas: {{ .Values.operator.replicas }}
+  {{- with .Values.replicas }}
+  replicas: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
-      {{- include "chart.selectorLabels" . | nindent 6 }}
+      {{- include "fdb-operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "chart.labels" . | nindent 8 }}
+        {{- include "fdb-operator.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
+      serviceAccountName: {{ include "fdb-operator.serviceAccountName" . }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
       securityContext:
-        runAsUser: 4059
-        runAsGroup: 4059
-        fsGroup: 4059
-      volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: logs
-        emptyDir: {}
-      - name: fdb-binaries
-        emptyDir: {}
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
-        - name: foundationdb-kubernetes-init-6-1
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.1.13-1
-          args:
-            - "--copy-library"
-            - "6.1"
-            - "--copy-binary"
-            - "fdbcli"
-            - "--copy-binary"
-            - "fdbbackup"
-            - "--copy-binary"
-            - "fdbrestore"
-            - "--output-dir"
-            - "/var/output-files/6.1.12"
-            - "--init-mode"
-          volumeMounts:
-            - name: fdb-binaries
-              mountPath: /var/output-files
-        - name: foundationdb-kubernetes-init-6-2
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
-          args:
-            - "--copy-library"
-            - "6.2"
-            - "--copy-binary"
-            - "fdbcli"
-            - "--copy-binary"
-            - "fdbbackup"
-            - "--copy-binary"
-            - "fdbrestore"
-            - "--output-dir"
-            - "/var/output-files/6.2.30"
-            - "--init-mode"
-          volumeMounts:
-            - name: fdb-binaries
-              mountPath: /var/output-files
-        - name: foundationdb-kubernetes-init-6-3
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.10-1
-          args:
-            - "--copy-library"
-            - "6.3"
-            - "--copy-binary"
-            - "fdbcli"
-            - "--copy-binary"
-            - "fdbbackup"
-            - "--copy-binary"
-            - "fdbrestore"
-            - "--output-dir"
-            - "/var/output-files/6.3.10"
-            - "--init-mode"
-          volumeMounts:
-            - name: fdb-binaries
-              mountPath: /var/output-files
+      {{- range $version, $params := .Values.initContainers }}
+      - name: foundationdb-kubernetes-init-{{ $version | replace "." "-" }}
+        image: {{ $params.image.repository }}:{{ $params.image.tag }}
+        imagePullPolicy: {{ $params.image.pullPolicy }}
+        args:
+        - "--copy-library"
+        - "{{ $version }}"
+        - "--copy-binary"
+        - "fdbcli"
+        - "--copy-binary"
+        - "fdbbackup"
+        - "--copy-binary"
+        - "fdbrestore"
+        - "--output-dir"
+        - "/var/output-files/{{ regexFind "^[0-9.]+" $params.image.tag }}"
+        - "--init-mode"
+        volumeMounts:
+        - name: fdb-binaries
+          mountPath: /var/output-files
+        resources:
+          {{- toYaml $.Values.initContainersResources | nindent 10 }}
+      {{- end }}
       containers:
-      - command:
+      - name: manager
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
         - /manager
         env:
         - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
           value: /usr/bin/fdb
-        {{- if not .Values.operator.globalMode.enabled }}
+        {{- if not .Values.globalMode.enabled }}
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
         {{- end }}
-        image: {{ .Values.operator.image }}:{{ .Values.operator.tag }}
-        name: manager
         ports:
         - containerPort: 8080
           name: metrics
@@ -108,22 +87,30 @@ spec:
           mountPath: /var/log/fdb
         - name: fdb-binaries
           mountPath: /usr/bin/fdb
-        resources:
-          limits:
-            cpu: 500m
-            memory: 256Mi
-          requests:
-            cpu: 500m
-            memory: 256Mi
         securityContext:
-          readOnlyRootFilesystem: true
-          allowPrivilegeEscalation: false
-          privileged: false
+          {{- toYaml .Values.containerSecurityContext | nindent 10 }}
         livenessProbe:
           httpGet:
             path: /metrics
-            port: metrics            
+            port: metrics
         resources:
-          {{- toYaml .Values.resources | nindent 12 }}     
-      serviceAccountName: fdb-kubernetes-operator-controller-manager
-      terminationGracePeriodSeconds: 10
+          {{- toYaml .Values.resources | nindent 10 }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      - name: fdb-binaries
+        emptyDir: {}

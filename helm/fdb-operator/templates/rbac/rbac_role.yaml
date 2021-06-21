@@ -1,13 +1,14 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
-{{- if .Values.operator.globalMode.enabled }}
+{{- if .Values.globalMode.enabled }}
 kind: ClusterRole
 {{- else }}
 kind: Role
 {{- end }}
 metadata:
-  name: {{ .Values.operator.role }}
+  name: {{ include "fdb-operator.fullname" . }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "fdb-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - ""
