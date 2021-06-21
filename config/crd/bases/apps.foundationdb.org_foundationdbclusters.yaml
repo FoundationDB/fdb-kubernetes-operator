@@ -25,9 +25,9 @@ spec:
           jsonPath: .status.generations.reconciled
           name: Reconciled
           type: integer
-        - description: Database health
-          jsonPath: .status.health.healthy
-          name: Healthy
+        - description: Database available
+          jsonPath: .status.health.available
+          name: Available
           type: boolean
         - description: Running version
           jsonPath: .status.runningVersion
