@@ -88,6 +88,16 @@ type FoundationDBStatusProcessInfo struct {
 
 	// The time that the process has been up for.
 	UptimeSeconds float64 `json:"uptime_seconds,omitempty"`
+
+	// Roles contains a slice of all roles of the process
+	Roles []FoundationDBStatusProcessRoleInfo `json:"roles,omitempty"`
+}
+
+// FoundationDBStatusProcessRoleInfo contains the minimal information from the process status
+// roles.
+type FoundationDBStatusProcessRoleInfo struct {
+	// Role defines the role a process currently has
+	Role string `json:"role,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in
@@ -201,3 +211,12 @@ type FoundationDBStatusBackupTag struct {
 	RunningBackup    bool   `json:"running_backup,omitempty"`
 	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
 }
+
+// ProcessRole models the role of a pod
+type ProcessRole string
+
+// TODO (johscheuer): add more roles to this list
+const (
+	// ProcessRoleCoordinator model for FDB coordinator role
+	ProcessRoleCoordinator ProcessRole = "coordinator"
+)

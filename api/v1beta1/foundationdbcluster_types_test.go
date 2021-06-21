@@ -508,6 +508,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.009,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "proxy",
+								},
+								{
+									Role: "storage",
+								},
+							},
 						},
 						"f9efa90fc104f4e277b140baf89aab66": {
 							Address:      "10.1.38.82:4501",
@@ -522,6 +530,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.008,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "cluster_controller",
+								},
+								{
+									Role: "ratekeeper",
+								},
+								{
+									Role: "storage",
+								},
+							},
 						},
 						"5a633d7f4e98a6c938c84b97ec4aedbf": {
 							Address:      "10.1.38.89:4501",
@@ -536,6 +555,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.009,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "log",
+								},
+							},
 						},
 						"5c1b68147a0ef34ce005a38245851270": {
 							Address:      "10.1.38.88:4501",
@@ -550,6 +574,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.008,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "proxy",
+								},
+							},
 						},
 						"653defde43cf1fdef131e2fb82bd192d": {
 							Address:      "10.1.38.87:4501",
@@ -564,6 +593,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.01,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "log",
+								},
+							},
 						},
 						"9c93d3b70118f16c72f7cb3f53e49f4c": {
 							Address:      "10.1.38.86:4501",
@@ -578,6 +612,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.008,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "storage",
+								},
+								{
+									Role: "resolver",
+								},
+							},
 						},
 						"b9c25278c0fa207bc2a73bda2300d0a9": {
 							Address:      "10.1.38.90:4501",
@@ -592,6 +634,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.1.12",
 							UptimeSeconds: 160.01,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "master",
+								},
+								{
+									Role: "data_distributor",
+								},
+								{
+									Role: "log",
+								},
+							},
 						},
 					},
 					Data: FoundationDBStatusDataStatistics{
@@ -734,6 +787,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 2955.58,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "log",
+								},
+							},
 						},
 						"c813e585043a7ab55a4905f465c4aa52": {
 							Address:      "10.1.38.95:4501",
@@ -748,6 +806,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 2475.33,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "proxy",
+								},
+								{
+									Role: "storage",
+								},
+							},
 						},
 						"f9efa90fc104f4e277b140baf89aab66": {
 							Address:      "10.1.38.92:4501",
@@ -762,6 +828,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 2951.17,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "proxy",
+								},
+								{
+									Role: "storage",
+								},
+							},
 						},
 						"5a633d7f4e98a6c938c84b97ec4aedbf": {
 							Address:      "10.1.38.105:4501",
@@ -776,6 +850,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 710.119,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "cluster_controller",
+								},
+								{
+									Role: "log",
+								},
+							},
 						},
 						"5c1b68147a0ef34ce005a38245851270": {
 							Address:      "10.1.38.102:4501",
@@ -790,6 +872,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 1095.18,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: string(ProcessRoleCoordinator),
+								},
+								{
+									Role: "resolver",
+								},
+							},
 						},
 						"653defde43cf1fdef131e2fb82bd192d": {
 							Address:      "10.1.38.104:4501",
@@ -804,6 +894,23 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 880.18,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: "master",
+								},
+								{
+									Role: "data_distributor",
+								},
+								{
+									Role: "ratekeeper",
+								},
+								{
+									Role: string(ProcessRoleCoordinator),
+								},
+								{
+									Role: "log",
+								},
+							},
 						},
 						"9c93d3b70118f16c72f7cb3f53e49f4c": {
 							Address:      "10.1.38.94:4501",
@@ -818,6 +925,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							Version:       "6.2.15",
 							UptimeSeconds: 2650.5,
+							Roles: []FoundationDBStatusProcessRoleInfo{
+								{
+									Role: string(ProcessRoleCoordinator),
+								},
+								{
+									Role: "proxy",
+								},
+								{
+									Role: "storage",
+								},
+							},
 						},
 					},
 					Data: FoundationDBStatusDataStatistics{
@@ -3371,7 +3489,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						{
 							IPAddress: "1.2.3.4",
 							Port:      4500,
-							Flags:     map[string]bool{"tls": true},
+							Flags: map[string]bool{
+								"tls": true,
+							},
 						},
 					},
 				}),

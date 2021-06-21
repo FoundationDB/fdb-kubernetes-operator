@@ -106,6 +106,9 @@ type AdminClient interface {
 	// Close shuts down any resources for the client once it is no longer
 	// needed.
 	Close() error
+
+	// GetCoordinatorSet returns a set of the current coordinators.
+	GetCoordinatorSet() (map[string]internal.None, error)
 }
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
@@ -227,6 +230,8 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 		}
 
 		for processIndex := 1; processIndex <= processCount; processIndex++ {
+			var fdbRoles []fdbtypes.FoundationDBStatusProcessRoleInfo
+
 			fullAddress := client.Cluster.GetFullAddress(processIP, processIndex)
 			_, ipExcluded := exclusionMap[pod.Status.PodIP]
 			_, addressExcluded := exclusionMap[fullAddress]
@@ -234,6 +239,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			_, isCoordinator := coordinators[fullAddress]
 			if isCoordinator && !excluded {
 				coordinators[fullAddress] = true
+				fdbRoles = append(fdbRoles, fdbtypes.FoundationDBStatusProcessRoleInfo{Role: string(fdbtypes.ProcessRoleCoordinator)})
 			}
 			command, err := GetStartCommand(client.Cluster, instance, podClient, processIndex, processCount)
 			if err != nil {
@@ -244,9 +250,9 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			}
 
 			locality := map[string]string{
-				"instance_id": instance.GetInstanceID(),
-				"zoneid":      pod.Name,
-				"dcid":        client.Cluster.Spec.DataCenter,
+				fdbtypes.FDBLocalityInstanceIDKey: instance.GetInstanceID(),
+				fdbtypes.FDBLocalityZoneIDKey:     pod.Name,
+				fdbtypes.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 			}
 
 			for key, value := range client.localityInfo[instance.GetInstanceID()] {
@@ -265,13 +271,14 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				Locality:      locality,
 				Version:       client.Cluster.Status.RunningVersion,
 				UptimeSeconds: 60000,
+				Roles:         fdbRoles,
 			}
 		}
 
 		for _, processGroup := range client.additionalProcesses {
 			locality := map[string]string{
-				"instance_id": processGroup.ProcessGroupID,
-				"zoneid":      processGroup.ProcessGroupID,
+				fdbtypes.FDBLocalityInstanceIDKey: processGroup.ProcessGroupID,
+				fdbtypes.FDBLocalityZoneIDKey:     processGroup.ProcessGroupID,
 			}
 
 			for key, value := range client.localityInfo[instance.GetInstanceID()] {
@@ -670,4 +677,14 @@ func (client *MockAdminClient) UnfreezeStatus() {
 	defer adminClientMutex.Unlock()
 
 	client.frozenStatus = nil
+}
+
+// GetCoordinatorSet gets the current coordinators from the status
+func (client *MockAdminClient) GetCoordinatorSet() (map[string]internal.None, error) {
+	status, err := client.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+
+	return internal.GetCoordinatorsFromStatus(status), nil
 }

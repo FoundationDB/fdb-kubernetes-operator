@@ -33,8 +33,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	controllers "github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -599,4 +601,14 @@ func removeWarningsInJSON(jsonString string) (string, error) {
 	}
 
 	return strings.TrimSpace(jsonString[idx:]), nil
+}
+
+// GetCoordinatorSet gets the current coordinators from the status
+func (client *cliAdminClient) GetCoordinatorSet() (map[string]internal.None, error) {
+	status, err := getStatusFromDB(client.Cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return internal.GetCoordinatorsFromStatus(status), nil
 }

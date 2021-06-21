@@ -2425,7 +2425,7 @@ const (
 	PublicIPSourceService PublicIPSource = "service"
 )
 
-// ProcessClass models the role of a pod
+// ProcessClass models the class of a pod
 type ProcessClass string
 
 const (

@@ -2255,7 +2255,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err := reconcileCluster(cluster)
-				Expect(err).NotTo((HaveOccurred()))
+				Expect(err).NotTo(HaveOccurred())
 
 				generation, err := reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
