@@ -227,7 +227,7 @@ class Config(object):
         if self.substitutions["FDB_PUBLIC_IP"] == "":
             # As long as the public IP is not set fallback to the
             # Pod IP address.
-            pod_ip = os.getenv('FDB_POD_IP')
+            pod_ip = os.getenv("FDB_POD_IP")
             if pod_ip is none:
                 pod_ip = socket.gethostbyname(socket.gethostname())
             self.substitutions["FDB_PUBLIC_IP"] = pod_ip
