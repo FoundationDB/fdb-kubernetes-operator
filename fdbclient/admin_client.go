@@ -227,6 +227,9 @@ func (client *cliAdminClient) CleanupOldLogs() error {
 			return nil
 		}
 
+		// Files from the lib will have the format:
+		// trace.$IP.1.&randnumber...json
+		// with this regexp we check for the middle part.
 		isCliFile, err := regexp.Compile(`\.1\.\d+`)
 		if err != nil {
 			return err
