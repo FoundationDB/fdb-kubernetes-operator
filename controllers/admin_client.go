@@ -109,6 +109,9 @@ type AdminClient interface {
 
 	// GetCoordinatorSet returns a set of the current coordinators.
 	GetCoordinatorSet() (map[string]internal.None, error)
+
+	// CleanupOldLogs removes old fdbcli log files.
+	CleanupOldLogs() error
 }
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
@@ -687,4 +690,9 @@ func (client *MockAdminClient) GetCoordinatorSet() (map[string]internal.None, er
 	}
 
 	return internal.GetCoordinatorsFromStatus(status), nil
+}
+
+// CleanupOldLogs removes old fdbcli log files.
+func (client *MockAdminClient) CleanupOldLogs() error {
+	return nil
 }

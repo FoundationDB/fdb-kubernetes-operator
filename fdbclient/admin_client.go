@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -199,6 +200,48 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 	log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
 	return outputString, nil
+}
+
+// CleanupOldLogs removes old fdbcli log files.
+func (client *cliAdminClient) CleanupOldLogs() error {
+	logDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
+	if logDir == "" {
+		return nil
+	}
+
+	err := filepath.Walk(logDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasPrefix(info.Name(), "trace") {
+			return nil
+		}
+
+		// If the file is newer than 1 hour skip it
+		if info.ModTime().Add(1 * time.Hour).Before(time.Now()) {
+			return nil
+		}
+
+		isCliFile, err := regexp.Compile(`\.1\.\d+`)
+		if err != nil {
+			return err
+		}
+
+		// These files are the one from the fdb lib and will be automatically rotated
+		if isCliFile.MatchString(info.Name()) {
+			return nil
+		}
+
+		log.Info("Delete old log file", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "file", info.Name())
+		return os.Remove(path)
+	})
+
+	return err
 }
 
 // GetStatus gets the database's status

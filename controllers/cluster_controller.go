@@ -121,6 +121,11 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 	defer adminClient.Close()
 
+	err = adminClient.CleanupOldLogs()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	supportedVersion, err := adminClient.VersionSupported(cluster.Spec.Version)
 	if err != nil {
 		return ctrl.Result{}, err
