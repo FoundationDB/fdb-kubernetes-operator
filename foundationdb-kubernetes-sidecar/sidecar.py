@@ -225,13 +225,12 @@ class Config(object):
         if self.substitutions["FDB_ZONE_ID"] == "":
             self.substitutions["FDB_ZONE_ID"] = self.substitutions["FDB_MACHINE_ID"]
         if self.substitutions["FDB_PUBLIC_IP"] == "":
-            address_info = socket.getaddrinfo(
-                self.substitutions["FDB_MACHINE_ID"],
-                4500,
-                family=socket.AddressFamily.AF_INET,
-            )
-            if len(address_info) > 0:
-                self.substitutions["FDB_PUBLIC_IP"] = address_info[0][4][0]
+            # As long as the public IP is not set fallback to the
+            # Pod IP address.
+            pod_ip = os.getenv('FDB_POD_IP')
+            if pod_ip is none:
+                pod_ip = socket.gethostbyname(socket.gethostname())
+            self.substitutions["FDB_PUBLIC_IP"] = pod_ip
 
         if self.main_container_version == self.primary_version:
             self.substitutions["BINARY_DIR"] = "/usr/bin"
