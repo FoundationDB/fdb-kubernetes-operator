@@ -29,7 +29,7 @@ fdb-kubernetes-monitor will ship in an image called `foundationdb-kubernetes`. T
 
 In order to keep the new image lightweight, and allow the development team for the operator to easily manage the development on the monitor, we will write the fdb-kubernetes-monitor process in go.
 
-We will have an option in the cluster spec to use the new launcher, which will be off by default. We will have an entire major release of FoundationDB where we publish both the old sidecar image and the new kubernetes image, to aid with the transition. For any version of FoundationDB in that major release, the user will have the option of which launch strategy to use. Upon the next major release, we will stop publishing the old sidecar image, which means users will need to switch to the new launcher before that release.
+We will have an option in the cluster spec to use the new launcher, which will be off by default. We will have a minor release of FoundationDB where we publish both the old sidecar image and the new kubernetes image, to aid with the transition. For any patch version of FoundationDB in that minor release, the user will have the option of which launch strategy to use. Upon the next minor release, we will stop publishing the old sidecar image, which means users will need to switch to the new launcher before that release.
 
 When the new launcher is used, both the main container and the sidecar container will run the same image, but the sidecar container will have a different set of arguments that cause it to only copy the fdbserver binary, where necessary, and to open up a listener. The main container will load its configuration file, launch the configured server processes, and open a listener. That listener will be an HTTP server that provides an API for checking the hashes of files and other local configuration, similar to the API the sidecar currently provides. However, the fdb-kubernetes-monitor API will be not cover all use cases of the sidecar API. It will provide the following API calls:
 
@@ -74,14 +74,14 @@ Example configuration, in JSON form:
 {
 	"version": "6.3.0",
 	"arguments": [
-		{"value": "--public-address"},
+		{"value": "--public_address"},
 		{"type": "Concatenate", "values": [
 			{"type": "Environment", "source": "FDB_PUBLIC_IP"},
 			{"value": ":"},
 			{"type": "ProcessNumber", "offset": 4498, "multiplier": 2},
 			{"value": ":tls"}
 		]},
-		{"value": "--listen-address"},
+		{"value": "--listen_address"},
 		{"type": "Concatenate", "values": [
 			{"type": "Environment", "source": "FDB_POD_IP"},
 			{"value": ":"},
@@ -95,11 +95,11 @@ Example configuration, in JSON form:
 		]},
 		{"value": "--class"},
 		{"value": "storage"},
-		{"value": "--locality-zoneid"},
+		{"value": "--locality_zoneid"},
 		{"type": "Environment", "source": "FDB_ZONE_ID"},
-		{"value": "--locality-instance-id"},
+		{"value": "--locality_instance-id"},
 		{"type": "Environment", "source": "FDB_INSTANCE_ID"},
-		{"value": "--locality-process-id"},
+		{"value": "--locality_process-id"},
 		{"type": "Concatenate", "values": [
 			{"type": "Environment", "source": "FDB_INSTANCE_ID"},
 			{"value": "-"},
@@ -118,6 +118,6 @@ Let's assume this is run with a process count of 2, that 6.3.0 is the version of
 
 This would spawn two processes, with the following configuration:
 
-	/usr/bin/fdbserver --public-address 10.0.0.1:4500:tls --listen-address 192.168.0.1:4500:tls --datadir /var/fdb/data/1 --class storage --locality-zoneid zone1 --locality_instance_id storage-1 --locality-process-id storage-1-1
+	/usr/bin/fdbserver --public_address 10.0.0.1:4500:tls --listen_address 192.168.0.1:4500:tls --datadir /var/fdb/data/1 --class storage --locality_zoneid zone1 --locality_instance_id storage-1 --locality_process_id storage-1-1
 
-	/usr/bin/fdbserver --public-address 10.0.0.1:4502:tls --listen-address 192.168.0.1:4502:tls --datadir /var/fdb/data/2 --class storage --locality-zoneid zone1 --locality_instance_id storage-1 --locality-process-id storage-1-2
+	/usr/bin/fdbserver --public-address 10.0.0.1:4502:tls --listen-address 192.168.0.1:4502:tls --datadir /var/fdb/data/2 --class storage --locality_zoneid zone1 --locality_instance_id storage-1 --locality_process_id storage-1-2
