@@ -49,6 +49,19 @@ The table below provides examples of different resource names for a process grou
 | instanceIDPrefix = dc1 | dc1-storage-1        | example-storage-1            | example-storage-1-data  |
 | PVC name = state       | storage-1            | example-storage-1            | example-storage-1-state |
 
+## Built-in Metadata
+
+The operator sets some built-in fields in the metadata for the resources it creates. The operator sets the following labels:
+
+* `fdb-cluster-name`: The name of the FoundationDBCluster object the resource is for.
+* `fdb-process-class`: The process class that the associated process is running.
+* `fdb-instance-id`: The ID of the process group that the resource is related to.
+
+The operator sets the following annotations on pods:
+
+* `foundationdb.org/last-applied-spec`: A hash of the spec that was used to create the resource.
+* `foundationdb.org/public-ip`: The value for the `services.publicIPSource` field in the cluster spec when the pod was created.
+
 ## Next
 
 You can continue on to the [next section](operations.md) or go back to the [table of contents](index.md).

@@ -17,4 +17,5 @@ This document assumes that you are generally familiar with Kubernetes. For more 
 1. [Running with TLS](tls.md)
 1. [Backup](backup.md)
 1. [Technical Design](technical_design.md)
+1. [Debugging](debugging.md)
 1. [More References](more.md)
