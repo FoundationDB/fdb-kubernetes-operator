@@ -22,6 +22,8 @@ When we use the term "cluster" in this document with no other qualifiers, we are
 
 When we use the term "cluster status" in this document, it refers to the status of the `FoundationDBCluster` resource in Kubernetes. When we use the term "database status" in this document, it refers to the output of the `status json` command in `fdbcli`.
 
+This document also assumes that you are familiar with the earlier content in the user manual. We especially recommend reading through the section on [Resources Managed by the Operator](resources.md), which describes terminology and concepts that are used heavily in this document.
+
 ## Reconciliation Loops
 
 The operations of our controller are structured as a reconciliation loop. At a high level the reconciliation loop works as follows:
@@ -77,27 +79,6 @@ There are some cases where we set the `reconciled` field to the current generati
 
 1. Pods are in terminating. If we have fully excluded processes and have started the termination of the pods, we set both `reconciled` and `hasPendingRemoval` to the current generation. Termination cannot complete until the kubelet confirms the processes has been shut down, which can take an arbitrary long period of time if the kubelet is in a broken state. The processes will remain excluded until the termination completes, at which point the operator will include the processes again and the `hasPendingRemoval` field will be cleared. In general it should be fine for the cluster to stay in this state indefinitely, and you can continue to make other changes to the cluster. However, you may encounter issues with the stuck pods taking up resource quota until they are fully terminated.
 
-### Process Groups
-
-Inside the cluster status, we track an object called `ProcessGroup` which loosely correponds to a pod in Kubernetes. A process group represents a set of processes that will run inside a single container. In the default case we run one `fdbserver` process in each process group, but if you configure your cluster to run multiple storage servers per disk then we will have multiple storage server processes inside a single process group, with each process group having its own disk. We use the process group to track information about processes that lives outside the lifecycle of any other Kubernetes object, such as an intention to remove the process or adverse conditions that the operator needs to remediate.
-
-### Resources Created
-
-The operator creates the following resources for a FoundationDB cluster:
-
-* `ConfigMap`: The operator creates one config map for each cluster that holds configuration like the cluster file and the fdbmonitor conf files.
-* `Service`: By default, the operator creates no services. You can configure a cluster-wide headless service for DNS lookup, and you can configure a per-process-group service that can be used to provide the public IP for the processes, as an alternative to the default behavior of using the pod IP as the public IP.
-* `PersistentVolumeClaim (PVC)`:  We create one persistent volume claim for every stateful process group.
-* `Pod`: We create one pod for every process group, with one container for starting fdbmonitor and one container for starting a helper sidecar.
-
-### Replacement and Deletion
-
-The operator has two different strategies it can take on process groups that are in an undesired state: replacement and deletion. In the case of replacement, we will create a brand new process group, move data off the old process group, and delete the resources for the old process group as well as the records of the process group itself. In the case of deletion, we will delete some or all of the resources for the process group and then create new objects with the same names. We will cover details of when these different strategies are used in later sections.
-
-A process group is marked for replacement by setting the `remove` flag on the process group. This flag is used during both replacements and shrinks, and a replacement is modeled as a grow followed by a shrink. Process groups that are marked for removal are not counted in the number of active process groups when doing a grow, so flagging a process group for removal with no other changes will cause a replacement process to be added. Flagging a process group for removal when decreasing the desired process count will cause that process group specifically to be removed to accomplish that decrease in process count. Decreasing the desired process count without marking anything for removal will cause the operator to choose process groups that should be removed to accomplish that decrease in process count.
-
-In general, when we need to update a pod's spec we will do that by deleting and recreating the pod. There are some changes that we will roll out by replacing the process group instead, such as changing a volume size. There is also a flag in the cluster spec called `updatePodsByReplacement` that will cause the operator to always roll out changes to pod specs by replacement instead of deletion.
-
 ### UpdateStatus
 
 The `UpdateStatus` subreconciler is responsible for updating the `status` field on the cluster to reflect the running state. This is used to give early feedback of what needs to change to fulfill the latest generation and to front-load analysis that can be used in later stages. We run this twice in the reconciliation loop, at the very beginning and the very end. The `UpdateStatus` subreconciler is responsible for updating the generation status and the ProcessGroup conditions.
@@ -120,14 +101,44 @@ You can skip this check by setting the `ignoreUpgradabilityChecks` flag in the c
 
 The `ReplaceMisconfiguredPods` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
 
+See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
+
 ### ReplaceFailedPods
+
+The `ReplaceFailedPods` subreconciler checks for process groups that need to be replaced because they are in an unhealthy state. This only takes action when automatic replacements are enabled.
+
+See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
+
 ### DeletePodsForBuggification
+
+The `DeletePodsForBuggification` subreconciler deletes pods that need to be recreated in order to set buggification options. These options are set through the `buggify` section in the cluster spec.
+
+When pods are deleted for buggification, we apply fewer safety checks, and buggification will often put the cluster in an unhealthy state.
+
 ### AddProcessGroups
+
+The `AddProcessGroups` subreconciler compares the desired process counts, calculated from the cluster spec, with the number of process groups in the cluster status. If the spec requires any additional process groups, this step will add them to the status. It will not create resources, and will mark the new process groups with conditions that indicate they are missing resources.
+
 ### AddServices
+
+The `AddServices` subreconciler creates any services that are required for the cluster. By default, the operator does not create any services. If the `services.headless` flag in the spec is set, we will create a headless service with the same name as the cluster. If the `services.publicIPSource` field is set to `service`, we will create a service for every process group, with the same name as the pod.
+
 ### AddPVCs
+
+The `AddPVCs` subreconciler creates any PVCs that are required for the cluster. A PVC will be created if a process group has a stateful process class, has no existing PVC, and has not been flagged for removal.
+
 ### AddPods
+
+The `AddPods` subreconciler creates any pods that are required for the cluster. Every process group will have one pod created for it. If a process group is flagged for removal, we will not create a pod for it.
+
 ### GenerateInitialClusterFile
+
+The `GenerateInitialClusterFile` creates the cluster file for the cluster. If the cluster already has a cluster file, this will take no action. The cluster file is the service discovery mechanism for the cluster. It includes addresses for coordinator processes, which are chosen statically. The coordinators are used to elect the cluster controller and inform servers and clients about which process is serving as cluster controller. The cluster file is stored in the `connectionString` field in the cluster status. You can manually specify the cluster file in the `seedConnectionString` field in the cluster spec. If both of these are blank, the operator will choose coordinators that satisfy the cluster's fault tolerance requirements. Coordinators cannot be chosen until the pods have been created and the processes have been assigned IP addresses, which by default comes from the pod's IP. Once the initial cluster file has been generated, we store it in the cluster status and requeue reconciliation so we can update the config map with the new cluster file.
+
 ### UpdateSidecarVersions
+
+The `UpdateSidecarVersions` subreconciler updates the image for the `foundationdb-kubernetes-sidecar` container in each pod to match the `version` in the cluster spec. Once the sidecar container is upgraded to a version that is different from the main container version, it will copy the `fdbserver` binary from its own image the volume it shares with the main container, and will rewrite the monitor conf file to direct `fdbmonitor` to start an `fdbserver` process using the binary in that shared volume rather than the binary from the image used to start the main container. This is done temporarily in order to enable a simultaneous cluster-wide upgrade of the `fdbserver` processes. Once that upgrade is complete, we will update the image of the main container through a rolling bounce, and the newly updated main container will use the binary that is provided by its own image.
+
 ### UpdatePodConfig
 ### UpdateLabels
 ### UpdateDatabaseConfiguration
