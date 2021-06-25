@@ -98,7 +98,7 @@ var _ = Describe("[api] Coordinator Selection", func() {
 						},
 					},
 					pClass:   ProcessClassLog,
-					expected: true,
+					expected: false,
 				}),
 		)
 	})

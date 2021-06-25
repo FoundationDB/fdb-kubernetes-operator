@@ -1237,10 +1237,8 @@ func chooseDistributedProcesses(cluster *fdbtypes.FoundationDBCluster, processes
 		currentLimits[field] = 1
 	}
 
-	log.Info("Before sort", "processes", processes)
 	// Sort the processes to ensure a deterministic result
 	sortLocalities(cluster, processes)
-	log.Info("After sort", "processes", processes)
 
 	for len(chosen) < count {
 		choseAny := false
@@ -1360,6 +1358,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		if isCoordinator {
 			coordinatorZones[process.Locality[fdbtypes.FDBLocalityZoneIDKey]]++
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
+
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 				log.Info("Process class of process is not eligible as coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "class", process.ProcessClass, "address", address)
 				allEligble = false

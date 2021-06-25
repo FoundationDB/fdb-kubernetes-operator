@@ -1968,6 +1968,63 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("with only storage processes as coordinator", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					{
+						ProcessClass: fdbtypes.ProcessClassStorage,
+						Priority:     0,
+					},
+				}
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should only have storage processes as coordinator", func() {
+				connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				addressClassMap := map[string]fdbtypes.ProcessClass{}
+				for _, pGroup := range cluster.Status.ProcessGroups {
+					addressClassMap[pGroup.Addresses[0]] = pGroup.ProcessClass
+				}
+
+				for _, coordinator := range connectionString.Coordinators {
+					addr := coordinator[:strings.LastIndex(coordinator, ":")]
+					Expect(addressClassMap[addr]).To(Equal(fdbtypes.ProcessClassStorage))
+				}
+			})
+
+			When("changing the coordinator selection to only select log processes", func() {
+				BeforeEach(func() {
+					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+						{
+							ProcessClass: fdbtypes.ProcessClassLog,
+							Priority:     0,
+						},
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap++
+				})
+
+				It("should only have log processes as coordinator", func() {
+					connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+					Expect(err).NotTo(HaveOccurred())
+
+					addressClassMap := map[string]fdbtypes.ProcessClass{}
+					for _, pGroup := range cluster.Status.ProcessGroups {
+						addressClassMap[pGroup.Addresses[0]] = pGroup.ProcessClass
+					}
+
+					for _, coordinator := range connectionString.Coordinators {
+						addr := coordinator[:strings.LastIndex(coordinator, ":")]
+						Expect(addressClassMap[addr]).To(Equal(fdbtypes.ProcessClassLog))
+					}
+				})
+			})
+		})
+
 		Context("downgrade cluster", func() {
 			BeforeEach(func() {
 				shouldCompleteReconciliation = false

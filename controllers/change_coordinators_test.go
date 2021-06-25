@@ -169,6 +169,27 @@ var _ = Describe("Change coordinators", func() {
 				}
 			})
 		})
+
+		When("the coordinator selection setting is changed", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					{
+						ProcessClass: fdbtypes.ProcessClassLog,
+						Priority:     0,
+					},
+				}
+			})
+
+			It("should only select log processes", func() {
+				Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
+				Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+				// Only select Storage processes since we select 3 processes and we have 4 storage processes
+				for _, candidate := range candidates {
+					Expect(strings.HasPrefix(candidate.ID, string(fdbtypes.ProcessClassLog))).To(BeTrue())
+				}
+			})
+		})
 	})
 
 	When("Using a HA clusters", func() {

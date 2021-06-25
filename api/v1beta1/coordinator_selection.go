@@ -31,13 +31,17 @@ type CoordinatorSelectionSetting struct {
 
 // IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator
 func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) bool {
+	if len(cluster.Spec.CoordinatorSelection) == 0 {
+		return pClass.IsStateful()
+	}
+
 	for _, setting := range cluster.Spec.CoordinatorSelection {
 		if pClass == setting.ProcessClass {
 			return true
 		}
 	}
 
-	return pClass.IsStateful()
+	return false
 }
 
 // GetClassPriority returns the priority for a class. This will be used to sort the processes for coordinator selection
