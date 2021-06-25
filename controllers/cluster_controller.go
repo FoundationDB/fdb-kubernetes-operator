@@ -88,10 +88,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Object not found, return. Created objects are automatically garbage collected.
-			// For additional cleanup logic use finalizers.
-			r.getDatabaseClientProvider().CleanUpCache(request.Namespace, request.Name)
-
 			if r.RequeueOnNotFound {
 				return ctrl.Result{Requeue: true}, nil
 			}
