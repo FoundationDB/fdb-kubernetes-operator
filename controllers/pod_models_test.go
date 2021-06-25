@@ -320,6 +320,37 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Affinity).To(BeNil())
 			})
 
+			When("having a predefined affinity rules", func() {
+				BeforeEach(func() {
+					affinity := &corev1.Affinity{
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 1,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										TopologyKey: "test",
+										LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+											"test": "test",
+										}},
+									},
+								},
+							},
+						},
+					}
+
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Affinity = affinity
+					cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+						Value: "",
+						Key:   "kubernetes.io/hostname",
+					}
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have both affinity rules", func() {
+					Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 2))
+				})
+			})
+
 			Context("with the livenessProbe enabled", func() {
 				BeforeEach(func() {
 					enabled := true
