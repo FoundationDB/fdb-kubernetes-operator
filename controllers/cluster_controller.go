@@ -1112,34 +1112,23 @@ type localityInfo struct {
 	Class fdbtypes.ProcessClass
 }
 
-// These indexes are used for sorting and since we sort ascending
-func getClassIndex(cls fdbtypes.ProcessClass) int {
-	switch cls {
-	case fdbtypes.ProcessClassStorage:
-		return 0
-	case fdbtypes.ProcessClassLog:
-		return 1
-	case fdbtypes.ProcessClassTransaction:
-		return 2
-	}
-
-	return math.MaxInt32
-}
-
-// This will sort the processes according to the following rules:
-// First all storage processes next log processes and then tlog processes.
-// Inside each process class the processes will be sorted by the ID (lower IDs come first).
+// Sort processes by their priority and their ID.
 // We have to do this to ensure we get a deterministic result for selecting the candidates
 // otherwise we get a (nearly) random result since processes are stored in a map which is by definition
 // not sorted and doesn't return values in a stable way.
-func sortLocalities(processes []localityInfo) {
+func sortLocalities(cluster *fdbtypes.FoundationDBCluster, processes []localityInfo) {
 	// Sort the processes for ID to ensure we have a stable input
 	sort.SliceStable(processes, func(i, j int) bool {
-		if processes[i].Class == processes[j].Class {
+		p1 := cluster.GetClassPriority(processes[i].Class)
+		p2 := cluster.GetClassPriority(processes[j].Class)
+
+		// If both have the same priority sort them by the process ID
+		if p1 == p2 {
 			return processes[i].ID < processes[j].ID
 		}
 
-		return getClassIndex(processes[i].Class) < getClassIndex(processes[j].Class)
+		// prefer processes with a higher priority
+		return p1 > p2
 	})
 }
 
@@ -1220,8 +1209,8 @@ type processSelectionConstraint struct {
 }
 
 // chooseDistributedProcesses recruits a maximally well-distributed set
-// of processes from a set of potential workers.
-func chooseDistributedProcesses(processes []localityInfo, count int, constraint processSelectionConstraint) ([]localityInfo, error) {
+// of processes from a set of potential candidates.
+func chooseDistributedProcesses(cluster *fdbtypes.FoundationDBCluster, processes []localityInfo, count int, constraint processSelectionConstraint) ([]localityInfo, error) {
 	chosen := make([]localityInfo, 0, count)
 	chosenIDs := make(map[string]bool, count)
 
@@ -1248,8 +1237,10 @@ func chooseDistributedProcesses(processes []localityInfo, count int, constraint 
 		currentLimits[field] = 1
 	}
 
+	log.Info("Before sort", "processes", processes)
 	// Sort the processes to ensure a deterministic result
-	sortLocalities(processes)
+	sortLocalities(cluster, processes)
+	log.Info("After sort", "processes", processes)
 
 	for len(chosen) < count {
 		choseAny := false
@@ -1331,6 +1322,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	}
 
 	allAddressesValid := true
+	allEligble := true
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
@@ -1368,6 +1360,10 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		if isCoordinator {
 			coordinatorZones[process.Locality[fdbtypes.FDBLocalityZoneIDKey]]++
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
+			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
+				log.Info("Process class of process is not eligible as coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "class", process.ProcessClass, "address", address)
+				allEligble = false
+			}
 		}
 
 		if address == "" {
@@ -1404,5 +1400,5 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 	}
 
-	return hasEnoughDCs && hasEnoughZones && allHealthy, allAddressesValid, nil
+	return hasEnoughDCs && hasEnoughZones && allHealthy && allEligble, allAddressesValid, nil
 }

@@ -126,13 +126,14 @@ func (c ChangeCoordinators) RequeueAfter() time.Duration {
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching instances.
-func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, candidates []localityInfo, class fdbtypes.ProcessClass) ([]localityInfo, error) {
+func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded {
 			continue
 		}
 
-		if process.ProcessClass != class {
+		if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 			continue
 		}
 
@@ -151,45 +152,22 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 	return candidates, nil
 }
 
-// selectCoordinators is not a deterministic method and can return different coordinators for the same input arguments
 func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
-	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
-	chooseCoordinators := func(candidates []localityInfo) ([]localityInfo, error) {
-		return chooseDistributedProcesses(candidates, coordinatorCount, processSelectionConstraint{
-			HardLimits: getHardLimits(cluster),
-		})
-	}
 
-	// Use all stateful pods if needed, but only storage if possible.
-	candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassStorage)
+	candidates, err := selectCandidates(cluster, status)
 	if err != nil {
 		return []localityInfo{}, nil
 	}
-	coordinators, err := chooseCoordinators(candidates)
-	log.Info("Current coordinators added (storage) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 
+	coordinators, err := chooseDistributedProcesses(cluster, candidates, coordinatorCount, processSelectionConstraint{
+		HardLimits: getHardLimits(cluster),
+	})
+
+	log.Info("Current coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 	if err != nil {
-		// Add in tLogs as candidates
-		candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassLog)
-		if err != nil {
-			return []localityInfo{}, nil
-		}
-		log.Info("Current coordinators added (TLog) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
-		coordinators, err = chooseCoordinators(candidates)
-		if err != nil {
-			// Add in transaction roles too
-			candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassTransaction)
-			if err != nil {
-				return []localityInfo{}, nil
-			}
-			log.Info("Current coordinators added (transaction) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
-			coordinators, err = chooseCoordinators(candidates)
-			if err != nil {
-				return candidates, err
-			}
-		}
+		return candidates, err
 	}
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))

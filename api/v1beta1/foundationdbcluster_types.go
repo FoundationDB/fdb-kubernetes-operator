@@ -296,6 +296,14 @@ type FoundationDBClusterSpec struct {
 	// investigating in issues or if the environment is unstable.
 	// +kubebuilder:default:=false
 	Skip bool `json:"skip,omitempty"`
+
+	// CoordinatorSelection defines which process classes are eligible for coordinator selection.
+	// If empty all stateful processes classes are equally eligible.
+	// A higher priority means that a process class is preferred over another process class.
+	// If the FoundationDB cluster is sans across multiple Kubernetes clusters or DCs the
+	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
+	// the coordinator selection process could conflict.
+	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -2442,6 +2450,11 @@ const (
 	// ProcessClassClusterController model for FDB class cluster_controller
 	ProcessClassClusterController ProcessClass = "cluster_controller"
 )
+
+// IsStateful determines whether a process class should store data.
+func (pClass ProcessClass) IsStateful() bool {
+	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+}
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
