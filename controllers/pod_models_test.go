@@ -483,6 +483,39 @@ var _ = Describe("pod_models", func() {
 					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
 				}))
 			})
+
+			When("having a predefined node affinity rules", func() {
+				BeforeEach(func() {
+					affinity := &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 1,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key: "test",
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Affinity = affinity
+					cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+						Value: "",
+						Key:   "kubernetes.io/hostname",
+					}
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have both affinity rules", func() {
+					Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
+					Expect(len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
+				})
+			})
 		})
 
 		Context("with an instance that is crash looping", func() {
