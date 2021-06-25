@@ -74,6 +74,11 @@ func (version FdbVersion) String() string {
 	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
 }
 
+// Compact prints the version in the major.minor format.
+func (version FdbVersion) Compact() string {
+	return fmt.Sprintf("%d.%d", version.Major, version.Minor)
+}
+
 // IsAtLeast determines if a version is greater than or equal to another version.
 func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 	if version.Major < other.Major {
