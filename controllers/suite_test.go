@@ -106,30 +106,6 @@ var _ = AfterEach(func() {
 	ClearMockLockClients()
 })
 
-var Versions = struct {
-	NextMajorVersion, NextPatchVersion,
-	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
-	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
-	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
-	WithRatekeeperRole, WithoutRatekeeperRole,
-	WithSidecarCrashOnEmpty, WithoutSidecarCrashOnEmpty,
-	Default fdbtypes.FdbVersion
-}{
-	Default:                              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:                     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 21},
-	NextMajorVersion:                     fdbtypes.FdbVersion{Major: 7, Minor: 0, Patch: 0},
-	WithSidecarInstanceIDSubstitution:    fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutSidecarInstanceIDSubstitution: fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithCommandLineVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithEnvironmentVariablesForSidecar:   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithBinariesFromMainContainer:        fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutBinariesFromMainContainer:     fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithRatekeeperRole:                   fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutRatekeeperRole:                fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12},
-	WithSidecarCrashOnEmpty:              fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 20},
-	WithoutSidecarCrashOnEmpty:           fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 15},
-}
-
 func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 	trueValue := true
 	failureDetectionWindow := 1
@@ -140,7 +116,7 @@ func createDefaultCluster() *fdbtypes.FoundationDBCluster {
 			Namespace: "my-ns",
 		},
 		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version: Versions.Default.String(),
+			Version: fdbtypes.Versions.Default.String(),
 			ProcessCounts: fdbtypes.ProcessCounts{
 				Storage:           4,
 				ClusterController: 1,

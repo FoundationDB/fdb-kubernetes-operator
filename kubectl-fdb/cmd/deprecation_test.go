@@ -43,6 +43,8 @@ import (
 )
 
 var _ = Describe("[plugin] deprecation command", func() {
+	var boolValue = true
+
 	When("running the deprecation command", func() {
 		clusterName := "test"
 		namespace := "test"
@@ -144,6 +146,11 @@ var _ = Describe("[plugin] deprecation command", func() {
 											},
 										},
 									},
+								},
+							},
+							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+								Replacements: fdbtypes.AutomaticReplacementOptions{
+									Enabled: &boolValue,
 								},
 							},
 						},
@@ -311,6 +318,11 @@ var _ = Describe("[plugin] deprecation command", func() {
 									},
 								},
 							},
+							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+								Replacements: fdbtypes.AutomaticReplacementOptions{
+									Enabled: &boolValue,
+								},
+							},
 						},
 					},
 					inputClusters: []string{},
@@ -474,7 +486,8 @@ version: ""`,
 					},
 					expectedOutput: `---
 automationOptions:
-  replacements: {}
+  replacements:
+    enabled: false
 buggify: {}
 configMap:
   metadata:
