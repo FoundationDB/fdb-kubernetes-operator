@@ -42,6 +42,22 @@ var _ = Describe("[plugin] remove instances command", func() {
 	clusterName := "test"
 	namespace := "test"
 
+	var cluster *fdbtypes.FoundationDBCluster
+
+	BeforeEach(func() {
+		cluster = &fdbtypes.FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterName,
+				Namespace: namespace,
+			},
+			Spec: fdbtypes.FoundationDBClusterSpec{
+				ProcessCounts: fdbtypes.ProcessCounts{
+					Storage: 1,
+				},
+			},
+		}
+	})
+
 	When("running remove instances command", func() {
 		When("getting the instance IDs from Pods", func() {
 			var podList corev1.PodList
@@ -85,7 +101,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbtypes.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&podList).Build()
+					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
 
 					instances, err := getInstanceIDsFromPod(kubeClient, clusterName, input.Instances, namespace)
 					Expect(err).NotTo(HaveOccurred())
@@ -110,33 +126,20 @@ var _ = Describe("[plugin] remove instances command", func() {
 		})
 
 		When("removing instances from a cluster", func() {
-			var cluster fdbtypes.FoundationDBCluster
 			var podList corev1.PodList
 
 			BeforeEach(func() {
-				cluster = fdbtypes.FoundationDBCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      clusterName,
-						Namespace: namespace,
-					},
-					Spec: fdbtypes.FoundationDBClusterSpec{
-						ProcessCounts: fdbtypes.ProcessCounts{
-							Storage: 1,
-						},
-					},
-					Status: fdbtypes.FoundationDBClusterStatus{
-						ProcessGroups: []*fdbtypes.ProcessGroupStatus{
-							{
-								ProcessGroupID: "failed",
-								Addresses:      []string{"1.2.3.4"},
-								ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-									fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
-								},
+				cluster.Status = fdbtypes.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+						{
+							ProcessGroupID: "failed",
+							Addresses:      []string{"1.2.3.4"},
+							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
 							},
 						},
 					},
 				}
-
 				podList = corev1.PodList{
 					Items: []corev1.Pod{
 						{
@@ -168,7 +171,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbtypes.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
+					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
 
 					err := removeInstances(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed)
 					Expect(err).NotTo(HaveOccurred())
