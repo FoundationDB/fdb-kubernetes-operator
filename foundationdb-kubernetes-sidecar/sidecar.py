@@ -149,6 +149,14 @@ class Config(object):
             help=("The version of the main foundationdb container in the pod"),
         )
         parser.add_argument(
+            "--public-ip-index",
+            type=int,
+            help=(
+                "Tells the sidecar to treat the public IP as a comma-separated "
+                "list, and extract this index from the list"
+            ),
+        )
+        parser.add_argument(
             "--main-container-conf-dir",
             help=(
                 "The directory where the dynamic conf "
@@ -178,7 +186,7 @@ class Config(object):
         self.init_mode = args.init_mode
         self.main_container_version = args.main_container_version
         self.require_not_empty = args.require_not_empty
-
+        
         with open("/var/fdb/version") as version_file:
             self.primary_version = version_file.read().strip()
 
@@ -288,6 +296,11 @@ class Config(object):
 
         if os.getenv("COPY_ONCE", "0") == "1":
             self.init_mode = True
+
+        if args.public_ip_index is not None:
+            public_ips = self.substitutions["FDB_PUBLIC_IP"].split(",")
+            self.substitutions["FDB_PUBLIC_IP"] = public_ips[args.public_ip_index]
+
 
     @classmethod
     def shared(cls):

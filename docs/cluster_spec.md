@@ -30,6 +30,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoleCounts](#rolecounts)
+* [RoutingConfig](#routingconfig)
 * [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
 
@@ -228,7 +229,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. | string | false |
 | updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. | bool | false |
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
-| services | Services defines the configuration for services that sit in front of our pods. | [ServiceConfig](#serviceconfig) | false |
+| services | Services defines the configuration for services that sit in front of our pods. **Deprecated: Use Routing instead.** | [ServiceConfig](#serviceconfig) | false |
+| routing | Routing defines the configuration for routing to our pods. | [RoutingConfig](#routingconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
 | buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
@@ -451,9 +453,20 @@ RoleCounts represents the roles whose counts can be customized.
 
 [Back to TOC](#table-of-contents)
 
+## RoutingConfig
+
+RoutingConfig allows configuring routing to our pods, and services that sit in front of them.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| headlessService | Headless determines whether we want to run a headless service for the cluster. | *bool | false |
+| publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *PublicIPSource | false |
+
+[Back to TOC](#table-of-contents)
+
 ## ServiceConfig
 
-ServiceConfig allows configuring services that sit in front of our pods.
+ServiceConfig allows configuring services that sit in front of our pods. **Deprecated: Use RoutingConfig instead.**
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

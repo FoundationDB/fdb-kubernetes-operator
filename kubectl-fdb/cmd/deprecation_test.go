@@ -425,8 +425,9 @@ processes:
               org.foundationdb/empty: "0"
             requests:
               org.foundationdb/empty: "0"
-services:
+routing:
   publicIPSource: pod
+services: {}
 sidecarContainer: {}
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
@@ -531,6 +532,7 @@ processes:
       spec:
         resources: {}
       status: {}
+routing: {}
 services: {}
 sidecarContainer: {}
 version: ""`,

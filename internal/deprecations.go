@@ -198,6 +198,16 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		spec.CustomParameters = nil
 	}
 
+	if spec.Services.Headless != nil {
+		spec.Routing.HeadlessService = spec.Services.Headless
+		spec.Services.Headless = nil
+	}
+
+	if spec.Services.PublicIPSource != nil {
+		spec.Routing.PublicIPSource = spec.Services.PublicIPSource
+		spec.Services.PublicIPSource = nil
+	}
+
 	// Validate customParameters
 	for processClass := range spec.Processes {
 		if setting, ok := spec.Processes[processClass]; ok {
@@ -231,9 +241,9 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 			})
 		})
 
-		if spec.Services.PublicIPSource == nil {
+		if spec.Routing.PublicIPSource == nil {
 			source := fdbtypes.PublicIPSourcePod
-			spec.Services.PublicIPSource = &source
+			spec.Routing.PublicIPSource = &source
 		}
 
 		if spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds == nil {

@@ -8,8 +8,8 @@ spec:
     # Use fake fault domains to support running in a single-node Kubernetes
     # cluster.
     key: foundationdb.org/none
-  services:
-    headless: true
+  routing:
+    headlessService: true
   automationOptions:
     replacements:
       # Enable automatic replacements. This will be the default in the future.

@@ -166,7 +166,11 @@ type FoundationDBClusterSpec struct {
 
 	// Services defines the configuration for services that sit in front of our
 	// pods.
+	// Deprecated: Use Routing instead.
 	Services ServiceConfig `json:"services,omitempty"`
+
+	// Routing defines the configuration for routing to our pods.
+	Routing RoutingConfig `json:"routing,omitempty"`
 
 	// IgnoreUpgradabilityChecks determines whether we should skip the check for
 	// client compatibility when performing an upgrade.
@@ -1994,13 +1998,13 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // NeedsExplicitListenAddress determines whether we pass a listen address
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
-	source := cluster.Spec.Services.PublicIPSource
+	source := cluster.Spec.Routing.PublicIPSource
 	return source != nil && *source == PublicIPSourceService
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
 func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
-	source := cluster.Spec.Services.PublicIPSource
+	source := cluster.Spec.Routing.PublicIPSource
 	if source == nil {
 		return PublicIPSourcePod
 	}
@@ -2383,6 +2387,7 @@ type LockDenyListEntry struct {
 }
 
 // ServiceConfig allows configuring services that sit in front of our pods.
+// Deprecated: Use RoutingConfig instead.
 type ServiceConfig struct {
 	// Headless determines whether we want to run a headless service for the
 	// cluster.
@@ -2393,6 +2398,26 @@ type ServiceConfig struct {
 	//
 	// This supports the values `pod` and `service`.
 	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
+}
+
+// RoutingConfig allows configuring routing to our pods, and services that sit
+// in front of them.
+type RoutingConfig struct {
+	// Headless determines whether we want to run a headless service for the
+	// cluster.
+	HeadlessService *bool `json:"headlessService,omitempty"`
+
+	// PublicIPSource specifies what source a process should use to get its
+	// public IPs.
+	//
+	// This supports the values `pod` and `service`.
+	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
+
+	// PodIPIndex tells the pod to use a specific entry from the podIPs list
+	// instead of the default podIP.
+	// This feature is only supported in FDB 7.0 or later, and requires
+	// dual-stack support in your Kubernetes environment.
+	PodIPIndex *int `json:"podIPIndex,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen

@@ -287,7 +287,7 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 		metadata.Annotations = make(map[string]string)
 	}
 	metadata.Annotations[fdbtypes.LastSpecKey] = specHash
-	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Services.PublicIPSource)
+	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Routing.PublicIPSource)
 
 	return metadata
 }

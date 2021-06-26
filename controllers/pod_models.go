@@ -454,14 +454,20 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 	if optionalCluster != nil {
 		cluster := optionalCluster
 
-		publicIPSource := cluster.Spec.Services.PublicIPSource
+		publicIPSource := cluster.Spec.Routing.PublicIPSource
 		usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
 
 		var publicIPKey string
 		if usePublicIPFromService {
 			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
 		} else {
-			publicIPKey = "status.podIP"
+			if cluster.Spec.Routing.PodIPIndex == nil {
+				publicIPKey = "status.podIP"
+			} else {
+				publicIPKey = "status.podIPs"
+				sidecarArgs = append(sidecarArgs, "--public-ip-index")
+				sidecarArgs = append(sidecarArgs, fmt.Sprint(*cluster.Spec.Routing.PodIPIndex))
+			}
 		}
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},

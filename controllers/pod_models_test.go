@@ -340,6 +340,79 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with pod IP indices defined", func() {
+			BeforeEach(func() {
+				index := 1
+				cluster.Spec.Routing.PodIPIndex = &index
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should have the built-in init container", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--public-ip-index",
+					"1",
+					"--init-mode",
+				}))
+				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+				}))
+			})
+
+			It("should have the sidecar container", func() {
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--public-ip-index",
+					"1",
+				}))
+				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+				}))
+			})
+		})
+
 		Context("with an instance that is crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
@@ -562,7 +635,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a the public IP from the pod", func() {
 			BeforeEach(func() {
 				var source = fdbtypes.PublicIPSourcePod
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -623,7 +696,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a the public IP from the service", func() {
 			BeforeEach(func() {
 				var source = fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -692,7 +765,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a headless service", func() {
 			BeforeEach(func() {
 				var enabled = true
-				cluster.Spec.Services.Headless = &enabled
+				cluster.Spec.Routing.HeadlessService = &enabled
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -705,7 +778,7 @@ var _ = Describe("pod_models", func() {
 		Context("with no headless service", func() {
 			BeforeEach(func() {
 				var enabled = false
-				cluster.Spec.Services.Headless = &enabled
+				cluster.Spec.Routing.HeadlessService = &enabled
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -2020,7 +2093,7 @@ var _ = Describe("pod_models", func() {
 		var enabled = true
 
 		BeforeEach(func() {
-			cluster.Spec.Services.Headless = &enabled
+			cluster.Spec.Routing.HeadlessService = &enabled
 		})
 
 		JustBeforeEach(func() {
@@ -2058,7 +2131,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a nil headless flag", func() {
 			BeforeEach(func() {
-				cluster.Spec.Services.Headless = nil
+				cluster.Spec.Routing.HeadlessService = nil
 			})
 
 			It("should return nil", func() {

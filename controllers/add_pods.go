@@ -87,7 +87,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 			pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
 
-			if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+			if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
 				service := &corev1.Service{}
 				err = r.Get(context, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 				if err != nil {

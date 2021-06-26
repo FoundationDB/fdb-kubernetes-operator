@@ -7564,6 +7564,15 @@ spec:
                         x-kubernetes-int-or-string: true
                       type: object
                   type: object
+                routing:
+                  properties:
+                    headlessService:
+                      type: boolean
+                    podIPIndex:
+                      type: integer
+                    publicIPSource:
+                      type: string
+                  type: object
                 runningVersion:
                   type: string
                 seedConnectionString:

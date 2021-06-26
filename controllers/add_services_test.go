@@ -42,9 +42,9 @@ var _ = Describe("add_services", func() {
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
 		source := fdbtypes.PublicIPSourceService
-		cluster.Spec.Services.PublicIPSource = &source
+		cluster.Spec.Routing.PublicIPSource = &source
 		enabled := true
-		cluster.Spec.Services.Headless = &enabled
+		cluster.Spec.Routing.HeadlessService = &enabled
 
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -108,7 +108,7 @@ var _ = Describe("add_services", func() {
 		Context("with the pod public IP source", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 			})
 
 			It("should not requeue", func() {
@@ -161,7 +161,7 @@ var _ = Describe("add_services", func() {
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
 				enabled := false
-				cluster.Spec.Services.Headless = &enabled
+				cluster.Spec.Routing.HeadlessService = &enabled
 			})
 
 			It("should not requeue", func() {

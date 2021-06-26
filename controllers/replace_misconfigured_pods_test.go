@@ -160,7 +160,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				ipSource := fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &ipSource
+				cluster.Spec.Routing.PublicIPSource = &ipSource
 				needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -191,13 +191,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Remove:         false,
 			}
 			ipSource := fdbtypes.PublicIPSourceService
-			cluster.Spec.Services.PublicIPSource = &ipSource
+			cluster.Spec.Routing.PublicIPSource = &ipSource
 
 			needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 
-			cluster.Spec.Services.PublicIPSource = nil
+			cluster.Spec.Routing.PublicIPSource = nil
 			needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -229,7 +229,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			ipSource := fdbtypes.PublicIPSourcePod
-			cluster.Spec.Services.PublicIPSource = &ipSource
+			cluster.Spec.Routing.PublicIPSource = &ipSource
 			needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
