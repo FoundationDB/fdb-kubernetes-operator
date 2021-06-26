@@ -24,8 +24,6 @@ When we use the term "cluster status" in this document, it refers to the status 
 
 This document also assumes that you are familiar with the earlier content in the user manual. We especially recommend reading through the section on [Resources Managed by the Operator](resources.md), which describes terminology and concepts that are used heavily in this document.
 
-This document will note which operations require a lock in order to complete. This means that the operation needs to ensure that it is the only instance of the operator acting on the cluster, to prevent conflicts in multi-DC clusters. For more information on the locking system, see the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations).
-
 ## Reconciliation Loops
 
 The operations of our controller are structured as a reconciliation loop. At a high level the reconciliation loop works as follows:
@@ -44,6 +42,43 @@ There are important constraints on how reconciliation has to work within this mo
 * We cannot compare the new spec to the previous spec to know what has changed. We can only compare the new spec to the live state, or to the information we store in the resource status or in other resources that we create.
 
 In our operator, we add an additional abstraction to help structure the reconciliation loop, which we call a **Subreconciler**. A subreconciler represents a self-contained chunk of work that brings the running state closer to the spec. Each subreconciler receives the latest custom resource, and is responsible for determining what actions if any need to be run for the activity in its scope. We run every subreconciler for every reconciliation, with the subreconcilers taking care of logic to exit early if they do not have any work to do.
+
+## Locking Operations
+
+This document will note which operations require a lock in order to complete. This means that the operation needs to ensure that it is the only instance of the operator acting on the cluster, to prevent conflicts in multi-DC clusters. For more using and configuring on the locking system, see the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations).
+
+The locking system works by setting a key in the database to indicate which instance of the operator can perform global operations. This key is `\xff\x02/org.foundationdb.kubernetes-operator/global`. This key will be set to a value of `tuple.Tuple{lockID,start,end}`. `lockID` is the `instanceIDPrefix` from the cluster spec. `start` is a 64-bit integer representing a Unix timestamp with precision to the second, giving the time when this instance of the operator took the lock. `end` is a similar timestamp representing the time when the lock will automatically expire. The default lock duration is 10 minutes. If the operator tries to acquire a lock and sees that it already has the lock, it will extend it for another 10 minutes past the current time. If it sees that another instance of the operator has a lock, and the current time is past the end of the lock, it will clear the old lock and take a new lock for itself. If it sees that another instance of the operator has a lock, and the current time is before the end of the lock, it will requeue reconciliation until it can acquire the lock.
+
+The locking system is used to protect operations that have global scope or otherwise have a global impact. This includes operations like setting database configuration, which impacts the entire cluster. It also includes operations that trigger recoveries or that we want to restrict to one DC at a time, such as excluding processes.
+
+Because this locking system involves writing to the database, it will not work when the database is unavailable. In that situation any attempt to aquire a lock will fail. If the database is unavailable and you need the operator to take action to make it available, you can work around this by setting the `disableLocks` field in the lock options to `true`. However, many of the actions that require locks are activities that are impossible or unsafe when the database is unavailable, and often an unavailable database will require manual intervention.
+
+If there is a dysfunctional instance of the operator that cannot be trusted to perform global operations, you can block it from taking locks by adding its `lockID` to the deny list in the cluster spec. You can set this value in any DC. This will only affect operations on the cluster whose spec you update. This will set the key `\xff\x02/org.foundationdb.kubernetes-operator/denyList/$lockID` to the the value `$lockID`. If an instance of the operator with that lock ID sees that the key is set, it will fail any attempt to acquire a lock, even if it has a lock already. Any other instance of the operator that sees an active lock for an instance in the deny list will ignore that lock and will be able to take one for itself.
+
+In order to avoid contention between different instances of the operator in managing the deny list, if the operator has no entry in the deny list in its spec for a given `lockID`, it will take no action. This means that if you set the deny list in the spec, and then clear that field in the spec, the deny list will still be set in the database. In order to effectively remove an entry from the deny list, you have to update its entry with the flag `allow: true`. This tells the operator that your intention is to explicitly allow this instance to take global locks again.
+
+As an example, you would use this spec to add the operator in `dc1` to the deny list:
+
+```yaml
+spec:
+    lockOptions:
+        denyList:
+            - id: dc1
+```
+
+And you would use this spec to remove the operator in `dc1` from the deny list:
+
+```yaml
+spec:
+    lockOptions:
+        denyList:
+            - id: dc1
+              allow: true
+```
+
+Once that is done and the change is reconciled, you can clear the deny list in the spec.
+
+See the [LockOptions](../cluster_spec.md#LockOptions) documentation for more options for customizing the locking system.
 
 ## Cluster Reconciliation
 
@@ -88,7 +123,7 @@ The `UpdateStatus` subreconciler is responsible for updating the `status` field 
 
 ### UpdateLockConfiguration
 
-The `UpdateLockConfiguration` subreconciler sets fields in the database to manage the deny list for the cluster locking system. See the [Coordinating Global Operations](fault_domains.md#coordinating-global-operations) section for more information about this locking system.
+The `UpdateLockConfiguration` subreconciler sets fields in the database to manage the deny list for the cluster locking system. See the [Locking Operations](#locking-operations) section for more information about this locking system.
 
 ### UpdateConfigMap
 

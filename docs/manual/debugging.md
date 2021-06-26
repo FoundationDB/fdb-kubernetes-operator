@@ -100,6 +100,16 @@ or simply run:
 kubectl annotate fdb cluster force-reconcile="$(date)" --overwrite
 ```
 
+## Reconciliation Not Completing
+
+If reconciliation encounters an error in one subreconciler, it will generally stop reconciliation and not attempt to run later subreconcilers. This can cause reconciliation to fail to make progress. If you are seeing behavior, you can identify where reconciliation is getting stuck by looking in the logs for the message `Requeuing reconciliation`. This message has a field called `subReconciler` that identifies the last subreconciler it ran. If you look for the messages preceding this one, you can often find logs from that subreconciler indicating what kind of problem it hit. You may also be able to find problems by looking for messages with the `error` level.
+
+The `UpdatePodConfig` subreconciler can get stuck if it is unable to confirm that a pod has the latest config map contents. If this step is stuck, you can look in the logs for the message `Update dynamic Pod config` to determine what pods it is trying to update. If the pods are failing, you may need to delete them, or replace them.
+
+The `ExcludeInstances` subreconciler can get stuck if it needs to exclude processes, but there are processes that are not flagged for removal and are not healthy. If this step is stuck, you can look in the logs for the message `Waiting for missing processes` to determine what processes are missing. If the pods are failing, you may need to delete them, or replace them.
+
+Any step that requires a lock can get stuck indefinitely if the locking is blocked. See the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations) for more background on the locking system. You can see if the operator is trying to take a lock by looking in the logs for the message `Taking lock on cluster`. This will identify why the operator needs a lock. If another instance of the operator has a lock, you will see a log message `Failed to get lock`, which will have an `owner` field that tells you what instance has the lock, as well as an `endTime` field that tells you when the lock will expire. You can then look in the logs for the instance of the operator that has the lock and see if that operator is stuck in reconciliation, and try to get it unstuck. Once the operator completes reconciliation and the lock expires, your original instance of the operator should able to get the lock for itself.
+
 ### Running CLI Commands
 
 If you want to open up a shell or run a CLI, you can use the [plugin](#kubectl-fdb-plugin):
