@@ -70,6 +70,29 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should contain the instance's metadata", func() {
+				Expect(pod.Namespace).To(Equal("my-ns"))
+				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":             cluster.Name,
+					"fdb-new-custom-name":         cluster.Name,
+					"fdb-managed-by-operator":     "true",
+					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+				}))
+			})
+		})
+
 		Context("with a cluster controller instance", func() {
 			BeforeEach(func() {
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassClusterController, 1)
@@ -993,6 +1016,39 @@ var _ = Describe("pod_models", func() {
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											fdbtypes.FDBClusterLabel:      cluster.Name,
+											fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+										},
+									},
+								},
+							},
+						},
+					},
+				}))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should set the pod affinity", func() {
+				Expect(spec.Affinity).To(Equal(&corev1.Affinity{
+					PodAntiAffinity: &corev1.PodAntiAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+							{
+								Weight: 1,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									TopologyKey: "kubernetes.io/hostname",
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"fdb-custom-name":             cluster.Name,
+											"fdb-managed-by-operator":     "true",
 											fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 										},
 									},
@@ -2012,6 +2068,45 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				service, err = GetService(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the service", func() {
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":             cluster.Name,
+					"fdb-managed-by-operator":     "true",
+					"fdb-new-custom-name":         cluster.Name,
+					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+				}))
+			})
+
+			It("should set the spec on the service", func() {
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+
+				Expect(len(service.Spec.Ports)).To(Equal(2))
+				Expect(service.Spec.Ports[0].Name).To(Equal("tls"))
+				Expect(service.Spec.Ports[0].Port).To(Equal(int32(4500)))
+				Expect(service.Spec.Ports[1].Name).To(Equal("non-tls"))
+				Expect(service.Spec.Ports[1].Port).To(Equal(int32(4501)))
+
+				Expect(service.Spec.Selector).To(Equal(map[string]string{
+					"fdb-custom-name":           cluster.Name,
+					"fdb-managed-by-operator":   "true",
+					fdbtypes.FDBInstanceIDLabel: "storage-1",
+				}))
+			})
+		})
 	})
 
 	Describe("GetPvc", func() {
@@ -2041,6 +2136,29 @@ var _ = Describe("pod_models", func() {
 							corev1.ResourceStorage: resource.MustParse("128G"),
 						},
 					},
+				}))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the PVC", func() {
+				Expect(pvc.Namespace).To(Equal("my-ns"))
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":             cluster.Name,
+					"fdb-new-custom-name":         cluster.Name,
+					"fdb-managed-by-operator":     "true",
+					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:   "storage-1",
 				}))
 			})
 		})
@@ -2219,6 +2337,35 @@ var _ = Describe("pod_models", func() {
 					ClusterIP: "None",
 					Selector: map[string]string{
 						fdbtypes.FDBClusterLabel: "operator-test-1",
+					},
+				}))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+			})
+
+			It("should set the metadata on the service", func() {
+				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
+				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":         "operator-test-1",
+					"fdb-new-custom-name":     "operator-test-1",
+					"fdb-managed-by-operator": "true",
+				}))
+			})
+
+			It("should use the default service spec", func() {
+				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
+					ClusterIP: "None",
+					Selector: map[string]string{
+						"fdb-custom-name":         "operator-test-1",
+						"fdb-managed-by-operator": "true",
 					},
 				}))
 			})

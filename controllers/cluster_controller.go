@@ -338,6 +338,9 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 	for label, value := range getMinimalPodLabels(cluster, processClass, id) {
 		metadata.Labels[label] = value
 	}
+	for label, value := range cluster.Spec.LabelConfig.ResourceLabels {
+		metadata.Labels[label] = value
+	}
 
 	return *metadata
 }

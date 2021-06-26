@@ -1313,6 +1313,10 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    resourceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                   type: object
                 lockOptions:
                   properties:

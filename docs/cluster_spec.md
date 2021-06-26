@@ -310,6 +310,7 @@ LabelConfig allows customizing labels used by the operator.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | matchLabels | MatchLabels provides the labels that the operator should use to identify resources owned by the cluster. | map[string]string | false |
+| resourceLabels | ResourceLabels provides the labels that the operator should apply to resources it creates. | map[string]string | false |
 | filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. | *bool | false |
 
 [Back to TOC](#table-of-contents)

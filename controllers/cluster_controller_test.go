@@ -2490,6 +2490,26 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+			})
+
+			It("should populate the metadata", func() {
+				Expect(configMap.Namespace).To(Equal("my-ns"))
+				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-config", cluster.Name)))
+				Expect(configMap.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":         cluster.Name,
+					"fdb-new-custom-name":     cluster.Name,
+					"fdb-managed-by-operator": "true",
+				}))
+				Expect(configMap.Annotations).To(BeNil())
+			})
+		})
+
 		Context("with a version that requires sidecar conf", func() {
 			BeforeEach(func() {
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()

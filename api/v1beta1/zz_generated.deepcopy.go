@@ -1182,6 +1182,13 @@ func (in *LabelConfig) DeepCopyInto(out *LabelConfig) {
 			(*out)[key] = val
 		}
 	}
+	if in.ResourceLabels != nil {
+		in, out := &in.ResourceLabels, &out.ResourceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.FilterOnOwnerReferences != nil {
 		in, out := &in.FilterOnOwnerReferences, &out.FilterOnOwnerReferences
 		*out = new(bool)
