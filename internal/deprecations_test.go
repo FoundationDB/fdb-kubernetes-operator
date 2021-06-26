@@ -61,7 +61,6 @@ var _ = Describe("[internal] deprecations", func() {
 	Describe("NormalizeClusterSpec", func() {
 		var spec *fdbtypes.FoundationDBClusterSpec
 		var err error
-		//var cluster *fdbtypes.FoundationDBCluster
 
 		BeforeEach(func() {
 			spec = &fdbtypes.FoundationDBClusterSpec{
