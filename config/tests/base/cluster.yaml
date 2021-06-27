@@ -21,6 +21,7 @@ spec:
     # behavior with having a process class with an underscore.
     cluster_controller: 1
   sidecarContainer:
+    # Change default probes to match the defaults we will apply in the future.
     enableReadinessProbe: false
     enableLivenessProbe: true
   processes:
