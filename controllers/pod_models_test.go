@@ -340,10 +340,10 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with pod IP indices defined", func() {
+		Context("with a pod IP pattern defined", func() {
 			BeforeEach(func() {
-				index := 1
-				cluster.Spec.Routing.PodIPIndex = &index
+				pattern := ":"
+				cluster.Spec.Routing.PodIPPattern = &pattern
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -362,8 +362,8 @@ var _ = Describe("pod_models", func() {
 					"fdbcli",
 					"--main-container-version",
 					"6.2.20",
-					"--public-ip-index",
-					"1",
+					"--public-ip-pattern",
+					":",
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
@@ -394,8 +394,8 @@ var _ = Describe("pod_models", func() {
 					"fdbcli",
 					"--main-container-version",
 					"6.2.20",
-					"--public-ip-index",
-					"1",
+					"--public-ip-pattern",
+					":",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{

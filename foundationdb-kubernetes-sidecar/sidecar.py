@@ -24,6 +24,7 @@ import hashlib
 import logging
 import json
 import os
+import re
 import shutil
 import socket
 import ssl
@@ -149,11 +150,10 @@ class Config(object):
             help=("The version of the main foundationdb container in the pod"),
         )
         parser.add_argument(
-            "--public-ip-index",
-            type=int,
+            "--public-ip-pattern",
             help=(
                 "Tells the sidecar to treat the public IP as a comma-separated "
-                "list, and extract this index from the list"
+                "list, and use the first entry matching this pattern"
             ),
         )
         parser.add_argument(
@@ -297,9 +297,13 @@ class Config(object):
         if os.getenv("COPY_ONCE", "0") == "1":
             self.init_mode = True
 
-        if args.public_ip_index is not None:
+        if args.public_ip_pattern:
+            regex = re.compile(args.public_ip_pattern)
             public_ips = self.substitutions["FDB_PUBLIC_IP"].split(",")
-            self.substitutions["FDB_PUBLIC_IP"] = public_ips[args.public_ip_index]
+            matching_ips = [ip for ip in public_ips if regex.search(ip)]
+            if len(matching_ips) == 0:
+                raise Exception("Failed to find IP matching %s in %s" % (args.public_ip_pattern, public_ips))
+            self.substitutions["FDB_PUBLIC_IP"] = public_ips[0]
 
 
     @classmethod

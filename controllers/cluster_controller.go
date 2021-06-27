@@ -891,7 +891,7 @@ func (instance FdbInstance) GetPublicIPs() []string {
 }
 
 func getPublicIpsForPod(pod *corev1.Pod) []string {
-	var podIPIndex *int
+	var podIPPattern *regexp.Regexp
 
 	if pod == nil {
 		return []string{}
@@ -900,26 +900,30 @@ func getPublicIpsForPod(pod *corev1.Pod) []string {
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "foundationdb-kubernetes-sidecar" {
 			for indexOfArgument, argument := range container.Args {
-				if argument == "--public-ip-index" && indexOfArgument < len(container.Args)-1 {
-					nextArgument := container.Args[indexOfArgument+1]
-					index, err := strconv.Atoi(nextArgument)
+				if argument == "--public-ip-pattern" && indexOfArgument < len(container.Args)-1 {
+					patternString := container.Args[indexOfArgument+1]
+					pattern, err := regexp.Compile(patternString)
 					if err != nil {
-						log.Error(err, "Error parsing public IP index", "argument", nextArgument)
+						log.Error(err, "Error parsing public IP pattern", "pattern", pattern)
 						return nil
 					}
-					podIPIndex = &index
+					podIPPattern = pattern
 					break
 				}
 			}
 		}
 	}
 
-	if podIPIndex != nil {
+	if podIPPattern != nil {
 		podIPs := pod.Status.PodIPs
-		if *podIPIndex < 0 || *podIPIndex >= len(podIPs) {
-			return []string{}
+		matchingIPs := make([]string, 0, len(podIPs))
+
+		for _, ip := range podIPs {
+			if podIPPattern.Match([]byte(ip.IP)) {
+				matchingIPs = append(matchingIPs, ip.IP)
+			}
 		}
-		return []string{podIPs[*podIPIndex].IP}
+		return matchingIPs
 	}
 
 	return []string{pod.Status.PodIP}

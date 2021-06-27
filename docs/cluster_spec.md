@@ -461,6 +461,7 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | ----- | ----------- | ------ | -------- |
 | headlessService | Headless determines whether we want to run a headless service for the cluster. | *bool | false |
 | publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *PublicIPSource | false |
+| podIPPattern | PodIPIndex tells the pod to use a specific entry from the podIPs list instead of the default podIP. The entry be the first one that matches the pattern that is provided in this field. This feature is only supported in FDB 7.0 or later, and requires dual-stack support in your Kubernetes environment. | *string | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -143,9 +143,8 @@ func (client *realFdbPodClient) getListenIP() string {
 	ips := getPublicIpsForPod(client.Pod)
 	if len(ips) > 0 {
 		return ips[0]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // makeRequest submits a request to the sidecar.

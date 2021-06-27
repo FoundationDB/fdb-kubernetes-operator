@@ -2414,10 +2414,11 @@ type RoutingConfig struct {
 	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
 
 	// PodIPIndex tells the pod to use a specific entry from the podIPs list
-	// instead of the default podIP.
+	// instead of the default podIP. The entry be the first one that matches the
+	// pattern that is provided in this field.
 	// This feature is only supported in FDB 7.0 or later, and requires
 	// dual-stack support in your Kubernetes environment.
-	PodIPIndex *int `json:"podIPIndex,omitempty"`
+	PodIPPattern *string `json:"podIPPattern,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen

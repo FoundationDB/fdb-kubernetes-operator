@@ -1411,9 +1411,9 @@ func (in *RoutingConfig) DeepCopyInto(out *RoutingConfig) {
 		*out = new(PublicIPSource)
 		**out = **in
 	}
-	if in.PodIPIndex != nil {
-		in, out := &in.PodIPIndex, &out.PodIPIndex
-		*out = new(int)
+	if in.PodIPPattern != nil {
+		in, out := &in.PodIPPattern, &out.PodIPPattern
+		*out = new(string)
 		**out = **in
 	}
 }

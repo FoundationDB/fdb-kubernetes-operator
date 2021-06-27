@@ -3903,10 +3903,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
-		Context("with a pod IP index configured", func() {
+		Context("with a pod IP pattern configured", func() {
 			BeforeEach(func() {
-				index := 1
-				cluster.Spec.Routing.PodIPIndex = &index
+				pattern := ":"
+				cluster.Spec.Routing.PodIPPattern = &pattern
 				pod, err := GetPod(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
@@ -3923,7 +3923,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(result).To(Equal([]string{"2001:db8::ff00:42:8329"}))
 			})
 
-			Context("with too few IPs in the Pod IP list", func() {
+			Context("with no matching IPs in the Pod IP list", func() {
 				BeforeEach(func() {
 					instance.Pod.Status.PodIPs = []corev1.PodIP{
 						{IP: "1.1.1.2"},

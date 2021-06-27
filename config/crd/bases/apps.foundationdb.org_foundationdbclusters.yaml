@@ -7568,8 +7568,8 @@ spec:
                   properties:
                     headlessService:
                       type: boolean
-                    podIPIndex:
-                      type: integer
+                    podIPPattern:
+                      type: string
                     publicIPSource:
                       type: string
                   type: object
