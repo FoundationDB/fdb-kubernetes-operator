@@ -3874,6 +3874,82 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 	})
+
+	Describe("GetPublicIPs", func() {
+		var instance FdbInstance
+
+		BeforeEach(func() {
+			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			instance = FdbInstance{}
+		})
+
+		Context("with a default pod", func() {
+			BeforeEach(func() {
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Status.PodIP = "1.1.1.1"
+				pod.Status.PodIPs = []corev1.PodIP{
+					{IP: "1.1.1.2"},
+					{IP: "2001:db8::ff00:42:8329"},
+				}
+				instance.Pod = pod
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should be the public IP from the pod", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(Equal([]string{"1.1.1.1"}))
+			})
+		})
+
+		Context("with a pod IP index configured", func() {
+			BeforeEach(func() {
+				index := 1
+				cluster.Spec.Routing.PodIPIndex = &index
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Status.PodIP = "1.1.1.1"
+				pod.Status.PodIPs = []corev1.PodIP{
+					{IP: "1.1.1.2"},
+					{IP: "2001:db8::ff00:42:8329"},
+				}
+				instance.Pod = pod
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should select the address based on the spec", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(Equal([]string{"2001:db8::ff00:42:8329"}))
+			})
+
+			Context("with too few IPs in the Pod IP list", func() {
+				BeforeEach(func() {
+					instance.Pod.Status.PodIPs = []corev1.PodIP{
+						{IP: "1.1.1.2"},
+					}
+				})
+
+				It("should be empty", func() {
+					result := instance.GetPublicIPs()
+					Expect(result).To(BeEmpty())
+				})
+			})
+		})
+
+		Context("with no pod", func() {
+			BeforeEach(func() {
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should be empty", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(BeEmpty())
+			})
+		})
+	})
 })
 
 func getProcessClassMap(pods []corev1.Pod) map[fdbtypes.ProcessClass]int {

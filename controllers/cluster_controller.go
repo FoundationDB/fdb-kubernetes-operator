@@ -884,11 +884,45 @@ func (instance FdbInstance) GetPublicIPs() []string {
 
 	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
-		// TODO for dual-stack support return PodIPs
-		return []string{instance.Pod.Status.PodIP}
+		return getPublicIpsForPod(instance.Pod)
 	}
 
 	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
+}
+
+func getPublicIpsForPod(pod *corev1.Pod) []string {
+	var podIPIndex *int
+
+	if pod == nil {
+		return []string{}
+	}
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "foundationdb-kubernetes-sidecar" {
+			for indexOfArgument, argument := range container.Args {
+				if argument == "--public-ip-index" && indexOfArgument < len(container.Args)-1 {
+					nextArgument := container.Args[indexOfArgument+1]
+					index, err := strconv.Atoi(nextArgument)
+					if err != nil {
+						log.Error(err, "Error parsing public IP index", "argument", nextArgument)
+						return nil
+					}
+					podIPIndex = &index
+					break
+				}
+			}
+		}
+	}
+
+	if podIPIndex != nil {
+		podIPs := pod.Status.PodIPs
+		if *podIPIndex < 0 || *podIPIndex >= len(podIPs) {
+			return []string{}
+		}
+		return []string{podIPs[*podIPIndex].IP}
+	}
+
+	return []string{pod.Status.PodIP}
 }
 
 // GetProcessID fetches the instance ID from an instance's metadata.

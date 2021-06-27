@@ -140,7 +140,12 @@ func (client *realFdbPodClient) GetPod() *corev1.Pod {
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodClient) getListenIP() string {
-	return client.Pod.Status.PodIP
+	ips := getPublicIpsForPod(client.Pod)
+	if len(ips) > 0 {
+		return ips[0]
+	} else {
+		return ""
+	}
 }
 
 // makeRequest submits a request to the sidecar.
