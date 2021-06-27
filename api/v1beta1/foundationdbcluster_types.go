@@ -1572,23 +1572,28 @@ type ProcessAddress struct {
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
-	components := strings.Split(address, ":")
 
-	if len(components) < 2 {
+	ipEnd := strings.Index(address, "]:") + 1
+	if ipEnd == 0 {
+		ipEnd = strings.Index(address, ":")
+	}
+	if ipEnd == -1 {
 		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
-	result.IPAddress = components[0]
+	result.IPAddress = address[:ipEnd]
 
-	port, err := strconv.Atoi(components[1])
+	components := strings.Split(address[ipEnd+1:], ":")
+
+	port, err := strconv.Atoi(components[0])
 	if err != nil {
 		return result, err
 	}
 	result.Port = port
 
-	if len(components) > 2 {
-		result.Flags = make(map[string]bool, len(components)-2)
-		for _, flag := range components[2:] {
+	if len(components) > 1 {
+		result.Flags = make(map[string]bool, len(components)-1)
+		for _, flag := range components[1:] {
 			result.Flags[flag] = true
 		}
 	}

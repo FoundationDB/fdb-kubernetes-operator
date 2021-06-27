@@ -57,7 +57,7 @@ class Config(object):
             action="store_true",
         )
         parser.add_argument(
-            "--bind-address", help="IP and port to bind on", default="0.0.0.0:8080"
+            "--bind-address", help="IP and port to bind on"
         )
         parser.add_argument(
             "--tls",
@@ -224,6 +224,7 @@ class Config(object):
             "FDB_MACHINE_ID",
             "FDB_ZONE_ID",
             "FDB_INSTANCE_ID",
+            "FDB_POD_IP"
         ]:
             self.substitutions[key] = os.getenv(key, "")
 
@@ -299,12 +300,15 @@ class Config(object):
 
         if args.public_ip_pattern:
             regex = re.compile(args.public_ip_pattern)
-            public_ips = self.substitutions["FDB_PUBLIC_IP"].split(",")
-            matching_ips = [ip for ip in public_ips if regex.search(ip)]
-            if len(matching_ips) == 0:
-                raise Exception("Failed to find IP matching %s in %s" % (args.public_ip_pattern, public_ips))
-            self.substitutions["FDB_PUBLIC_IP"] = public_ips[0]
 
+            self.substitutions["FDB_PUBLIC_IP"] = Config.extract_desired_ip(regex, self.substitutions["FDB_PUBLIC_IP"])
+            self.substitutions["FDB_POD_IP"] = Config.extract_desired_ip(regex, self.substitutions["FDB_POD_IP"])
+
+        if not self.bind_address:
+            if self.substitutions["FDB_POD_IP"] != "":
+                self.bind_address = self.substitutions["FDB_POD_IP"] + ":8080"
+            else:
+                self.bind_address = self.substitutions["FDB_PUBLIC_IP"] + ":8080"
 
     @classmethod
     def shared(cls):
@@ -321,6 +325,22 @@ class Config(object):
             and self.minor_version[1] >= target_version[1]
         )
 
+    @classmethod
+    def extract_desired_ip(cls, pattern, string):
+        if string == "":
+            return string
+
+        ips = string.split(",")
+        matching_ips = [ip for ip in ips if pattern.search(ip)]
+        if len(matching_ips) == 0:
+            raise Exception("Failed to find IP matching %s in %s" % (pattern, ips))
+        ip = matching_ips[0]
+        if ":" in ip:
+            ip = "[%s]" % ip
+        return ip
+
+class ThreadingHTTPServerV6(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
 
 class Server(BaseHTTPRequestHandler):
     ssl_context = None
@@ -331,9 +351,15 @@ class Server(BaseHTTPRequestHandler):
         This method starts the server.
         """
         config = Config.shared()
-        (address, port) = config.bind_address.split(":")
+        port_index = config.bind_address.rindex(":")
+        address = config.bind_address[:port_index]
+        port = config.bind_address[port_index+1:]
         log.info(f"Listening on {address}:{port}")
-        server = ThreadingHTTPServer((address, int(port)), cls)
+        
+        if ":" in address:
+            server = ThreadingHTTPServerV6((address[1:-1], int(port)), cls)
+        else:
+            server = ThreadingHTTPServer((address, int(port)), cls)
 
         if config.enable_tls:
             context = Server.load_ssl_context()
