@@ -1822,10 +1822,13 @@ type DataCenter struct {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	// EnableLivenessProbe defines if the sidecar should have a livenessProbe in addition
-	// to the readinessProbe. This setting will be enabled per default in the 1.0.0 release.
+	// EnableLivenessProbe defines if the sidecar should have a livenessProbe.
 	// This setting will be ignored on the main container.
-	EnableLivenessProbe bool `json:"enableLivenessProbe,omitempty"`
+	EnableLivenessProbe *bool `json:"enableLivenessProbe,omitempty"`
+
+	// EnableReadinessProbe defines if the sidecar should have a readinessProbe.
+	// This setting will be ignored on the main container.
+	EnableReadinessProbe *bool `json:"enableReadinessProbe,omitempty"`
 
 	// EnableTLS controls whether we should be listening on a TLS connection.
 	EnableTLS bool `json:"enableTls,omitempty"`

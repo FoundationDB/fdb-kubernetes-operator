@@ -1320,6 +1320,8 @@ spec:
                   properties:
                     enableLivenessProbe:
                       type: boolean
+                    enableReadinessProbe:
+                      type: boolean
                     enableTls:
                       type: boolean
                     env:
@@ -7587,6 +7589,8 @@ spec:
                 sidecarContainer:
                   properties:
                     enableLivenessProbe:
+                      type: boolean
+                    enableReadinessProbe:
                       type: boolean
                     enableTls:
                       type: boolean

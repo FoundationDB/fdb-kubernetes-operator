@@ -304,6 +304,15 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 		spec.AutomationOptions.Replacements.Enabled = &enabled
 	}
 
+	if spec.SidecarContainer.EnableLivenessProbe == nil {
+		enabled := options.UseFutureDefaults
+		spec.SidecarContainer.EnableLivenessProbe = &enabled
+	}
+	if spec.SidecarContainer.EnableReadinessProbe == nil {
+		enabled := !options.UseFutureDefaults
+		spec.SidecarContainer.EnableReadinessProbe = &enabled
+	}
+
 	return nil
 }
 

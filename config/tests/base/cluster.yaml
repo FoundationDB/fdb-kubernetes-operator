@@ -20,6 +20,9 @@ spec:
     # Enable a dedicated cluster controller process to test for surprising
     # behavior with having a process class with an underscore.
     cluster_controller: 1
+  sidecarContainer:
+    enableReadinessProbe: false
+    enableLivenessProbe: true
   processes:
     general:
       customParameters:

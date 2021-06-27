@@ -612,6 +612,13 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
 				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeFalse())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -652,6 +659,13 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have no configuration for other automatic replacement options", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
+				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeFalse())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
 				})
 			})
 
@@ -791,6 +805,13 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
 				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeTrue())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
+				})
 			})
 
 			Context("with the future defaults, changes only", func() {
@@ -826,6 +847,13 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have no configuration for other automatic replacement options", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
+				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeTrue())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
 				})
 			})
 

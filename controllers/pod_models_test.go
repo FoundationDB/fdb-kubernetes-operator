@@ -322,7 +322,8 @@ var _ = Describe("pod_models", func() {
 
 			Context("with the livenessProbe enabled", func() {
 				BeforeEach(func() {
-					cluster.Spec.SidecarContainer.EnableLivenessProbe = true
+					enabled := true
+					cluster.Spec.SidecarContainer.EnableLivenessProbe = &enabled
 					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				})
 
@@ -336,6 +337,46 @@ var _ = Describe("pod_models", func() {
 					sidecarContainer := spec.InitContainers[0]
 					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
 					Expect(sidecarContainer.LivenessProbe).To(BeNil())
+				})
+			})
+
+			Context("with the readinessProbe disabled", func() {
+				BeforeEach(func() {
+					enabled := false
+					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should not have a readinessProbe for the sidecar", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+				})
+
+				It("should not have a readinessProbe for the init container", func() {
+					sidecarContainer := spec.InitContainers[0]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+				})
+			})
+
+			Context("with the readinessProbe enabled", func() {
+				BeforeEach(func() {
+					enabled := true
+					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have a readinessProbe for the sidecar", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.ReadinessProbe).NotTo(BeNil())
+				})
+
+				It("should not have a readinessProbe for the init container", func() {
+					sidecarContainer := spec.InitContainers[0]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
 		})

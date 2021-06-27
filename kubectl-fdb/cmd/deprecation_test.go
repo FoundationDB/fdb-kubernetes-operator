@@ -148,6 +148,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 									},
 								},
 							},
+							SidecarContainer: fdbtypes.ContainerOverrides{
+								EnableLivenessProbe:  &boolValue,
+								EnableReadinessProbe: &boolValue,
+							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
 									Enabled: &trueValue,
@@ -318,6 +322,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 									},
 								},
 							},
+							SidecarContainer: fdbtypes.ContainerOverrides{
+								EnableLivenessProbe:  &boolValue,
+								EnableReadinessProbe: &boolValue,
+							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
 									Enabled: &trueValue,
@@ -389,14 +397,7 @@ automationOptions:
   replacements:
     enabled: false
     failureDetectionTimeSeconds: 1800
-buggify: {}
-databaseConfiguration: {}
-faultDomain: {}
-lockOptions: {}
-mainContainer: {}
 minimumUptimeSecondsForBounce: 600
-partialConnectionString: {}
-processCounts: {}
 processes:
   general:
     podTemplate:
@@ -427,8 +428,9 @@ processes:
               org.foundationdb/empty: "0"
 routing:
   publicIPSource: pod
-services: {}
-sidecarContainer: {}
+sidecarContainer:
+  enableLivenessProbe: false
+  enableReadinessProbe: true
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,
@@ -489,19 +491,12 @@ version: ""`,
 automationOptions:
   replacements:
     enabled: false
-buggify: {}
 configMap:
   metadata:
     creationTimestamp: null
     labels:
       test: test
-databaseConfiguration: {}
-faultDomain: {}
-lockOptions: {}
-mainContainer: {}
 minimumUptimeSecondsForBounce: 600
-partialConnectionString: {}
-processCounts: {}
 processes:
   general:
     podTemplate:
@@ -529,12 +524,9 @@ processes:
         creationTimestamp: null
         labels:
           test: test
-      spec:
-        resources: {}
-      status: {}
-routing: {}
-services: {}
-sidecarContainer: {}
+sidecarContainer:
+  enableLivenessProbe: false
+  enableReadinessProbe: true
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,
