@@ -114,7 +114,8 @@ ContainerOverrides provides options for customizing a container created by the o
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| enableLivenessProbe | EnableLivenessProbe defines if the sidecar should have a livenessProbe in addition to the readinessProbe. This setting will be enabled per default in the 1.0.0 release. This setting will be ignored on the main container. | bool | false |
+| enableLivenessProbe | EnableLivenessProbe defines if the sidecar should have a livenessProbe. This setting will be ignored on the main container. | *bool | false |
+| enableReadinessProbe | EnableReadinessProbe defines if the sidecar should have a readinessProbe. This setting will be ignored on the main container. | *bool | false |
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
 | env | Env provides environment variables.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core) | false |

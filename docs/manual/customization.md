@@ -133,7 +133,7 @@ The default behavior of the operator is to use the IP assigned to the pod as the
 
 ### Pod IPs
 
-You can choose this option by setting `spec.services.publicIPSource=pod`. This is currently the default selection.
+You can choose this option by setting `spec.routing.publicIPSource=pod`. This is currently the default selection.
 
 In this mode, we use the pod's IP as both the listen address and the public address. We will not create any services for the pods.
 
@@ -145,7 +145,7 @@ Using pod IPs can present several challenges:
 
 ### Service IPs
 
-You can choose this option by setting `spec.services.publicIPSource=service`. This feature is new, and still experimental, but we plan to make it the default in the future.
+You can choose this option by setting `spec.routing.publicIPSource=service`. This feature is new, and still experimental, but we plan to make it the default in the future.
 
 In this mode, we create one service for each pod, and use that service's IP as the public IP for the pod. The pod IP will still be used as the listen address. This ensures that IPs stay fixed even when pods get rescheduled, which reduces the need for changing coordinators and protects against some unrecoverable failure modes.
 

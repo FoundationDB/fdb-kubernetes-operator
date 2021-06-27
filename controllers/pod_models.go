@@ -462,10 +462,6 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
 		} else {
 			pattern := cluster.Spec.Routing.PodIPPattern
-			annotation, present := cluster.ObjectMeta.Annotations["foundationdb.org/pod-ip-pattern"]
-			if present {
-				pattern = &annotation
-			}
 			if pattern == nil {
 				publicIPKey = "status.podIP"
 			} else {
