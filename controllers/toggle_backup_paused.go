@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -33,36 +32,39 @@ type ToggleBackupPaused struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (s ToggleBackupPaused) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+func (s ToggleBackupPaused) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue {
 	if backup.Status.BackupDetails == nil {
-		return !backup.ShouldRun(), nil
+		if backup.ShouldRun() {
+			return &Requeue{Message: "Cannot toggle backup state because backup is not running"}
+		}
+		return nil
 	}
 
 	if backup.ShouldBePaused() && !backup.Status.BackupDetails.Paused {
 		adminClient, err := r.AdminClientForBackup(context, backup)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 		defer adminClient.Close()
 
 		err = adminClient.PauseBackups()
-		return err == nil, err
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+		return nil
 	} else if !backup.ShouldBePaused() && backup.Status.BackupDetails.Paused {
 		adminClient, err := r.AdminClientForBackup(context, backup)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 		defer adminClient.Close()
 
 		err = adminClient.ResumeBackups()
-		return err == nil, err
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+		return nil
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (s ToggleBackupPaused) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }

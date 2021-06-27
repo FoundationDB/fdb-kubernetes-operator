@@ -32,7 +32,7 @@ var _ = Describe("choose_removals", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var adminClient *MockAdminClient
 	var err error
-	var shouldContinue bool
+	var requeue *Requeue
 	var removals []string
 
 	BeforeEach(func() {
@@ -53,7 +53,7 @@ var _ = Describe("choose_removals", func() {
 	})
 
 	JustBeforeEach(func() {
-		shouldContinue, err = ChooseRemovals{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = ChooseRemovals{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -69,7 +69,7 @@ var _ = Describe("choose_removals", func() {
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should not mark any removals", func() {
@@ -83,7 +83,7 @@ var _ = Describe("choose_removals", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should mark one of the process groups for removal", func() {
@@ -100,7 +100,7 @@ var _ = Describe("choose_removals", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(shouldContinue).To(BeTrue())
+				Expect(requeue).To(BeNil())
 			})
 
 			It("should leave that process group for removal", func() {
@@ -115,7 +115,7 @@ var _ = Describe("choose_removals", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(shouldContinue).To(BeTrue())
+				Expect(requeue).To(BeNil())
 			})
 
 			It("should mark one of the process groups on that rack for removal", func() {
@@ -131,7 +131,7 @@ var _ = Describe("choose_removals", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should mark two of the process groups for removal", func() {

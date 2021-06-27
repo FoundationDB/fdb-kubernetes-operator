@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -36,25 +35,31 @@ import (
 type RemovePods struct{}
 
 // Reconcile runs the reconciler's work.
-func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	allExcluded, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
-		return allExcluded, nil
+		if !allExcluded {
+			return &Requeue{Message: "Reconciliation needs to exclude more processes"}
+		}
+		return nil
 	}
 
 	allRemoved, removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
 	err = includeInstance(r, context, cluster, removedProcessGroups)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
-	return allRemoved && allExcluded, nil
+	if !allRemoved || !allExcluded {
+		return &Requeue{Message: "Reconciliation needs to remove more processes"}
+	}
+	return nil
 }
 
 func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
@@ -338,10 +343,4 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context,
 	}
 
 	return allRemoved, removedProcessGroups
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (u RemovePods) RequeueAfter() time.Duration {
-	return 0
 }

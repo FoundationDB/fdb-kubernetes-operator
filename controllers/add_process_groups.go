@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -34,10 +33,10 @@ import (
 type AddProcessGroups struct{}
 
 // Reconcile runs the reconciler's work.
-func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	desiredCounts := desiredCountStruct.Map()
 
@@ -47,7 +46,7 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 		processGroupID := processGroup.ProcessGroupID
 		_, num, err := ParseInstanceID(processGroupID)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		class := processGroup.ProcessClass
@@ -100,15 +99,9 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 	if hasNewProcessGroups {
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (a AddProcessGroups) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,26 +165,24 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		cluster.Spec = *(normalizedSpec.DeepCopy())
 		curLogger.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
-		canContinue, err := subReconciler.Reconcile(r, ctx, cluster)
-		if !canContinue || err != nil {
-			curLogger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler))
+		requeue := subReconciler.Reconcile(r, ctx, cluster)
+		if requeue == nil {
+			continue
 		}
 
-		if err != nil {
-			result, err := r.checkRetryableError(err)
+		curLogger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler))
+
+		if requeue.Error != nil {
+			result, err := r.checkRetryableError(requeue.Error)
 			if err != nil {
 				curLogger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler))
 				return ctrl.Result{}, err
 			}
 
 			return result, nil
-		} else if cluster.ObjectMeta.Generation != originalGeneration {
-			curLogger.Info("Ending reconciliation early because cluster has been updated", "lastAction", fmt.Sprintf("%T", subReconciler))
-			return ctrl.Result{}, nil
-		} else if !canContinue {
-			curLogger.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", subReconciler.RequeueAfter())
-			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
 		}
+		curLogger.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
+		return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration {
@@ -1073,23 +1071,15 @@ type ClusterSubReconciler interface {
 	/**
 	Reconcile runs the reconciler's work.
 
-	If reconciliation can continue, this should return (true, nil).
+	If reconciliation can continue, this should return nil.
 
-	If reconciliation encounters an error, this should return (false, err).
+	If reconciliation encounters an error, this should return a	Requeue object
+	with an `Error` field.
 
-	If reconciliation cannot proceed, or if this method has to make a change
-	to the cluster spec, this should return (false, nil).
-
-	This method will only be called once for a given instance of the reconciler,
-	so you can safely store
+	If reconciliation cannot proceed, this should return a Requeue object with
+	a `Message` field.
 	*/
-	Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error)
-
-	/**
-	RequeueAfter returns the delay before we should run the reconciliation
-	again.
-	*/
-	RequeueAfter() time.Duration
+	Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue
 }
 
 // MinimumFDBVersion defines the minimum supported FDB version.

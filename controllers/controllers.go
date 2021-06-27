@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 package controllers
 
 import (
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -65,4 +67,16 @@ func mergeMap(target map[string]string, desired map[string]string) bool {
 		}
 	}
 	return changed
+}
+
+// Requeue provides a wrapper around different results from a subreconciler.
+type Requeue struct {
+	// Delay provides an optional delay before requeueing reconciliattion.
+	Delay time.Duration
+
+	// Error provides an error that we encountered that forced a requeue.
+	Error error
+
+	// Message provides a log message that explains the reason for the requeue.
+	Message string
 }

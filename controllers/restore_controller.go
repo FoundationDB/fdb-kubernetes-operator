@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -59,8 +58,6 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 	restore := &fdbtypes.FoundationDBRestore{}
 	err := r.Get(ctx, request.NamespacedName, restore)
 
-	originalGeneration := restore.ObjectMeta.Generation
-
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -76,21 +73,19 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	for _, subReconciler := range subReconcilers {
-		canContinue, err := subReconciler.Reconcile(r, ctx, restore)
-		if !canContinue || err != nil {
-			log.Info("Reconciliation terminated early", "namespace", restore.Namespace, "restore", restore.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+		requeue := subReconciler.Reconcile(r, ctx, restore)
+		if requeue == nil {
+			continue
 		}
 
-		if err != nil {
-			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
-			return ctrl.Result{}, err
-		} else if restore.ObjectMeta.Generation != originalGeneration {
-			log.Info("Ending reconciliation early because restore has been updated")
-			return ctrl.Result{}, nil
-		} else if !canContinue {
-			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
+		log.Info("Reconciliation terminated early", "namespace", restore.Namespace, "restore", restore.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+
+		if requeue.Error != nil {
+			log.Error(requeue.Error, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
+			return ctrl.Result{}, requeue.Error
 		}
+		log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
+		return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 	}
 
 	log.Info("Reconciliation complete", "namespace", restore.Namespace, "restore", restore.Name)
@@ -138,20 +133,13 @@ type RestoreSubReconciler interface {
 	/**
 	Reconcile runs the reconciler's work.
 
-	If reconciliation can continue, this should return (true, nil).
+	If reconciliation can continue, this should return nil.
 
-	If reconciliation encounters an error, this should return (false, err).
+	If reconciliation encounters an error, this should return a `Requeue` object
+	with an `Error` field.
 
-	If reconciliation cannot proceed, or if this method has to make a change
-	to the restore spec, this should return (false, nil).
-
-	This method will only be called once for a given instance of the reconciler.
+	If reconciliation cannot proceed, this should return a `Requeue` object with
+	a `Message` field.
 	*/
-	Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) (bool, error)
-
-	/**
-	RequeueAfter returns the delay before we should run the reconciliation
-	again.
-	*/
-	RequeueAfter() time.Duration
+	Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *Requeue
 }

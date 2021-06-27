@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,10 +35,10 @@ import (
 type UpdatePods struct{}
 
 // Reconcile runs the reconciler's work.
-func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	updates := make(map[string][]FdbInstance)
@@ -62,17 +62,17 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {
-			return false, ReconciliationNotReadyError{message: "Cluster has pod that is pending deletion", retryable: true}
+			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: 30 * time.Second}
 		}
 
 		_, idNum, err := ParseInstanceID(instanceID)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		if instance.Metadata.Annotations[fdbtypes.LastSpecKey] != specHash {
@@ -84,11 +84,11 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 			podClient, err := r.getPodClient(cluster, instance)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 			substitutions, err := podClient.GetVariableSubstitutions()
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 			zone := substitutions["FDB_ZONE_ID"]
 			if r.InSimulation {
@@ -104,7 +104,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	if len(updates) > 0 {
 		if cluster.Spec.UpdatePodsByReplacement {
 			log.Info("Requeuing reconciliation to replace pods", "namespace", cluster.Namespace, "cluster", cluster.Name)
-			return false, nil
+			return &Requeue{Message: "Requeueing reconciliation to replace pods"}
 		}
 
 		var enabled = cluster.Spec.AutomationOptions.DeletePods
@@ -116,22 +116,22 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
-			return false, ReconciliationNotReadyError{message: "Pod deletion is disabled"}
+			return &Requeue{Message: "Pod deletion is disabled"}
 		}
 	}
 
 	for zone, zoneInstances := range updates {
 		ready, err := r.PodLifecycleManager.CanDeletePods(r, context, cluster)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 		if !ready {
-			return false, ReconciliationNotReadyError{message: "Reconciliation requires deleting pods, but deletion is not currently safe"}
+			return &Requeue{Message: "Reconciliation requires deleting pods, but deletion is not currently safe", Delay: 30 * time.Second}
 		}
 
 		hasLock, err := r.takeLock(cluster, "updating pods")
 		if !hasLock {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
@@ -139,14 +139,8 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances, false)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 	}
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (u UpdatePods) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }

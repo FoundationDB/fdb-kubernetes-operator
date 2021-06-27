@@ -34,7 +34,7 @@ var _ = Describe("update_lock_configuration", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var lockClient *MockLockClient
 	var err error
-	var shouldContinue bool
+	var requeue *Requeue
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
@@ -59,15 +59,17 @@ var _ = Describe("update_lock_configuration", func() {
 	})
 
 	JustBeforeEach(func() {
-		shouldContinue, err = UpdateLockConfiguration{}.Reconcile(clusterReconciler, context.TODO(), cluster)
-		Expect(err).NotTo(HaveOccurred())
+		requeue = UpdateLockConfiguration{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		if requeue != nil {
+			Expect(requeue.Error).NotTo(HaveOccurred())
+		}
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should leave the lock status empty", func() {
@@ -81,7 +83,7 @@ var _ = Describe("update_lock_configuration", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should not update the deny list in the status", func() {
@@ -103,7 +105,7 @@ var _ = Describe("update_lock_configuration", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should update the deny list in the lock client", func() {

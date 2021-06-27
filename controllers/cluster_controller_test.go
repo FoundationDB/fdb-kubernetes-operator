@@ -1101,10 +1101,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					generations, err := reloadClusterGenerations(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(generations).To(Equal(fdbtypes.ClusterGenerationStatus{
-						Reconciled:             originalVersion,
-						NeedsBounce:            originalVersion + 1,
-						NeedsMonitorConfUpdate: originalVersion + 1,
-						HasUnhealthyProcess:    originalVersion + 1,
+						Reconciled:          originalVersion,
+						NeedsBounce:         originalVersion + 1,
+						HasUnhealthyProcess: originalVersion + 1,
 					}))
 				})
 
@@ -1254,7 +1253,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
 						NeedsCoordinatorChange:   originalVersion + 1,
-						NeedsGrow:                originalVersion + 1,
 					}))
 				})
 

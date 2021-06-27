@@ -35,7 +35,7 @@ import (
 var _ = Describe("add_pvcs", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var shouldContinue bool
+	var requeue *Requeue
 	var initialPVCs *corev1.PersistentVolumeClaimList
 	var newPVCs *corev1.PersistentVolumeClaimList
 
@@ -61,7 +61,7 @@ var _ = Describe("add_pvcs", func() {
 	})
 
 	JustBeforeEach(func() {
-		shouldContinue, err = AddPVCs{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = AddPVCs{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -76,7 +76,7 @@ var _ = Describe("add_pvcs", func() {
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should not create any PVCs", func() {
@@ -90,7 +90,7 @@ var _ = Describe("add_pvcs", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should create an extra PVC", func() {
@@ -109,7 +109,7 @@ var _ = Describe("add_pvcs", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(shouldContinue).To(BeTrue())
+				Expect(requeue).To(BeNil())
 			})
 
 			It("should not create any PVCs", func() {
@@ -124,7 +124,7 @@ var _ = Describe("add_pvcs", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should not create an extra PVC", func() {
