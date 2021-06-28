@@ -91,13 +91,13 @@ Example:
 ```yaml
 metadata:
   annotations:
-    touch: touch1
+    foundationdb.org/reconcile: now
 ```
 
 or simply run:
 
 ```bash
-kubectl annotate fdb cluster force-reconcile="$(date)" --overwrite
+kubectl annotate fdb cluster foundationdb.org/reconcile="$(date)" --overwrite
 ```
 
 ## Reconciliation Not Completing
