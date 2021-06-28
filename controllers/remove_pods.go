@@ -31,7 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// RemoveProcessGroups provides a reconciliation step for removing pods as part of a
+// RemoveProcessGroups provides a reconciliation step for removing process groups as part of a
 // shrink or replacement.
 type RemoveProcessGroups struct{}
 
