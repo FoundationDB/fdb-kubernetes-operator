@@ -106,7 +106,7 @@ func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.
 		}
 	}
 
-	logger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
+	logger.Info("Reconciliation terminated early", "subReconciler", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
 	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationEndedEarly", requeue.Message)
 
 	if err != nil {
