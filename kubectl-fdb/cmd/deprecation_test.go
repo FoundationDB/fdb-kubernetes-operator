@@ -43,7 +43,7 @@ import (
 )
 
 var _ = Describe("[plugin] deprecation command", func() {
-	var boolValue = true
+	var trueValue = true
 
 	When("running the deprecation command", func() {
 		clusterName := "test"
@@ -150,7 +150,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
-									Enabled: &boolValue,
+									Enabled: &trueValue,
 								},
 							},
 						},
@@ -320,7 +320,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
-									Enabled: &boolValue,
+									Enabled: &trueValue,
 								},
 							},
 						},

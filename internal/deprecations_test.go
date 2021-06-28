@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -10,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -825,7 +825,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should be equal to the version with the old explicit defaults", func() {
-					Expect(reflect.DeepEqual(originalSpec, spec)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(originalSpec, spec)).To(BeTrue())
 				})
 			})
 		})
