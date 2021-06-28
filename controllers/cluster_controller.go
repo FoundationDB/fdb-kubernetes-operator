@@ -170,18 +170,24 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 			continue
 		}
 
-		curLogger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler))
+		if requeue.Message == "" && requeue.Error != nil {
+			requeue.Message = requeue.Error.Error()
+		}
+
+		curLogger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationEndedEarly", requeue.Message)
+
+		if requeue.Error != nil && k8serrors.IsConflict(err) {
+			requeue.Error = nil
+			if requeue.Delay == time.Duration(0) {
+				requeue.Delay = time.Minute
+			}
+		}
 
 		if requeue.Error != nil {
-			result, err := r.checkRetryableError(requeue.Error)
-			if err != nil {
-				curLogger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler))
-				return ctrl.Result{}, err
-			}
-
-			return result, nil
+			curLogger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler))
+			return ctrl.Result{}, err
 		}
-		curLogger.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
 		return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 	}
 
@@ -192,6 +198,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	curLogger.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationComplete", fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled))
 
 	return ctrl.Result{}, nil
 }
@@ -236,33 +243,17 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	return builder.Complete(r)
 }
 
-func (r *FoundationDBClusterReconciler) checkRetryableError(err error) (ctrl.Result, error) {
-	notReadyError, canCast := err.(ReconciliationNotReadyError)
-	if canCast && notReadyError.retryable {
-		log.Info("Retrying reconciliation", "reason", notReadyError.message, "requeueAfter", notReadyError.requeueAfter)
-		return ctrl.Result{Requeue: true, RequeueAfter: notReadyError.requeueAfter}, nil
-	}
-
-	if k8serrors.IsConflict(err) {
-		log.Info("Retrying reconciliation", "reason", "Conflict")
-		return ctrl.Result{Requeue: true, RequeueAfter: notReadyError.requeueAfter}, nil
-	}
-
-	return ctrl.Result{}, err
-}
-
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
 	if cluster.InstanceIsBeingRemoved(instance.GetInstanceID()) {
 		return true, nil
 	}
-	podClient, err := r.getPodClient(cluster, instance)
-	if err != nil {
-		return false, err
+	podClient, message := r.getPodClient(cluster, instance)
+	if podClient == nil {
+		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", instance.GetInstanceID(), "message", message)
+		return false, nil
 	}
 
-	if instance.Pod == nil {
-		return false, MissingPodError(instance, cluster)
-	}
+	var err error
 
 	serversPerPod := 1
 	if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
@@ -577,10 +568,6 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 
 // GetStartCommand builds the expected start command for an instance.
 func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
-	if instance.Pod == nil {
-		return "", MissingPodError(instance, cluster)
-	}
-
 	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), podClient, processNumber, processCount)
 	if err != nil {
 		return "", err
@@ -742,22 +729,22 @@ func getDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbtypes.ProcessClas
 	return GetJSONHash(data)
 }
 
-func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, error) {
+func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, string) {
 	if instance.Pod == nil {
-		return nil, MissingPodError(instance, cluster)
+		return nil, fmt.Sprintf("Instance %s in cluster %s/%s does not have pod defined", instance.GetInstanceID(), cluster.Namespace, cluster.Name)
 	}
 
 	pod := instance.Pod
 	client, err := r.PodClientProvider(cluster, pod)
 	if err == fdbPodClientErrorNoIP {
-		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name), retryable: true, requeueAfter: 5 * time.Second}
+		return nil, fmt.Sprintf("Waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	} else if err == fdbPodClientErrorNotReady {
-		return nil, ReconciliationNotReadyError{message: fmt.Sprintf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name), retryable: true, requeueAfter: 5 * time.Second}
+		return nil, fmt.Sprintf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
 	} else if err != nil {
-		return nil, err
+		return nil, err.Error()
 	}
 
-	return client, nil
+	return client, ""
 }
 
 // getDatabaseClientProvider gets the client provider for a reconciler.
@@ -986,9 +973,6 @@ func (manager StandardPodLifecycleManager) UpdatePods(r *FoundationDBClusterReco
 			return err
 		}
 	}
-	if len(instances) > 0 && !r.InSimulation {
-		return ReconciliationNotReadyError{message: "Need to restart reconciliation to recreate pods", retryable: true}
-	}
 	return nil
 }
 
@@ -1036,33 +1020,6 @@ func GetInstanceIDFromProcessID(id string) string {
 	}
 
 	return result[1]
-}
-
-// MissingPodError creates an error that can be thrown when an instance does not
-// have an associated pod.
-func MissingPodError(instance FdbInstance, cluster *fdbtypes.FoundationDBCluster) error {
-	return MissingPodErrorByName(instance.GetInstanceID(), cluster)
-}
-
-// MissingPodErrorByName creates an error that can be thrown when an instance
-// does not have an associated pod.
-func MissingPodErrorByName(instanceName string, cluster *fdbtypes.FoundationDBCluster) error {
-	return ReconciliationNotReadyError{
-		message:   fmt.Sprintf("Instance %s in cluster %s/%s does not have pod defined", instanceName, cluster.Namespace, cluster.Name),
-		retryable: true,
-	}
-}
-
-// ReconciliationNotReadyError is returned when reconciliation cannot proceed
-// because of a temporary condition or because automation is disabled
-type ReconciliationNotReadyError struct {
-	message      string
-	retryable    bool
-	requeueAfter time.Duration
-}
-
-func (err ReconciliationNotReadyError) Error() string {
-	return err.message
 }
 
 // ClusterSubReconciler describes a class that does part of the work of

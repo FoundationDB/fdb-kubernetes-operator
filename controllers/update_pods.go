@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -62,7 +61,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {
-			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: 30 * time.Second}
+			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: podSchedulingDelayDuration}
 		}
 
 		_, idNum, err := ParseInstanceID(instanceID)
@@ -82,9 +81,9 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 				"processGroupID", instanceID,
 				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[fdbtypes.LastSpecKey]))
 
-			podClient, err := r.getPodClient(cluster, instance)
-			if err != nil {
-				return &Requeue{Error: err}
+			podClient, message := r.getPodClient(cluster, instance)
+			if podClient == nil {
+				return &Requeue{Message: message, Delay: podSchedulingDelayDuration}
 			}
 			substitutions, err := podClient.GetVariableSubstitutions()
 			if err != nil {
@@ -126,7 +125,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Error: err}
 		}
 		if !ready {
-			return &Requeue{Message: "Reconciliation requires deleting pods, but deletion is not currently safe", Delay: 30 * time.Second}
+			return &Requeue{Message: "Reconciliation requires deleting pods, but deletion is not currently safe", Delay: podSchedulingDelayDuration}
 		}
 
 		hasLock, err := r.takeLock(cluster, "updating pods")
@@ -141,6 +140,8 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		if err != nil {
 			return &Requeue{Error: err}
 		}
+
+		return &Requeue{Message: "Pods need to be recreated"}
 	}
 	return nil
 }

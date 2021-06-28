@@ -43,7 +43,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 	upgraded := false
 	for _, instance := range instances {
 		if instance.Pod == nil {
-			return &Requeue{Error: MissingPodError(instance, cluster)}
+			return &Requeue{Message: fmt.Sprintf("No pod defined for instance %s", instance.GetInstanceID()), Delay: podSchedulingDelayDuration}
 		}
 
 		image, err := getSidecarImage(cluster, instance)

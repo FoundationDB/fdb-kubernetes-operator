@@ -88,7 +88,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	// If we return an error we don't requeue
 	// So we just return that we can't continue but don't have an error
 	if !allSynced {
-		return &Requeue{Message: "Waiting for Pod to receive ConfigMap update", Delay: 15 * time.Second}
+		return &Requeue{Message: "Waiting for Pod to receive ConfigMap update", Delay: podSchedulingDelayDuration}
 	}
 	return nil
 }

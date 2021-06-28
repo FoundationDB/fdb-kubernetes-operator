@@ -394,6 +394,8 @@ func (err fdbPodClientError) Error() string {
 	switch err {
 	case fdbPodClientErrorNoIP:
 		return "Pod does not have an IP address"
+	case fdbPodClientErrorNotReady:
+		return "Pod is not ready to receive traffic"
 	default:
 		return fmt.Sprintf("Unknown error code %d", err)
 	}

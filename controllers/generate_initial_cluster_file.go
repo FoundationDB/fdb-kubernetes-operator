@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -52,7 +51,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
-		return &Requeue{Message: "cannot find enough pods to recruit coordinators", Delay: 5 * time.Second}
+		return &Requeue{Message: "cannot find enough pods to recruit coordinators", Delay: podSchedulingDelayDuration}
 	}
 
 	var clusterName string
@@ -74,9 +73,9 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	processLocality := make([]localityInfo, len(instances))
 	for indexOfProcess := range instances {
-		client, err := r.getPodClient(cluster, instances[indexOfProcess])
-		if err != nil {
-			return &Requeue{Error: err}
+		client, message := r.getPodClient(cluster, instances[indexOfProcess])
+		if client == nil {
+			return &Requeue{Message: message, Delay: podSchedulingDelayDuration}
 		}
 		locality, err := localityInfoFromSidecar(cluster, client)
 		if err != nil {

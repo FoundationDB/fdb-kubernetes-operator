@@ -31,6 +31,10 @@ var log = logf.Log.WithName("controller")
 
 const (
 	clusterFileKey = "cluster-file"
+
+	// podSchedulingDelayDuration determines how long we should delay a requeue
+	// of reconciliation when a pod is not fully scheduled.
+	podSchedulingDelayDuration = 15 * time.Second
 )
 
 // metadataMatches determines if the current metadata on an object matches the

@@ -77,7 +77,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			return &Requeue{Error: err}
 		}
 		if len(instances) == 0 {
-			return &Requeue{Error: MissingPodErrorByName(process, cluster)}
+			return &Requeue{Message: fmt.Sprintf("No pod defined for instance %s", instanceID), Delay: podSchedulingDelayDuration}
 		}
 
 		synced, err := r.updatePodDynamicConf(cluster, instances[0])
