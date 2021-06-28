@@ -923,28 +923,27 @@ func (flags VersionFlags) Map() map[string]int {
 // GetProcessCountsWithDefaults for more information on the rules for inferring
 // process counts.
 type ProcessCounts struct {
-	// Storage defines the number of storage class processes.
-	Storage int `json:"storage,omitempty"`
-
-	// Transaction defines the number of transaction class processes.
-	Transaction int `json:"transaction,omitempty"`
-
-	// Stateless defines the number of stateless class processes.
-	Stateless int `json:"stateless,omitempty"`
-
-	// Resolution defines the number of resolution class processes.
-	Resolution        int `json:"resolution,omitempty"`
 	Unset             int `json:"unset,omitempty"`
-	Log               int `json:"log,omitempty"`
-	Master            int `json:"master,omitempty"`
-	ClusterController int `json:"cluster_controller,omitempty"`
+	Storage           int `json:"storage,omitempty"`
+	Transaction       int `json:"transaction,omitempty"`
+	Resolution        int `json:"resolution,omitempty"`
+	Tester            int `json:"tester,omitempty"`
 	Proxy             int `json:"proxy,omitempty"`
-	Resolver          int `json:"resolver,omitempty"`
-	Router            int `json:"router,omitempty"`
-	Ratekeeper        int `json:"ratekeeper,omitempty"`
-	DataDistributor   int `json:"data_distributor,omitempty"`
+	Master            int `json:"master,omitempty"`
+	Stateless         int `json:"stateless,omitempty"`
+	Log               int `json:"log,omitempty"`
+	ClusterController int `json:"cluster_controller,omitempty"`
+	LogRouter         int `json:"router,omitempty"`
 	FastRestore       int `json:"fast_restore,omitempty"`
+	DataDistributor   int `json:"data_distributor,omitempty"`
+	Coordinator       int `json:"coordinator,omitempty"`
+	Ratekeeper        int `json:"ratekeeper,omitempty"`
+	StorageCache      int `json:"storage_cache,omitempty"`
 	BackupWorker      int `json:"backup,omitempty"`
+
+	// Deprecated: This is unsupported and any processes with this process class
+	// will fail to start.
+	Resolver int `json:"resolver,omitempty"`
 }
 
 // Map returns a map from process classes to the number of processes with that

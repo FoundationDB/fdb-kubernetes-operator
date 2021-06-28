@@ -93,7 +93,7 @@ var _ = Describe("Change coordinators", func() {
 
 		When("when one storage process is excluded", func() {
 			BeforeEach(func() {
-				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, "1.1.0.2")
+				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, "1.1.1.2")
 			})
 
 			It("should only select storage processes and exclude the excluded process", func() {

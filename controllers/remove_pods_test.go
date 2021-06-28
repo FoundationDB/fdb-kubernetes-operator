@@ -50,10 +50,10 @@ var _ = Describe("Remove Pods", func() {
 	When("trying to remove a coordinator", func() {
 		It("should not remove the coordinator", func() {
 			remaining := map[string]bool{
-				"1.1.0.1": false,
+				"1.1.1.1": false,
 			}
 
-			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, "storage-1", fdbtypes.ProcessClassStorage, "1.1.0.1")
+			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, "storage-1", fdbtypes.ProcessClassStorage, "1.1.1.1")
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
 
