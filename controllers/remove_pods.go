@@ -31,12 +31,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// RemovePods provides a reconciliation step for removing pods as part of a
+// RemoveProcessGroups provides a reconciliation step for removing pods as part of a
 // shrink or replacement.
-type RemovePods struct{}
+type RemoveProcessGroups struct{}
 
 // Reconcile runs the reconciler's work.
-func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
 		return false, err
