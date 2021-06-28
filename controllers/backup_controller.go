@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -72,6 +71,8 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 		return ctrl.Result{}, err
 	}
 
+	backupLog := log.WithValues("namespace", backup.Namespace, "backup", backup.Name)
+
 	subReconcilers := []BackupSubReconciler{
 		UpdateBackupStatus{},
 		UpdateBackupAgents{},
@@ -88,22 +89,15 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 			continue
 		}
 
-		log.Info("Reconciliation terminated early", "namespace", backup.Namespace, "backup", backup.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
-
-		if requeue.Error != nil {
-			log.Error(requeue.Error, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", backup.Namespace, "backup", backup.Name)
-			return ctrl.Result{}, requeue.Error
-		}
-		log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", backup.Namespace, "backup", backup.Name)
-		return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
+		return processRequeue(requeue, subReconciler, backup, r.Recorder, backupLog)
 	}
 
 	if backup.Status.Generations.Reconciled < originalGeneration {
-		log.Info("Backup was not fully reconciled by reconciliation process")
+		backupLog.Info("Backup was not fully reconciled by reconciliation process")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	log.Info("Reconciliation complete", "namespace", backup.Namespace, "backup", backup.Name)
+	backupLog.Info("Reconciliation complete")
 
 	return ctrl.Result{}, nil
 }

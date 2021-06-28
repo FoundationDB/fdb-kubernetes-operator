@@ -32,7 +32,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -102,10 +101,10 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	curLogger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	clusterLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 
 	if cluster.Spec.Skip {
-		curLogger.Info("Skipping cluster with skip value true", "skip", cluster.Spec.Skip)
+		clusterLog.Info("Skipping cluster with skip value true", "skip", cluster.Spec.Skip)
 		// Don't requeue
 		return ctrl.Result{}, nil
 	}
@@ -163,41 +162,23 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
 		// will reset all normalized fields...
 		cluster.Spec = *(normalizedSpec.DeepCopy())
-		curLogger.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
+		clusterLog.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
 		requeue := subReconciler.Reconcile(r, ctx, cluster)
 		if requeue == nil {
 			continue
 		}
 
-		if requeue.Message == "" && requeue.Error != nil {
-			requeue.Message = requeue.Error.Error()
-		}
-
-		curLogger.Info("Reconciliation terminated early", "lastAction", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationEndedEarly", requeue.Message)
-
-		if requeue.Error != nil && k8serrors.IsConflict(err) {
-			requeue.Error = nil
-			if requeue.Delay == time.Duration(0) {
-				requeue.Delay = time.Minute
-			}
-		}
-
-		if requeue.Error != nil {
-			curLogger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler))
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
+		return processRequeue(requeue, subReconciler, cluster, r.Recorder, clusterLog)
 	}
 
 	if cluster.Status.Generations.Reconciled < originalGeneration {
-		curLogger.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status)
+		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status)
 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	curLogger.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)
+	clusterLog.Info("Reconciliation complete", "generation", cluster.Status.Generations.Reconciled)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ReconciliationComplete", fmt.Sprintf("Reconciled generation %d", cluster.Status.Generations.Reconciled))
 
 	return ctrl.Result{}, nil

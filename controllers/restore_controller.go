@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -68,6 +67,8 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
+	restoreLog := log.WithValues("namespace", restore.Namespace, "restore", restore.Name)
+
 	subReconcilers := []RestoreSubReconciler{
 		StartRestore{},
 	}
@@ -78,17 +79,10 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 			continue
 		}
 
-		log.Info("Reconciliation terminated early", "namespace", restore.Namespace, "restore", restore.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
-
-		if requeue.Error != nil {
-			log.Error(requeue.Error, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
-			return ctrl.Result{}, requeue.Error
-		}
-		log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", restore.Namespace, "restore", restore.Name)
-		return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
+		return processRequeue(requeue, subReconciler, restore, r.Recorder, restoreLog)
 	}
 
-	log.Info("Reconciliation complete", "namespace", restore.Namespace, "restore", restore.Name)
+	restoreLog.Info("Reconciliation complete")
 
 	return ctrl.Result{}, nil
 }
