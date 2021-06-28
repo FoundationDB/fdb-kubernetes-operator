@@ -43,4 +43,4 @@ Other than the above, you can make any modifications to the pod definition you n
 
 ## Next
 
-You can continue on to the [next section](operations.md) or go back to the [table of contents](index.md).
+You can continue on to the [next section](resources.md) or go back to the [table of contents](index.md).

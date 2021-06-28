@@ -116,4 +116,4 @@ You can track the progress of the restore through the `fdbrestore status` comman
 
 ## Next
 
-You can continue on to the [next section](more.md) or go back to the [table of contents](index.md).
+You can continue on to the [next section](technical_design.md) or go back to the [table of contents](index.md).

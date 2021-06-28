@@ -2,6 +2,8 @@
 
 This document covers some of the options the operator provides for customizing your FoundationDB deployment.
 
+Many of these customizations involve the `processes` field in the cluster spec, which we will refer to as the "process settings". This field is a dictionary, mapping a process class to a process settings object. This also supports a special key called `general` which is applied to all process classes. If a value is specified for a specific process class, the `general` value will be ignored. These values are merged at the top level of the process settings object. If you specify a `volumeClaimTemplate` object in the `storage` settings and a `podTemplate` object in the `general` settings, the storage processes will use both the custom `volumeClaimTemplate` and the general `podTemplate`. If you specify a `podTemplate` object in the `storage` settings and `podTemplate` object in the `general` settings, the storage processes will only use the values given in the `storage` settings, and will the pod template from the `general` settings completely.
+
 ## Running Multiple Storage Servers per Pod
 
 Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk. You can change the number of storage server per Pod with the `storageServersPerPod` setting. This will start multiple FDB processes inside of a single container, under a single `fdbmonitor` process.
@@ -19,7 +21,7 @@ spec:
 
 A change to the `storageServersPerPod` will replace all of the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/multiple_storage_per_disk.md) design doc.
 
-# Customizing the Volumes
+## Customizing the Volumes
 
 To use a different `StorageClass` than the default you can set your desired `StorageClass` in the [process settings](/docs/cluster_spec.md#processsettings):
 
@@ -195,4 +197,4 @@ You can build this kind of configuration easily from the sample deployment by ch
 
 ## Next
 
-You can continue on to the [next section](fault_domains.md) or go back to the [table of contents](index.md).
+You can continue on to the [next section](replacements_and_deletions.md) or go back to the [table of contents](index.md).
