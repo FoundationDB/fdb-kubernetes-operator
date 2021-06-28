@@ -1,5 +1,5 @@
 /*
- * remove_pods.go
+ * remove_process_groups.go
  *
  * This source file is part of the FoundationDB open source project
  *
