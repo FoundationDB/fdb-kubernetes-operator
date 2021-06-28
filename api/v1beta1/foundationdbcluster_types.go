@@ -719,7 +719,7 @@ const (
 	MissingService ProcessGroupConditionType = "MissingService"
 	// MissingProcesses represents a process group that misses a process.
 	MissingProcesses ProcessGroupConditionType = "MissingProcesses"
-	// Terminating represents a process group whose resources are being
+	// ResourcesTerminating represents a process group whose resources are being
 	// terminated.
 	ResourcesTerminating ProcessGroupConditionType = "ResourcesTerminating"
 	// ReadyCondition is currently only used in the metrics.
