@@ -186,7 +186,7 @@ class Config(object):
         self.init_mode = args.init_mode
         self.main_container_version = args.main_container_version
         self.require_not_empty = args.require_not_empty
-        
+
         with open("/var/fdb/version") as version_file:
             self.primary_version = version_file.read().strip()
 
@@ -339,8 +339,10 @@ class Config(object):
             ip = "[%s]" % ip
         return ip
 
+
 class ThreadingHTTPServerV6(ThreadingHTTPServer):
     address_family = socket.AF_INET6
+
 
 class Server(BaseHTTPRequestHandler):
     ssl_context = None
@@ -355,7 +357,7 @@ class Server(BaseHTTPRequestHandler):
         address = config.bind_address[:port_index]
         port = config.bind_address[port_index+1:]
         log.info(f"Listening on {address}:{port}")
-        
+
         if ":" in address:
             server = ThreadingHTTPServerV6((address[1:-1], int(port)), cls)
         else:
