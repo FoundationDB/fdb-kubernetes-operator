@@ -149,8 +149,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 								},
 							},
 							SidecarContainer: fdbtypes.ContainerOverrides{
-								EnableLivenessProbe:  &boolValue,
-								EnableReadinessProbe: &boolValue,
+								EnableLivenessProbe:  &trueValue,
+								EnableReadinessProbe: &trueValue,
 							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
@@ -323,8 +323,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 								},
 							},
 							SidecarContainer: fdbtypes.ContainerOverrides{
-								EnableLivenessProbe:  &boolValue,
-								EnableReadinessProbe: &boolValue,
+								EnableLivenessProbe:  &trueValue,
+								EnableReadinessProbe: &trueValue,
 							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
