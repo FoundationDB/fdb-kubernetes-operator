@@ -2473,6 +2473,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
 			cluster.Status.ProcessGroups[0].Excluded = true
+			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
 			result, err = cluster.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
@@ -2484,8 +2485,33 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
+			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+			result, err = cluster.CheckReconciliation()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+				Reconciled:  1,
+				NeedsShrink: 2,
+			}))
+
+			cluster = createCluster()
+			cluster.Spec.ProcessCounts.Storage = 2
+			cluster.Status.ProcessGroups[0].Remove = true
+			cluster.Status.ProcessGroups[0].Excluded = true
+			result, err = cluster.CheckReconciliation()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+				Reconciled:  1,
+				NeedsShrink: 2,
+			}))
+
+			cluster = createCluster()
+			cluster.Spec.ProcessCounts.Storage = 2
+			cluster.Status.ProcessGroups[0].Remove = true
 			cluster.Status.ProcessGroups[0].Excluded = true
 			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
 			result, err = cluster.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())

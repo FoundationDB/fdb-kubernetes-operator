@@ -448,16 +448,17 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []FdbInstance, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
 	processGroupMap := make(map[string]*fdbtypes.ProcessGroupStatus, len(processGroups))
-	// TODO (johscheuer): make use of internal.None once the other PR is merged
-	processGroupsWithoutExclusion := make(map[string]struct{}, len(cluster.Spec.InstancesToRemoveWithoutExclusion))
+	processGroupsWithoutExclusion := make(map[string]internal.None, len(cluster.Spec.InstancesToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
-		processGroupsWithoutExclusion[processGroupID] = struct{}{}
+		processGroupsWithoutExclusion[processGroupID] = internal.None{}
 	}
 
 	for _, processGroup := range processGroups {
 		processGroupMap[processGroup.ProcessGroupID] = processGroup
 	}
+
+	instanceMap := make(map[string]internal.None, len(instances))
 
 	for _, instance := range instances {
 		processClass := instance.GetProcessClass()
@@ -472,6 +473,8 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		processGroupStatus.AddAddresses(instance.GetPublicIPs())
 
+		instanceMap[instanceID] = internal.None{}
+
 		processCount := 1
 
 		// If the instance is not being removed and the Pod is not set we need to put it into
@@ -482,6 +485,10 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		processGroupStatus.UpdateCondition(fdbtypes.MissingPod, missingPod, processGroups, instanceID)
 		if missingPod {
 			continue
+		}
+
+		if processGroupStatus.Remove && instance.Metadata.DeletionTimestamp != nil {
+			processGroupStatus.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, instanceID)
 		}
 
 		// Even the instance will be removed we need to keep the config around.
@@ -530,6 +537,13 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		if needsSidecarConfInConfigMap {
 			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
+		}
+	}
+
+	for _, processGroupStatus := range processGroups {
+		_, found := instanceMap[processGroupStatus.ProcessGroupID]
+		if processGroupStatus.Remove && !found {
+			processGroupStatus.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroupStatus.ProcessGroupID)
 		}
 	}
 
