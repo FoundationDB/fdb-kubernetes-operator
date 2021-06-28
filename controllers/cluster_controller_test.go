@@ -1971,7 +1971,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("downgrade cluster", func() {
 			BeforeEach(func() {
 				shouldCompleteReconciliation = false
-				IncompatibleVersion := Versions.Default
+				IncompatibleVersion := fdbtypes.Versions.Default
 				IncompatibleVersion.Patch--
 				cluster.Spec.Version = IncompatibleVersion.String()
 				err := k8sClient.Update(context.TODO(), cluster)
@@ -1980,7 +1980,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			It("should not downgrade cluster", func() {
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
-				Expect(cluster.Status.RunningVersion).To(Equal(Versions.Default.String()))
+				Expect(cluster.Status.RunningVersion).To(Equal(fdbtypes.Versions.Default.String()))
 			})
 		})
 
@@ -1988,7 +1988,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.NextMajorVersion.String()
+				cluster.Spec.Version = fdbtypes.Versions.NextMajorVersion.String()
 
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -2019,7 +2019,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
 					}
 				})
 
@@ -2054,7 +2054,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", Versions.NextMajorVersion.String())))
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
 					}
 				})
 
@@ -2070,7 +2070,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with all upgradable clients", func() {
 				BeforeEach(func() {
-					adminClient.MockClientVersion(Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
+					adminClient.MockClientVersion(fdbtypes.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -2096,8 +2096,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with a non-upgradable client", func() {
 				BeforeEach(func() {
-					adminClient.MockClientVersion(Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
-					adminClient.MockClientVersion(Versions.Default.String(), []string{"127.0.0.3:85891"})
+					adminClient.MockClientVersion(fdbtypes.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
+					adminClient.MockClientVersion(fdbtypes.Versions.Default.String(), []string{"127.0.0.3:85891"})
 				})
 
 				Context("with the check enabled", func() {
@@ -2122,7 +2122,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						Expect(len(matchingEvents)).NotTo(Equal(0))
 
 						Expect(matchingEvents[0].Message).To(Equal(
-							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891", Versions.NextMajorVersion),
+							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891", fdbtypes.Versions.NextMajorVersion),
 						))
 					})
 				})
@@ -2428,14 +2428,14 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				Expect(configMap.Data[clusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
-				Expect(configMap.Data["running-version"]).To(Equal(Versions.Default.String()))
+				Expect(configMap.Data["running-version"]).To(Equal(fdbtypes.Versions.Default.String()))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
 			})
 		})
 
 		Context("with a version that requires sidecar conf", func() {
 			BeforeEach(func() {
-				cluster.Status.RunningVersion = Versions.WithEnvironmentVariablesForSidecar.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()
 			})
 
 			It("should have the sidecar conf", func() {
@@ -2478,7 +2478,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with a version that uses sidecar command-line arguments", func() {
 				BeforeEach(func() {
-					cluster.Status.RunningVersion = Versions.WithCommandLineVariablesForSidecar.String()
+					cluster.Status.RunningVersion = fdbtypes.Versions.WithCommandLineVariablesForSidecar.String()
 				})
 
 				It("should populate the CA file", func() {
@@ -2488,7 +2488,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with a version that uses sidecar environment variables", func() {
 				BeforeEach(func() {
-					cluster.Status.RunningVersion = Versions.WithEnvironmentVariablesForSidecar.String()
+					cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()
 				})
 
 				It("should populate the CA file", func() {
@@ -2518,7 +2518,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with custom sidecar substitutions", func() {
 			BeforeEach(func() {
 				cluster.Spec.SidecarVariables = []string{"FAULT_DOMAIN", "ZONE"}
-				cluster.Status.RunningVersion = Versions.WithEnvironmentVariablesForSidecar.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()
 			})
 
 			It("should put the substitutions in the sidecar conf", func() {
@@ -2531,8 +2531,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with explicit instance ID substitution", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithoutSidecarInstanceIDSubstitution.String()
-				cluster.Status.RunningVersion = Versions.WithoutSidecarInstanceIDSubstitution.String()
+				cluster.Spec.Version = fdbtypes.Versions.WithoutSidecarInstanceIDSubstitution.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutSidecarInstanceIDSubstitution.String()
 			})
 
 			It("should include the instance ID in the substitutions in the sidecar conf", func() {
@@ -2949,8 +2949,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with a version that can use binaries from the main container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
+				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
 				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2979,8 +2979,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with a version with binaries from the sidecar container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
 				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3252,8 +3252,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with binaries from the main container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = Versions.WithBinariesFromMainContainer.String()
+				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
 				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)
@@ -3280,8 +3280,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with binaries from the sidecar container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient := &mockFdbPodClient{Cluster: cluster, Pod: &pod}
 				command, err = GetStartCommand(cluster, newFdbInstance(pod), podClient, 1, 1)

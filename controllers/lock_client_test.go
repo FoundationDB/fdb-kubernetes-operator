@@ -54,22 +54,22 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("AddPendingUpgrades", func() {
 		It("adds the upgrades to the map", func() {
-			err = client.AddPendingUpgrades(Versions.Default, []string{"storage-1", "storage-2"})
+			err = client.AddPendingUpgrades(fdbtypes.Versions.Default, []string{"storage-1", "storage-2"})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = client.AddPendingUpgrades(Versions.Default, []string{"storage-3"})
+			err = client.AddPendingUpgrades(fdbtypes.Versions.Default, []string{"storage-3"})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = client.AddPendingUpgrades(Versions.NextMajorVersion, []string{"storage-3", "storage-4"})
+			err = client.AddPendingUpgrades(fdbtypes.Versions.NextMajorVersion, []string{"storage-3", "storage-4"})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(client.pendingUpgrades).To(Equal(map[fdbtypes.FdbVersion]map[string]bool{
-				Versions.Default: {
+				fdbtypes.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,
 					"storage-3": true,
 				},
-				Versions.NextMajorVersion: {
+				fdbtypes.Versions.NextMajorVersion: {
 					"storage-3": true,
 					"storage-4": true,
 				},
@@ -80,12 +80,12 @@ var _ = Describe("lock_client_test", func() {
 	Describe("GetPendingUpgrades", func() {
 		BeforeEach(func() {
 			client.pendingUpgrades = map[fdbtypes.FdbVersion]map[string]bool{
-				Versions.Default: {
+				fdbtypes.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,
 					"storage-3": true,
 				},
-				Versions.NextMajorVersion: {
+				fdbtypes.Versions.NextMajorVersion: {
 					"storage-3": true,
 					"storage-4": true,
 				},
@@ -94,7 +94,7 @@ var _ = Describe("lock_client_test", func() {
 
 		Context("with upgrades in the map", func() {
 			It("returns the upgrades in the map", func() {
-				upgrades, err := client.GetPendingUpgrades(Versions.Default)
+				upgrades, err := client.GetPendingUpgrades(fdbtypes.Versions.Default)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(upgrades).To(Equal(map[string]bool{
 					"storage-1": true,
@@ -106,7 +106,7 @@ var _ = Describe("lock_client_test", func() {
 
 		Context("with a version that is not in the map", func() {
 			It("returns the upgrades in the map", func() {
-				upgrades, err := client.GetPendingUpgrades(Versions.NextPatchVersion)
+				upgrades, err := client.GetPendingUpgrades(fdbtypes.Versions.NextPatchVersion)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(upgrades).NotTo(BeNil())
 				Expect(upgrades).To(BeEmpty())

@@ -236,11 +236,6 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 			spec.Services.PublicIPSource = &source
 		}
 
-		if spec.AutomationOptions.Replacements.Enabled == nil {
-			enabled := false
-			spec.AutomationOptions.Replacements.Enabled = &enabled
-		}
-
 		if spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds == nil {
 			duration := 1800
 			spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = &duration
@@ -292,6 +287,11 @@ func NormalizeClusterSpec(spec *fdbtypes.FoundationDBClusterSpec, options Deprec
 	// Setting the default since the CRD default enforces the default in the runtime
 	if spec.MinimumUptimeSecondsForBounce == 0 {
 		spec.MinimumUptimeSecondsForBounce = 600
+	}
+
+	if spec.AutomationOptions.Replacements.Enabled == nil {
+		enabled := options.UseFutureDefaults
+		spec.AutomationOptions.Replacements.Enabled = &enabled
 	}
 
 	return nil
