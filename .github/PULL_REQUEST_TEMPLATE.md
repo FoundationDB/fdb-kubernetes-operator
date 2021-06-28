@@ -1,6 +1,6 @@
 # Description
 
-*Please include a summary of the change and which radar is addressed. If this change resolves an issue, please include the issue number in the description.*
+*Please include a summary of the change and which issue is addressed. If this change resolves an issue, please include the issue number in the description.*
 
 ## Type of change
 
@@ -9,7 +9,7 @@
 - Bug fix (non-breaking change which fixes an issue)
 - New feature (non-breaking change which adds functionality)
 - Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- Documentation Update
+- Documentation
 - Other
 
 # Discussion
@@ -19,9 +19,9 @@
 # Testing
 
 *Please describe the tests that you ran to verify your changes. Unit tests?
-Manual testing in dev environment?*
+Manual testing?*
 
-*Is there we need to perform additional testing once this is merged, or perform in a larger testing environment?*
+*Do we need to perform additional testing once this is merged, or perform in a larger testing environment?*
 
 # Documentation
 

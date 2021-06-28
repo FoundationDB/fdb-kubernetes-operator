@@ -25,7 +25,7 @@ Error:
 found issues for cluster example-cluster. Please check them
 ```
 
-The plugin can also resolve these issues automatically:
+The plugin can also resolve most of these issues automatically:
 
 ```
 $ kubectl fdb analyze example-cluster --auto-fix
@@ -80,7 +80,7 @@ Remove [storage-1] from cluster default/example-cluster with exclude: false and 
 
 **NOTE**: This is a very dangerous operation.
 This will delete the pod and the PVC without checking that the data has been re-replicated.
-You should only due this after checking that the database is available, that the database has not had any data loss, and that the pod is not currently running. You can confirm the first and second check by looking in the cluster status.
+You should only due this after checking that the database is available, has not had any data loss, and that the pod is currently not running. You can confirm the first and second check by looking at the cluster status.
 
 ## Reconciliation Not Running
 
