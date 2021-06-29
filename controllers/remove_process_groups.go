@@ -57,7 +57,7 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 	return allRemoved && allExcluded, nil
 }
 
-func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
+func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
 	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
@@ -288,7 +288,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 
 		excluded, err := processGroup.IsExcluded(remainingMap)
 		if !excluded || err != nil {
-			log.Info("Incomplete exclusion still present in RemovePods step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
+			log.Info("Incomplete exclusion still present in RemoveProcessGroups step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
 			allExcluded = false
 			continue
 		}
@@ -313,7 +313,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context,
 	removedProcessGroups := make(map[string]bool)
 	allRemoved := true
 	for _, id := range processGroupsToRemove {
-		err := removePod(r, context, cluster, id)
+		err := removeProcessGroup(r, context, cluster, id)
 		if err != nil {
 			allRemoved = false
 			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
@@ -342,6 +342,6 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context,
 
 // RequeueAfter returns the delay before we should run the reconciliation
 // again.
-func (u RemovePods) RequeueAfter() time.Duration {
+func (u RemoveProcessGroups) RequeueAfter() time.Duration {
 	return 0
 }
