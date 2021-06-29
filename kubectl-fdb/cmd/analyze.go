@@ -360,7 +360,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	}
 
 	if foundIssues && !autoFix {
-		return fmt.Errorf("found issues for cluster %s please check them", cluster.Name)
+		return fmt.Errorf("found issues for cluster %s. Please check them", cluster.Name)
 	}
 
 	return nil
