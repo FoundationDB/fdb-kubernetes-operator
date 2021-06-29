@@ -10,6 +10,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
 * [ContainerOverrides](#containeroverrides)
+* [CoordinatorSelectionSetting](#coordinatorselectionsetting)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
 * [FoundationDBCluster](#foundationdbcluster)
@@ -120,6 +121,17 @@ ContainerOverrides provides options for customizing a container created by the o
 | volumeMounts | VolumeMounts provides volume mounts.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
 | imageName | ImageName provides the name of the image to use for the container, without the version tag.  **Deprecated: Use the PodTemplate field instead.** | string | false |
 | securityContext | SecurityContext provides the container's security context.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core) | false |
+
+[Back to TOC](#table-of-contents)
+
+## CoordinatorSelectionSetting
+
+CoordinatorSelectionSetting defines the process class and the priority of it. A higher priority means that the process class is preferred over another.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| processClass |  | ProcessClass | false |
+| priority |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -253,7 +265,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
 | replaceInstancesWhenResourcesChange | ReplaceInstancesWhenResourcesChange defines if an instance should be replaced when the resource requirements are increased. This can be useful with the combination of local storage. | *bool | false |
 | skip | Skip defines if the cluster should be skipped for reconciliation. This can be useful for investigating in issues or if the environment is unstable. | bool | false |
-| coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is sans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | []CoordinatorSelectionSetting | false |
+| coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
 
 [Back to TOC](#table-of-contents)
 
