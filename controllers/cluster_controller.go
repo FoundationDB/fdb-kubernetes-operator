@@ -1119,8 +1119,8 @@ type localityInfo struct {
 func sortLocalities(cluster *fdbtypes.FoundationDBCluster, processes []localityInfo) {
 	// Sort the processes for ID to ensure we have a stable input
 	sort.SliceStable(processes, func(i, j int) bool {
-		p1 := cluster.GetClassPriority(processes[i].Class)
-		p2 := cluster.GetClassPriority(processes[j].Class)
+		p1 := cluster.GetClassCandidatePriority(processes[i].Class)
+		p2 := cluster.GetClassCandidatePriority(processes[j].Class)
 
 		// If both have the same priority sort them by the process ID
 		if p1 == p2 {
@@ -1320,7 +1320,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	}
 
 	allAddressesValid := true
-	allEligble := true
+	allEligible := true
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
@@ -1361,7 +1361,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 				log.Info("Process class of process is not eligible as coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "class", process.ProcessClass, "address", address)
-				allEligble = false
+				allEligible = false
 			}
 		}
 
@@ -1399,5 +1399,5 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 	}
 
-	return hasEnoughDCs && hasEnoughZones && allHealthy && allEligble, allAddressesValid, nil
+	return hasEnoughDCs && hasEnoughZones && allHealthy && allEligible, allAddressesValid, nil
 }
