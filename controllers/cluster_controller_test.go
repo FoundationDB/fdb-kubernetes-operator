@@ -3903,10 +3903,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
-		Context("with a pod IP pattern configured", func() {
+		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
-				pattern := ":"
-				cluster.Spec.Routing.PodIPPattern = &pattern
+				family := 6
+				cluster.Spec.Routing.PodIPFamily = &family
 				pod, err := GetPod(cluster, "storage", 1)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
@@ -3934,6 +3934,27 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					result := instance.GetPublicIPs()
 					Expect(result).To(BeEmpty())
 				})
+			})
+		})
+
+		Context("with a v4 pod IP family configured", func() {
+			BeforeEach(func() {
+				family := 4
+				cluster.Spec.Routing.PodIPFamily = &family
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Status.PodIP = "1.1.1.1"
+				pod.Status.PodIPs = []corev1.PodIP{
+					{IP: "1.1.1.2"},
+					{IP: "2001:db8::ff00:42:8329"},
+				}
+				instance.Pod = pod
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should select the address based on the spec", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(Equal([]string{"1.1.1.2"}))
 			})
 		})
 

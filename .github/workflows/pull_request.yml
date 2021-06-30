@@ -54,6 +54,7 @@ jobs:
       - name: Run Python lint
         run: |
           pycodestyle --max-line-length=120 ./**/*.py
+          black --check --diff ./
   build:
     name: Build
     runs-on: ubuntu-latest

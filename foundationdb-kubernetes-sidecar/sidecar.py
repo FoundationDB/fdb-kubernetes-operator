@@ -21,6 +21,7 @@
 
 import argparse
 import hashlib
+import ipaddress
 import logging
 import json
 import os
@@ -56,9 +57,7 @@ class Config(object):
             ),
             action="store_true",
         )
-        parser.add_argument(
-            "--bind-address", help="IP and port to bind on"
-        )
+        parser.add_argument("--bind-address", help="IP and port to bind on")
         parser.add_argument(
             "--tls",
             help=("This flag enables TLS for incoming connections"),
@@ -150,10 +149,10 @@ class Config(object):
             help=("The version of the main foundationdb container in the pod"),
         )
         parser.add_argument(
-            "--public-ip-pattern",
+            "--public-ip-family",
             help=(
                 "Tells the sidecar to treat the public IP as a comma-separated "
-                "list, and use the first entry matching this pattern"
+                "list, and use the first entry in the specified IP family"
             ),
         )
         parser.add_argument(
@@ -224,7 +223,7 @@ class Config(object):
             "FDB_MACHINE_ID",
             "FDB_ZONE_ID",
             "FDB_INSTANCE_ID",
-            "FDB_POD_IP"
+            "FDB_POD_IP",
         ]:
             self.substitutions[key] = os.getenv(key, "")
 
@@ -298,11 +297,14 @@ class Config(object):
         if os.getenv("COPY_ONCE", "0") == "1":
             self.init_mode = True
 
-        if args.public_ip_pattern:
-            regex = re.compile(args.public_ip_pattern)
-
-            self.substitutions["FDB_PUBLIC_IP"] = Config.extract_desired_ip(regex, self.substitutions["FDB_PUBLIC_IP"])
-            self.substitutions["FDB_POD_IP"] = Config.extract_desired_ip(regex, self.substitutions["FDB_POD_IP"])
+        if args.public_ip_family:
+            version = int(args.public_ip_family)
+            self.substitutions["FDB_PUBLIC_IP"] = Config.extract_desired_ip(
+                version, self.substitutions["FDB_PUBLIC_IP"]
+            )
+            self.substitutions["FDB_POD_IP"] = Config.extract_desired_ip(
+                version, self.substitutions["FDB_POD_IP"]
+            )
 
         if not self.bind_address:
             if self.substitutions["FDB_POD_IP"] != "":
@@ -326,16 +328,16 @@ class Config(object):
         )
 
     @classmethod
-    def extract_desired_ip(cls, pattern, string):
+    def extract_desired_ip(cls, version, string):
         if string == "":
             return string
 
         ips = string.split(",")
-        matching_ips = [ip for ip in ips if pattern.search(ip)]
+        matching_ips = [ip for ip in ips if ipaddress.ip_address(ip).version == version]
         if len(matching_ips) == 0:
-            raise Exception("Failed to find IP matching %s in %s" % (pattern, ips))
+            raise Exception(f"Failed to find IPv{version} entry in {ips}")
         ip = matching_ips[0]
-        if ":" in ip:
+        if version == 6:
             ip = "[%s]" % ip
         return ip
 
@@ -353,12 +355,13 @@ class Server(BaseHTTPRequestHandler):
         This method starts the server.
         """
         config = Config.shared()
-        port_index = config.bind_address.rindex(":")
-        address = config.bind_address[:port_index]
-        port = config.bind_address[port_index+1:]
+        colon_index = config.bind_address.rindex(":")
+        port_index = colon_index + 1
+        address = config.bind_address[:colon_index]
+        port = config.bind_address[port_index:]
         log.info(f"Listening on {address}:{port}")
 
-        if ":" in address:
+        if address.startswith("[") and address.endswith("]"):
             server = ThreadingHTTPServerV6((address[1:-1], int(port)), cls)
         else:
             server = ThreadingHTTPServer((address, int(port)), cls)

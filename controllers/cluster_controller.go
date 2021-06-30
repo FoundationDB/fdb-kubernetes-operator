@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -891,7 +892,7 @@ func (instance FdbInstance) GetPublicIPs() []string {
 }
 
 func getPublicIpsForPod(pod *corev1.Pod) []string {
-	var podIPPattern *regexp.Regexp
+	var podIPFamily *int
 
 	if pod == nil {
 		return []string{}
@@ -900,27 +901,41 @@ func getPublicIpsForPod(pod *corev1.Pod) []string {
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "foundationdb-kubernetes-sidecar" {
 			for indexOfArgument, argument := range container.Args {
-				if argument == "--public-ip-pattern" && indexOfArgument < len(container.Args)-1 {
-					patternString := container.Args[indexOfArgument+1]
-					pattern, err := regexp.Compile(patternString)
+				if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
+					familyString := container.Args[indexOfArgument+1]
+					family, err := strconv.Atoi(familyString)
 					if err != nil {
-						log.Error(err, "Error parsing public IP pattern", "pattern", pattern)
+						log.Error(err, "Error parsing public IP family", "family", familyString)
 						return nil
 					}
-					podIPPattern = pattern
+					podIPFamily = &family
 					break
 				}
 			}
 		}
 	}
 
-	if podIPPattern != nil {
+	if podIPFamily != nil {
 		podIPs := pod.Status.PodIPs
 		matchingIPs := make([]string, 0, len(podIPs))
 
-		for _, ip := range podIPs {
-			if podIPPattern.Match([]byte(ip.IP)) {
-				matchingIPs = append(matchingIPs, ip.IP)
+		for _, podIP := range podIPs {
+			ip := net.ParseIP(podIP.IP)
+			if ip == nil {
+				log.Error(nil, "Failed to parse IP from pod", "ip", podIP)
+				continue
+			}
+			matches := false
+			switch *podIPFamily {
+			case 4:
+				matches = ip.To4() != nil
+			case 6:
+				matches = ip.To4() == nil
+			default:
+				log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
+			}
+			if matches {
+				matchingIPs = append(matchingIPs, podIP.IP)
 			}
 		}
 		return matchingIPs
