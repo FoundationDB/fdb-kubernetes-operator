@@ -27,7 +27,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -200,66 +199,6 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 	log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
 	return outputString, nil
-}
-
-func shouldRemoveLogFile(info os.FileInfo, now time.Time) (bool, error) {
-	if info.IsDir() {
-		return false, nil
-	}
-
-	if !strings.HasPrefix(info.Name(), "trace") {
-		return false, nil
-	}
-
-	// If the file is newer than 30 minutes skip it.
-	// We assume that the log shipper as pushed the logs away in under 30 minutes.
-	if info.ModTime().Add(30 * time.Minute).Before(now) {
-		return false, nil
-	}
-
-	// Files from the lib will have the format:
-	// trace.$IP.1.&timestamp...json (or xml)
-	// with this regexp we check for the middle part.
-	isLibFile, err := regexp.Compile(`\.1\.\d{10,}`)
-	if err != nil {
-		return false, err
-	}
-
-	// These files are the one from the fdb lib and will be automatically rotated
-	return isLibFile.MatchString(info.Name()), nil
-}
-
-// CleanupOldLogs removes old fdbcli log files.
-func (client *cliAdminClient) CleanupOldLogs() error {
-	logDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
-	if logDir == "" {
-		return nil
-	}
-
-	return filepath.Walk(logDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		remove, err := shouldRemoveLogFile(info, time.Now())
-		if err != nil {
-			return err
-		}
-
-		if !remove {
-			return nil
-		}
-
-		log.Info("Delete old log file", "file", info.Name())
-		err = os.Remove(path)
-		// If the file doesn't exist move on.
-		// we could hit this case when multiple controller routines are running.
-		if os.IsNotExist(err) {
-			return nil
-		}
-
-		return err
-	})
 }
 
 // GetStatus gets the database's status

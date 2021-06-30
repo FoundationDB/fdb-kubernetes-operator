@@ -22,44 +22,11 @@ package fdbclient
 
 import (
 	"fmt"
-	"os"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
-
-// Used to create a dummy os.FileInfo
-type dummyFileInfo struct {
-	isDir   bool
-	modTime time.Time
-	name    string
-}
-
-func (f dummyFileInfo) Name() string {
-	return f.name
-}
-
-func (f dummyFileInfo) Size() int64 {
-	return 0
-}
-
-func (f dummyFileInfo) Mode() os.FileMode {
-	return 0
-}
-
-func (f dummyFileInfo) ModTime() time.Time {
-	return f.modTime
-}
-
-func (f dummyFileInfo) IsDir() bool {
-	return f.isDir
-}
-
-func (f dummyFileInfo) Sys() interface{} {
-	return nil
-}
 
 var _ = Describe("admin_client_test", func() {
 	Describe("helper methods", func() {
@@ -176,75 +143,6 @@ var _ = Describe("admin_client_test", func() {
 					input:       "}",
 					expected:    "",
 					expectedErr: fmt.Errorf("the JSON string doesn't contain a starting '{'"),
-				},
-			),
-		)
-	})
-
-	When("", func() {
-		type testCase struct {
-			fileInfo os.FileInfo
-			time     time.Time
-			expected bool
-		}
-		DescribeTable("Should return wther the file should be removed",
-			func(tc testCase) {
-				result, err := shouldRemoveLogFile(tc.fileInfo, tc.time)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(Equal(tc.expected))
-			},
-			Entry("When the FileInfo is a dir",
-				testCase{
-					fileInfo: dummyFileInfo{
-						isDir:   true,
-						modTime: time.Now(),
-					},
-					time:     time.Now(),
-					expected: false,
-				},
-			),
-			Entry("When the file is an operator log file",
-				testCase{
-					fileInfo: dummyFileInfo{
-						name:    "operator.json",
-						isDir:   true,
-						modTime: time.Now(),
-					},
-					time:     time.Now(),
-					expected: false,
-				},
-			),
-			Entry("When the file is not older than 30 minutes",
-				testCase{
-					fileInfo: dummyFileInfo{
-						name:    "trace.10.1.14.36.1.1625057172.rmuWOn.0.1.xml",
-						isDir:   true,
-						modTime: time.Now(),
-					},
-					time:     time.Now(),
-					expected: false,
-				},
-			),
-			Entry("When the file is a library file",
-				testCase{
-					fileInfo: dummyFileInfo{
-						name:    "trace.10.1.14.36.1.1625057172.rmuWOn.0.1.xml",
-						isDir:   true,
-						modTime: time.Now().Add(-45 * time.Minute),
-					},
-					time:     time.Now(),
-					expected: false,
-				},
-			),
-			Entry("When the file is a library file",
-				testCase{
-					fileInfo: dummyFileInfo{
-						name:    "trace.10.1.14.36.1337.1625057172.rmuWOn.0.1.xml",
-						isDir:   true,
-						modTime: time.Now().Add(-45 * time.Minute),
-					},
-					time:     time.Now(),
-					expected: true,
 				},
 			),
 		)
