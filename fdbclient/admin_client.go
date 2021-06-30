@@ -251,7 +251,14 @@ func (client *cliAdminClient) CleanupOldLogs() error {
 		}
 
 		log.Info("Delete old log file", "file", info.Name())
-		return os.Remove(path)
+		err = os.Remove(path)
+		// If the file doesn't exist move on.
+		// we could hit this case when multiple controller routines are running.
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
 	})
 }
 
