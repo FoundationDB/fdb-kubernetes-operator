@@ -40,7 +40,7 @@ const (
 	clusterFileKey = "cluster-file"
 
 	// podSchedulingDelayDuration determines how long we should delay a requeue
-	// of reconciliation when a pod is not fully scheduled.
+	// of reconciliation when a pod is not ready.
 	podSchedulingDelayDuration = 15 * time.Second
 )
 
@@ -106,12 +106,12 @@ func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.
 		}
 	}
 
-	logger.Info("Reconciliation terminated early", "subReconciler", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
-	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationEndedEarly", requeue.Message)
+	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationTerminatedEarly", requeue.Message)
 
 	if err != nil {
-		logger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler))
+		logger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
 		return ctrl.Result{}, err
 	}
+	logger.Info("Reconciliation terminated early", "subReconciler", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
 	return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 }
