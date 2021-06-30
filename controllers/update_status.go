@@ -540,6 +540,8 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		}
 	}
 
+	// Mark process groups as terminating if the pod has been deleted but other
+	// resources are stuck in terminating.
 	for _, processGroupStatus := range processGroups {
 		_, found := instanceMap[processGroupStatus.ProcessGroupID]
 		if processGroupStatus.Remove && !found {

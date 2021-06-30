@@ -1363,17 +1363,14 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove {
-			terminating := false
-			for _, condition := range processGroup.ProcessGroupConditions {
-				terminating = terminating || condition.ProcessGroupConditionType == ResourcesTerminating
-			}
-			if processGroup.Excluded && terminating {
-				cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
-			} else {
-				cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
-				reconciled = false
-			}
+		if !processGroup.Remove {
+			continue
+		}
+		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
+			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
+		} else {
+			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
+			reconciled = false
 		}
 	}
 
