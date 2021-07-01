@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        fdbver: [ "6.2.30", "6.3.16" ]
+        fdbver: [ "6.2.30", "6.3.15" ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -63,7 +63,7 @@ jobs:
         # With a new supported Kubernetes version we should adjust the version
         # See https://kubernetes.io/releases for the current releases
         kubever: [ "v1.19.0", "v1.20.0", "v1.21.0" ]
-        fdbver: ["6.2.30", "6.3.16"]
+        fdbver: ["6.2.30", "6.3.15"]
     steps:
     - name: Set up Go 1.15
       uses: actions/setup-go@v1
