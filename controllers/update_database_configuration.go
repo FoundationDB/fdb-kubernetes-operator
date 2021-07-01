@@ -55,8 +55,9 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 	initialConfig := !cluster.Status.Configured
 
-	healthy := initialConfig || status.Client.DatabaseStatus.Healthy
 	available := initialConfig || status.Client.DatabaseStatus.Available
+	dataState := status.Cluster.Data.State
+	dataHealthy := initialConfig || dataState.Healthy
 
 	if !available {
 		log.Info("Skipping database configuration change because database is unavailable", "namespace", cluster.Namespace, "cluster", cluster.Name)
@@ -77,12 +78,13 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		configurationString, _ := nextConfiguration.GetConfigurationString()
 		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
 
-		if !healthy {
-			log.Info("Waiting for database to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		if !dataHealthy {
+			log.Info("Waiting for data distribution to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name, "stateName", dataState.Name, "stateDescription", dataState.Description)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-				fmt.Sprintf("Spec require configuration change to `%s`, but cluster is not healthy", configurationString))
-			return &Requeue{Message: "Waiting for database to be healthy before executing configuration change"}
+				fmt.Sprintf("Spec require configuration change to `%s`, but data distribution is not fully healthy: %s (%s)", configurationString, dataState.Name, dataState.Description))
+			return nil
 		}
+
 		if enabled != nil && !*enabled {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
