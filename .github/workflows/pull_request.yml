@@ -129,10 +129,6 @@ jobs:
         ./config/test-certs/generate_secrets.bash
         SKIP_TEST=1 IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
         # Wait for the operator to start
-        kubectl describe node
-        kubectl describe po
-        kubectl -n kube-system get po -o wide
-        kubectl -n kube-system describe po
         kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
         # Check if all resources can be applied
         kubectl apply --dry-run=server -f ./config/samples
