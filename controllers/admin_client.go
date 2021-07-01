@@ -343,6 +343,8 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	status.Cluster.FullReplication = true
+	status.Cluster.Data.State.Healthy = true
+	status.Cluster.Data.State.Name = "healthy"
 
 	if len(client.Backups) > 0 {
 		status.Cluster.Layers.Backup.Tags = make(map[string]fdbtypes.FoundationDBStatusBackupTag, len(client.Backups))
