@@ -2326,8 +2326,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				} {
 					Expect(re.Match(buf.Bytes())).To(Equal(true))
 				}
-
-				Expect(len(metricFamilies)).To(BeNumerically("==", 35))
 			})
 		})
 
