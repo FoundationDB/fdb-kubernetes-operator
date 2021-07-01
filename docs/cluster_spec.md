@@ -351,21 +351,24 @@ ProcessCounts represents the number of processes we have for each valid process 
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| storage | Storage defines the number of storage class processes. | int | false |
-| transaction | Transaction defines the number of transaction class processes. | int | false |
-| stateless | Stateless defines the number of stateless class processes. | int | false |
-| resolution | Resolution defines the number of resolution class processes. | int | false |
 | unset |  | int | false |
-| log |  | int | false |
-| master |  | int | false |
-| cluster_controller |  | int | false |
+| storage |  | int | false |
+| transaction |  | int | false |
+| resolution |  | int | false |
+| tester |  | int | false |
 | proxy |  | int | false |
-| resolver |  | int | false |
+| master |  | int | false |
+| stateless |  | int | false |
+| log |  | int | false |
+| cluster_controller |  | int | false |
 | router |  | int | false |
-| ratekeeper |  | int | false |
-| data_distributor |  | int | false |
 | fast_restore |  | int | false |
+| data_distributor |  | int | false |
+| coordinator |  | int | false |
+| ratekeeper |  | int | false |
+| storage_cache |  | int | false |
 | backup |  | int | false |
+| resolver | **Deprecated: This is unsupported and any processes with this process class will fail to start.** | int | false |
 
 [Back to TOC](#table-of-contents)
 

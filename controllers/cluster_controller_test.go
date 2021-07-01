@@ -3140,7 +3140,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4501",
+					"--public_address=1.1.1.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -3165,7 +3165,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4501",
+					"--public_address=1.1.1.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 
@@ -3182,7 +3182,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4503",
+					"--public_address=1.1.1.1:4503",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -3210,7 +3210,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					"--locality_zoneid=machine1",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4501",
+					"--public_address=1.1.1.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -3242,7 +3242,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					"--locality_zoneid=kc2",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4501",
+					"--public_address=1.1.1.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -3270,7 +3270,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4501",
+					"--public_address=1.1.1.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
@@ -3298,7 +3298,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
-					"--public_address=1.1.0.1:4501",
+					"--public_address=1.1.1.1:4501",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
 			})
