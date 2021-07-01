@@ -59,10 +59,11 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         # With a new supported Kubernetes version we should adjust the version
         # See https://kubernetes.io/releases for the current releases
-        kubever: [ "v1.19.0", "v1.20.0", "v1.21.0" ]
+        kubever: [ "v1.19.0", "v1.20.0", "v1.21.1" ]
         fdbver: ["6.2.30", "6.3.15"]
     steps:
     - name: Set up Go 1.15
