@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -32,27 +31,21 @@ type StartBackup struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
+func (s StartBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue {
 	if !backup.ShouldRun() || (backup.Status.BackupDetails != nil && backup.Status.BackupDetails.Running) {
-		return true, nil
+		return nil
 	}
 
 	adminClient, err := r.AdminClientForBackup(context, backup)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	defer adminClient.Close()
 
 	err = adminClient.StartBackup(backup.BackupURL(), backup.SnapshotPeriodSeconds())
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (s StartBackup) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }

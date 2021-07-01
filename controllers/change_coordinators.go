@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -35,20 +34,20 @@ import (
 type ChangeCoordinators struct{}
 
 // Reconcile runs the reconciler's work.
-func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	if !cluster.Status.Configured {
-		return true, nil
+		return nil
 	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	defer adminClient.Close()
 
 	connectionString, err := adminClient.GetConnectionString()
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	if connectionString != cluster.Status.ConnectionString {
@@ -58,13 +57,13 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		err = r.Status().Update(context, cluster)
 
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 	}
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
@@ -74,22 +73,22 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	if hasValidCoordinators {
-		return true, nil
+		return nil
 	}
 
 	if !allAddressesValid {
 		log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
-		return true, nil
+		return nil
 	}
 
 	hasLock, err := r.takeLock(cluster, "changing coordinators")
 	if !hasLock {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
@@ -97,7 +96,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	coordinators, err := selectCoordinators(cluster, status)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	coordinatorAddresses := make([]string, len(coordinators))
@@ -108,21 +107,15 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	log.Info("Final coordinators candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinatorAddresses)
 	connectionString, err = adminClient.ChangeCoordinators(coordinatorAddresses)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	cluster.Status.ConnectionString = connectionString
 	err = r.Status().Update(context, cluster)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (c ChangeCoordinators) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching instances.

@@ -35,7 +35,7 @@ var _ = Describe("add_services", func() {
 
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var shouldContinue bool
+	var requeue *Requeue
 	var initialServices *corev1.ServiceList
 	var newServices *corev1.ServiceList
 
@@ -63,7 +63,7 @@ var _ = Describe("add_services", func() {
 	})
 
 	JustBeforeEach(func() {
-		shouldContinue, err = AddServices{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = AddServices{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -78,7 +78,7 @@ var _ = Describe("add_services", func() {
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should not create any services", func() {
@@ -92,7 +92,7 @@ var _ = Describe("add_services", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should create an extra service", func() {
@@ -112,7 +112,7 @@ var _ = Describe("add_services", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(shouldContinue).To(BeTrue())
+				Expect(requeue).To(BeNil())
 			})
 
 			It("should not create any services", func() {
@@ -126,7 +126,7 @@ var _ = Describe("add_services", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(shouldContinue).To(BeTrue())
+				Expect(requeue).To(BeNil())
 			})
 
 			It("should not create any pods", func() {
@@ -145,7 +145,7 @@ var _ = Describe("add_services", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(shouldContinue).To(BeTrue())
+			Expect(requeue).To(BeNil())
 		})
 
 		It("should create a headless service", func() {
@@ -165,7 +165,7 @@ var _ = Describe("add_services", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(shouldContinue).To(BeTrue())
+				Expect(requeue).To(BeNil())
 			})
 
 			It("should not create any services", func() {

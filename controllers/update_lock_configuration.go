@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -32,26 +31,20 @@ import (
 type UpdateLockConfiguration struct{}
 
 // Reconcile runs the reconciler's work.
-func (UpdateLockConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (UpdateLockConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() || !cluster.Status.Configured {
-		return true, nil
+		return nil
 	}
 
 	lockClient, err := r.getLockClient(cluster)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	err = lockClient.UpdateDenyList(cluster.Spec.LockOptions.DenyList)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (UpdateLockConfiguration) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }
