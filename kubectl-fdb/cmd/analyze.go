@@ -194,11 +194,7 @@ func replaceFailedInstances(cluster *fdbtypes.FoundationDBCluster, instanceIDs [
 
 func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool) error {
 	foundIssues := false
-	var cluster fdbtypes.FoundationDBCluster
-	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      clusterName,
-	}, &cluster)
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -269,7 +265,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	}
 
 	// 4. Check if all Pods are up and running
-	pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
+	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
 	if err != nil {
 		return err
 	}
@@ -336,8 +332,8 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		if force || confirmed {
 			cmd.Printf("Replacing the following instances: %s", replaceInstances)
-			replaceFailedInstances(&cluster, replaceInstances)
-			err := kubeClient.Patch(ctx.Background(), &cluster, patch)
+			replaceFailedInstances(cluster, replaceInstances)
+			err := kubeClient.Patch(ctx.Background(), cluster, patch)
 			if err != nil {
 				return err
 			}

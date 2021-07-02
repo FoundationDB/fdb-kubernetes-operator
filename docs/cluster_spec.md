@@ -19,6 +19,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
+* [LabelConfig](#labelconfig)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
@@ -269,6 +270,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | replaceInstancesWhenResourcesChange | ReplaceInstancesWhenResourcesChange defines if an instance should be replaced when the resource requirements are increased. This can be useful with the combination of local storage. | *bool | false |
 | skip | Skip defines if the cluster should be skipped for reconciliation. This can be useful for investigating in issues or if the environment is unstable. | bool | false |
 | coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
+| labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -298,6 +300,18 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## LabelConfig
+
+LabelConfig allows customizing labels used by the operator.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| matchLabels | MatchLabels provides the labels that the operator should use to identify resources owned by the cluster. These will automatically be applied to all resources the operator creates. | map[string]string | false |
+| resourceLabels | ResourceLabels provides additional labels that the operator should apply to resources it creates. | map[string]string | false |
+| filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 

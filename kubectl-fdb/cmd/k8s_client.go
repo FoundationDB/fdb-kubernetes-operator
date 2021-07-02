@@ -25,9 +25,11 @@ import (
 	ctx "context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -61,6 +63,19 @@ func getOperator(kubeClient client.Client, operatorName string, namespace string
 	return operator, err
 }
 
+func loadCluster(kubeClient client.Client, namespace string, clusterName string) (*fdbtypes.FoundationDBCluster, error) {
+	cluster := &fdbtypes.FoundationDBCluster{}
+	err := kubeClient.Get(ctx.Background(), types.NamespacedName{Namespace: namespace, Name: clusterName}, cluster)
+	if err != nil {
+		return nil, err
+	}
+	err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return cluster, err
+}
+
 func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]string, error) {
 	var nodesList corev1.NodeList
 	err := kubeClient.List(ctx.Background(), &nodesList, client.MatchingLabels(nodeSelector))
@@ -77,14 +92,12 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 	return nodes, nil
 }
 
-func getPodsForCluster(kubeClient client.Client, clusterName string, namespace string) (*corev1.PodList, error) {
+func getPodsForCluster(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, namespace string) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
 		ctx.Background(),
 		&podList,
-		client.MatchingLabels(map[string]string{
-			fdbtypes.FDBClusterLabel: clusterName,
-		}),
+		client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
 		client.InNamespace(namespace))
 
 	return &podList, err
@@ -128,11 +141,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, name 
 }
 
 func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbtypes.ProcessGroupConditionType) ([]string, error) {
-	var cluster fdbtypes.FoundationDBCluster
-	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      clusterName,
-	}, &cluster)
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return []string{}, err
 	}
@@ -150,7 +159,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 	}
 
 	processes := make([]string, 0, len(processesSet))
-	pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
+	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
 	if err != nil {
 		return processes, err
 	}

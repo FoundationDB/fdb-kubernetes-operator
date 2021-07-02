@@ -54,11 +54,13 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, pvc := range pvcs.Items {
-		ownedByCluster := false
-		for _, ownerReference := range pvc.OwnerReferences {
-			if ownerReference.UID == cluster.UID {
-				ownedByCluster = true
-				break
+		ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
+		if !ownedByCluster {
+			for _, ownerReference := range pvc.OwnerReferences {
+				if ownerReference.UID == cluster.UID {
+					ownedByCluster = true
+					break
+				}
 			}
 		}
 

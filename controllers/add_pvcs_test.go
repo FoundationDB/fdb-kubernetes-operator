@@ -41,7 +41,7 @@ var _ = Describe("add_pvcs", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		err = k8sClient.Create(context.TODO(), cluster)

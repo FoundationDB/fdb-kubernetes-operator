@@ -152,7 +152,7 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 
 		clusterCounter++
 		originalSpec := cluster.Spec.DeepCopy()
-		err = internal.NormalizeClusterSpec(&cluster.Spec, deprecationOptions)
+		err = internal.NormalizeClusterSpec(&cluster, deprecationOptions)
 		if err != nil {
 			return err
 		}

@@ -309,6 +309,9 @@ type FoundationDBClusterSpec struct {
 	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
 	// the coordinator selection process could conflict.
 	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
+
+	// LabelConfig allows customizing labels used by the operator.
+	LabelConfig LabelConfig `json:"labels,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -2461,6 +2464,23 @@ type BuggifyConfig struct {
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
 }
 
+// LabelConfig allows customizing labels used by the operator.
+type LabelConfig struct {
+	// MatchLabels provides the labels that the operator should use to identify
+	// resources owned by the cluster. These will automatically be applied to
+	// all resources the operator creates.
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// ResourceLabels provides additional labels that the operator should apply to
+	// resources it creates.
+	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
+
+	// FilterOnOwnerReferences determines whether we should check that resources
+	// are owned by the cluster object, in addition to the constraints provided
+	// by the match labels.
+	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+}
+
 // PublicIPSource models options for how a pod gets its public IP.
 type PublicIPSource string
 
@@ -2551,4 +2571,10 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 	}
 
 	return math.MinInt64
+}
+
+// ShouldFilterOnOwnerReferences determines if we should check owner references
+// when determining if a resource is related to this cluster.
+func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
+	return cluster.Spec.LabelConfig.FilterOnOwnerReferences != nil && *cluster.Spec.LabelConfig.FilterOnOwnerReferences
 }

@@ -195,6 +195,90 @@ You can build this kind of configuration easily from the sample deployment by ch
 * Change the Roles to ClusterRoles
 * Change the RoleBindings to ClusterRoleBindings
 
+## Resource Labeling
+
+The operator has default labels that it applies to all resources it manages in order to track those resources. You can customize this labeling through the label config in the cluster spec.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    # The default match labels are {"fdb-cluster-name": "sample-cluster"}
+    matchLabels:
+      my-cluster: sample-cluster
+```
+
+These match labels will be automatically applied to new resources, and will be used to fetch those resources when the operator runs list commands. The match labels are also used as part of the selector in services that the operator creates and in the default affinity rules.
+
+You must be careful when changing match labels. Most resources in Kubernetes cannot support two different kinds of match labels at once. If you want to change match labels you will need to go through a four step process: first add both sets of labels to all resources, then update the match labels to exclusively use the new labels, then remove the old labels from the spec, then remove the labels from the resources. Between each of these steps you must wait for reconciliation to complete.
+
+Let's say you want the new match labels to be `{"this-cluster": "sample-cluster"}
+
+Add both sets of labels to all resources:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    matchLabels:
+      my-cluster: sample-cluster
+    # resourceLabels gives additional labels that we put on resources. Putting
+    # the same label in both matchLabels and resourceLabels is redundant, but we
+    # are putting both here to make the behavior more clear, and so that we only
+    # change one field in each step.
+    resourceLabels:
+      my-cluster: sample-cluster
+      this-cluster: sample-cluster
+```
+
+Update the match labels:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    matchLabels:
+      this-cluster: sample-cluster
+    resourceLabels:
+      my-cluster: sample-cluster
+      this-cluster: sample-cluster
+```
+
+Remove the old labels from the spec:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    matchLabels:
+      this-cluster: sample-cluster
+```
+
+Remove the old labels from existing resources:
+
+```bash
+kubectl label pod -l this-cluster=sample-cluster my-cluster-
+kubectl label pvc -l this-cluster=sample-cluster my-cluster-
+kubectl label configmap -l this-cluster=sample-cluster my-cluster-
+kubectl label service -l this-cluster=sample-cluster my-cluster-
+```
+
 ## Next
 
 You can continue on to the [next section](replacements_and_deletions.md) or go back to the [table of contents](index.md).

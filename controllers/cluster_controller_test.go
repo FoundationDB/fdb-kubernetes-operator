@@ -1335,7 +1335,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
@@ -1472,7 +1472,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should not update the annotations on other resources", func() {
 					pods := &corev1.PodList{}
 
-					err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+					err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
@@ -1582,7 +1582,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
@@ -2460,6 +2460,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		BeforeEach(func() {
 			cluster.Status.ConnectionString = fakeConnectionString
 			cluster.Status.RunningVersion = cluster.Spec.Version
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
@@ -2485,6 +2487,26 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["running-version"]).To(Equal(fdbtypes.Versions.Default.String()))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+			})
+
+			It("should populate the metadata", func() {
+				Expect(configMap.Namespace).To(Equal("my-ns"))
+				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-config", cluster.Name)))
+				Expect(configMap.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":         cluster.Name,
+					"fdb-new-custom-name":     cluster.Name,
+					"fdb-managed-by-operator": "true",
+				}))
+				Expect(configMap.Annotations).To(BeNil())
 			})
 		})
 
@@ -3936,7 +3958,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		var instance FdbInstance
 
 		BeforeEach(func() {
-			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			instance = FdbInstance{}
 		})

@@ -110,7 +110,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, nil
 	}
 
-	err = internal.NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+	err = internal.NormalizeClusterSpec(cluster, r.DeprecationOptions)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -338,6 +338,9 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 	for label, value := range getMinimalPodLabels(cluster, processClass, id) {
 		metadata.Labels[label] = value
 	}
+	for label, value := range cluster.Spec.LabelConfig.ResourceLabels {
+		metadata.Labels[label] = value
+	}
 
 	return *metadata
 }
@@ -345,7 +348,9 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
-	labels[fdbtypes.FDBClusterLabel] = cluster.ObjectMeta.Name
+	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+		labels[key] = value
+	}
 
 	if processClass != "" {
 		labels[fdbtypes.FDBProcessClassLabel] = string(processClass)
@@ -960,11 +965,13 @@ func (manager StandardPodLifecycleManager) GetInstances(r *FoundationDBClusterRe
 	}
 	instances := make([]FdbInstance, 0, len(pods.Items))
 	for _, pod := range pods.Items {
-		ownedByCluster := false
-		for _, reference := range pod.ObjectMeta.OwnerReferences {
-			if reference.UID == cluster.UID {
-				ownedByCluster = true
-				break
+		ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
+		if !ownedByCluster {
+			for _, reference := range pod.ObjectMeta.OwnerReferences {
+				if reference.UID == cluster.UID {
+					ownedByCluster = true
+					break
+				}
 			}
 		}
 		if ownedByCluster {

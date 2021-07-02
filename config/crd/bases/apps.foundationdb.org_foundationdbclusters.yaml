@@ -1305,6 +1305,19 @@ spec:
                   items:
                     type: string
                   type: array
+                labels:
+                  properties:
+                    filterOnOwnerReference:
+                      type: boolean
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    resourceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
                 lockOptions:
                   properties:
                     denyList:

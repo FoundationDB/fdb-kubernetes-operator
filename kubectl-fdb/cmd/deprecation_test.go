@@ -157,6 +157,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 									Enabled: &trueValue,
 								},
 							},
+							LabelConfig: fdbtypes.LabelConfig{
+								FilterOnOwnerReferences: &trueValue,
+							},
 						},
 					},
 					inputClusters: []string{},
@@ -331,6 +334,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 									Enabled: &trueValue,
 								},
 							},
+							LabelConfig: fdbtypes.LabelConfig{
+								FilterOnOwnerReferences: &trueValue,
+							},
 						},
 					},
 					inputClusters: []string{},
@@ -397,6 +403,10 @@ automationOptions:
   replacements:
     enabled: false
     failureDetectionTimeSeconds: 1800
+labels:
+  filterOnOwnerReference: true
+  matchLabels:
+    fdb-cluster-name: test
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
@@ -496,6 +506,8 @@ configMap:
     creationTimestamp: null
     labels:
       test: test
+labels:
+  filterOnOwnerReference: true
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
