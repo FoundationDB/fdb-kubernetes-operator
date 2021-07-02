@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"reflect"
-	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -37,10 +36,10 @@ import (
 type UpdateLabels struct{}
 
 // Reconcile runs the reconciler's work.
-func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	for _, instance := range instances {
 		if instance.Pod != nil {
@@ -55,7 +54,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			if !podMetadataCorrect(metadata, &instance) {
 				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
 				if err != nil {
-					return false, err
+					return &Requeue{Error: err}
 				}
 			}
 		}
@@ -64,7 +63,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcs, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	for _, pvc := range pvcs.Items {
 		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
@@ -89,12 +88,12 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		if !metadataCorrect {
 			err = r.Update(context, &pvc)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 		}
 	}
 
-	return true, nil
+	return nil
 }
 
 func podMetadataCorrect(metadata metav1.ObjectMeta, instance *FdbInstance) bool {
@@ -110,10 +109,4 @@ func podMetadataCorrect(metadata metav1.ObjectMeta, instance *FdbInstance) bool 
 	}
 
 	return metadataCorrect
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (u UpdateLabels) RequeueAfter() time.Duration {
-	return 0
 }

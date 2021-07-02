@@ -10,6 +10,9 @@ jobs:
   lint-go:
     name: Lint go code
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        fdbver: [ "6.2.30", "6.3.15" ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -19,20 +22,8 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go
-      - uses: actions/cache@v2
-        id: fdb_cache
-        with:
-          path: |
-            fdb.deb
-          key: ${{ runner.os }}-${{ hashFiles('fdb.deb') }}
-          restore-keys: |
-            ${{ runner.os }}-fdb
       - name: Get dependencies
-        if: steps.fdb_cache.outputs.cache-hit != 'true'
-        env:
-          FDB_VER: "6.2.29"
-        run: |
-          curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+        run: curl --fail "https://www.foundationdb.org/downloads/${{ matrix.fdbver }}/ubuntu/installers/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
@@ -68,9 +59,12 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         # With a new supported Kubernetes version we should adjust the version
-        kubever: [ "v1.17.0", "v1.18.0", "v1.19.0", "v1.20.0" ]
+        # See https://kubernetes.io/releases for the current releases
+        kubever: [ "v1.19.0", "v1.20.0", "v1.21.1" ]
+        fdbver: ["6.2.30", "6.3.15"]
     steps:
     - name: Set up Go 1.15
       uses: actions/setup-go@v1
@@ -89,8 +83,7 @@ jobs:
         KUBEBUILDER_VER: "2.3.2"
         KUSTOMIZE_VER: "v3.9.4"
         TEST_RACE_CONDITIONS: "1"
-        FDB_VER: "6.2.29"
-        KIND_VER: "v0.10.0"
+        KIND_VER: "v0.11.1"
         YQ_VERSION: "v4.6.1"
       run: |
         # Only download all dependencies
@@ -99,7 +92,7 @@ jobs:
         os=$(go env GOOS)
         arch=$(go env GOARCH)
         curl --fail -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VER}/${os}/${arch}" -o kubebuilder.tar.gz
-        curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+        curl --fail "https://www.foundationdb.org/downloads/${{ matrix.fdbver }}/ubuntu/installers/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
         curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz
     - name: Install dependencies

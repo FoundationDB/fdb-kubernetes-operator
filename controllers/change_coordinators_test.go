@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -37,6 +38,16 @@ var _ = Describe("Change coordinators", func() {
 		cluster = createDefaultCluster()
 		disabled := false
 		cluster.Spec.LockOptions.DisableLocks = &disabled
+		cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+			{
+				ProcessClass: fdbtypes.ProcessClassStorage,
+				Priority:     math.MaxInt32,
+			},
+			{
+				ProcessClass: fdbtypes.ProcessClassLog,
+				Priority:     0,
+			},
+		}
 		err := setupClusterForTest(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -93,7 +104,7 @@ var _ = Describe("Change coordinators", func() {
 
 		When("when one storage process is excluded", func() {
 			BeforeEach(func() {
-				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, "1.1.0.2")
+				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, "1.1.1.2")
 			})
 
 			It("should only select storage processes and exclude the excluded process", func() {
@@ -155,6 +166,27 @@ var _ = Describe("Change coordinators", func() {
 					newCandidates, err := selectCoordinators(cluster, status)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(newCandidates).To(Equal(initialCandidates))
+				}
+			})
+		})
+
+		When("the coordinator selection setting is changed", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					{
+						ProcessClass: fdbtypes.ProcessClassLog,
+						Priority:     0,
+					},
+				}
+			})
+
+			It("should only select log processes", func() {
+				Expect(cluster.DesiredCoordinatorCount()).To(BeNumerically("==", 3))
+				Expect(len(candidates)).To(BeNumerically("==", cluster.DesiredCoordinatorCount()))
+
+				// Only select Storage processes since we select 3 processes and we have 4 storage processes
+				for _, candidate := range candidates {
+					Expect(strings.HasPrefix(candidate.ID, string(fdbtypes.ProcessClassLog))).To(BeTrue())
 				}
 			})
 		})
@@ -594,17 +626,75 @@ var _ = Describe("Change coordinators", func() {
 			}
 		})
 
-		It("", func() {
-			sortLocalities(localities)
+		When("no other preferences are defined", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{}
+			})
 
-			Expect(localities[0].Class, fdbtypes.ProcessClassStorage)
-			Expect(localities[0].ID, "storage-1")
-			Expect(localities[0].Class, fdbtypes.ProcessClassStorage)
-			Expect(localities[0].ID, "storage-15")
-			Expect(localities[0].Class, fdbtypes.ProcessClassLog)
-			Expect(localities[0].ID, "log-1")
-			Expect(localities[0].Class, fdbtypes.ProcessClassTransaction)
-			Expect(localities[0].ID, "tlog-1")
+			It("should sort the localities based on the IDs", func() {
+				sortLocalities(cluster, localities)
+
+				Expect(localities[0].Class).To(Equal(fdbtypes.ProcessClassLog))
+				Expect(localities[0].ID).To(Equal("log-1"))
+				Expect(localities[1].Class).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(localities[1].ID).To(Equal("storage-1"))
+				Expect(localities[2].Class).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(localities[2].ID).To(Equal("storage-51"))
+				Expect(localities[3].Class).To(Equal(fdbtypes.ProcessClassTransaction))
+				Expect(localities[3].ID).To(Equal("tlog-1"))
+			})
+		})
+
+		When("when the storage class is preferred", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					{
+						ProcessClass: fdbtypes.ProcessClassStorage,
+						Priority:     0,
+					},
+				}
+			})
+
+			It("should sort the localities based on the provided config", func() {
+				sortLocalities(cluster, localities)
+
+				Expect(localities[0].Class).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(localities[0].ID).To(Equal("storage-1"))
+				Expect(localities[1].Class).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(localities[1].ID).To(Equal("storage-51"))
+				Expect(localities[2].Class).To(Equal(fdbtypes.ProcessClassLog))
+				Expect(localities[2].ID).To(Equal("log-1"))
+				Expect(localities[3].Class).To(Equal(fdbtypes.ProcessClassTransaction))
+				Expect(localities[3].ID).To(Equal("tlog-1"))
+			})
+		})
+
+		When("when the storage class is preferred over transaction class", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					{
+						ProcessClass: fdbtypes.ProcessClassStorage,
+						Priority:     1,
+					},
+					{
+						ProcessClass: fdbtypes.ProcessClassTransaction,
+						Priority:     0,
+					},
+				}
+			})
+
+			It("should sort the localities based on the provided config", func() {
+				sortLocalities(cluster, localities)
+
+				Expect(localities[0].Class).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(localities[0].ID).To(Equal("storage-1"))
+				Expect(localities[1].Class).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(localities[1].ID).To(Equal("storage-51"))
+				Expect(localities[2].Class).To(Equal(fdbtypes.ProcessClassTransaction))
+				Expect(localities[2].ID).To(Equal("tlog-1"))
+				Expect(localities[3].Class).To(Equal(fdbtypes.ProcessClassLog))
+				Expect(localities[3].ID).To(Equal("log-1"))
+			})
 		})
 	})
 })

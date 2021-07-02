@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,15 +32,15 @@ import (
 type UpdatePodConfig struct{}
 
 // Reconcile runs the reconciler's work.
-func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	configMap, err := GetConfigMap(cluster)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	allSynced := true
@@ -50,12 +50,12 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 		serverPerPod, err := getStorageServersPerPodForInstance(&instance)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		configMapHash, err := getDynamicConfHash(configMap, instance.GetProcessClass(), serverPerPod)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		if instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
@@ -87,11 +87,8 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 	// If we return an error we don't requeue
 	// So we just return that we can't continue but don't have an error
-	return allSynced, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (u UpdatePodConfig) RequeueAfter() time.Duration {
-	return 15 * time.Second
+	if !allSynced {
+		return &Requeue{Message: "Waiting for Pod to receive ConfigMap update", Delay: podSchedulingDelayDuration}
+	}
+	return nil
 }

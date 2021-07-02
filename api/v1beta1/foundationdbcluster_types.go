@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
 	"reflect"
 	"regexp"
@@ -166,7 +167,11 @@ type FoundationDBClusterSpec struct {
 
 	// Services defines the configuration for services that sit in front of our
 	// pods.
+	// Deprecated: Use Routing instead.
 	Services ServiceConfig `json:"services,omitempty"`
+
+	// Routing defines the configuration for routing to our pods.
+	Routing RoutingConfig `json:"routing,omitempty"`
 
 	// IgnoreUpgradabilityChecks determines whether we should skip the check for
 	// client compatibility when performing an upgrade.
@@ -296,6 +301,17 @@ type FoundationDBClusterSpec struct {
 	// investigating in issues or if the environment is unstable.
 	// +kubebuilder:default:=false
 	Skip bool `json:"skip,omitempty"`
+
+	// CoordinatorSelection defines which process classes are eligible for coordinator selection.
+	// If empty all stateful processes classes are equally eligible.
+	// A higher priority means that a process class is preferred over another process class.
+	// If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the
+	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
+	// the coordinator selection process could conflict.
+	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
+
+	// LabelConfig allows customizing labels used by the operator.
+	LabelConfig LabelConfig `json:"labels,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -719,6 +735,9 @@ const (
 	MissingService ProcessGroupConditionType = "MissingService"
 	// MissingProcesses represents a process group that misses a process.
 	MissingProcesses ProcessGroupConditionType = "MissingProcesses"
+	// ResourcesTerminating represents a process group whose resources are being
+	// terminated.
+	ResourcesTerminating ProcessGroupConditionType = "ResourcesTerminating"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 )
@@ -923,28 +942,27 @@ func (flags VersionFlags) Map() map[string]int {
 // GetProcessCountsWithDefaults for more information on the rules for inferring
 // process counts.
 type ProcessCounts struct {
-	// Storage defines the number of storage class processes.
-	Storage int `json:"storage,omitempty"`
-
-	// Transaction defines the number of transaction class processes.
-	Transaction int `json:"transaction,omitempty"`
-
-	// Stateless defines the number of stateless class processes.
-	Stateless int `json:"stateless,omitempty"`
-
-	// Resolution defines the number of resolution class processes.
-	Resolution        int `json:"resolution,omitempty"`
 	Unset             int `json:"unset,omitempty"`
-	Log               int `json:"log,omitempty"`
-	Master            int `json:"master,omitempty"`
-	ClusterController int `json:"cluster_controller,omitempty"`
+	Storage           int `json:"storage,omitempty"`
+	Transaction       int `json:"transaction,omitempty"`
+	Resolution        int `json:"resolution,omitempty"`
+	Tester            int `json:"tester,omitempty"`
 	Proxy             int `json:"proxy,omitempty"`
-	Resolver          int `json:"resolver,omitempty"`
-	Router            int `json:"router,omitempty"`
-	Ratekeeper        int `json:"ratekeeper,omitempty"`
-	DataDistributor   int `json:"data_distributor,omitempty"`
+	Master            int `json:"master,omitempty"`
+	Stateless         int `json:"stateless,omitempty"`
+	Log               int `json:"log,omitempty"`
+	ClusterController int `json:"cluster_controller,omitempty"`
+	LogRouter         int `json:"router,omitempty"`
 	FastRestore       int `json:"fast_restore,omitempty"`
+	DataDistributor   int `json:"data_distributor,omitempty"`
+	Coordinator       int `json:"coordinator,omitempty"`
+	Ratekeeper        int `json:"ratekeeper,omitempty"`
+	StorageCache      int `json:"storage_cache,omitempty"`
 	BackupWorker      int `json:"backup,omitempty"`
+
+	// Deprecated: This is unsupported and any processes with this process class
+	// will fail to start.
+	Resolver int `json:"resolver,omitempty"`
 }
 
 // Map returns a map from process classes to the number of processes with that
@@ -1361,11 +1379,14 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove && !processGroup.Excluded {
+		if !processGroup.Remove {
+			continue
+		}
+		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
+			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
+		} else {
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
-		} else if processGroup.Remove {
-			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		}
 	}
 
@@ -1563,23 +1584,28 @@ type ProcessAddress struct {
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
-	components := strings.Split(address, ":")
 
-	if len(components) < 2 {
+	ipEnd := strings.Index(address, "]:") + 1
+	if ipEnd == 0 {
+		ipEnd = strings.Index(address, ":")
+	}
+	if ipEnd == -1 {
 		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
-	result.IPAddress = components[0]
+	result.IPAddress = address[:ipEnd]
 
-	port, err := strconv.Atoi(components[1])
+	components := strings.Split(address[ipEnd+1:], ":")
+
+	port, err := strconv.Atoi(components[0])
 	if err != nil {
 		return result, err
 	}
 	result.Port = port
 
-	if len(components) > 2 {
-		result.Flags = make(map[string]bool, len(components)-2)
-		for _, flag := range components[2:] {
+	if len(components) > 1 {
+		result.Flags = make(map[string]bool, len(components)-1)
+		for _, flag := range components[1:] {
 			result.Flags[flag] = true
 		}
 	}
@@ -1808,10 +1834,13 @@ type DataCenter struct {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	// EnableLivenessProbe defines if the sidecar should have a livenessProbe in addition
-	// to the readinessProbe. This setting will be enabled per default in the 1.0.0 release.
+	// EnableLivenessProbe defines if the sidecar should have a livenessProbe.
 	// This setting will be ignored on the main container.
-	EnableLivenessProbe bool `json:"enableLivenessProbe,omitempty"`
+	EnableLivenessProbe *bool `json:"enableLivenessProbe,omitempty"`
+
+	// EnableReadinessProbe defines if the sidecar should have a readinessProbe.
+	// This setting will be ignored on the main container.
+	EnableReadinessProbe *bool `json:"enableReadinessProbe,omitempty"`
 
 	// EnableTLS controls whether we should be listening on a TLS connection.
 	EnableTLS bool `json:"enableTls,omitempty"`
@@ -1989,13 +2018,13 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // NeedsExplicitListenAddress determines whether we pass a listen address
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
-	source := cluster.Spec.Services.PublicIPSource
+	source := cluster.Spec.Routing.PublicIPSource
 	return source != nil && *source == PublicIPSourceService
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
 func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
-	source := cluster.Spec.Services.PublicIPSource
+	source := cluster.Spec.Routing.PublicIPSource
 	if source == nil {
 		return PublicIPSourcePod
 	}
@@ -2378,6 +2407,7 @@ type LockDenyListEntry struct {
 }
 
 // ServiceConfig allows configuring services that sit in front of our pods.
+// Deprecated: Use RoutingConfig instead.
 type ServiceConfig struct {
 	// Headless determines whether we want to run a headless service for the
 	// cluster.
@@ -2388,6 +2418,26 @@ type ServiceConfig struct {
 	//
 	// This supports the values `pod` and `service`.
 	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
+}
+
+// RoutingConfig allows configuring routing to our pods, and services that sit
+// in front of them.
+type RoutingConfig struct {
+	// Headless determines whether we want to run a headless service for the
+	// cluster.
+	HeadlessService *bool `json:"headlessService,omitempty"`
+
+	// PublicIPSource specifies what source a process should use to get its
+	// public IPs.
+	//
+	// This supports the values `pod` and `service`.
+	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
+
+	// PodIPFamily tells the pod which family of IP addresses to use.
+	// You can use 4 to represent IPv4, and 6 to represent IPv6.
+	// This feature is only supported in FDB 7.0 or later, and requires
+	// dual-stack support in your Kubernetes environment.
+	PodIPFamily *int `json:"podIPFamily,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen
@@ -2412,6 +2462,23 @@ type BuggifyConfig struct {
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
 	// files to have zero fdbserver processes configured.
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
+}
+
+// LabelConfig allows customizing labels used by the operator.
+type LabelConfig struct {
+	// MatchLabels provides the labels that the operator should use to identify
+	// resources owned by the cluster. These will automatically be applied to
+	// all resources the operator creates.
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// ResourceLabels provides additional labels that the operator should apply to
+	// resources it creates.
+	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
+
+	// FilterOnOwnerReferences determines whether we should check that resources
+	// are owned by the cluster object, in addition to the constraints provided
+	// by the match labels.
+	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
@@ -2443,6 +2510,11 @@ const (
 	ProcessClassClusterController ProcessClass = "cluster_controller"
 )
 
+// IsStateful determines whether a process class should store data.
+func (pClass ProcessClass) IsStateful() bool {
+	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+}
+
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
@@ -2461,4 +2533,48 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	}
 
 	return *cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements
+}
+
+// CoordinatorSelectionSetting defines the process class and the priority of it.
+// A higher priority means that the process class is preferred over another.
+type CoordinatorSelectionSetting struct {
+	ProcessClass ProcessClass `json:"processClass,omitempty"`
+	Priority     int          `json:"priority,omitempty"`
+}
+
+// IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator.
+// This method will always return false for non stateful process classes.
+func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) bool {
+	if !pClass.IsStateful() {
+		return false
+	}
+
+	if len(cluster.Spec.CoordinatorSelection) == 0 {
+		return pClass.IsStateful()
+	}
+
+	for _, setting := range cluster.Spec.CoordinatorSelection {
+		if pClass == setting.ProcessClass {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
+func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
+	for _, setting := range cluster.Spec.CoordinatorSelection {
+		if pClass == setting.ProcessClass {
+			return setting.Priority
+		}
+	}
+
+	return math.MinInt64
+}
+
+// ShouldFilterOnOwnerReferences determines if we should check owner references
+// when determining if a resource is related to this cluster.
+func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
+	return cluster.Spec.LabelConfig.FilterOnOwnerReferences != nil && *cluster.Spec.LabelConfig.FilterOnOwnerReferences
 }

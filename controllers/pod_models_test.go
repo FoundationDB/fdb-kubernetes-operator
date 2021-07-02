@@ -41,7 +41,7 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -67,6 +67,29 @@ var _ = Describe("pod_models", func() {
 				spec, err := GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.Spec).To(Equal(*spec))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should contain the instance's metadata", func() {
+				Expect(pod.Namespace).To(Equal("my-ns"))
+				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":             cluster.Name,
+					"fdb-new-custom-name":         cluster.Name,
+					"fdb-managed-by-operator":     "true",
+					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+				}))
 			})
 		})
 
@@ -145,7 +168,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -320,9 +343,41 @@ var _ = Describe("pod_models", func() {
 				Expect(spec.Affinity).To(BeNil())
 			})
 
+			When("having a predefined affinity rules", func() {
+				BeforeEach(func() {
+					affinity := &corev1.Affinity{
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 1,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										TopologyKey: "test",
+										LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+											"test": "test",
+										}},
+									},
+								},
+							},
+						},
+					}
+
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Affinity = affinity
+					cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+						Value: "",
+						Key:   "kubernetes.io/hostname",
+					}
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have both affinity rules", func() {
+					Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 2))
+				})
+			})
+
 			Context("with the livenessProbe enabled", func() {
 				BeforeEach(func() {
-					cluster.Spec.SidecarContainer.EnableLivenessProbe = true
+					enabled := true
+					cluster.Spec.SidecarContainer.EnableLivenessProbe = &enabled
 					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				})
 
@@ -336,6 +391,152 @@ var _ = Describe("pod_models", func() {
 					sidecarContainer := spec.InitContainers[0]
 					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
 					Expect(sidecarContainer.LivenessProbe).To(BeNil())
+				})
+			})
+
+			Context("with the readinessProbe disabled", func() {
+				BeforeEach(func() {
+					enabled := false
+					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should not have a readinessProbe for the sidecar", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+				})
+
+				It("should not have a readinessProbe for the init container", func() {
+					sidecarContainer := spec.InitContainers[0]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+				})
+			})
+
+			Context("with the readinessProbe enabled", func() {
+				BeforeEach(func() {
+					enabled := true
+					cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have a readinessProbe for the sidecar", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.ReadinessProbe).NotTo(BeNil())
+				})
+
+				It("should not have a readinessProbe for the init container", func() {
+					sidecarContainer := spec.InitContainers[0]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
+				})
+			})
+		})
+
+		Context("with a pod IP pattern defined", func() {
+			BeforeEach(func() {
+				family := 6
+				cluster.Spec.Routing.PodIPFamily = &family
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should have the built-in init container", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--public-ip-family",
+					"6",
+					"--init-mode",
+				}))
+				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+				}))
+			})
+
+			It("should have the sidecar container", func() {
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--public-ip-family",
+					"6",
+				}))
+				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+				}))
+			})
+
+			When("having a predefined node affinity rules", func() {
+				BeforeEach(func() {
+					affinity := &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 1,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key: "test",
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+
+					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Affinity = affinity
+					cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+						Value: "",
+						Key:   "kubernetes.io/hostname",
+					}
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have both affinity rules", func() {
+					Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
+					Expect(len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
 				})
 			})
 		})
@@ -562,7 +763,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a the public IP from the pod", func() {
 			BeforeEach(func() {
 				var source = fdbtypes.PublicIPSourcePod
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -623,7 +824,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a the public IP from the service", func() {
 			BeforeEach(func() {
 				var source = fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -692,7 +893,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a headless service", func() {
 			BeforeEach(func() {
 				var enabled = true
-				cluster.Spec.Services.Headless = &enabled
+				cluster.Spec.Routing.HeadlessService = &enabled
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -705,7 +906,7 @@ var _ = Describe("pod_models", func() {
 		Context("with no headless service", func() {
 			BeforeEach(func() {
 				var enabled = false
-				cluster.Spec.Services.Headless = &enabled
+				cluster.Spec.Routing.HeadlessService = &enabled
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
 
@@ -737,7 +938,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -765,7 +966,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -815,6 +1016,39 @@ var _ = Describe("pod_models", func() {
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											fdbtypes.FDBClusterLabel:      cluster.Name,
+											fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+										},
+									},
+								},
+							},
+						},
+					},
+				}))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should set the pod affinity", func() {
+				Expect(spec.Affinity).To(Equal(&corev1.Affinity{
+					PodAntiAffinity: &corev1.PodAntiAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+							{
+								Weight: 1,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									TopologyKey: "kubernetes.io/hostname",
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"fdb-custom-name":             cluster.Name,
+											"fdb-managed-by-operator":     "true",
 											fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 										},
 									},
@@ -919,7 +1153,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -975,7 +1209,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1245,7 +1479,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1579,7 +1813,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1701,7 +1935,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -1736,7 +1970,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -1785,7 +2019,7 @@ var _ = Describe("pod_models", func() {
 				processSetting.AllowTagOverride = &allowTagOverride
 				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = processSetting
 
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1834,6 +2068,45 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				service, err = GetService(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the service", func() {
+				Expect(service.Namespace).To(Equal("my-ns"))
+				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":             cluster.Name,
+					"fdb-managed-by-operator":     "true",
+					"fdb-new-custom-name":         cluster.Name,
+					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+				}))
+			})
+
+			It("should set the spec on the service", func() {
+				Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+
+				Expect(len(service.Spec.Ports)).To(Equal(2))
+				Expect(service.Spec.Ports[0].Name).To(Equal("tls"))
+				Expect(service.Spec.Ports[0].Port).To(Equal(int32(4500)))
+				Expect(service.Spec.Ports[1].Name).To(Equal("non-tls"))
+				Expect(service.Spec.Ports[1].Port).To(Equal(int32(4501)))
+
+				Expect(service.Spec.Selector).To(Equal(map[string]string{
+					"fdb-custom-name":           cluster.Name,
+					"fdb-managed-by-operator":   "true",
+					fdbtypes.FDBInstanceIDLabel: "storage-1",
+				}))
+			})
+		})
 	})
 
 	Describe("GetPvc", func() {
@@ -1863,6 +2136,29 @@ var _ = Describe("pod_models", func() {
 							corev1.ResourceStorage: resource.MustParse("128G"),
 						},
 					},
+				}))
+			})
+		})
+
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should set the metadata on the PVC", func() {
+				Expect(pvc.Namespace).To(Equal("my-ns"))
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":             cluster.Name,
+					"fdb-new-custom-name":         cluster.Name,
+					"fdb-managed-by-operator":     "true",
+					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:   "storage-1",
 				}))
 			})
 		})
@@ -2020,7 +2316,7 @@ var _ = Describe("pod_models", func() {
 		var enabled = true
 
 		BeforeEach(func() {
-			cluster.Spec.Services.Headless = &enabled
+			cluster.Spec.Routing.HeadlessService = &enabled
 		})
 
 		JustBeforeEach(func() {
@@ -2046,6 +2342,35 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with custom resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
+					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
+				}
+			})
+
+			It("should set the metadata on the service", func() {
+				Expect(service.ObjectMeta.Namespace).To(Equal("my-ns"))
+				Expect(service.ObjectMeta.Name).To(Equal("operator-test-1"))
+				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
+					"fdb-custom-name":         "operator-test-1",
+					"fdb-new-custom-name":     "operator-test-1",
+					"fdb-managed-by-operator": "true",
+				}))
+			})
+
+			It("should use the default service spec", func() {
+				Expect(service.Spec).To(Equal(corev1.ServiceSpec{
+					ClusterIP: "None",
+					Selector: map[string]string{
+						"fdb-custom-name":         "operator-test-1",
+						"fdb-managed-by-operator": "true",
+					},
+				}))
+			})
+		})
+
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
 				enabled = false
@@ -2058,7 +2383,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a nil headless flag", func() {
 			BeforeEach(func() {
-				cluster.Spec.Services.Headless = nil
+				cluster.Spec.Routing.HeadlessService = nil
 			})
 
 			It("should return nil", func() {

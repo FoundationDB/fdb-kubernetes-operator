@@ -317,48 +317,59 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 
-	var affinity *corev1.Affinity
-
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
 		faultDomainKey = "kubernetes.io/hostname"
 	}
 
 	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
-		affinity = &corev1.Affinity{
-			PodAntiAffinity: &corev1.PodAntiAffinity{
-				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-					{
-						Weight: 1,
-						PodAffinityTerm: corev1.PodAffinityTerm{
-							TopologyKey: faultDomainKey,
-							LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-								fdbtypes.FDBClusterLabel:      cluster.ObjectMeta.Name,
-								fdbtypes.FDBProcessClassLabel: string(processClass),
-							}},
-						},
-					},
-				},
-			},
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &corev1.Affinity{}
 		}
+
+		if podSpec.Affinity.PodAntiAffinity == nil {
+			podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+		}
+
+		labelSelectors := make(map[string]string, len(cluster.Spec.LabelConfig.MatchLabels)+1)
+		for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+			labelSelectors[key] = value
+		}
+		labelSelectors[fdbtypes.FDBProcessClassLabel] = string(processClass)
+
+		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			corev1.WeightedPodAffinityTerm{
+				Weight: 1,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					TopologyKey:   faultDomainKey,
+					LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
+				},
+			})
 	}
 
 	for _, noScheduleInstanceID := range cluster.Spec.Buggify.NoSchedule {
-		if instanceID == noScheduleInstanceID {
-			if affinity == nil {
-				affinity = &corev1.Affinity{}
-			}
-			if affinity.NodeAffinity == nil {
-				affinity.NodeAffinity = &corev1.NodeAffinity{}
-			}
-			if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-				affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
-			}
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, corev1.NodeSelectorTerm{
+		if instanceID != noScheduleInstanceID {
+			continue
+		}
+
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &corev1.Affinity{}
+		}
+
+		if podSpec.Affinity.NodeAffinity == nil {
+			podSpec.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+		}
+
+		if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+		}
+
+		podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{
+			{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{
 					Key: fdbtypes.NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
 				}},
-			})
+			},
 		}
 	}
 
@@ -366,7 +377,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
 
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)
-	podSpec.Affinity = affinity
 
 	headlessService := GetHeadlessService(cluster)
 
@@ -454,14 +464,21 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 	if optionalCluster != nil {
 		cluster := optionalCluster
 
-		publicIPSource := cluster.Spec.Services.PublicIPSource
+		publicIPSource := cluster.Spec.Routing.PublicIPSource
 		usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
 
 		var publicIPKey string
 		if usePublicIPFromService {
 			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
 		} else {
-			publicIPKey = "status.podIP"
+			family := cluster.Spec.Routing.PodIPFamily
+			if family == nil {
+				publicIPKey = "status.podIP"
+			} else {
+				publicIPKey = "status.podIPs"
+				sidecarArgs = append(sidecarArgs, "--public-ip-family")
+				sidecarArgs = append(sidecarArgs, fmt.Sprint(*family))
+			}
 		}
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
@@ -521,7 +538,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 
-		if !initMode && cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
+		if !initMode && *cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
 			// We can't use a HTTP handler here since the server
 			// requires a client certificate
 			container.LivenessProbe = &corev1.Probe{
@@ -533,6 +550,16 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 				TimeoutSeconds:   1,
 				PeriodSeconds:    30,
 				FailureThreshold: 5,
+			}
+		}
+
+		if !initMode && *cluster.Spec.SidecarContainer.EnableReadinessProbe && container.ReadinessProbe == nil {
+			container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.IntOrString{IntVal: 8080},
+					},
+				},
 			}
 		}
 	}
@@ -584,16 +611,6 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		extendEnv(container, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
 	}
 
-	if container.ReadinessProbe == nil {
-		container.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
-				TCPSocket: &corev1.TCPSocketAction{
-					Port: intstr.IntOrString{IntVal: 8080},
-				},
-			},
-		}
-	}
-
 	return nil
 }
 
@@ -609,12 +626,7 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 			storage = &storageCopy
 		}
 	}
-	return isStateful(processClass) && (storage == nil || !storage.IsZero())
-}
-
-// isStateful determines whether a process class should store data.
-func isStateful(processClass fdbtypes.ProcessClass) bool {
-	return processClass == fdbtypes.ProcessClassStorage || processClass == fdbtypes.ProcessClassLog || processClass == fdbtypes.ProcessClassTransaction
+	return processClass.IsStateful() && (storage == nil || !storage.IsZero())
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB instance.

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,25 +34,25 @@ import (
 type AddServices struct{}
 
 // Reconcile runs the reconciler's work.
-func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	service := GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
 		err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
-				return false, err
+				return &Requeue{Error: err}
 			}
 			owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			service.ObjectMeta.OwnerReferences = owner
 			err = r.Create(context, service)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 		}
 	}
 
-	if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+	if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			if processGroup.Remove {
 				continue
@@ -61,7 +60,7 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 
 			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 
 			serviceName, _ := getInstanceID(cluster, processGroup.ProcessClass, idNum)
@@ -70,34 +69,28 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 			if err != nil {
 
 				if !k8serrors.IsNotFound(err) {
-					return false, err
+					return &Requeue{Error: err}
 				}
 				service, err := GetService(cluster, processGroup.ProcessClass, idNum)
 				if err != nil {
-					return false, err
+					return &Requeue{Error: err}
 				}
 
 				err = r.Create(context, service)
 
 				if err != nil {
-					return false, err
+					return &Requeue{Error: err}
 				}
 			}
 		}
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (a AddServices) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }
 
 // GetHeadlessService builds a headless service for a FoundationDB cluster.
 func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) *corev1.Service {
-	headless := cluster.Spec.Services.Headless
+	headless := cluster.Spec.Routing.HeadlessService
 	if headless == nil || !*headless {
 		return nil
 	}
@@ -107,7 +100,7 @@ func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) *corev1.Service {
 	}
 	service.ObjectMeta.Name = cluster.ObjectMeta.Name
 	service.Spec.ClusterIP = "None"
-	service.Spec.Selector = map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}
+	service.Spec.Selector = cluster.Spec.LabelConfig.MatchLabels
 
 	return service
 }

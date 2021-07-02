@@ -32,7 +32,7 @@ var _ = Describe("pod_client", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
