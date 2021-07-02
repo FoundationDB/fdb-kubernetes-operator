@@ -87,7 +87,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		if removedCount > 0 {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 
-			remainingProcesses, err := chooseDistributedProcesses(processClassLocality, desiredCount, processSelectionConstraint{})
+			remainingProcesses, err := chooseDistributedProcesses(cluster, processClassLocality, desiredCount, processSelectionConstraint{})
 			if err != nil {
 				return &Requeue{Error: err}
 			}

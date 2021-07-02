@@ -1966,6 +1966,63 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("with only storage processes as coordinator", func() {
+			BeforeEach(func() {
+				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					{
+						ProcessClass: fdbtypes.ProcessClassStorage,
+						Priority:     0,
+					},
+				}
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should only have storage processes as coordinator", func() {
+				connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+				Expect(err).NotTo(HaveOccurred())
+
+				addressClassMap := map[string]fdbtypes.ProcessClass{}
+				for _, pGroup := range cluster.Status.ProcessGroups {
+					addressClassMap[pGroup.Addresses[0]] = pGroup.ProcessClass
+				}
+
+				for _, coordinator := range connectionString.Coordinators {
+					addr := coordinator[:strings.LastIndex(coordinator, ":")]
+					Expect(addressClassMap[addr]).To(Equal(fdbtypes.ProcessClassStorage))
+				}
+			})
+
+			When("changing the coordinator selection to only select log processes", func() {
+				BeforeEach(func() {
+					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+						{
+							ProcessClass: fdbtypes.ProcessClassLog,
+							Priority:     0,
+						},
+					}
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					generationGap++
+				})
+
+				It("should only have log processes as coordinator", func() {
+					connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+					Expect(err).NotTo(HaveOccurred())
+
+					addressClassMap := map[string]fdbtypes.ProcessClass{}
+					for _, pGroup := range cluster.Status.ProcessGroups {
+						addressClassMap[pGroup.Addresses[0]] = pGroup.ProcessClass
+					}
+
+					for _, coordinator := range connectionString.Coordinators {
+						addr := coordinator[:strings.LastIndex(coordinator, ":")]
+						Expect(addressClassMap[addr]).To(Equal(fdbtypes.ProcessClassLog))
+					}
+				})
+			})
+		})
+
 		Context("downgrade cluster", func() {
 			BeforeEach(func() {
 				shouldCompleteReconciliation = false
@@ -2176,7 +2233,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					replacements := make(map[string]bool, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						processClass := internal.GetProcessClassFromMeta(pod.ObjectMeta)
-						if isStateful(processClass) {
+						if processClass.IsStateful() {
 							replacements[pod.Status.PodIP] = true
 						}
 					}
@@ -3387,7 +3444,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4"}},
 					{ID: "p7", LocalityData: map[string]string{"zoneid": "z5"}},
 				}
-				result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{})
+				result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3415,7 +3472,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with no hard limit", func() {
 				It("should only re-use zones as necessary", func() {
-					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{})
+					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(len(result)).To(Equal(5))
@@ -3429,7 +3486,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with a hard limit", func() {
 				It("should give an error", func() {
-					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{
+					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{
 						HardLimits: map[string]int{"zoneid": 1},
 					})
 					Expect(err).To(HaveOccurred())
@@ -3456,7 +3513,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with the default constraints", func() {
 				BeforeEach(func() {
-					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{})
+					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3473,7 +3530,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Context("when only distributing across data centers", func() {
 
 				BeforeEach(func() {
-					result, err = chooseDistributedProcesses(candidates, 5, processSelectionConstraint{
+					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{
 						Fields: []string{"dcid"},
 					})
 					Expect(err).NotTo(HaveOccurred())

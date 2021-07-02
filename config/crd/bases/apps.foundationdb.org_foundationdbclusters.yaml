@@ -670,6 +670,15 @@ spec:
                       - name
                     type: object
                   type: array
+                coordinatorSelection:
+                  items:
+                    properties:
+                      priority:
+                        type: integer
+                      processClass:
+                        type: string
+                    type: object
+                  type: array
                 customParameters:
                   items:
                     type: string

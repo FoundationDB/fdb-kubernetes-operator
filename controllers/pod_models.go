@@ -616,12 +616,7 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 			storage = &storageCopy
 		}
 	}
-	return isStateful(processClass) && (storage == nil || !storage.IsZero())
-}
-
-// isStateful determines whether a process class should store data.
-func isStateful(processClass fdbtypes.ProcessClass) bool {
-	return processClass == fdbtypes.ProcessClassStorage || processClass == fdbtypes.ProcessClassLog || processClass == fdbtypes.ProcessClassTransaction
+	return processClass.IsStateful() && (storage == nil || !storage.IsZero())
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB instance.

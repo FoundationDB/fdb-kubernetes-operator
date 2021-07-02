@@ -84,7 +84,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 		processLocality[indexOfProcess] = locality
 	}
 
-	coordinators, err := chooseDistributedProcesses(processLocality, count, processSelectionConstraint{})
+	coordinators, err := chooseDistributedProcesses(cluster, processLocality, count, processSelectionConstraint{})
 	if err != nil {
 		return &Requeue{Error: err}
 	}

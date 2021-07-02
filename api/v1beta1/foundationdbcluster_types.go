@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
 	"reflect"
 	"regexp"
@@ -300,6 +301,14 @@ type FoundationDBClusterSpec struct {
 	// investigating in issues or if the environment is unstable.
 	// +kubebuilder:default:=false
 	Skip bool `json:"skip,omitempty"`
+
+	// CoordinatorSelection defines which process classes are eligible for coordinator selection.
+	// If empty all stateful processes classes are equally eligible.
+	// A higher priority means that a process class is preferred over another process class.
+	// If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the
+	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
+	// the coordinator selection process could conflict.
+	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -2481,6 +2490,11 @@ const (
 	ProcessClassClusterController ProcessClass = "cluster_controller"
 )
 
+// IsStateful determines whether a process class should store data.
+func (pClass ProcessClass) IsStateful() bool {
+	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+}
+
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
@@ -2499,4 +2513,42 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	}
 
 	return *cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements
+}
+
+// CoordinatorSelectionSetting defines the process class and the priority of it.
+// A higher priority means that the process class is preferred over another.
+type CoordinatorSelectionSetting struct {
+	ProcessClass ProcessClass `json:"processClass,omitempty"`
+	Priority     int          `json:"priority,omitempty"`
+}
+
+// IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator.
+// This method will always return false for non stateful process classes.
+func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) bool {
+	if !pClass.IsStateful() {
+		return false
+	}
+
+	if len(cluster.Spec.CoordinatorSelection) == 0 {
+		return pClass.IsStateful()
+	}
+
+	for _, setting := range cluster.Spec.CoordinatorSelection {
+		if pClass == setting.ProcessClass {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
+func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
+	for _, setting := range cluster.Spec.CoordinatorSelection {
+		if pClass == setting.ProcessClass {
+			return setting.Priority
+		}
+	}
+
+	return math.MinInt64
 }
