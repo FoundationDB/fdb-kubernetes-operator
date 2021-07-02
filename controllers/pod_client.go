@@ -140,7 +140,7 @@ func (client *realFdbPodClient) GetPod() *corev1.Pod {
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodClient) getListenIP() string {
-	ips := getPublicIpsForPod(client.Pod)
+	ips := getPublicIPsForPod(client.Pod)
 	if len(ips) > 0 {
 		return ips[0]
 	}
