@@ -35,7 +35,7 @@ var _ = Describe("BounceProcesses", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var adminClient *MockAdminClient
 	var lockClient *MockLockClient
-	var requeue *Requeue
+	var shouldContinue bool
 	var err error
 
 	BeforeEach(func() {
@@ -53,14 +53,14 @@ var _ = Describe("BounceProcesses", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = BounceProcesses{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		shouldContinue, err = BounceProcesses{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
 			Expect(err).NotTo(HaveOccurred())
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not kill any processes", func() {
@@ -80,7 +80,7 @@ var _ = Describe("BounceProcesses", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should kill the targeted processes", func() {
@@ -117,7 +117,7 @@ var _ = Describe("BounceProcesses", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should kill the targeted processes", func() {
@@ -142,7 +142,7 @@ var _ = Describe("BounceProcesses", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should kill all the processes", func() {
@@ -181,8 +181,7 @@ var _ = Describe("BounceProcesses", func() {
 			})
 
 			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.Message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
+				Expect(shouldContinue).To(BeFalse())
 			})
 
 			It("should not kill any processes", func() {
@@ -210,7 +209,7 @@ var _ = Describe("BounceProcesses", func() {
 				})
 
 				It("should not requeue", func() {
-					Expect(requeue).To(BeNil())
+					Expect(shouldContinue).To(BeTrue())
 				})
 
 				It("should kill all the processes", func() {
@@ -234,8 +233,7 @@ var _ = Describe("BounceProcesses", func() {
 				})
 
 				It("should requeue", func() {
-					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.Message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
+					Expect(shouldContinue).To(BeFalse())
 				})
 
 				It("should not kill any processes", func() {
@@ -250,7 +248,7 @@ var _ = Describe("BounceProcesses", func() {
 				})
 
 				It("should not requeue", func() {
-					Expect(requeue).To(BeNil())
+					Expect(shouldContinue).To(BeTrue())
 				})
 
 				It("should kill all the processes", func() {

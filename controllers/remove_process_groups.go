@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -35,28 +36,25 @@ import (
 type RemoveProcessGroups struct{}
 
 // Reconcile runs the reconciler's work.
-func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	allExcluded, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
-		if !allExcluded {
-			return &Requeue{Message: "Reconciliation needs to exclude more processes"}
-		}
-		return nil
+		return allExcluded, nil
 	}
 
-	removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
+	allRemoved, removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
 	err = includeInstance(r, context, cluster, removedProcessGroups)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
-	return nil
+	return allRemoved && allExcluded, nil
 }
 
 func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
@@ -309,19 +307,22 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 	return allExcluded, processGroupsToRemove
 }
 
-func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupsToRemove []string) map[string]bool {
+func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupsToRemove []string) (bool, map[string]bool) {
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 
 	removedProcessGroups := make(map[string]bool)
+	allRemoved := true
 	for _, id := range processGroupsToRemove {
 		err := removeProcessGroup(r, context, cluster, id)
 		if err != nil {
+			allRemoved = false
 			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
 			continue
 		}
 
 		removed, include, err := confirmRemoval(r, context, cluster, id)
 		if err != nil {
+			allRemoved = false
 			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
 			continue
 		}
@@ -333,7 +334,14 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context,
 			continue
 		}
 
+		allRemoved = false
 	}
 
-	return removedProcessGroups
+	return allRemoved, removedProcessGroups
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (u RemoveProcessGroups) RequeueAfter() time.Duration {
+	return 0
 }

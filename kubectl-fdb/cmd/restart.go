@@ -90,14 +90,9 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			cluster, err := loadCluster(kubeClient, namespace, clusterName)
-			if err != nil {
-				return err
-			}
-
 			var processes []string
 			if allProcesses {
-				pods, err := getPodsForCluster(kubeClient, cluster, namespace)
+				pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
 				if err != nil {
 					return err
 				}

@@ -35,16 +35,16 @@ var _ = Describe("add_services", func() {
 
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var shouldContinue bool
 	var initialServices *corev1.ServiceList
 	var newServices *corev1.ServiceList
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
 		source := fdbtypes.PublicIPSourceService
-		cluster.Spec.Routing.PublicIPSource = &source
+		cluster.Spec.Services.PublicIPSource = &source
 		enabled := true
-		cluster.Spec.Routing.HeadlessService = &enabled
+		cluster.Spec.Services.Headless = &enabled
 
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -63,7 +63,7 @@ var _ = Describe("add_services", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = AddServices{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		shouldContinue, err = AddServices{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -78,7 +78,7 @@ var _ = Describe("add_services", func() {
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not create any services", func() {
@@ -92,7 +92,7 @@ var _ = Describe("add_services", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should create an extra service", func() {
@@ -108,11 +108,11 @@ var _ = Describe("add_services", func() {
 		Context("with the pod public IP source", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
-				cluster.Spec.Routing.PublicIPSource = &source
+				cluster.Spec.Services.PublicIPSource = &source
 			})
 
 			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+				Expect(shouldContinue).To(BeTrue())
 			})
 
 			It("should not create any services", func() {
@@ -126,7 +126,7 @@ var _ = Describe("add_services", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+				Expect(shouldContinue).To(BeTrue())
 			})
 
 			It("should not create any pods", func() {
@@ -145,7 +145,7 @@ var _ = Describe("add_services", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should create a headless service", func() {
@@ -161,11 +161,11 @@ var _ = Describe("add_services", func() {
 		Context("with the headless service disabled", func() {
 			BeforeEach(func() {
 				enabled := false
-				cluster.Spec.Routing.HeadlessService = &enabled
+				cluster.Spec.Services.Headless = &enabled
 			})
 
 			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+				Expect(shouldContinue).To(BeTrue())
 			})
 
 			It("should not create any services", func() {

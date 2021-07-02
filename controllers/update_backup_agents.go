@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	ctx "context"
 	"fmt"
 	"reflect"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -39,7 +40,7 @@ import (
 type UpdateBackupAgents struct{}
 
 // Reconcile runs the reconciler's work.
-func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue {
+func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error) {
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false
@@ -49,24 +50,24 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		if k8serrors.IsNotFound(err) {
 			needCreation = true
 		} else {
-			return &Requeue{Error: err}
+			return false, err
 		}
 	}
 
 	deployment, err := GetBackupDeployment(backup)
 	if err != nil {
 		r.Recorder.Event(backup, corev1.EventTypeWarning, "GetBackupDeployment", err.Error())
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	if deployment != nil && deployment.ObjectMeta.Name != deploymentName {
-		return &Requeue{Error: fmt.Errorf("inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)}
+		return false, fmt.Errorf("inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)
 	}
 
 	if needCreation && deployment != nil {
 		err = r.Create(context, deployment)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 	}
 	if !needCreation && deployment != nil {
@@ -76,7 +77,7 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		if annotationChange || !reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
 			err = r.Update(context, deployment)
 			if err != nil {
-				return &Requeue{Error: err}
+				return false, err
 			}
 		}
 	}
@@ -84,8 +85,14 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 	if !needCreation && deployment == nil {
 		err = r.Delete(context, existingDeployment)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 	}
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (u UpdateBackupAgents) RequeueAfter() time.Duration {
+	return 0
 }

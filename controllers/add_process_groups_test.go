@@ -32,7 +32,7 @@ import (
 var _ = Describe("add_process_groups", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var shouldContinue bool
 	var initialProcessCounts fdbtypes.ProcessCounts
 	var newProcessCounts fdbtypes.ProcessCounts
 
@@ -53,11 +53,8 @@ var _ = Describe("add_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = AddProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
-		if requeue != nil {
-			Expect(requeue.Error).NotTo(HaveOccurred())
-		}
-
+		shouldContinue, err = AddProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		newProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
@@ -66,7 +63,7 @@ var _ = Describe("add_process_groups", func() {
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not change the process counts", func() {
@@ -145,7 +142,7 @@ var _ = Describe("add_process_groups", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should add storage processes", func() {

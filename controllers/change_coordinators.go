@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -34,20 +35,20 @@ import (
 type ChangeCoordinators struct{}
 
 // Reconcile runs the reconciler's work.
-func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Status.Configured {
-		return nil
+		return true, nil
 	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	defer adminClient.Close()
 
 	connectionString, err := adminClient.GetConnectionString()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	if connectionString != cluster.Status.ConnectionString {
@@ -57,13 +58,13 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		err = r.Status().Update(context, cluster)
 
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 	}
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
@@ -73,22 +74,22 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	if hasValidCoordinators {
-		return nil
+		return true, nil
 	}
 
 	if !allAddressesValid {
 		log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
-		return nil
+		return true, nil
 	}
 
 	hasLock, err := r.takeLock(cluster, "changing coordinators")
 	if !hasLock {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
@@ -96,7 +97,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	coordinators, err := selectCoordinators(cluster, status)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	coordinatorAddresses := make([]string, len(coordinators))
@@ -107,26 +108,31 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	log.Info("Final coordinators candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinatorAddresses)
 	connectionString, err = adminClient.ChangeCoordinators(coordinatorAddresses)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	cluster.Status.ConnectionString = connectionString
 	err = r.Status().Update(context, cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (c ChangeCoordinators) RequeueAfter() time.Duration {
+	return 0
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching instances.
-func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
-	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
+func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus, candidates []localityInfo, class fdbtypes.ProcessClass) ([]localityInfo, error) {
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded {
 			continue
 		}
 
-		if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
+		if process.ProcessClass != class {
 			continue
 		}
 
@@ -145,22 +151,45 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 	return candidates, nil
 }
 
+// selectCoordinators is not a deterministic method and can return different coordinators for the same input arguments
 func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
+	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
+	chooseCoordinators := func(candidates []localityInfo) ([]localityInfo, error) {
+		return chooseDistributedProcesses(candidates, coordinatorCount, processSelectionConstraint{
+			HardLimits: getHardLimits(cluster),
+		})
+	}
 
-	candidates, err := selectCandidates(cluster, status)
+	// Use all stateful pods if needed, but only storage if possible.
+	candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassStorage)
 	if err != nil {
 		return []localityInfo{}, nil
 	}
+	coordinators, err := chooseCoordinators(candidates)
+	log.Info("Current coordinators added (storage) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 
-	coordinators, err := chooseDistributedProcesses(cluster, candidates, coordinatorCount, processSelectionConstraint{
-		HardLimits: getHardLimits(cluster),
-	})
-
-	log.Info("Current coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
 	if err != nil {
-		return candidates, err
+		// Add in tLogs as candidates
+		candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassLog)
+		if err != nil {
+			return []localityInfo{}, nil
+		}
+		log.Info("Current coordinators added (TLog) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
+		coordinators, err = chooseCoordinators(candidates)
+		if err != nil {
+			// Add in transaction roles too
+			candidates, err = selectCandidates(cluster, status, candidates, fdbtypes.ProcessClassTransaction)
+			if err != nil {
+				return []localityInfo{}, nil
+			}
+			log.Info("Current coordinators added (transaction) candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
+			coordinators, err = chooseCoordinators(candidates)
+			if err != nil {
+				return candidates, err
+			}
+		}
 	}
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))

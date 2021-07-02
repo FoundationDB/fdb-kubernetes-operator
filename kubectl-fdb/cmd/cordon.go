@@ -53,7 +53,7 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusterName, err := cmd.Flags().GetString("fdb-cluster")
+			cluster, err := cmd.Flags().GetString("fdb-cluster")
 			if err != nil {
 				return err
 			}
@@ -80,11 +80,6 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			}
 
 			namespace, err := getNamespace(*o.configFlags.Namespace)
-			if err != nil {
-				return err
-			}
-
-			cluster, err := loadCluster(kubeClient, namespace, clusterName)
 			if err != nil {
 				return err
 			}
@@ -133,7 +128,7 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 }
 
 // cordonNode gets all instances of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, force bool) error {
+func cordonNode(kubeClient client.Client, clusterName string, nodes []string, namespace string, withExclusion bool, force bool) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -145,7 +140,9 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 		var pods corev1.PodList
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
+			client.MatchingLabels(map[string]string{
+				fdbtypes.FDBClusterLabel: clusterName,
+			}),
 			client.MatchingFieldsSelector{
 				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
 			})
@@ -171,5 +168,5 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 		}
 	}
 
-	return removeInstances(kubeClient, cluster.Name, instances, namespace, withExclusion, false, force, false)
+	return removeInstances(kubeClient, clusterName, instances, namespace, withExclusion, false, force, false)
 }

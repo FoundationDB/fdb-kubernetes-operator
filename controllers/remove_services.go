@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -34,24 +35,30 @@ import (
 type RemoveServices struct{}
 
 // Reconcile runs the reconciler's work.
-func (u RemoveServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (u RemoveServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if GetHeadlessService(cluster) != nil {
-		return nil
+		return true, nil
 	}
 
 	existingService := &corev1.Service{}
 	err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil
+			return true, nil
 		}
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	err = r.Delete(context, existingService)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (u RemoveServices) RequeueAfter() time.Duration {
+	return 0
 }

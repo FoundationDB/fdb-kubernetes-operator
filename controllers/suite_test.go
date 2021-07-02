@@ -231,7 +231,7 @@ func setupClusterForTest(cluster *fdbtypes.FoundationDBCluster) error {
 		return err
 	}
 
-	err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+	err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 	if err != nil {
 		return err
 	}

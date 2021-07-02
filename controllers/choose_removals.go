@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -33,7 +34,7 @@ import (
 type ChooseRemovals struct{}
 
 // Reconcile runs the reconciler's work.
-func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
 	var removals = make(map[string]bool)
@@ -46,17 +47,17 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	currentCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	desiredCounts := desiredCountStruct.Map()
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	localityMap := make(map[string]localityInfo)
 	for _, process := range status.Cluster.Processes {
@@ -87,9 +88,9 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		if removedCount > 0 {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 
-			remainingProcesses, err := chooseDistributedProcesses(cluster, processClassLocality, desiredCount, processSelectionConstraint{})
+			remainingProcesses, err := chooseDistributedProcesses(processClassLocality, desiredCount, processSelectionConstraint{})
 			if err != nil {
-				return &Requeue{Error: err}
+				return false, err
 			}
 
 			log.Info("Chose remaining processes after shrink", "desiredCount", desiredCount, "options", processClassLocality, "selected", remainingProcesses)
@@ -114,8 +115,14 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 		err := r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 	}
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (c ChooseRemovals) RequeueAfter() time.Duration {
+	return 0
 }

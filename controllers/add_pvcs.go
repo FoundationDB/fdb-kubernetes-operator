@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +34,7 @@ import (
 type AddPVCs struct{}
 
 // Reconcile runs the reconciler's work.
-func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
@@ -42,12 +43,12 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 		_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		pvc, err := GetPvc(cluster, processGroup.ProcessClass, idNum)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		if pvc == nil {
@@ -58,7 +59,7 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		err = r.Get(context, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
-				return &Requeue{Error: err}
+				return false, err
 			}
 
 			owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -66,10 +67,16 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			err = r.Create(context, pvc)
 
 			if err != nil {
-				return &Requeue{Error: err}
+				return false, err
 			}
 		}
 	}
 
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (a AddPVCs) RequeueAfter() time.Duration {
+	return 0
 }

@@ -31,6 +31,20 @@ import (
 var (
 	descClusterDefaultLabels = []string{"namespace", "name"}
 
+	deprecatedDescClusterCreated = prometheus.NewDesc(
+		"fdb_cluster_created_time",
+		"(Deprecated since 0.33.0) Creation time in unix timestamp for Fdb Cluster.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	deprecatedDescClusterStatus = prometheus.NewDesc(
+		"fdb_cluster_status",
+		"(Deprecated since 0.33.0) status of the Fdb Cluster.",
+		append(descClusterDefaultLabels, "status_type"),
+		nil,
+	)
+
 	descClusterCreated = prometheus.NewDesc(
 		"fdb_operator_cluster_created_time",
 		"Creation time in unix timestamp for Fdb Cluster.",
@@ -115,6 +129,12 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	addGauge := func(desc *prometheus.Desc, v float64, lv ...string) {
 		addConstMetric(desc, prometheus.GaugeValue, v, lv...)
 	}
+	// TODO (johscheuer): remove these after 0.34.0
+	addGauge(deprecatedDescClusterCreated, float64(cluster.CreationTimestamp.Unix()))
+	addGauge(deprecatedDescClusterStatus, boolFloat64(cluster.Status.Health.Healthy), "health")
+	addGauge(deprecatedDescClusterStatus, boolFloat64(cluster.Status.Health.Available), "available")
+	addGauge(deprecatedDescClusterStatus, boolFloat64(cluster.Status.Health.FullReplication), "replication")
+	addGauge(deprecatedDescClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
 	// These are the correct metrics with the prefix "fdb_operator"
 	addGauge(descClusterCreated, float64(cluster.CreationTimestamp.Unix()))
 	addGauge(descClusterStatus, boolFloat64(cluster.Status.Health.Healthy), "health")

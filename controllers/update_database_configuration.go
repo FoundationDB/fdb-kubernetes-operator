@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	ctx "context"
 	"fmt"
 	"reflect"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -35,11 +36,11 @@ import (
 type UpdateDatabaseConfiguration struct{}
 
 // Reconcile runs the reconciler's work.
-func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	defer adminClient.Close()
 
@@ -50,18 +51,17 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	initialConfig := !cluster.Status.Configured
 
+	healthy := initialConfig || status.Client.DatabaseStatus.Healthy
 	available := initialConfig || status.Client.DatabaseStatus.Available
-	dataState := status.Cluster.Data.State
-	dataHealthy := initialConfig || dataState.Healthy
 
 	if !available {
 		log.Info("Skipping database configuration change because database is unavailable", "namespace", cluster.Namespace, "cluster", cluster.Name)
-		return nil
+		return true, nil
 	}
 
 	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
@@ -78,13 +78,12 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		configurationString, _ := nextConfiguration.GetConfigurationString()
 		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
 
-		if !dataHealthy {
-			log.Info("Waiting for data distribution to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name, "stateName", dataState.Name, "stateDescription", dataState.Description)
+		if !healthy {
+			log.Info("Waiting for database to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
-				fmt.Sprintf("Spec require configuration change to `%s`, but data distribution is not fully healthy: %s (%s)", configurationString, dataState.Name, dataState.Description))
-			return nil
+				fmt.Sprintf("Spec require configuration change to `%s`, but cluster is not healthy", configurationString))
+			return false, nil
 		}
-
 		if enabled != nil && !*enabled {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
@@ -93,14 +92,14 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			if err != nil {
 				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
 			}
-			return &Requeue{Message: "Database configuration changes are disabled"}
+			return false, ReconciliationNotReadyError{message: "Database configuration changes are disabled"}
 		}
 
 		if !initialConfig {
 			hasLock, err := r.takeLock(cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if !hasLock {
-				return &Requeue{Error: err}
+				return false, err
 			}
 		}
 
@@ -110,23 +109,26 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		)
 		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 		if initialConfig {
 			cluster.Status.Configured = true
 			err = r.Status().Update(context, cluster)
-			if err != nil {
-				return &Requeue{Error: err}
-			}
-			return nil
+			return err != nil, err
 		}
 		log.Info("Configured database", "namespace", cluster.Namespace, "cluster", cluster.Name)
 
 		if !reflect.DeepEqual(nextConfiguration, desiredConfiguration) {
 			log.Info("Requeuing for next stage of database configuration change", "namespace", cluster.Namespace, "cluster", cluster.Name)
-			return &Requeue{Message: "Requeuing for next stage of database configuration change"}
+			return false, nil
 		}
 	}
 
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (u UpdateDatabaseConfiguration) RequeueAfter() time.Duration {
+	return 0
 }

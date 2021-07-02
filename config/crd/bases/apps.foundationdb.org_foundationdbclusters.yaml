@@ -670,15 +670,6 @@ spec:
                       - name
                     type: object
                   type: array
-                coordinatorSelection:
-                  items:
-                    properties:
-                      priority:
-                        type: integer
-                      processClass:
-                        type: string
-                    type: object
-                  type: array
                 customParameters:
                   items:
                     type: string
@@ -1305,19 +1296,6 @@ spec:
                   items:
                     type: string
                   type: array
-                labels:
-                  properties:
-                    filterOnOwnerReference:
-                      type: boolean
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    resourceLabels:
-                      additionalProperties:
-                        type: string
-                      type: object
-                  type: object
                 lockOptions:
                   properties:
                     denyList:
@@ -1341,8 +1319,6 @@ spec:
                 mainContainer:
                   properties:
                     enableLivenessProbe:
-                      type: boolean
-                    enableReadinessProbe:
                       type: boolean
                     enableTls:
                       type: boolean
@@ -4420,8 +4396,6 @@ spec:
                       type: integer
                     cluster_controller:
                       type: integer
-                    coordinator:
-                      type: integer
                     data_distributor:
                       type: integer
                     fast_restore:
@@ -4443,10 +4417,6 @@ spec:
                     stateless:
                       type: integer
                     storage:
-                      type: integer
-                    storage_cache:
-                      type: integer
-                    tester:
                       type: integer
                     transaction:
                       type: integer
@@ -7588,15 +7558,6 @@ spec:
                         x-kubernetes-int-or-string: true
                       type: object
                   type: object
-                routing:
-                  properties:
-                    headlessService:
-                      type: boolean
-                    podIPFamily:
-                      type: integer
-                    publicIPSource:
-                      type: string
-                  type: object
                 runningVersion:
                   type: string
                 seedConnectionString:
@@ -7611,8 +7572,6 @@ spec:
                 sidecarContainer:
                   properties:
                     enableLivenessProbe:
-                      type: boolean
-                    enableReadinessProbe:
                       type: boolean
                     enableTls:
                       type: boolean
@@ -8779,8 +8738,6 @@ spec:
                       type: integer
                     cluster_controller:
                       type: integer
-                    coordinator:
-                      type: integer
                     data_distributor:
                       type: integer
                     fast_restore:
@@ -8802,10 +8759,6 @@ spec:
                     stateless:
                       type: integer
                     storage:
-                      type: integer
-                    storage_cache:
-                      type: integer
-                    tester:
                       type: integer
                     transaction:
                       type: integer

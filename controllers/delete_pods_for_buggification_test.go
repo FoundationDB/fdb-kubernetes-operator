@@ -36,7 +36,7 @@ import (
 var _ = Describe("delete_pods_for_buggification", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var shouldContinue bool
 	var originalPods *corev1.PodList
 
 	BeforeEach(func() {
@@ -52,7 +52,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		originalPods = &corev1.PodList{}
@@ -61,17 +61,15 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = DeletePodsForBuggification{}.Reconcile(clusterReconciler, context.TODO(), cluster)
-		if requeue != nil {
-			Expect(requeue.Error).NotTo(HaveOccurred())
-		}
+		shouldContinue, err = DeletePodsForBuggification{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not delete any pods", func() {
@@ -92,8 +90,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		})
 
 		It("should requeue", func() {
-			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.Message).To(Equal("Pods need to be recreated"))
+			Expect(shouldContinue).To(BeFalse())
 		})
 
 		It("should delete the pod", func() {
@@ -115,8 +112,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		})
 
 		It("should requeue", func() {
-			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.Message).To(Equal("Pods need to be recreated"))
+			Expect(shouldContinue).To(BeFalse())
 		})
 
 		It("should delete the pods", func() {
@@ -146,9 +142,8 @@ var _ = Describe("delete_pods_for_buggification", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should requeue", func() {
-			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.Message).To(Equal("Pods need to be recreated"))
+		It("should not requeue", func() {
+			Expect(shouldContinue).To(BeFalse())
 		})
 
 		It("should delete the pod", func() {
@@ -180,7 +175,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not delete any pods", func() {
@@ -212,12 +207,12 @@ var _ = Describe("delete_pods_for_buggification", func() {
 					},
 				},
 			}}}
-			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not delete any pods", func() {

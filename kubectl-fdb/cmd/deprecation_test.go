@@ -148,17 +148,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 									},
 								},
 							},
-							SidecarContainer: fdbtypes.ContainerOverrides{
-								EnableLivenessProbe:  &trueValue,
-								EnableReadinessProbe: &trueValue,
-							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
 									Enabled: &trueValue,
 								},
-							},
-							LabelConfig: fdbtypes.LabelConfig{
-								FilterOnOwnerReferences: &trueValue,
 							},
 						},
 					},
@@ -325,17 +318,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 									},
 								},
 							},
-							SidecarContainer: fdbtypes.ContainerOverrides{
-								EnableLivenessProbe:  &trueValue,
-								EnableReadinessProbe: &trueValue,
-							},
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
 								Replacements: fdbtypes.AutomaticReplacementOptions{
 									Enabled: &trueValue,
 								},
-							},
-							LabelConfig: fdbtypes.LabelConfig{
-								FilterOnOwnerReferences: &trueValue,
 							},
 						},
 					},
@@ -403,11 +389,14 @@ automationOptions:
   replacements:
     enabled: false
     failureDetectionTimeSeconds: 1800
-labels:
-  filterOnOwnerReference: true
-  matchLabels:
-    fdb-cluster-name: test
+buggify: {}
+databaseConfiguration: {}
+faultDomain: {}
+lockOptions: {}
+mainContainer: {}
 minimumUptimeSecondsForBounce: 600
+partialConnectionString: {}
+processCounts: {}
 processes:
   general:
     podTemplate:
@@ -436,11 +425,9 @@ processes:
               org.foundationdb/empty: "0"
             requests:
               org.foundationdb/empty: "0"
-routing:
+services:
   publicIPSource: pod
-sidecarContainer:
-  enableLivenessProbe: false
-  enableReadinessProbe: true
+sidecarContainer: {}
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,
@@ -501,14 +488,19 @@ version: ""`,
 automationOptions:
   replacements:
     enabled: false
+buggify: {}
 configMap:
   metadata:
     creationTimestamp: null
     labels:
       test: test
-labels:
-  filterOnOwnerReference: true
+databaseConfiguration: {}
+faultDomain: {}
+lockOptions: {}
+mainContainer: {}
 minimumUptimeSecondsForBounce: 600
+partialConnectionString: {}
+processCounts: {}
 processes:
   general:
     podTemplate:
@@ -536,9 +528,11 @@ processes:
         creationTimestamp: null
         labels:
           test: test
-sidecarContainer:
-  enableLivenessProbe: false
-  enableReadinessProbe: true
+      spec:
+        resources: {}
+      status: {}
+services: {}
+sidecarContainer: {}
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,

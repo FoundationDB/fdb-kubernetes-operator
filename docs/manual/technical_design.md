@@ -199,7 +199,7 @@ The `UpdateDatabaseConfiguration` subreconciler runs `configure` commands in `fd
 
 The operator uses the `configured` field in the cluster status to determine if it is needs to do the initial database configuration, which means running a `configure new` command. As soon as the operator detects that the database has a database configuration, or performs a database configuration itself, it will set the `configured` field to `true`. After that point it will never run a `configure new` command.
 
-If the database is unavailable, the operator will not attempt any configuration changes, but will move forward with reconciliation in case a later stage can restore the database availability. If the database is available but has unhealthy data distribution, the operator will move forward with reconciliation. As part of the `UpdateStatus` subreconciler, the operator will compare the live database configuration against the spec and will not consider reconciliation complete until the live configuration is up-to-date.
+If the database is unavailable, the operator will not attempt any configuration changes, but will move forward with reconciliation in case a later stage can restore the database availability. If the database is available but unhealthy, the operator will requeue reconciliation until the database stabilizes.
 
 This action requires a lock.
 

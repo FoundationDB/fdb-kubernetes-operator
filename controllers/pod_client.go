@@ -140,11 +140,7 @@ func (client *realFdbPodClient) GetPod() *corev1.Pod {
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodClient) getListenIP() string {
-	ips := getPublicIPsForPod(client.Pod)
-	if len(ips) > 0 {
-		return ips[0]
-	}
-	return ""
+	return client.Pod.Status.PodIP
 }
 
 // makeRequest submits a request to the sidecar.
@@ -398,8 +394,6 @@ func (err fdbPodClientError) Error() string {
 	switch err {
 	case fdbPodClientErrorNoIP:
 		return "Pod does not have an IP address"
-	case fdbPodClientErrorNotReady:
-		return "Pod is not ready to receive traffic"
 	default:
 		return fmt.Sprintf("Unknown error code %d", err)
 	}

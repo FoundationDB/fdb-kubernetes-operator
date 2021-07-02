@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"strings"
+	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -32,30 +33,36 @@ type StartRestore struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (s StartRestore) Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *Requeue {
+func (s StartRestore) Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) (bool, error) {
 	adminClient, err := r.AdminClientForRestore(context, restore)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetRestoreStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	if len(strings.TrimSpace(status)) == 0 {
 		err = adminClient.StartRestore(restore.Spec.BackupURL, restore.Spec.KeyRanges)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		restore.Status.Running = true
 		err = r.Status().Update(context, restore)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 	}
 
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (s StartRestore) RequeueAfter() time.Duration {
+	return 0
 }

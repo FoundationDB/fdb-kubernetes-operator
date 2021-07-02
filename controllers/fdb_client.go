@@ -34,6 +34,9 @@ type DatabaseClientProvider interface {
 	// GetAdminClient generates a client for performing administrative actions
 	// against the database.
 	GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error)
+
+	// CleanUpCache removes the cache entry for a cluster.
+	CleanUpCache(namespace string, name string)
 }
 
 type legacyDatabaseClientProvider struct {
@@ -67,4 +70,9 @@ func (p mockDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDB
 // against the database.
 func (p mockDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error) {
 	return NewMockAdminClient(cluster, kubernetesClient)
+}
+
+// CleanUpCache removes the cache entry for a cluster.
+func (p mockDatabaseClientProvider) CleanUpCache(namespace string, name string) {
+
 }

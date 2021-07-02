@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -39,7 +40,7 @@ import (
 type ReplaceMisconfiguredPods struct{}
 
 // Reconcile runs the reconciler's work.
-func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	hasNewRemovals := false
 
 	processGroups := make(map[string]*fdbtypes.ProcessGroupStatus)
@@ -50,17 +51,15 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(context, pvcs, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	for _, pvc := range pvcs.Items {
-		ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
-		if !ownedByCluster {
-			for _, ownerReference := range pvc.OwnerReferences {
-				if ownerReference.UID == cluster.UID {
-					ownedByCluster = true
-					break
-				}
+		ownedByCluster := false
+		for _, ownerReference := range pvc.OwnerReferences {
+			if ownerReference.UID == cluster.UID {
+				ownedByCluster = true
+				break
 			}
 		}
 
@@ -71,7 +70,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
 		processGroupStatus := processGroups[instanceID]
 		if processGroupStatus == nil {
-			return &Requeue{Error: fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)}
+			return false, fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)
 		}
 
 		if processGroupStatus.Remove {
@@ -80,24 +79,24 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 		_, idNum, err := ParseInstanceID(instanceID)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
 		desiredPVC, err := GetPvc(cluster, processClass, idNum)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		pvcHash, err := GetJSONHash(desiredPVC.Spec)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		if pvc.Annotations[fdbtypes.LastSpecKey] != pvcHash {
 			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
-				return &Requeue{Error: err}
+				return false, err
 			}
 
 			if len(instances) > 0 {
@@ -116,14 +115,14 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	for _, instance := range instances {
 		processGroupStatus := processGroups[instance.GetInstanceID()]
 		needsRemoval, err := instanceNeedsRemoval(cluster, instance, processGroupStatus)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
 		if needsRemoval {
@@ -135,13 +134,13 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	if hasNewRemovals {
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return false, err
 		}
 
-		return &Requeue{Message: "Removals have been updated in the cluster status"}
+		return false, nil
 	}
 
-	return nil
+	return true, nil
 }
 
 func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
@@ -281,4 +280,10 @@ func getCPUandMemoryRequests(containers []corev1.Container) (*resource.Quantity,
 	}
 
 	return cpuRequests, memoryRequests
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (c ReplaceMisconfiguredPods) RequeueAfter() time.Duration {
+	return 0
 }

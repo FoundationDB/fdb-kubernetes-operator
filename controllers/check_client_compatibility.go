@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,43 +36,43 @@ import (
 type CheckClientCompatibility struct{}
 
 // Reconcile runs the reconciler's work.
-func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	if !cluster.Status.Configured {
-		return nil
+		return true, nil
 	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 	defer adminClient.Close()
 
 	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	if !version.IsAtLeast(runningVersion) {
-		return &Requeue{Message: "cluster downgrade operation is not supported"}
+		return false, fmt.Errorf("cluster downgrade operation is not supported")
 	}
 
 	if version.IsProtocolCompatible(runningVersion) {
-		return nil
+		return true, nil
 	}
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	protocolVersion, err := adminClient.GetProtocolVersion(cluster.Spec.Version)
 	if err != nil {
-		return &Requeue{Error: err}
+		return false, err
 	}
 
 	if !cluster.Spec.IgnoreUpgradabilityChecks {
@@ -122,9 +122,15 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 			)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
 			log.Info("Deferring reconciliation due to unsupported clients", "namespace", cluster.Namespace, "name", cluster.Name, "message", message)
-			return &Requeue{Message: message, Delay: 1 * time.Minute}
+			return false, nil
 		}
 	}
 
-	return nil
+	return true, nil
+}
+
+// RequeueAfter returns the delay before we should run the reconciliation
+// again.
+func (c CheckClientCompatibility) RequeueAfter() time.Duration {
+	return 1 * time.Minute
 }

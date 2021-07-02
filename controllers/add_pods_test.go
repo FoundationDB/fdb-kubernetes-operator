@@ -35,13 +35,13 @@ import (
 var _ = Describe("add_pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var shouldContinue bool
 	var initialPods *corev1.PodList
 	var newPods *corev1.PodList
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		err = k8sClient.Create(context.TODO(), cluster)
@@ -61,7 +61,7 @@ var _ = Describe("add_pods", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = AddPods{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		shouldContinue, err = AddPods{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -76,7 +76,7 @@ var _ = Describe("add_pods", func() {
 
 	Context("with a reconciled cluster", func() {
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should not create any pods", func() {
@@ -90,7 +90,7 @@ var _ = Describe("add_pods", func() {
 		})
 
 		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+			Expect(shouldContinue).To(BeTrue())
 		})
 
 		It("should create an extra pod", func() {
@@ -108,7 +108,7 @@ var _ = Describe("add_pods", func() {
 			})
 
 			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+				Expect(shouldContinue).To(BeTrue())
 			})
 
 			It("should not create any pods", func() {

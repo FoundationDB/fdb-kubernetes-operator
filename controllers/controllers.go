@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,7 @@
 package controllers
 
 import (
-	"fmt"
-	"time"
-
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,10 +29,6 @@ var log = logf.Log.WithName("controller")
 
 const (
 	clusterFileKey = "cluster-file"
-
-	// podSchedulingDelayDuration determines how long we should delay a requeue
-	// of reconciliation when a pod is not ready.
-	podSchedulingDelayDuration = 15 * time.Second
 )
 
 // metadataMatches determines if the current metadata on an object matches the
@@ -78,40 +65,4 @@ func mergeMap(target map[string]string, desired map[string]string) bool {
 		}
 	}
 	return changed
-}
-
-// Requeue provides a wrapper around different results from a subreconciler.
-type Requeue struct {
-	// Delay provides an optional delay before requeueing reconciliattion.
-	Delay time.Duration
-
-	// Error provides an error that we encountered that forced a requeue.
-	Error error
-
-	// Message provides a log message that explains the reason for the requeue.
-	Message string
-}
-
-// processRequeue interprets a requeue resulit from a subreconciler.
-func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.Object, recorder record.EventRecorder, logger logr.Logger) (ctrl.Result, error) {
-	if requeue.Message == "" && requeue.Error != nil {
-		requeue.Message = requeue.Error.Error()
-	}
-
-	err := requeue.Error
-	if err != nil && k8serrors.IsConflict(err) {
-		err = nil
-		if requeue.Delay == time.Duration(0) {
-			requeue.Delay = time.Minute
-		}
-	}
-
-	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationTerminatedEarly", requeue.Message)
-
-	if err != nil {
-		logger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
-		return ctrl.Result{}, err
-	}
-	logger.Info("Reconciliation terminated early", "subReconciler", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
-	return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 }

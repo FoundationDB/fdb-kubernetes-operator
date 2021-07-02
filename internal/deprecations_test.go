@@ -61,23 +61,16 @@ var _ = Describe("[internal] deprecations", func() {
 	Describe("NormalizeClusterSpec", func() {
 		var spec *fdbtypes.FoundationDBClusterSpec
 		var err error
-		var cluster *fdbtypes.FoundationDBCluster
 
 		BeforeEach(func() {
-			cluster = &fdbtypes.FoundationDBCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "operator-test-1",
-				},
-				Spec: fdbtypes.FoundationDBClusterSpec{
-					Version: fdbtypes.Versions.Default.String(),
-				},
+			spec = &fdbtypes.FoundationDBClusterSpec{
+				Version: fdbtypes.Versions.Default.String(),
 			}
-			spec = &cluster.Spec
 		})
 
 		Describe("deprecations", func() {
 			JustBeforeEach(func() {
-				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+				err := NormalizeClusterSpec(spec, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -409,25 +402,6 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.CustomParameters).To(BeNil())
 				})
 			})
-
-			Context("with deprecated service config", func() {
-				BeforeEach(func() {
-					enabled := false
-					var source fdbtypes.PublicIPSource = "service"
-					spec.Services = fdbtypes.ServiceConfig{
-						Headless:       &enabled,
-						PublicIPSource: &source,
-					}
-				})
-
-				It("fills in the routing config", func() {
-					Expect(spec.Routing.HeadlessService).NotTo(BeNil())
-					Expect(*spec.Routing.HeadlessService).To(BeFalse())
-					Expect(spec.Routing.PublicIPSource).NotTo(BeNil())
-					Expect(*spec.Routing.PublicIPSource).To(Equal(fdbtypes.PublicIPSource("service")))
-					Expect(spec.Services).To(Equal(fdbtypes.ServiceConfig{}))
-				})
-			})
 		})
 
 		Describe("Validations", func() {
@@ -437,7 +411,7 @@ var _ = Describe("[internal] deprecations", func() {
 						"knob_disable_posix_kernel_aio = 1",
 						"knob_disable_posix_kernel_aio = 1",
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -447,7 +421,7 @@ var _ = Describe("[internal] deprecations", func() {
 					spec.CustomParameters = []string{
 						"datadir=1",
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -462,7 +436,7 @@ var _ = Describe("[internal] deprecations", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -476,7 +450,7 @@ var _ = Describe("[internal] deprecations", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -485,7 +459,7 @@ var _ = Describe("[internal] deprecations", func() {
 		Describe("defaults", func() {
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -609,8 +583,8 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the public IP source set to pod", func() {
-					Expect(spec.Routing.PublicIPSource).NotTo(BeNil())
-					Expect(*spec.Routing.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
 				})
 
 				It("should have automatic replacements disabled", func() {
@@ -619,24 +593,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
 				})
-
-				It("should have the probe settings for the sidecar", func() {
-					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeFalse())
-					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
-				})
-
-				It("should have the default label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
-					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
-					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
-				})
 			})
 
 			Context("with the current defaults, changes only", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -662,7 +623,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have no public IP source", func() {
-					Expect(spec.Routing.PublicIPSource).To(BeNil())
+					Expect(spec.Services.PublicIPSource).To(BeNil())
 				})
 
 				It("should have automatic replacements disabled", func() {
@@ -673,24 +634,11 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should have no configuration for other automatic replacement options", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
 				})
-
-				It("should have the probe settings for the sidecar", func() {
-					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeFalse())
-					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
-				})
-
-				It("should have changes to the label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
-					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
-					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
-				})
 			})
 
 			Context("with the future defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -814,8 +762,8 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the public IP source set to pod", func() {
-					Expect(spec.Routing.PublicIPSource).NotTo(BeNil())
-					Expect(*spec.Routing.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
 				})
 
 				It("should have automatic replacements enabled", func() {
@@ -824,24 +772,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
 				})
-
-				It("should have the probe settings for the sidecar", func() {
-					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeTrue())
-					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
-				})
-
-				It("should have the default label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
-					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
-					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
-				})
 			})
 
 			Context("with the future defaults, changes only", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -862,7 +797,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have no public IP source", func() {
-					Expect(spec.Routing.PublicIPSource).To(BeNil())
+					Expect(spec.Services.PublicIPSource).To(BeNil())
 				})
 
 				It("should have automatic replacements enabled", func() {
@@ -873,32 +808,19 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should have no configuration for other automatic replacement options", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
 				})
-
-				It("should have the probe settings for the sidecar", func() {
-					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeTrue())
-					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
-					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
-				})
-
-				It("should have changes to the label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
-					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
-					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
-				})
 			})
 
 			Context("when applying future defaults on top of current explicit defaults", func() {
 				var originalSpec *fdbtypes.FoundationDBClusterSpec
 
 				BeforeEach(func() {
-					err = NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 					originalSpec = spec.DeepCopy()
 				})
 
 				JustBeforeEach(func() {
-					err = NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 

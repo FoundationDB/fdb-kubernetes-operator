@@ -146,11 +146,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 		podNameMap[instance] = true
 	}
 
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
-	if err != nil {
-		return instances, err
-	}
-	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
+	pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
 	if err != nil {
 		return instances, err
 	}
@@ -168,7 +164,11 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 
 // removeInstances adds instances to the instancesToRemove field
 func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
+	var cluster fdbtypes.FoundationDBCluster
+	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      clusterName,
+	}, &cluster)
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -187,8 +187,10 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		var pods corev1.PodList
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
-		)
+			client.MatchingLabels(map[string]string{
+				fdbtypes.FDBClusterLabel: clusterName,
+			}))
+
 		if err != nil {
 			return err
 		}
@@ -227,5 +229,5 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
 	}
 
-	return kubeClient.Patch(ctx.TODO(), cluster, patch)
+	return kubeClient.Patch(ctx.TODO(), &cluster, patch)
 }

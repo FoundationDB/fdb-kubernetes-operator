@@ -41,9 +41,18 @@ const (
 // DefaultCLITimeout is the default timeout for CLI commands.
 var DefaultCLITimeout = 10
 
+// fdbDatabaseCache provides a cache for FDB databases
+var fdbDatabaseCache = map[string]fdb.Database{}
+
 // getFDBDatabase opens an FDB database. The result will be cached for
 // subsequent calls, based on the cluster namespace and name.
 func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error) {
+	cacheKey := fmt.Sprintf("%s/%s", cluster.ObjectMeta.Namespace, cluster.ObjectMeta.Name)
+	database, present := fdbDatabaseCache[cacheKey]
+	if present {
+		return database, nil
+	}
+
 	clusterFile, err := ioutil.TempFile("", "")
 	if err != nil {
 		return fdb.Database{}, err
@@ -61,7 +70,7 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 		return fdb.Database{}, err
 	}
 
-	database, err := fdb.OpenDatabase(clusterFilePath)
+	database, err = fdb.OpenDatabase(clusterFilePath)
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -71,7 +80,14 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 		return fdb.Database{}, err
 	}
 
+	fdbDatabaseCache[cacheKey] = database
 	return database, nil
+}
+
+// cleanUpDBCache removes the FDB DB connection for the deleted cluster.
+// Otherwise the controller will connect to an old cluster.
+func cleanUpDBCache(namespace string, name string) {
+	delete(fdbDatabaseCache, fmt.Sprintf("%s/%s", namespace, name))
 }
 
 // getStatusFromDB gets the database's status directly from the system key
@@ -132,6 +148,11 @@ func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationD
 // against the database.
 func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (controllers.AdminClient, error) {
 	return NewCliAdminClient(cluster, kubernetesClient)
+}
+
+// CleanUpCache removes the cache entry for a cluster.
+func (p *realDatabaseClientProvider) CleanUpCache(namespace string, name string) {
+	cleanUpDBCache(namespace, name)
 }
 
 // NewDatabaseClientProvider generates a client provider for talking to real

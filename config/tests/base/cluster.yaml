@@ -8,8 +8,8 @@ spec:
     # Use fake fault domains to support running in a single-node Kubernetes
     # cluster.
     key: foundationdb.org/none
-  routing:
-    headlessService: true
+  services:
+    headless: true
   automationOptions:
     replacements:
       # Enable automatic replacements. This will be the default in the future.
@@ -20,10 +20,6 @@ spec:
     # Enable a dedicated cluster controller process to test for surprising
     # behavior with having a process class with an underscore.
     cluster_controller: 1
-  sidecarContainer:
-    # Change default probes to match the defaults we will apply in the future.
-    enableReadinessProbe: false
-    enableLivenessProbe: true
   processes:
     general:
       customParameters:
