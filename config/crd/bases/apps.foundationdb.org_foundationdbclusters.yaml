@@ -1320,6 +1320,8 @@ spec:
                   properties:
                     enableLivenessProbe:
                       type: boolean
+                    enableReadinessProbe:
+                      type: boolean
                     enableTls:
                       type: boolean
                     env:
@@ -7564,6 +7566,15 @@ spec:
                         x-kubernetes-int-or-string: true
                       type: object
                   type: object
+                routing:
+                  properties:
+                    headlessService:
+                      type: boolean
+                    podIPFamily:
+                      type: integer
+                    publicIPSource:
+                      type: string
+                  type: object
                 runningVersion:
                   type: string
                 seedConnectionString:
@@ -7578,6 +7589,8 @@ spec:
                 sidecarContainer:
                   properties:
                     enableLivenessProbe:
+                      type: boolean
+                    enableReadinessProbe:
                       type: boolean
                     enableTls:
                       type: boolean

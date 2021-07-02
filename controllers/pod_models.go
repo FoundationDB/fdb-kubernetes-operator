@@ -454,14 +454,21 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 	if optionalCluster != nil {
 		cluster := optionalCluster
 
-		publicIPSource := cluster.Spec.Services.PublicIPSource
+		publicIPSource := cluster.Spec.Routing.PublicIPSource
 		usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
 
 		var publicIPKey string
 		if usePublicIPFromService {
 			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
 		} else {
-			publicIPKey = "status.podIP"
+			family := cluster.Spec.Routing.PodIPFamily
+			if family == nil {
+				publicIPKey = "status.podIP"
+			} else {
+				publicIPKey = "status.podIPs"
+				sidecarArgs = append(sidecarArgs, "--public-ip-family")
+				sidecarArgs = append(sidecarArgs, fmt.Sprint(*family))
+			}
 		}
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
@@ -521,7 +528,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 
 		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
 
-		if !initMode && cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
+		if !initMode && *cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
 			// We can't use a HTTP handler here since the server
 			// requires a client certificate
 			container.LivenessProbe = &corev1.Probe{
@@ -533,6 +540,16 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 				TimeoutSeconds:   1,
 				PeriodSeconds:    30,
 				FailureThreshold: 5,
+			}
+		}
+
+		if !initMode && *cluster.Spec.SidecarContainer.EnableReadinessProbe && container.ReadinessProbe == nil {
+			container.ReadinessProbe = &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.IntOrString{IntVal: 8080},
+					},
+				},
 			}
 		}
 	}
@@ -582,16 +599,6 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 
 	if hasTrustedCAs {
 		extendEnv(container, corev1.EnvVar{Name: "FDB_TLS_CA_FILE", Value: "/var/input-files/ca.pem"})
-	}
-
-	if container.ReadinessProbe == nil {
-		container.ReadinessProbe = &corev1.Probe{
-			Handler: corev1.Handler{
-				TCPSocket: &corev1.TCPSocketAction{
-					Port: intstr.IntOrString{IntVal: 8080},
-				},
-			},
-		}
 	}
 
 	return nil

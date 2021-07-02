@@ -1780,7 +1780,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with a change to the public IP source", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1838,7 +1838,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with a change to the public IP source and multiple storage servers per Pod", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Spec.StorageServersPerPod = 2
 				err = k8sClient.Update(context.TODO(), cluster)
 			})
@@ -2230,7 +2230,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("when enabling a headless service", func() {
 			BeforeEach(func() {
 				var flag = true
-				cluster.Spec.Services.Headless = &flag
+				cluster.Spec.Routing.HeadlessService = &flag
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2248,7 +2248,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("when disabling a headless service", func() {
 			BeforeEach(func() {
 				var flag = true
-				cluster.Spec.Services.Headless = &flag
+				cluster.Spec.Routing.HeadlessService = &flag
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2259,7 +2259,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(generation).To(Equal(originalVersion + 1))
 
-				*cluster.Spec.Services.Headless = false
+				*cluster.Spec.Routing.HeadlessService = false
 				generationGap = 2
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -2694,7 +2694,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with the public IP from the pod", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2723,7 +2723,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with the public IP from the service", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &source
+				cluster.Spec.Routing.PublicIPSource = &source
 				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -3871,6 +3871,103 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				Expect(conn.DatabaseName).To(Equal("foo"))
 				Expect(conn.GenerationID).To(Equal("bar"))
+			})
+		})
+	})
+
+	Describe("GetPublicIPs", func() {
+		var instance FdbInstance
+
+		BeforeEach(func() {
+			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			instance = FdbInstance{}
+		})
+
+		Context("with a default pod", func() {
+			BeforeEach(func() {
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Status.PodIP = "1.1.1.1"
+				pod.Status.PodIPs = []corev1.PodIP{
+					{IP: "1.1.1.2"},
+					{IP: "2001:db8::ff00:42:8329"},
+				}
+				instance.Pod = pod
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should be the public IP from the pod", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(Equal([]string{"1.1.1.1"}))
+			})
+		})
+
+		Context("with a v6 pod IP family configured", func() {
+			BeforeEach(func() {
+				family := 6
+				cluster.Spec.Routing.PodIPFamily = &family
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Status.PodIP = "1.1.1.1"
+				pod.Status.PodIPs = []corev1.PodIP{
+					{IP: "1.1.1.2"},
+					{IP: "2001:db8::ff00:42:8329"},
+				}
+				instance.Pod = pod
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should select the address based on the spec", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(Equal([]string{"2001:db8::ff00:42:8329"}))
+			})
+
+			Context("with no matching IPs in the Pod IP list", func() {
+				BeforeEach(func() {
+					instance.Pod.Status.PodIPs = []corev1.PodIP{
+						{IP: "1.1.1.2"},
+					}
+				})
+
+				It("should be empty", func() {
+					result := instance.GetPublicIPs()
+					Expect(result).To(BeEmpty())
+				})
+			})
+		})
+
+		Context("with a v4 pod IP family configured", func() {
+			BeforeEach(func() {
+				family := 4
+				cluster.Spec.Routing.PodIPFamily = &family
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Status.PodIP = "1.1.1.1"
+				pod.Status.PodIPs = []corev1.PodIP{
+					{IP: "1.1.1.2"},
+					{IP: "2001:db8::ff00:42:8329"},
+				}
+				instance.Pod = pod
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should select the address based on the spec", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(Equal([]string{"1.1.1.2"}))
+			})
+		})
+
+		Context("with no pod", func() {
+			BeforeEach(func() {
+				pod, err := GetPod(cluster, "storage", 1)
+				Expect(err).NotTo(HaveOccurred())
+				instance.Metadata = &pod.ObjectMeta
+			})
+
+			It("should be empty", func() {
+				result := instance.GetPublicIPs()
+				Expect(result).To(BeEmpty())
 			})
 		})
 	})

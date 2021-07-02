@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -287,7 +288,7 @@ func getPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 		metadata.Annotations = make(map[string]string)
 	}
 	metadata.Annotations[fdbtypes.LastSpecKey] = specHash
-	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Services.PublicIPSource)
+	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Routing.PublicIPSource)
 
 	return metadata
 }
@@ -884,11 +885,64 @@ func (instance FdbInstance) GetPublicIPs() []string {
 
 	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
-		// TODO for dual-stack support return PodIPs
-		return []string{instance.Pod.Status.PodIP}
+		return getPublicIPsForPod(instance.Pod)
 	}
 
 	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
+}
+
+func getPublicIPsForPod(pod *corev1.Pod) []string {
+	var podIPFamily *int
+
+	if pod == nil {
+		return []string{}
+	}
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name != "foundationdb-kubernetes-sidecar" {
+			continue
+		}
+		for indexOfArgument, argument := range container.Args {
+			if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
+				familyString := container.Args[indexOfArgument+1]
+				family, err := strconv.Atoi(familyString)
+				if err != nil {
+					log.Error(err, "Error parsing public IP family", "family", familyString)
+					return nil
+				}
+				podIPFamily = &family
+				break
+			}
+		}
+	}
+
+	if podIPFamily != nil {
+		podIPs := pod.Status.PodIPs
+		matchingIPs := make([]string, 0, len(podIPs))
+
+		for _, podIP := range podIPs {
+			ip := net.ParseIP(podIP.IP)
+			if ip == nil {
+				log.Error(nil, "Failed to parse IP from pod", "ip", podIP)
+				continue
+			}
+			matches := false
+			switch *podIPFamily {
+			case 4:
+				matches = ip.To4() != nil
+			case 6:
+				matches = ip.To4() == nil
+			default:
+				log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
+			}
+			if matches {
+				matchingIPs = append(matchingIPs, podIP.IP)
+			}
+		}
+		return matchingIPs
+	}
+
+	return []string{pod.Status.PodIP}
 }
 
 // GetProcessID fetches the instance ID from an instance's metadata.

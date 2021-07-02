@@ -21,9 +21,11 @@
 
 import argparse
 import hashlib
+import ipaddress
 import logging
 import json
 import os
+import re
 import shutil
 import socket
 import ssl
@@ -55,9 +57,7 @@ class Config(object):
             ),
             action="store_true",
         )
-        parser.add_argument(
-            "--bind-address", help="IP and port to bind on", default="0.0.0.0:8080"
-        )
+        parser.add_argument("--bind-address", help="IP and port to bind on")
         parser.add_argument(
             "--tls",
             help=("This flag enables TLS for incoming connections"),
@@ -149,6 +149,13 @@ class Config(object):
             help=("The version of the main foundationdb container in the pod"),
         )
         parser.add_argument(
+            "--public-ip-family",
+            help=(
+                "Tells the sidecar to treat the public IP as a comma-separated "
+                "list, and use the first entry in the specified IP family"
+            ),
+        )
+        parser.add_argument(
             "--main-container-conf-dir",
             help=(
                 "The directory where the dynamic conf "
@@ -216,6 +223,7 @@ class Config(object):
             "FDB_MACHINE_ID",
             "FDB_ZONE_ID",
             "FDB_INSTANCE_ID",
+            "FDB_POD_IP",
         ]:
             self.substitutions[key] = os.getenv(key, "")
 
@@ -289,6 +297,21 @@ class Config(object):
         if os.getenv("COPY_ONCE", "0") == "1":
             self.init_mode = True
 
+        if args.public_ip_family:
+            version = int(args.public_ip_family)
+            self.substitutions["FDB_PUBLIC_IP"] = Config.extract_desired_ip(
+                version, self.substitutions["FDB_PUBLIC_IP"]
+            )
+            self.substitutions["FDB_POD_IP"] = Config.extract_desired_ip(
+                version, self.substitutions["FDB_POD_IP"]
+            )
+
+        if not self.bind_address:
+            if self.substitutions["FDB_POD_IP"] != "":
+                self.bind_address = self.substitutions["FDB_POD_IP"] + ":8080"
+            else:
+                self.bind_address = self.substitutions["FDB_PUBLIC_IP"] + ":8080"
+
     @classmethod
     def shared(cls):
         if cls.shared_config:
@@ -304,6 +327,24 @@ class Config(object):
             and self.minor_version[1] >= target_version[1]
         )
 
+    @classmethod
+    def extract_desired_ip(cls, version, string):
+        if string == "":
+            return string
+
+        ips = string.split(",")
+        matching_ips = [ip for ip in ips if ipaddress.ip_address(ip).version == version]
+        if len(matching_ips) == 0:
+            raise Exception(f"Failed to find IPv{version} entry in {ips}")
+        ip = matching_ips[0]
+        if version == 6:
+            ip = f"[{ip}]"
+        return ip
+
+
+class ThreadingHTTPServerV6(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
+
 
 class Server(BaseHTTPRequestHandler):
     ssl_context = None
@@ -314,9 +355,16 @@ class Server(BaseHTTPRequestHandler):
         This method starts the server.
         """
         config = Config.shared()
-        (address, port) = config.bind_address.split(":")
+        colon_index = config.bind_address.rindex(":")
+        port_index = colon_index + 1
+        address = config.bind_address[:colon_index]
+        port = config.bind_address[port_index:]
         log.info(f"Listening on {address}:{port}")
-        server = ThreadingHTTPServer((address, int(port)), cls)
+
+        if address.startswith("[") and address.endswith("]"):
+            server = ThreadingHTTPServerV6((address[1:-1], int(port)), cls)
+        else:
+            server = ThreadingHTTPServer((address, int(port)), cls)
 
         if config.enable_tls:
             context = Server.load_ssl_context()

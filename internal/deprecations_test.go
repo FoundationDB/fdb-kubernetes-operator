@@ -402,6 +402,25 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.CustomParameters).To(BeNil())
 				})
 			})
+
+			Context("with deprecated service config", func() {
+				BeforeEach(func() {
+					enabled := false
+					var source fdbtypes.PublicIPSource = "service"
+					spec.Services = fdbtypes.ServiceConfig{
+						Headless:       &enabled,
+						PublicIPSource: &source,
+					}
+				})
+
+				It("fills in the routing config", func() {
+					Expect(spec.Routing.HeadlessService).NotTo(BeNil())
+					Expect(*spec.Routing.HeadlessService).To(BeFalse())
+					Expect(spec.Routing.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Routing.PublicIPSource).To(Equal(fdbtypes.PublicIPSource("service")))
+					Expect(spec.Services).To(Equal(fdbtypes.ServiceConfig{}))
+				})
+			})
 		})
 
 		Describe("Validations", func() {
@@ -583,8 +602,8 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the public IP source set to pod", func() {
-					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
-					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+					Expect(spec.Routing.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Routing.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
 				})
 
 				It("should have automatic replacements disabled", func() {
@@ -592,6 +611,13 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(*spec.AutomationOptions.Replacements.Enabled).To(BeFalse())
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
+				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeFalse())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
 				})
 			})
 
@@ -623,7 +649,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have no public IP source", func() {
-					Expect(spec.Services.PublicIPSource).To(BeNil())
+					Expect(spec.Routing.PublicIPSource).To(BeNil())
 				})
 
 				It("should have automatic replacements disabled", func() {
@@ -633,6 +659,13 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have no configuration for other automatic replacement options", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
+				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeFalse())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
 				})
 			})
 
@@ -762,8 +795,8 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the public IP source set to pod", func() {
-					Expect(spec.Services.PublicIPSource).NotTo(BeNil())
-					Expect(*spec.Services.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
+					Expect(spec.Routing.PublicIPSource).NotTo(BeNil())
+					Expect(*spec.Routing.PublicIPSource).To(Equal(fdbtypes.PublicIPSourcePod))
 				})
 
 				It("should have automatic replacements enabled", func() {
@@ -771,6 +804,13 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(*spec.AutomationOptions.Replacements.Enabled).To(BeTrue())
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).NotTo(BeNil())
 					Expect(*spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(Equal(1800))
+				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeTrue())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
 				})
 			})
 
@@ -797,7 +837,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have no public IP source", func() {
-					Expect(spec.Services.PublicIPSource).To(BeNil())
+					Expect(spec.Routing.PublicIPSource).To(BeNil())
 				})
 
 				It("should have automatic replacements enabled", func() {
@@ -807,6 +847,13 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have no configuration for other automatic replacement options", func() {
 					Expect(spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds).To(BeNil())
+				})
+
+				It("should have the probe settings for the sidecar", func() {
+					Expect(spec.SidecarContainer.EnableLivenessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableLivenessProbe).To(BeTrue())
+					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
+					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
 				})
 			})
 

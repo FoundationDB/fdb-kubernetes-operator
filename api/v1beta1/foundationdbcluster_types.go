@@ -166,7 +166,11 @@ type FoundationDBClusterSpec struct {
 
 	// Services defines the configuration for services that sit in front of our
 	// pods.
+	// Deprecated: Use Routing instead.
 	Services ServiceConfig `json:"services,omitempty"`
+
+	// Routing defines the configuration for routing to our pods.
+	Routing RoutingConfig `json:"routing,omitempty"`
 
 	// IgnoreUpgradabilityChecks determines whether we should skip the check for
 	// client compatibility when performing an upgrade.
@@ -1568,23 +1572,28 @@ type ProcessAddress struct {
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
-	components := strings.Split(address, ":")
 
-	if len(components) < 2 {
+	ipEnd := strings.Index(address, "]:") + 1
+	if ipEnd == 0 {
+		ipEnd = strings.Index(address, ":")
+	}
+	if ipEnd == -1 {
 		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
-	result.IPAddress = components[0]
+	result.IPAddress = address[:ipEnd]
 
-	port, err := strconv.Atoi(components[1])
+	components := strings.Split(address[ipEnd+1:], ":")
+
+	port, err := strconv.Atoi(components[0])
 	if err != nil {
 		return result, err
 	}
 	result.Port = port
 
-	if len(components) > 2 {
-		result.Flags = make(map[string]bool, len(components)-2)
-		for _, flag := range components[2:] {
+	if len(components) > 1 {
+		result.Flags = make(map[string]bool, len(components)-1)
+		for _, flag := range components[1:] {
 			result.Flags[flag] = true
 		}
 	}
@@ -1813,10 +1822,13 @@ type DataCenter struct {
 // ContainerOverrides provides options for customizing a container created by
 // the operator.
 type ContainerOverrides struct {
-	// EnableLivenessProbe defines if the sidecar should have a livenessProbe in addition
-	// to the readinessProbe. This setting will be enabled per default in the 1.0.0 release.
+	// EnableLivenessProbe defines if the sidecar should have a livenessProbe.
 	// This setting will be ignored on the main container.
-	EnableLivenessProbe bool `json:"enableLivenessProbe,omitempty"`
+	EnableLivenessProbe *bool `json:"enableLivenessProbe,omitempty"`
+
+	// EnableReadinessProbe defines if the sidecar should have a readinessProbe.
+	// This setting will be ignored on the main container.
+	EnableReadinessProbe *bool `json:"enableReadinessProbe,omitempty"`
 
 	// EnableTLS controls whether we should be listening on a TLS connection.
 	EnableTLS bool `json:"enableTls,omitempty"`
@@ -1994,13 +2006,13 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // NeedsExplicitListenAddress determines whether we pass a listen address
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
-	source := cluster.Spec.Services.PublicIPSource
+	source := cluster.Spec.Routing.PublicIPSource
 	return source != nil && *source == PublicIPSourceService
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
 func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
-	source := cluster.Spec.Services.PublicIPSource
+	source := cluster.Spec.Routing.PublicIPSource
 	if source == nil {
 		return PublicIPSourcePod
 	}
@@ -2383,6 +2395,7 @@ type LockDenyListEntry struct {
 }
 
 // ServiceConfig allows configuring services that sit in front of our pods.
+// Deprecated: Use RoutingConfig instead.
 type ServiceConfig struct {
 	// Headless determines whether we want to run a headless service for the
 	// cluster.
@@ -2393,6 +2406,26 @@ type ServiceConfig struct {
 	//
 	// This supports the values `pod` and `service`.
 	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
+}
+
+// RoutingConfig allows configuring routing to our pods, and services that sit
+// in front of them.
+type RoutingConfig struct {
+	// Headless determines whether we want to run a headless service for the
+	// cluster.
+	HeadlessService *bool `json:"headlessService,omitempty"`
+
+	// PublicIPSource specifies what source a process should use to get its
+	// public IPs.
+	//
+	// This supports the values `pod` and `service`.
+	PublicIPSource *PublicIPSource `json:"publicIPSource,omitempty"`
+
+	// PodIPFamily tells the pod which family of IP addresses to use.
+	// You can use 4 to represent IPv4, and 6 to represent IPv6.
+	// This feature is only supported in FDB 7.0 or later, and requires
+	// dual-stack support in your Kubernetes environment.
+	PodIPFamily *int `json:"podIPFamily,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen
