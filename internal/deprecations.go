@@ -319,6 +319,11 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		cluster.Spec.SidecarContainer.EnableReadinessProbe = &enabled
 	}
 
+	if cluster.Spec.LabelConfig.FilterOnOwnerReferences == nil {
+		enabled := !options.UseFutureDefaults
+		cluster.Spec.LabelConfig.FilterOnOwnerReferences = &enabled
+	}
+
 	return nil
 }
 

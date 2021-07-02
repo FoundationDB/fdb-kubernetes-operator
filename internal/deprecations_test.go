@@ -629,6 +629,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have the default label config", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
 				})
 			})
 
@@ -679,8 +681,10 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
 				})
 
-				It("should have no label config", func() {
+				It("should have changes to the label config", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
 				})
 			})
 
@@ -830,6 +834,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have the default label config", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})
 			})
 
@@ -875,8 +881,10 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
 				})
 
-				It("should have no label config", func() {
+				It("should have changes to the label config", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})
 			})
 

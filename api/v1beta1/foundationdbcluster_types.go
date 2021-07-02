@@ -2469,6 +2469,11 @@ type LabelConfig struct {
 	// MatchLabels provides the labels that the operator should use to identify
 	// resources owned by the cluster.
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// FilterOnOwnerReferences determines whether we should check that resources
+	// are owned by the cluster object, in addition to the constraints provided
+	// by the match labels.
+	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.
@@ -2561,4 +2566,10 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 	}
 
 	return math.MinInt64
+}
+
+// ShouldFilterOnOwnerReferences determines if we should check owner references
+// when determining if a resource is related to this cluster.
+func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
+	return cluster.Spec.LabelConfig.FilterOnOwnerReferences != nil && *cluster.Spec.LabelConfig.FilterOnOwnerReferences
 }

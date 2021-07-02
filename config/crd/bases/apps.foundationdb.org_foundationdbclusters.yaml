@@ -1307,6 +1307,8 @@ spec:
                   type: array
                 labels:
                   properties:
+                    filterOnOwnerReference:
+                      type: boolean
                     matchLabels:
                       additionalProperties:
                         type: string

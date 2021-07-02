@@ -962,11 +962,13 @@ func (manager StandardPodLifecycleManager) GetInstances(r *FoundationDBClusterRe
 	}
 	instances := make([]FdbInstance, 0, len(pods.Items))
 	for _, pod := range pods.Items {
-		ownedByCluster := false
-		for _, reference := range pod.ObjectMeta.OwnerReferences {
-			if reference.UID == cluster.UID {
-				ownedByCluster = true
-				break
+		ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
+		if !ownedByCluster {
+			for _, reference := range pod.ObjectMeta.OwnerReferences {
+				if reference.UID == cluster.UID {
+					ownedByCluster = true
+					break
+				}
 			}
 		}
 		if ownedByCluster {

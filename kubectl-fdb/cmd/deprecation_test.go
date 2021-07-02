@@ -157,6 +157,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 									Enabled: &trueValue,
 								},
 							},
+							LabelConfig: fdbtypes.LabelConfig{
+								FilterOnOwnerReferences: &trueValue,
+							},
 						},
 					},
 					inputClusters: []string{},
@@ -330,6 +333,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 								Replacements: fdbtypes.AutomaticReplacementOptions{
 									Enabled: &trueValue,
 								},
+							},
+							LabelConfig: fdbtypes.LabelConfig{
+								FilterOnOwnerReferences: &trueValue,
 							},
 						},
 					},
