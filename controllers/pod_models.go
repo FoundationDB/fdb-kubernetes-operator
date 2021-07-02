@@ -317,48 +317,56 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 
-	var affinity *corev1.Affinity
-
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
 		faultDomainKey = "kubernetes.io/hostname"
 	}
 
 	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
-		affinity = &corev1.Affinity{
-			PodAntiAffinity: &corev1.PodAntiAffinity{
-				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-					{
-						Weight: 1,
-						PodAffinityTerm: corev1.PodAffinityTerm{
-							TopologyKey: faultDomainKey,
-							LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-								fdbtypes.FDBClusterLabel:      cluster.ObjectMeta.Name,
-								fdbtypes.FDBProcessClassLabel: string(processClass),
-							}},
-						},
-					},
-				},
-			},
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &corev1.Affinity{}
 		}
+
+		if podSpec.Affinity.PodAntiAffinity == nil {
+			podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+		}
+
+		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			corev1.WeightedPodAffinityTerm{
+				Weight: 1,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					TopologyKey: faultDomainKey,
+					LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+						fdbtypes.FDBClusterLabel:      cluster.ObjectMeta.Name,
+						fdbtypes.FDBProcessClassLabel: string(processClass),
+					}},
+				},
+			})
 	}
 
 	for _, noScheduleInstanceID := range cluster.Spec.Buggify.NoSchedule {
-		if instanceID == noScheduleInstanceID {
-			if affinity == nil {
-				affinity = &corev1.Affinity{}
-			}
-			if affinity.NodeAffinity == nil {
-				affinity.NodeAffinity = &corev1.NodeAffinity{}
-			}
-			if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-				affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
-			}
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, corev1.NodeSelectorTerm{
+		if instanceID != noScheduleInstanceID {
+			continue
+		}
+
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &corev1.Affinity{}
+		}
+
+		if podSpec.Affinity.NodeAffinity == nil {
+			podSpec.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+		}
+
+		if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+		}
+
+		podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{
+			{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{
 					Key: fdbtypes.NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
 				}},
-			})
+			},
 		}
 	}
 
@@ -366,7 +374,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
 
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)
-	podSpec.Affinity = affinity
 
 	headlessService := GetHeadlessService(cluster)
 
