@@ -403,6 +403,10 @@ automationOptions:
   replacements:
     enabled: false
     failureDetectionTimeSeconds: 1800
+labels:
+  filterOnOwnerReference: true
+  matchLabels:
+    fdb-cluster-name: test
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
@@ -502,6 +506,8 @@ configMap:
     creationTimestamp: null
     labels:
       test: test
+labels:
+  filterOnOwnerReference: true
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
