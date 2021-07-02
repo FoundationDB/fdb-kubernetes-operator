@@ -2309,14 +2309,14 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 				var buf bytes.Buffer
 				for _, mf := range metricFamilies {
-					if strings.HasPrefix(mf.GetName(), "fdb_cluster_status") {
+					if strings.HasPrefix(mf.GetName(), "fdb_operator_cluster_status") {
 						_, err := expfmt.MetricFamilyToText(&buf, mf)
 						Expect(err).NotTo(HaveOccurred())
 					}
 				}
-				healthMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "health")
-				availMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "available")
-				replMetricOutput := fmt.Sprintf(`\nfdb_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "replication")
+				healthMetricOutput := fmt.Sprintf(`\nfdb_operator_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "health")
+				availMetricOutput := fmt.Sprintf(`\nfdb_operator_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "available")
+				replMetricOutput := fmt.Sprintf(`\nfdb_operator_cluster_status{name="%s",namespace="%s",status_type="%s"} 1`, cluster.Name, cluster.Namespace, "replication")
 				for _, re := range []*regexp.Regexp{
 					regexp.MustCompile(healthMetricOutput),
 					regexp.MustCompile(availMetricOutput),
