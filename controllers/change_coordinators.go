@@ -174,7 +174,7 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 	}
 
 	if !hasValidCoordinators {
-		return coordinators, ReconciliationNotReadyError{"new coordinators are not valid", true, 30 * time.Second}
+		return coordinators, fmt.Errorf("new coordinators are not valid")
 	}
 
 	if !allAddressesValid {
