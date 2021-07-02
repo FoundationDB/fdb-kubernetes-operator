@@ -885,13 +885,13 @@ func (instance FdbInstance) GetPublicIPs() []string {
 
 	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
-		return getPublicIpsForPod(instance.Pod)
+		return getPublicIPsForPod(instance.Pod)
 	}
 
 	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
 }
 
-func getPublicIpsForPod(pod *corev1.Pod) []string {
+func getPublicIPsForPod(pod *corev1.Pod) []string {
 	var podIPFamily *int
 
 	if pod == nil {
@@ -899,18 +899,19 @@ func getPublicIpsForPod(pod *corev1.Pod) []string {
 	}
 
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "foundationdb-kubernetes-sidecar" {
-			for indexOfArgument, argument := range container.Args {
-				if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
-					familyString := container.Args[indexOfArgument+1]
-					family, err := strconv.Atoi(familyString)
-					if err != nil {
-						log.Error(err, "Error parsing public IP family", "family", familyString)
-						return nil
-					}
-					podIPFamily = &family
-					break
+		if container.Name != "foundationdb-kubernetes-sidecar" {
+			continue
+		}
+		for indexOfArgument, argument := range container.Args {
+			if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
+				familyString := container.Args[indexOfArgument+1]
+				family, err := strconv.Atoi(familyString)
+				if err != nil {
+					log.Error(err, "Error parsing public IP family", "family", familyString)
+					return nil
 				}
+				podIPFamily = &family
+				break
 			}
 		}
 	}

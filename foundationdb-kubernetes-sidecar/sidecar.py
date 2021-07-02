@@ -338,7 +338,7 @@ class Config(object):
             raise Exception(f"Failed to find IPv{version} entry in {ips}")
         ip = matching_ips[0]
         if version == 6:
-            ip = "[%s]" % ip
+            ip = f"[{ip}]"
         return ip
 
 
