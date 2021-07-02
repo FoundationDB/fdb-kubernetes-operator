@@ -345,7 +345,9 @@ func getObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 func getMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
-	labels[fdbtypes.FDBClusterLabel] = cluster.ObjectMeta.Name
+	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+		labels[key] = value
+	}
 
 	if processClass != "" {
 		labels[fdbtypes.FDBProcessClassLabel] = string(processClass)

@@ -299,8 +299,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return status.ProcessGroups[i].ProcessGroupID < status.ProcessGroups[j].ProcessGroupID
 	})
 
-	status.LabelConfigs = []fdbtypes.LabelConfig{cluster.Spec.LabelConfig}
-
 	cluster.Status = status
 
 	_, err = cluster.CheckReconciliation()

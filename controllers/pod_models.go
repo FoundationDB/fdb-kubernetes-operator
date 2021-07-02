@@ -331,15 +331,18 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
 		}
 
+		labelSelectors := make(map[string]string, len(cluster.Spec.LabelConfig.MatchLabels)+1)
+		for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+			labelSelectors[key] = value
+		}
+		labelSelectors[fdbtypes.FDBProcessClassLabel] = string(processClass)
+
 		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			corev1.WeightedPodAffinityTerm{
 				Weight: 1,
 				PodAffinityTerm: corev1.PodAffinityTerm{
-					TopologyKey: faultDomainKey,
-					LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-						fdbtypes.FDBClusterLabel:      cluster.ObjectMeta.Name,
-						fdbtypes.FDBProcessClassLabel: string(processClass),
-					}},
+					TopologyKey:   faultDomainKey,
+					LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
 				},
 			})
 	}

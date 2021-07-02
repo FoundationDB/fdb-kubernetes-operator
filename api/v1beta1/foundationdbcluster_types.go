@@ -405,10 +405,6 @@ type FoundationDBClusterStatus struct {
 
 	// Locks contains information about the locking system.
 	Locks LockSystemStatus `json:"locks,omitempty"`
-
-	// LabelConfigs defines the known label configs that the operator has to
-	// support for this cluster.
-	LabelConfigs []LabelConfig `json:"labels,omitempty"`
 }
 
 // LockSystemStatus provides a summary of the status of the locking system.

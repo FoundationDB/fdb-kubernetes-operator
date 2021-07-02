@@ -8736,15 +8736,6 @@ spec:
                     format: int64
                     type: integer
                   type: object
-                labels:
-                  items:
-                    properties:
-                      matchLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
-                    type: object
-                  type: array
                 locks:
                   properties:
                     lockDenyList:

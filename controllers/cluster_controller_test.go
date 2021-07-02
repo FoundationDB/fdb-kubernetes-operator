@@ -2460,6 +2460,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		BeforeEach(func() {
 			cluster.Status.ConnectionString = fakeConnectionString
 			cluster.Status.RunningVersion = cluster.Spec.Version
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
