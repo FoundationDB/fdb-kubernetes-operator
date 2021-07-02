@@ -52,7 +52,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		originalPods = &corev1.PodList{}
@@ -212,7 +212,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 					},
 				},
 			}}}
-			err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 

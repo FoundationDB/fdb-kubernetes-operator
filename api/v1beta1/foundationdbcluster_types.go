@@ -309,6 +309,9 @@ type FoundationDBClusterSpec struct {
 	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
 	// the coordinator selection process could conflict.
 	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
+
+	// LabelConfig allows customizing labels used by the operator.
+	LabelConfig LabelConfig `json:"labels,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -402,6 +405,10 @@ type FoundationDBClusterStatus struct {
 
 	// Locks contains information about the locking system.
 	Locks LockSystemStatus `json:"locks,omitempty"`
+
+	// LabelConfigs defines the known label configs that the operator has to
+	// support for this cluster.
+	LabelConfigs []LabelConfig `json:"labels,omitempty"`
 }
 
 // LockSystemStatus provides a summary of the status of the locking system.
@@ -2459,6 +2466,13 @@ type BuggifyConfig struct {
 	// EmptyMonitorConf instructs the operator to update all of the fdbmonitor.conf
 	// files to have zero fdbserver processes configured.
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
+}
+
+// LabelConfig allows customizing labels used by the operator.
+type LabelConfig struct {
+	// MatchLabels provides the labels that the operator should use to identify
+	// resources owned by the cluster.
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 }
 
 // PublicIPSource models options for how a pod gets its public IP.

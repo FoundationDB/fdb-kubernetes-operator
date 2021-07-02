@@ -41,7 +41,7 @@ var _ = Describe("pod_models", func() {
 
 	BeforeEach(func() {
 		cluster = createDefaultCluster()
-		err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -145,7 +145,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -915,7 +915,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -943,7 +943,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1097,7 +1097,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1153,7 +1153,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1423,7 +1423,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1757,7 +1757,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1879,7 +1879,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -1914,7 +1914,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -1963,7 +1963,7 @@ var _ = Describe("pod_models", func() {
 				processSetting.AllowTagOverride = &allowTagOverride
 				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = processSetting
 
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 				Expect(err).NotTo(HaveOccurred())
 			})
 

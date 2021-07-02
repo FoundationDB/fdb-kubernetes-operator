@@ -110,7 +110,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, nil
 	}
 
-	err = internal.NormalizeClusterSpec(&cluster.Spec, r.DeprecationOptions)
+	err = internal.NormalizeClusterSpec(cluster, r.DeprecationOptions)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

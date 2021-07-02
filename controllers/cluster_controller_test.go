@@ -1335,7 +1335,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
@@ -1472,7 +1472,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should not update the annotations on other resources", func() {
 					pods := &corev1.PodList{}
 
-					err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+					err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
@@ -1582,7 +1582,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
@@ -3936,7 +3936,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		var instance FdbInstance
 
 		BeforeEach(func() {
-			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			instance = FdbInstance{}
 		})
