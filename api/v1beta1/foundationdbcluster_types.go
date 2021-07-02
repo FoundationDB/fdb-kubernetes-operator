@@ -719,6 +719,9 @@ const (
 	MissingService ProcessGroupConditionType = "MissingService"
 	// MissingProcesses represents a process group that misses a process.
 	MissingProcesses ProcessGroupConditionType = "MissingProcesses"
+	// ResourcesTerminating represents a process group whose resources are being
+	// terminated.
+	ResourcesTerminating ProcessGroupConditionType = "ResourcesTerminating"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 )
@@ -1360,11 +1363,14 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove && !processGroup.Excluded {
+		if !processGroup.Remove {
+			continue
+		}
+		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
+			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
+		} else {
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
-		} else if processGroup.Remove {
-			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		}
 	}
 

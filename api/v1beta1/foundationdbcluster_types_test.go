@@ -2472,7 +2472,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
-			cluster.Status.ProcessGroups[0].Excluded = true
+			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
 			result, err = cluster.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
@@ -2486,6 +2486,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Status.ProcessGroups[0].Remove = true
 			cluster.Status.ProcessGroups[0].Excluded = true
 			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
 			result, err = cluster.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
