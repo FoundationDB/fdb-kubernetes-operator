@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"encoding/json"
 	"math"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -481,19 +482,32 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
+	coordinators := []ProcessAddress{
+		{
+			IPAddress: net.ParseIP("127.0.0.1"),
+			Port:      4500,
+		},
+		{
+			IPAddress: net.ParseIP("127.0.0.2"),
+			Port:      4500,
+		},
+		{
+			IPAddress: net.ParseIP("127.0.0.3"),
+			Port:      4500,
+		},
+	}
+
 	When("parsing the connection string", func() {
 		It("should be parsed correctly", func() {
 			str, err := ParseConnectionString("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(str.DatabaseName).To(Equal("test"))
 			Expect(str.GenerationID).To(Equal("abcd"))
-			Expect(str.Coordinators).To(Equal([]string{
-				"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
-			}))
+			Expect(str.Coordinators).To(Equal(coordinators))
 
 			str, err = ParseConnectionString("test:abcd")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Invalid connection string test:abcd"))
+			Expect(err.Error()).To(Equal("invalid connection string test:abcd"))
 		})
 	})
 
@@ -502,9 +516,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: []string{
-					"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
-				},
+				Coordinators: coordinators,
 			}
 			Expect(str.String()).To(Equal("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"))
 		})
@@ -515,9 +527,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: []string{
-					"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
-				},
+				Coordinators: coordinators,
 			}
 			err := str.GenerateNewGenerationID()
 			Expect(err).NotTo(HaveOccurred())
@@ -530,13 +540,26 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: []string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500"},
+				Coordinators: coordinators,
 			}
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500"})).To(BeTrue())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.3:4500", "127.0.0.2:4500"})).To(BeTrue())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500", "127.0.0.4:4500"})).To(BeFalse())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.4:4500"})).To(BeFalse())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500"})).To(BeFalse())
+			Expect(str.HasCoordinators(coordinators)).To(BeTrue())
+			// We have to copy the slice to prevent to modify the original slice
+			// See: https://golang.org/ref/spec#Appending_and_copying_slices
+			newCoord := make([]ProcessAddress, len(coordinators))
+			copy(newCoord, coordinators)
+			rand.Shuffle(len(newCoord), func(i, j int) {
+				newCoord[i], newCoord[j] = newCoord[j], newCoord[i]
+			})
+			Expect(str.HasCoordinators(newCoord)).To(BeTrue())
+			newCoord = make([]ProcessAddress, len(coordinators))
+			copy(newCoord, coordinators)
+			newCoord = append(newCoord, ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
+			newCoord = make([]ProcessAddress, len(coordinators))
+			copy(newCoord, coordinators)
+			newCoord = append(newCoord[:2], ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
+			Expect(str.HasCoordinators(newCoord[:2])).To(BeFalse())
 		})
 	})
 
@@ -2722,24 +2745,45 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			func(tc testCase) {
 				tc.initialProcessGroup.AddAddresses(tc.inputAddresses)
 				Expect(tc.expectedProcessGroup).To(Equal(tc.initialProcessGroup))
+
 			},
 			Entry("Empty input address",
+
 				testCase{
-					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
-					inputAddresses:       []string{""},
-					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
+					initialProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+					}},
+					inputAddresses: nil,
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+					}},
 				}),
 			Entry("New Pod IP",
 				testCase{
-					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
-					inputAddresses:       []string{"2.2.2.2"},
-					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"2.2.2.2"}},
+					initialProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+					}},
+					inputAddresses: []string{
+						"2.2.2.2",
+					},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"2.2.2.2",
+					}},
 				}),
 			Entry("New Pod IP and process group is marked for removal",
 				testCase{
-					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}, Remove: true},
-					inputAddresses:       []string{"2.2.2.2"},
-					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"1.1.1.1", "2.2.2.2"}, Remove: true},
+					initialProcessGroup: ProcessGroupStatus{
+						Addresses: []string{
+							"1.1.1.1",
+						},
+						Remove: true},
+					inputAddresses: []string{
+						"2.2.2.2",
+					},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+						"2.2.2.2",
+					}, Remove: true},
 				}),
 		)
 	})

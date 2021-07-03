@@ -33,7 +33,7 @@ type FoundationDBStatusCoordinatorInfo struct {
 // coordinators.
 type FoundationDBStatusCoordinator struct {
 	// Address provides the coordinator's address.
-	Address string `json:"address,omitempty"`
+	Address ProcessAddress `json:"address,omitempty"`
 
 	// Reachable indicates whether the coordinator is reachable.
 	Reachable bool `json:"reachable,omitempty"`
@@ -69,7 +69,7 @@ type FoundationDBStatusClusterInfo struct {
 // cluster status
 type FoundationDBStatusProcessInfo struct {
 	// Address provides the address of the process.
-	Address string `json:"address,omitempty"`
+	Address ProcessAddress `json:"address,omitempty"`
 
 	// ProcessClass provides the process class the process has been given.
 	ProcessClass ProcessClass `json:"class_type,omitempty"`

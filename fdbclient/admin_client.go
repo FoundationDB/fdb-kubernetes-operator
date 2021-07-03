@@ -225,30 +225,9 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 	return err
 }
 
-// removeAddressFlags strips the flags from the end of the addresses, leaving
-// only the IP and port.
-func removeAddressFlags(address string) string {
-	components := strings.Split(address, ":")
-	if len(components) < 2 {
-		return address
-	}
-
-	return fmt.Sprintf("%s:%s", components[0], components[1])
-}
-
-// removeAddressFlagsFromAll strips the flags from the end of the addresses,
-// leaving only the IP and port.
-func removeAddressFlagsFromAll(addresses []string) []string {
-	results := make([]string, 0, len(addresses))
-	for _, address := range addresses {
-		results = append(results, removeAddressFlags(address))
-	}
-	return results
-}
-
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
-func (client *cliAdminClient) ExcludeInstances(addresses []string) error {
+func (client *cliAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -262,13 +241,13 @@ func (client *cliAdminClient) ExcludeInstances(addresses []string) error {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude no_wait %s",
-				strings.Join(addresses, " "),
+				fdbtypes.ProcessAddressesString(addresses, " "),
 			)})
 	} else {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude %s",
-				strings.Join(addresses, " "),
+				fdbtypes.ProcessAddressesString(addresses, " "),
 			)})
 	}
 	return err
@@ -276,30 +255,34 @@ func (client *cliAdminClient) ExcludeInstances(addresses []string) error {
 
 // IncludeInstances removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *cliAdminClient) IncludeInstances(addresses []string) error {
+func (client *cliAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"include %s",
-		strings.Join(addresses, " "),
+		fdbtypes.ProcessAddressesString(addresses, " "),
 	)})
 	return err
 }
 
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
-func (client *cliAdminClient) GetExclusions() ([]string, error) {
+func (client *cliAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error) {
 	output, err := client.runCommand(cliCommand{command: "exclude"})
 	if err != nil {
 		return nil, err
 	}
 	lines := strings.Split(output, "\n")
-	exclusions := make([]string, 0, len(lines))
+	exclusions := make([]fdbtypes.ProcessAddress, 0, len(lines))
 	for _, line := range lines {
 		exclusionMatch := exclusionLinePattern.FindStringSubmatch(line)
 		if exclusionMatch != nil {
-			exclusions = append(exclusions, exclusionMatch[1])
+			pAddr, err := fdbtypes.ParseProcessAddress(exclusionMatch[1])
+			if err != nil {
+				return nil, err
+			}
+			exclusions = append(exclusions, pAddr)
 		}
 	}
 	return exclusions, nil
@@ -310,7 +293,7 @@ func (client *cliAdminClient) GetExclusions() ([]string, error) {
 //
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
-func (client *cliAdminClient) CanSafelyRemove(addresses []string) ([]string, error) {
+func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
 	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
 		return nil, err
@@ -319,24 +302,25 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []string) ([]string, err
 	if version.HasNonBlockingExcludes() {
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
-			strings.Join(addresses, " "),
+			fdbtypes.ProcessAddressesString(addresses, " "),
 		)})
 		if err != nil {
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
 		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", addresses, "results", exclusionResults)
-		remaining := make([]string, 0, len(addresses))
+		remaining := make([]fdbtypes.ProcessAddress, 0, len(addresses))
 		for _, address := range addresses {
-			if exclusionResults[address] != "Success" && exclusionResults[address] != "Missing" {
+			if exclusionResults[address.String()] != "Success" && exclusionResults[address.String()] != "Missing" {
 				remaining = append(remaining, address)
 			}
 		}
+
 		return remaining, nil
 	}
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
 		"exclude %s",
-		strings.Join(addresses, " "),
+		fdbtypes.ProcessAddressesString(addresses, " "),
 	)})
 	return nil, err
 }
@@ -364,22 +348,22 @@ func parseExclusionOutput(output string) map[string]string {
 }
 
 // KillInstances restarts processes
-func (client *cliAdminClient) KillInstances(addresses []string) error {
+func (client *cliAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"kill; kill %s; status",
-		strings.Join(removeAddressFlagsFromAll(addresses), " "),
+		fdbtypes.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)})
 	return err
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *cliAdminClient) ChangeCoordinators(addresses []string) (string, error) {
+func (client *cliAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"coordinators %s",
-		strings.Join(addresses, " "),
+		fdbtypes.ProcessAddressesString(addresses, " "),
 	)})
 	if err != nil {
 		return "", err

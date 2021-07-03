@@ -23,6 +23,7 @@ package controllers
 import (
 	"fmt"
 	"math"
+	"net"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -741,8 +742,11 @@ func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProces
 				fdbtypes.FDBLocalityZoneIDKey:     zondeid,
 				fdbtypes.FDBLocalityDCIDKey:       dcid,
 			},
-			Excluded:    excluded,
-			Address:     addr,
+			Excluded: excluded,
+			Address: fdbtypes.ProcessAddress{
+				IPAddress: net.ParseIP(fmt.Sprintf("1.1.1.%d", len(res))),
+				Port:      4501,
+			},
 			CommandLine: fmt.Sprintf("/fdbserver --public_address=%s", addr),
 		}
 	}

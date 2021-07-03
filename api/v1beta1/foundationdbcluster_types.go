@@ -482,6 +482,7 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string) {
 func cleanAddressList(addresses []string) []string {
 	result := make([]string, 0, len(addresses))
 	resultMap := make(map[string]bool)
+
 	for _, value := range addresses {
 		if value != "" && !resultMap[value] {
 			result = append(result, value)
@@ -1555,7 +1556,7 @@ type ConnectionString struct {
 	GenerationID string `json:"generationID,omitempty"`
 
 	// Coordinators provides the addresses of the current coordinators.
-	Coordinators []string `json:"coordinators,omitempty"`
+	Coordinators []ProcessAddress `json:"coordinators,omitempty"`
 }
 
 // ParseConnectionString parses a connection string from its string
@@ -1563,18 +1564,30 @@ type ConnectionString struct {
 func ParseConnectionString(str string) (ConnectionString, error) {
 	components := connectionStringPattern.FindStringSubmatch(str)
 	if components == nil {
-		return ConnectionString{}, fmt.Errorf("Invalid connection string %s", str)
+		return ConnectionString{}, fmt.Errorf("invalid connection string %s", str)
 	}
+
+	coordinatorsStrings := strings.Split(components[3], ",")
+	coordinators := make([]ProcessAddress, len(coordinatorsStrings))
+	for idx, coordinatorsString := range coordinatorsStrings {
+		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
+		if err != nil {
+			return ConnectionString{}, err
+		}
+
+		coordinators[idx] = coordinatorAddress
+	}
+
 	return ConnectionString{
 		components[1],
 		components[2],
-		strings.Split(components[3], ","),
+		coordinators,
 	}, nil
 }
 
 // String formats a connection string as a string
 func (str *ConnectionString) String() string {
-	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, strings.Join(str.Coordinators, ","))
+	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, ProcessAddressesString(str.Coordinators, ","))
 }
 
 // GenerateNewGenerationID builds a new generation ID
@@ -1592,9 +1605,108 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 
 // ProcessAddress provides a structured address for a process.
 type ProcessAddress struct {
-	IPAddress net.IP
-	Port      int
-	Flags     map[string]bool
+	IPAddress   net.IP          `json:"address,omitempty"`
+	Placeholder string          `json:"-"`
+	Port        int             `json:"port,omitempty"`
+	Flags       map[string]bool `json:"flags,omitempty"`
+}
+
+// NewProcessAddress creates a new ProcessAddress if the provided placeholder is a valid IP address it will be set as
+// IPAddress.
+func NewProcessAddress(address net.IP, placeholder string, port int, flags map[string]bool) ProcessAddress {
+	pAddr := ProcessAddress{
+		IPAddress:   address,
+		Placeholder: placeholder,
+		Port:        port,
+		Flags:       flags,
+	}
+
+	// If we have a valid IP address in the Placeholder we can set the
+	// IPAddress accordingly.
+	ip := net.ParseIP(pAddr.Placeholder)
+	if ip != nil {
+		pAddr.IPAddress = ip
+		pAddr.Placeholder = ""
+	}
+
+	return pAddr
+}
+
+// IsEmpty returns true if a ProcessAddress is not set
+func (address ProcessAddress) IsEmpty() bool {
+	return address.IPAddress == nil
+}
+
+// Equal checks if two ProcessAddress are the same
+func (address ProcessAddress) Equal(addressB ProcessAddress) bool {
+	if !address.IPAddress.Equal(addressB.IPAddress) {
+		return false
+	}
+
+	if address.Port != addressB.Port {
+		return false
+	}
+
+	if len(address.Flags) != len(addressB.Flags) {
+		return false
+	}
+
+	for k, v := range address.Flags {
+		if v != addressB.Flags[k] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ProcessAddressesString converts a slice of ProcessAddress into a string joined by the separator
+func ProcessAddressesString(pAddrs []ProcessAddress, sep string) string {
+	sb := strings.Builder{}
+	maxIdx := len(pAddrs) - 1
+	for idx, pAddr := range pAddrs {
+		sb.WriteString(pAddr.String())
+
+		if idx < maxIdx {
+			sb.WriteString(sep)
+		}
+	}
+
+	return sb.String()
+}
+
+// ProcessAddressesStringWithoutFlags converts a slice of ProcessAddress into a string joined by the separator
+// without the flags
+func ProcessAddressesStringWithoutFlags(pAddrs []ProcessAddress, sep string) string {
+	sb := strings.Builder{}
+	maxIdx := len(pAddrs) - 1
+	for idx, pAddr := range pAddrs {
+		sb.WriteString(pAddr.StringWithoutFlags())
+
+		if idx < maxIdx {
+			sb.WriteString(sep)
+		}
+	}
+
+	return sb.String()
+}
+
+// UnmarshalJSON defines the parsing method for the ProcessAddress field from JSON to struct
+func (address *ProcessAddress) UnmarshalJSON(data []byte) error {
+	trimmed := strings.Trim(string(data), "\"")
+	parsedAddr, err := ParseProcessAddress(trimmed)
+	if err != nil {
+		return err
+	}
+
+	*address = parsedAddr
+
+	return nil
+}
+
+// MarshalJSON defines the parsing method for the ProcessAddress field from struct to JSON
+func (address ProcessAddress) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", address.String())), nil
 }
 
 // ParseProcessAddress parses a structured address from its string
@@ -1679,8 +1791,18 @@ func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) 
 
 // String gets the string representation of an address.
 func (address ProcessAddress) String() string {
+	if address.Port == 0 {
+		return address.IPAddress.String()
+	}
+
 	var sb strings.Builder
-	sb.WriteString(net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port)))
+	// We have to do this since we are creating a template file for the processes.
+	// The template file will contain variables like POD_IP which is not a valid net.IP :)
+	if address.Placeholder == "" {
+		sb.WriteString(net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port)))
+	} else {
+		sb.WriteString(net.JoinHostPort(address.Placeholder, strconv.Itoa(address.Port)))
+	}
 
 	flags := make([]string, 0, len(address.Flags))
 	for flag, set := range address.Flags {
@@ -1700,10 +1822,25 @@ func (address ProcessAddress) String() string {
 	return sb.String()
 }
 
+// StringWithoutFlags gets the string representation of an address without flags.
+func (address ProcessAddress) StringWithoutFlags() string {
+	if address.Port == 0 {
+		return address.IPAddress.String()
+	}
+
+	return net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port))
+}
+
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumber int) string {
-	return cluster.GetFullAddressList(ipAddress, true, processNumber)
+func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumber int) ProcessAddress {
+	addresses := cluster.GetFullAddressList(ipAddress, true, processNumber)
+	if len(addresses) < 1 {
+		return ProcessAddress{}
+	}
+
+	// First element will always be the primary
+	return addresses[0]
 }
 
 // GetProcessPort returns the expected port for a given process number
@@ -1724,28 +1861,29 @@ func GetProcessPort(processNumber int, tls bool) int {
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool, processNumber int) string {
-	addressMap := make(map[string]bool)
-
+func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []ProcessAddress {
+	addrs := make([]ProcessAddress, 0, 2)
 	// When a TLS address is provided the TLS address will always be the primary address
 	// see: https://github.com/apple/foundationdb/blob/master/fdbrpc/FlowTransport.h#L49-L56
 	if cluster.Status.RequiredAddresses.TLS {
-		addressMap[fmt.Sprintf("%s:%d:tls", ipAddress, GetProcessPort(processNumber, true))] = cluster.Status.RequiredAddresses.TLS
-	}
-	if cluster.Status.RequiredAddresses.NonTLS {
-		addressMap[fmt.Sprintf("%s:%d", ipAddress, GetProcessPort(processNumber, false))] = !cluster.Status.RequiredAddresses.TLS
-	}
+		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, true), map[string]bool{"tls": true})
+		addrs = append(addrs, pAddr)
 
-	addresses := make([]string, 1, 1+len(addressMap))
-	for address, primary := range addressMap {
-		if primary {
-			addresses[0] = address
-		} else if !primaryOnly {
-			addresses = append(addresses, address)
+		if cluster.Status.RequiredAddresses.TLS && primaryOnly {
+			return addrs
 		}
 	}
 
-	return strings.Join(addresses, ",")
+	if cluster.Status.RequiredAddresses.NonTLS {
+		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, false), nil)
+		if !cluster.Status.RequiredAddresses.TLS && primaryOnly {
+			return []ProcessAddress{pAddr}
+		}
+
+		addrs = append(addrs, pAddr)
+	}
+
+	return addrs
 }
 
 // GetFullSidecarVersion gets the version of the image for the sidecar,
@@ -1767,12 +1905,14 @@ func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool
 
 // HasCoordinators checks whether this connection string matches a set of
 // coordinators.
-func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
+func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
 	for _, address := range str.Coordinators {
-		matchedCoordinators[address] = false
+		matchedCoordinators[address.String()] = false
 	}
-	for _, address := range coordinators {
+
+	for _, pAddr := range coordinators {
+		address := pAddr.String()
 		_, matched := matchedCoordinators[address]
 		if matched {
 			matchedCoordinators[address] = true
@@ -1780,11 +1920,13 @@ func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
 			return false
 		}
 	}
+
 	for _, matched := range matchedCoordinators {
 		if !matched {
 			return false
 		}
 	}
+
 	return true
 }
 

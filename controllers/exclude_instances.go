@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"net"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -48,7 +49,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		}
 	}
 
-	addresses := make([]string, 0, removalCount)
+	addresses := make([]fdbtypes.ProcessAddress, 0, removalCount)
 
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
@@ -58,13 +59,13 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 		currentExclusionMap := make(map[string]bool, len(exclusions))
 		for _, address := range exclusions {
-			currentExclusionMap[address] = true
+			currentExclusionMap[address.String()] = true
 		}
 
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			for _, address := range processGroup.Addresses {
 				if processGroup.Remove && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
-					addresses = append(addresses, address)
+					addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(address)})
 				}
 			}
 		}
