@@ -369,7 +369,7 @@ ProcessAddress provides a structured address for a process.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| IPAddress |  | string | false |
+| IPAddress |  | net.IP | false |
 | Port |  | int | false |
 | Flags |  | map[string]bool | false |
 
