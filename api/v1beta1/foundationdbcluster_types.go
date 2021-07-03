@@ -22,6 +22,7 @@ import (
 	"html/template"
 	"math"
 	"math/rand"
+	"net"
 	"reflect"
 	"regexp"
 	"sort"
@@ -1591,7 +1592,7 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 
 // ProcessAddress provides a structured address for a process.
 type ProcessAddress struct {
-	IPAddress string
+	IPAddress net.IP
 	Port      int
 	Flags     map[string]bool
 }
@@ -1601,29 +1602,45 @@ type ProcessAddress struct {
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
 
-	ipEnd := strings.Index(address, "]:") + 1
-	if ipEnd == 0 {
-		ipEnd = strings.Index(address, ":")
-	}
-	if ipEnd == -1 {
-		return result, fmt.Errorf("invalid address: %s", address)
-	}
+	// In order to find the address port pair we will go over the address stored in a tmp String.
+	// The idea is to split from the right to the left. If we find a Substring that is not a valid host port pair
+	// we can trim the last part and store it as a flag e.g. ":tls" and try the next substring with the flag removed.
+	// Currently FoundationDB only supports the "tls" flag but with this function we are able to also parse any additional
+	// future flags.
+	tmpStr := address
+	for tmpStr != "" {
+		addr, port, err := net.SplitHostPort(tmpStr)
 
-	result.IPAddress = address[:ipEnd]
-
-	components := strings.Split(address[ipEnd+1:], ":")
-
-	port, err := strconv.Atoi(components[0])
-	if err != nil {
-		return result, err
-	}
-	result.Port = port
-
-	if len(components) > 1 {
-		result.Flags = make(map[string]bool, len(components)-1)
-		for _, flag := range components[1:] {
-			result.Flags[flag] = true
+		// If we didn't get an error we found the addr:port
+		// part of the ProcessAddress.
+		if err == nil {
+			result.IPAddress = net.ParseIP(addr)
+			iPort, err := strconv.Atoi(port)
+			if err != nil {
+				return result, err
+			}
+			result.Port = iPort
+			break
 		}
+
+		// Search for the last : in our tmpStr.
+		// If there is no other : in our tmpStr we can abort since we don't
+		// have a valid address port pair left.
+		idx := strings.LastIndex(tmpStr, ":")
+		if idx == -1 {
+			break
+		}
+
+		if result.Flags == nil {
+			result.Flags = map[string]bool{}
+		}
+
+		result.Flags[tmpStr[idx+1:]] = true
+		tmpStr = tmpStr[:idx]
+	}
+
+	if result.IPAddress == nil {
+		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
 	return result, nil
@@ -1663,7 +1680,7 @@ func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) 
 // String gets the string representation of an address.
 func (address ProcessAddress) String() string {
 	var sb strings.Builder
-	sb.WriteString(address.IPAddress + ":" + strconv.Itoa(address.Port))
+	sb.WriteString(net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port)))
 
 	flags := make([]string, 0, len(address.Flags))
 	for flag, set := range address.Flags {

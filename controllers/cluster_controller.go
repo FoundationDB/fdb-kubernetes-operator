@@ -1321,7 +1321,10 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 		addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
 		if err != nil {
-			return false, false, err
+			// We will end here in the error case when the address
+			// is not parsable e.g. no IP address is assigned.
+			allAddressesValid = false
+			continue
 		}
 
 		var address string
