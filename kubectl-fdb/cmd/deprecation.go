@@ -152,17 +152,17 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 
 		clusterCounter++
 		originalSpec := cluster.Spec.DeepCopy()
-		err = internal.NormalizeClusterSpec(&cluster.Spec, deprecationOptions)
+		err = internal.NormalizeClusterSpec(&cluster, deprecationOptions)
 		if err != nil {
 			return err
 		}
 
-		originalYAML, err := yaml.Marshal(originalSpec)
+		originalYAML, err := getMinimalYAML(originalSpec)
 		if err != nil {
 			return err
 		}
 
-		normalizedYAML, err := yaml.Marshal(cluster.Spec)
+		normalizedYAML, err := getMinimalYAML(cluster.Spec)
 		if err != nil {
 			return err
 		}
@@ -192,4 +192,30 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 
 	cmd.Printf("%d cluster(s) without deprecations\n", clusterCounter)
 	return nil
+}
+
+func getMinimalYAML(object interface{}) ([]byte, error) {
+	rawYAML, err := yaml.Marshal(object)
+	if err != nil {
+		return nil, err
+	}
+	genericObject := make(map[string]interface{})
+	err = yaml.Unmarshal(rawYAML, &genericObject)
+	if err != nil {
+		return nil, err
+	}
+	removeEmptyFields(genericObject)
+	return yaml.Marshal(genericObject)
+}
+
+func removeEmptyFields(object map[string]interface{}) {
+	for field, value := range object {
+		mapValue, isMap := value.(map[string]interface{})
+		if isMap {
+			removeEmptyFields(mapValue)
+			if len(mapValue) == 0 {
+				delete(object, field)
+			}
+		}
+	}
 }

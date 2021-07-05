@@ -85,7 +85,7 @@ var _ = Describe("[plugin] exec command", func() {
 				_ = fdbtypes.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 
-				command, err := buildCommand(kubeClient, input.ClusterName, input.Context, namespace, input.Command)
+				command, err := buildCommand(kubeClient, &cluster, input.Context, namespace, input.Command)
 
 				if input.ExpectedError != "" {
 					Expect(err).To(HaveOccurred())
@@ -100,19 +100,12 @@ var _ = Describe("[plugin] exec command", func() {
 			},
 			Entry("Exec into instance with valid pod",
 				testCase{
-					ClusterName:  "test",
 					ExpectedArgs: []string{"--namespace", "test", "exec", "-it", "instance-1", "--", "bash"},
 				}),
 			Entry("Exec into instance with explicit context",
 				testCase{
-					ClusterName:  "test",
 					Context:      "remote-kc",
 					ExpectedArgs: []string{"--context", "remote-kc", "--namespace", "test", "exec", "-it", "instance-1", "--", "bash"},
-				}),
-			Entry("Exec into instance with missing pod",
-				testCase{
-					ClusterName:   "test-2",
-					ExpectedError: "no usable pods found for cluster test-2",
 				}),
 		)
 	})

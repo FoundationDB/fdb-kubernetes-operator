@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,10 +34,10 @@ import (
 type AddPods struct{}
 
 // Reconcile runs the reconciler's work.
-func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	configMap, err := GetConfigMap(cluster)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
@@ -46,15 +45,15 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		log.Info("Creating config map", "namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name)
 		err = r.Create(context, configMap)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 	} else if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	instanceMap := make(map[string]FdbInstance, len(instances))
@@ -67,53 +66,47 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		if !instanceExists && !processGroup.Remove {
 			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 
 			pod, err := GetPod(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
 				r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
-				return false, err
+				return &Requeue{Error: err}
 			}
 
 			serverPerPod, err := getStorageServersPerPodForPod(pod)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 
 			configMapHash, err := getDynamicConfHash(configMap, processGroup.ProcessClass, serverPerPod)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 
 			pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
 
-			if *cluster.Spec.Services.PublicIPSource == fdbtypes.PublicIPSourceService {
+			if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
 				service := &corev1.Service{}
 				err = r.Get(context, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 				if err != nil {
-					return false, err
+					return &Requeue{Error: err}
 				}
 				ip := service.Spec.ClusterIP
 				if ip == "" {
 					log.Info("Service does not have an IP address", "namespace", cluster.Namespace, "cluster", cluster.Name, "podName", pod.Name)
-					return false, nil
+					return &Requeue{Message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
 				}
 				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
 			}
 
 			err = r.PodLifecycleManager.CreateInstance(r, context, pod)
 			if err != nil {
-				return false, err
+				return &Requeue{Error: err}
 			}
 		}
 	}
 
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (a AddPods) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }

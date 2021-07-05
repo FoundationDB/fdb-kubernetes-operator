@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"fmt"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -73,6 +71,8 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 		return ctrl.Result{}, err
 	}
 
+	backupLog := log.WithValues("namespace", backup.Namespace, "backup", backup.Name)
+
 	subReconcilers := []BackupSubReconciler{
 		UpdateBackupStatus{},
 		UpdateBackupAgents{},
@@ -84,29 +84,20 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 	}
 
 	for _, subReconciler := range subReconcilers {
-		canContinue, err := subReconciler.Reconcile(r, ctx, backup)
-		if !canContinue || err != nil {
-			log.Info("Reconciliation terminated early", "namespace", backup.Namespace, "backup", backup.Name, "lastAction", fmt.Sprintf("%T", subReconciler))
+		requeue := subReconciler.Reconcile(r, ctx, backup)
+		if requeue == nil {
+			continue
 		}
 
-		if err != nil {
-			log.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", backup.Namespace, "backup", backup.Name)
-			return ctrl.Result{}, err
-		} else if backup.ObjectMeta.Generation != originalGeneration {
-			log.Info("Ending reconciliation early because backup has been updated")
-			return ctrl.Result{}, nil
-		} else if !canContinue {
-			log.Info("Requeuing reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "namespace", backup.Namespace, "backup", backup.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: subReconciler.RequeueAfter()}, nil
-		}
+		return processRequeue(requeue, subReconciler, backup, r.Recorder, backupLog)
 	}
 
 	if backup.Status.Generations.Reconciled < originalGeneration {
-		log.Info("Backup was not fully reconciled by reconciliation process")
+		backupLog.Info("Backup was not fully reconciled by reconciliation process")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	log.Info("Reconciliation complete", "namespace", backup.Namespace, "backup", backup.Name)
+	backupLog.Info("Reconciliation complete")
 
 	return ctrl.Result{}, nil
 }
@@ -154,25 +145,18 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxCon
 }
 
 // BackupSubReconciler describes a class that does part of the work of
-// reconciliation for a cluster.
+// reconciliation for a backup.
 type BackupSubReconciler interface {
 	/**
 	Reconcile runs the reconciler's work.
 
-	If reconciliation can continue, this should return (true, nil).
+	If reconciliation can continue, this should return nil.
 
-	If reconciliation encounters an error, this should return (false, err).
+	If reconciliation encounters an error, this should return a Requeue object
+	with an `Error` field.
 
-	If reconciliation cannot proceed, or if this method has to make a change
-	to the cluster spec, this should return (false, nil).
-
-	This method will only be called once for a given instance of the reconciler.
+	If reconciliation cannot proceed, this should return a Requeue object with a
+	`Message` field.
 	*/
-	Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) (bool, error)
-
-	/**
-	RequeueAfter returns the delay before we should run the reconciliation
-	again.
-	*/
-	RequeueAfter() time.Duration
+	Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue
 }

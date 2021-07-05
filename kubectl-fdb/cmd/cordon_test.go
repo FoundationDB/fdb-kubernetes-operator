@@ -112,7 +112,7 @@ var _ = Describe("[plugin] cordon command", func() {
 				_ = fdbtypes.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList, &nodeList).Build()
 
-				err := cordonNode(kubeClient, clusterName, input.nodes, namespace, input.WithExclusion, true)
+				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbtypes.FoundationDBCluster

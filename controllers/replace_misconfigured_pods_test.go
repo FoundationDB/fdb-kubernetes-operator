@@ -160,7 +160,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				ipSource := fdbtypes.PublicIPSourceService
-				cluster.Spec.Services.PublicIPSource = &ipSource
+				cluster.Spec.Routing.PublicIPSource = &ipSource
 				needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -191,13 +191,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Remove:         false,
 			}
 			ipSource := fdbtypes.PublicIPSourceService
-			cluster.Spec.Services.PublicIPSource = &ipSource
+			cluster.Spec.Routing.PublicIPSource = &ipSource
 
 			needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 
-			cluster.Spec.Services.PublicIPSource = nil
+			cluster.Spec.Routing.PublicIPSource = nil
 			needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -229,7 +229,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			ipSource := fdbtypes.PublicIPSourcePod
-			cluster.Spec.Services.PublicIPSource = &ipSource
+			cluster.Spec.Routing.PublicIPSource = &ipSource
 			needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
 			Expect(needsRemoval).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
@@ -377,7 +377,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				ProcessGroupID: instanceName,
 				Remove:         false,
 			}
-			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 
 			cluster.Spec.UpdatePodsByReplacement = true
@@ -392,7 +392,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		var instance FdbInstance
 
 		BeforeEach(func() {
-			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
 			Expect(err).NotTo(HaveOccurred())

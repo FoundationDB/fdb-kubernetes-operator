@@ -33,17 +33,17 @@ import (
 type ReplaceFailedPods struct{}
 
 // Reconcile runs the reconciler's work.
-func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	if chooseNewRemovals(cluster) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
-		return false, nil
+		return &Requeue{Message: "Removals have been updated in the cluster status"}
 	}
 
-	return true, nil
+	return nil
 }
 
 // chooseNewRemovals flags failed processes for removal and returns an indicator
@@ -97,10 +97,4 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 	}
 
 	return hasReplacement
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (c ReplaceFailedPods) RequeueAfter() time.Duration {
-	return 0
 }

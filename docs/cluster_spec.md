@@ -10,6 +10,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
 * [ContainerOverrides](#containeroverrides)
+* [CoordinatorSelectionSetting](#coordinatorselectionsetting)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
 * [FoundationDBCluster](#foundationdbcluster)
@@ -18,6 +19,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
+* [LabelConfig](#labelconfig)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
@@ -30,6 +32,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [Region](#region)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoleCounts](#rolecounts)
+* [RoutingConfig](#routingconfig)
 * [ServiceConfig](#serviceconfig)
 * [VersionFlags](#versionflags)
 
@@ -113,13 +116,25 @@ ContainerOverrides provides options for customizing a container created by the o
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| enableLivenessProbe | EnableLivenessProbe defines if the sidecar should have a livenessProbe in addition to the readinessProbe. This setting will be enabled per default in the 1.0.0 release. This setting will be ignored on the main container. | bool | false |
+| enableLivenessProbe | EnableLivenessProbe defines if the sidecar should have a livenessProbe. This setting will be ignored on the main container. | *bool | false |
+| enableReadinessProbe | EnableReadinessProbe defines if the sidecar should have a readinessProbe. This setting will be ignored on the main container. | *bool | false |
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
 | env | Env provides environment variables.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core) | false |
 | volumeMounts | VolumeMounts provides volume mounts.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
 | imageName | ImageName provides the name of the image to use for the container, without the version tag.  **Deprecated: Use the PodTemplate field instead.** | string | false |
 | securityContext | SecurityContext provides the container's security context.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core) | false |
+
+[Back to TOC](#table-of-contents)
+
+## CoordinatorSelectionSetting
+
+CoordinatorSelectionSetting defines the process class and the priority of it. A higher priority means that the process class is preferred over another.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| processClass |  | ProcessClass | false |
+| priority |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -228,7 +243,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. | string | false |
 | updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. | bool | false |
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
-| services | Services defines the configuration for services that sit in front of our pods. | [ServiceConfig](#serviceconfig) | false |
+| services | Services defines the configuration for services that sit in front of our pods. **Deprecated: Use Routing instead.** | [ServiceConfig](#serviceconfig) | false |
+| routing | Routing defines the configuration for routing to our pods. | [RoutingConfig](#routingconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
 | buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
 | sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
@@ -253,6 +269,8 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
 | replaceInstancesWhenResourcesChange | ReplaceInstancesWhenResourcesChange defines if an instance should be replaced when the resource requirements are increased. This can be useful with the combination of local storage. | *bool | false |
 | skip | Skip defines if the cluster should be skipped for reconciliation. This can be useful for investigating in issues or if the environment is unstable. | bool | false |
+| coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
+| labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -282,6 +300,18 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## LabelConfig
+
+LabelConfig allows customizing labels used by the operator.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| matchLabels | MatchLabels provides the labels that the operator should use to identify resources owned by the cluster. These will automatically be applied to all resources the operator creates. | map[string]string | false |
+| resourceLabels | ResourceLabels provides additional labels that the operator should apply to resources it creates. | map[string]string | false |
+| filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -351,21 +381,24 @@ ProcessCounts represents the number of processes we have for each valid process 
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| storage | Storage defines the number of storage class processes. | int | false |
-| transaction | Transaction defines the number of transaction class processes. | int | false |
-| stateless | Stateless defines the number of stateless class processes. | int | false |
-| resolution | Resolution defines the number of resolution class processes. | int | false |
 | unset |  | int | false |
-| log |  | int | false |
-| master |  | int | false |
-| cluster_controller |  | int | false |
+| storage |  | int | false |
+| transaction |  | int | false |
+| resolution |  | int | false |
+| tester |  | int | false |
 | proxy |  | int | false |
-| resolver |  | int | false |
+| master |  | int | false |
+| stateless |  | int | false |
+| log |  | int | false |
+| cluster_controller |  | int | false |
 | router |  | int | false |
-| ratekeeper |  | int | false |
-| data_distributor |  | int | false |
 | fast_restore |  | int | false |
+| data_distributor |  | int | false |
+| coordinator |  | int | false |
+| ratekeeper |  | int | false |
+| storage_cache |  | int | false |
 | backup |  | int | false |
+| resolver | **Deprecated: This is unsupported and any processes with this process class will fail to start.** | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -448,9 +481,21 @@ RoleCounts represents the roles whose counts can be customized.
 
 [Back to TOC](#table-of-contents)
 
+## RoutingConfig
+
+RoutingConfig allows configuring routing to our pods, and services that sit in front of them.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| headlessService | Headless determines whether we want to run a headless service for the cluster. | *bool | false |
+| publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *PublicIPSource | false |
+| podIPFamily | PodIPFamily tells the pod which family of IP addresses to use. You can use 4 to represent IPv4, and 6 to represent IPv6. This feature is only supported in FDB 7.0 or later, and requires dual-stack support in your Kubernetes environment. | *int | false |
+
+[Back to TOC](#table-of-contents)
+
 ## ServiceConfig
 
-ServiceConfig allows configuring services that sit in front of our pods.
+ServiceConfig allows configuring services that sit in front of our pods. **Deprecated: Use RoutingConfig instead.**
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |

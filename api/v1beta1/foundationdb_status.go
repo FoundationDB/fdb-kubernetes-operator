@@ -108,6 +108,24 @@ type FoundationDBStatusDataStatistics struct {
 
 	// MovingData provides information about the current data movement.
 	MovingData FoundationDBStatusMovingData `json:"moving_data,omitempty"`
+
+	// State provides a summary of the state of data distribution.
+	State FoundationDBStatusDataState `json:"state,omitempty"`
+}
+
+// FoundationDBStatusDataState provides information about the state of data
+// distribution.
+type FoundationDBStatusDataState struct {
+	// Description provides a human-readable description of the data
+	// distribution.
+	Description string `json:"description,omitempty"`
+
+	// Healthy determines if the data distribution is healthy.
+	Healthy bool `json:"healthy,omitempty"`
+
+	// Name provides a machine-readable identifier for the data distribution
+	// state.
+	Name string `json:"name,omitempty"`
 }
 
 // FoundationDBStatusMovingData provides information about the current data

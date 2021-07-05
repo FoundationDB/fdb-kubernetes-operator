@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -36,20 +35,20 @@ type UpdateSidecarVersions struct {
 }
 
 // Reconcile runs the reconciler's work.
-func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 	upgraded := false
 	for _, instance := range instances {
 		if instance.Pod == nil {
-			return false, MissingPodError(instance, cluster)
+			return &Requeue{Message: fmt.Sprintf("No pod defined for instance %s", instance.GetInstanceID()), Delay: podSchedulingDelayDuration}
 		}
 
 		image, err := getSidecarImage(cluster, instance)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
 		for containerIndex, container := range instance.Pod.Spec.Containers {
@@ -57,7 +56,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 				log.Info("Upgrading sidecar", "namespace", cluster.Namespace, "cluster", cluster.Name, "pod", instance.Pod.Name, "oldImage", container.Image, "newImage", image)
 				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, instance, containerIndex, image)
 				if err != nil {
-					return false, err
+					return &Requeue{Error: err}
 				}
 				upgraded = true
 			}
@@ -68,7 +67,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "SidecarUpgraded", fmt.Sprintf("New version: %s", cluster.Spec.Version))
 	}
 
-	return true, nil
+	return nil
 }
 
 func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (string, error) {
@@ -84,10 +83,4 @@ func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 	}
 
 	return getImage(cluster.Spec.SidecarContainer.ImageName, image, "foundationdb/foundationdb-kubernetes-sidecar", cluster.GetFullSidecarVersion(false), settings.GetAllowTagOverride())
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (u UpdateSidecarVersions) RequeueAfter() time.Duration {
-	return 0
 }

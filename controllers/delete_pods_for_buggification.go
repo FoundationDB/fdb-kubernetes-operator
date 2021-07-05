@@ -22,7 +22,6 @@ package controllers
 
 import (
 	ctx "context"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -32,10 +31,10 @@ import (
 type DeletePodsForBuggification struct{}
 
 // Reconcile runs the reconciler's work.
-func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return &Requeue{Error: err}
 	}
 
 	updates := make([]FdbInstance, 0)
@@ -89,16 +88,10 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 
 		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, updates, true)
 		if err != nil {
-			return false, err
+			return &Requeue{Error: err}
 		}
 
-		return false, nil
+		return &Requeue{Message: "Pods need to be recreated"}
 	}
-	return true, nil
-}
-
-// RequeueAfter returns the delay before we should run the reconciliation
-// again.
-func (d DeletePodsForBuggification) RequeueAfter() time.Duration {
-	return 0
+	return nil
 }
