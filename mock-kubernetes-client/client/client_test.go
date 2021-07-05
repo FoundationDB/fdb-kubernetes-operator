@@ -99,7 +99,7 @@ var _ = Describe("[mock client]", func() {
 			Expect(len(pod.Spec.Containers)).To(Equal(1))
 			Expect(pod.Spec.Containers[0].Name).To(Equal("test-container"))
 			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
-			Expect(pod.Status.PodIP).To(Equal("1.1.1.1"))
+			Expect(pod.Status.PodIP).To(Equal("1.1.0.1"))
 		})
 
 		When("Removing the Pod IP", func() {
