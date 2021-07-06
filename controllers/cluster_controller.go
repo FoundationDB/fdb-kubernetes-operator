@@ -28,10 +28,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -46,14 +44,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
-var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
@@ -663,8 +657,8 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fd
 	return confLines, nil
 }
 
-// GetPodSpecHash builds the hash of the expected spec for a pod.
-func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
+// getPodSpecHash builds the hash of the expected spec for a pod.
+func getPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
 	var err error
 	if spec == nil {
 		spec, err = GetPodSpec(cluster, processClass, id)
@@ -673,12 +667,12 @@ func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 		}
 	}
 
-	return GetJSONHash(spec)
+	return getJSONHash(spec)
 }
 
-// GetJSONHash serializes an object to JSON and takes a hash of the resulting
+// getJSONHash serializes an object to JSON and takes a hash of the resulting
 // JSON.
-func GetJSONHash(object interface{}) (string, error) {
+func getJSONHash(object interface{}) (string, error) {
 	hash := sha256.New()
 	encoder := json.NewEncoder(hash)
 	err := encoder.Encode(object)
@@ -709,7 +703,7 @@ func getDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbtypes.ProcessClas
 		}
 	}
 
-	return GetJSONHash(data)
+	return getJSONHash(data)
 }
 
 func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (FdbPodClient, string) {
@@ -777,170 +771,7 @@ func sortPodsByID(pods *corev1.PodList) {
 	})
 }
 
-func sortInstancesByID(instances []FdbInstance) error {
-	var err error
-	sort.Slice(instances, func(i, j int) bool {
-		prefix1, id1, err1 := ParseInstanceID(instances[i].GetInstanceID())
-		prefix2, id2, err2 := ParseInstanceID(instances[j].GetInstanceID())
-		if err1 != nil {
-			err = err1
-			return false
-		}
-		if err2 != nil {
-			err = err2
-			return false
-		}
-		if prefix1 != prefix2 {
-			return prefix1 < prefix2
-		}
-		return id1 < id2
-	})
-	return err
-}
-
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
-
-// FdbInstance represents an instance of FDB that has been configured in
-// Kubernetes.
-type FdbInstance struct {
-	Metadata *metav1.ObjectMeta
-	Pod      *corev1.Pod
-}
-
-// StandardPodLifecycleManager provides an implementation of PodLifecycleManager
-// that directly creates pods.
-type StandardPodLifecycleManager struct{}
-
-func newFdbInstance(pod corev1.Pod) FdbInstance {
-	return FdbInstance{Metadata: &pod.ObjectMeta, Pod: &pod}
-}
-
-// NamespacedName gets the name of an instance along with its namespace
-func (instance FdbInstance) NamespacedName() types.NamespacedName {
-	return types.NamespacedName{Namespace: instance.Metadata.Namespace, Name: instance.Metadata.Name}
-}
-
-// GetInstanceID fetches the instance ID from an instance's metadata.
-func (instance FdbInstance) GetInstanceID() string {
-	return GetInstanceIDFromMeta(*instance.Metadata)
-}
-
-// GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
-func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels[fdbtypes.FDBInstanceIDLabel]
-}
-
-// GetProcessClass fetches the process class from an instance's metadata.
-func (instance FdbInstance) GetProcessClass() fdbtypes.ProcessClass {
-	return internal.GetProcessClassFromMeta(*instance.Metadata)
-}
-
-// GetPublicIPSource determines how an instance has gotten its public IP.
-func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
-	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
-	if source == "" {
-		return fdbtypes.PublicIPSourcePod
-	}
-	return fdbtypes.PublicIPSource(source)
-}
-
-// GetPublicIPs returns the public IP of an instance.
-func (instance FdbInstance) GetPublicIPs() []string {
-	if instance.Pod == nil {
-		return []string{}
-	}
-
-	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
-	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
-		return getPublicIPsForPod(instance.Pod)
-	}
-
-	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
-}
-
-func getPublicIPsForPod(pod *corev1.Pod) []string {
-	var podIPFamily *int
-
-	if pod == nil {
-		return []string{}
-	}
-
-	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb-kubernetes-sidecar" {
-			continue
-		}
-		for indexOfArgument, argument := range container.Args {
-			if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
-				familyString := container.Args[indexOfArgument+1]
-				family, err := strconv.Atoi(familyString)
-				if err != nil {
-					log.Error(err, "Error parsing public IP family", "family", familyString)
-					return nil
-				}
-				podIPFamily = &family
-				break
-			}
-		}
-	}
-
-	if podIPFamily != nil {
-		podIPs := pod.Status.PodIPs
-		matchingIPs := make([]string, 0, len(podIPs))
-
-		for _, podIP := range podIPs {
-			ip := net.ParseIP(podIP.IP)
-			if ip == nil {
-				log.Error(nil, "Failed to parse IP from pod", "ip", podIP)
-				continue
-			}
-			matches := false
-			switch *podIPFamily {
-			case 4:
-				matches = ip.To4() != nil
-			case 6:
-				matches = ip.To4() == nil
-			default:
-				log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
-			}
-			if matches {
-				matchingIPs = append(matchingIPs, podIP.IP)
-			}
-		}
-		return matchingIPs
-	}
-
-	return []string{pod.Status.PodIP}
-}
-
-// GetProcessID fetches the instance ID from an instance's metadata.
-func (instance FdbInstance) GetProcessID(processNumber int) string {
-	return fmt.Sprintf("%s-%d", GetInstanceIDFromMeta(*instance.Metadata), processNumber)
-}
-
-// ParseInstanceID extracts the components of an instance ID.
-func ParseInstanceID(id string) (fdbtypes.ProcessClass, int, error) {
-	result := instanceIDRegex.FindStringSubmatch(id)
-	if result == nil {
-		return "", 0, fmt.Errorf("could not parse instance ID %s", id)
-	}
-	prefix := result[1]
-	number, err := strconv.Atoi(result[2])
-	if err != nil {
-		return "", 0, err
-	}
-	return fdbtypes.ProcessClass(prefix), number, nil
-}
-
-// GetInstanceIDFromProcessID returns the instance ID for the process ID
-func GetInstanceIDFromProcessID(id string) string {
-	result := processIDRegex.FindStringSubmatch(id)
-	if result == nil {
-		// In this case we assume that instance ID == process ID
-		return id
-	}
-
-	return result[1]
-}
 
 // ClusterSubReconciler describes a class that does part of the work of
 // reconciliation for a cluster.

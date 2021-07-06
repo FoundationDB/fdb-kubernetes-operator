@@ -60,6 +60,10 @@ type PodLifecycleManager interface {
 	InstanceIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error)
 }
 
+// StandardPodLifecycleManager provides an implementation of PodLifecycleManager
+// that directly creates pods.
+type StandardPodLifecycleManager struct{}
+
 // GetInstances returns a list of instances for FDB pods that have been
 // created.
 func (manager StandardPodLifecycleManager) GetInstances(r client.Client, cluster *fdbtypes.FoundationDBCluster, context ctx.Context, options ...client.ListOption) ([]FdbInstance, error) {

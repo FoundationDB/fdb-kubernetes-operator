@@ -113,7 +113,7 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 		return nil, err
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
+	specHash, err := getPodSpecHash(cluster, processClass, idNum, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -664,7 +664,7 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("128G")
 	}
 
-	specHash, err := GetJSONHash(pvc.Spec)
+	specHash, err := getJSONHash(pvc.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -869,7 +869,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 
 	deployment.Spec.Template = *podTemplate
 
-	specHash, err := GetJSONHash(deployment.Spec)
+	specHash, err := getJSONHash(deployment.Spec)
 	if err != nil {
 		return nil, err
 	}

@@ -148,7 +148,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should add the annotations to the metadata", func() {
-				hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(pod.Labels), 1, &pod.Spec)
+				hash, err := getPodSpecHash(cluster, internal.ProcessClassFromLabels(pod.Labels), 1, &pod.Spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",

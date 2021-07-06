@@ -69,7 +69,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Error: err}
 		}
 
-		specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		specHash, err := getPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 		if err != nil {
 			return &Requeue{Error: err}
 		}

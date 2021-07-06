@@ -566,7 +566,7 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		return false, err
 	}
 
-	specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+	specHash, err := getPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 	if err != nil {
 		return false, err
 	}

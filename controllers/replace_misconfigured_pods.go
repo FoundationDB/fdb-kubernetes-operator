@@ -89,7 +89,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			return &Requeue{Error: err}
 		}
 
-		pvcHash, err := GetJSONHash(desiredPVC.Spec)
+		pvcHash, err := getJSONHash(desiredPVC.Spec)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -211,7 +211,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 	}
 
 	if cluster.Spec.UpdatePodsByReplacement {
-		specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		specHash, err := getPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 		if err != nil {
 			return false, err
 		}
