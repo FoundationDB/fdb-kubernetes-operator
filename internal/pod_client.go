@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package controllers
+package internal
 
 import (
 	"context"
@@ -42,7 +42,9 @@ import (
 )
 
 const (
-	mockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
+	// MockUnreachableAnnotation defines if a Pod should be unreachable. This annotation
+	// is currently only used for testing cases.
+	MockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
 )
 
 // FdbPodClient provides methods for working with a FoundationDB pod
@@ -90,11 +92,11 @@ type realFdbPodClient struct {
 // NewFdbPodClient builds a client for working with an FDB Pod
 func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (FdbPodClient, error) {
 	if pod.Status.PodIP == "" {
-		return nil, fdbPodClientErrorNoIP
+		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	}
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.Name == "foundationdb-kubernetes-sidecar" && !container.Ready {
-			return nil, fdbPodClientErrorNotReady
+			return nil, fmt.Errorf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
 		}
 	}
 
@@ -145,7 +147,7 @@ func (client *realFdbPodClient) GetPod() *corev1.Pod {
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodClient) getListenIP() string {
-	ips := getPublicIPsForPod(client.Pod)
+	ips := GetPublicIPsForPod(client.Pod)
 	if len(ips) > 0 {
 		return ips[0]
 	}
@@ -355,12 +357,12 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	substitutions := map[string]string{}
 
 	if client.Pod.Annotations != nil {
-		if _, ok := client.Pod.Annotations[mockUnreachableAnnotation]; ok {
+		if _, ok := client.Pod.Annotations[MockUnreachableAnnotation]; ok {
 			return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
 		}
 	}
 
-	substitutions["FDB_PUBLIC_IP"] = newFdbInstance(*client.Pod).GetPublicIPs()[0]
+	substitutions["FDB_PUBLIC_IP"] = GetPublicIPsForPod(client.Pod)[0]
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name
@@ -397,31 +399,6 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	}
 
 	return substitutions, nil
-}
-
-// fdbPodClient provides errors that are returned when talking to FDB pods.
-type fdbPodClientError int
-
-const (
-	// fdbPodClientErrorNoIP is returned when the pod has not been assigned an
-	// IP address.
-	fdbPodClientErrorNoIP fdbPodClientError = iota
-
-	// fdbPodClientErrorNotReady is returned when the pod is not ready to
-	// receive requests.
-	fdbPodClientErrorNotReady fdbPodClientError = iota
-)
-
-// Error generates an error message.
-func (err fdbPodClientError) Error() string {
-	switch err {
-	case fdbPodClientErrorNoIP:
-		return "Pod does not have an IP address"
-	case fdbPodClientErrorNotReady:
-		return "Pod is not ready to receive traffic"
-	default:
-		return fmt.Sprintf("Unknown error code %d", err)
-	}
 }
 
 // failedResponse is an error thrown when a request to the sidecar fails.

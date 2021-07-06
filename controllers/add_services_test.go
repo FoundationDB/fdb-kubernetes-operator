@@ -24,6 +24,8 @@ import (
 	"context"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,7 +42,7 @@ var _ = Describe("add_services", func() {
 	var newServices *corev1.ServiceList
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		source := fdbtypes.PublicIPSourceService
 		cluster.Spec.Routing.PublicIPSource = &source
 		enabled := true
@@ -102,7 +104,7 @@ var _ = Describe("add_services", func() {
 			Expect(lastService.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
 			Expect(lastService.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastService.Spec.ClusterIP).NotTo(Equal("None"))
-			Expect(lastService.OwnerReferences).To(Equal(buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+			Expect(lastService.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 
 		Context("with the pod public IP source", func() {

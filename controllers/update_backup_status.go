@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"reflect"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,7 +47,7 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 		return &Requeue{Error: err}
 	}
 
-	desiredBackupDeployment, err := GetBackupDeployment(backup)
+	desiredBackupDeployment, err := internal.GetBackupDeployment(backup)
 	if err != nil {
 		return &Requeue{Error: err}
 	}

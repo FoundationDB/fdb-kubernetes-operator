@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"reflect"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -38,7 +40,7 @@ type UpdateConfigMap struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	configMap, err := GetConfigMap(cluster)
+	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &Requeue{Error: err}
 	}

@@ -21,7 +21,6 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
-	"github.com/FoundationDB/fdb-kubernetes-operator/fdbclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,31 +50,18 @@ func main() {
 	logOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	clusterReconciler := &controllers.FoundationDBClusterReconciler{
-		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		PodLifecycleManager:    controllers.StandardPodLifecycleManager{},
-		PodClientProvider:      controllers.NewFdbPodClient,
-		DatabaseClientProvider: fdbclient.NewDatabaseClientProvider(),
-		DeprecationOptions:     operatorOpts.DeprecationOptions,
-	}
-
-	backupReconciler := &controllers.FoundationDBBackupReconciler{
-		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
-		DatabaseClientProvider: fdbclient.NewDatabaseClientProvider(),
-	}
-
-	restoreReconciler := &controllers.FoundationDBRestoreReconciler{
-		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
-		DatabaseClientProvider: fdbclient.NewDatabaseClientProvider(),
-	}
+	clusterReconciler := controllers.NewFoundationDBClusterReconciler(
+		controllers.StandardPodLifecycleManager{},
+	)
 
 	mgr, file := setup.StartManager(
 		scheme,
 		operatorOpts,
 		logOpts,
 		clusterReconciler,
-		backupReconciler,
-		restoreReconciler)
+		&controllers.FoundationDBBackupReconciler{},
+		&controllers.FoundationDBRestoreReconciler{},
+		ctrl.Log)
 
 	if file != nil {
 		defer file.Close()

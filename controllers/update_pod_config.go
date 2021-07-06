@@ -36,12 +36,12 @@ type UpdatePodConfig struct{}
 // Reconcile runs the reconciler's work.
 func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdatePodConfig")
-	configMap, err := GetConfigMap(cluster)
+	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -73,7 +73,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			continue
 		}
 
-		configMapHash, err := getDynamicConfHash(configMap, processGroup.ProcessClass, serverPerPod)
+		configMapHash, err := internal.GetDynamicConfHash(configMap, instance.GetProcessClass(), serverPerPod)
 		if err != nil {
 			curLogger.Info("Error when receiving dynamic ConfigMap hash", "error", err)
 			errs = append(errs, err)

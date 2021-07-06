@@ -205,9 +205,9 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 	}
 
 	for _, pod := range pods.Items {
-		podClient := &mockFdbPodClient{Cluster: client.Cluster, Pod: &pod}
+		podClient, _ := internal.NewMockFdbPodClient(client.Cluster, &pod)
 
-		processCount, err := getStorageServersPerPodForPod(&pod)
+		processCount, err := internal.GetStorageServersPerPodForPod(&pod)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +241,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				coordinators[fullAddress.String()] = true
 				fdbRoles = append(fdbRoles, fdbtypes.FoundationDBStatusProcessRoleInfo{Role: string(fdbtypes.ProcessRoleCoordinator)})
 			}
-			command, err := GetStartCommand(client.Cluster, instance, podClient, processIndex, processCount)
+			command, err := internal.GetStartCommand(client.Cluster, instance.GetProcessClass(), podClient, processIndex, processCount)
 			if err != nil {
 				return nil, err
 			}

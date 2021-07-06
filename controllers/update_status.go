@@ -97,7 +97,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
 	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -120,7 +120,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	cluster.Status.RequiredAddresses = status.RequiredAddresses
 
-	configMap, err := GetConfigMap(cluster)
+	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -140,7 +140,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	// Track all PVCs
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, getPodListOptions(cluster, "", "")...)
+	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -156,7 +156,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	// Track all Services
 	services := &corev1.ServiceList{}
-	err = r.List(context, services, getPodListOptions(cluster, "", "")...)
+	err = r.List(context, services, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -193,7 +193,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.ConnectionString = cluster.Status.ConnectionString
 	if status.ConnectionString == "" {
-		status.ConnectionString = existingConfigMap.Data[clusterFileKey]
+		status.ConnectionString = existingConfigMap.Data[internal.ClusterFileKey]
 	}
 
 	if status.ConnectionString == "" {
@@ -239,7 +239,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
-	service := GetHeadlessService(cluster)
+	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
 	err = r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -413,7 +413,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 
 	correct := false
 	for _, process := range processStatus {
-		commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
+		commandLine, err := internal.GetStartCommand(cluster, instance.GetProcessClass(), podClient, processNumber, processCount)
 		if err != nil {
 			if internal.IsNetworkError(err) {
 				processGroupStatus.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
@@ -519,12 +519,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			}
 		}
 
-		serverPerPod, err := getStorageServersPerPodForInstance(&instance)
-		if err != nil {
-			return processGroups, err
-		}
-
-		configMapHash, err := getDynamicConfHash(configMap, instance.GetProcessClass(), serverPerPod)
+		configMapHash, err := internal.GetDynamicConfHash(configMap, instance.GetProcessClass(), processCount)
 		if err != nil {
 			return processGroups, err
 		}
@@ -568,12 +563,12 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		return false, err
 	}
 
-	specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+	specHash, err := internal.GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 	if err != nil {
 		return false, err
 	}
 
-	incorrectPod := !metadataMatches(*instance.Metadata, getPodMetadata(cluster, processClass, instanceID, specHash))
+	incorrectPod := !metadataMatches(*instance.Metadata, internal.GetPodMetadata(cluster, processClass, instanceID, specHash))
 	if !incorrectPod {
 		updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
 		if err != nil {
@@ -588,11 +583,11 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, instanceID)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, getPodListOptions(cluster, processClass, instanceID)...)
+	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, processClass, instanceID)...)
 	if err != nil {
 		return false, err
 	}
-	desiredPvc, err := GetPvc(cluster, processClass, idNum)
+	desiredPvc, err := internal.GetPvc(cluster, processClass, idNum)
 	if err != nil {
 		return false, err
 	}

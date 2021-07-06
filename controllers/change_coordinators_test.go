@@ -26,6 +26,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,7 +38,7 @@ var _ = Describe("Change coordinators", func() {
 	var adminClient *MockAdminClient
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		disabled := false
 		cluster.Spec.LockOptions.DisableLocks = &disabled
 		cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{

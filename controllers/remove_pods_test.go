@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -33,7 +35,7 @@ var _ = Describe("Remove Pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 
 		err := k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
