@@ -119,8 +119,14 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 	}
 
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
+	if err != nil {
+		return &Requeue{Error: err}
+	}
+	defer adminClient.Close()
+
 	for zone, zoneInstances := range updates {
-		ready, err := r.PodLifecycleManager.CanDeletePods(r, context, cluster)
+		ready, err := r.PodLifecycleManager.CanDeletePods(adminClient, context, cluster)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
