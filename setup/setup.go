@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -52,6 +53,8 @@ type Options struct {
 	CliTimeout              int
 	DeprecationOptions      internal.DeprecationOptions
 	MaxConcurrentReconciles int
+	CleanUpOldLogFile       bool
+	LogFileMinAge           time.Duration
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -67,6 +70,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
 	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands.")
 	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
+	fs.BoolVar(&o.CleanUpOldLogFile, "cleanup-old-cli-logs", true, "Defines if the operator should delete old fdbcli log files.")
+	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")
 }
 
 // StartManager will start the FoundtionDB operator manager.
@@ -162,6 +167,17 @@ func StartManager(
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
 			os.Exit(1)
 		}
+	}
+
+	if operatorOpts.CleanUpOldLogFile {
+		setupLog.V(1).Info("setup log file cleaner", "LogFileMinAge", operatorOpts.LogFileMinAge.String())
+		ticker := time.NewTicker(operatorOpts.LogFileMinAge)
+		go func() {
+			for {
+				<-ticker.C
+				internal.CleanupOldCliLogs(operatorOpts.LogFileMinAge)
+			}
+		}()
 	}
 
 	// +kubebuilder:scaffold:builder
