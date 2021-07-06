@@ -1498,6 +1498,8 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	if reconciled {
 		cluster.Status.Generations.Reconciled = cluster.ObjectMeta.Generation
+	} else if cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation {
+		cluster.Status.Generations.Reconciled = 0
 	}
 
 	return reconciled, nil
