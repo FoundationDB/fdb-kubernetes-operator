@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -55,12 +54,7 @@ func (instance FdbInstance) NamespacedName() types.NamespacedName {
 
 // GetInstanceID fetches the instance ID from an instance's metadata.
 func (instance FdbInstance) GetInstanceID() string {
-	return GetInstanceIDFromMeta(*instance.Metadata)
-}
-
-// GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
-func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels[fdbtypes.FDBInstanceIDLabel]
+	return internal.GetInstanceIDFromMeta(*instance.Metadata)
 }
 
 // GetProcessClass fetches the process class from an instance's metadata.
@@ -85,69 +79,15 @@ func (instance FdbInstance) GetPublicIPs() []string {
 
 	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
-		return getPublicIPsForPod(instance.Pod)
+		return internal.GetPublicIPsForPod(instance.Pod)
 	}
 
 	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
 }
 
-func getPublicIPsForPod(pod *corev1.Pod) []string {
-	var podIPFamily *int
-
-	if pod == nil {
-		return []string{}
-	}
-
-	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb-kubernetes-sidecar" {
-			continue
-		}
-		for indexOfArgument, argument := range container.Args {
-			if argument == "--public-ip-family" && indexOfArgument < len(container.Args)-1 {
-				familyString := container.Args[indexOfArgument+1]
-				family, err := strconv.Atoi(familyString)
-				if err != nil {
-					log.Error(err, "Error parsing public IP family", "family", familyString)
-					return nil
-				}
-				podIPFamily = &family
-				break
-			}
-		}
-	}
-
-	if podIPFamily != nil {
-		podIPs := pod.Status.PodIPs
-		matchingIPs := make([]string, 0, len(podIPs))
-
-		for _, podIP := range podIPs {
-			ip := net.ParseIP(podIP.IP)
-			if ip == nil {
-				log.Error(nil, "Failed to parse IP from pod", "ip", podIP)
-				continue
-			}
-			matches := false
-			switch *podIPFamily {
-			case 4:
-				matches = ip.To4() != nil
-			case 6:
-				matches = ip.To4() == nil
-			default:
-				log.Error(nil, "Could not match IP address against IP family", "family", *podIPFamily)
-			}
-			if matches {
-				matchingIPs = append(matchingIPs, podIP.IP)
-			}
-		}
-		return matchingIPs
-	}
-
-	return []string{pod.Status.PodIP}
-}
-
 // GetProcessID fetches the instance ID from an instance's metadata.
 func (instance FdbInstance) GetProcessID(processNumber int) string {
-	return fmt.Sprintf("%s-%d", GetInstanceIDFromMeta(*instance.Metadata), processNumber)
+	return fmt.Sprintf("%s-%d", internal.GetInstanceIDFromMeta(*instance.Metadata), processNumber)
 }
 
 // ParseInstanceID extracts the components of an instance ID.
@@ -194,4 +134,8 @@ func sortInstancesByID(instances []FdbInstance) error {
 		return id1 < id2
 	})
 	return err
+}
+
+func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
+	return internal.GetStorageServersPerPodForPod(instance.Pod)
 }

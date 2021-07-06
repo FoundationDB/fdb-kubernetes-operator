@@ -40,7 +40,7 @@ var _ = Describe("add_pvcs", func() {
 	var newPVCs *corev1.PersistentVolumeClaimList
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -100,7 +100,7 @@ var _ = Describe("add_pvcs", func() {
 			Expect(lastPVC.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
 			Expect(lastPVC.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
 
-			Expect(lastPVC.OwnerReferences).To(Equal(buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+			Expect(lastPVC.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 
 		Context("when the process group is being removed", func() {

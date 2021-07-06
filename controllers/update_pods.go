@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -35,7 +37,7 @@ type UpdatePods struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -69,7 +71,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Error: err}
 		}
 
-		specHash, err := getPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
