@@ -29,6 +29,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/equality"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -1369,7 +1372,8 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 
 // CheckReconciliation compares the spec and the status to determine if
 // reconciliation is complete.
-func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
+func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, error) {
+	logger := log.WithValues("method", "CheckReconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	var reconciled = true
 	if !cluster.Status.Configured {
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
@@ -1382,9 +1386,12 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		if !processGroup.Remove {
 			continue
 		}
+
 		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
+			logger.Info("Has process group pending to remove", "processGroup", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
 			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		} else {
+			logger.Info("Has process group with pending shrink", "processGroup", processGroup.ProcessGroupID, "state", "NeedsShrink")
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
@@ -1411,33 +1418,39 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.Remove {
+			logger.Info("Has unhealthy process group", "processGroup", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
 	}
 
 	if !cluster.Status.Health.Available {
+		logger.Info("Database unavailable", "state", "DatabaseUnavailable")
 		cluster.Status.Generations.DatabaseUnavailable = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
-	if !reflect.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
+	if !equality.Semantic.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
+		logger.Info("Pending database configuration change", "state", "NeedsConfigurationChange")
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.HasIncorrectConfigMap {
+		logger.Info("Pending ConfigMap (Monitor config) configuration change", "state", "NeedsMonitorConfUpdate")
 		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.HasIncorrectServiceConfig {
+		logger.Info("Pending Service configuration change", "state", "NeedsServiceUpdate")
 		cluster.Status.Generations.NeedsServiceUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.NeedsNewCoordinators {
+		logger.Info("Pending coordinator change", "state", "NeedsNewCoordinators")
 		cluster.Status.Generations.NeedsCoordinatorChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
@@ -1450,6 +1463,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	}
 
 	if cluster.Status.RequiredAddresses != desiredAddressSet {
+		logger.Info("Pending TLS change", "state", "HasExtraListeners")
 		cluster.Status.Generations.HasExtraListeners = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
@@ -1465,6 +1479,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 			continue
 		}
 		if allow {
+			logger.Info("Pending lock acquire for configuration changes", "state", "NeedsLockConfigurationChanges", "allowed", allow)
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
 			reconciled = false
 		} else {
@@ -1474,6 +1489,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	for _, allow := range lockDenyMap {
 		if !allow {
+			logger.Info("Pending lock acquire for configuration changes", "state", "NeedsLockConfigurationChanges", "allowed", allow)
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
 			reconciled = false
 			break
@@ -1482,8 +1498,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	if reconciled {
 		cluster.Status.Generations.Reconciled = cluster.ObjectMeta.Generation
-	} else if cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation {
-		cluster.Status.Generations.Reconciled = 0
 	}
 
 	return reconciled, nil
