@@ -423,8 +423,6 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 			return err
 		}
 
-		correct = commandLine == process.CommandLine
-
 		settings := cluster.GetProcessSettings(instance.GetProcessClass())
 		versionMatch := true
 		// if we allow to override the tag we can't compare the versions here
@@ -433,7 +431,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 		}
 
 		// If the `EmptyMonitorConf` is set, the commandline is by definition wrong since there should be no running processes.
-		correct = correct && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
+		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
 
 		if !correct {
 			log.Info("IncorrectProcess", "namespace", cluster.Namespace, "cluster", cluster.Name, "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version, "processGroupID", instanceID)
