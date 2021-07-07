@@ -821,7 +821,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				BeforeEach(func() {
 					podIP = originalPods.Items[firstStorageIndex].Status.PodIP
 
-					err := k8sClient.RemoveProcessGroupIP(&originalPods.Items[firstStorageIndex])
+					err := k8sClient.RemovePodIP(&originalPods.Items[firstStorageIndex])
 					Expect(err).NotTo(HaveOccurred())
 
 					cluster.Spec.InstancesToRemove = []string{
@@ -864,7 +864,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			Context("with a removal with no exclusion", func() {
 				BeforeEach(func() {
-					err := k8sClient.RemoveProcessGroupIP(&originalPods.Items[firstStorageIndex])
+					err := k8sClient.RemovePodIP(&originalPods.Items[firstStorageIndex])
 					Expect(err).NotTo(HaveOccurred())
 					cluster.Spec.InstancesToRemoveWithoutExclusion = []string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],

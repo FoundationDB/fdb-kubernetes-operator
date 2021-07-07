@@ -104,7 +104,7 @@ var _ = Describe("[mock client]", func() {
 
 		When("Removing the Pod IP", func() {
 			BeforeEach(func() {
-				err := client.RemoveProcessGroupIP(initialPod)
+				err := client.RemovePodIP(initialPod)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

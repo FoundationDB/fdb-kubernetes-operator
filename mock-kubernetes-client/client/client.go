@@ -745,8 +745,8 @@ func (client *MockClient) SetPodIntoFailed(context ctx.Context, object ctrlClien
 	return client.Update(context, pod)
 }
 
-// RemoveProcessGroupIP sets the IP address of the Pod to an empty string
-func (client *MockClient) RemoveProcessGroupIP(pod *corev1.Pod) error {
+// RemovePodIP sets the IP address of the Pod to an empty string
+func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
 	pod.Status.PodIP = ""
 
 	return client.Update(ctx.TODO(), pod)
