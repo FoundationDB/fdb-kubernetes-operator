@@ -156,6 +156,21 @@ func (version FdbVersion) HasNonBlockingExcludes() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 5})
 }
 
+// NextMajorVersion returns the next major version of FoundationDB.
+func (version FdbVersion) NextMajorVersion() FdbVersion {
+	return FdbVersion{Major: version.Major + 1, Minor: 0, Patch: 0}
+}
+
+// NextMinorVersion returns the next minor version of FoundationDB.
+func (version FdbVersion) NextMinorVersion() FdbVersion {
+	return FdbVersion{Major: version.Major, Minor: version.Minor + 1, Patch: 0}
+}
+
+// NextPatchVersion returns the next path version of FoundationDB.
+func (version FdbVersion) NextPatchVersion() FdbVersion {
+	return FdbVersion{Major: version.Major, Minor: version.Minor, Patch: version.Patch + 1}
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
