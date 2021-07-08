@@ -312,11 +312,14 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, u
 		if err != nil {
 			return false, err
 		}
-
 		// We check this more or less instantly, maybe we should add some delay?
 		match, err = client.CheckHash(filename, contents)
 		if !match {
-			log.Info("Waiting for config update", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
+			log.Info("Waiting for config update",
+				"namespace", client.GetPod().Namespace,
+				"cluster", client.GetPod().Labels[fdbtypes.FDBClusterLabel],
+				"pod", client.GetPod().Name,
+				"file", filename)
 		}
 
 		return match, err
@@ -330,7 +333,11 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 	present, err := client.IsPresent(filename)
 
 	if !present {
-		log.Info("Waiting for file", "namespace", client.GetPod().Namespace, "pod", client.GetPod().Name, "file", filename)
+		log.Info("Waiting for file",
+			"namespace", client.GetPod().Namespace,
+			"cluster", client.GetPod().Labels[fdbtypes.FDBClusterLabel],
+			"pod", client.GetPod().Name,
+			"file", filename)
 	}
 
 	return present, err
