@@ -553,7 +553,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
 	lines, err := getStartCommandLines(cluster, instance.GetProcessClass(), podClient, processNumber, processCount)
 	if err != nil {
-		return "", fmt.Errorf("GetStartCommand: %w for prcoess group %s", err, instance.GetInstanceID())
+		return "", fmt.Errorf("GetStartCommand: %w for process group %s", err, instance.GetInstanceID())
 	}
 
 	regex := regexp.MustCompile(`^(\w+)\s*=\s*(.*)`)
