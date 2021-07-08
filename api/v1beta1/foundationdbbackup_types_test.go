@@ -21,8 +21,6 @@
 package v1beta1
 
 import (
-	"github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -74,18 +72,18 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup = createBackup()
 
 			result, err := backup.CheckReconciliation()
-			Expect(result).To(gomega.BeTrue())
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(result).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled: 2,
 			}))
 
 			backup = createBackup()
 			backup.Status.AgentCount = 5
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:             1,
 				NeedsBackupAgentUpdate: 2,
 			}))
@@ -94,9 +92,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			agentCount = 0
 			backup.Status.AgentCount = 0
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeTrue())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeTrue())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled: 2,
 			}))
 
@@ -104,9 +102,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			agentCount = 3
 			backup.Status.BackupDetails = nil
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:       1,
 				NeedsBackupStart: 2,
 			}))
@@ -114,9 +112,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup = createBackup()
 			backup.Spec.BackupState = "Stopped"
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:      1,
 				NeedsBackupStop: 2,
 			}))
@@ -125,9 +123,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup.Status.BackupDetails = nil
 			backup.Spec.BackupState = "Stopped"
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeTrue())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeTrue())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled: 2,
 			}))
 
@@ -135,18 +133,18 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup.Status.BackupDetails.Running = false
 			backup.Spec.BackupState = "Stopped"
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeTrue())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeTrue())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled: 2,
 			}))
 
 			backup = createBackup()
 			backup.Spec.BackupState = "Paused"
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:             1,
 				NeedsBackupPauseToggle: 2,
 			}))
@@ -155,9 +153,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup.Spec.BackupState = "Paused"
 			backup.Status.BackupDetails = nil
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:             1,
 				NeedsBackupStart:       2,
 				NeedsBackupPauseToggle: 2,
@@ -167,18 +165,18 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup.Spec.BackupState = "Paused"
 			backup.Status.BackupDetails.Paused = true
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeTrue())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeTrue())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled: 2,
 			}))
 
 			backup = createBackup()
 			backup.Status.BackupDetails.Paused = true
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:             1,
 				NeedsBackupPauseToggle: 2,
 			}))
@@ -187,9 +185,9 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			var time = 100000
 			backup.Spec.SnapshotPeriodSeconds = &time
 			result, err = backup.CheckReconciliation()
-			Expect(err).NotTo(gomega.HaveOccurred())
-			Expect(result).To(gomega.BeFalse())
-			Expect(backup.Status.Generations).To(gomega.Equal(BackupGenerationStatus{
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeFalse())
+			Expect(backup.Status.Generations).To(Equal(BackupGenerationStatus{
 				Reconciled:                 1,
 				NeedsBackupReconfiguration: 2,
 			}))
@@ -200,36 +198,36 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 
 	When("checking the backup state", func() {
 		It("should show the correct state", func() {
-			Expect(backup.ShouldRun()).To(gomega.BeTrue())
-			Expect(backup.ShouldBePaused()).To(gomega.BeFalse())
+			Expect(backup.ShouldRun()).To(BeTrue())
+			Expect(backup.ShouldBePaused()).To(BeFalse())
 
 			backup.Spec.BackupState = "Running"
-			Expect(backup.ShouldRun()).To(gomega.BeTrue())
-			Expect(backup.ShouldBePaused()).To(gomega.BeFalse())
+			Expect(backup.ShouldRun()).To(BeTrue())
+			Expect(backup.ShouldBePaused()).To(BeFalse())
 
 			backup.Spec.BackupState = "Stopped"
-			Expect(backup.ShouldRun()).To(gomega.BeFalse())
-			Expect(backup.ShouldBePaused()).To(gomega.BeFalse())
+			Expect(backup.ShouldRun()).To(BeFalse())
+			Expect(backup.ShouldBePaused()).To(BeFalse())
 
 			backup.Spec.BackupState = "Paused"
-			Expect(backup.ShouldRun()).To(gomega.BeTrue())
-			Expect(backup.ShouldBePaused()).To(gomega.BeTrue())
+			Expect(backup.ShouldRun()).To(BeTrue())
+			Expect(backup.ShouldBePaused()).To(BeTrue())
 		})
 	})
 
 	When("getting the bucket name", func() {
 		It("should return the bucket name", func() {
-			Expect(backup.Bucket()).To(gomega.Equal("fdb-backups"))
+			Expect(backup.Bucket()).To(Equal("fdb-backups"))
 			backup.Spec.Bucket = "fdb-backup-v2"
-			Expect(backup.Bucket()).To(gomega.Equal("fdb-backup-v2"))
+			Expect(backup.Bucket()).To(Equal("fdb-backup-v2"))
 		})
 	})
 
 	When("getting the backup name", func() {
 		It("should return the backup name", func() {
-			Expect(backup.BackupName()).To(gomega.Equal("sample-cluster"))
+			Expect(backup.BackupName()).To(Equal("sample-cluster"))
 			backup.Spec.BackupName = "sample_cluster_2020_03_22"
-			Expect(backup.BackupName()).To(gomega.Equal("sample_cluster_2020_03_22"))
+			Expect(backup.BackupName()).To(Equal("sample_cluster_2020_03_22"))
 		})
 	})
 
@@ -239,7 +237,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 		})
 
 		It("should create the correct url", func() {
-			Expect(backup.BackupURL()).To(gomega.Equal("blobstore://test@test-service/sample-cluster?bucket=fdb-backups"))
+			Expect(backup.BackupURL()).To(Equal("blobstore://test@test-service/sample-cluster?bucket=fdb-backups"))
 		})
 	})
 
@@ -249,11 +247,11 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 		})
 
 		It("should return the snapshot time", func() {
-			Expect(backup.SnapshotPeriodSeconds()).To(gomega.Equal(864000))
+			Expect(backup.SnapshotPeriodSeconds()).To(Equal(864000))
 
 			period := 60
 			backup.Spec.SnapshotPeriodSeconds = &period
-			Expect(backup.SnapshotPeriodSeconds()).To(gomega.Equal(60))
+			Expect(backup.SnapshotPeriodSeconds()).To(Equal(60))
 		})
 	})
 })
