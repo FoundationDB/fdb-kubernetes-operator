@@ -100,7 +100,7 @@ func StartManager(
 	if operatorOpts.LogFile != "" {
 		lumberjackLogger := &lumberjack.Logger{
 			Filename:   operatorOpts.LogFile,
-			MaxSize:    operatorOpts.LogFileMaxAge,
+			MaxSize:    operatorOpts.LogFileMaxSize,
 			MaxAge:     operatorOpts.LogFileMaxAge,
 			MaxBackups: operatorOpts.MaxNumberOfOldLogFiles,
 			Compress:   operatorOpts.CompressOldFiles,
