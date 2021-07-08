@@ -30,31 +30,6 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.31
-  lint-python:
-    name: Lint Python code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.9'
-          architecture: 'x64'
-      - uses: actions/cache@v2
-        with:
-          path: .cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('./foundationdb-kubernetes-sidecar/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Get Python dependencies
-        run: |
-          python3 -m pip install -r ./foundationdb-kubernetes-sidecar/requirements.txt
-          python3 -m pip install black==20.8b1
-          python3 -m pip install pycodestyle==2.6.0
-      - name: Run Python lint
-        run: |
-          pycodestyle --max-line-length=120 ./**/*.py
-          black --check --diff ./
   build:
     name: Build
     runs-on: ubuntu-latest

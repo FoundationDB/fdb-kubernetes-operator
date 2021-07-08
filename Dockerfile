@@ -9,8 +9,6 @@ FROM golang:1.15.13 as builder
 ARG FDB_VERSION=6.2.30
 ARG FDB_WEBSITE=https://www.foundationdb.org
 
-COPY foundationdb-kubernetes-sidecar/website/ /mnt/website/
-
 RUN set -eux && \
 	curl --fail ${FDB_WEBSITE}/downloads/${FDB_VERSION}/ubuntu/installers/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
