@@ -121,7 +121,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 				cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
 			)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
-			log.Info("Deferring reconciliation due to unsupported clients", "namespace", cluster.Namespace, "name", cluster.Name, "message", message)
+			log.Info("Deferring reconciliation due to unsupported clients", "namespace", cluster.Namespace, "cluster", cluster.Name, "message", message)
 			return &Requeue{Message: message, Delay: 1 * time.Minute}
 		}
 	}

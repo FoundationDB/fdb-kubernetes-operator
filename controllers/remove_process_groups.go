@@ -301,7 +301,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 			continue
 		}
 
-		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
 		processGroup.Excluded = true
 		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
 	}
@@ -316,13 +316,13 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context,
 	for _, id := range processGroupsToRemove {
 		err := removeProcessGroup(r, context, cluster, id)
 		if err != nil {
-			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", id)
 			continue
 		}
 
 		removed, include, err := confirmRemoval(r, context, cluster, id)
 		if err != nil {
-			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", id)
 			continue
 		}
 

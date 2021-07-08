@@ -86,7 +86,7 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 
 			log.Info("Replace instance",
 				"namespace", cluster.Namespace,
-				"name", cluster.Name,
+				"cluster", cluster.Name,
 				"processGroupID", processGroupStatus.ProcessGroupID,
 				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
 
