@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"time"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,6 +34,8 @@ import (
 )
 
 var _ = Describe("[api] FoundationDBCluster", func() {
+	log := logf.Log.WithName("controller")
+
 	When("getting the default role counts", func() {
 		It("should return the default role counts", func() {
 			cluster := &FoundationDBCluster{
@@ -2390,7 +2394,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster := createCluster()
 
-			result, err := cluster.CheckReconciliation()
+			result, err := cluster.CheckReconciliation(log)
 			Expect(result).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2399,7 +2403,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.Configured = false
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2409,7 +2413,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2419,7 +2423,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[1:]
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2429,7 +2433,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.Health.Available = false
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2439,7 +2443,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-1"
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2449,7 +2453,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.HasIncorrectConfigMap = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2459,7 +2463,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.RequiredAddresses.TLS = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2470,7 +2474,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2482,7 +2486,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
 			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2496,7 +2500,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Status.ProcessGroups[0].Excluded = true
 			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
 			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2506,7 +2510,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.HasIncorrectServiceConfig = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2516,7 +2520,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.NeedsNewCoordinators = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2526,7 +2530,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2536,7 +2540,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2547,7 +2551,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
 			cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2557,7 +2561,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
 			cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2567,7 +2571,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{

@@ -301,7 +301,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	cluster.Status = status
 
-	_, err = cluster.CheckReconciliation()
+	_, err = cluster.CheckReconciliation(log)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
