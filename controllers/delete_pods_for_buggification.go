@@ -77,7 +77,7 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 		shouldCrashLoop := crashLoopAll || crashLoopPods[instanceID]
 
 		if shouldCrashLoop != inCrashLoop {
-			log.Info("Deleting pod for buggification", "instanceID", instanceID, "shouldCrashLoop", shouldCrashLoop, "inCrashLoop", inCrashLoop)
+			log.Info("Deleting pod for buggification", "processGroupID", instanceID, "shouldCrashLoop", shouldCrashLoop, "inCrashLoop", inCrashLoop)
 			updates = append(updates, instance)
 		}
 	}
