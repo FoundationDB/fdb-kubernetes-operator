@@ -80,4 +80,15 @@ var _ = Describe("[api] FDBVersion", func() {
 			Expect(version.NextPatchVersion()).To(Equal(FdbVersion{Major: version.Major, Minor: version.Minor, Patch: 21}))
 		})
 	})
+
+	When("comparing two FDBVersions", func() {
+		It("should return if they are euqal", func() {
+			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
+			Expect(version.Equal(version)).To(BeTrue())
+			Expect(version.Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
+			Expect(version.Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
+			Expect(version.Equal(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
+			Expect(version.Equal(FdbVersion{Major: 6, Minor: 2, Patch: 21})).To(BeFalse())
+		})
+	})
 })

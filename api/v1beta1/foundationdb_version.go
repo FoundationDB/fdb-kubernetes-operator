@@ -166,9 +166,16 @@ func (version FdbVersion) NextMinorVersion() FdbVersion {
 	return FdbVersion{Major: version.Major, Minor: version.Minor + 1, Patch: 0}
 }
 
-// NextPatchVersion returns the next path version of FoundationDB.
+// NextPatchVersion returns the next patch version of FoundationDB.
 func (version FdbVersion) NextPatchVersion() FdbVersion {
 	return FdbVersion{Major: version.Major, Minor: version.Minor, Patch: version.Patch + 1}
+}
+
+// Equal checks if two FdbVersion are the same.
+func (version FdbVersion) Equal(other FdbVersion) bool {
+	return version.Major == other.Major &&
+		version.Minor == other.Minor &&
+		version.Patch == other.Patch
 }
 
 // Versions provides a shorthand for known versions.
