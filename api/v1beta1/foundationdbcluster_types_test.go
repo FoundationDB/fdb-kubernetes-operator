@@ -643,41 +643,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	Context("Using the fdb version", func() {
-		It("should return the fdb version struct", func() {
-			version, err := ParseFdbVersion("6.2.11")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
-
-			version, err = ParseFdbVersion("prerelease-6.2.11")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
-
-			version, err = ParseFdbVersion("test-6.2.11-test")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
-
-			_, err = ParseFdbVersion("6.2")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("could not parse FDB version from 6.2"))
-		})
-
-		It("should format the version correctly", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 11}
-			Expect(version.String()).To(Equal("6.2.11"))
-		})
-
-		It("should validate the flags for the version correct", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 0}
-			Expect(version.HasInstanceIDInSidecarSubstitutions()).To(BeFalse())
-			Expect(version.PrefersCommandLineArgumentsInSidecar()).To(BeFalse())
-
-			version = FdbVersion{Major: 7, Minor: 0, Patch: 0}
-			Expect(version.HasInstanceIDInSidecarSubstitutions()).To(BeTrue())
-			Expect(version.PrefersCommandLineArgumentsInSidecar()).To(BeTrue())
-		})
-	})
-
 	When("changing the redundancy mode", func() {
 		It("should return the new redundancy mode", func() {
 			currentConfig := DatabaseConfiguration{
@@ -2613,17 +2578,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			settings := cluster.GetProcessSettings(ProcessClassStorage)
 			Expect(settings.PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{"test-label": "label2"}))
 			Expect(settings.CustomParameters).To(Equal(&[]string{"test_knob=value1"}))
-		})
-	})
-
-	When("checking if the protocol and the version are compatible", func() {
-		It("should return the correct compatibility", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 20})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 22})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 0})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
 		})
 	})
 
