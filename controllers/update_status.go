@@ -412,7 +412,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 
 	podClient, message := r.getPodClient(cluster, instance)
 	if podClient == nil {
-		log.Info("Unable to build pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", instance.Metadata.Name, "message", message)
+		log.Info("Unable to build pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.Metadata.Name, "message", message)
 		return nil
 	}
 
