@@ -26,8 +26,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func shouldRemoveLogFile(info os.FileInfo, now time.Time, minFileAge time.Duration) (bool, error) {
@@ -58,8 +56,6 @@ func shouldRemoveLogFile(info os.FileInfo, now time.Time, minFileAge time.Durati
 
 // CleanupOldCliLogs removes old fdbcli log files.
 func CleanupOldCliLogs(minFileAge time.Duration) {
-	var log = ctrl.Log.WithName("log_file_cleaner")
-
 	logDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
 	if logDir == "" {
 		return
