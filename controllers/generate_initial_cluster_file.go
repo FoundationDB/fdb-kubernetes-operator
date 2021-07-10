@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -51,7 +52,10 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
-		return &Requeue{Message: "cannot find enough pods to recruit coordinators", Delay: podSchedulingDelayDuration}
+		return &Requeue{
+			Message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(instances)),
+			Delay:   podSchedulingDelayDuration,
+		}
 	}
 
 	var clusterName string
