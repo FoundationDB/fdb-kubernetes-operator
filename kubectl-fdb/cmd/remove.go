@@ -27,7 +27,7 @@ import (
 )
 
 func newRemoveCmd(streams genericclioptions.IOStreams) *cobra.Command {
-	o := NewFDBOptions(streams)
+	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
 		Use:   "remove",
