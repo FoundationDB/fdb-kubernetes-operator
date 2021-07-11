@@ -777,27 +777,6 @@ func sortPodsByID(pods *corev1.PodList) {
 	})
 }
 
-func sortInstancesByID(instances []FdbInstance) error {
-	var err error
-	sort.Slice(instances, func(i, j int) bool {
-		prefix1, id1, err1 := ParseInstanceID(instances[i].GetInstanceID())
-		prefix2, id2, err2 := ParseInstanceID(instances[j].GetInstanceID())
-		if err1 != nil {
-			err = err1
-			return false
-		}
-		if err2 != nil {
-			err = err2
-			return false
-		}
-		if prefix1 != prefix2 {
-			return prefix1 < prefix2
-		}
-		return id1 < id2
-	})
-	return err
-}
-
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
 
 // FdbInstance represents an instance of FDB that has been configured in
