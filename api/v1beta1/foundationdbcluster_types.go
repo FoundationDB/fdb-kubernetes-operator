@@ -1654,7 +1654,7 @@ func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) 
 
 	res := addrReg.FindStringSubmatch(cmdline)
 	if len(res) != 2 {
-		return nil, fmt.Errorf("invalid cmdlind with missing public_address: %s", cmdline)
+		return nil, fmt.Errorf("invalid cmdline with missing public_address: %s", cmdline)
 	}
 
 	return parseAddresses(strings.Split(res[1], ","))
