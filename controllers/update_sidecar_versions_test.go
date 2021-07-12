@@ -31,7 +31,7 @@ import (
 )
 
 func createClusterSpec(sidecarOverrides fdbtypes.ContainerOverrides, processes map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings) *fdbtypes.FoundationDBCluster {
-	cluster := createDefaultCluster()
+	cluster := internal.CreateDefaultCluster()
 
 	cluster.Spec.SidecarContainer = sidecarOverrides
 	cluster.Spec.Processes = processes

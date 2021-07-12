@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -40,7 +41,7 @@ var _ = Describe("restore_controller", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		restore = createDefaultRestore(cluster)
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())

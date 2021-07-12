@@ -23,6 +23,8 @@ package controllers
 import (
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -56,8 +58,8 @@ var _ = Describe("backup_controller", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
-		backup = createDefaultBackup(cluster)
+		cluster = internal.CreateDefaultCluster()
+		backup = internal.CreateDefaultBackup(cluster)
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})

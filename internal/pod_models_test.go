@@ -18,13 +18,12 @@
  * limitations under the License.
  */
 
-package controllers
+package internal
 
 import (
 	"fmt"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -40,8 +39,8 @@ var _ = Describe("pod_models", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
-		err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		cluster = CreateDefaultCluster()
+		err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -148,7 +147,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should add the annotations to the metadata", func() {
-				hash, err := GetPodSpecHash(cluster, internal.ProcessClassFromLabels(pod.Labels), 1, &pod.Spec)
+				hash, err := GetPodSpecHash(cluster, ProcessClassFromLabels(pod.Labels), 1, &pod.Spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					"fdb-annotation":                     "value1",
@@ -160,7 +159,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom labels", func() {
 			BeforeEach(func() {
-				cluster = createDefaultCluster()
+				cluster = CreateDefaultCluster()
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
@@ -168,7 +167,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -329,7 +328,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFileKey, Path: "fdb.cluster"},
+							{Key: ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -745,7 +744,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage-density-2", Path: "fdbmonitor.conf"},
-							{Key: clusterFileKey, Path: "fdb.cluster"},
+							{Key: ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -805,7 +804,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should have the environment variables for the IPs in the sidecar container", func() {
-				sidecarEnv := getEnvVars(spec.Containers[1])
+				sidecarEnv := GetEnvVars(spec.Containers[1])
 				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -813,7 +812,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
-				sidecarEnv := getEnvVars(spec.InitContainers[0])
+				sidecarEnv := GetEnvVars(spec.InitContainers[0])
 				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -829,7 +828,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should have the environment variables for the IPs in the sidecar container", func() {
-				sidecarEnv := getEnvVars(spec.Containers[1])
+				sidecarEnv := GetEnvVars(spec.Containers[1])
 				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
@@ -839,7 +838,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
-				sidecarEnv := getEnvVars(spec.InitContainers[0])
+				sidecarEnv := GetEnvVars(spec.InitContainers[0])
 				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.annotations['foundationdb.org/public-ip']"))
@@ -918,7 +917,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom resources", func() {
 			BeforeEach(func() {
-				cluster = createDefaultCluster()
+				cluster = CreateDefaultCluster()
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -938,7 +937,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -966,7 +965,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1138,7 +1137,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom containers", func() {
 			BeforeEach(func() {
-				cluster = createDefaultCluster()
+				cluster = CreateDefaultCluster()
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{
@@ -1153,7 +1152,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1193,7 +1192,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom container images with tag", func() {
 			BeforeEach(func() {
-				cluster = createDefaultCluster()
+				cluster = CreateDefaultCluster()
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{{
@@ -1209,7 +1208,7 @@ var _ = Describe("pod_models", func() {
 						}},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1459,7 +1458,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom volumes", func() {
 			BeforeEach(func() {
-				cluster = createDefaultCluster()
+				cluster = CreateDefaultCluster()
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{{
@@ -1479,7 +1478,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}}}
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1532,7 +1531,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFileKey, Path: "fdb.cluster"},
+							{Key: ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1718,7 +1717,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFileKey, Path: "fdb.cluster"},
+							{Key: ClusterFileKey, Path: "fdb.cluster"},
 						},
 					}},
 				}))
@@ -1780,7 +1779,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFileKey, Path: "fdb.cluster"},
+							{Key: ClusterFileKey, Path: "fdb.cluster"},
 							{Key: "sidecar-conf", Path: "config.json"},
 						},
 					}},
@@ -1813,7 +1812,7 @@ var _ = Describe("pod_models", func() {
 		Context("with custom pvc", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "claim1"}}}}
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1910,7 +1909,7 @@ var _ = Describe("pod_models", func() {
 						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 						Items: []corev1.KeyToPath{
 							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: clusterFileKey, Path: "fdb.cluster"},
+							{Key: ClusterFileKey, Path: "fdb.cluster"},
 							{Key: "ca-file", Path: "ca.pem"},
 						},
 					}},
@@ -1935,7 +1934,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -1970,7 +1969,7 @@ var _ = Describe("pod_models", func() {
 						},
 					},
 				}
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -2019,7 +2018,7 @@ var _ = Describe("pod_models", func() {
 				processSetting.AllowTagOverride = &allowTagOverride
 				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = processSetting
 
-				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2397,7 +2396,7 @@ var _ = Describe("pod_models", func() {
 		var deployment *appsv1.Deployment
 
 		BeforeEach(func() {
-			backup = createDefaultBackup(cluster)
+			backup = CreateDefaultBackup(cluster)
 			Expect(backup.Name).To(Equal("operator-test-1"))
 		})
 
@@ -2448,7 +2447,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: clusterFileKey, Path: "fdb.cluster"},
+								{Key: ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					},
@@ -2563,7 +2562,7 @@ var _ = Describe("pod_models", func() {
 						VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
 							Items: []corev1.KeyToPath{
-								{Key: clusterFileKey, Path: "fdb.cluster"},
+								{Key: ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
 					},
@@ -2757,7 +2756,7 @@ var _ = Describe("pod_models", func() {
 
 		DescribeTable("should return the correct image",
 			func(input testCase, expected string) {
-				image, _ := getImage(
+				image, _ := GetImage(
 					input.imageName,
 					input.curImage,
 					input.defaultImage,

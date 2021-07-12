@@ -39,7 +39,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	instanceName := fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337)
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		cluster.Spec.UpdatePodsByReplacement = false
 		cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 			fdbtypes.ProcessClassGeneral: {
@@ -394,7 +394,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		BeforeEach(func() {
 			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
-			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
+			pod, err := internal.GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(err).NotTo(HaveOccurred())
 			instance = FdbInstance{

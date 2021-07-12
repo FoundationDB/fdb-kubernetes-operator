@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -80,7 +82,7 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 		for i := 0; i < newCount; i++ {
 			for idNum > 0 {
-				_, processGroupID := getInstanceID(cluster, processClass, idNum)
+				_, processGroupID := internal.GetInstanceID(cluster, processClass, idNum)
 
 				if !cluster.InstanceIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
 					break
@@ -88,7 +90,7 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 
 				idNum++
 			}
-			_, processGroupID := getInstanceID(cluster, processClass, idNum)
+			_, processGroupID := internal.GetInstanceID(cluster, processClass, idNum)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClass, nil))
 
 			idNum++

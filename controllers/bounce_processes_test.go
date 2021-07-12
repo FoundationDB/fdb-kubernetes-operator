@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -39,7 +41,7 @@ var _ = Describe("BounceProcesses", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		disabled := false
 		cluster.Spec.LockOptions.DisableLocks = &disabled
 		err = setupClusterForTest(cluster)

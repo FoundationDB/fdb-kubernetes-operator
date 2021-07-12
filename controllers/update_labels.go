@@ -37,7 +37,7 @@ type UpdateLabels struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -46,7 +46,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			processClass := instance.GetProcessClass()
 			instanceID := instance.GetInstanceID()
 
-			metadata := getPodMetadata(cluster, processClass, instanceID, "")
+			metadata := internal.GetPodMetadata(cluster, processClass, instanceID, "")
 			if metadata.Annotations == nil {
 				metadata.Annotations = make(map[string]string)
 			}
@@ -61,15 +61,15 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, getPodListOptions(cluster, "", "")...)
+	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 	for _, pvc := range pvcs.Items {
 		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
-		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
 
-		metadata := getPvcMetadata(cluster, processClass, instanceID)
+		metadata := internal.GetPvcMetadata(cluster, processClass, instanceID)
 		if metadata.Annotations == nil {
 			metadata.Annotations = make(map[string]string, 1)
 		}

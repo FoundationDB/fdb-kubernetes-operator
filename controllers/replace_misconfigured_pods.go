@@ -48,7 +48,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := r.List(context, pvcs, getPodListOptions(cluster, "", "")...)
+	err := r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -68,7 +68,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			continue
 		}
 
-		instanceID := GetInstanceIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
 		processGroupStatus := processGroups[instanceID]
 		if processGroupStatus == nil {
 			return &Requeue{Error: fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)}
@@ -84,18 +84,18 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 
 		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
-		desiredPVC, err := GetPvc(cluster, processClass, idNum)
+		desiredPVC, err := internal.GetPvc(cluster, processClass, idNum)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		pvcHash, err := GetJSONHash(desiredPVC.Spec)
+		pvcHash, err := internal.GetJSONHash(desiredPVC.Spec)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
 		if pvc.Annotations[fdbtypes.LastSpecKey] != pvcHash {
-			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
+			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
 				return &Requeue{Error: err}
 			}
@@ -114,7 +114,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -164,7 +164,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 		return false, err
 	}
 
-	_, desiredInstanceID := getInstanceID(cluster, instance.GetProcessClass(), idNum)
+	_, desiredInstanceID := internal.GetInstanceID(cluster, instance.GetProcessClass(), idNum)
 	if instanceID != desiredInstanceID {
 		log.Info("Replace instance",
 			"namespace", cluster.Namespace,
@@ -211,7 +211,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 	}
 
 	if cluster.Spec.UpdatePodsByReplacement {
-		specHash, err := GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
 		if err != nil {
 			return false, err
 		}
@@ -227,7 +227,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 	}
 
 	if cluster.Spec.ReplaceInstancesWhenResourcesChange != nil && *cluster.Spec.ReplaceInstancesWhenResourcesChange {
-		desiredSpec, err := GetPodSpec(cluster, instance.GetProcessClass(), idNum)
+		desiredSpec, err := internal.GetPodSpec(cluster, instance.GetProcessClass(), idNum)
 		if err != nil {
 			return false, err
 		}
