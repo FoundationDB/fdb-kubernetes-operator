@@ -320,7 +320,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					for i, addr := range processGroup.Addresses {
 						// +1 since the process list uses 1-based indexing.
 						fullAddr := cluster.GetFullAddress(addr, i+1)
-						processes[fullAddr] = struct{}{}
+						processes[fullAddr.String()] = struct{}{}
 					}
 				}
 
@@ -1065,8 +1065,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should bounce the processes", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						// TODO: johscheuer get real process number !
-						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1))
+						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
 					}
 
 					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
@@ -1155,9 +1154,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should bounce the processes", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1))
+						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
 						if internal.ProcessClassFromLabels(pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
-							addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 2))
+							addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 2).String())
 						}
 					}
 
@@ -1959,9 +1958,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				Expect(err).NotTo(HaveOccurred())
 				for _, coordinator := range connectionString.Coordinators {
-					address, err := fdbtypes.ParseProcessAddress(coordinator)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(address.Flags["tls"]).To(BeTrue())
+					Expect(coordinator.Flags["tls"]).To(BeTrue())
 				}
 			})
 		})
@@ -1988,8 +1985,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}
 
 				for _, coordinator := range connectionString.Coordinators {
-					addr := coordinator[:strings.LastIndex(coordinator, ":")]
-					Expect(addressClassMap[addr]).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(addressClassMap[coordinator.IPAddress.String()]).To(Equal(fdbtypes.ProcessClassStorage))
 				}
 			})
 
@@ -2016,8 +2012,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					}
 
 					for _, coordinator := range connectionString.Coordinators {
-						addr := coordinator[:strings.LastIndex(coordinator, ":")]
-						Expect(addressClassMap[addr]).To(Equal(fdbtypes.ProcessClassLog))
+						Expect(addressClassMap[coordinator.IPAddress.String()]).To(Equal(fdbtypes.ProcessClassLog))
 					}
 				})
 			})
@@ -3598,7 +3593,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("should report the coordinators as valid", func() {
 				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 				for _, coordinator := range status.Client.Coordinators.Coordinators {
-					coordinatorStatus[coordinator.Address] = false
+					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
 				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3616,7 +3611,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("should report the coordinators as not valid", func() {
 				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 				for _, coordinator := range status.Client.Coordinators.Coordinators {
-					coordinatorStatus[coordinator.Address] = false
+					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
 				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3630,12 +3625,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			BeforeEach(func() {
 				zone := ""
 				for _, process := range status.Cluster.Processes {
-					if process.Address == status.Client.Coordinators.Coordinators[0].Address {
+					if process.Address.Equal(status.Client.Coordinators.Coordinators[0].Address) {
 						zone = process.Locality[fdbtypes.FDBLocalityZoneIDKey]
 					}
 				}
 				for _, process := range status.Cluster.Processes {
-					if process.Address == status.Client.Coordinators.Coordinators[1].Address {
+					if process.Address.Equal(status.Client.Coordinators.Coordinators[1].Address) {
 						process.Locality["zoneid"] = zone
 					}
 				}
@@ -3644,7 +3639,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("should report the coordinators as not valid", func() {
 				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 				for _, coordinator := range status.Client.Coordinators.Coordinators {
-					coordinatorStatus[coordinator.Address] = false
+					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
 				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3695,7 +3690,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should report the coordinators as valid", func() {
 					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 					for _, coordinator := range status.Client.Coordinators.Coordinators {
-						coordinatorStatus[coordinator.Address] = false
+						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
 					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3716,7 +3711,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should report the coordinators as not valid", func() {
 					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 					for _, coordinator := range status.Client.Coordinators.Coordinators {
-						coordinatorStatus[coordinator.Address] = false
+						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
 					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3754,7 +3749,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should report the coordinators addresses as valid", func() {
 					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 					for _, coordinator := range status.Client.Coordinators.Coordinators {
-						coordinatorStatus[coordinator.Address] = false
+						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
 					_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3781,7 +3776,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					It("should report the coordinators addresses as valid", func() {
 						coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 						for _, coordinator := range status.Client.Coordinators.Coordinators {
-							coordinatorStatus[coordinator.Address] = false
+							coordinatorStatus[coordinator.Address.String()] = false
 						}
 
 						_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3810,7 +3805,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				It("should report the coordinators addresses as valid", func() {
 					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 					for _, coordinator := range status.Client.Coordinators.Coordinators {
-						coordinatorStatus[coordinator.Address] = false
+						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
 					_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -3838,7 +3833,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					It("should report the coordinators addresses as valid", func() {
 						coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 						for _, coordinator := range status.Client.Coordinators.Coordinators {
-							coordinatorStatus[coordinator.Address] = false
+							coordinatorStatus[coordinator.Address.String()] = false
 						}
 
 						_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)

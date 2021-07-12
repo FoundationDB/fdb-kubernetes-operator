@@ -617,7 +617,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fd
 		fmt.Sprintf("command = %s/fdbserver", binaryDir),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s", cluster.GetFullAddressList("$FDB_PUBLIC_IP", false, processNumber)),
+		fmt.Sprintf("public_address = %s", fdbtypes.ProcessAddressesString(cluster.GetFullAddressList("$FDB_PUBLIC_IP", false, processNumber), ",")),
 		fmt.Sprintf("class = %s", processClass),
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", logGroup))
@@ -646,7 +646,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fd
 	}
 
 	if cluster.NeedsExplicitListenAddress() {
-		confLines = append(confLines, fmt.Sprintf("listen_address = %s", cluster.GetFullAddressList("$FDB_POD_IP", false, processNumber)))
+		confLines = append(confLines, fmt.Sprintf("listen_address = %s", fdbtypes.ProcessAddressesString(cluster.GetFullAddressList("$FDB_POD_IP", false, processNumber), ",")))
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
@@ -881,7 +881,7 @@ func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
 // GetPublicIPs returns the public IP of an instance.
 func (instance FdbInstance) GetPublicIPs() []string {
 	if instance.Pod == nil {
-		return []string{}
+		return nil
 	}
 
 	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
@@ -896,7 +896,7 @@ func getPublicIPsForPod(pod *corev1.Pod) []string {
 	var podIPFamily *int
 
 	if pod == nil {
-		return []string{}
+		return nil
 	}
 
 	for _, container := range pod.Spec.Containers {
@@ -1089,7 +1089,7 @@ type localityInfo struct {
 	ID string
 
 	// The process's public address.
-	Address string
+	Address fdbtypes.ProcessAddress
 
 	// The locality map.
 	LocalityData map[string]string
@@ -1125,12 +1125,12 @@ func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo, main
 		return localityInfo{}, err
 	}
 
-	var addr string
-	// Iterate over the addresses and set the expected address as process address
+	var addr fdbtypes.ProcessAddress
+	// Iterate the addresses and set the expected address as process address
 	// e.g. if we want to use TLS set it to the tls address otherwise use the non-TLS.
 	for _, address := range addresses {
 		if address.Flags["tls"] == mainContainerTLS {
-			addr = address.String()
+			addr = address
 			break
 		}
 	}
@@ -1315,13 +1315,16 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	}
 
 	for _, process := range status.Cluster.Processes {
-		if process.Address == "" {
+		if process.Address.IsEmpty() {
 			continue
 		}
 
 		addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
 		if err != nil {
-			return false, false, err
+			// We will end here in the error case when the address
+			// is not parsable e.g. no IP address is assigned.
+			allAddressesValid = false
+			continue
 		}
 
 		var address string

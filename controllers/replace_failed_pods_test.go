@@ -164,7 +164,7 @@ var _ = Describe("replace_failed_pods", func() {
 			Context("with no addresses", func() {
 				BeforeEach(func() {
 					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-					processGroup.Addresses = []string{}
+					processGroup.Addresses = nil
 				})
 
 				It("should return false", func() {

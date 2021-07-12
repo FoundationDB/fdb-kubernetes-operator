@@ -144,6 +144,7 @@ func (client *realFdbPodClient) getListenIP() string {
 	if len(ips) > 0 {
 		return ips[0]
 	}
+
 	return ""
 }
 

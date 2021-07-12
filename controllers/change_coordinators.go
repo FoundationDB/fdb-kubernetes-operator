@@ -68,7 +68,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range status.Client.Coordinators.Coordinators {
-		coordinatorStatus[coordinator.Address] = false
+		coordinatorStatus[coordinator.Address.String()] = false
 	}
 
 	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -99,7 +99,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return &Requeue{Error: err}
 	}
 
-	coordinatorAddresses := make([]string, len(coordinators))
+	coordinatorAddresses := make([]fdbtypes.ProcessAddress, len(coordinators))
 	for index, process := range coordinators {
 		coordinatorAddresses[index] = process.Address
 	}
@@ -165,7 +165,7 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range coordinators {
-		coordinatorStatus[coordinator.Address] = false
+		coordinatorStatus[coordinator.Address.String()] = false
 	}
 
 	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)

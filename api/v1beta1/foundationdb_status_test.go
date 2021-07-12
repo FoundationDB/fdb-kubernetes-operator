@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -41,15 +42,24 @@ var _ = Describe("FoundationDBStatus", func() {
 					Coordinators: FoundationDBStatusCoordinatorInfo{
 						Coordinators: []FoundationDBStatusCoordinator{
 							{
-								Address:   "10.1.38.82:4501",
+								Address: ProcessAddress{
+									IPAddress: net.ParseIP("10.1.38.82"),
+									Port:      4501,
+								},
 								Reachable: true,
 							},
 							{
-								Address:   "10.1.38.86:4501",
+								Address: ProcessAddress{
+									IPAddress: net.ParseIP("10.1.38.86"),
+									Port:      4501,
+								},
 								Reachable: true,
 							},
 							{
-								Address:   "10.1.38.91:4501",
+								Address: ProcessAddress{
+									IPAddress: net.ParseIP("10.1.38.91"),
+									Port:      4501,
+								},
 								Reachable: true,
 							},
 						},
@@ -67,7 +77,10 @@ var _ = Describe("FoundationDBStatus", func() {
 					},
 					Processes: map[string]FoundationDBStatusProcessInfo{
 						"c813e585043a7ab55a4905f465c4aa52": {
-							Address:      "10.1.38.91:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.91"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassStorage,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.91:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -89,7 +102,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"f9efa90fc104f4e277b140baf89aab66": {
-							Address:      "10.1.38.82:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.82"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassStorage,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.82:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -114,7 +130,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"5a633d7f4e98a6c938c84b97ec4aedbf": {
-							Address:      "10.1.38.89:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.89"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.89:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -133,7 +152,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"5c1b68147a0ef34ce005a38245851270": {
-							Address:      "10.1.38.88:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.88"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.88:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -152,7 +174,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"653defde43cf1fdef131e2fb82bd192d": {
-							Address:      "10.1.38.87:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.87"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.87:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -171,7 +196,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"9c93d3b70118f16c72f7cb3f53e49f4c": {
-							Address:      "10.1.38.86:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.86"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassStorage,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.86:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -193,7 +221,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"b9c25278c0fa207bc2a73bda2300d0a9": {
-							Address:      "10.1.38.90:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.90"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/var/dynamic-conf/bin/6.1.12/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.90:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -321,15 +352,24 @@ var _ = Describe("FoundationDBStatus", func() {
 					Coordinators: FoundationDBStatusCoordinatorInfo{
 						Coordinators: []FoundationDBStatusCoordinator{
 							{
-								Address:   "10.1.38.94:4501",
+								Address: ProcessAddress{
+									IPAddress: net.ParseIP("10.1.38.94"),
+									Port:      4501,
+								},
 								Reachable: true,
 							},
 							{
-								Address:   "10.1.38.102:4501",
+								Address: ProcessAddress{
+									IPAddress: net.ParseIP("10.1.38.102"),
+									Port:      4501,
+								},
 								Reachable: true,
 							},
 							{
-								Address:   "10.1.38.104:4501",
+								Address: ProcessAddress{
+									IPAddress: net.ParseIP("10.1.38.104"),
+									Port:      4501,
+								},
 								Reachable: true,
 							},
 						},
@@ -347,7 +387,10 @@ var _ = Describe("FoundationDBStatus", func() {
 					},
 					Processes: map[string]FoundationDBStatusProcessInfo{
 						"b9c25278c0fa207bc2a73bda2300d0a9": {
-							Address:      "10.1.38.93:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.93"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-3 --locality_machineid=sample-cluster-log-3 --locality_zoneid=sample-cluster-log-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.93:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -366,7 +409,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"c813e585043a7ab55a4905f465c4aa52": {
-							Address:      "10.1.38.95:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.95"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassStorage,
 							CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-3 --locality_machineid=sample-cluster-storage-3 --locality_zoneid=sample-cluster-storage-3 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.95:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -388,7 +434,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"f9efa90fc104f4e277b140baf89aab66": {
-							Address:      "10.1.38.92:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.92"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassStorage,
 							CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-1 --locality_machineid=sample-cluster-storage-1 --locality_zoneid=sample-cluster-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.92:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -410,7 +459,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"5a633d7f4e98a6c938c84b97ec4aedbf": {
-							Address:      "10.1.38.105:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.105"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-2 --locality_machineid=sample-cluster-log-2 --locality_zoneid=sample-cluster-log-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.105:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -432,7 +484,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"5c1b68147a0ef34ce005a38245851270": {
-							Address:      "10.1.38.102:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.102"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-4 --locality_machineid=sample-cluster-log-4 --locality_zoneid=sample-cluster-log-4 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.102:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -454,7 +509,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"653defde43cf1fdef131e2fb82bd192d": {
-							Address:      "10.1.38.104:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.104"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassLog,
 							CommandLine:  "/usr/bin/fdbserver --class=log --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=log-1 --locality_machineid=sample-cluster-log-1 --locality_zoneid=sample-cluster-log-1 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.104:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,
@@ -485,7 +543,10 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 						"9c93d3b70118f16c72f7cb3f53e49f4c": {
-							Address:      "10.1.38.94:4501",
+							Address: ProcessAddress{
+								IPAddress: net.ParseIP("10.1.38.94"),
+								Port:      4501,
+							},
 							ProcessClass: ProcessClassStorage,
 							CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --knob_disable_posix_kernel_aio=1 --locality_instance_id=storage-2 --locality_machineid=sample-cluster-storage-2 --locality_zoneid=sample-cluster-storage-2 --logdir=/var/log/fdb-trace-logs --loggroup=sample-cluster --public_address=10.1.38.94:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 							Excluded:     false,

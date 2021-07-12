@@ -1500,7 +1500,17 @@ spec:
                   properties:
                     coordinators:
                       items:
-                        type: string
+                        properties:
+                          address:
+                            format: byte
+                            type: string
+                          flags:
+                            additionalProperties:
+                              type: boolean
+                            type: object
+                          port:
+                            type: integer
+                        type: object
                       type: array
                     databaseName:
                       type: string

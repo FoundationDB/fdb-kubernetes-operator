@@ -110,12 +110,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	if databaseStatus != nil {
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
-			address, err := fdbtypes.ParseProcessAddress(coordinator.Address)
-			if err != nil {
-				return &Requeue{Error: err}
-			}
-
-			if address.Flags["tls"] {
+			if coordinator.Address.Flags["tls"] {
 				status.RequiredAddresses.TLS = true
 			} else {
 				status.RequiredAddresses.NonTLS = true
@@ -265,7 +260,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if status.Configured && cluster.Status.ConnectionString != "" {
 		coordinatorStatus := make(map[string]bool, len(databaseStatus.Client.Coordinators.Coordinators))
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
-			coordinatorStatus[coordinator.Address] = false
+			coordinatorStatus[coordinator.Address.String()] = false
 		}
 
 		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus, coordinatorStatus)

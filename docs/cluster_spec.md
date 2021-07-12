@@ -106,7 +106,7 @@ ConnectionString models the contents of a cluster file in a structured way
 | ----- | ----------- | ------ | -------- |
 | databaseName | DatabaseName provides an identifier for the database which persists across coordinator changes. | string | false |
 | generationID | GenerationID provides a unique ID for the current generation of coordinators. | string | false |
-| coordinators | Coordinators provides the addresses of the current coordinators. | []string | false |
+| coordinators | Coordinators provides the addresses of the current coordinators. | [][ProcessAddress](#processaddress) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -369,9 +369,9 @@ ProcessAddress provides a structured address for a process.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| IPAddress |  | string | false |
-| Port |  | int | false |
-| Flags |  | map[string]bool | false |
+| address |  | net.IP | false |
+| port |  | int | false |
+| flags |  | map[string]bool | false |
 
 [Back to TOC](#table-of-contents)
 

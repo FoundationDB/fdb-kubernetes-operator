@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -172,14 +173,16 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0)
+	addresses := make([]fdbtypes.ProcessAddress, 0)
 
 	hasStatusUpdate := false
 
 	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove && removedProcessGroups[processGroup.ProcessGroupID] {
-			addresses = append(addresses, processGroup.Addresses...)
+			for _, pAddr := range processGroup.Addresses {
+				addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+			}
 			hasStatusUpdate = true
 		} else {
 			processGroups = append(processGroups, processGroup)
@@ -220,7 +223,7 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.Remove || processGroup.ExclusionSkipped {
 			continue
@@ -231,10 +234,12 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 			continue
 		}
 
-		addresses = append(addresses, processGroup.Addresses...)
+		for _, pAddr := range processGroup.Addresses {
+			addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+		}
 	}
 
-	var remaining []string
+	var remaining []fdbtypes.ProcessAddress
 	if len(addresses) > 0 {
 		remaining, err = adminClient.CanSafelyRemove(addresses)
 		if err != nil {
@@ -248,10 +253,10 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 
 	remainingMap := make(map[string]bool, len(remaining))
 	for _, address := range addresses {
-		remainingMap[address] = false
+		remainingMap[address.String()] = false
 	}
 	for _, address := range remaining {
-		remainingMap[address] = true
+		remainingMap[address.String()] = true
 	}
 
 	return remainingMap, nil
