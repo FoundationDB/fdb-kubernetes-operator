@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -55,6 +56,10 @@ type Options struct {
 	MaxConcurrentReconciles int
 	CleanUpOldLogFile       bool
 	LogFileMinAge           time.Duration
+	LogFileMaxSize          int
+	LogFileMaxAge           int
+	MaxNumberOfOldLogFiles  int
+	CompressOldFiles        bool
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -72,6 +77,10 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
 	fs.BoolVar(&o.CleanUpOldLogFile, "cleanup-old-cli-logs", true, "Defines if the operator should delete old fdbcli log files.")
 	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")
+	fs.IntVar(&o.LogFileMaxAge, "log-file-max-age", 28, "Defines the maximum age to retain old operator log file in number of days.")
+	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
+	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
+	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 }
 
 // StartManager will start the FoundtionDB operator manager.
@@ -89,13 +98,14 @@ func StartManager(
 	var file *os.File
 
 	if operatorOpts.LogFile != "" {
-		var err error
-		file, err = os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-		if err != nil {
-			_, _ = os.Stderr.WriteString(err.Error())
-			os.Exit(1)
+		lumberjackLogger := &lumberjack.Logger{
+			Filename:   operatorOpts.LogFile,
+			MaxSize:    operatorOpts.LogFileMaxSize,
+			MaxAge:     operatorOpts.LogFileMaxAge,
+			MaxBackups: operatorOpts.MaxNumberOfOldLogFiles,
+			Compress:   operatorOpts.CompressOldFiles,
 		}
-		logWriter = io.MultiWriter(os.Stdout, file)
+		logWriter = io.MultiWriter(os.Stdout, lumberjackLogger)
 	} else {
 		logWriter = os.Stdout
 	}
