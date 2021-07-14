@@ -316,8 +316,8 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, u
 		match, err = client.CheckHash(filename, contents)
 		if !match {
 			log.Info("Waiting for config update",
-				"namespace", client.GetPod().Namespace,
-				"cluster", client.GetPod().Labels[fdbtypes.FDBClusterLabel],
+				"namespace", client.GetCluster().Namespace,
+				"cluster", client.GetCluster().Name,
 				"pod", client.GetPod().Name,
 				"file", filename)
 		}
@@ -334,8 +334,8 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 
 	if !present {
 		log.Info("Waiting for file",
-			"namespace", client.GetPod().Namespace,
-			"cluster", client.GetPod().Labels[fdbtypes.FDBClusterLabel],
+			"namespace", client.GetCluster().Namespace,
+			"cluster", client.GetCluster().Name,
 			"pod", client.GetPod().Name,
 			"file", filename)
 	}
