@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"time"
@@ -415,6 +416,9 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	for _, process := range processStatus {
 		commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
 		if err != nil {
+			if _, ok := err.(net.Error); ok {
+				processGroupStatus.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+			}
 			return err
 		}
 
@@ -434,6 +438,8 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	}
 
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectCommandLine, !correct, cluster.Status.ProcessGroups, instanceID)
+	// Reset status for sidecar unreachable, since we are here at this point we were able to reach the sidecar for the substitute variables.
+	processGroupStatus.UpdateCondition(fdbtypes.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	return nil
 }

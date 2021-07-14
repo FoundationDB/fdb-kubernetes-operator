@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -256,8 +257,9 @@ func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 
 // MockFdbPodClient provides a mock connection to a pod
 type mockFdbPodClient struct {
-	Cluster *fdbtypes.FoundationDBCluster
-	Pod     *corev1.Pod
+	Cluster     *fdbtypes.FoundationDBCluster
+	Pod         *corev1.Pod
+	Unreachable bool
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
@@ -341,6 +343,10 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 // instance will substitute into its monitor conf.
 func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	substitutions := map[string]string{}
+
+	if client.Unreachable {
+		return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
+	}
 
 	substitutions["FDB_PUBLIC_IP"] = newFdbInstance(*client.Pod).GetPublicIPs()[0]
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
