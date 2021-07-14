@@ -45,10 +45,6 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	if err != nil {
 		return &Requeue{Error: err}
 	}
-	err = sortInstancesByID(instances)
-	if err != nil {
-		return &Requeue{Error: err}
-	}
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
