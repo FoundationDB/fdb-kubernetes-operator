@@ -263,9 +263,8 @@ func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 
 // MockFdbPodClient provides a mock connection to a pod
 type mockFdbPodClient struct {
-	Cluster     *fdbtypes.FoundationDBCluster
-	Pod         *corev1.Pod
-	Unreachable bool
+	Cluster *fdbtypes.FoundationDBCluster
+	Pod     *corev1.Pod
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
