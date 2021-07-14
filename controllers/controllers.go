@@ -82,7 +82,7 @@ func mergeMap(target map[string]string, desired map[string]string) bool {
 
 // Requeue provides a wrapper around different results from a subreconciler.
 type Requeue struct {
-	// Delay provides an optional delay before requeueing reconciliattion.
+	// Delay provides an optional delay before requeueing reconciliation.
 	Delay time.Duration
 
 	// Error provides an error that we encountered that forced a requeue.
@@ -90,10 +90,14 @@ type Requeue struct {
 
 	// Message provides a log message that explains the reason for the requeue.
 	Message string
+
+	// DelayedRequeue defines that the reconciliation was not completed but the requeue should be delayed to the end.
+	DelayedRequeue bool
 }
 
 // processRequeue interprets a requeue resulit from a subreconciler.
 func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.Object, recorder record.EventRecorder, logger logr.Logger) (ctrl.Result, error) {
+	curLog := log.WithValues("subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
 	if requeue.Message == "" && requeue.Error != nil {
 		requeue.Message = requeue.Error.Error()
 	}
@@ -109,9 +113,10 @@ func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.
 	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationTerminatedEarly", requeue.Message)
 
 	if err != nil {
-		logger.Error(err, "Error in reconciliation", "subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
+		curLog.Error(err, "Error in reconciliation")
 		return ctrl.Result{}, err
 	}
-	logger.Info("Reconciliation terminated early", "subReconciler", fmt.Sprintf("%T", subReconciler), "message", requeue.Message, "requeueAfter", requeue.Delay)
+	logger.Info("Reconciliation terminated early", "message", requeue.Message)
+
 	return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 }
