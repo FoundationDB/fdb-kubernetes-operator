@@ -89,8 +89,6 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			allSynced = false
 			hasUpdate = true
 			curLogger.Info("Update dynamic Pod config", "synced", synced, "error", err)
-
-
 			if internal.IsNetworkError(err) {
 				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
