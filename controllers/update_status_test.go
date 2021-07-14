@@ -380,5 +380,80 @@ var _ = Describe("update_status", func() {
 				Expect(removalCount).To(BeNumerically("==", 1))
 			})
 		})
+
+		When("one instance is not reachable", func() {
+			var unreachableProcessGroup string
+
+			BeforeEach(func() {
+				unreachableProcessGroup = instances[0].GetInstanceID()
+				instances[0].Pod.Annotations[mockUnreachableAnnotation] = "banana"
+			})
+
+			It("should mark the instance as unreachable", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				unreachableCount := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == unreachableProcessGroup {
+						Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).NotTo(BeNil())
+						unreachableCount++
+						continue
+					}
+					Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).To(BeNil())
+				}
+
+				Expect(unreachableCount).To(BeNumerically("==", 1))
+			})
+
+			When("the instance is reachable again", func() {
+				BeforeEach(func() {
+					delete(instances[0].Pod.Annotations, mockUnreachableAnnotation)
+				})
+
+				It("should remove the condition", func() {
+					processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+					Expect(err).NotTo(HaveOccurred())
+
+					unreachableCount := 0
+					for _, processGroup := range processGroupStatus {
+						if processGroup.GetConditionTime(fdbtypes.SidecarUnreachable) != nil {
+							unreachableCount++
+							continue
+						}
+						Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).To(BeNil())
+					}
+
+					Expect(unreachableCount).To(BeNumerically("==", 0))
+				})
+			})
+		})
+
+		When("a Pod is stuck in Pending", func() {
+			var pendingProcessGroup string
+
+			BeforeEach(func() {
+				pendingProcessGroup = instances[0].GetInstanceID()
+				instances[0].Pod.Status.Phase = corev1.PodPending
+			})
+
+			It("should be mark the process group as Pod pending", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				pendingCount := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == pendingProcessGroup {
+						Expect(processGroup.GetConditionTime(fdbtypes.PodPending)).NotTo(BeNil())
+						pendingCount++
+						continue
+					}
+
+					Expect(processGroup.Remove).To(BeFalse())
+				}
+
+				Expect(pendingCount).To(BeNumerically("==", 1))
+			})
+		})
 	})
 })
