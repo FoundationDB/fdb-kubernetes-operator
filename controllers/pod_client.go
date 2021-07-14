@@ -41,6 +41,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	mockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
+)
+
 // FdbPodClient provides methods for working with a FoundationDB pod
 type FdbPodClient interface {
 	// GetCluster returns the cluster associated with a client
@@ -257,9 +261,8 @@ func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 
 // MockFdbPodClient provides a mock connection to a pod
 type mockFdbPodClient struct {
-	Cluster     *fdbtypes.FoundationDBCluster
-	Pod         *corev1.Pod
-	Unreachable bool
+	Cluster *fdbtypes.FoundationDBCluster
+	Pod     *corev1.Pod
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
@@ -344,8 +347,10 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	substitutions := map[string]string{}
 
-	if client.Unreachable {
-		return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
+	if client.Pod.Annotations != nil {
+		if _, ok := client.Pod.Annotations[mockUnreachableAnnotation]; ok {
+			return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
+		}
 	}
 
 	substitutions["FDB_PUBLIC_IP"] = newFdbInstance(*client.Pod).GetPublicIPs()[0]
