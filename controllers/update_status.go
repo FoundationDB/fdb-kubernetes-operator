@@ -22,9 +22,7 @@ package controllers
 
 import (
 	ctx "context"
-	"errors"
 	"fmt"
-	"net"
 	"reflect"
 	"sort"
 	"time"
@@ -417,8 +415,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	for _, process := range processStatus {
 		commandLine, err := GetStartCommand(cluster, instance, podClient, processNumber, processCount)
 		if err != nil {
-			// GetStartCommand will always return a wrapped error
-			if _, ok := errors.Unwrap(err).(net.Error); ok {
+			if internal.IsNetworkError(err) {
 				processGroupStatus.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 				return nil
 			}

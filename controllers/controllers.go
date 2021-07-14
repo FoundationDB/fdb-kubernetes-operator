@@ -97,7 +97,7 @@ type Requeue struct {
 
 // processRequeue interprets a requeue resulit from a subreconciler.
 func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.Object, recorder record.EventRecorder, logger logr.Logger) (ctrl.Result, error) {
-	curLog := log.WithValues("subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
+	curLog := logger.WithValues("subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
 	if requeue.Message == "" && requeue.Error != nil {
 		requeue.Message = requeue.Error.Error()
 	}
@@ -116,7 +116,7 @@ func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.
 		curLog.Error(err, "Error in reconciliation")
 		return ctrl.Result{}, err
 	}
-	logger.Info("Reconciliation terminated early", "message", requeue.Message)
+	curLog.Info("Reconciliation terminated early", "message", requeue.Message)
 
 	return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
 }

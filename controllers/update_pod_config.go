@@ -22,8 +22,9 @@ package controllers
 
 import (
 	ctx "context"
-	"net"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -89,10 +90,8 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			hasUpdate = true
 			curLogger.Info("Update dynamic Pod config", "synced", synced, "error", err)
 
-			if err != nil {
-				if _, ok := err.(net.Error); ok {
-					processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
-				}
+			if internal.IsNetworkError(err) {
+				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
 				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
