@@ -37,6 +37,8 @@ type UpdatePods struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdatePods")
+
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
@@ -44,29 +46,36 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	updates := make(map[string][]FdbInstance)
 
-	removals := make(map[string]bool)
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove {
-			removals[processGroup.ProcessGroupID] = true
-		}
+	instanceProcessGroupMap := make(map[string]FdbInstance, len(instances))
+	for _, instance := range instances {
+		instanceProcessGroupMap[instance.GetInstanceID()] = instance
 	}
 
-	for _, instance := range instances {
-		if instance.Pod == nil {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			logger.V(1).Info("Ignore removed Pod",
+				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
-		instanceID := instance.GetInstanceID()
-		_, pendingRemoval := removals[instanceID]
-		if pendingRemoval {
+		if processGroup.GetConditionTime(fdbtypes.PodPending) != nil {
+			logger.V(1).Info("Ignore pending Pod",
+				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
-		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(instanceID) {
+		instance, ok := instanceProcessGroupMap[processGroup.ProcessGroupID]
+		if !ok || instance.Pod == nil || instance.Metadata == nil {
+			logger.V(1).Info("Could not find Pod for process group ID",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(processGroup.ProcessGroupID) {
 			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: podSchedulingDelayDuration}
 		}
 
-		_, idNum, err := ParseInstanceID(instanceID)
+		_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -77,24 +86,25 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if instance.Metadata.Annotations[fdbtypes.LastSpecKey] != specHash {
-			log.Info("Update Pod",
-				"namespace", cluster.Namespace,
-				"cluster", cluster.Name,
-				"processGroupID", instanceID,
+			logger.Info("Update Pod",
+				"processGroupID", processGroup.ProcessGroupID,
 				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[fdbtypes.LastSpecKey]))
 
 			podClient, message := r.getPodClient(cluster, instance)
 			if podClient == nil {
 				return &Requeue{Message: message, Delay: podSchedulingDelayDuration}
 			}
+
 			substitutions, err := podClient.GetVariableSubstitutions()
 			if err != nil {
 				return &Requeue{Error: err}
 			}
+
 			zone := substitutions["FDB_ZONE_ID"]
 			if r.InSimulation {
 				zone = "simulation"
 			}
+
 			if updates[zone] == nil {
 				updates[zone] = make([]FdbInstance, 0)
 			}
@@ -104,7 +114,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	if len(updates) > 0 {
 		if cluster.Spec.UpdatePodsByReplacement {
-			log.Info("Requeuing reconciliation to replace pods", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			logger.Info("Requeuing reconciliation to replace pods")
 			return &Requeue{Message: "Requeueing reconciliation to replace pods"}
 		}
 
@@ -115,7 +125,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {
-				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+				logger.Error(err, "Error updating cluster status")
 			}
 			return &Requeue{Message: "Pod deletion is disabled"}
 		}
@@ -141,7 +151,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Error: err}
 		}
 
-		log.Info("Deleting pods", "namespace", cluster.Namespace, "cluster", cluster.Name, "zone", zone, "count", len(zoneInstances))
+		logger.Info("Deleting pods", "zone", zone, "count", len(zoneInstances))
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances, false)
@@ -151,5 +161,6 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 		return &Requeue{Message: "Pods need to be recreated"}
 	}
+
 	return nil
 }

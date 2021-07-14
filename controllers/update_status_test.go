@@ -430,6 +430,33 @@ var _ = Describe("update_status", func() {
 				})
 			})
 		})
+
+		When("a Pod is stuck in Pending", func() {
+			var pendingProcessGroup string
+
+			BeforeEach(func() {
+				pendingProcessGroup = instances[0].GetInstanceID()
+				instances[0].Pod.Status.Phase = corev1.PodPending
+			})
+
+			It("should be mark the process group as Pod pending", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				pendingCount := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == pendingProcessGroup {
+						Expect(processGroup.GetConditionTime(fdbtypes.PodPending)).NotTo(BeNil())
+						pendingCount++
+						continue
+					}
+
+					Expect(processGroup.Remove).To(BeFalse())
+				}
+
+				Expect(pendingCount).To(BeNumerically("==", 1))
+			})
+		})
 	})
 
 	Describe("Reconcile", func() {

@@ -68,9 +68,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 
 	for _, processClass := range fdbtypes.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
-
 		removedCount := currentCounts[processClass] - desiredCount
-
 		processClassLocality := make([]localityInfo, 0, currentCounts[processClass])
 
 		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
@@ -122,5 +120,6 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 			return &Requeue{Error: err}
 		}
 	}
+
 	return nil
 }

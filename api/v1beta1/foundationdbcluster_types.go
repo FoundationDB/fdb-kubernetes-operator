@@ -754,6 +754,8 @@ const (
 	// SidecarUnreachable represents a process group where the sidecar is not reachable
 	// because of networking or TLS issues.
 	SidecarUnreachable ProcessGroupConditionType = "SidecarUnreachable"
+	// PodPending represents a process group where the pod is in a pending state.
+	PodPending ProcessGroupConditionType = "PendingPod"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 )
@@ -770,6 +772,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		MissingService,
 		MissingProcesses,
 		SidecarUnreachable,
+		PodPending,
 		ReadyCondition,
 	}
 }
@@ -795,6 +798,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return MissingProcesses, nil
 	case "SidecarUnreachable":
 		return SidecarUnreachable, nil
+	case "PodPending":
+		return PodPending, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)

@@ -50,7 +50,6 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	addresses := make([]fdbtypes.ProcessAddress, 0, removalCount)
-
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {

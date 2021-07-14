@@ -629,6 +629,11 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		}
 	}
 
+	if instance.Pod.Status.Phase == corev1.PodPending {
+		processGroupStatus.UpdateCondition(fdbtypes.PodPending, true, cluster.Status.ProcessGroups, instanceID)
+		return needsSidecarConfInConfigMap, nil
+	}
+
 	failing := false
 	for _, container := range instance.Pod.Status.ContainerStatuses {
 		if !container.Ready {
@@ -659,6 +664,7 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	}
 
 	processGroupStatus.UpdateCondition(fdbtypes.PodFailing, failing, cluster.Status.ProcessGroups, instanceID)
+	processGroupStatus.UpdateCondition(fdbtypes.PodPending, false, cluster.Status.ProcessGroups, instanceID)
 
 	return needsSidecarConfInConfigMap, nil
 }

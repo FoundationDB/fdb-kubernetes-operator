@@ -594,6 +594,17 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			continue
 		}
 
+		processGroupStatus := processGroups[process.Locality["instance_id"]]
+		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
+		if processGroupStatus != nil && processGroupStatus.GetConditionTime(fdbtypes.PodPending) != nil {
+			log.Info("Skipping pending Pod",
+				"namespace", cluster.Namespace,
+				"cluster", cluster.Name,
+				"process", processGroupStatus.ProcessClass,
+				"class", process.ProcessClass)
+			continue
+		}
+
 		addresses, err := fdbtypes.ParseProcessAddressesFromCmdline(process.CommandLine)
 		if err != nil {
 			// We will end here in the error case when the address
@@ -611,9 +622,6 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 
 		_, isCoordinator := coordinatorStatus[address]
-		processGroupStatus := processGroups[process.Locality["instance_id"]]
-		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
-
 		if isCoordinator && !process.Excluded && !pendingRemoval {
 			coordinatorStatus[address] = true
 		}

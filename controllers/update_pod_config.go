@@ -47,7 +47,6 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	instanceProcessGroupMap := make(map[string]FdbInstance, len(instances))
-
 	for _, instance := range instances {
 		instanceProcessGroupMap[instance.GetInstanceID()] = instance
 	}
@@ -58,6 +57,11 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	// We try to update all instances and if we observe an error we add it to the error list.
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
+
+		if processGroup.GetConditionTime(fdbtypes.PodPending) != nil {
+			curLogger.Info("Process group has pending Pod, will be skipped")
+			continue
+		}
 
 		instance, ok := instanceProcessGroupMap[processGroup.ProcessGroupID]
 		if !ok || instance.Pod == nil || instance.Metadata == nil {
