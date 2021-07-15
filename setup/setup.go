@@ -97,6 +97,11 @@ func StartManager(
 	var logWriter io.Writer
 	var file *os.File
 
+	if len(os.Args) > 1 {
+		setupLog.Error(fmt.Errorf("unexpected args %v", os.Args), "unable to start manager")
+		os.Exit(1)
+	}
+
 	if operatorOpts.LogFile != "" {
 		lumberjackLogger := &lumberjack.Logger{
 			Filename:   operatorOpts.LogFile,
