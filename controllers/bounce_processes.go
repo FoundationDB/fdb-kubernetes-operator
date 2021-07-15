@@ -200,7 +200,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 	}
 
 	if !databaseStatus.Client.DatabaseStatus.Available {
-		log.Info("Deferring upgrade until database is available")
+		log.Info("Deferring upgrade until database is available", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
 		return nil, &Requeue{Message: "Deferring upgrade until database is available"}
 	}
@@ -216,7 +216,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 		}
 	}
 	if len(notReadyProcesses) > 0 {
-		log.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
+		log.Info("Deferring upgrade until all processes are ready to be upgraded", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingProcesses", notReadyProcesses)
 		message := fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", message)
 		return nil, &Requeue{Message: message}

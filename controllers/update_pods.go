@@ -77,7 +77,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		if instance.Metadata.Annotations[fdbtypes.LastSpecKey] != specHash {
 			log.Info("Update Pod",
 				"namespace", cluster.Namespace,
-				"name", cluster.Name,
+				"cluster", cluster.Name,
 				"processGroupID", instanceID,
 				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[fdbtypes.LastSpecKey]))
 

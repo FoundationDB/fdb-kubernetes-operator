@@ -1390,10 +1390,10 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		}
 
 		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
-			logger.Info("Has process group pending to remove", "processGroup", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
+			logger.Info("Has process group pending to remove", "processGroupID", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
 			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		} else {
-			logger.Info("Has process group with pending shrink", "processGroup", processGroup.ProcessGroupID, "state", "NeedsShrink")
+			logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink")
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
@@ -1420,7 +1420,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.Remove {
-			logger.Info("Has unhealthy process group", "processGroup", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
+			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
 		}

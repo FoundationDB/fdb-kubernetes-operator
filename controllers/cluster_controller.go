@@ -227,7 +227,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	}
 	podClient, message := r.getPodClient(cluster, instance)
 	if podClient == nil {
-		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "instance", instance.GetInstanceID(), "message", message)
+		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "message", message)
 		return false, nil
 	}
 
@@ -1327,13 +1327,13 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
-				log.Info("Process class of process is not eligible as coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "class", process.ProcessClass, "address", address)
+				log.Info("Process class of process is not eligible as coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "class", process.ProcessClass, "address", address)
 				allEligible = false
 			}
 		}
 
 		if address == "" {
-			log.Info("Process has invalid address", "namespace", cluster.Namespace, "name", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "address", address)
+			log.Info("Process has invalid address", "namespace", cluster.Namespace, "cluster", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "address", address)
 			allAddressesValid = false
 		}
 	}
@@ -1341,7 +1341,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	desiredCount := cluster.DesiredCoordinatorCount()
 	hasEnoughZones := len(coordinatorZones) == desiredCount
 	if !hasEnoughZones {
-		log.Info("Cluster does not have coordinators in the correct number of zones", "namespace", cluster.Namespace, "name", cluster.Name, "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
+		log.Info("Cluster does not have coordinators in the correct number of zones", "namespace", cluster.Namespace, "cluster", cluster.Name, "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
 	}
 
 	var maxCoordinatorsPerDC int
@@ -1351,7 +1351,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 		for dc, count := range coordinatorDCs {
 			if count > maxCoordinatorsPerDC {
-				log.Info("Cluster has too many coordinators in a single DC", "namespace", cluster.Namespace, "name", cluster.Name, "DC", dc, "count", count, "max", maxCoordinatorsPerDC)
+				log.Info("Cluster has too many coordinators in a single DC", "namespace", cluster.Namespace, "cluster", cluster.Name, "DC", dc, "count", count, "max", maxCoordinatorsPerDC)
 				hasEnoughDCs = false
 			}
 		}
@@ -1362,7 +1362,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		allHealthy = allHealthy && healthy
 
 		if !healthy {
-			log.Info("Cluster has an unhealthy coordinator", "namespace", cluster.Namespace, "name", cluster.Name, "address", address)
+			log.Info("Cluster has an unhealthy coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "address", address)
 		}
 	}
 
