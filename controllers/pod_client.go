@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -38,6 +39,10 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	mockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
 )
 
 // FdbPodClient provides methods for working with a FoundationDB pod
@@ -348,6 +353,12 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 // instance will substitute into its monitor conf.
 func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	substitutions := map[string]string{}
+
+	if client.Pod.Annotations != nil {
+		if _, ok := client.Pod.Annotations[mockUnreachableAnnotation]; ok {
+			return substitutions, &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}
+		}
+	}
 
 	substitutions["FDB_PUBLIC_IP"] = newFdbInstance(*client.Pod).GetPublicIPs()[0]
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
