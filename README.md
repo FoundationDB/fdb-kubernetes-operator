@@ -4,8 +4,8 @@
 ![GitHub](https://img.shields.io/github/license/FoundationDB/fdb-kubernetes-operator)
 [![CI for master branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
 
-This project provides an experimental operator for managing FoundationDB
-clusters on Kubernetes.
+This project provides an operator for managing FoundationDB clusters on Kubernetes.
+For more information see the [our documentation](docs).
 
 ## Running the Operator
 
@@ -36,6 +36,8 @@ You can also browse the [sample directory](config/samples) for more examples of 
 For more information about using the operator, including detailed discussion of how to customize your deployments, see the [user manual](docs/manual/index.md).
 
 For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
+
+For more information about the operator and reconciliation, see the [reconciliation](docs/reconciliation.md).
 
 For more information on the fields you can define on the cluster resource, see
 the [API documentation](docs/cluster_spec.md).
