@@ -743,6 +743,9 @@ const (
 	// ResourcesTerminating represents a process group whose resources are being
 	// terminated.
 	ResourcesTerminating ProcessGroupConditionType = "ResourcesTerminating"
+	// SidecarUnreachable represents a process group where the sidecar is not reachable
+	// because of networking or TLS issues.
+	SidecarUnreachable ProcessGroupConditionType = "SidecarUnreachable"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 )
@@ -758,6 +761,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		MissingPVC,
 		MissingService,
 		MissingProcesses,
+		SidecarUnreachable,
 		ReadyCondition,
 	}
 }
@@ -781,6 +785,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return MissingService, nil
 	case "MissingProcesses":
 		return MissingProcesses, nil
+	case "SidecarUnreachable":
+		return SidecarUnreachable, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)

@@ -154,6 +154,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 	originalGeneration := cluster.ObjectMeta.Generation
 	normalizedSpec := cluster.Spec.DeepCopy()
+	delayedRequeue := false
 
 	for _, subReconciler := range subReconcilers {
 		// We have to set the normalized spec here again otherwise any call to Update() for the status of the cluster
@@ -166,10 +167,18 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 			continue
 		}
 
+		if requeue.DelayedRequeue {
+			clusterLog.Info("Delaying requeue for sub-reconciler",
+				"subReconciler", fmt.Sprintf("%T", subReconciler),
+				"message", requeue.Message)
+			delayedRequeue = true
+			continue
+		}
+
 		return processRequeue(requeue, subReconciler, cluster, r.Recorder, clusterLog)
 	}
 
-	if cluster.Status.Generations.Reconciled < originalGeneration {
+	if cluster.Status.Generations.Reconciled < originalGeneration || delayedRequeue {
 		clusterLog.Info("Cluster was not fully reconciled by reconciliation process", "status", cluster.Status.Generations)
 
 		return ctrl.Result{Requeue: true}, nil
