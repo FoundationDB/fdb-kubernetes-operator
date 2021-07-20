@@ -50,15 +50,13 @@ func main() {
 	logOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	clusterReconciler := controllers.NewFoundationDBClusterReconciler(
-		controllers.StandardPodLifecycleManager{},
-	)
-
 	mgr, file := setup.StartManager(
 		scheme,
 		operatorOpts,
 		logOpts,
-		clusterReconciler,
+		controllers.NewFoundationDBClusterReconciler(
+			controllers.StandardPodLifecycleManager{},
+		),
 		&controllers.FoundationDBBackupReconciler{},
 		&controllers.FoundationDBRestoreReconciler{},
 		ctrl.Log)
