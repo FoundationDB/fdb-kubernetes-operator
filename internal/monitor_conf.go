@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
 // GetStartCommand builds the expected start command for an instance.
-func GetStartCommand(cluster *v1beta1.FoundationDBCluster, processCless v1beta1.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processCless fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
 	lines, err := getStartCommandLines(cluster, processCless, podClient, processNumber, processCount)
 	if err != nil {
 		return "", err
@@ -34,7 +34,7 @@ func GetStartCommand(cluster *v1beta1.FoundationDBCluster, processCless v1beta1.
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *v1beta1.FoundationDBCluster, processClass v1beta1.ProcessClass, podClient FdbPodClient, serversPerPod int) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -61,7 +61,7 @@ func GetMonitorConf(cluster *v1beta1.FoundationDBCluster, processClass v1beta1.P
 	return strings.Join(confLines, "\n"), nil
 }
 
-func getStartCommandLines(cluster *v1beta1.FoundationDBCluster, processClass v1beta1.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	var substitutions map[string]string
@@ -90,7 +90,7 @@ func getStartCommandLines(cluster *v1beta1.FoundationDBCluster, processClass v1b
 
 	var binaryDir string
 
-	version, err := v1beta1.ParseFdbVersion(cluster.Spec.Version)
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func getStartCommandLines(cluster *v1beta1.FoundationDBCluster, processClass v1b
 		fmt.Sprintf("command = %s/fdbserver", binaryDir),
 		"cluster_file = /var/fdb/data/fdb.cluster",
 		"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-		fmt.Sprintf("public_address = %s", cluster.GetFullAddressList("$FDB_PUBLIC_IP", false, processNumber)),
+		fmt.Sprintf("public_address = %s", fdbtypes.ProcessAddressesString(cluster.GetFullAddressList("$FDB_PUBLIC_IP", false, processNumber), ",")),
 		fmt.Sprintf("class = %s", processClass),
 		"logdir = /var/log/fdb-trace-logs",
 		fmt.Sprintf("loggroup = %s", logGroup))
@@ -134,7 +134,7 @@ func getStartCommandLines(cluster *v1beta1.FoundationDBCluster, processClass v1b
 	}
 
 	if cluster.NeedsExplicitListenAddress() {
-		confLines = append(confLines, fmt.Sprintf("listen_address = %s", cluster.GetFullAddressList("$FDB_POD_IP", false, processNumber)))
+		confLines = append(confLines, fmt.Sprintf("listen_address = %s", fdbtypes.ProcessAddressesString(cluster.GetFullAddressList("$FDB_POD_IP", false, processNumber), ",")))
 	}
 
 	podSettings := cluster.GetProcessSettings(processClass)
