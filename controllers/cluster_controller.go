@@ -669,3 +669,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, error) {
 	return internal.NewFdbPodClient(cluster, pod)
 }
+
+// GetPodSpec provides an external interface for the internal GetPodSpec method
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+	return internal.GetPodSpec(cluster, processClass, idNum)
+}
