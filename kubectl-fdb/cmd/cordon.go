@@ -41,7 +41,7 @@ import (
 )
 
 func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
-	o := NewFDBOptions(streams)
+	o := newFDBOptions(streams)
 	var nodeSelectors map[string]string
 
 	cmd := &cobra.Command{

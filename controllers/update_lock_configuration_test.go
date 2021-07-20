@@ -37,7 +37,7 @@ var _ = Describe("update_lock_configuration", func() {
 	var requeue *Requeue
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		cluster.Spec.InstanceIDPrefix = "dc1"
 		var locksDisabled = false
 		cluster.Spec.LockOptions.DisableLocks = &locksDisabled

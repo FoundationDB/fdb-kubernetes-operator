@@ -28,6 +28,8 @@ import (
 	"path"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -93,6 +95,7 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
+	logr *log.DelegatingLogger,
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
 	var file *os.File
@@ -147,7 +150,9 @@ func StartManager(
 	if clusterReconciler != nil {
 		clusterReconciler.Client = mgr.GetClient()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
-		clusterReconciler.Namespace = namespace
+		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
+		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
@@ -162,6 +167,8 @@ func StartManager(
 	if backupReconciler != nil {
 		backupReconciler.Client = mgr.GetClient()
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
+		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 
 		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
@@ -172,6 +179,8 @@ func StartManager(
 	if restoreReconciler != nil {
 		restoreReconciler.Client = mgr.GetClient()
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
+		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
 
 		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")

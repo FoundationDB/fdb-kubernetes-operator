@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -35,7 +37,7 @@ type RemoveServices struct{}
 
 // Reconcile runs the reconciler's work.
 func (u RemoveServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	if GetHeadlessService(cluster) != nil {
+	if internal.GetHeadlessService(cluster) != nil {
 		return nil
 	}
 

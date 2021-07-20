@@ -61,7 +61,7 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 }
 
 func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
-	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
+	instanceListOptions := internal.GetSinglePodListOptions(cluster, instanceID)
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 
 func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, bool, error) {
 	canBeIncluded := true
-	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
+	instanceListOptions := internal.GetSinglePodListOptions(cluster, instanceID)
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {

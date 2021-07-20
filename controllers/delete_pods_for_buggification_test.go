@@ -40,7 +40,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	var originalPods *corev1.PodList
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 

@@ -18,15 +18,13 @@
  * limitations under the License.
  */
 
-package controllers
+package internal
 
 import (
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,10 +36,10 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
-// getInstanceID generates an ID for an instance.
+// GetInstanceID generates an ID for an instance.
 //
 // This will return the pod name and the instance ID.
-func getInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (string, string) {
+func GetInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (string, string) {
 	var instanceID string
 	if cluster.Spec.InstanceIDPrefix != "" {
 		instanceID = fmt.Sprintf("%s-%s-%d", cluster.Spec.InstanceIDPrefix, processClass, idNum)
@@ -79,11 +77,10 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 
 // GetService builds a service for a new instance
 func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.Service, error) {
-	name, id := getInstanceID(cluster, processClass, idNum)
+	name, id := GetInstanceID(cluster, processClass, idNum)
 
-	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
-
-	metadata := getObjectMetadata(cluster, nil, processClass, id)
+	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+	metadata := GetObjectMetadata(cluster, nil, processClass, id)
 	metadata.Name = name
 	metadata.OwnerReferences = owner
 
@@ -98,16 +95,16 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			Type:                     corev1.ServiceTypeClusterIP,
 			Ports:                    generateServicePorts(processesPerPod),
 			PublishNotReadyAddresses: true,
-			Selector:                 getMinimalSinglePodLabels(cluster, id),
+			Selector:                 GetMinimalSinglePodLabels(cluster, id),
 		},
 	}, nil
 }
 
 // GetPod builds a pod for a new instance
 func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.Pod, error) {
-	name, id := getInstanceID(cluster, processClass, idNum)
+	name, id := GetInstanceID(cluster, processClass, idNum)
 
-	owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	spec, err := GetPodSpec(cluster, processClass, idNum)
 	if err != nil {
 		return nil, err
@@ -118,7 +115,7 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 		return nil, err
 	}
 
-	metadata := getPodMetadata(cluster, processClass, id, specHash)
+	metadata := GetPodMetadata(cluster, processClass, id, specHash)
 	metadata.Name = name
 	metadata.OwnerReferences = owner
 
@@ -128,7 +125,8 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 	}, nil
 }
 
-func getImage(imageName, curImage, defaultImage, versionString string, allowOverride bool) (string, error) {
+// GetImage returns the image for container
+func GetImage(imageName, curImage, defaultImage, versionString string, allowOverride bool) (string, error) {
 	var resImage string
 	if imageName != "" {
 		resImage = imageName
@@ -190,14 +188,14 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		return nil, fmt.Errorf("could not create init container")
 	}
 
-	podName, instanceID := getInstanceID(cluster, processClass, idNum)
+	podName, instanceID := GetInstanceID(cluster, processClass, idNum)
 
 	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
 
-	image, err := getImage(cluster.Spec.MainContainer.ImageName, mainContainer.Image, "foundationdb/foundationdb", versionString, processSettings.GetAllowTagOverride())
+	image, err := GetImage(cluster.Spec.MainContainer.ImageName, mainContainer.Image, "foundationdb/foundationdb", versionString, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +287,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 	configMapItems := []corev1.KeyToPath{
 		{Key: monitorConf, Path: "fdbmonitor.conf"},
-		{Key: clusterFileKey, Path: "fdb.cluster"},
+		{Key: ClusterFileKey, Path: "fdb.cluster"},
 	}
 
 	if useCustomCAs {
@@ -589,7 +587,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 
-	image, err := getImage(overrides.ImageName, container.Image, "foundationdb/foundationdb-kubernetes-sidecar", sidecarVersion, allowOverride)
+	image, err := GetImage(overrides.ImageName, container.Image, "foundationdb/foundationdb-kubernetes-sidecar", sidecarVersion, allowOverride)
 	if err != nil {
 		return err
 	}
@@ -634,7 +632,7 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 	if !usePvc(cluster, processClass) {
 		return nil, nil
 	}
-	name, id := getInstanceID(cluster, processClass, idNum)
+	name, id := GetInstanceID(cluster, processClass, idNum)
 
 	processSettings := cluster.GetProcessSettings(processClass)
 	var pvc *corev1.PersistentVolumeClaim
@@ -644,7 +642,7 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 		pvc = &corev1.PersistentVolumeClaim{}
 	}
 
-	pvc.ObjectMeta = getPvcMetadata(cluster, processClass, id)
+	pvc.ObjectMeta = GetPvcMetadata(cluster, processClass, id)
 	if pvc.ObjectMeta.Name == "" {
 		pvc.ObjectMeta.Name = fmt.Sprintf("%s-data", name)
 	} else {
@@ -749,7 +747,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		},
 	}
 	deployment.Spec.Replicas = &agentCount
-	deployment.ObjectMeta.OwnerReferences = buildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
+	deployment.ObjectMeta.OwnerReferences = BuildOwnerReference(backup.TypeMeta, backup.ObjectMeta)
 
 	if backup.Spec.BackupDeploymentMetadata != nil {
 		for key, value := range backup.Spec.BackupDeploymentMetadata.Labels {
@@ -792,7 +790,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := getImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version, backup.Spec.GetAllowTagOverride())
+	image, err := GetImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version, backup.Spec.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -801,7 +799,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 	args := []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
 
 	if len(backup.Spec.CustomParameters) > 0 {
-		err := internal.ValidateCustomParameters(backup.Spec.CustomParameters)
+		err := ValidateCustomParameters(backup.Spec.CustomParameters)
 		if err != nil {
 			return nil, err
 		}
@@ -861,7 +859,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", backup.Spec.ClusterName)},
 				Items: []corev1.KeyToPath{
-					{Key: clusterFileKey, Path: "fdb.cluster"},
+					{Key: ClusterFileKey, Path: "fdb.cluster"},
 				},
 			}},
 		},
@@ -879,11 +877,8 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 	return deployment, nil
 }
 
-func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
-	return getStorageServersPerPodForPod(instance.Pod)
-}
-
-func getStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
+// GetStorageServersPerPodForPod returns the value of STORAGE_SERVERS_PER_POD from the sidecar or 1
+func GetStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
 	// If not specified we will default to 1
 	storageServersPerPod := 1
 	if pod == nil {
@@ -899,4 +894,50 @@ func getStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
 	}
 
 	return storageServersPerPod, nil
+}
+
+// GetPodMetadata returns the metadata for a specific Pod
+func GetPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string, specHash string) metav1.ObjectMeta {
+	var customMetadata *metav1.ObjectMeta
+
+	processSettings := cluster.GetProcessSettings(processClass)
+	if processSettings.PodTemplate != nil {
+		customMetadata = &processSettings.PodTemplate.ObjectMeta
+	} else {
+		customMetadata = nil
+	}
+
+	metadata := GetObjectMetadata(cluster, customMetadata, processClass, id)
+
+	if metadata.Annotations == nil {
+		metadata.Annotations = make(map[string]string)
+	}
+	metadata.Annotations[fdbtypes.LastSpecKey] = specHash
+	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Routing.PublicIPSource)
+
+	return metadata
+}
+
+// GetObjectMetadata returns the ObjectMetadata for a process
+func GetObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbtypes.ProcessClass, id string) metav1.ObjectMeta {
+	var metadata *metav1.ObjectMeta
+
+	if base != nil {
+		metadata = base.DeepCopy()
+	} else {
+		metadata = &metav1.ObjectMeta{}
+	}
+	metadata.Namespace = cluster.Namespace
+
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
+	}
+	for label, value := range GetMinimalPodLabels(cluster, processClass, id) {
+		metadata.Labels[label] = value
+	}
+	for label, value := range cluster.Spec.LabelConfig.ResourceLabels {
+		metadata.Labels[label] = value
+	}
+
+	return *metadata
 }

@@ -24,6 +24,8 @@ import (
 	"context"
 	"net"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -37,7 +39,7 @@ var _ = Describe("admin_client_test", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 

@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	corev1 "k8s.io/api/core/v1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,7 +55,7 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		}
 	}
 
-	deployment, err := GetBackupDeployment(backup)
+	deployment, err := internal.GetBackupDeployment(backup)
 	if err != nil {
 		r.Recorder.Event(backup, corev1.EventTypeWarning, "GetBackupDeployment", err.Error())
 		return &Requeue{Error: err}

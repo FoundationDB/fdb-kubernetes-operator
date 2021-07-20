@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -144,7 +146,7 @@ var _ = Describe("update_status", func() {
 						},
 					},
 				}
-				cluster := createDefaultCluster()
+				cluster := internal.CreateDefaultCluster()
 				processGroupStatus := fdbtypes.NewProcessGroupStatus("1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
@@ -166,11 +168,11 @@ var _ = Describe("update_status", func() {
 		var err error
 
 		BeforeEach(func() {
-			cluster = createDefaultCluster()
+			cluster = internal.CreateDefaultCluster()
 			err = setupClusterForTest(cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			instances, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), getSinglePodListOptions(cluster, "storage-1")...)
+			instances, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, container := range instances[0].Pod.Spec.Containers {
@@ -386,7 +388,7 @@ var _ = Describe("update_status", func() {
 
 			BeforeEach(func() {
 				unreachableProcessGroup = instances[0].GetInstanceID()
-				instances[0].Pod.Annotations[mockUnreachableAnnotation] = "banana"
+				instances[0].Pod.Annotations[internal.MockUnreachableAnnotation] = "banana"
 			})
 
 			It("should mark the instance as unreachable", func() {
@@ -408,7 +410,7 @@ var _ = Describe("update_status", func() {
 
 			When("the instance is reachable again", func() {
 				BeforeEach(func() {
-					delete(instances[0].Pod.Annotations, mockUnreachableAnnotation)
+					delete(instances[0].Pod.Annotations, internal.MockUnreachableAnnotation)
 				})
 
 				It("should remove the condition", func() {
