@@ -1720,6 +1720,15 @@ func (address ProcessAddress) MarshalJSON() ([]byte, error) {
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
 
+	// For all Pod based actions we only provide an IP address without the port to actually
+	// like exclusions and includes. If the address is a valid IP address we can directly skip
+	// here and return the Process address, since the address doesn't contain any ports or additional flags.
+	ip := net.ParseIP(address)
+	if ip != nil {
+		result.IPAddress = ip
+		return result, nil
+	}
+
 	// In order to find the address port pair we will go over the address stored in a tmp String.
 	// The idea is to split from the right to the left. If we find a Substring that is not a valid host port pair
 	// we can trim the last part and store it as a flag e.g. ":tls" and try the next substring with the flag removed.

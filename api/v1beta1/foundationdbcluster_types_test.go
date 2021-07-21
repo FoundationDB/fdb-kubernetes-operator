@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"net"
@@ -2252,36 +2253,190 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	When("the process address is parsed", func() {
-		It("should parse the address correctly", func() {
-			address, err := ParseProcessAddress("127.0.0.1:4500:tls")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(Equal(ProcessAddress{
-				IPAddress: net.ParseIP("127.0.0.1"),
-				Port:      4500,
-				Flags:     map[string]bool{"tls": true},
-			}))
-			Expect(address.String()).To(Equal("127.0.0.1:4500:tls"))
+		type testCase struct {
+			input        string
+			expectedAddr ProcessAddress
+			expectedStr  string
+			err          error
+		}
 
-			address, err = ParseProcessAddress("127.0.0.1:4501")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(Equal(ProcessAddress{
-				IPAddress: net.ParseIP("127.0.0.1"),
-				Port:      4501,
-			}))
-			Expect(address.String()).To(Equal("127.0.0.1:4501"))
+		DescribeTable("should print the correct string",
+			func(tc testCase) {
+				address, err := ParseProcessAddress(tc.input)
+				if err == nil {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(address).To(Equal(tc.expectedAddr))
+					Expect(address.String()).To(Equal(tc.expectedStr))
+				} else {
+					// When an error has happened we don't have to check the result
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal(tc.err.Error()))
+				}
+			},
+			Entry("IPv4 with TLS flag",
+				testCase{
+					input: "127.0.0.1:4500:tls",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expectedStr: "127.0.0.1:4500:tls",
+					err:         nil,
+				}),
+			Entry("IPv4 without TLS flag",
+				testCase{
+					input: "127.0.0.1:4500",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     nil,
+					},
+					expectedStr: "127.0.0.1:4500",
+					err:         nil,
+				}),
+			Entry("IPv4 without port and TLS flag",
+				testCase{
+					input: "127.0.0.1",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      0,
+						Flags:     nil,
+					},
+					expectedStr: "127.0.0.1",
+					err:         nil,
+				}),
+			Entry("IPv6 with TLS flag",
+				testCase{
+					input: "[::1]:4500:tls",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expectedStr: "[::1]:4500:tls",
+					err:         nil,
+				}),
+			Entry("IPv6 without TLS flag",
+				testCase{
+					input: "[::1]:4500",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     nil,
+					},
+					expectedStr: "[::1]:4500",
+					err:         nil,
+				}),
+			Entry("IPv6 without port and TLS flag",
+				testCase{
+					input: "::1",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      0,
+						Flags:     nil,
+					},
+					expectedStr: "::1",
+					err:         nil,
+				}),
+			Entry("IPv6 with bad port",
+				testCase{
+					input: "[::1]:bad",
+					err:   fmt.Errorf("strconv.Atoi: parsing \"bad\": invalid syntax"),
+				}),
+			Entry("IPv4 with bad port",
+				testCase{
+					input: "127.0.0.1:bad",
+					err:   fmt.Errorf("strconv.Atoi: parsing \"bad\": invalid syntax"),
+				}),
+			Entry("IPv6 with invalid address",
+				testCase{
+					input: "[::1:]:4500",
+					err:   fmt.Errorf("invalid address: [::1:]:4500"),
+				}),
+			Entry("IPv4 with invalid address",
+				testCase{
+					input: "127.0.0.A:4500",
+					err:   fmt.Errorf("invalid address: 127.0.0.A:4500"),
+				}),
+		)
+	})
 
-			address, err = ParseProcessAddress("[::1]:4501")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(Equal(ProcessAddress{
-				IPAddress: net.ParseIP("::1"),
-				Port:      4501,
-			}))
-			Expect(address.String()).To(Equal("[::1]:4501"))
+	When("printing a process address", func() {
+		type testCase struct {
+			processAddr ProcessAddress
+			expected    string
+		}
 
-			address, err = ParseProcessAddress("127.0.0.1:bad")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("strconv.Atoi: parsing \"bad\": invalid syntax"))
-		})
+		DescribeTable("should print the correct string",
+			func(tc testCase) {
+				Expect(tc.processAddr.String()).To(Equal(tc.expected))
+
+			},
+			Entry("IPv6 with TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expected: "[::1]:4500:tls",
+				}),
+			Entry("IPv6 with without TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     map[string]bool{},
+					},
+					expected: "[::1]:4500",
+				}),
+			Entry("IPv6 with without port and TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      0,
+						Flags:     map[string]bool{},
+					},
+					expected: "::1",
+				}),
+			Entry("IPv4 with TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expected: "127.0.0.1:4500:tls",
+				}),
+			Entry("IPv4 with without TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     map[string]bool{},
+					},
+					expected: "127.0.0.1:4500",
+				}),
+			Entry("IPv4 with without port and TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      0,
+						Flags:     map[string]bool{},
+					},
+					expected: "127.0.0.1",
+				}),
+			Entry("With a placeholder",
+				testCase{
+					processAddr: ProcessAddress{
+						Placeholder: "$POD_IP",
+						Port:        4500,
+						Flags:       map[string]bool{},
+					},
+					expected: "$POD_IP:4500",
+				}),
+		)
 	})
 
 	When("an instance is being removed", func() {
