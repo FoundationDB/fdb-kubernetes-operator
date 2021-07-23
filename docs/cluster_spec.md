@@ -106,7 +106,7 @@ ConnectionString models the contents of a cluster file in a structured way
 | ----- | ----------- | ------ | -------- |
 | databaseName | DatabaseName provides an identifier for the database which persists across coordinator changes. | string | false |
 | generationID | GenerationID provides a unique ID for the current generation of coordinators. | string | false |
-| coordinators | Coordinators provides the addresses of the current coordinators. | [][ProcessAddress](#processaddress) | false |
+| coordinators | Coordinators provides the addresses of the current coordinators. | []string | false |
 
 [Back to TOC](#table-of-contents)
 

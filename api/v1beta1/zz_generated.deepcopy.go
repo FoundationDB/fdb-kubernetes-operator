@@ -132,10 +132,8 @@ func (in *ConnectionString) DeepCopyInto(out *ConnectionString) {
 	*out = *in
 	if in.Coordinators != nil {
 		in, out := &in.Coordinators, &out.Coordinators
-		*out = make([]ProcessAddress, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 }
 

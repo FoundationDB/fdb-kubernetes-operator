@@ -1562,7 +1562,7 @@ type ConnectionString struct {
 	GenerationID string `json:"generationID,omitempty"`
 
 	// Coordinators provides the addresses of the current coordinators.
-	Coordinators []ProcessAddress `json:"coordinators,omitempty"`
+	Coordinators []string `json:"coordinators,omitempty"`
 }
 
 // ParseConnectionString parses a connection string from its string
@@ -1574,14 +1574,14 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 	}
 
 	coordinatorsStrings := strings.Split(components[3], ",")
-	coordinators := make([]ProcessAddress, len(coordinatorsStrings))
+	coordinators := make([]string, len(coordinatorsStrings))
 	for idx, coordinatorsString := range coordinatorsStrings {
 		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
 		if err != nil {
 			return ConnectionString{}, err
 		}
 
-		coordinators[idx] = coordinatorAddress
+		coordinators[idx] = coordinatorAddress.String()
 	}
 
 	return ConnectionString{
@@ -1593,7 +1593,7 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 
 // String formats a connection string as a string
 func (str *ConnectionString) String() string {
-	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, ProcessAddressesString(str.Coordinators, ","))
+	return fmt.Sprintf("%s:%s@%s", str.DatabaseName, str.GenerationID, strings.Join(str.Coordinators, ","))
 }
 
 // GenerateNewGenerationID builds a new generation ID
@@ -1923,7 +1923,7 @@ func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool
 func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
 	for _, address := range str.Coordinators {
-		matchedCoordinators[address.String()] = false
+		matchedCoordinators[address] = false
 	}
 
 	for _, pAddr := range coordinators {

@@ -1958,7 +1958,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				Expect(err).NotTo(HaveOccurred())
 				for _, coordinator := range connectionString.Coordinators {
-					Expect(coordinator.Flags["tls"]).To(BeTrue())
+					Expect(coordinator).To(HaveSuffix("tls"))
 				}
 			})
 		})
@@ -1981,11 +1981,11 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				addressClassMap := map[string]fdbtypes.ProcessClass{}
 				for _, pGroup := range cluster.Status.ProcessGroups {
-					addressClassMap[pGroup.Addresses[0]] = pGroup.ProcessClass
+					addressClassMap[fmt.Sprintf("%s:4501", pGroup.Addresses[0])] = pGroup.ProcessClass
 				}
 
 				for _, coordinator := range connectionString.Coordinators {
-					Expect(addressClassMap[coordinator.IPAddress.String()]).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(addressClassMap[coordinator]).To(Equal(fdbtypes.ProcessClassStorage))
 				}
 			})
 
@@ -2008,11 +2008,11 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 					addressClassMap := map[string]fdbtypes.ProcessClass{}
 					for _, pGroup := range cluster.Status.ProcessGroups {
-						addressClassMap[pGroup.Addresses[0]] = pGroup.ProcessClass
+						addressClassMap[fmt.Sprintf("%s:4501", pGroup.Addresses[0])] = pGroup.ProcessClass
 					}
 
 					for _, coordinator := range connectionString.Coordinators {
-						Expect(addressClassMap[coordinator.IPAddress.String()]).To(Equal(fdbtypes.ProcessClassLog))
+						Expect(addressClassMap[coordinator]).To(Equal(fdbtypes.ProcessClassLog))
 					}
 				})
 			})
