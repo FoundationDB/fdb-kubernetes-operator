@@ -1834,6 +1834,38 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("when enabling explicit listen addresses", func() {
+			BeforeEach(func() {
+				enabled := false
+				cluster.Spec.UseExplicitListenAddress = &enabled
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				result, err := reconcileCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				enabled = true
+				cluster.Spec.UseExplicitListenAddress = &enabled
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				generationGap = 2
+			})
+
+			It("should replace the old processes", func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+
+				replacements := make(map[string]bool, len(originalPods.Items))
+				for _, pod := range originalPods.Items {
+					replacements[pod.Status.PodIP] = true
+				}
+
+				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+			})
+		})
+
 		Context("with a change to the public IP source and multiple storage servers per Pod", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService

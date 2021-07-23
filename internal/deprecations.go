@@ -324,6 +324,11 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		cluster.Spec.LabelConfig.FilterOnOwnerReferences = &enabled
 	}
 
+	if spec.UseExplicitListenAddress == nil {
+		enabled := options.UseFutureDefaults
+		spec.UseExplicitListenAddress = &enabled
+	}
+
 	return nil
 }
 

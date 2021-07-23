@@ -820,6 +820,77 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		Context("with a the public IP from the pod and an explicit listen address", func() {
+			BeforeEach(func() {
+				var source = fdbtypes.PublicIPSourcePod
+				cluster.Spec.Services.PublicIPSource = &source
+				enabled := true
+				cluster.Spec.UseExplicitListenAddress = &enabled
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should have the pod IP in the init container args", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--substitute-variable",
+					"FDB_POD_IP",
+					"--init-mode",
+				}))
+			})
+
+			It("should have the pod IP in the sidecar container args", func() {
+				Expect(len(spec.Containers)).To(Equal(2))
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--substitute-variable",
+					"FDB_POD_IP",
+				}))
+			})
+
+			It("should have the environment variables for the IPs in the sidecar container", func() {
+				sidecarEnv := getEnvVars(spec.Containers[1])
+				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+			})
+
+			It("should have the environment variables for the IPs in the init container", func() {
+				sidecarEnv := getEnvVars(spec.InitContainers[0])
+				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+				Expect(sidecarEnv["FDB_POD_IP"]).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom).NotTo(BeNil())
+				Expect(sidecarEnv["FDB_POD_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
+			})
+		})
+
 		Context("with a the public IP from the service", func() {
 			BeforeEach(func() {
 				var source = fdbtypes.PublicIPSourceService
