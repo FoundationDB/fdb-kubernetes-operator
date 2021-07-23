@@ -54,6 +54,9 @@ spec:
                       type: boolean
                     deletePods:
                       type: boolean
+                    ignorePendingPodsDuration:
+                      format: int64
+                      type: integer
                     killProcesses:
                       type: boolean
                     replacements:

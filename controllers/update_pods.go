@@ -58,7 +58,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			continue
 		}
 
-		if processGroup.GetConditionTime(fdbtypes.PodPending) != nil {
+		if cluster.SkipProcessGroup(processGroup) {
 			logger.V(1).Info("Ignore pending Pod",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

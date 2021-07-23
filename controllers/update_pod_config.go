@@ -58,14 +58,14 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 
-		if processGroup.GetConditionTime(fdbtypes.PodPending) != nil {
+		if cluster.SkipProcessGroup(processGroup) {
 			curLogger.Info("Process group has pending Pod, will be skipped")
 			continue
 		}
 
 		instance, ok := instanceProcessGroupMap[processGroup.ProcessGroupID]
 		if !ok || instance.Pod == nil || instance.Metadata == nil {
-			curLogger.Info("Could not find Pod for process group ID")
+			curLogger.Info("Could not find Pod for process group")
 			// TODO (johscheuer): we should requeue if that happens.
 			continue
 		}

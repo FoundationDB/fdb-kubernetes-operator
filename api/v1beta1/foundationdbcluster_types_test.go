@@ -3199,4 +3199,69 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
 		})
 	})
+
+	When("getting the priority of a process class", func() {
+		type testCase struct {
+			cluster  *FoundationDBCluster
+			pStatus  *ProcessGroupStatus
+			expected bool
+		}
+
+		DescribeTable("should return the expected process class",
+			func(tc testCase) {
+				Expect(tc.cluster.SkipProcessGroup(tc.pStatus)).To(Equal(tc.expected))
+			},
+			Entry("nil process group should be skipped",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pStatus:  nil,
+					expected: true,
+				}),
+			Entry("process group without condition should not be skipped",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pStatus:  &ProcessGroupStatus{},
+					expected: false,
+				}),
+			Entry("process group with a different condition should not be skipped",
+				testCase{
+					cluster: &FoundationDBCluster{},
+					pStatus: &ProcessGroupStatus{
+						ProcessGroupConditions: []*ProcessGroupCondition{
+							{
+								ProcessGroupConditionType: PodFailing,
+								Timestamp:                 time.Now().Unix(),
+							},
+						},
+					},
+					expected: false,
+				}),
+			Entry("process group with a pending condition for only a few seconds should not be skipped",
+				testCase{
+					cluster: &FoundationDBCluster{},
+					pStatus: &ProcessGroupStatus{
+						ProcessGroupConditions: []*ProcessGroupCondition{
+							{
+								ProcessGroupConditionType: PodPending,
+								Timestamp:                 time.Now().Unix(),
+							},
+						},
+					},
+					expected: false,
+				}),
+			Entry("process group with a pending condition for multiple minutes should be skipped",
+				testCase{
+					cluster: &FoundationDBCluster{},
+					pStatus: &ProcessGroupStatus{
+						ProcessGroupConditions: []*ProcessGroupCondition{
+							{
+								ProcessGroupConditionType: PodPending,
+								Timestamp:                 time.Now().Add(-15 * time.Minute).Unix(),
+							},
+						},
+					},
+					expected: true,
+				}),
+		)
+	})
 })

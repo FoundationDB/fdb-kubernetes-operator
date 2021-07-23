@@ -439,7 +439,7 @@ var _ = Describe("update_status", func() {
 				instances[0].Pod.Status.Phase = corev1.PodPending
 			})
 
-			It("should be mark the process group as Pod pending", func() {
+			It("should mark the process group as Pod pending", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 

@@ -596,11 +596,11 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 		processGroupStatus := processGroups[process.Locality["instance_id"]]
 		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
-		if processGroupStatus != nil && processGroupStatus.GetConditionTime(fdbtypes.PodPending) != nil {
-			log.Info("Skipping pending Pod",
+		if processGroupStatus != nil && cluster.SkipProcessGroup(processGroupStatus) {
+			log.Info("Skipping process group with pending Pod",
 				"namespace", cluster.Namespace,
 				"cluster", cluster.Name,
-				"process", processGroupStatus.ProcessClass,
+				"processGroupID", process.Locality["instance_id"],
 				"class", process.ProcessClass)
 			continue
 		}
@@ -676,9 +676,4 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 // NewFdbPodClient builds a client for working with an FDB Pod
 func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, error) {
 	return internal.NewFdbPodClient(cluster, pod)
-}
-
-// GetPodSpec provides an external interface for the internal GetPodSpec method
-func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
-	return internal.GetPodSpec(cluster, processClass, idNum)
 }
