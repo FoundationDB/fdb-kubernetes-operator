@@ -114,7 +114,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
-							UseExplicitListenAddress:      &boolValue,
+							UseExplicitListenAddress:      &trueValue,
 							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
@@ -183,7 +183,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
-							UseExplicitListenAddress:      &boolValue,
+							UseExplicitListenAddress:      &trueValue,
 							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
@@ -293,7 +293,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
-							UseExplicitListenAddress:      &boolValue,
+							UseExplicitListenAddress:      &trueValue,
 							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{

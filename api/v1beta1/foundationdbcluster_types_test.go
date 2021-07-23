@@ -3177,13 +3177,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		It("is required with a service as the public IP", func() {
 			source := PublicIPSourceService
-			cluster.Spec.Services.PublicIPSource = &source
+			cluster.Spec.Routing.PublicIPSource = &source
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
 		})
 
 		It("is not required with a pod as the public IP", func() {
 			source := PublicIPSourcePod
-			cluster.Spec.Services.PublicIPSource = &source
+			cluster.Spec.Routing.PublicIPSource = &source
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
 		})
 

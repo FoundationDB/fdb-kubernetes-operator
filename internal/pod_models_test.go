@@ -871,7 +871,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should have the environment variables for the IPs in the sidecar container", func() {
-				sidecarEnv := getEnvVars(spec.Containers[1])
+				sidecarEnv := GetEnvVars(spec.Containers[1])
 				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
@@ -881,7 +881,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("should have the environment variables for the IPs in the init container", func() {
-				sidecarEnv := getEnvVars(spec.InitContainers[0])
+				sidecarEnv := GetEnvVars(spec.InitContainers[0])
 				Expect(sidecarEnv["FDB_PUBLIC_IP"]).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom).NotTo(BeNil())
 				Expect(sidecarEnv["FDB_PUBLIC_IP"].ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
