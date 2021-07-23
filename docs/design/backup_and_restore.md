@@ -16,7 +16,7 @@ FoundationDB has built-in support for backup and restore through the `fdbbackup`
 * Share backup tooling with the open-source community
 * Provide an abstraction that can be used to manage different backup methodologies
 
-## Proprosed Design
+## Proposed Design
 
 ### Backup Resource
 
