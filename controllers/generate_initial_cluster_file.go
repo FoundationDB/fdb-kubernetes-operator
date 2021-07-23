@@ -92,7 +92,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	}
 
 	for _, locality := range coordinators {
-		connectionString.Coordinators = append(connectionString.Coordinators, locality.Address)
+		connectionString.Coordinators = append(connectionString.Coordinators, locality.Address.String())
 	}
 
 	cluster.Status.ConnectionString = connectionString.String()

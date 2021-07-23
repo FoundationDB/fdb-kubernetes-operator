@@ -498,13 +498,19 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		},
 	}
 
+	coordinatorsStr := []string{
+		"127.0.0.1:4500",
+		"127.0.0.2:4500",
+		"127.0.0.3:4500",
+	}
+
 	When("parsing the connection string", func() {
 		It("should be parsed correctly", func() {
 			str, err := ParseConnectionString("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(str.DatabaseName).To(Equal("test"))
 			Expect(str.GenerationID).To(Equal("abcd"))
-			Expect(str.Coordinators).To(Equal(coordinators))
+			Expect(str.Coordinators).To(Equal(coordinatorsStr))
 
 			str, err = ParseConnectionString("test:abcd")
 			Expect(err).To(HaveOccurred())
@@ -517,7 +523,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: coordinators,
+				Coordinators: coordinatorsStr,
 			}
 			Expect(str.String()).To(Equal("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"))
 		})
@@ -528,7 +534,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: coordinators,
+				Coordinators: coordinatorsStr,
 			}
 			err := str.GenerateNewGenerationID()
 			Expect(err).NotTo(HaveOccurred())
@@ -541,7 +547,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: coordinators,
+				Coordinators: coordinatorsStr,
 			}
 			Expect(str.HasCoordinators(coordinators)).To(BeTrue())
 			// We have to copy the slice to prevent to modify the original slice

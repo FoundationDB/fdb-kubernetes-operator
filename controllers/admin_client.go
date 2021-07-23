@@ -478,7 +478,12 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAd
 	if err != nil {
 		return "", err
 	}
-	connectionString.Coordinators = addresses
+	newCoord := make([]string, len(addresses))
+	for idx, coord := range addresses {
+		newCoord[idx] = coord.String()
+	}
+
+	connectionString.Coordinators = newCoord
 	return connectionString.String(), err
 }
 
