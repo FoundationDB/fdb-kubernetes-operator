@@ -81,6 +81,8 @@ We will create a FoundationDBRestore resource with the following spec:
 
 All fields in a restore are immutable.
 
+If the restore version and restore timestamp are both specified, the version will take precedence.
+
 ### Reconciling Backups
 
 The backup reconciler will run the following stages:
@@ -174,6 +176,8 @@ We will have a special case of backup expiration for deleting an entire backup. 
 The backup expiration job will have a maximum execution time of 1 hour. If the operator detects a pod that has been running for longer than this limit, it will delete the pod and start another one for the next backup in the queue.
 
 If a backup resource has multiple low-level backups that have data, we will run the expiry on the last entry in the list. If that entry is restorable and has the minimum restorable data, any older backups will be fully deleted, and removed from the resource status. Otherwise, they will be left intact.
+
+The retry interval when we hit the concurrency limit for expiration pods will be customizable in the start command for the operator.
 
 ### Coordinating Operations
 
