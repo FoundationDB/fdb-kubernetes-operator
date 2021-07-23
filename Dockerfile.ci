@@ -1,0 +1,33 @@
+FROM golang:1.15.8
+
+RUN apt-get update && apt-get install -y git
+
+ARG KUBEBUILDER_VER=2.3.2
+RUN curl --fail -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VER}/linux/amd64" -o kubebuilder.tar.gz \
+    && tar -xz -C /tmp/ -f kubebuilder.tar.gz \
+    && mv "/tmp/kubebuilder_${KUBEBUILDER_VER}_linux_amd64" /usr/local/kubebuilder
+ENV PATH=${PATH}:/usr/local/kubebuilder/bin/
+
+ARG KUSTOMIZE_VER=v3.9.4
+RUN curl --fail -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz" -o kustomize.tar.gz \
+    && tar xvfz kustomize.tar.gz \
+    && mv kustomize /usr/local/bin && chmod +x /usr/local/bin/kustomize \
+    && rm kustomize.tar.gz
+
+ARG KIND_VER=v0.10.0
+RUN curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64 \
+    && mv kind /usr/local/bin/kind && chmod +x /usr/local/bin/kind
+
+ARG YQ_VERSION=v4.6.1
+RUN curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz \
+    && tar xvfz yq.tar.gz \
+    && mv yq_linux_amd64 /usr/local/bin/yq && chmod +x /usr/local/bin/yq \
+    && rm yq.tar.gz
+
+# Install FDB
+ARG FDB_VERSION=6.2.30
+ARG FDB_WEBSITE=https://www.foundationdb.org
+
+RUN set -eux && \
+	curl --fail ${FDB_WEBSITE}/downloads/${FDB_VERSION}/ubuntu/installers/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
+	dpkg -i fdb.deb && rm fdb.deb
