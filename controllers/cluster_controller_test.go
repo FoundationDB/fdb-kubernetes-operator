@@ -1853,16 +1853,23 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				generationGap = 2
 			})
 
-			It("should replace the old processes", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+			It("should set the FDB_POD_IP on the pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
-
-				replacements := make(map[string]bool, len(originalPods.Items))
-				for _, pod := range originalPods.Items {
-					replacements[pod.Status.PodIP] = true
+				for _, pod := range pods.Items {
+					container := pod.Spec.Containers[1]
+					Expect(container.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					var podIPEnv corev1.EnvVar
+					for _, env := range container.Env {
+						if env.Name == "FDB_POD_IP" {
+							podIPEnv = env
+						}
+					}
+					Expect(podIPEnv.Name).To(Equal("FDB_POD_IP"))
+					Expect(podIPEnv.ValueFrom).NotTo(BeNil())
+					Expect(podIPEnv.ValueFrom.FieldRef.FieldPath).To(Equal("status.podIP"))
 				}
-
-				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
 			})
 		})
 
@@ -2830,6 +2837,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
+				cluster.Status.HasListenIPsForAllPods = true
 				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2853,6 +2861,34 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					"locality_zoneid = $FDB_ZONE_ID",
 					"listen_address = $FDB_POD_IP:4501",
 				}, "\n")))
+			})
+
+			Context("with pods without the listen IP environment variable", func() {
+				BeforeEach(func() {
+					cluster.Status.HasListenIPsForAllPods = false
+					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should generate the storage conf", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"datadir = /var/fdb/data",
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+					}, "\n")))
+				})
 			})
 		})
 

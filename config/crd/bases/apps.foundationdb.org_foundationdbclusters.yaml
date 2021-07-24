@@ -8724,6 +8724,8 @@ spec:
                   type: boolean
                 hasIncorrectServiceConfig:
                   type: boolean
+                hasListenIPsForAllPods:
+                  type: boolean
                 health:
                   properties:
                     available:

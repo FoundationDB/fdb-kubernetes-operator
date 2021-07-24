@@ -393,6 +393,10 @@ type FoundationDBClusterStatus struct {
 	// Configured defines whether we have configured the database yet.
 	Configured bool `json:"configured,omitempty"`
 
+	// HasListenIPsForAllPods defines whether every pod has an environment
+	// variable for its listen address.
+	HasListenIPsForAllPods bool `json:"hasListenIPsForAllPods,omitempty"`
+
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the instance ID to its removal state.
 	// Deprecated: Use ProcessGroups instead.

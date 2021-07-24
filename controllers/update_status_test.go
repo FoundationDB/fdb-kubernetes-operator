@@ -431,4 +431,58 @@ var _ = Describe("update_status", func() {
 			})
 		})
 	})
+
+	Describe("Reconcile", func() {
+		var cluster *fdbtypes.FoundationDBCluster
+		var err error
+		var requeue *Requeue
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			err = k8sClient.Create(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).To(Equal(int64(1)))
+		})
+
+		JustBeforeEach(func() {
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			requeue = UpdateStatus{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+			if requeue != nil {
+				Expect(requeue.Error).NotTo(HaveOccurred())
+			}
+			_, err = reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should mark the cluster as reconciled", func() {
+			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+		})
+
+		When("enabling an explicit listen address", func() {
+			BeforeEach(func() {
+				enabled := false
+				cluster.Spec.UseExplicitListenAddress = &enabled
+				result, err := reconcileCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				enabled = true
+				cluster.Spec.UseExplicitListenAddress = &enabled
+			})
+
+			Context("when the cluster has not been reconciled", func() {
+				It("should report that pods do not have listen IPs", func() {
+					Expect(cluster.Status.HasListenIPsForAllPods).To(BeFalse())
+				})
+			})
+		})
+	})
 })

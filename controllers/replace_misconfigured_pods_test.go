@@ -306,41 +306,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
-	Context("when configuring listen addresses", func() {
-		It("should need a removal when adding the FDB_POD_IP variable", func() {
-			enabled := true
-			cluster.Spec.UseExplicitListenAddress = &enabled
-			instance := FdbInstance{
-				Metadata: &metav1.ObjectMeta{
-					Labels: map[string]string{
-						fdbtypes.FDBInstanceIDLabel:   instanceName,
-						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					},
-					Annotations: map[string]string{},
-				},
-				Pod: pod,
-			}
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: instanceName,
-				Remove:         false,
-			}
-			pod.Spec.Containers[1].Env = nil
-			needsRemoval, err := instanceNeedsRemoval(cluster, instance, status)
-			Expect(needsRemoval).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-
-			pod.Spec.Containers[1].Env = append(pod.Spec.Containers[1].Env, corev1.EnvVar{Name: "FDB_POD_IP"})
-			needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			enabled = false
-			needsRemoval, err = instanceNeedsRemoval(cluster, instance, status)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
 	Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 		It("should not need a removal", func() {
 			instance := FdbInstance{

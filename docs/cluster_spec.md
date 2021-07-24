@@ -296,6 +296,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
+| hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. **Deprecated: Use ProcessGroups instead.** | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |

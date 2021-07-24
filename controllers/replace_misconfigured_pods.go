@@ -251,27 +251,6 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 		}
 	}
 
-	if cluster.NeedsExplicitListenAddress() {
-		hasPodIP := false
-		for _, container := range instance.Pod.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" {
-				for _, env := range container.Env {
-					if env.Name == "FDB_POD_IP" {
-						hasPodIP = true
-					}
-				}
-			}
-		}
-		if !hasPodIP {
-			log.Info("Replace instance",
-				"namespace", cluster.Namespace,
-				"name", cluster.Name,
-				"processGroupID", instanceID,
-				"reason", "Need to add the pod IP variable before updating the command line")
-			return true, nil
-		}
-	}
-
 	return false, nil
 }
 

@@ -93,6 +93,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		processMap[processID] = append(processMap[processID], process)
 	}
 
+	status.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
 	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfiguration()
 	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
 	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
@@ -509,6 +510,22 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			_, ok := processGroupsWithoutExclusion[processGroupStatus.ProcessGroupID]
 			processGroupStatus.ExclusionSkipped = ok
 			continue
+		}
+
+		if instance.Metadata.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
+			hasPodIP := false
+			for _, container := range instance.Pod.Spec.Containers {
+				if container.Name == "foundationdb-kubernetes-sidecar" {
+					for _, env := range container.Env {
+						if env.Name == "FDB_POD_IP" {
+							hasPodIP = true
+						}
+					}
+				}
+			}
+			if !hasPodIP {
+				status.HasListenIPsForAllPods = false
+			}
 		}
 
 		// In theory we could also support multiple processes per pod for different classes

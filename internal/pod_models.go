@@ -483,8 +483,15 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		}})
 
 		if cluster.NeedsExplicitListenAddress() {
+			podIPKey := ""
+			family := cluster.Spec.Routing.PodIPFamily
+			if family == nil {
+				podIPKey = "status.podIP"
+			} else {
+				podIPKey = "status.podIPs"
+			}
 			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: podIPKey},
 			}})
 
 			if version.PrefersCommandLineArgumentsInSidecar() {

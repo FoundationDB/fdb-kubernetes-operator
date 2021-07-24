@@ -434,7 +434,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with a pod IP pattern defined", func() {
+		Context("with a pod IP family defined", func() {
 			BeforeEach(func() {
 				family := 6
 				cluster.Spec.Routing.PodIPFamily = &family
@@ -506,37 +506,120 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
-			When("having a predefined node affinity rules", func() {
+			Context("with an explicit listen address", func() {
 				BeforeEach(func() {
-					affinity := &corev1.Affinity{
-						NodeAffinity: &corev1.NodeAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-								{
-									Weight: 1,
-									Preference: corev1.NodeSelectorTerm{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key: "test",
-											},
+					enabled := true
+					cluster.Spec.UseExplicitListenAddress = &enabled
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+				})
+
+				It("should have the built-in init container", func() {
+					Expect(len(spec.InitContainers)).To(Equal(1))
+					initContainer := spec.InitContainers[0]
+					Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(initContainer.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--input-monitor-conf",
+						"fdbmonitor.conf",
+						"--copy-binary",
+						"fdbserver",
+						"--copy-binary",
+						"fdbcli",
+						"--main-container-version",
+						"6.2.20",
+						"--public-ip-family",
+						"6",
+						"--substitute-variable",
+						"FDB_POD_IP",
+						"--init-mode",
+					}))
+					Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
+						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+						}},
+						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+						}},
+						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					}))
+				})
+
+				It("should have the sidecar container", func() {
+					sidecarContainer := spec.Containers[1]
+					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Args).To(Equal([]string{
+						"--copy-file",
+						"fdb.cluster",
+						"--input-monitor-conf",
+						"fdbmonitor.conf",
+						"--copy-binary",
+						"fdbserver",
+						"--copy-binary",
+						"fdbcli",
+						"--main-container-version",
+						"6.2.20",
+						"--public-ip-family",
+						"6",
+						"--substitute-variable",
+						"FDB_POD_IP",
+					}))
+					Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+						{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+						}},
+						{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIPs"},
+						}},
+						{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						}},
+						{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+						{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+					}))
+				})
+			})
+		})
+
+		When("having a predefined node affinity rules", func() {
+			BeforeEach(func() {
+				affinity := &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+							{
+								Weight: 1,
+								Preference: corev1.NodeSelectorTerm{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key: "test",
 										},
 									},
 								},
 							},
 						},
-					}
+					},
+				}
 
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Affinity = affinity
-					cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
-						Value: "",
-						Key:   "kubernetes.io/hostname",
-					}
-					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
-				})
+				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Affinity = affinity
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+					Value: "",
+					Key:   "kubernetes.io/hostname",
+				}
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
 
-				It("should have both affinity rules", func() {
-					Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
-					Expect(len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
-				})
+			It("should have both affinity rules", func() {
+				Expect(len(spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
+				Expect(len(spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(BeNumerically("==", 1))
 			})
 		})
 
