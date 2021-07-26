@@ -89,6 +89,25 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			return &Requeue{Error: err}
 		}
 
+		if pvc.Name != desiredPVC.Name {
+			log.Info("PVC Name and desired PVC  Names are different", "Current PVC name", pvc.Name, "Cluster spec PVC name", desiredPVC.Name)
+			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
+			if err != nil {
+				return &Requeue{Error: err}
+			}
+
+			if len(instances) > 0 {
+				processGroupStatus.Remove = true
+				hasNewRemovals = true
+
+				log.Info("Replace instance",
+					"namespace", cluster.Namespace,
+					"cluster", cluster.Name,
+					"processGroupID", instanceID,
+					"pvc", pvc.Name,
+					"reason", fmt.Sprintf("Cluster spec has changed from %s to %s", pvc.Name, desiredPVC.Name))
+			}
+		}
 		pvcHash, err := GetJSONHash(desiredPVC.Spec)
 		if err != nil {
 			return &Requeue{Error: err}
