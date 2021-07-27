@@ -3163,4 +3163,40 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 		)
 	})
+
+	Describe("checking for explicit listen address", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		It("is not required for a default cluster", func() {
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
+		})
+
+		It("is required with a service as the public IP", func() {
+			source := PublicIPSourceService
+			cluster.Spec.Routing.PublicIPSource = &source
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
+		})
+
+		It("is not required with a pod as the public IP", func() {
+			source := PublicIPSourcePod
+			cluster.Spec.Routing.PublicIPSource = &source
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
+		})
+
+		It("is required with the flag set to true", func() {
+			enabled := true
+			cluster.Spec.UseExplicitListenAddress = &enabled
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
+		})
+
+		It("is not required with the flag set to false", func() {
+			enabled := false
+			cluster.Spec.UseExplicitListenAddress = &enabled
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
+		})
+	})
 })

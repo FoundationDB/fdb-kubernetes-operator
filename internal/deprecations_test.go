@@ -632,6 +632,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
 				})
+
+				It("should have explicit listen addresses disabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeFalse())
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -685,6 +690,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
+				})
+
+				It("should have explicit listen addresses disabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeFalse())
 				})
 			})
 
@@ -837,6 +847,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})
+
+				It("should have explicit listen addresses enabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeTrue())
+				})
 			})
 
 			Context("with the future defaults, changes only", func() {
@@ -885,6 +900,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
+				})
+
+				It("should have explicit listen addresses enabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeTrue())
 				})
 			})
 

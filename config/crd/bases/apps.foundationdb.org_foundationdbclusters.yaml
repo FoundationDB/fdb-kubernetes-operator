@@ -7783,6 +7783,8 @@ spec:
                   type: array
                 updatePodsByReplacement:
                   type: boolean
+                useExplicitListenAddress:
+                  type: boolean
                 version:
                   pattern: (\d+)\.(\d+)\.(\d+)
                   type: string
@@ -8721,6 +8723,8 @@ spec:
                 hasIncorrectConfigMap:
                   type: boolean
                 hasIncorrectServiceConfig:
+                  type: boolean
+                hasListenIPsForAllPods:
                   type: boolean
                 health:
                   properties:

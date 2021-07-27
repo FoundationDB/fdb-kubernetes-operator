@@ -316,6 +316,10 @@ type FoundationDBClusterSpec struct {
 
 	// LabelConfig allows customizing labels used by the operator.
 	LabelConfig LabelConfig `json:"labels,omitempty"`
+
+	// UseExplicitListenAddress determines if we should add a listen address
+	// that is separate from the public address.
+	UseExplicitListenAddress *bool `json:"useExplicitListenAddress,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -388,6 +392,10 @@ type FoundationDBClusterStatus struct {
 
 	// Configured defines whether we have configured the database yet.
 	Configured bool `json:"configured,omitempty"`
+
+	// HasListenIPsForAllPods defines whether every pod has an environment
+	// variable for its listen address.
+	HasListenIPsForAllPods bool `json:"hasListenIPsForAllPods,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the instance ID to its removal state.
@@ -2209,7 +2217,10 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
 	source := cluster.Spec.Routing.PublicIPSource
-	return source != nil && *source == PublicIPSourceService
+	requiredForSource := source != nil && *source == PublicIPSourceService
+	flag := cluster.Spec.UseExplicitListenAddress
+	requiredForFlag := flag != nil && *flag
+	return requiredForSource || requiredForFlag
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod

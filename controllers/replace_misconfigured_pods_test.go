@@ -37,6 +37,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 	instanceName := fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337)
+	var pod *corev1.Pod
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -44,6 +45,16 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 			fdbtypes.ProcessClassGeneral: {
 				PodTemplate: &corev1.PodTemplateSpec{},
+			},
+		}
+		pod = &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "foundationdb"},
+					{Name: "foundationdb-kubernetes-sidecar", Env: []corev1.EnvVar{
+						{Name: "FDB_POD_IP"},
+					}},
+				},
 			},
 		}
 		Expect(err).NotTo(HaveOccurred())
@@ -67,11 +78,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							fdbtypes.FDBInstanceIDLabel: instanceName,
 						},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				needsRemoval, err := instanceNeedsRemoval(cluster, instance, nil)
 				Expect(needsRemoval).To(BeFalse())
@@ -88,11 +95,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							fdbtypes.FDBInstanceIDLabel: instanceName,
 						},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				status := &fdbtypes.ProcessGroupStatus{
 					ProcessGroupID: instanceName,
@@ -113,11 +116,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				status := &fdbtypes.ProcessGroupStatus{
 					ProcessGroupID: instanceName,
@@ -145,11 +144,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						},
 						Annotations: map[string]string{},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				status := &fdbtypes.ProcessGroupStatus{
 					ProcessGroupID: instanceName,
@@ -180,11 +175,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
 					},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -214,11 +205,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -246,11 +233,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -277,11 +260,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -308,11 +287,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
