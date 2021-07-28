@@ -387,11 +387,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
-	Context("when PVC name and cluster spec doesn't match", func() {
+	When("PVC name and PVC spec doesn't match", func() {
 		It("should need a removal", func() {
 			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta : metav1.ObjectMeta {
-					Name : "Test-storage",
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "Test-storage",
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
 						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
@@ -400,17 +400,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 				},
 			}
-			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
-			Expect(needsRemoval).To(BeTrue())
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeTrue())
 		})
 	})
 
-	Context("when PVC name and cluster spec match", func() {
+	When("PVC name and PVC spec match", func() {
 		It("should not need a removal", func() {
 			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta : metav1.ObjectMeta {
-					Name : "operator-test-1-storage-1337-data",
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "operator-test-1-storage-1337-data",
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
 						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
@@ -419,17 +419,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 				},
 			}
-			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
-			Expect(needsRemoval).To(BeFalse())
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeFalse())
 		})
 	})
 
-	Context("when PVC hash and cluster spec doesn't match", func() {
+	When("PVC hash doesn't match", func() {
 		It("should need a removal", func() {
 			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta : metav1.ObjectMeta {
-					Name : "operator-test-1-storage-1337-data",
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "operator-test-1-storage-1337-data",
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
 						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
@@ -438,17 +438,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 				},
 			}
-			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
-			Expect(needsRemoval).To(BeTrue())
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeTrue())
 		})
 	})
 
-	Context("when PVC hash and cluster spec hash match", func() {
+	When("PVC hash and PVC spec hash match", func() {
 		It("should not need a removal", func() {
 			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta : metav1.ObjectMeta {
-					Name : "operator-test-1-storage-1337-data",
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "operator-test-1-storage-1337-data",
 					Labels: map[string]string{
 						fdbtypes.FDBInstanceIDLabel:   instanceName,
 						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
@@ -457,7 +457,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 				},
 			}
-			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 			Expect(needsRemoval).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 		})

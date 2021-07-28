@@ -64,8 +64,11 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			continue
 		}
 
-		hasNewRemovals, err = instanceNeedsRemovalForPVC(pvc, cluster)
-		if  hasNewRemovals {
+		hasNewRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+		if hasNewRemoval {
 			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
 				return &Requeue{Error: err}
@@ -108,7 +111,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	return nil
 }
 
-func instanceNeedsRemovalForPVC(pvc corev1.PersistentVolumeClaim, cluster  *fdbtypes.FoundationDBCluster) (bool, error) {
+func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim) (bool, error) {
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 	if !ownedByCluster {
 		for _, ownerReference := range pvc.OwnerReferences {
@@ -142,7 +145,7 @@ func instanceNeedsRemovalForPVC(pvc corev1.PersistentVolumeClaim, cluster  *fdbt
 			"processGroupID", instanceID,
 			"pvc", pvc.Name,
 			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbtypes.LastSpecKey]))
-		return  true, nil
+		return true, nil
 	}
 	if pvc.Name != desiredPVC.Name {
 		log.Info("Replace instance",
@@ -150,7 +153,7 @@ func instanceNeedsRemovalForPVC(pvc corev1.PersistentVolumeClaim, cluster  *fdbt
 			"cluster", cluster.Name,
 			"processGroupID", instanceID,
 			"pvc", pvc.Name,
-			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", desiredPVC.Name , pvc.Name))
+			"reason", fmt.Sprintf("PVC name has changed %s to %s", desiredPVC.Name, pvc.Name))
 		return true, nil
 	}
 	return false, nil
