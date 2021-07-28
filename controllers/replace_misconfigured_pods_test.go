@@ -387,6 +387,82 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
+	Context("when PVC name and cluster spec doesn't match", func() {
+		It("should need a removal", func() {
+			pvc := corev1.PersistentVolumeClaim{
+				ObjectMeta : metav1.ObjectMeta {
+					Name : "Test-storage",
+					Labels: map[string]string{
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
+					Annotations: map[string]string{
+						fdbtypes.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+					},
+				},
+			}
+			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
+			Expect(needsRemoval).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("when PVC name and cluster spec match", func() {
+		It("should not need a removal", func() {
+			pvc := corev1.PersistentVolumeClaim{
+				ObjectMeta : metav1.ObjectMeta {
+					Name : "operator-test-1-storage-1337-data",
+					Labels: map[string]string{
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
+					Annotations: map[string]string{
+						fdbtypes.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+					},
+				},
+			}
+			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
+			Expect(needsRemoval).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("when PVC hash and cluster spec doesn't match", func() {
+		It("should need a removal", func() {
+			pvc := corev1.PersistentVolumeClaim{
+				ObjectMeta : metav1.ObjectMeta {
+					Name : "operator-test-1-storage-1337-data",
+					Labels: map[string]string{
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
+					Annotations: map[string]string{
+						fdbtypes.LastSpecKey: "1",
+					},
+				},
+			}
+			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
+			Expect(needsRemoval).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("when PVC hash and cluster spec hash match", func() {
+		It("should not need a removal", func() {
+			pvc := corev1.PersistentVolumeClaim{
+				ObjectMeta : metav1.ObjectMeta {
+					Name : "operator-test-1-storage-1337-data",
+					Labels: map[string]string{
+						fdbtypes.FDBInstanceIDLabel:   instanceName,
+						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
+					Annotations: map[string]string{
+						fdbtypes.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
+					},
+				},
+			}
+			needsRemoval, err := instanceNeedsRemovalForPVC(pvc, cluster)
+			Expect(needsRemoval).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
 	Context("when the memory resources are changed", func() {
 		var status *fdbtypes.ProcessGroupStatus
 		var instance FdbInstance
