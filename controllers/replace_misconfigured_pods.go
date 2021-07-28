@@ -64,11 +64,11 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 			continue
 		}
 
-		hasNewRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
+		needsNewRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
-		if hasNewRemoval {
+		if needsNewRemoval {
 			instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 			if err != nil {
 				return &Requeue{Error: err}
@@ -153,7 +153,7 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 			"cluster", cluster.Name,
 			"processGroupID", instanceID,
 			"pvc", pvc.Name,
-			"reason", fmt.Sprintf("PVC name has changed %s to %s", desiredPVC.Name, pvc.Name))
+			"reason", fmt.Sprintf("PVC name has changed from %s to %s", desiredPVC.Name, pvc.Name))
 		return true, nil
 	}
 	return false, nil

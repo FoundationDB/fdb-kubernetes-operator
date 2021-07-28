@@ -387,7 +387,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
-	When("PVC name and PVC spec doesn't match", func() {
+	When("PVC name doesn't match", func() {
 		It("should need a removal", func() {
 			pvc := corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -441,25 +441,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(needsRemoval).To(BeTrue())
-		})
-	})
-
-	When("PVC hash and PVC spec hash match", func() {
-		It("should not need a removal", func() {
-			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "operator-test-1-storage-1337-data",
-					Labels: map[string]string{
-						fdbtypes.FDBInstanceIDLabel:   instanceName,
-						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage)},
-					Annotations: map[string]string{
-						fdbtypes.LastSpecKey: "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
-					},
-				},
-			}
-			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
