@@ -362,6 +362,38 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
+	When("PVC name doesn't match", func() {
+		It("should need a removal", func() {
+			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			pvc.Name = "Test-storage"
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, *pvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeTrue())
+		})
+	})
+
+	When("PVC name and PVC spec match", func() {
+		It("should not need a removal", func() {
+			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, *pvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeFalse())
+		})
+	})
+
+	When("PVC hash doesn't match", func() {
+		It("should need a removal", func() {
+			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			pvc.Annotations[fdbtypes.LastSpecKey] = "1"
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, *pvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeTrue())
+		})
+	})
+
 	Context("when the memory resources are changed", func() {
 		var status *fdbtypes.ProcessGroupStatus
 		var instance FdbInstance
