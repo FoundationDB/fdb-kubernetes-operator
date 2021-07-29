@@ -2002,6 +2002,57 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
+		Context("with a conversion to IPv6", func() {
+			BeforeEach(func() {
+				family := 6
+				cluster.Spec.Routing.PodIPFamily = &family
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should make the processes listen on an IPV6 address", func() {
+				Expect(cluster.Status.ConnectionString).To(HaveSuffix("@[::8:1]:4501,[::8:2]:4501,[::8:3]:4501"))
+			})
+		})
+
+		Context("with a newly created IPv6 cluster", func() {
+			BeforeEach(func() {
+				k8sClient.Clear()
+				ClearMockAdminClients()
+				ClearMockLockClients()
+
+				cluster = internal.CreateDefaultCluster()
+				family := 6
+				cluster.Spec.Routing.PodIPFamily = &family
+
+				err = k8sClient.Create(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				result, err := reconcileCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				generation, err := reloadCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(generation).To(Equal(int64(1)))
+
+				originalVersion = cluster.ObjectMeta.Generation
+
+				originalPods = &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(originalPods.Items)).To(Equal(17))
+
+				sortPodsByID(originalPods)
+
+				generationGap = 0
+			})
+
+			It("should make the processes listen on an IPV6 address", func() {
+				Expect(cluster.Status.ConnectionString).To(HaveSuffix("@[::1:1]:4501,[::1:2]:4501,[::1:3]:4501"))
+			})
+		})
+
 		Context("with only storage processes as coordinator", func() {
 			BeforeEach(func() {
 				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{

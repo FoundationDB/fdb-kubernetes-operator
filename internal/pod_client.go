@@ -362,7 +362,19 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		}
 	}
 
-	substitutions["FDB_PUBLIC_IP"] = GetPublicIPsForPod(client.Pod)[0]
+	ipString := GetPublicIPsForPod(client.Pod)[0]
+	substitutions["FDB_PUBLIC_IP"] = ipString
+	if ipString != "" {
+		ip := net.ParseIP(ipString)
+		if ip == nil {
+			return nil, fmt.Errorf("Failed to parse IP from pod: %s", ipString)
+		}
+
+		if ip.To4() == nil {
+			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
+		}
+	}
+
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name

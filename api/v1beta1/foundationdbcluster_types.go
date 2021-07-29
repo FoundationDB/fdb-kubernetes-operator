@@ -1886,6 +1886,12 @@ func GetProcessPort(processNumber int, tls bool) int {
 // the primary address.
 func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []ProcessAddress {
 	addrs := make([]ProcessAddress, 0, 2)
+
+	// If the address is already enclosed in brackets, remove them since they
+	// will be re-added automatically in the ProcessAddress logic.
+	if strings.HasPrefix(address, "[") && strings.HasSuffix(address, "]") {
+		address = address[1 : len(address)-1]
+	}
 	// When a TLS address is provided the TLS address will always be the primary address
 	// see: https://github.com/apple/foundationdb/blob/master/fdbrpc/FlowTransport.h#L49-L56
 	if cluster.Status.RequiredAddresses.TLS {
