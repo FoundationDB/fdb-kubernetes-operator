@@ -233,7 +233,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			var fdbRoles []fdbtypes.FoundationDBStatusProcessRoleInfo
 
 			fullAddress := client.Cluster.GetFullAddress(processIP, processIndex)
-			_, ipExcluded := exclusionMap[pod.Status.PodIP]
+			_, ipExcluded := exclusionMap[processIP]
 			_, addressExcluded := exclusionMap[fullAddress.String()]
 			excluded := ipExcluded || addressExcluded
 			_, isCoordinator := coordinators[fullAddress.String()]
