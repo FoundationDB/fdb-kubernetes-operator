@@ -1678,6 +1678,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
 				})
 			})
 
@@ -1831,6 +1832,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				Expect(adminClient.ExcludedAddresses).To(BeNil())
 			})
 		})
 
@@ -1966,6 +1968,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				Expect(adminClient.ExcludedAddresses).To(BeNil())
 			})
 		})
 
@@ -2154,6 +2157,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
 				})
 			})
 
@@ -2273,6 +2277,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					}
 
 					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+					Expect(adminClient.ExcludedAddresses).To(BeNil())
 				})
 
 				It("should set the new volume size on the PVCs", func() {
@@ -2305,6 +2310,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				}
 
 				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
+				Expect(adminClient.ExcludedAddresses).To(BeNil())
 			})
 
 			It("should generate instance IDs with the new prefix", func() {
