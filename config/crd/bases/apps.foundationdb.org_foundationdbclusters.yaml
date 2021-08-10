@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.0-beta.0
+    controller-gen.kubebuilder.io/version: v0.6.1
   creationTimestamp: null
   name: foundationdbclusters.apps.foundationdb.org
 spec:
@@ -670,6 +670,15 @@ spec:
                       - name
                     type: object
                   type: array
+                coordinatorSelection:
+                  items:
+                    properties:
+                      priority:
+                        type: integer
+                      processClass:
+                        type: string
+                    type: object
+                  type: array
                 customParameters:
                   items:
                     type: string
@@ -1296,6 +1305,19 @@ spec:
                   items:
                     type: string
                   type: array
+                labels:
+                  properties:
+                    filterOnOwnerReference:
+                      type: boolean
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    resourceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
                 lockOptions:
                   properties:
                     denyList:
@@ -7761,6 +7783,8 @@ spec:
                   type: array
                 updatePodsByReplacement:
                   type: boolean
+                useExplicitListenAddress:
+                  type: boolean
                 version:
                   pattern: (\d+)\.(\d+)\.(\d+)
                   type: string
@@ -8699,6 +8723,8 @@ spec:
                 hasIncorrectConfigMap:
                   type: boolean
                 hasIncorrectServiceConfig:
+                  type: boolean
+                hasListenIPsForAllPods:
                   type: boolean
                 health:
                   properties:

@@ -18,11 +18,10 @@
  * limitations under the License.
  */
 
-package controllers
+package internal
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -31,8 +30,8 @@ var _ = Describe("pod_client", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
-		err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		cluster = CreateDefaultCluster()
+		err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 

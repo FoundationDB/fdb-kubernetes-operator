@@ -61,16 +61,23 @@ var _ = Describe("[internal] deprecations", func() {
 	Describe("NormalizeClusterSpec", func() {
 		var spec *fdbtypes.FoundationDBClusterSpec
 		var err error
+		var cluster *fdbtypes.FoundationDBCluster
 
 		BeforeEach(func() {
-			spec = &fdbtypes.FoundationDBClusterSpec{
-				Version: fdbtypes.Versions.Default.String(),
+			cluster = &fdbtypes.FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "operator-test-1",
+				},
+				Spec: fdbtypes.FoundationDBClusterSpec{
+					Version: fdbtypes.Versions.Default.String(),
+				},
 			}
+			spec = &cluster.Spec
 		})
 
 		Describe("deprecations", func() {
 			JustBeforeEach(func() {
-				err := NormalizeClusterSpec(spec, DeprecationOptions{})
+				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -430,7 +437,7 @@ var _ = Describe("[internal] deprecations", func() {
 						"knob_disable_posix_kernel_aio = 1",
 						"knob_disable_posix_kernel_aio = 1",
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -440,7 +447,7 @@ var _ = Describe("[internal] deprecations", func() {
 					spec.CustomParameters = []string{
 						"datadir=1",
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -455,7 +462,7 @@ var _ = Describe("[internal] deprecations", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -469,7 +476,7 @@ var _ = Describe("[internal] deprecations", func() {
 							},
 						},
 					}
-					err := NormalizeClusterSpec(spec, DeprecationOptions{})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -478,7 +485,7 @@ var _ = Describe("[internal] deprecations", func() {
 		Describe("defaults", func() {
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -619,11 +626,22 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
 					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
 				})
+
+				It("should have the default label config", func() {
+					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
+				})
+
+				It("should have explicit listen addresses disabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeFalse())
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -667,11 +685,22 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
 					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeTrue())
 				})
+
+				It("should have changes to the label config", func() {
+					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
+				})
+
+				It("should have explicit listen addresses disabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeFalse())
+				})
 			})
 
 			Context("with the future defaults", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: false})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -812,11 +841,22 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
 					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
 				})
+
+				It("should have the default label config", func() {
+					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
+				})
+
+				It("should have explicit listen addresses enabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeTrue())
+				})
 			})
 
 			Context("with the future defaults, changes only", func() {
 				JustBeforeEach(func() {
-					err := NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -855,19 +895,30 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.SidecarContainer.EnableReadinessProbe).NotTo(BeNil())
 					Expect(*spec.SidecarContainer.EnableReadinessProbe).To(BeFalse())
 				})
+
+				It("should have changes to the label config", func() {
+					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
+					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
+					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
+				})
+
+				It("should have explicit listen addresses enabled", func() {
+					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
+					Expect(*spec.UseExplicitListenAddress).To(BeTrue())
+				})
 			})
 
 			Context("when applying future defaults on top of current explicit defaults", func() {
 				var originalSpec *fdbtypes.FoundationDBClusterSpec
 
 				BeforeEach(func() {
-					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
+					err = NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 					originalSpec = spec.DeepCopy()
 				})
 
 				JustBeforeEach(func() {
-					err = NormalizeClusterSpec(spec, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
+					err = NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: true, OnlyShowChanges: true})
 					Expect(err).NotTo(HaveOccurred())
 				})
 

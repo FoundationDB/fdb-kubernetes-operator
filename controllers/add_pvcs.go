@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +36,6 @@ type AddPVCs struct{}
 
 // Reconcile runs the reconciler's work.
 func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
 			continue
@@ -45,7 +46,7 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			return &Requeue{Error: err}
 		}
 
-		pvc, err := GetPvc(cluster, processGroup.ProcessClass, idNum)
+		pvc, err := internal.GetPvc(cluster, processGroup.ProcessClass, idNum)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -61,7 +62,7 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				return &Requeue{Error: err}
 			}
 
-			owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			pvc.ObjectMeta.OwnerReferences = owner
 			err = r.Create(context, pvc)
 

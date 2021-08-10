@@ -18,9 +18,15 @@ package v1beta1
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
+	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +37,8 @@ import (
 )
 
 var _ = Describe("[api] FoundationDBCluster", func() {
+	log := logf.Log.WithName("controller")
+
 	When("getting the default role counts", func() {
 		It("should return the default role counts", func() {
 			cluster := &FoundationDBCluster{
@@ -475,19 +483,38 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
+	coordinators := []ProcessAddress{
+		{
+			IPAddress: net.ParseIP("127.0.0.1"),
+			Port:      4500,
+		},
+		{
+			IPAddress: net.ParseIP("127.0.0.2"),
+			Port:      4500,
+		},
+		{
+			IPAddress: net.ParseIP("127.0.0.3"),
+			Port:      4500,
+		},
+	}
+
+	coordinatorsStr := []string{
+		"127.0.0.1:4500",
+		"127.0.0.2:4500",
+		"127.0.0.3:4500",
+	}
+
 	When("parsing the connection string", func() {
 		It("should be parsed correctly", func() {
 			str, err := ParseConnectionString("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(str.DatabaseName).To(Equal("test"))
 			Expect(str.GenerationID).To(Equal("abcd"))
-			Expect(str.Coordinators).To(Equal([]string{
-				"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
-			}))
+			Expect(str.Coordinators).To(Equal(coordinatorsStr))
 
 			str, err = ParseConnectionString("test:abcd")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Invalid connection string test:abcd"))
+			Expect(err.Error()).To(Equal("invalid connection string test:abcd"))
 		})
 	})
 
@@ -496,9 +523,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: []string{
-					"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
-				},
+				Coordinators: coordinatorsStr,
 			}
 			Expect(str.String()).To(Equal("test:abcd@127.0.0.1:4500,127.0.0.2:4500,127.0.0.3:4500"))
 		})
@@ -509,9 +534,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: []string{
-					"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500",
-				},
+				Coordinators: coordinatorsStr,
 			}
 			err := str.GenerateNewGenerationID()
 			Expect(err).NotTo(HaveOccurred())
@@ -524,13 +547,26 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			str := ConnectionString{
 				DatabaseName: "test",
 				GenerationID: "abcd",
-				Coordinators: []string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500"},
+				Coordinators: coordinatorsStr,
 			}
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500"})).To(BeTrue())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.3:4500", "127.0.0.2:4500"})).To(BeTrue())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.3:4500", "127.0.0.4:4500"})).To(BeFalse())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500", "127.0.0.4:4500"})).To(BeFalse())
-			Expect(str.HasCoordinators([]string{"127.0.0.1:4500", "127.0.0.2:4500"})).To(BeFalse())
+			Expect(str.HasCoordinators(coordinators)).To(BeTrue())
+			// We have to copy the slice to prevent to modify the original slice
+			// See: https://golang.org/ref/spec#Appending_and_copying_slices
+			newCoord := make([]ProcessAddress, len(coordinators))
+			copy(newCoord, coordinators)
+			rand.Shuffle(len(newCoord), func(i, j int) {
+				newCoord[i], newCoord[j] = newCoord[j], newCoord[i]
+			})
+			Expect(str.HasCoordinators(newCoord)).To(BeTrue())
+			newCoord = make([]ProcessAddress, len(coordinators))
+			copy(newCoord, coordinators)
+			newCoord = append(newCoord, ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
+			newCoord = make([]ProcessAddress, len(coordinators))
+			copy(newCoord, coordinators)
+			newCoord = append(newCoord[:2], ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
+			Expect(str.HasCoordinators(newCoord[:2])).To(BeFalse())
 		})
 	})
 
@@ -635,41 +671,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			Expect(cluster.GetFullSidecarVersion(false)).To(Equal("6.2.15-2"))
-		})
-	})
-
-	Context("Using the fdb version", func() {
-		It("should return the fdb version struct", func() {
-			version, err := ParseFdbVersion("6.2.11")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
-
-			version, err = ParseFdbVersion("prerelease-6.2.11")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
-
-			version, err = ParseFdbVersion("test-6.2.11-test")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
-
-			_, err = ParseFdbVersion("6.2")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("could not parse FDB version from 6.2"))
-		})
-
-		It("should format the version correctly", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 11}
-			Expect(version.String()).To(Equal("6.2.11"))
-		})
-
-		It("should validate the flags for the version correct", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 0}
-			Expect(version.HasInstanceIDInSidecarSubstitutions()).To(BeFalse())
-			Expect(version.PrefersCommandLineArgumentsInSidecar()).To(BeFalse())
-
-			version = FdbVersion{Major: 7, Minor: 0, Patch: 0}
-			Expect(version.HasInstanceIDInSidecarSubstitutions()).To(BeTrue())
-			Expect(version.PrefersCommandLineArgumentsInSidecar()).To(BeTrue())
 		})
 	})
 
@@ -2258,36 +2259,190 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	When("the process address is parsed", func() {
-		It("should parse the address correctly", func() {
-			address, err := ParseProcessAddress("127.0.0.1:4500:tls")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(Equal(ProcessAddress{
-				IPAddress: "127.0.0.1",
-				Port:      4500,
-				Flags:     map[string]bool{"tls": true},
-			}))
-			Expect(address.String()).To(Equal("127.0.0.1:4500:tls"))
+		type testCase struct {
+			input        string
+			expectedAddr ProcessAddress
+			expectedStr  string
+			err          error
+		}
 
-			address, err = ParseProcessAddress("127.0.0.1:4501")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(Equal(ProcessAddress{
-				IPAddress: "127.0.0.1",
-				Port:      4501,
-			}))
-			Expect(address.String()).To(Equal("127.0.0.1:4501"))
+		DescribeTable("should print the correct string",
+			func(tc testCase) {
+				address, err := ParseProcessAddress(tc.input)
+				if err == nil {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(address).To(Equal(tc.expectedAddr))
+					Expect(address.String()).To(Equal(tc.expectedStr))
+				} else {
+					// When an error has happened we don't have to check the result
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal(tc.err.Error()))
+				}
+			},
+			Entry("IPv4 with TLS flag",
+				testCase{
+					input: "127.0.0.1:4500:tls",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expectedStr: "127.0.0.1:4500:tls",
+					err:         nil,
+				}),
+			Entry("IPv4 without TLS flag",
+				testCase{
+					input: "127.0.0.1:4500",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     nil,
+					},
+					expectedStr: "127.0.0.1:4500",
+					err:         nil,
+				}),
+			Entry("IPv4 without port and TLS flag",
+				testCase{
+					input: "127.0.0.1",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      0,
+						Flags:     nil,
+					},
+					expectedStr: "127.0.0.1",
+					err:         nil,
+				}),
+			Entry("IPv6 with TLS flag",
+				testCase{
+					input: "[::1]:4500:tls",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expectedStr: "[::1]:4500:tls",
+					err:         nil,
+				}),
+			Entry("IPv6 without TLS flag",
+				testCase{
+					input: "[::1]:4500",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     nil,
+					},
+					expectedStr: "[::1]:4500",
+					err:         nil,
+				}),
+			Entry("IPv6 without port and TLS flag",
+				testCase{
+					input: "::1",
+					expectedAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      0,
+						Flags:     nil,
+					},
+					expectedStr: "::1",
+					err:         nil,
+				}),
+			Entry("IPv6 with bad port",
+				testCase{
+					input: "[::1]:bad",
+					err:   fmt.Errorf("strconv.Atoi: parsing \"bad\": invalid syntax"),
+				}),
+			Entry("IPv4 with bad port",
+				testCase{
+					input: "127.0.0.1:bad",
+					err:   fmt.Errorf("strconv.Atoi: parsing \"bad\": invalid syntax"),
+				}),
+			Entry("IPv6 with invalid address",
+				testCase{
+					input: "[::1:]:4500",
+					err:   fmt.Errorf("invalid address: [::1:]:4500"),
+				}),
+			Entry("IPv4 with invalid address",
+				testCase{
+					input: "127.0.0.A:4500",
+					err:   fmt.Errorf("invalid address: 127.0.0.A:4500"),
+				}),
+		)
+	})
 
-			address, err = ParseProcessAddress("[::1]:4501")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(Equal(ProcessAddress{
-				IPAddress: "[::1]",
-				Port:      4501,
-			}))
-			Expect(address.String()).To(Equal("[::1]:4501"))
+	When("printing a process address", func() {
+		type testCase struct {
+			processAddr ProcessAddress
+			expected    string
+		}
 
-			address, err = ParseProcessAddress("127.0.0.1:bad")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("strconv.Atoi: parsing \"bad\": invalid syntax"))
-		})
+		DescribeTable("should print the correct string",
+			func(tc testCase) {
+				Expect(tc.processAddr.String()).To(Equal(tc.expected))
+
+			},
+			Entry("IPv6 with TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expected: "[::1]:4500:tls",
+				}),
+			Entry("IPv6 with without TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      4500,
+						Flags:     map[string]bool{},
+					},
+					expected: "[::1]:4500",
+				}),
+			Entry("IPv6 with without port and TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("::1"),
+						Port:      0,
+						Flags:     map[string]bool{},
+					},
+					expected: "::1",
+				}),
+			Entry("IPv4 with TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     map[string]bool{"tls": true},
+					},
+					expected: "127.0.0.1:4500:tls",
+				}),
+			Entry("IPv4 with without TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      4500,
+						Flags:     map[string]bool{},
+					},
+					expected: "127.0.0.1:4500",
+				}),
+			Entry("IPv4 with without port and TLS flag",
+				testCase{
+					processAddr: ProcessAddress{
+						IPAddress: net.ParseIP("127.0.0.1"),
+						Port:      0,
+						Flags:     map[string]bool{},
+					},
+					expected: "127.0.0.1",
+				}),
+			Entry("With a placeholder",
+				testCase{
+					processAddr: ProcessAddress{
+						Placeholder: "$POD_IP",
+						Port:        4500,
+						Flags:       map[string]bool{},
+					},
+					expected: "$POD_IP:4500",
+				}),
+		)
 	})
 
 	When("an instance is being removed", func() {
@@ -2389,7 +2544,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster := createCluster()
 
-			result, err := cluster.CheckReconciliation()
+			result, err := cluster.CheckReconciliation(log)
 			Expect(result).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2398,7 +2553,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.Configured = false
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2408,7 +2563,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2418,7 +2573,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[1:]
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2428,7 +2583,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.Health.Available = false
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2438,7 +2593,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-1"
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2448,7 +2603,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.HasIncorrectConfigMap = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2458,7 +2613,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.RequiredAddresses.TLS = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2469,7 +2624,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2481,7 +2636,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Spec.ProcessCounts.Storage = 2
 			cluster.Status.ProcessGroups[0].Remove = true
 			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2495,7 +2650,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Status.ProcessGroups[0].Excluded = true
 			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
 			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2505,7 +2660,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.HasIncorrectServiceConfig = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2515,7 +2670,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.NeedsNewCoordinators = true
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2525,7 +2680,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2535,7 +2690,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2546,7 +2701,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
 			cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2556,7 +2711,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
 			cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2566,7 +2721,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster = createCluster()
 			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
-			result, err = cluster.CheckReconciliation()
+			result, err = cluster.CheckReconciliation(log)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
 			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
@@ -2608,17 +2763,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			settings := cluster.GetProcessSettings(ProcessClassStorage)
 			Expect(settings.PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{"test-label": "label2"}))
 			Expect(settings.CustomParameters).To(Equal(&[]string{"test_knob=value1"}))
-		})
-	})
-
-	When("checking if the protocol and the version are compatible", func() {
-		It("should return the correct compatibility", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 20})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 22})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 0})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
 		})
 	})
 
@@ -2762,24 +2906,45 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			func(tc testCase) {
 				tc.initialProcessGroup.AddAddresses(tc.inputAddresses)
 				Expect(tc.expectedProcessGroup).To(Equal(tc.initialProcessGroup))
+
 			},
 			Entry("Empty input address",
+
 				testCase{
-					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
-					inputAddresses:       []string{""},
-					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
+					initialProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+					}},
+					inputAddresses: nil,
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+					}},
 				}),
 			Entry("New Pod IP",
 				testCase{
-					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}},
-					inputAddresses:       []string{"2.2.2.2"},
-					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"2.2.2.2"}},
+					initialProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+					}},
+					inputAddresses: []string{
+						"2.2.2.2",
+					},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"2.2.2.2",
+					}},
 				}),
 			Entry("New Pod IP and process group is marked for removal",
 				testCase{
-					initialProcessGroup:  ProcessGroupStatus{Addresses: []string{"1.1.1.1"}, Remove: true},
-					inputAddresses:       []string{"2.2.2.2"},
-					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{"1.1.1.1", "2.2.2.2"}, Remove: true},
+					initialProcessGroup: ProcessGroupStatus{
+						Addresses: []string{
+							"1.1.1.1",
+						},
+						Remove: true},
+					inputAddresses: []string{
+						"2.2.2.2",
+					},
+					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
+						"1.1.1.1",
+						"2.2.2.2",
+					}, Remove: true},
 				}),
 		)
 	})
@@ -2802,7 +2967,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					expected: []ProcessAddress{
 						{
-							IPAddress: "1.2.3.4",
+							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4501,
 						},
 					},
@@ -2812,7 +2977,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					expected: []ProcessAddress{
 						{
-							IPAddress: "1.2.3.4",
+							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4500,
 							Flags:     map[string]bool{"tls": true},
 						},
@@ -2823,7 +2988,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=[::1]:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					expected: []ProcessAddress{
 						{
-							IPAddress: "[::1]",
+							IPAddress: net.ParseIP("::1"),
 							Port:      4500,
 							Flags: map[string]bool{
 								"tls": true,
@@ -2836,11 +3001,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4501,1.2.3.4:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					expected: []ProcessAddress{
 						{
-							IPAddress: "1.2.3.4",
+							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4501,
 						},
 						{
-							IPAddress: "1.2.3.4",
+							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4500,
 							Flags: map[string]bool{
 								"tls": true,
@@ -2849,5 +3014,189 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}),
 		)
+	})
+
+	When("checking if a process is eligible as coordinator candidate", func() {
+		type testCase struct {
+			cluster  *FoundationDBCluster
+			pClass   ProcessClass
+			expected bool
+		}
+
+		DescribeTable("should return if the process class is eligible",
+			func(tc testCase) {
+				Expect(tc.cluster.IsEligibleAsCandidate(tc.pClass)).To(Equal(tc.expected))
+			},
+			Entry("storage class without any configuration is eligible",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassStorage,
+					expected: true,
+				}),
+			Entry("log class without any configuration is eligible",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassLog,
+					expected: true,
+				}),
+			Entry("transaction class without any configuration is eligible",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassTransaction,
+					expected: true,
+				}),
+			Entry("stateless class without any configuration is not eligible",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassStateless,
+					expected: false,
+				}),
+			Entry("cluster controller class without any configuration is not eligible",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassClusterController,
+					expected: false,
+				}),
+			Entry("storage class with only storage classes is eligible",
+				testCase{
+					cluster: &FoundationDBCluster{
+						Spec: FoundationDBClusterSpec{
+							CoordinatorSelection: []CoordinatorSelectionSetting{
+								{
+									ProcessClass: ProcessClassStorage,
+									Priority:     1,
+								},
+							},
+						},
+					},
+					pClass:   ProcessClassStorage,
+					expected: true,
+				}),
+			Entry("log class with only storage classes is not eligible",
+				testCase{
+					cluster: &FoundationDBCluster{
+						Spec: FoundationDBClusterSpec{
+							CoordinatorSelection: []CoordinatorSelectionSetting{
+								{
+									ProcessClass: ProcessClassStorage,
+									Priority:     1,
+								},
+							},
+						},
+					},
+					pClass:   ProcessClassLog,
+					expected: false,
+				}),
+		)
+	})
+
+	When("getting the priority of a process class", func() {
+		type testCase struct {
+			cluster  *FoundationDBCluster
+			pClass   ProcessClass
+			expected int
+		}
+
+		DescribeTable("should return the expected process class",
+			func(tc testCase) {
+				Expect(tc.cluster.GetClassCandidatePriority(tc.pClass)).To(Equal(tc.expected))
+			},
+			Entry("storage class without any configuration returns highest priority",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassStorage,
+					expected: math.MinInt64,
+				}),
+			Entry("log class without any configuration highest prioritye",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassLog,
+					expected: math.MinInt64,
+				}),
+			Entry("transaction class without any configuration highest priority",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassTransaction,
+					expected: math.MinInt64,
+				}),
+			Entry("stateless class without any configuration highest priority",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassStateless,
+					expected: math.MinInt64,
+				}),
+			Entry("cluster controller class without any configuration highest priority",
+				testCase{
+					cluster:  &FoundationDBCluster{},
+					pClass:   ProcessClassClusterController,
+					expected: math.MinInt64,
+				}),
+			Entry("storage class with only storage classes returns 1 as priority",
+				testCase{
+					cluster: &FoundationDBCluster{
+						Spec: FoundationDBClusterSpec{
+							CoordinatorSelection: []CoordinatorSelectionSetting{
+								{
+									ProcessClass: ProcessClassStorage,
+									Priority:     1,
+								},
+							},
+						},
+					},
+					pClass:   ProcessClassStorage,
+					expected: 1,
+				}),
+			Entry("log class with only storage classes returns highest priority",
+				testCase{
+					cluster: &FoundationDBCluster{
+						Spec: FoundationDBClusterSpec{
+							CoordinatorSelection: []CoordinatorSelectionSetting{
+								{
+									ProcessClass: ProcessClassStorage,
+									Priority:     1,
+								},
+							},
+						},
+					},
+					pClass:   ProcessClassLog,
+					expected: math.MinInt64,
+				}),
+		)
+	})
+
+	Describe("checking for explicit listen address", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		It("is not required for a default cluster", func() {
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
+		})
+
+		It("is required with a service as the public IP", func() {
+			source := PublicIPSourceService
+			cluster.Spec.Routing.PublicIPSource = &source
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
+		})
+
+		It("is not required with a pod as the public IP", func() {
+			source := PublicIPSourcePod
+			cluster.Spec.Routing.PublicIPSource = &source
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
+		})
+
+		It("is required with the flag set to true", func() {
+			enabled := true
+			cluster.Spec.UseExplicitListenAddress = &enabled
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
+		})
+
+		It("is not required with the flag set to false", func() {
+			enabled := false
+			cluster.Spec.UseExplicitListenAddress = &enabled
+			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
+		})
 	})
 })

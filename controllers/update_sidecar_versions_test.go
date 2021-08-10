@@ -31,7 +31,7 @@ import (
 )
 
 func createClusterSpec(sidecarOverrides fdbtypes.ContainerOverrides, processes map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings) *fdbtypes.FoundationDBCluster {
-	cluster := createDefaultCluster()
+	cluster := internal.CreateDefaultCluster()
 
 	cluster.Spec.SidecarContainer = sidecarOverrides
 	cluster.Spec.Processes = processes
@@ -50,7 +50,7 @@ var _ = Describe("update_sidecar_versions", func() {
 
 		DescribeTable("should return the correct image",
 			func(input testCase, expected string) {
-				err := internal.NormalizeClusterSpec(&input.cluster.Spec, internal.DeprecationOptions{})
+				err := internal.NormalizeClusterSpec(input.cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				image, err := getSidecarImage(input.cluster, input.instance)

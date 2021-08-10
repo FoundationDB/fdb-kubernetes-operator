@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +37,7 @@ type AddPods struct{}
 
 // Reconcile runs the reconciler's work.
 func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	configMap, err := GetConfigMap(cluster)
+	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -51,7 +53,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return &Requeue{Error: err}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -69,18 +71,18 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				return &Requeue{Error: err}
 			}
 
-			pod, err := GetPod(cluster, processGroup.ProcessClass, idNum)
+			pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
 				r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
 				return &Requeue{Error: err}
 			}
 
-			serverPerPod, err := getStorageServersPerPodForPod(pod)
+			serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 			if err != nil {
 				return &Requeue{Error: err}
 			}
 
-			configMapHash, err := getDynamicConfHash(configMap, processGroup.ProcessClass, serverPerPod)
+			configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, serverPerPod)
 			if err != nil {
 				return &Requeue{Error: err}
 			}

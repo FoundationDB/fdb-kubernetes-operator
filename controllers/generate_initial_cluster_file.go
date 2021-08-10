@@ -22,6 +22,9 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -40,18 +43,17 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
-	if err != nil {
-		return &Requeue{Error: err}
-	}
-	err = sortInstancesByID(instances)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
-		return &Requeue{Message: "cannot find enough pods to recruit coordinators", Delay: podSchedulingDelayDuration}
+		return &Requeue{
+			Message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(instances)),
+			Delay:   podSchedulingDelayDuration,
+		}
 	}
 
 	var clusterName string
@@ -84,13 +86,13 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 		processLocality[indexOfProcess] = locality
 	}
 
-	coordinators, err := chooseDistributedProcesses(processLocality, count, processSelectionConstraint{})
+	coordinators, err := chooseDistributedProcesses(cluster, processLocality, count, processSelectionConstraint{})
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
 	for _, locality := range coordinators {
-		connectionString.Coordinators = append(connectionString.Coordinators, locality.Address)
+		connectionString.Coordinators = append(connectionString.Coordinators, locality.Address.String())
 	}
 
 	cluster.Status.ConnectionString = connectionString.String()

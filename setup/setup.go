@@ -26,8 +26,12 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -52,6 +56,12 @@ type Options struct {
 	CliTimeout              int
 	DeprecationOptions      internal.DeprecationOptions
 	MaxConcurrentReconciles int
+	CleanUpOldLogFile       bool
+	LogFileMinAge           time.Duration
+	LogFileMaxSize          int
+	LogFileMaxAge           int
+	MaxNumberOfOldLogFiles  int
+	CompressOldFiles        bool
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -67,6 +77,12 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.LogFile, "log-file", "", "The path to a file to write logs to.")
 	fs.IntVar(&o.CliTimeout, "cli-timeout", 10, "The timeout to use for CLI commands.")
 	fs.IntVar(&o.MaxConcurrentReconciles, "max-concurrent-reconciles", 1, "Defines the maximum number of concurrent reconciles for all controllers.")
+	fs.BoolVar(&o.CleanUpOldLogFile, "cleanup-old-cli-logs", true, "Defines if the operator should delete old fdbcli log files.")
+	fs.DurationVar(&o.LogFileMinAge, "log-file-min-age", 5*time.Minute, "Defines the minimum age of fdbcli log files before removing when \"--cleanup-old-cli-logs\" is set.")
+	fs.IntVar(&o.LogFileMaxAge, "log-file-max-age", 28, "Defines the maximum age to retain old operator log file in number of days.")
+	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
+	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
+	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 }
 
 // StartManager will start the FoundtionDB operator manager.
@@ -79,18 +95,20 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
+	logr *log.DelegatingLogger,
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
 	var file *os.File
 
 	if operatorOpts.LogFile != "" {
-		var err error
-		file, err = os.OpenFile(operatorOpts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-		if err != nil {
-			_, _ = os.Stderr.WriteString(err.Error())
-			os.Exit(1)
+		lumberjackLogger := &lumberjack.Logger{
+			Filename:   operatorOpts.LogFile,
+			MaxSize:    operatorOpts.LogFileMaxSize,
+			MaxAge:     operatorOpts.LogFileMaxAge,
+			MaxBackups: operatorOpts.MaxNumberOfOldLogFiles,
+			Compress:   operatorOpts.CompressOldFiles,
 		}
-		logWriter = io.MultiWriter(os.Stdout, file)
+		logWriter = io.MultiWriter(os.Stdout, lumberjackLogger)
 	} else {
 		logWriter = os.Stdout
 	}
@@ -132,7 +150,9 @@ func StartManager(
 	if clusterReconciler != nil {
 		clusterReconciler.Client = mgr.GetClient()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
-		clusterReconciler.Namespace = namespace
+		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
+		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
@@ -147,6 +167,8 @@ func StartManager(
 	if backupReconciler != nil {
 		backupReconciler.Client = mgr.GetClient()
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
+		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 
 		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
@@ -157,11 +179,24 @@ func StartManager(
 	if restoreReconciler != nil {
 		restoreReconciler.Client = mgr.GetClient()
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
+		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
 
 		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
 			os.Exit(1)
 		}
+	}
+
+	if operatorOpts.CleanUpOldLogFile {
+		setupLog.V(1).Info("setup log file cleaner", "LogFileMinAge", operatorOpts.LogFileMinAge.String())
+		ticker := time.NewTicker(operatorOpts.LogFileMinAge)
+		go func() {
+			for {
+				<-ticker.C
+				internal.CleanupOldCliLogs(operatorOpts.LogFileMinAge)
+			}
+		}()
 	}
 
 	// +kubebuilder:scaffold:builder

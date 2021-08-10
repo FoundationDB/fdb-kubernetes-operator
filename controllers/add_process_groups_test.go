@@ -24,6 +24,8 @@ import (
 	"context"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -37,7 +39,7 @@ var _ = Describe("add_process_groups", func() {
 	var newProcessCounts fdbtypes.ProcessCounts
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 

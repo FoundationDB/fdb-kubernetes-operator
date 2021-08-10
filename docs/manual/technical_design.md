@@ -106,7 +106,7 @@ The cluster reconciler runs the following subreconcilers:
 1. BounceProcesses
 1. UpdatePods
 1. RemoveServices
-1. RemovePods
+1. RemoveProcessGroups
 1. UpdateStatus (again)
 
 ### Tracking Reconciliation Stages
@@ -255,9 +255,9 @@ This action requires a lock.
 
 The `RemoveServices` subreconciler deletes any services that are no longer required for the cluster.
 
-### RemovePods
+### RemoveProcessGroups
 
-The `RemovePods` subreconciler deletes any pods that are marked for removal and have been fully excluded, meaning that they are not serving any roles or holding any data.
+The `RemoveProcessGroups` subreconciler deletes any pods that are marked for removal and have been fully excluded, meaning that they are not serving any roles or holding any data.
 
 This performs the following sequence of steps for every pod:
 

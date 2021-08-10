@@ -22,6 +22,9 @@ package controllers
 
 import (
 	"context"
+	"net"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,7 +39,7 @@ var _ = Describe("admin_client_test", func() {
 	var err error
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -79,7 +82,10 @@ var _ = Describe("admin_client_test", func() {
 
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
 				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
-					Address:      "1.1.1.1:4501",
+					Address: fdbtypes.ProcessAddress{
+						IPAddress: net.ParseIP("1.1.1.1"),
+						Port:      4501,
+					},
 					ProcessClass: fdbtypes.ProcessClassStorage,
 					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=1.1.1.1:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 					Excluded:     false,
@@ -111,7 +117,10 @@ var _ = Describe("admin_client_test", func() {
 			It("puts the additional processes in the status", func() {
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups) + 1))
 				Expect(status.Cluster.Processes["dc2-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
-					Address:      "1.2.3.4:4501",
+					Address: fdbtypes.ProcessAddress{
+						IPAddress: net.ParseIP("1.2.3.4"),
+						Port:      4501,
+					},
 					ProcessClass: fdbtypes.ProcessClassStorage,
 					Locality: map[string]string{
 						"instance_id": "dc2-storage-1",

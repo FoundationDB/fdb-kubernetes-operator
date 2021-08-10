@@ -43,7 +43,7 @@ import (
 )
 
 func newRemoveInstancesCmd(streams genericclioptions.IOStreams) *cobra.Command {
-	o := NewFDBOptions(streams)
+	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
 		Use:   "instances",
@@ -146,7 +146,11 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 		podNameMap[instance] = true
 	}
 
-	pods, err := getPodsForCluster(kubeClient, clusterName, namespace)
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
+	if err != nil {
+		return instances, err
+	}
+	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
 	if err != nil {
 		return instances, err
 	}
@@ -164,11 +168,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 
 // removeInstances adds instances to the instancesToRemove field
 func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
-	var cluster fdbtypes.FoundationDBCluster
-	err := kubeClient.Get(ctx.Background(), client.ObjectKey{
-		Namespace: namespace,
-		Name:      clusterName,
-	}, &cluster)
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -187,10 +187,8 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		var pods corev1.PodList
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
-			client.MatchingLabels(map[string]string{
-				fdbtypes.FDBClusterLabel: clusterName,
-			}))
-
+			client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
+		)
 		if err != nil {
 			return err
 		}
@@ -229,5 +227,5 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
 	}
 
-	return kubeClient.Patch(ctx.TODO(), &cluster, patch)
+	return kubeClient.Patch(ctx.TODO(), cluster, patch)
 }

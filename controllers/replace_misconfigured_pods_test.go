@@ -37,13 +37,24 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 	instanceName := fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337)
+	var pod *corev1.Pod
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		cluster.Spec.UpdatePodsByReplacement = false
 		cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 			fdbtypes.ProcessClassGeneral: {
 				PodTemplate: &corev1.PodTemplateSpec{},
+			},
+		}
+		pod = &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "foundationdb"},
+					{Name: "foundationdb-kubernetes-sidecar", Env: []corev1.EnvVar{
+						{Name: "FDB_POD_IP"},
+					}},
+				},
 			},
 		}
 		Expect(err).NotTo(HaveOccurred())
@@ -67,11 +78,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							fdbtypes.FDBInstanceIDLabel: instanceName,
 						},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				needsRemoval, err := instanceNeedsRemoval(cluster, instance, nil)
 				Expect(needsRemoval).To(BeFalse())
@@ -88,11 +95,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							fdbtypes.FDBInstanceIDLabel: instanceName,
 						},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				status := &fdbtypes.ProcessGroupStatus{
 					ProcessGroupID: instanceName,
@@ -113,11 +116,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 						},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				status := &fdbtypes.ProcessGroupStatus{
 					ProcessGroupID: instanceName,
@@ -145,11 +144,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						},
 						Annotations: map[string]string{},
 					},
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{}},
-						},
-					},
+					Pod: pod,
 				}
 				status := &fdbtypes.ProcessGroupStatus{
 					ProcessGroupID: instanceName,
@@ -180,11 +175,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
 					},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -214,11 +205,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -246,11 +233,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -277,11 +260,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -308,11 +287,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					},
 					Annotations: map[string]string{},
 				},
-				Pod: &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{}},
-					},
-				},
+				Pod: pod,
 			}
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
@@ -377,7 +352,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				ProcessGroupID: instanceName,
 				Remove:         false,
 			}
-			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 
 			cluster.Spec.UpdatePodsByReplacement = true
@@ -387,14 +362,46 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
+	When("PVC name doesn't match", func() {
+		It("should need a removal", func() {
+			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			pvc.Name = "Test-storage"
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, *pvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeTrue())
+		})
+	})
+
+	When("PVC name and PVC spec match", func() {
+		It("should not need a removal", func() {
+			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, *pvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeFalse())
+		})
+	})
+
+	When("PVC hash doesn't match", func() {
+		It("should need a removal", func() {
+			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+			Expect(err).NotTo(HaveOccurred())
+			pvc.Annotations[fdbtypes.LastSpecKey] = "1"
+			needsRemoval, err := instanceNeedsRemovalForPVC(cluster, *pvc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(needsRemoval).To(BeTrue())
+		})
+	})
+
 	Context("when the memory resources are changed", func() {
 		var status *fdbtypes.ProcessGroupStatus
 		var instance FdbInstance
 
 		BeforeEach(func() {
-			err := internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{UseFutureDefaults: true})
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
-			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
+			pod, err := internal.GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(err).NotTo(HaveOccurred())
 			instance = FdbInstance{

@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -144,7 +146,7 @@ var _ = Describe("update_status", func() {
 						},
 					},
 				}
-				cluster := createDefaultCluster()
+				cluster := internal.CreateDefaultCluster()
 				processGroupStatus := fdbtypes.NewProcessGroupStatus("1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
@@ -166,11 +168,11 @@ var _ = Describe("update_status", func() {
 		var err error
 
 		BeforeEach(func() {
-			cluster = createDefaultCluster()
+			cluster = internal.CreateDefaultCluster()
 			err = setupClusterForTest(cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			instances, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), getSinglePodListOptions(cluster, "storage-1")...)
+			instances, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, container := range instances[0].Pod.Spec.Containers {
@@ -378,6 +380,108 @@ var _ = Describe("update_status", func() {
 				}
 
 				Expect(removalCount).To(BeNumerically("==", 1))
+			})
+		})
+
+		When("one instance is not reachable", func() {
+			var unreachableProcessGroup string
+
+			BeforeEach(func() {
+				unreachableProcessGroup = instances[0].GetInstanceID()
+				instances[0].Pod.Annotations[internal.MockUnreachableAnnotation] = "banana"
+			})
+
+			It("should mark the instance as unreachable", func() {
+				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				unreachableCount := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == unreachableProcessGroup {
+						Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).NotTo(BeNil())
+						unreachableCount++
+						continue
+					}
+					Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).To(BeNil())
+				}
+
+				Expect(unreachableCount).To(BeNumerically("==", 1))
+			})
+
+			When("the instance is reachable again", func() {
+				BeforeEach(func() {
+					delete(instances[0].Pod.Annotations, internal.MockUnreachableAnnotation)
+				})
+
+				It("should remove the condition", func() {
+					processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+					Expect(err).NotTo(HaveOccurred())
+
+					unreachableCount := 0
+					for _, processGroup := range processGroupStatus {
+						if processGroup.GetConditionTime(fdbtypes.SidecarUnreachable) != nil {
+							unreachableCount++
+							continue
+						}
+						Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).To(BeNil())
+					}
+
+					Expect(unreachableCount).To(BeNumerically("==", 0))
+				})
+			})
+		})
+	})
+
+	Describe("Reconcile", func() {
+		var cluster *fdbtypes.FoundationDBCluster
+		var err error
+		var requeue *Requeue
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			err = k8sClient.Create(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).To(Equal(int64(1)))
+		})
+
+		JustBeforeEach(func() {
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			requeue = UpdateStatus{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+			if requeue != nil {
+				Expect(requeue.Error).NotTo(HaveOccurred())
+			}
+			_, err = reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should mark the cluster as reconciled", func() {
+			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+		})
+
+		When("enabling an explicit listen address", func() {
+			BeforeEach(func() {
+				enabled := false
+				cluster.Spec.UseExplicitListenAddress = &enabled
+				result, err := reconcileCluster(cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				enabled = true
+				cluster.Spec.UseExplicitListenAddress = &enabled
+			})
+
+			Context("when the cluster has not been reconciled", func() {
+				It("should report that pods do not have listen IPs", func() {
+					Expect(cluster.Status.HasListenIPsForAllPods).To(BeFalse())
+				})
 			})
 		})
 	})

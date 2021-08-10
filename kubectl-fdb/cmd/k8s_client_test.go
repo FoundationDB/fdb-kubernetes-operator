@@ -69,14 +69,14 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 						},
 						{
 							ProcessGroupID: "instance-3",
-							Addresses:      []string{"1.2.3.4"},
+							Addresses:      []string{"1.2.3.6"},
 							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
 								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
 							},
 						},
 						{
 							ProcessGroupID: "instance-4",
-							Addresses:      []string{"1.2.3.5"},
+							Addresses:      []string{"1.2.3.7"},
 							Remove:         true,
 							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
 								fdbtypes.NewProcessGroupCondition(fdbtypes.IncorrectCommandLine),

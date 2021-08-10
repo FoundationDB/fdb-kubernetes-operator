@@ -33,16 +33,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// FDBOptions provides information required to run different
+// fdbBOptions provides information required to run different
 // actions on FDB
-type FDBOptions struct {
+type fdbBOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 	genericclioptions.IOStreams
 }
 
-// NewFDBOptions provides an instance of FDBOptions with default values
-func NewFDBOptions(streams genericclioptions.IOStreams) *FDBOptions {
-	return &FDBOptions{
+// newFDBOptions provides an instance of fdbBOptions with default values
+func newFDBOptions(streams genericclioptions.IOStreams) *fdbBOptions {
+	return &fdbBOptions{
 		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
 	}
@@ -50,7 +50,7 @@ func NewFDBOptions(streams genericclioptions.IOStreams) *FDBOptions {
 
 // NewRootCmd provides a cobra command wrapping FDB actions
 func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
-	o := NewFDBOptions(streams)
+	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
 		Use:          "kubectl-fdb",

@@ -10,6 +10,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ClusterHealth](#clusterhealth)
 * [ConnectionString](#connectionstring)
 * [ContainerOverrides](#containeroverrides)
+* [CoordinatorSelectionSetting](#coordinatorselectionsetting)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
 * [FoundationDBCluster](#foundationdbcluster)
@@ -18,6 +19,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
+* [LabelConfig](#labelconfig)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
@@ -122,6 +124,17 @@ ContainerOverrides provides options for customizing a container created by the o
 | volumeMounts | VolumeMounts provides volume mounts.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
 | imageName | ImageName provides the name of the image to use for the container, without the version tag.  **Deprecated: Use the PodTemplate field instead.** | string | false |
 | securityContext | SecurityContext provides the container's security context.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core) | false |
+
+[Back to TOC](#table-of-contents)
+
+## CoordinatorSelectionSetting
+
+CoordinatorSelectionSetting defines the process class and the priority of it. A higher priority means that the process class is preferred over another.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| processClass |  | ProcessClass | false |
+| priority |  | int | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -256,6 +269,9 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
 | replaceInstancesWhenResourcesChange | ReplaceInstancesWhenResourcesChange defines if an instance should be replaced when the resource requirements are increased. This can be useful with the combination of local storage. | *bool | false |
 | skip | Skip defines if the cluster should be skipped for reconciliation. This can be useful for investigating in issues or if the environment is unstable. | bool | false |
+| coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
+| labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
+| useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -280,11 +296,24 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running. | string | false |
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
+| hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. **Deprecated: Use ProcessGroups instead.** | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## LabelConfig
+
+LabelConfig allows customizing labels used by the operator.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| matchLabels | MatchLabels provides the labels that the operator should use to identify resources owned by the cluster. These will automatically be applied to all resources the operator creates. | map[string]string | false |
+| resourceLabels | ResourceLabels provides additional labels that the operator should apply to resources it creates. | map[string]string | false |
+| filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -342,9 +371,9 @@ ProcessAddress provides a structured address for a process.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| IPAddress |  | string | false |
-| Port |  | int | false |
-| Flags |  | map[string]bool | false |
+| address |  | net.IP | false |
+| port |  | int | false |
+| flags |  | map[string]bool | false |
 
 [Back to TOC](#table-of-contents)
 

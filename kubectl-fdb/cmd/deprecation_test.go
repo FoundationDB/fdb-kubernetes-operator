@@ -114,6 +114,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
+							UseExplicitListenAddress:      &trueValue,
 							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
@@ -157,6 +158,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 									Enabled: &trueValue,
 								},
 							},
+							LabelConfig: fdbtypes.LabelConfig{
+								FilterOnOwnerReferences: &trueValue,
+							},
 						},
 					},
 					inputClusters: []string{},
@@ -179,6 +183,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
+							UseExplicitListenAddress:      &trueValue,
 							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
@@ -288,6 +293,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
+							UseExplicitListenAddress:      &trueValue,
 							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
@@ -330,6 +336,9 @@ var _ = Describe("[plugin] deprecation command", func() {
 								Replacements: fdbtypes.AutomaticReplacementOptions{
 									Enabled: &trueValue,
 								},
+							},
+							LabelConfig: fdbtypes.LabelConfig{
+								FilterOnOwnerReferences: &trueValue,
 							},
 						},
 					},
@@ -397,6 +406,10 @@ automationOptions:
   replacements:
     enabled: false
     failureDetectionTimeSeconds: 1800
+labels:
+  filterOnOwnerReference: true
+  matchLabels:
+    fdb-cluster-name: test
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
@@ -431,6 +444,7 @@ routing:
 sidecarContainer:
   enableLivenessProbe: false
   enableReadinessProbe: true
+useExplicitListenAddress: false
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,
@@ -496,6 +510,8 @@ configMap:
     creationTimestamp: null
     labels:
       test: test
+labels:
+  filterOnOwnerReference: true
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
@@ -527,6 +543,7 @@ processes:
 sidecarContainer:
   enableLivenessProbe: false
   enableReadinessProbe: true
+useExplicitListenAddress: false
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,

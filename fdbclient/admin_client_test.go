@@ -99,50 +99,52 @@ var _ = Describe("admin_client_test", func() {
 		})
 	})
 
-	type testCase struct {
-		input       string
-		expected    string
-		expectedErr error
-	}
+	When("Removing warnings in JSON", func() {
+		type testCase struct {
+			input       string
+			expected    string
+			expectedErr error
+		}
 
-	DescribeTable("Test remove warnings in JSON string",
-		func(tc testCase) {
-			result, err := removeWarningsInJSON(tc.input)
-			// We need the if statement to make ginkgo happy:
-			//   Refusing to compare <nil> to <nil>.
-			//   Be explicit and use BeNil() instead.
-			//   This is to avoid mistakes where both sides of an assertion are erroneously uninitialized.
-			// ¯\_(ツ)_/¯
-			if tc.expectedErr == nil {
-				Expect(err).To(BeNil())
-			} else {
-				Expect(err).To(Equal(tc.expectedErr))
-			}
-			Expect(result).To(Equal(tc.expected))
-		},
-		Entry("Valid JSON without warning",
-			testCase{
-				input:       "{}",
-				expected:    "{}",
-				expectedErr: nil,
+		DescribeTable("Test remove warnings in JSON string",
+			func(tc testCase) {
+				result, err := removeWarningsInJSON(tc.input)
+				// We need the if statement to make ginkgo happy:
+				//   Refusing to compare <nil> to <nil>.
+				//   Be explicit and use BeNil() instead.
+				//   This is to avoid mistakes where both sides of an assertion are erroneously uninitialized.
+				// ¯\_(ツ)_/¯
+				if tc.expectedErr == nil {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).To(Equal(tc.expectedErr))
+				}
+				Expect(result).To(Equal(tc.expected))
 			},
-		),
-		Entry("Valid JSON with warning",
-			testCase{
-				input: `
+			Entry("Valid JSON without warning",
+				testCase{
+					input:       "{}",
+					expected:    "{}",
+					expectedErr: nil,
+				},
+			),
+			Entry("Valid JSON with warning",
+				testCase{
+					input: `
  # Warning Slow response
  
  {}`,
-				expected:    "{}",
-				expectedErr: nil,
-			},
-		),
-		Entry("Invalid JSON",
-			testCase{
-				input:       "}",
-				expected:    "",
-				expectedErr: fmt.Errorf("the JSON string doesn't contain a starting '{'"),
-			},
-		),
-	)
+					expected:    "{}",
+					expectedErr: nil,
+				},
+			),
+			Entry("Invalid JSON",
+				testCase{
+					input:       "}",
+					expected:    "",
+					expectedErr: fmt.Errorf("the JSON string doesn't contain a starting '{'"),
+				},
+			),
+		)
+	})
 })

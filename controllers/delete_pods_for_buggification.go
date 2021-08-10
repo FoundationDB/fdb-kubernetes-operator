@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
@@ -32,7 +34,7 @@ type DeletePodsForBuggification struct{}
 
 // Reconcile runs the reconciler's work.
 func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getPodListOptions(cluster, "", "")...)
+	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -77,7 +79,12 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 		shouldCrashLoop := crashLoopAll || crashLoopPods[instanceID]
 
 		if shouldCrashLoop != inCrashLoop {
-			log.Info("Deleting pod for buggification", "instanceID", instanceID, "shouldCrashLoop", shouldCrashLoop, "inCrashLoop", inCrashLoop)
+			log.Info("Deleting pod for buggification",
+				"namespace", cluster.Namespace,
+				"cluster", cluster.Name,
+				"processGroupID", instanceID,
+				"shouldCrashLoop", shouldCrashLoop,
+				"inCrashLoop", inCrashLoop)
 			updates = append(updates, instance)
 		}
 	}

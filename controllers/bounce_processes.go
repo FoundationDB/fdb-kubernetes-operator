@@ -26,6 +26,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -49,7 +51,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	minimumUptime := math.Inf(1)
-	addressMap := make(map[string][]string, len(status.Cluster.Processes))
+	addressMap := make(map[string][]fdbtypes.ProcessAddress, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		addressMap[process.Locality["instance_id"]] = append(addressMap[process.Locality["instance_id"]], process.Address)
 
@@ -59,7 +61,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	processesToBounce := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, true)
-	addresses := make([]string, 0, len(processesToBounce))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(processesToBounce))
 	allSynced := true
 	var missingAddress []string
 
@@ -72,7 +74,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		addresses = append(addresses, addressMap[process]...)
 
 		instanceID := GetInstanceIDFromProcessID(process)
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, getSinglePodListOptions(cluster, instanceID)...)
+		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -163,7 +165,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 				return requeue
 			}
 			if addresses == nil {
-				return &Requeue{Error: fmt.Errorf("Unknown error when getting addresses that are ready for upgrade")}
+				return &Requeue{Error: fmt.Errorf("unknown error when getting addresses that are ready for upgrade")}
 			}
 		}
 
@@ -188,7 +190,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]string, *Requeue) {
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *Requeue) {
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {
 		return nil, &Requeue{Error: err}
@@ -200,13 +202,13 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 	}
 
 	if !databaseStatus.Client.DatabaseStatus.Available {
-		log.Info("Deferring upgrade until database is available")
+		log.Info("Deferring upgrade until database is available", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
 		return nil, &Requeue{Message: "Deferring upgrade until database is available"}
 	}
 
 	notReadyProcesses := make([]string, 0)
-	addresses := make([]string, 0, len(databaseStatus.Cluster.Processes))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(databaseStatus.Cluster.Processes))
 	for _, process := range databaseStatus.Cluster.Processes {
 		processID := process.Locality["instance_id"]
 		if pendingUpgrades[processID] {
@@ -216,7 +218,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 		}
 	}
 	if len(notReadyProcesses) > 0 {
-		log.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
+		log.Info("Deferring upgrade until all processes are ready to be upgraded", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingProcesses", notReadyProcesses)
 		message := fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", message)
 		return nil, &Requeue{Message: message}

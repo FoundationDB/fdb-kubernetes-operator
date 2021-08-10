@@ -37,11 +37,11 @@ var _ = Describe("update_lock_configuration", func() {
 	var requeue *Requeue
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		cluster.Spec.InstanceIDPrefix = "dc1"
 		var locksDisabled = false
 		cluster.Spec.LockOptions.DisableLocks = &locksDisabled
-		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		err = k8sClient.Create(context.TODO(), cluster)

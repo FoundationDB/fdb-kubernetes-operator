@@ -40,8 +40,8 @@ var _ = Describe("add_pods", func() {
 	var newPods *corev1.PodList
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
-		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		cluster = internal.CreateDefaultCluster()
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		err = k8sClient.Create(context.TODO(), cluster)
@@ -99,7 +99,7 @@ var _ = Describe("add_pods", func() {
 			Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
 			Expect(lastPod.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
 			Expect(lastPod.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
-			Expect(lastPod.OwnerReferences).To(Equal(buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+			Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 
 		Context("when the process group is being removed", func() {

@@ -1,5 +1,5 @@
 /*
- * remove_pods.go
+ * remove_process_groups.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -30,12 +31,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// RemovePods provides a reconciliation step for removing pods as part of a
+// RemoveProcessGroups provides a reconciliation step for removing process groups as part of a
 // shrink or replacement.
-type RemovePods struct{}
+type RemoveProcessGroups struct{}
 
 // Reconcile runs the reconciler's work.
-func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
 		return &Requeue{Error: err}
@@ -50,20 +51,17 @@ func (u RemovePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		return nil
 	}
 
-	allRemoved, removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
+	removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
 	err = includeInstance(r, context, cluster, removedProcessGroups)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	if !allRemoved || !allExcluded {
-		return &Requeue{Message: "Reconciliation needs to remove more processes"}
-	}
 	return nil
 }
 
-func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
-	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
+func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
+	instanceListOptions := internal.GetSinglePodListOptions(cluster, instanceID)
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
 		return err
@@ -112,7 +110,7 @@ func removePod(r *FoundationDBClusterReconciler, context ctx.Context, cluster *f
 
 func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, bool, error) {
 	canBeIncluded := true
-	instanceListOptions := getSinglePodListOptions(cluster, instanceID)
+	instanceListOptions := internal.GetSinglePodListOptions(cluster, instanceID)
 
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
@@ -122,7 +120,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 	if len(instances) == 1 {
 		// If the Pod is already in a terminating state we don't have to care for it
 		if instances[0].Metadata != nil && instances[0].Metadata.DeletionTimestamp == nil {
-			log.Info("Waiting for instance to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", instanceID, "pod", instances[0].Metadata.Name)
+			log.Info("Waiting for instance to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "pod", instances[0].Metadata.Name)
 			return false, false, nil
 		}
 		// Pod is in terminating state so we don't want to block but we also don't want to include it
@@ -139,7 +137,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 
 	if len(pvcs.Items) == 1 {
 		if pvcs.Items[0].DeletionTimestamp == nil {
-			log.Info("Waiting for volume claim to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", instanceID, "pvc", pvcs.Items[0].Name)
+			log.Info("Waiting for volume claim to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "pvc", pvcs.Items[0].Name)
 			return false, canBeIncluded, nil
 		}
 		// PVC is in terminating state so we don't want to block but we also don't want to include it
@@ -156,7 +154,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 
 	if len(services.Items) == 1 {
 		if services.Items[0].DeletionTimestamp == nil {
-			log.Info("Waiting for service to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", instanceID, "service", services.Items[0].Name)
+			log.Info("Waiting for service to get torn down", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "service", services.Items[0].Name)
 			return false, canBeIncluded, nil
 		}
 		// service is in terminating state so we don't want to block but we also don't want to include it
@@ -175,14 +173,16 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0)
+	addresses := make([]fdbtypes.ProcessAddress, 0)
 
 	hasStatusUpdate := false
 
 	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove && removedProcessGroups[processGroup.ProcessGroupID] {
-			addresses = append(addresses, processGroup.Addresses...)
+			for _, pAddr := range processGroup.Addresses {
+				addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+			}
 			hasStatusUpdate = true
 		} else {
 			processGroups = append(processGroups, processGroup)
@@ -223,21 +223,23 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 	}
 	defer adminClient.Close()
 
-	addresses := make([]string, 0, len(cluster.Status.ProcessGroups))
+	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.Remove || processGroup.ExclusionSkipped {
 			continue
 		}
 
 		if len(processGroup.Addresses) == 0 {
-			log.Info("Getting remaining removals to check for exclusion", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "reason", "missing address")
+			log.Info("Getting remaining removals to check for exclusion", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroup.ProcessGroupID, "reason", "missing address")
 			continue
 		}
 
-		addresses = append(addresses, processGroup.Addresses...)
+		for _, pAddr := range processGroup.Addresses {
+			addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+		}
 	}
 
-	var remaining []string
+	var remaining []fdbtypes.ProcessAddress
 	if len(addresses) > 0 {
 		remaining, err = adminClient.CanSafelyRemove(addresses)
 		if err != nil {
@@ -251,10 +253,10 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 
 	remainingMap := make(map[string]bool, len(remaining))
 	for _, address := range addresses {
-		remainingMap[address] = false
+		remainingMap[address.String()] = false
 	}
 	for _, address := range remaining {
-		remainingMap[address] = true
+		remainingMap[address.String()] = true
 	}
 
 	return remainingMap, nil
@@ -293,18 +295,18 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 
 		excluded, err := processGroup.IsExcluded(remainingMap)
 		if !excluded || err != nil {
-			log.Info("Incomplete exclusion still present in RemovePods step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID, "error", err)
+			log.Info("Incomplete exclusion still present in RemoveProcessGroups step", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroup.ProcessGroupID, "error", err)
 			allExcluded = false
 			continue
 		}
 
 		if _, ok := cordSet[processGroup.ProcessGroupID]; ok {
-			log.Info("Block removal of Coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroup", processGroup.ProcessGroupID)
+			log.Info("Block removal of Coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroup.ProcessGroupID)
 			allExcluded = false
 			continue
 		}
 
-		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
+		log.Info("Marking exclusion complete", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
 		processGroup.Excluded = true
 		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
 	}
@@ -312,23 +314,20 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 	return allExcluded, processGroupsToRemove
 }
 
-func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupsToRemove []string) (bool, map[string]bool) {
+func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupsToRemove []string) map[string]bool {
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 
 	removedProcessGroups := make(map[string]bool)
-	allRemoved := true
 	for _, id := range processGroupsToRemove {
-		err := removePod(r, context, cluster, id)
+		err := removeProcessGroup(r, context, cluster, id)
 		if err != nil {
-			allRemoved = false
-			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			log.Error(err, "Error during remove Pod", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", id)
 			continue
 		}
 
 		removed, include, err := confirmRemoval(r, context, cluster, id)
 		if err != nil {
-			allRemoved = false
-			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "name", cluster.Name, "processGroup", id)
+			log.Error(err, "Error during confirm Pod removal", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", id)
 			continue
 		}
 
@@ -339,8 +338,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context,
 			continue
 		}
 
-		allRemoved = false
 	}
 
-	return allRemoved, removedProcessGroups
+	return removedProcessGroups
 }

@@ -20,13 +20,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
+	"net"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -300,6 +305,21 @@ type FoundationDBClusterSpec struct {
 	// investigating in issues or if the environment is unstable.
 	// +kubebuilder:default:=false
 	Skip bool `json:"skip,omitempty"`
+
+	// CoordinatorSelection defines which process classes are eligible for coordinator selection.
+	// If empty all stateful processes classes are equally eligible.
+	// A higher priority means that a process class is preferred over another process class.
+	// If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the
+	// CoordinatorSelection must match in all FoundationDB cluster resources otherwise
+	// the coordinator selection process could conflict.
+	CoordinatorSelection []CoordinatorSelectionSetting `json:"coordinatorSelection,omitempty"`
+
+	// LabelConfig allows customizing labels used by the operator.
+	LabelConfig LabelConfig `json:"labels,omitempty"`
+
+	// UseExplicitListenAddress determines if we should add a listen address
+	// that is separate from the public address.
+	UseExplicitListenAddress *bool `json:"useExplicitListenAddress,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -372,6 +392,10 @@ type FoundationDBClusterStatus struct {
 
 	// Configured defines whether we have configured the database yet.
 	Configured bool `json:"configured,omitempty"`
+
+	// HasListenIPsForAllPods defines whether every pod has an environment
+	// variable for its listen address.
+	HasListenIPsForAllPods bool `json:"hasListenIPsForAllPods,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the instance ID to its removal state.
@@ -466,6 +490,7 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string) {
 func cleanAddressList(addresses []string) []string {
 	result := make([]string, 0, len(addresses))
 	resultMap := make(map[string]bool)
+
 	for _, value := range addresses {
 		if value != "" && !resultMap[value] {
 			result = append(result, value)
@@ -726,6 +751,9 @@ const (
 	// ResourcesTerminating represents a process group whose resources are being
 	// terminated.
 	ResourcesTerminating ProcessGroupConditionType = "ResourcesTerminating"
+	// SidecarUnreachable represents a process group where the sidecar is not reachable
+	// because of networking or TLS issues.
+	SidecarUnreachable ProcessGroupConditionType = "SidecarUnreachable"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 )
@@ -741,6 +769,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		MissingPVC,
 		MissingService,
 		MissingProcesses,
+		SidecarUnreachable,
 		ReadyCondition,
 	}
 }
@@ -764,6 +793,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return MissingService, nil
 	case "MissingProcesses":
 		return MissingProcesses, nil
+	case "SidecarUnreachable":
+		return SidecarUnreachable, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
@@ -1357,7 +1388,8 @@ func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
 
 // CheckReconciliation compares the spec and the status to determine if
 // reconciliation is complete.
-func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
+func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, error) {
+	logger := log.WithValues("method", "CheckReconciliation", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	var reconciled = true
 	if !cluster.Status.Configured {
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
@@ -1370,9 +1402,12 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 		if !processGroup.Remove {
 			continue
 		}
+
 		if processGroup.GetConditionTime(ResourcesTerminating) != nil {
+			logger.Info("Has process group pending to remove", "processGroupID", processGroup.ProcessGroupID, "state", "HasPendingRemoval")
 			cluster.Status.Generations.HasPendingRemoval = cluster.ObjectMeta.Generation
 		} else {
+			logger.Info("Has process group with pending shrink", "processGroupID", processGroup.ProcessGroupID, "state", "NeedsShrink")
 			cluster.Status.Generations.NeedsShrink = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
@@ -1399,33 +1434,39 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.Remove {
+			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
 	}
 
 	if !cluster.Status.Health.Available {
+		logger.Info("Database unavailable", "state", "DatabaseUnavailable")
 		cluster.Status.Generations.DatabaseUnavailable = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
-	if !reflect.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
+	if !equality.Semantic.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
+		logger.Info("Pending database configuration change", "state", "NeedsConfigurationChange")
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.HasIncorrectConfigMap {
+		logger.Info("Pending ConfigMap (Monitor config) configuration change", "state", "NeedsMonitorConfUpdate")
 		cluster.Status.Generations.NeedsMonitorConfUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.HasIncorrectServiceConfig {
+		logger.Info("Pending Service configuration change", "state", "NeedsServiceUpdate")
 		cluster.Status.Generations.NeedsServiceUpdate = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
 	if cluster.Status.NeedsNewCoordinators {
+		logger.Info("Pending coordinator change", "state", "NeedsNewCoordinators")
 		cluster.Status.Generations.NeedsCoordinatorChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
@@ -1438,6 +1479,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 	}
 
 	if cluster.Status.RequiredAddresses != desiredAddressSet {
+		logger.Info("Pending TLS change", "state", "HasExtraListeners")
 		cluster.Status.Generations.HasExtraListeners = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
@@ -1453,6 +1495,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 			continue
 		}
 		if allow {
+			logger.Info("Pending lock acquire for configuration changes", "state", "NeedsLockConfigurationChanges", "allowed", allow)
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
 			reconciled = false
 		} else {
@@ -1462,6 +1505,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation() (bool, error) {
 
 	for _, allow := range lockDenyMap {
 		if !allow {
+			logger.Info("Pending lock acquire for configuration changes", "state", "NeedsLockConfigurationChanges", "allowed", allow)
 			cluster.Status.Generations.NeedsLockConfigurationChanges = cluster.ObjectMeta.Generation
 			reconciled = false
 			break
@@ -1534,12 +1578,24 @@ type ConnectionString struct {
 func ParseConnectionString(str string) (ConnectionString, error) {
 	components := connectionStringPattern.FindStringSubmatch(str)
 	if components == nil {
-		return ConnectionString{}, fmt.Errorf("Invalid connection string %s", str)
+		return ConnectionString{}, fmt.Errorf("invalid connection string %s", str)
 	}
+
+	coordinatorsStrings := strings.Split(components[3], ",")
+	coordinators := make([]string, len(coordinatorsStrings))
+	for idx, coordinatorsString := range coordinatorsStrings {
+		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
+		if err != nil {
+			return ConnectionString{}, err
+		}
+
+		coordinators[idx] = coordinatorAddress.String()
+	}
+
 	return ConnectionString{
 		components[1],
 		components[2],
-		strings.Split(components[3], ","),
+		coordinators,
 	}, nil
 }
 
@@ -1563,9 +1619,108 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 
 // ProcessAddress provides a structured address for a process.
 type ProcessAddress struct {
-	IPAddress string
-	Port      int
-	Flags     map[string]bool
+	IPAddress   net.IP          `json:"address,omitempty"`
+	Placeholder string          `json:"-"`
+	Port        int             `json:"port,omitempty"`
+	Flags       map[string]bool `json:"flags,omitempty"`
+}
+
+// NewProcessAddress creates a new ProcessAddress if the provided placeholder is a valid IP address it will be set as
+// IPAddress.
+func NewProcessAddress(address net.IP, placeholder string, port int, flags map[string]bool) ProcessAddress {
+	pAddr := ProcessAddress{
+		IPAddress:   address,
+		Placeholder: placeholder,
+		Port:        port,
+		Flags:       flags,
+	}
+
+	// If we have a valid IP address in the Placeholder we can set the
+	// IPAddress accordingly.
+	ip := net.ParseIP(pAddr.Placeholder)
+	if ip != nil {
+		pAddr.IPAddress = ip
+		pAddr.Placeholder = ""
+	}
+
+	return pAddr
+}
+
+// IsEmpty returns true if a ProcessAddress is not set
+func (address ProcessAddress) IsEmpty() bool {
+	return address.IPAddress == nil
+}
+
+// Equal checks if two ProcessAddress are the same
+func (address ProcessAddress) Equal(addressB ProcessAddress) bool {
+	if !address.IPAddress.Equal(addressB.IPAddress) {
+		return false
+	}
+
+	if address.Port != addressB.Port {
+		return false
+	}
+
+	if len(address.Flags) != len(addressB.Flags) {
+		return false
+	}
+
+	for k, v := range address.Flags {
+		if v != addressB.Flags[k] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ProcessAddressesString converts a slice of ProcessAddress into a string joined by the separator
+func ProcessAddressesString(pAddrs []ProcessAddress, sep string) string {
+	sb := strings.Builder{}
+	maxIdx := len(pAddrs) - 1
+	for idx, pAddr := range pAddrs {
+		sb.WriteString(pAddr.String())
+
+		if idx < maxIdx {
+			sb.WriteString(sep)
+		}
+	}
+
+	return sb.String()
+}
+
+// ProcessAddressesStringWithoutFlags converts a slice of ProcessAddress into a string joined by the separator
+// without the flags
+func ProcessAddressesStringWithoutFlags(pAddrs []ProcessAddress, sep string) string {
+	sb := strings.Builder{}
+	maxIdx := len(pAddrs) - 1
+	for idx, pAddr := range pAddrs {
+		sb.WriteString(pAddr.StringWithoutFlags())
+
+		if idx < maxIdx {
+			sb.WriteString(sep)
+		}
+	}
+
+	return sb.String()
+}
+
+// UnmarshalJSON defines the parsing method for the ProcessAddress field from JSON to struct
+func (address *ProcessAddress) UnmarshalJSON(data []byte) error {
+	trimmed := strings.Trim(string(data), "\"")
+	parsedAddr, err := ParseProcessAddress(trimmed)
+	if err != nil {
+		return err
+	}
+
+	*address = parsedAddr
+
+	return nil
+}
+
+// MarshalJSON defines the parsing method for the ProcessAddress field from struct to JSON
+func (address ProcessAddress) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", address.String())), nil
 }
 
 // ParseProcessAddress parses a structured address from its string
@@ -1573,29 +1728,54 @@ type ProcessAddress struct {
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
 
-	ipEnd := strings.Index(address, "]:") + 1
-	if ipEnd == 0 {
-		ipEnd = strings.Index(address, ":")
+	// For all Pod based actions we only provide an IP address without the port to actually
+	// like exclusions and includes. If the address is a valid IP address we can directly skip
+	// here and return the Process address, since the address doesn't contain any ports or additional flags.
+	ip := net.ParseIP(address)
+	if ip != nil {
+		result.IPAddress = ip
+		return result, nil
 	}
-	if ipEnd == -1 {
-		return result, fmt.Errorf("invalid address: %s", address)
-	}
 
-	result.IPAddress = address[:ipEnd]
+	// In order to find the address port pair we will go over the address stored in a tmp String.
+	// The idea is to split from the right to the left. If we find a Substring that is not a valid host port pair
+	// we can trim the last part and store it as a flag e.g. ":tls" and try the next substring with the flag removed.
+	// Currently FoundationDB only supports the "tls" flag but with this function we are able to also parse any additional
+	// future flags.
+	tmpStr := address
+	for tmpStr != "" {
+		addr, port, err := net.SplitHostPort(tmpStr)
 
-	components := strings.Split(address[ipEnd+1:], ":")
-
-	port, err := strconv.Atoi(components[0])
-	if err != nil {
-		return result, err
-	}
-	result.Port = port
-
-	if len(components) > 1 {
-		result.Flags = make(map[string]bool, len(components)-1)
-		for _, flag := range components[1:] {
-			result.Flags[flag] = true
+		// If we didn't get an error we found the addr:port
+		// part of the ProcessAddress.
+		if err == nil {
+			result.IPAddress = net.ParseIP(addr)
+			iPort, err := strconv.Atoi(port)
+			if err != nil {
+				return result, err
+			}
+			result.Port = iPort
+			break
 		}
+
+		// Search for the last : in our tmpStr.
+		// If there is no other : in our tmpStr we can abort since we don't
+		// have a valid address port pair left.
+		idx := strings.LastIndex(tmpStr, ":")
+		if idx == -1 {
+			break
+		}
+
+		if result.Flags == nil {
+			result.Flags = map[string]bool{}
+		}
+
+		result.Flags[tmpStr[idx+1:]] = true
+		tmpStr = tmpStr[:idx]
+	}
+
+	if result.IPAddress == nil {
+		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
 	return result, nil
@@ -1626,7 +1806,7 @@ func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) 
 
 	res := addrReg.FindStringSubmatch(cmdline)
 	if len(res) != 2 {
-		return nil, fmt.Errorf("invalid cmdlind with missing public_address: %s", cmdline)
+		return nil, fmt.Errorf("invalid cmdline with missing public_address: %s", cmdline)
 	}
 
 	return parseAddresses(strings.Split(res[1], ","))
@@ -1634,8 +1814,18 @@ func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) 
 
 // String gets the string representation of an address.
 func (address ProcessAddress) String() string {
+	if address.Port == 0 {
+		return address.IPAddress.String()
+	}
+
 	var sb strings.Builder
-	sb.WriteString(address.IPAddress + ":" + strconv.Itoa(address.Port))
+	// We have to do this since we are creating a template file for the processes.
+	// The template file will contain variables like POD_IP which is not a valid net.IP :)
+	if address.Placeholder == "" {
+		sb.WriteString(net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port)))
+	} else {
+		sb.WriteString(net.JoinHostPort(address.Placeholder, strconv.Itoa(address.Port)))
+	}
 
 	flags := make([]string, 0, len(address.Flags))
 	for flag, set := range address.Flags {
@@ -1655,10 +1845,25 @@ func (address ProcessAddress) String() string {
 	return sb.String()
 }
 
+// StringWithoutFlags gets the string representation of an address without flags.
+func (address ProcessAddress) StringWithoutFlags() string {
+	if address.Port == 0 {
+		return address.IPAddress.String()
+	}
+
+	return net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port))
+}
+
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumber int) string {
-	return cluster.GetFullAddressList(ipAddress, true, processNumber)
+func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumber int) ProcessAddress {
+	addresses := cluster.GetFullAddressList(ipAddress, true, processNumber)
+	if len(addresses) < 1 {
+		return ProcessAddress{}
+	}
+
+	// First element will always be the primary
+	return addresses[0]
 }
 
 // GetProcessPort returns the expected port for a given process number
@@ -1679,28 +1884,34 @@ func GetProcessPort(processNumber int, tls bool) int {
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(ipAddress string, primaryOnly bool, processNumber int) string {
-	addressMap := make(map[string]bool)
+func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []ProcessAddress {
+	addrs := make([]ProcessAddress, 0, 2)
+
+	// If the address is already enclosed in brackets, remove them since they
+	// will be re-added automatically in the ProcessAddress logic.
+	address = strings.TrimPrefix(strings.TrimSuffix(address, "]"), "[")
 
 	// When a TLS address is provided the TLS address will always be the primary address
 	// see: https://github.com/apple/foundationdb/blob/master/fdbrpc/FlowTransport.h#L49-L56
 	if cluster.Status.RequiredAddresses.TLS {
-		addressMap[fmt.Sprintf("%s:%d:tls", ipAddress, GetProcessPort(processNumber, true))] = cluster.Status.RequiredAddresses.TLS
-	}
-	if cluster.Status.RequiredAddresses.NonTLS {
-		addressMap[fmt.Sprintf("%s:%d", ipAddress, GetProcessPort(processNumber, false))] = !cluster.Status.RequiredAddresses.TLS
-	}
+		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, true), map[string]bool{"tls": true})
+		addrs = append(addrs, pAddr)
 
-	addresses := make([]string, 1, 1+len(addressMap))
-	for address, primary := range addressMap {
-		if primary {
-			addresses[0] = address
-		} else if !primaryOnly {
-			addresses = append(addresses, address)
+		if cluster.Status.RequiredAddresses.TLS && primaryOnly {
+			return addrs
 		}
 	}
 
-	return strings.Join(addresses, ",")
+	if cluster.Status.RequiredAddresses.NonTLS {
+		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, false), nil)
+		if !cluster.Status.RequiredAddresses.TLS && primaryOnly {
+			return []ProcessAddress{pAddr}
+		}
+
+		addrs = append(addrs, pAddr)
+	}
+
+	return addrs
 }
 
 // GetFullSidecarVersion gets the version of the image for the sidecar,
@@ -1722,12 +1933,14 @@ func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool
 
 // HasCoordinators checks whether this connection string matches a set of
 // coordinators.
-func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
+func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
 	for _, address := range str.Coordinators {
 		matchedCoordinators[address] = false
 	}
-	for _, address := range coordinators {
+
+	for _, pAddr := range coordinators {
+		address := pAddr.String()
 		_, matched := matchedCoordinators[address]
 		if matched {
 			matchedCoordinators[address] = true
@@ -1735,11 +1948,13 @@ func (str *ConnectionString) HasCoordinators(coordinators []string) bool {
 			return false
 		}
 	}
+
 	for _, matched := range matchedCoordinators {
 		if !matched {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -2007,7 +2222,10 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
 	source := cluster.Spec.Routing.PublicIPSource
-	return source != nil && *source == PublicIPSourceService
+	requiredForSource := source != nil && *source == PublicIPSourceService
+	flag := cluster.Spec.UseExplicitListenAddress
+	requiredForFlag := flag != nil && *flag
+	return requiredForSource || requiredForFlag
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
@@ -2452,6 +2670,23 @@ type BuggifyConfig struct {
 	EmptyMonitorConf bool `json:"emptyMonitorConf,omitempty"`
 }
 
+// LabelConfig allows customizing labels used by the operator.
+type LabelConfig struct {
+	// MatchLabels provides the labels that the operator should use to identify
+	// resources owned by the cluster. These will automatically be applied to
+	// all resources the operator creates.
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// ResourceLabels provides additional labels that the operator should apply to
+	// resources it creates.
+	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
+
+	// FilterOnOwnerReferences determines whether we should check that resources
+	// are owned by the cluster object, in addition to the constraints provided
+	// by the match labels.
+	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
+}
+
 // PublicIPSource models options for how a pod gets its public IP.
 type PublicIPSource string
 
@@ -2481,6 +2716,11 @@ const (
 	ProcessClassClusterController ProcessClass = "cluster_controller"
 )
 
+// IsStateful determines whether a process class should store data.
+func (pClass ProcessClass) IsStateful() bool {
+	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+}
+
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
@@ -2499,4 +2739,48 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	}
 
 	return *cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements
+}
+
+// CoordinatorSelectionSetting defines the process class and the priority of it.
+// A higher priority means that the process class is preferred over another.
+type CoordinatorSelectionSetting struct {
+	ProcessClass ProcessClass `json:"processClass,omitempty"`
+	Priority     int          `json:"priority,omitempty"`
+}
+
+// IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator.
+// This method will always return false for non stateful process classes.
+func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) bool {
+	if !pClass.IsStateful() {
+		return false
+	}
+
+	if len(cluster.Spec.CoordinatorSelection) == 0 {
+		return pClass.IsStateful()
+	}
+
+	for _, setting := range cluster.Spec.CoordinatorSelection {
+		if pClass == setting.ProcessClass {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
+func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
+	for _, setting := range cluster.Spec.CoordinatorSelection {
+		if pClass == setting.ProcessClass {
+			return setting.Priority
+		}
+	}
+
+	return math.MinInt64
+}
+
+// ShouldFilterOnOwnerReferences determines if we should check owner references
+// when determining if a resource is related to this cluster.
+func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
+	return cluster.Spec.LabelConfig.FilterOnOwnerReferences != nil && *cluster.Spec.LabelConfig.FilterOnOwnerReferences
 }

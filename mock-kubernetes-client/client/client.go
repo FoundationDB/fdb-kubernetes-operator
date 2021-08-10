@@ -345,7 +345,13 @@ func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, 
 			}
 		}
 	} else if kindKey == "/v1/Pod" {
-		err = setJSONValue(genericObject, []string{"status", "podIP"}, generatePodIP(object.GetLabels()))
+		v4Address := generatePodIPv4(object.GetLabels())
+		v6Address := generatePodIPv6(object.GetLabels())
+		err = setJSONValue(genericObject, []string{"status", "podIP"}, v4Address)
+		if err != nil {
+			return err
+		}
+		err = setJSONValue(genericObject, []string{"status", "podIPs"}, []corev1.PodIP{{IP: v4Address}, {IP: v6Address}})
 		if err != nil {
 			return err
 		}
@@ -748,12 +754,13 @@ func (client *MockClient) SetPodIntoFailed(context ctx.Context, object ctrlClien
 // RemovePodIP sets the IP address of the Pod to an empty string
 func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
 	pod.Status.PodIP = ""
+	pod.Status.PodIPs = nil
 
 	return client.Update(ctx.TODO(), pod)
 }
 
-// generatePodIP generates a mock IP for Pods
-func generatePodIP(labels map[string]string) string {
+// generatePodIPv4 generates a mock IPv4 address for Pods
+func generatePodIPv4(labels map[string]string) string {
 	instanceID, ok := labels[fdbtypes.FDBInstanceIDLabel]
 	if !ok {
 		return ""
@@ -767,4 +774,21 @@ func generatePodIP(labels map[string]string) string {
 	}
 
 	return "0.0.0.0"
+}
+
+// generatePodIPv6 generates a mock IPv6 address for Pods
+func generatePodIPv6(labels map[string]string) string {
+	instanceID, ok := labels[fdbtypes.FDBInstanceIDLabel]
+	if !ok {
+		return ""
+	}
+
+	components := strings.Split(instanceID, "-")
+	for index, class := range fdbtypes.ProcessClasses {
+		if string(class) == components[len(components)-2] {
+			return fmt.Sprintf("::%d:%s", index, components[len(components)-1])
+		}
+	}
+
+	return "::"
 }

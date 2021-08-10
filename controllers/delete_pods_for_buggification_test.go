@@ -40,7 +40,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	var originalPods *corev1.PodList
 
 	BeforeEach(func() {
-		cluster = createDefaultCluster()
+		cluster = internal.CreateDefaultCluster()
 		err = k8sClient.Create(context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -52,7 +52,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		originalPods = &corev1.PodList{}
@@ -212,7 +212,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 					},
 				},
 			}}}
-			err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 

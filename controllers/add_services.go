@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,7 +37,7 @@ type AddServices struct{}
 
 // Reconcile runs the reconciler's work.
 func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	service := GetHeadlessService(cluster)
+	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
 		err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
@@ -43,7 +45,7 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 			if !k8serrors.IsNotFound(err) {
 				return &Requeue{Error: err}
 			}
-			owner := buildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
+			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			service.ObjectMeta.OwnerReferences = owner
 			err = r.Create(context, service)
 			if err != nil {
@@ -63,7 +65,7 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 				return &Requeue{Error: err}
 			}
 
-			serviceName, _ := getInstanceID(cluster, processGroup.ProcessClass, idNum)
+			serviceName, _ := internal.GetInstanceID(cluster, processGroup.ProcessClass, idNum)
 			existingService := &corev1.Service{}
 			err = r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
 			if err != nil {
@@ -71,7 +73,7 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 				if !k8serrors.IsNotFound(err) {
 					return &Requeue{Error: err}
 				}
-				service, err := GetService(cluster, processGroup.ProcessClass, idNum)
+				service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
 				if err != nil {
 					return &Requeue{Error: err}
 				}
@@ -86,21 +88,4 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 	}
 
 	return nil
-}
-
-// GetHeadlessService builds a headless service for a FoundationDB cluster.
-func GetHeadlessService(cluster *fdbtypes.FoundationDBCluster) *corev1.Service {
-	headless := cluster.Spec.Routing.HeadlessService
-	if headless == nil || !*headless {
-		return nil
-	}
-
-	service := &corev1.Service{
-		ObjectMeta: getObjectMetadata(cluster, nil, "", ""),
-	}
-	service.ObjectMeta.Name = cluster.ObjectMeta.Name
-	service.Spec.ClusterIP = "None"
-	service.Spec.Selector = map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}
-
-	return service
 }

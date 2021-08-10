@@ -34,7 +34,6 @@ import (
 	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/mock-kubernetes-client/client"
 
 	"github.com/onsi/gomega/gexec"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -106,60 +105,6 @@ var _ = AfterEach(func() {
 	ClearMockLockClients()
 })
 
-func createDefaultCluster() *fdbtypes.FoundationDBCluster {
-	trueValue := true
-	failureDetectionWindow := 1
-
-	return &fdbtypes.FoundationDBCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "operator-test-1",
-			Namespace: "my-ns",
-		},
-		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version: fdbtypes.Versions.Default.String(),
-			ProcessCounts: fdbtypes.ProcessCounts{
-				Storage:           4,
-				ClusterController: 1,
-			},
-			FaultDomain: fdbtypes.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
-			},
-			AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-				Replacements: fdbtypes.AutomaticReplacementOptions{
-					Enabled:                     &trueValue,
-					FailureDetectionTimeSeconds: &failureDetectionWindow,
-				},
-			},
-			MinimumUptimeSecondsForBounce: 1,
-		},
-		Status: fdbtypes.FoundationDBClusterStatus{
-			RequiredAddresses: fdbtypes.RequiredAddressSet{
-				NonTLS: true,
-			},
-			ProcessGroups: make([]*fdbtypes.ProcessGroupStatus, 0),
-		},
-	}
-}
-
-func createDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
-	agentCount := 3
-	return &fdbtypes.FoundationDBBackup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Name,
-			Namespace: cluster.Namespace,
-		},
-		Spec: fdbtypes.FoundationDBBackupSpec{
-			AccountName: "test@test-service",
-			BackupName:  "test-backup",
-			BackupState: "Running",
-			Version:     cluster.Spec.Version,
-			ClusterName: cluster.Name,
-			AgentCount:  &agentCount,
-		},
-		Status: fdbtypes.FoundationDBBackupStatus{},
-	}
-}
-
 func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBRestore {
 	return &fdbtypes.FoundationDBRestore{
 		ObjectMeta: metav1.ObjectMeta{
@@ -172,14 +117,6 @@ func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Found
 		},
 		Status: fdbtypes.FoundationDBRestoreStatus{},
 	}
-}
-
-func getEnvVars(container corev1.Container) map[string]*corev1.EnvVar {
-	results := make(map[string]*corev1.EnvVar)
-	for index, env := range container.Env {
-		results[env.Name] = &container.Env[index]
-	}
-	return results
 }
 
 func reconcileCluster(cluster *fdbtypes.FoundationDBCluster) (reconcile.Result, error) {
@@ -231,7 +168,7 @@ func setupClusterForTest(cluster *fdbtypes.FoundationDBCluster) error {
 		return err
 	}
 
-	err = internal.NormalizeClusterSpec(&cluster.Spec, internal.DeprecationOptions{})
+	err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 	if err != nil {
 		return err
 	}
@@ -246,7 +183,7 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		Recorder:               k8sClient,
 		InSimulation:           true,
 		PodLifecycleManager:    StandardPodLifecycleManager{},
-		PodClientProvider:      NewMockFdbPodClient,
+		PodClientProvider:      internal.NewMockFdbPodClient,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 }
