@@ -57,6 +57,13 @@ the [API documentation](docs/cluster_spec.md).
 5. Install the [foundationDB client package](https://www.foundationdb.org/download).
 6. If you want to modify the manifests you currently need [yq](https://github.com/mikefarah/yq), we use the `v4.6.1` version.
 
+### Dockerfile usage
+
+Instead of installing the dependencies to your local machine, you can use `Dockerfile.ci` to create a development environment. If Docker is installed, these steps suffice:
+
+1. docker build -f Dockerfile.ci -t fdb-kubernetes-operator-dev
+2. docker run -it -v <path to fdb-kubernetes-operator>:/fdb-kubernetes-operator fdb-kubernetes-operator-dev /bin/bash
+
 ### Running Locally
 
 To get this controller running in a local Kubernetes cluster:
