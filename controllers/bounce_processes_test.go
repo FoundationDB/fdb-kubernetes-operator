@@ -98,6 +98,29 @@ var _ = Describe("BounceProcesses", func() {
 		})
 	})
 
+	Context("with pod in pending state", func() {
+		BeforeEach(func() {
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbtypes.PodPending, true, nil, "")
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should not kill the pending processes", func() {
+			addresses := make([]string, 0, 1)
+			processGroupAddresses := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
+			for _, address := range processGroupAddresses {
+				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+			}
+			sort.Strings(adminClient.KilledAddresses)
+			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
+		})
+	})
+
 	Context("with multiple storage servers per pod", func() {
 		BeforeEach(func() {
 			cluster.Spec.StorageServersPerPod = 2

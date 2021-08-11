@@ -149,7 +149,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 	processesSet := make(map[string]bool)
 
 	for _, condition := range conditions {
-		for _, process := range fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, condition, true) {
+		for _, process := range fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, condition, true, false) {
 			if _, ok := processesSet[process]; ok {
 				continue
 			}

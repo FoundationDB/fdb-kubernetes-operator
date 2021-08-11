@@ -663,12 +663,25 @@ func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGrou
 	return processCounts
 }
 
+func contains(groupStatus *ProcessGroupStatus , conditionType ProcessGroupConditionType) bool {
+	for _, condition := range groupStatus.ProcessGroupConditions {
+		if condition.ProcessGroupConditionType == conditionType {
+			return true
+		}
+	}
+	return false
+}
+
 // FilterByCondition returns a string slice of all ProcessGroupIDs that contains a condition with the given type.
-func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool) []string {
+func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool, ignorePending bool) []string {
 	result := make([]string, 0)
 
 	for _, groupStatus := range processGroupStatus {
 		if ignoreRemoved && groupStatus.Remove {
+			continue
+		}
+
+		if ignorePending && contains(groupStatus, PodPending) {
 			continue
 		}
 

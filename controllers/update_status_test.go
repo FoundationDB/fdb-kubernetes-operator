@@ -220,7 +220,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingPod, false)
+				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingPod, false, false)
 				Expect(missingProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -239,7 +239,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				incorrectProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectCommandLine, false)
+				incorrectProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectCommandLine, false, false)
 				Expect(incorrectProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -258,7 +258,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingProcesses, false)
+				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingProcesses, false, false)
 				Expect(missingProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -277,7 +277,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				incorrectPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectPodSpec, false)
+				incorrectPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectPodSpec, false, false)
 				Expect(incorrectPods).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -296,7 +296,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
+				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false, false)
 				Expect(failingPods).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -315,7 +315,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
+				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false, false)
 				Expect(failingPods).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))

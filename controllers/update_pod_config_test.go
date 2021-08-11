@@ -31,7 +31,7 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-var _ = FDescribe("UpdatePodConfig", func() {
+var _ = Describe("UpdatePodConfig", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var requeue *Requeue
 	var err error
