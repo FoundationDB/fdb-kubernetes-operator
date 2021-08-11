@@ -3200,14 +3200,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	When("getting the priority of a process class", func() {
+	When("checking the process group should be skipped or not", func() {
 		type testCase struct {
 			cluster  *FoundationDBCluster
 			pStatus  *ProcessGroupStatus
 			expected bool
 		}
 
-		DescribeTable("should return the expected process class",
+		DescribeTable("should return the expected result",
 			func(tc testCase) {
 				Expect(tc.cluster.SkipProcessGroup(tc.pStatus)).To(Equal(tc.expected))
 			},
