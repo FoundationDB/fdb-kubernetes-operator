@@ -61,6 +61,8 @@ spec:
           mountPath: /var/output-files
         resources:
           {{- toYaml $.Values.initContainersResources | nindent 10 }}
+        securityContext:
+          {{- toYaml $.Values.initContainerSecurityContext | nindent 10 }}      
       {{- end }}
       containers:
       - name: manager

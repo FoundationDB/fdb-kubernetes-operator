@@ -74,3 +74,11 @@ initContainersResources:
   requests:
     cpu: 10m
     memory: 50Mi
+
+initContainerSecurityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  capabilities:
+    drop:
+    - all
+  readOnlyRootFilesystem: true
