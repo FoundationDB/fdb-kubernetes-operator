@@ -3239,7 +3239,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
-	Describe("merging image configs", func() {
+	When("merging image configs", func() {
 		It("applies chooses the first value for each field", func() {
 			configs := []ImageConfig{
 				{
@@ -3287,7 +3287,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	Describe("building image names", func() {
+	When("building image names", func() {
 		It("applies the fields", func() {
 			config := ImageConfig{
 				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
