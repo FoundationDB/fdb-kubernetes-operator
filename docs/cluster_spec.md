@@ -187,6 +187,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
 | deletePods | DeletePods defines whether the operator is allowed to delete pods in order to recreate them. | *bool | false |
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
+| ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 
 [Back to TOC](#table-of-contents)
 

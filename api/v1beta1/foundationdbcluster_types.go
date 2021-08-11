@@ -754,6 +754,8 @@ const (
 	// SidecarUnreachable represents a process group where the sidecar is not reachable
 	// because of networking or TLS issues.
 	SidecarUnreachable ProcessGroupConditionType = "SidecarUnreachable"
+	// PodPending represents a process group where the pod is in a pending state.
+	PodPending ProcessGroupConditionType = "PodPending"
 	// ReadyCondition is currently only used in the metrics.
 	ReadyCondition ProcessGroupConditionType = "Ready"
 )
@@ -770,6 +772,7 @@ func AllProcessGroupConditionTypes() []ProcessGroupConditionType {
 		MissingService,
 		MissingProcesses,
 		SidecarUnreachable,
+		PodPending,
 		ReadyCondition,
 	}
 }
@@ -795,6 +798,8 @@ func GetProcessGroupConditionType(processGroupConditionType string) (ProcessGrou
 		return MissingProcesses, nil
 	case "SidecarUnreachable":
 		return SidecarUnreachable, nil
+	case "PodPending":
+		return PodPending, nil
 	}
 
 	return "", fmt.Errorf("unknown process group condition type: %s", processGroupConditionType)
@@ -1082,6 +1087,11 @@ type FoundationDBClusterAutomationOptions struct {
 	// Replacements contains options for automatically replacing failed
 	// processes.
 	Replacements AutomaticReplacementOptions `json:"replacements,omitempty"`
+
+	// IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before
+	// ignore it during reconciliation. This prevents Pod that are stuck in Pending to block
+	// further reconciliation.
+	IgnorePendingPodsDuration time.Duration `json:"ignorePendingPodsDuration,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -2783,4 +2793,27 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClas
 // when determining if a resource is related to this cluster.
 func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return cluster.Spec.LabelConfig.FilterOnOwnerReferences != nil && *cluster.Spec.LabelConfig.FilterOnOwnerReferences
+}
+
+// SkipProcessGroup checks if a ProcessGroupStatus should be skip during reconciliation.
+func (cluster *FoundationDBCluster) SkipProcessGroup(processGroup *ProcessGroupStatus) bool {
+	if processGroup == nil {
+		return true
+	}
+
+	pendingTime := processGroup.GetConditionTime(PodPending)
+	if pendingTime == nil {
+		return false
+	}
+
+	return time.Unix(*pendingTime, 0).Add(cluster.GetIgnorePendingPodsDuration()).Before(time.Now())
+}
+
+// GetIgnorePendingPodsDuration returns the value of IgnorePendingPodsDuration or 5 minutes if unset.
+func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration {
+	if cluster.Spec.AutomationOptions.IgnorePendingPodsDuration == 0 {
+		return 5 * time.Minute
+	}
+
+	return cluster.Spec.AutomationOptions.IgnorePendingPodsDuration
 }

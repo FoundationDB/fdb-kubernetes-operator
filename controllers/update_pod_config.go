@@ -47,7 +47,6 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	instanceProcessGroupMap := make(map[string]FdbInstance, len(instances))
-
 	for _, instance := range instances {
 		instanceProcessGroupMap[instance.GetInstanceID()] = instance
 	}
@@ -59,9 +58,14 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 
+		if cluster.SkipProcessGroup(processGroup) {
+			curLogger.Info("Process group has pending Pod, will be skipped")
+			continue
+		}
+
 		instance, ok := instanceProcessGroupMap[processGroup.ProcessGroupID]
 		if !ok || instance.Pod == nil || instance.Metadata == nil {
-			curLogger.Info("Could not find Pod for process group ID")
+			curLogger.Info("Could not find Pod for process group")
 			// TODO (johscheuer): we should requeue if that happens.
 			continue
 		}
@@ -89,7 +93,6 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			allSynced = false
 			hasUpdate = true
 			curLogger.Info("Update dynamic Pod config", "synced", synced, "error", err)
-
 			if internal.IsNetworkError(err) {
 				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
