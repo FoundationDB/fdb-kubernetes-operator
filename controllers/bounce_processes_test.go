@@ -24,9 +24,9 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -104,6 +104,7 @@ var _ = Describe("BounceProcesses", func() {
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
 			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
 			processGroup.UpdateCondition(fdbtypes.PodPending, true, nil, "")
+			cluster.Spec.AutomationOptions.IgnorePendingPodsDuration = 1 * time.Nanosecond
 		})
 
 		It("should not requeue", func() {

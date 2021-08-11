@@ -60,12 +60,16 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 	}
 
-	processesToBounce := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, true, true)
+	processesToBounce := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, true)
 	addresses := make([]fdbtypes.ProcessAddress, 0, len(processesToBounce))
 	allSynced := true
 	var missingAddress []string
 
 	for _, process := range processesToBounce {
+		if cluster.SkipProcessGroup(fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, process)) {
+			continue
+		}
+
 		if addressMap[process] == nil {
 			missingAddress = append(missingAddress, process)
 			continue

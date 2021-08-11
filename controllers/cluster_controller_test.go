@@ -240,8 +240,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				desiredCounts, err := cluster.GetProcessCountsWithDefaults()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(processCounts).To(Equal(desiredCounts))
-				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false, false))).To(Equal(0))
-				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses, false, false))).To(Equal(0))
+				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false))).To(Equal(0))
+				Expect(len(fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.MissingProcesses, false))).To(Equal(0))
 
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -2522,7 +2522,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				// We have to reload the cluster because we don't reach the reconcile state
 				_, err = reloadClusterGenerations(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false, false)
+				incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
 				Expect(incorrectProcesses).To(Equal([]string{"storage-1"}))
 			})
 
@@ -2537,7 +2537,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					// We have to reload the cluster because we don't reach the reconcile state
 					_, err = reloadClusterGenerations(cluster)
 					Expect(err).NotTo(HaveOccurred())
-					incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false, false)
+					incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
 					Expect(incorrectProcesses).To(Equal([]string{"storage-1", "storage-2"}))
 				})
 			})
