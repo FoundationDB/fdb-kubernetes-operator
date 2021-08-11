@@ -648,32 +648,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	When("getting the version for the sidecar", func() {
-		It("should return the correct sidecar version", func() {
-			cluster := &FoundationDBCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: FoundationDBClusterSpec{
-					Version: "6.2.15",
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
-					},
-				},
-			}
-
-			Expect(cluster.GetFullSidecarVersion(false)).To(Equal("6.2.15-1"))
-
-			cluster.Spec.SidecarVersions = map[string]int{
-				"6.2.14": 3,
-				"6.2.15": 2,
-			}
-
-			Expect(cluster.GetFullSidecarVersion(false)).To(Equal("6.2.15-2"))
-		})
-	})
-
 	When("changing the redundancy mode", func() {
 		It("should return the new redundancy mode", func() {
 			currentConfig := DatabaseConfiguration{
@@ -3280,7 +3254,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := SelectImageConfig(configs, Versions.Default)
+			finalConfig := SelectImageConfig(configs, Versions.Default.String())
 			Expect(finalConfig).To(Equal(ImageConfig{
 				BaseImage: "foundationdb/foundationdb",
 				Version:   Versions.Default.String(),
@@ -3304,7 +3278,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := SelectImageConfig(configs, Versions.Default)
+			finalConfig := SelectImageConfig(configs, Versions.Default.String())
 			Expect(finalConfig).To(Equal(ImageConfig{
 				BaseImage: "foundationdb/foundationdb",
 				Version:   Versions.Default.String(),

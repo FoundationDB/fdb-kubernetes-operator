@@ -1924,23 +1924,6 @@ func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOn
 	return addrs
 }
 
-// GetFullSidecarVersion gets the version of the image for the sidecar,
-// including the main FoundationDB version and the sidecar version suffix.
-func (cluster *FoundationDBCluster) GetFullSidecarVersion(useRunningVersion bool) string {
-	version := ""
-	if useRunningVersion {
-		version = cluster.Status.RunningVersion
-	}
-	if version == "" {
-		version = cluster.Spec.Version
-	}
-	sidecarVersion := cluster.Spec.SidecarVersions[version]
-	if sidecarVersion < 1 {
-		sidecarVersion = 1
-	}
-	return fmt.Sprintf("%s-%d", version, sidecarVersion)
-}
-
 // HasCoordinators checks whether this connection string matches a set of
 // coordinators.
 func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
@@ -2107,10 +2090,10 @@ type ImageConfig struct {
 
 // SelectImageConfig selects image configs that apply to a version of FDB and
 // merges them into a single config.
-func SelectImageConfig(allConfigs []ImageConfig, version FdbVersion) ImageConfig {
-	config := ImageConfig{Version: version.String()}
+func SelectImageConfig(allConfigs []ImageConfig, versionString string) ImageConfig {
+	config := ImageConfig{Version: versionString}
 	for _, nextConfig := range allConfigs {
-		if nextConfig.Version != "" && nextConfig.Version != version.String() {
+		if nextConfig.Version != "" && nextConfig.Version != versionString {
 			continue
 		}
 		if config.BaseImage == "" {

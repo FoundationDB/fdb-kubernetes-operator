@@ -1372,22 +1372,6 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with container override imageName with tag from the spec field", func() {
-			BeforeEach(func() {
-				cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
-					ImageName: "test/foundationdb-kubernetes-sidecar:dummy",
-				}
-				cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
-					ImageName: "test/foundationdb:dummy",
-				}
-			})
-
-			It("should return an error since a tag is specified", func() {
-				_, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
-				Expect(err).To(HaveOccurred())
-			})
-		})
-
 		Context("with custom environment", func() {
 			BeforeEach(func() {
 				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
@@ -1698,10 +1682,12 @@ var _ = Describe("pod_models", func() {
 
 		Context("with custom sidecar version", func() {
 			BeforeEach(func() {
-				cluster.Spec.SidecarVersions = map[string]int{
-					cluster.Spec.Version: 2,
-					"6.1.0":              3,
+				cluster.Spec.SidecarContainer.ImageConfigs = []fdbtypes.ImageConfig{
+					{Version: cluster.Spec.Version, TagSuffix: "-2"},
+					{Version: "6.1.0", TagSuffix: "-3"},
 				}
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2902,8 +2888,7 @@ var _ = Describe("pod_models", func() {
 	Context("Get image for container", func() {
 		type testCase struct {
 			imageName     string
-			curImage      string
-			defaultImage  string
+			imageConfigs  []fdbtypes.ImageConfig
 			versionString string
 			allowOverride bool
 		}
@@ -2912,49 +2897,44 @@ var _ = Describe("pod_models", func() {
 			func(input testCase, expected string) {
 				image, _ := GetImage(
 					input.imageName,
-					input.curImage,
-					input.defaultImage,
+					input.imageConfigs,
 					input.versionString,
 					input.allowOverride)
 				Expect(image).To(Equal(expected))
 			},
 			Entry("only defaults used",
 				testCase{
-					imageName:     "",
-					curImage:      "",
-					defaultImage:  "test/test",
+					imageName: "",
+					imageConfigs: []fdbtypes.ImageConfig{
+						{BaseImage: "test/test"},
+					},
 					versionString: "6.3.10",
 					allowOverride: false,
 				}, "test/test:6.3.10"),
 			Entry("imageName is set",
 				testCase{
-					imageName:     "test/imageName",
-					curImage:      "",
-					defaultImage:  "test/test",
-					versionString: "6.3.10",
-					allowOverride: false,
-				}, "test/imageName:6.3.10"),
-			Entry("curImage is set",
-				testCase{
-					imageName:     "test/imageName",
-					curImage:      "test/curImage",
-					defaultImage:  "test/test",
+					imageName: "test/curImage",
+					imageConfigs: []fdbtypes.ImageConfig{
+						{BaseImage: "test/test"},
+					},
 					versionString: "6.3.10",
 					allowOverride: false,
 				}, "test/curImage:6.3.10"),
 			Entry("image tag is set but not allowOverride",
 				testCase{
-					imageName:     "test/imageName",
-					curImage:      "test/curImage:6.3.10",
-					defaultImage:  "test/test",
+					imageName: "test/curImage:6.3.10",
+					imageConfigs: []fdbtypes.ImageConfig{
+						{BaseImage: "test/test"},
+					},
 					versionString: "6.3.10",
 					allowOverride: false,
 				}, ""),
 			Entry("image tag and allowOverride is set",
 				testCase{
-					imageName:     "test/imageName",
-					curImage:      "test/curImage:6.2.20",
-					defaultImage:  "test/test",
+					imageName: "test/curImage:6.2.20",
+					imageConfigs: []fdbtypes.ImageConfig{
+						{BaseImage: "test/test"},
+					},
 					versionString: "6.3.10",
 					allowOverride: true,
 				}, "test/curImage:6.2.20"),
