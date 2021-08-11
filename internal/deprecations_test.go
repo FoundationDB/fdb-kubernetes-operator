@@ -140,10 +140,11 @@ var _ = Describe("[internal] deprecations", func() {
 					spec.SidecarVersion = 2
 				})
 
-				It("puts the value in the SidecarVersions", func() {
+				It("puts the value in the ImageConfigs", func() {
 					Expect(spec.SidecarVersion).To(Equal(0))
-					Expect(spec.SidecarVersions).To(Equal(map[string]int{
-						fdbtypes.Versions.Default.String(): 2,
+					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{TagSuffix: "-2"},
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
 					}))
 				})
 			})
@@ -428,6 +429,47 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.Services).To(Equal(fdbtypes.ServiceConfig{}))
 				})
 			})
+
+			Context("with sidecar versions", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
+					cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
+					cluster.Spec.SidecarVersions = map[string]int{
+						fdbtypes.Versions.Default.String():          2,
+						fdbtypes.Versions.NextMajorVersion.String(): 3,
+					}
+				})
+
+				It("moves the sidecar versions to the image configs", func() {
+					Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-test"},
+						{BaseImage: "foundationdb/foundationdb"},
+					}))
+
+					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
+						{Version: fdbtypes.Versions.Default.String(), TagSuffix: "-2"},
+						{Version: fdbtypes.Versions.NextMajorVersion.String(), TagSuffix: "-3"},
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
+					}))
+
+					Expect(spec.SidecarVersions).To(BeNil())
+				})
+			})
+
+			Context("with an image name on the container overrides", func() {
+				BeforeEach(func() {
+					cluster.Spec.MainContainer.ImageName = "foundationdb/foundationdb-test"
+				})
+
+				It("moves the image name to the image configs", func() {
+					Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-test"},
+						{BaseImage: "foundationdb/foundationdb"},
+					}))
+					Expect(spec.MainContainer.ImageName).To(Equal(""))
+				})
+			})
 		})
 
 		Describe("Validations", func() {
@@ -483,6 +525,11 @@ var _ = Describe("[internal] deprecations", func() {
 		})
 
 		Describe("defaults", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
+				cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
+			})
+
 			Context("with the current defaults", func() {
 				JustBeforeEach(func() {
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{UseFutureDefaults: false, OnlyShowChanges: false})
@@ -637,6 +684,17 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
 					Expect(*spec.UseExplicitListenAddress).To(BeFalse())
 				})
+
+				It("should append the standard image components to the image configs", func() {
+					Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-test"},
+						{BaseImage: "foundationdb/foundationdb"},
+					}))
+					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
+					}))
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -695,6 +753,15 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should have explicit listen addresses disabled", func() {
 					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
 					Expect(*spec.UseExplicitListenAddress).To(BeFalse())
+				})
+
+				It("should only have the user-provided image configs", func() {
+					Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-test"},
+					}))
+					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
+					}))
 				})
 			})
 

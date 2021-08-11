@@ -3264,4 +3264,75 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 		)
 	})
+
+	Describe("merging image configs", func() {
+		It("applies chooses the first value for each field", func() {
+			configs := []ImageConfig{
+				{
+					BaseImage: "foundationdb/foundationdb",
+					Version:   Versions.Default.String(),
+				},
+				{
+					BaseImage: "foundationdb/foundationdb-slim",
+					Version:   Versions.Default.String(),
+					Tag:       "abcdef",
+					TagSuffix: "-1",
+				},
+			}
+
+			finalConfig := SelectImageConfig(configs, Versions.Default)
+			Expect(finalConfig).To(Equal(ImageConfig{
+				BaseImage: "foundationdb/foundationdb",
+				Version:   Versions.Default.String(),
+				Tag:       "abcdef",
+				TagSuffix: "-1",
+			}))
+		})
+
+		It("ignores configs that are for different versions", func() {
+			configs := []ImageConfig{
+				{
+					BaseImage: "foundationdb/foundationdb",
+					Version:   Versions.Default.String(),
+				},
+				{
+					Version: Versions.NextMajorVersion.String(),
+					Tag:     "abcdef",
+				},
+				{
+					TagSuffix: "-1",
+				},
+			}
+
+			finalConfig := SelectImageConfig(configs, Versions.Default)
+			Expect(finalConfig).To(Equal(ImageConfig{
+				BaseImage: "foundationdb/foundationdb",
+				Version:   Versions.Default.String(),
+				TagSuffix: "-1",
+			}))
+		})
+	})
+
+	Describe("building image names", func() {
+		It("applies the fields", func() {
+			config := ImageConfig{
+				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
+				Version:   Versions.Default.String(),
+				TagSuffix: "-2",
+			}
+			image := config.Image()
+			Expect(image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", Versions.Default)))
+		})
+
+		It("uses the tag to override the version and tag suffix", func() {
+			config := ImageConfig{
+				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
+				Version:   Versions.Default.String(),
+				Tag:       "abcdef",
+				TagSuffix: "-2",
+			}
+			image := config.Image()
+			Expect(image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:abcdef"))
+		})
+	})
 })

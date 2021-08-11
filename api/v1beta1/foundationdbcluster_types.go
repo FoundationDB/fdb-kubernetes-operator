@@ -2062,6 +2062,10 @@ type ContainerOverrides struct {
 	// the process should accept.
 	PeerVerificationRules string `json:"peerVerificationRules,omitempty"`
 
+	// ImageConfigs allows customizing the image that we use for
+	// a container.
+	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
+
 	// Env provides environment variables.
 	//
 	// Deprecated: Use the PodTemplate field instead.
@@ -2082,6 +2086,52 @@ type ContainerOverrides struct {
 	//
 	// Deprecated: Use the PodTemplate field instead.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+}
+
+// ImageConfig provides a policy for customizing an image.
+type ImageConfig struct {
+	// Version is the version of FoundationDB this policy applies to. If this is
+	// blank, the policy applies to all FDB versions.
+	Version string `json:"version,omitempty"`
+
+	// BaseImage specifies the part of the image before the tag.
+	BaseImage string `json:"baseImage,omitempty"`
+
+	// Tag specifies a full image tag.
+	Tag string `json:"tag,omitempty"`
+
+	// TagSuffix specifies a suffix that will be added after the version to form
+	// the full tag.
+	TagSuffix string `json:"tagSuffix,omitempty"`
+}
+
+// SelectImageConfig selects image configs that apply to a version of FDB and
+// merges them into a single config.
+func SelectImageConfig(allConfigs []ImageConfig, version FdbVersion) ImageConfig {
+	config := ImageConfig{Version: version.String()}
+	for _, nextConfig := range allConfigs {
+		if nextConfig.Version != "" && nextConfig.Version != version.String() {
+			continue
+		}
+		if config.BaseImage == "" {
+			config.BaseImage = nextConfig.BaseImage
+		}
+		if config.Tag == "" {
+			config.Tag = nextConfig.Tag
+		}
+		if config.TagSuffix == "" {
+			config.TagSuffix = nextConfig.TagSuffix
+		}
+	}
+	return config
+}
+
+// Image generates an image using a config.
+func (config ImageConfig) Image() string {
+	if config.Tag == "" {
+		return fmt.Sprintf("%s:%s%s", config.BaseImage, config.Version, config.TagSuffix)
+	}
+	return fmt.Sprintf("%s:%s", config.BaseImage, config.Tag)
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.
