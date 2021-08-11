@@ -3200,7 +3200,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	When("checking the process group should be skipped or not", func() {
+	When("checking whether the process group should be skipped or not", func() {
 		type testCase struct {
 			cluster  *FoundationDBCluster
 			pStatus  *ProcessGroupStatus
