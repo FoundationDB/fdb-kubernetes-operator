@@ -225,7 +225,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
-| sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. | map[string]int | false |
+| sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. **Deprecated: Use SidecarContainer.ImageConfigs instead.** | map[string]int | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |

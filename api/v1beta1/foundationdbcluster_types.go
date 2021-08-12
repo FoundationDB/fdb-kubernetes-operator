@@ -80,6 +80,7 @@ type FoundationDBClusterSpec struct {
 
 	// SidecarVersions defines the build version of the sidecar to run. This
 	// maps an FDB version to the corresponding sidecar build version.
+	// Deprecated: Use SidecarContainer.ImageConfigs instead.
 	SidecarVersions map[string]int `json:"sidecarVersions,omitempty"`
 
 	// DatabaseConfiguration defines the database configuration.
@@ -2072,6 +2073,13 @@ type ContainerOverrides struct {
 }
 
 // ImageConfig provides a policy for customizing an image.
+//
+// When multiple image configs are provided, they will be merged into a single
+// config that will be used to define the final image. For each field, we select
+// the value from the first entry in the config list that defines a value for
+// that field, and matches the version of FoundationDB the image is for. Any
+// config that specifies a different version than the one under consideration
+// will be ignored for the purposes of defining that image.
 type ImageConfig struct {
 	// Version is the version of FoundationDB this policy applies to. If this is
 	// blank, the policy applies to all FDB versions.
