@@ -36,6 +36,7 @@ type UpdateDatabaseConfiguration struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateDatabaseConfiguration")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
 	if err != nil {
@@ -60,7 +61,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 	dataHealthy := initialConfig || dataState.Healthy
 
 	if !available {
-		log.Info("Skipping database configuration change because database is unavailable", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Skipping database configuration change because database is unavailable")
 		return nil
 	}
 
@@ -79,7 +80,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
 
 		if !dataHealthy {
-			log.Info("Waiting for data distribution to be healthy", "namespace", cluster.Namespace, "cluster", cluster.Name, "stateName", dataState.Name, "stateDescription", dataState.Description)
+			logger.Info("Waiting for data distribution to be healthy", "stateName", dataState.Name, "stateDescription", dataState.Description)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but data distribution is not fully healthy: %s (%s)", configurationString, dataState.Name, dataState.Description))
 			return nil
@@ -91,7 +92,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {
-				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+				logger.Error(err, "Error updating cluster status")
 			}
 			return &Requeue{Message: "Database configuration changes are disabled"}
 		}
@@ -104,7 +105,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			}
 		}
 
-		log.Info("Configuring database", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Configuring database")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
@@ -120,10 +121,10 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			}
 			return nil
 		}
-		log.Info("Configured database", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Configured database")
 
 		if !reflect.DeepEqual(nextConfiguration, desiredConfiguration) {
-			log.Info("Requeuing for next stage of database configuration change", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			logger.Info("Requeuing for next stage of database configuration change")
 			return &Requeue{Message: "Requeuing for next stage of database configuration change"}
 		}
 	}

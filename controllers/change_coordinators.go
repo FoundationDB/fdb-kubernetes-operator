@@ -35,6 +35,7 @@ type ChangeCoordinators struct{}
 
 // Reconcile runs the reconciler's work.
 func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ChangeCoordinators")
 	if !cluster.Status.Configured {
 		return nil
 	}
@@ -51,7 +52,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	}
 
 	if connectionString != cluster.Status.ConnectionString {
-		log.Info("Updating out-of-date connection string", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Updating out-of-date connection string")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Status.ConnectionString = connectionString
 		err = r.Status().Update(context, cluster)
@@ -81,7 +82,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	}
 
 	if !allAddressesValid {
-		log.Info("Deferring coordinator change", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Deferring coordinator change")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "DeferringCoordinatorChange", "Deferring coordinator change until all processes have consistent address TLS settings")
 		return nil
 	}
@@ -91,7 +92,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		return &Requeue{Error: err}
 	}
 
-	log.Info("Changing coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	logger.Info("Changing coordinators")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing new coordinators")
 
 	coordinators, err := selectCoordinators(cluster, status)
@@ -104,7 +105,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		coordinatorAddresses[index] = process.Address
 	}
 
-	log.Info("Final coordinators candidates", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinatorAddresses)
+	logger.Info("Final coordinators candidates", "coordinators", coordinatorAddresses)
 	connectionString, err = adminClient.ChangeCoordinators(coordinatorAddresses)
 	if err != nil {
 		return &Requeue{Error: err}
@@ -146,6 +147,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 }
 
 func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ChangeCoordinators")
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 
@@ -158,7 +160,7 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 		HardLimits: getHardLimits(cluster),
 	})
 
-	log.Info("Current coordinators", "namespace", cluster.Namespace, "cluster", cluster.Name, "coordinators", coordinators)
+	logger.Info("Current coordinators", "coordinators", coordinators)
 	if err != nil {
 		return candidates, err
 	}

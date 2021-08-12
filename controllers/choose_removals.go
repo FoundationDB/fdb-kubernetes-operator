@@ -34,6 +34,7 @@ type ChooseRemovals struct{}
 
 // Reconcile runs the reconciler's work.
 func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ChooseRemovals")
 	hasNewRemovals := false
 
 	var removals = make(map[string]bool)
@@ -90,9 +91,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 				return &Requeue{Error: err}
 			}
 
-			log.Info("Chose remaining processes after shrink",
-				"namespace", cluster.Namespace,
-				"cluster", cluster.Name,
+			logger.Info("Chose remaining processes after shrink",
 				"desiredCount", desiredCount,
 				"options", processClassLocality,
 				"selected", remainingProcesses)

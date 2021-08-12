@@ -37,6 +37,7 @@ type CheckClientCompatibility struct{}
 
 // Reconcile runs the reconciler's work.
 func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "CheckClientCompatibility")
 	if !cluster.Status.Configured {
 		return nil
 	}
@@ -121,7 +122,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 				cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
 			)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
-			log.Info("Deferring reconciliation due to unsupported clients", "namespace", cluster.Namespace, "cluster", cluster.Name, "message", message)
+			logger.Info("Deferring reconciliation due to unsupported clients", "message", message)
 			return &Requeue{Message: message, Delay: 1 * time.Minute}
 		}
 	}
