@@ -310,7 +310,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 ## ImageConfig
 
-ImageConfig provides a policy for customizing an image.
+ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
