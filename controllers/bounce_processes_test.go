@@ -117,7 +117,6 @@ var _ = Describe("BounceProcesses", func() {
 			for _, address := range processGroupAddresses {
 				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 			}
-			sort.Strings(adminClient.KilledAddresses)
 			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
 		})
 	})
