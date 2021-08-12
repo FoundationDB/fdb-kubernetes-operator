@@ -194,7 +194,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should fill in the required fields in the configuration", func() {
-				Expect(cluster.Status.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+				Expect(cluster.Status.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
 				Expect(cluster.Status.DatabaseConfiguration.StorageEngine).To(Equal("ssd-2"))
 				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
 			})
@@ -212,7 +212,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
-				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
 				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal("ssd-2"))
 				Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdbtypes.RoleCounts{
 					Logs:       3,
@@ -1179,13 +1179,13 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
 
-				cluster.Spec.DatabaseConfiguration.RedundancyMode = "triple"
+				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeTriple
 
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
 			})
 
 			Context("with changes enabled", func() {
@@ -1195,28 +1195,28 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should configure the database", func() {
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("triple"))
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeTriple))
 				})
 			})
 
 			Context("with a change to the log version", func() {
 				BeforeEach(func() {
 					cluster.Spec.DatabaseConfiguration.LogVersion = 3
-					cluster.Spec.DatabaseConfiguration.RedundancyMode = "double"
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeDouble
 					generationGap = 1
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("should configure the database", func() {
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
 					Expect(adminClient.DatabaseConfiguration.LogVersion).To(Equal(3))
 				})
 			})
 
 			Context("with a change to the log version that is not set in the spec", func() {
 				BeforeEach(func() {
-					cluster.Spec.DatabaseConfiguration.RedundancyMode = "double"
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeDouble
 					cluster.Spec.SeedConnectionString = "touch"
 
 					configuration := cluster.DesiredDatabaseConfiguration()
@@ -1239,7 +1239,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					shouldCompleteReconciliation = false
 					var flag = false
 					cluster.Spec.AutomationOptions.ConfigureDatabase = &flag
-					cluster.Spec.DatabaseConfiguration.RedundancyMode = "triple"
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeTriple
 
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1259,7 +1259,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal("double"))
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
 				})
 			})
 		})

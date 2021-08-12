@@ -68,7 +68,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 				Cluster: FoundationDBStatusClusterInfo{
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 						StorageEngine:  "ssd-2",
 						UsableRegions:  1,
 						Regions:        nil,
@@ -378,7 +378,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 				Cluster: FoundationDBStatusClusterInfo{
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 						StorageEngine:  "ssd-2",
 						UsableRegions:  1,
 						Regions:        nil,

@@ -158,7 +158,7 @@ DatabaseConfiguration represents the configuration of the database
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| redundancy_mode | RedundancyMode defines the core replication factor for the database. | string | false |
+| redundancy_mode | RedundancyMode defines the core replication factor for the database. | RedundancyMode | false |
 | storage_engine | StorageEngine defines the storage engine the database uses. | string | false |
 | usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |

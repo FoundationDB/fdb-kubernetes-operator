@@ -132,7 +132,7 @@ var _ = Describe("[e2e] cluster tests", func() {
 						Key: "foundationdb.org/none",
 					},
 					DatabaseConfiguration: fdbtypes.DatabaseConfiguration{
-						RedundancyMode: "single",
+						RedundancyMode: fdbtypes.RedundancyModeSingle,
 					},
 					ProcessCounts: fdbtypes.ProcessCounts{
 						Storage:           1,
