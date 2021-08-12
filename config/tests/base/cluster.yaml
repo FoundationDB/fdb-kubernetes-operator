@@ -10,20 +10,24 @@ spec:
     key: foundationdb.org/none
   routing:
     headlessService: true
-  automationOptions:
-    replacements:
-      # Enable automatic replacements. This will be the default in the future.
-      enabled: true
   processCounts:
     # Disable stateless processes to save resources.
     stateless: -1
     # Enable a dedicated cluster controller process to test for surprising
     # behavior with having a process class with an underscore.
     cluster_controller: 1
+  
+  # Enable behavior that we will apply by default in the future.
   sidecarContainer:
-    # Change default probes to match the defaults we will apply in the future.
     enableReadinessProbe: false
     enableLivenessProbe: true
+  useExplicitListenAddress: true
+  labels:
+    filterOnOwnerReference: false
+  automationOptions:
+    replacements:
+      enabled: true
+
   processes:
     general:
       customParameters:

@@ -111,9 +111,86 @@ spec:
                   mountPath: /var/log/fdb-trace-logs
 ```
 
-Applying this configuration will delete the pods in the cluster and recreate them with the new environment variables and containers.
+## Customizing the FoundationDB Image
 
-You can customize the same kind of fields on the sidecar container by adding them to the container named `foundationdb-kubernetes-sidecar`.
+If you want to use custom builds of the FoundationDB images, you can specify
+that in the `imageConfigs` in the container settings. The example below shows
+how to specify a custom base image for both the main container and the sidecar
+container.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  mainContainer:
+    imageConfigs:
+      - baseImage: docker.example/foundationdb
+  sidecarContainer:
+    imageConfigs:
+      - baseImage: docker.example/foundationdb-kubernetes-sidecar
+```
+
+This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:6.2.30`, and the `foundationdb-kubernetes-sidecar` container runs the image `docker.example/foundationdb-kubernetes-sidecar:6.2.30-1`.
+
+The image configs also allow specifying a specific tag for the images.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  mainContainer:
+    imageConfigs:
+      - baseImage: docker.example/foundationdb
+        tag: "build-20210711161700"
+```
+
+This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:build-20210711161700`.
+
+You can also specify multiple image configs, and customize image configs separately for different FoundationDB versions. The operator will determine each field in the image config by looking for the first entry that specifies that field and is applicable for the current version.
+
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  mainContainer:
+    imageConfigs:
+      - baseImage: docker.example/foundationdb
+      - version: 6.2.30
+        tag: "build-20210711161700"
+      - version: 6.3.0
+        tag: "build-20210712161700"
+```
+
+This tells the operator to use the base image `docker.example/foundationdb` for all versions, and to use different tags for versions 6.2.30 and versions 6.3.0. Applying this config will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:build-20210711161700`. If you upgrade the cluster to version 6.3.0, it will run the image `docker.example.com/build-20210712161700`.
+
+You can also specify a suffix for the tag, which tells the operator to append that suffix to the version the cluster is running.
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  mainContainer:
+    imageConfigs:
+      - baseImage: docker.example/foundationdb
+        tagSuffix: slim
+```
+
+This will produce pods where the `foundationdb` container runs the image `docker.example/foundationdb:6.2.30-slim`. If you upgrade the cluster to version 6.3.0, it will run the image `docker.example/foundationdb:6.3.0-slim`.
+
+The operator uses a default tag suffix of `-1` for the sidecar container. If you provide a custom tag suffix for the sidecar container, your custom suffix will take precedence.
 
 ## Pod Update Strategy
 

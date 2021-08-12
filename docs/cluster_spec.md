@@ -19,6 +19,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
+* [ImageConfig](#imageconfig)
 * [LabelConfig](#labelconfig)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
@@ -120,6 +121,7 @@ ContainerOverrides provides options for customizing a container created by the o
 | enableReadinessProbe | EnableReadinessProbe defines if the sidecar should have a readinessProbe. This setting will be ignored on the main container. | *bool | false |
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
+| imageConfigs | ImageConfigs allows customizing the image that we use for a container. | [][ImageConfig](#imageconfig) | false |
 | env | Env provides environment variables.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core) | false |
 | volumeMounts | VolumeMounts provides volume mounts.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
 | imageName | ImageName provides the name of the image to use for the container, without the version tag.  **Deprecated: Use the PodTemplate field instead.** | string | false |
@@ -223,7 +225,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
-| sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. | map[string]int | false |
+| sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. **Deprecated: Use SidecarContainer.ImageConfigs instead.** | map[string]int | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
@@ -303,6 +305,19 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
+
+[Back to TOC](#table-of-contents)
+
+## ImageConfig
+
+ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| version | Version is the version of FoundationDB this policy applies to. If this is blank, the policy applies to all FDB versions. | string | false |
+| baseImage | BaseImage specifies the part of the image before the tag. | string | false |
+| tag | Tag specifies a full image tag. | string | false |
+| tagSuffix | TagSuffix specifies a suffix that will be added after the version to form the full tag. | string | false |
 
 [Back to TOC](#table-of-contents)
 

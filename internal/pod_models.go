@@ -126,31 +126,20 @@ func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 }
 
 // GetImage returns the image for container
-func GetImage(imageName, curImage, defaultImage, versionString string, allowOverride bool) (string, error) {
-	var resImage string
-	if imageName != "" {
-		resImage = imageName
-	}
-
-	if curImage != "" {
-		resImage = curImage
-	}
-
-	if resImage == "" {
-		resImage = defaultImage
-	}
-
-	res := strings.Split(resImage, ":")
-	if len(res) > 1 {
-		if allowOverride {
-			return resImage, nil
+func GetImage(image string, configs []fdbtypes.ImageConfig, versionString string, allowOverride bool) (string, error) {
+	if image != "" {
+		imageComponents := strings.Split(image, ":")
+		if len(imageComponents) > 1 {
+			if !allowOverride {
+				// If the specified image contains a tag and allowOverride is false return an error
+				return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", imageComponents[1])
+			}
+			return image, nil
 		}
-
-		// If the specified image contains a tag and allowOverride is false return an error
-		return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", res[1])
+		configs = append([]fdbtypes.ImageConfig{{BaseImage: image}}, configs...)
 	}
 
-	return fmt.Sprintf("%s:%s", resImage, versionString), nil
+	return fdbtypes.SelectImageConfig(configs, versionString).Image(), nil
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
@@ -195,7 +184,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		versionString = cluster.Spec.Version
 	}
 
-	image, err := GetImage(cluster.Spec.MainContainer.ImageName, mainContainer.Image, "foundationdb/foundationdb", versionString, processSettings.GetAllowTagOverride())
+	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -411,14 +400,6 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		return err
 	}
 
-	var sidecarVersion string
-
-	if optionalCluster != nil && optionalCluster.Spec.SidecarVersions[versionString] != 0 {
-		sidecarVersion = fmt.Sprintf("%s-%d", versionString, optionalCluster.Spec.SidecarVersions[versionString])
-	} else {
-		sidecarVersion = fmt.Sprintf("%s-1", versionString)
-	}
-
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -579,6 +560,8 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 
 	if optionalCluster != nil {
 		overrides = optionalCluster.Spec.SidecarContainer
+	} else {
+		overrides.ImageConfigs = []fdbtypes.ImageConfig{{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"}}
 	}
 
 	if overrides.EnableTLS && !initMode {
@@ -594,7 +577,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 
-	image, err := GetImage(overrides.ImageName, container.Image, "foundationdb/foundationdb-kubernetes-sidecar", sidecarVersion, allowOverride)
+	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString, allowOverride)
 	if err != nil {
 		return err
 	}
@@ -797,7 +780,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := GetImage(mainContainer.Image, mainContainer.Image, "foundationdb/foundationdb", backup.Spec.Version, backup.Spec.GetAllowTagOverride())
+	image, err := GetImage(mainContainer.Image, []fdbtypes.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}, backup.Spec.Version, backup.Spec.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}

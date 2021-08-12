@@ -1409,6 +1409,19 @@ spec:
                           - name
                         type: object
                       type: array
+                    imageConfigs:
+                      items:
+                        properties:
+                          baseImage:
+                            type: string
+                          tag:
+                            type: string
+                          tagSuffix:
+                            type: string
+                          version:
+                            type: string
+                        type: object
+                      type: array
                     imageName:
                       type: string
                     peerVerificationRules:
@@ -7677,6 +7690,19 @@ spec:
                             type: object
                         required:
                           - name
+                        type: object
+                      type: array
+                    imageConfigs:
+                      items:
+                        properties:
+                          baseImage:
+                            type: string
+                          tag:
+                            type: string
+                          tagSuffix:
+                            type: string
+                          version:
+                            type: string
                         type: object
                       type: array
                     imageName:

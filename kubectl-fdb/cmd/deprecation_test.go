@@ -410,6 +410,9 @@ labels:
   filterOnOwnerReference: true
   matchLabels:
     fdb-cluster-name: test
+mainContainer:
+  imageConfigs:
+  - baseImage: foundationdb/foundationdb
 minimumUptimeSecondsForBounce: 600
 processes:
   general:
@@ -444,6 +447,9 @@ routing:
 sidecarContainer:
   enableLivenessProbe: false
   enableReadinessProbe: true
+  imageConfigs:
+  - baseImage: foundationdb/foundationdb-kubernetes-sidecar
+    tagSuffix: "-1"
 useExplicitListenAddress: false
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",

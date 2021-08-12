@@ -23,6 +23,7 @@ package internal
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -59,10 +60,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	}
 
 	if cluster.Spec.SidecarVersion != 0 {
-		if cluster.Spec.SidecarVersions == nil {
-			cluster.Spec.SidecarVersions = make(map[string]int)
-		}
-		cluster.Spec.SidecarVersions[cluster.Spec.Version] = cluster.Spec.SidecarVersion
+		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs,
+			fdbtypes.ImageConfig{TagSuffix: fmt.Sprintf("-%d", cluster.Spec.SidecarVersion)},
+		)
 		cluster.Spec.SidecarVersion = 0
 	}
 
@@ -208,6 +208,29 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		cluster.Spec.Services.PublicIPSource = nil
 	}
 
+	if cluster.Spec.SidecarVersions != nil {
+		configs := make([]fdbtypes.ImageConfig, 0, len(cluster.Spec.SidecarVersions))
+		for version, sidecarVersion := range cluster.Spec.SidecarVersions {
+			configs = append(configs, fdbtypes.ImageConfig{Version: version, TagSuffix: fmt.Sprintf("-%d", sidecarVersion)})
+		}
+		sort.Slice(configs, func(i, j int) bool {
+			return configs[i].Version < configs[j].Version
+		})
+
+		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, configs...)
+		cluster.Spec.SidecarVersions = nil
+	}
+
+	if cluster.Spec.MainContainer.ImageName != "" {
+		cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: cluster.Spec.MainContainer.ImageName})
+		cluster.Spec.MainContainer.ImageName = ""
+	}
+
+	if cluster.Spec.SidecarContainer.ImageName != "" {
+		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: cluster.Spec.MainContainer.ImageName})
+		cluster.Spec.SidecarContainer.ImageName = ""
+	}
+
 	// Validate customParameters
 	for processClass := range cluster.Spec.Processes {
 		if setting, ok := cluster.Spec.Processes[processClass]; ok {
@@ -256,6 +279,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 				fdbtypes.FDBClusterLabel: cluster.Name,
 			}
 		}
+
+		cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})
+		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
 	}
 
 	// Apply changes between old and new defaults.

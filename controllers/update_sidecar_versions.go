@@ -84,5 +84,5 @@ func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance
 		}
 	}
 
-	return internal.GetImage(cluster.Spec.SidecarContainer.ImageName, image, "foundationdb/foundationdb-kubernetes-sidecar", cluster.GetFullSidecarVersion(false), settings.GetAllowTagOverride())
+	return internal.GetImage(image, cluster.Spec.SidecarContainer.ImageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
 }

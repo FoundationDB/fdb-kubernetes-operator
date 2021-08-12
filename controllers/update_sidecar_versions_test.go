@@ -86,7 +86,7 @@ var _ = Describe("update_sidecar_versions", func() {
 						},
 					},
 					cluster: createClusterSpec(
-						fdbtypes.ContainerOverrides{ImageName: "sidecar-override"},
+						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{}),
 					hasError: false,
 				}, "sidecar-override:6.2.20-1"),
@@ -100,7 +100,7 @@ var _ = Describe("update_sidecar_versions", func() {
 						},
 					},
 					cluster: createClusterSpec(
-						fdbtypes.ContainerOverrides{ImageName: "sidecar-override"},
+						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
@@ -127,7 +127,7 @@ var _ = Describe("update_sidecar_versions", func() {
 						},
 					},
 					cluster: createClusterSpec(
-						fdbtypes.ContainerOverrides{ImageName: "sidecar-override"},
+						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
@@ -154,7 +154,7 @@ var _ = Describe("update_sidecar_versions", func() {
 						},
 					},
 					cluster: createClusterSpec(
-						fdbtypes.ContainerOverrides{ImageName: "sidecar-override"},
+						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 							fdbtypes.ProcessClassGeneral: {
 								AllowTagOverride: &trueBool,
