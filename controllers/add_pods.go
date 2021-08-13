@@ -38,14 +38,14 @@ type AddPods struct{}
 // Reconcile runs the reconciler's work.
 func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	configMap, err := internal.GetConfigMap(cluster)
-	logger := log.WithValues("cluster", cluster.Name, "reconciler", "AddPods")
+	logger := log.WithValues("cluster", cluster.Name, "namespace", cluster.Namespace, "reconciler", "AddPods")
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
-		logger.Info("Creating config map", "namespace", configMap.Namespace, "name", configMap.Name)
+		logger.Info("Creating config map", "name", configMap.Name)
 		err = r.Create(context, configMap)
 		if err != nil {
 			return &Requeue{Error: err}
@@ -98,7 +98,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				}
 				ip := service.Spec.ClusterIP
 				if ip == "" {
-					logger.Info("Service does not have an IP address", "namespace", cluster.Namespace, "podName", pod.Name)
+					logger.Info("Service does not have an IP address", "podName", pod.Name)
 					return &Requeue{Message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
 				}
 				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
