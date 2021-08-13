@@ -24,9 +24,9 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -95,6 +95,29 @@ var _ = Describe("BounceProcesses", func() {
 			}
 			sort.Strings(adminClient.KilledAddresses)
 			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+		})
+	})
+
+	Context("with pod in pending state", func() {
+		BeforeEach(func() {
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbtypes.PodPending, true, nil, "")
+			cluster.Spec.AutomationOptions.IgnorePendingPodsDuration = 1 * time.Nanosecond
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should not kill the pending processes", func() {
+			addresses := make([]string, 0, 1)
+			processGroupAddresses := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
+			for _, address := range processGroupAddresses {
+				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+			}
+			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
 		})
 	})
 
