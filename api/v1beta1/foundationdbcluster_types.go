@@ -1358,9 +1358,9 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 }
 
 // DesiredFaultTolerance returns the number of replicas we should be able to
-// lose when the cluster is at full replication health.
-func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
-	switch cluster.Spec.RedundancyMode {
+// lose given a redundancy mode.
+func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
+	switch redundancyMode {
 	case RedundancyModeSingle:
 		return 0
 	case RedundancyModeDouble, RedundancyModeUnset:
@@ -1372,10 +1372,15 @@ func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
 	}
 }
 
-// MinimumFaultDomains returns the number of fault domains the cluster needs
-// to function.
-func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
-	switch cluster.Spec.RedundancyMode {
+// DesiredFaultTolerance returns the number of replicas we should be able to
+// lose when the cluster is at full replication health.
+func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
+	return DesiredFaultTolerance(cluster.Spec.RedundancyMode)
+}
+
+// MinimumFaultDomains returns the number of fault domains given a redundancy mode.
+func MinimumFaultDomains(redundancyMode RedundancyMode) int {
+	switch redundancyMode {
 	case RedundancyModeSingle:
 		return 1
 	case RedundancyModeDouble, RedundancyModeUnset:
@@ -1385,6 +1390,12 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 	default:
 		return 1
 	}
+}
+
+// MinimumFaultDomains returns the number of fault domains the cluster needs
+// to function.
+func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
+	return MinimumFaultDomains(cluster.Spec.RedundancyMode)
 }
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
