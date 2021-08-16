@@ -1358,33 +1358,44 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 }
 
 // DesiredFaultTolerance returns the number of replicas we should be able to
-// lose when the cluster is at full replication health.
-func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
-	switch cluster.Spec.RedundancyMode {
-	case "single":
+// lose given a redundancy mode.
+func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
+	switch redundancyMode {
+	case RedundancyModeSingle:
 		return 0
-	case "double", "":
+	case RedundancyModeDouble, RedundancyModeUnset:
 		return 1
-	case "triple":
+	case RedundancyModeTriple:
 		return 2
 	default:
 		return 0
 	}
 }
 
-// MinimumFaultDomains returns the number of fault domains the cluster needs
-// to function.
-func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
-	switch cluster.Spec.RedundancyMode {
-	case "single":
+// DesiredFaultTolerance returns the number of replicas we should be able to
+// lose when the cluster is at full replication health.
+func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
+	return DesiredFaultTolerance(cluster.Spec.RedundancyMode)
+}
+
+// MinimumFaultDomains returns the number of fault domains given a redundancy mode.
+func MinimumFaultDomains(redundancyMode RedundancyMode) int {
+	switch redundancyMode {
+	case RedundancyModeSingle:
 		return 1
-	case "double", "":
+	case RedundancyModeDouble, RedundancyModeUnset:
 		return 2
-	case "triple":
+	case RedundancyModeTriple:
 		return 3
 	default:
 		return 1
 	}
+}
+
+// MinimumFaultDomains returns the number of fault domains the cluster needs
+// to function.
+func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
+	return MinimumFaultDomains(cluster.Spec.RedundancyMode)
 }
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
@@ -1976,10 +1987,24 @@ type FoundationDBClusterFaultDomain struct {
 	ZoneIndex int `json:"zoneIndex,omitempty"`
 }
 
+// RedundancyMode defines the core replication factor for the database
+type RedundancyMode string
+
+const (
+	// RedundancyModeSingle defines the replication factor 1.
+	RedundancyModeSingle RedundancyMode = "single"
+	// RedundancyModeDouble defines the replication factor 2.
+	RedundancyModeDouble RedundancyMode = "double"
+	// RedundancyModeTriple defines the replication factor 3.
+	RedundancyModeTriple RedundancyMode = "triple"
+	// RedundancyModeUnset defines the replication factor unset.
+	RedundancyModeUnset RedundancyMode = ""
+)
+
 // DatabaseConfiguration represents the configuration of the database
 type DatabaseConfiguration struct {
 	// RedundancyMode defines the core replication factor for the database.
-	RedundancyMode string `json:"redundancy_mode,omitempty"`
+	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
 
 	// StorageEngine defines the storage engine the database uses.
 	StorageEngine string `json:"storage_engine,omitempty"`
@@ -2346,8 +2371,8 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 		result.UsableRegions = 1
 	}
 
-	if result.RedundancyMode == "" {
-		result.RedundancyMode = "double"
+	if result.RedundancyMode == RedundancyModeUnset {
+		result.RedundancyMode = RedundancyModeDouble
 	}
 
 	if result.StorageEngine == "" {

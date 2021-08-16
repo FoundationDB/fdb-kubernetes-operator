@@ -48,7 +48,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Spec: FoundationDBClusterSpec{
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 					},
 				},
 			}
@@ -143,7 +143,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Spec: FoundationDBClusterSpec{
 					Version: Versions.Default.String(),
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 						RoleCounts: RoleCounts{
 							Storage:   5,
 							Logs:      3,
@@ -250,7 +250,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Spec: FoundationDBClusterSpec{
 					Version: Versions.Default.String(),
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 						RoleCounts: RoleCounts{
 							Storage:   5,
 							Logs:      3,
@@ -305,7 +305,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Spec: FoundationDBClusterSpec{
 					Version: Versions.Default.String(),
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 						RoleCounts: RoleCounts{
 							Storage:   5,
 							Logs:      3,
@@ -447,12 +447,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(3))
 
-			cluster.Spec.RedundancyMode = "single"
+			cluster.Spec.RedundancyMode = RedundancyModeSingle
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(0))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(1))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(1))
 
-			cluster.Spec.RedundancyMode = "double"
+			cluster.Spec.RedundancyMode = RedundancyModeDouble
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(1))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(3))
@@ -579,7 +579,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				Spec: FoundationDBClusterSpec{
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: "double",
+						RedundancyMode: RedundancyModeDouble,
 						StorageEngine:  "ssd",
 						RoleCounts: RoleCounts{
 							Storage: 5,
@@ -591,7 +591,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				StorageEngine:  "ssd-2",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
@@ -606,7 +606,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			cluster.Spec = FoundationDBClusterSpec{}
 
 			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				StorageEngine:  "ssd-2",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
@@ -623,7 +623,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("getting the  configuration string", func() {
 		It("should be parsed correctly", func() {
 			configuration := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				StorageEngine:  "ssd",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
@@ -651,14 +651,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("changing the redundancy mode", func() {
 		It("should return the new redundancy mode", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 			}
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "triple",
+				RedundancyMode: RedundancyModeTriple,
 			}
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "triple",
+				RedundancyMode: RedundancyModeTriple,
 			}))
 		})
 	})
@@ -666,7 +666,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("enabling fearless DR", func() {
 		It("should return the new fearless config", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -681,7 +681,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -719,7 +719,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -758,7 +758,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -797,7 +797,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -839,12 +839,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("changing tto fearless dr without initial regions", func() {
 		It("should return the fearless config", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -882,7 +882,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -921,7 +921,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -960,7 +960,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1002,12 +1002,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("enabling a single region without initial regions", func() {
 		It("should return the new redundancy mode", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1023,7 +1023,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1043,7 +1043,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("disabling fearless DR", func() {
 		It("should return new configuration", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1073,7 +1073,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1089,7 +1089,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1114,7 +1114,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1139,7 +1139,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1159,7 +1159,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("disabling fearless DR and switch the dc", func() {
 		It("should return the new configuration", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1196,7 +1196,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1212,7 +1212,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1237,7 +1237,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1262,7 +1262,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1282,7 +1282,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("disabling and clearing regions", func() {
 		It("should return the new configuration", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1312,13 +1312,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1343,7 +1343,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1368,7 +1368,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 			}))
 			Expect(nextConfig).To(Equal(finalConfig))
@@ -1378,7 +1378,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("changing the primary DC with a single region", func() {
 		It("should return the new configuration", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1393,7 +1393,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1409,7 +1409,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1434,7 +1434,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1459,7 +1459,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1484,7 +1484,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1509,7 +1509,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1529,7 +1529,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("changing the primary DC with multiple regions", func() {
 		It("should return the new configuration", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1552,7 +1552,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1576,7 +1576,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1601,7 +1601,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1626,7 +1626,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1643,7 +1643,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1668,7 +1668,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1693,7 +1693,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1718,7 +1718,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1746,7 +1746,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("changing multiple DCs", func() {
 		It("should return the new configuration", func() {
 			currentConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1769,7 +1769,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			finalConfig := DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1793,7 +1793,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1818,7 +1818,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1843,7 +1843,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1860,7 +1860,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1885,7 +1885,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1910,7 +1910,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -1935,7 +1935,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1960,7 +1960,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -1977,7 +1977,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  1,
 				Regions: []Region{
 					{
@@ -2002,7 +2002,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -2027,7 +2027,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
 			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: "double",
+				RedundancyMode: RedundancyModeDouble,
 				UsableRegions:  2,
 				Regions: []Region{
 					{
@@ -2474,7 +2474,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							NonTLS: true,
 						},
 						DatabaseConfiguration: DatabaseConfiguration{
-							RedundancyMode: "double",
+							RedundancyMode: RedundancyModeDouble,
 							StorageEngine:  "ssd-2",
 							UsableRegions:  1,
 							RoleCounts: RoleCounts{

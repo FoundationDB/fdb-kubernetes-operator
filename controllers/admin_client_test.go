@@ -65,7 +65,7 @@ var _ = Describe("admin_client_test", func() {
 		Context("with a basic cluster", func() {
 			It("should generate the status", func() {
 				Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbtypes.DatabaseConfiguration{
-					RedundancyMode: "double",
+					RedundancyMode: fdbtypes.RedundancyModeDouble,
 					StorageEngine:  "ssd-2",
 					UsableRegions:  1,
 					RoleCounts: fdbtypes.RoleCounts{
