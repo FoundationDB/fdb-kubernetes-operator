@@ -39,6 +39,7 @@ type BounceProcesses struct{}
 
 // Reconcile runs the reconciler's work.
 func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "BounceProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &Requeue{Error: err}
@@ -89,7 +90,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		synced, err := r.updatePodDynamicConf(cluster, instances[0])
 		if !synced {
 			allSynced = false
-			log.Info("Update dynamic Pod config", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "synced", synced, "error", err)
+			logger.Info("Update dynamic Pod config", "processGroupID", instanceID, "synced", synced, "error", err)
 		}
 	}
 
@@ -111,7 +112,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {
-				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+				logger.Error(err, "Error updating cluster status")
 			}
 
 			return &Requeue{Message: "Kills are disabled"}
@@ -123,7 +124,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 			err = r.Status().Update(context, cluster)
 			if err != nil {
-				log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+				logger.Error(err, "Error updating cluster status")
 			}
 
 			// Retry after we waited the minimum uptime
@@ -173,7 +174,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			}
 		}
 
-		log.Info("Bouncing instances", "namespace", cluster.Namespace, "cluster", cluster.Name, "addresses", addresses)
+		logger.Info("Bouncing instances", "addresses", addresses)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {
@@ -195,6 +196,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
 func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *Requeue) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "BounceProcesses")
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {
 		return nil, &Requeue{Error: err}
@@ -206,7 +208,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 	}
 
 	if !databaseStatus.Client.DatabaseStatus.Available {
-		log.Info("Deferring upgrade until database is available", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		logger.Info("Deferring upgrade until database is available")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
 		return nil, &Requeue{Message: "Deferring upgrade until database is available"}
 	}
@@ -222,7 +224,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 		}
 	}
 	if len(notReadyProcesses) > 0 {
-		log.Info("Deferring upgrade until all processes are ready to be upgraded", "namespace", cluster.Namespace, "cluster", cluster.Name, "remainingProcesses", notReadyProcesses)
+		logger.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
 		message := fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", message)
 		return nil, &Requeue{Message: message}

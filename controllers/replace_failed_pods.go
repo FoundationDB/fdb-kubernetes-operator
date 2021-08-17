@@ -49,6 +49,7 @@ func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context c
 // chooseNewRemovals flags failed processes for removal and returns an indicator
 // of whether any processes were thus flagged.
 func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ReplaceFailedPods")
 	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
 		return false
 	}
@@ -84,9 +85,7 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 				continue
 			}
 
-			log.Info("Replace instance",
-				"namespace", cluster.Namespace,
-				"cluster", cluster.Name,
+			logger.Info("Replace instance",
 				"processGroupID", processGroupStatus.ProcessGroupID,
 				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
 

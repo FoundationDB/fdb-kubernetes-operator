@@ -46,6 +46,7 @@ type UpdateStatus struct {
 
 // Reconcile runs the reconciler's work.
 func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
 	originalStatus := cluster.Status.DeepCopy()
 	status := fdbtypes.FoundationDBClusterStatus{}
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
@@ -308,7 +309,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			log.Error(err, "Error updating cluster status", "namespace", cluster.Namespace, "cluster", cluster.Name)
+			logger.Error(err, "Error updating cluster status")
 			return &Requeue{Error: err}
 		}
 	}
@@ -345,6 +346,7 @@ func optionList(options ...string) []string {
 // versions and connection strings for this cluster and returns the set that
 // allow connecting to the cluster.
 func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, string, error) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
 	versions := optionList(cluster.Status.RunningVersion, cluster.Spec.Version)
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
@@ -355,8 +357,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 		return originalVersion, originalConnectionString, nil
 	}
 
-	log.Info("Trying connection options",
-		"namespace", cluster.Namespace, "cluster", cluster.Name,
+	logger.Info("Trying connection options",
 		"version", versions, "connectionString", connectionStrings)
 
 	defer func() { cluster.Status.RunningVersion = originalVersion }()
@@ -364,8 +365,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 
 	for _, version := range versions {
 		for _, connectionString := range connectionStrings {
-			log.Info("Attempting to get connection string from cluster",
-				"namespace", cluster.Namespace, "cluster", cluster.Name,
+			logger.Info("Attempting to get connection string from cluster",
 				"version", version, "connectionString", connectionString)
 			cluster.Status.RunningVersion = version
 			cluster.Status.ConnectionString = connectionString
@@ -378,13 +378,11 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 
 			activeConnectionString, err := adminClient.GetConnectionString()
 			if err == nil {
-				log.Info("Chose connection option",
-					"namespace", cluster.Namespace, "cluster", cluster.Name,
+				logger.Info("Chose connection option",
 					"version", version, "connectionString", activeConnectionString)
 				return version, activeConnectionString, err
 			}
-			log.Error(err, "Error getting connection string from cluster",
-				"namespace", cluster.Namespace, "cluster", cluster.Name,
+			logger.Error(err, "Error getting connection string from cluster",
 				"version", version, "connectionString", connectionString)
 		}
 	}
@@ -393,6 +391,7 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 
 // CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
 func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
 	instanceID := instance.GetInstanceID()
 
 	if processCount > 1 {
@@ -408,7 +407,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 
 	podClient, message := r.getPodClient(cluster, instance)
 	if podClient == nil {
-		log.Info("Unable to build pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.Metadata.Name, "message", message)
+		logger.Info("Unable to build pod client", "processGroupID", instance.Metadata.Name, "message", message)
 		return nil
 	}
 
@@ -435,7 +434,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
 
 		if !correct {
-			log.Info("IncorrectProcess", "namespace", cluster.Namespace, "cluster", cluster.Name, "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version, "processGroupID", instanceID)
+			log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version, "processGroupID", instanceID)
 		}
 	}
 
@@ -567,6 +566,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 // validateInstance runs specific checks for the status of an instance.
 // returns failing, incorrect, error
 func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
 	processClass := instance.GetProcessClass()
 	instanceID := instance.GetInstanceID()
 
@@ -651,9 +651,7 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		// Only recreate the Pod if it is already 5 minutes up (just to prevent to recreate the Pod multiple times
 		// and give the cluster some time to get the kubelet up
 		if instance.Pod.Status.Reason == "NodeAffinity" && instance.Pod.CreationTimestamp.Add(5*time.Minute).Before(time.Now()) {
-			log.Info("Delete Pod that is stuck in NodeAffinity",
-				"namespace", cluster.Namespace,
-				"cluster", cluster.Name,
+			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", instanceID)
 
 			err = r.PodLifecycleManager.DeleteInstance(r, context, instance)

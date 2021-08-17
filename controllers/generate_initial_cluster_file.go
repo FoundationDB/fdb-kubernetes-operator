@@ -37,11 +37,12 @@ type GenerateInitialClusterFile struct{}
 
 // Reconcile runs the reconciler's work.
 func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "GenerateInitialClusterFile")
 	if cluster.Status.ConnectionString != "" {
 		return nil
 	}
 
-	log.Info("Generating initial cluster file", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
 	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
