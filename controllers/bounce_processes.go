@@ -217,6 +217,9 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminC
 	addresses := make([]fdbtypes.ProcessAddress, 0, len(databaseStatus.Cluster.Processes))
 	for _, process := range databaseStatus.Cluster.Processes {
 		processID := process.Locality["instance_id"]
+		if process.Version == version.String() {
+			continue
+		}
 		if pendingUpgrades[processID] {
 			addresses = append(addresses, process.Address)
 		} else {
