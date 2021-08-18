@@ -341,7 +341,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		pods := filterDeletePods(replaceInstances, killPods)
 		if !force && len(pods) > 0 {
-			confirmed = confirmAction(fmt.Sprintf("Delete Pods %v in cluster %s/%s", killPods, namespace, clusterName))
+			podNames := make([]string, 0, len(killPods))
+			for _, pod := range killPods {
+				podNames = append(podNames, pod.Name)
+			}
+
+			confirmed = confirmAction(fmt.Sprintf("Delete Pods %v in cluster %s/%s", strings.Join(podNames, ","), namespace, clusterName))
 		}
 
 		if force || confirmed {
