@@ -64,6 +64,8 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing}
+
 func init() {
 	SchemeBuilder.Register(
 		&FoundationDBCluster{}, &FoundationDBClusterList{},
@@ -448,7 +450,14 @@ type ProcessGroupStatus struct {
 
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
 func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) (bool, int64) {
-	missingTime := processGroupStatus.GetConditionTime(MissingProcesses)
+	var missingTime *int64
+	for _, condition := range conditionsThatNeedReplacement {
+		conditionTime := processGroupStatus.GetConditionTime(condition)
+		if conditionTime != nil && (missingTime == nil || *missingTime > *conditionTime) {
+			missingTime = conditionTime
+		}
+	}
+
 	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
 	if missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.Remove {
 		return true, *missingTime
