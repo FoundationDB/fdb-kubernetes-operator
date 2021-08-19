@@ -236,15 +236,11 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 	}
 
-	customizeContainer(mainContainer, cluster.Spec.MainContainer)
-
-	customizeContainer(initContainer, cluster.Spec.SidecarContainer)
 	err = configureSidecarContainerForCluster(cluster, initContainer, true, instanceID, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
 
-	customizeContainer(sidecarContainer, cluster.Spec.SidecarContainer)
 	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
@@ -690,34 +686,6 @@ func extendEnv(container *corev1.Container, env ...corev1.EnvVar) {
 		if !existingVars[envVar.Name] {
 			container.Env = append(container.Env, envVar)
 		}
-	}
-}
-
-// customizeContainer adds container overrides from the cluster spec to a
-// container.
-func customizeContainer(container *corev1.Container, overrides fdbtypes.ContainerOverrides) {
-	envOverrides := make(map[string]bool)
-
-	fullEnv := make([]corev1.EnvVar, 0)
-	for _, envVar := range overrides.Env {
-		fullEnv = append(fullEnv, *envVar.DeepCopy())
-		envOverrides[envVar.Name] = true
-	}
-
-	for _, envVar := range container.Env {
-		if !envOverrides[envVar.Name] {
-			fullEnv = append(fullEnv, envVar)
-		}
-	}
-
-	container.Env = fullEnv
-
-	for _, volume := range overrides.VolumeMounts {
-		container.VolumeMounts = append(container.VolumeMounts, *volume.DeepCopy())
-	}
-
-	if overrides.SecurityContext != nil {
-		container.SecurityContext = overrides.SecurityContext
 	}
 }
 
