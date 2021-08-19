@@ -22,7 +22,10 @@ The operator has an option to automatically replace pods that are in a bad state
 * The process group has a condition that is eligible for replacement, and has been in that condition for 1800 seconds. This time window is configurable through `automationOptions.replacements.failureDetectionTimeSeconds`.
 * The number of process groups that are marked for removal and not fully excluded, counting the process group that is being evaluated for replacement, is less than or equal to 1. This limit is configurable through `automationOptions.replacements.maxConcurrentReplacements`.
 
-The only condition that is currently eligible for replacement is when the process is not reporting to the database.
+The following conditions are currently eligible for replacement:
+
+* `MissingProcesses`: This indicates that a process is not reporting to the database.
+* `PodFailing`: This indicates that one of the containers is not ready.
 
 ## Next
 

@@ -3309,4 +3309,89 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:abcdef"))
 		})
 	})
+
+	When("checking for instances that need replacement", func() {
+		var processGroup *ProcessGroupStatus
+		var needsReplacement bool
+		var timestamp int64
+		var oldTimestamp int64
+
+		BeforeEach(func() {
+			processGroup = &ProcessGroupStatus{ProcessGroupID: "storage-1", ProcessClass: "storage"}
+			oldTimestamp = time.Now().Add(-1 * time.Hour).Unix()
+		})
+
+		JustBeforeEach(func() {
+			needsReplacement, timestamp = processGroup.NeedsReplacement(60)
+		})
+
+		Context("with no conditions", func() {
+			It("should not need replacement", func() {
+				Expect(needsReplacement).To(BeFalse())
+			})
+		})
+
+		Context("with a process group that went missing after the window", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingProcesses, true, nil, "")
+			})
+
+			It("should not need replacement", func() {
+				Expect(needsReplacement).To(BeFalse())
+			})
+		})
+
+		Context("with a process group that went missing before the window", func() {
+			var targetTimestamp int64
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingProcesses, true, nil, "")
+				targetTimestamp = time.Now().Add(-1 * time.Hour).Unix()
+				processGroup.ProcessGroupConditions[0].Timestamp = targetTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(targetTimestamp))
+			})
+		})
+
+		Context("with multiple conditions that could trigger a replacement", func() {
+			var targetTimestamp int64
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingProcesses, true, nil, "")
+				processGroup.UpdateCondition(PodFailing, true, nil, "")
+				targetTimestamp = time.Now().Add(-1 * time.Hour).Unix()
+				processGroup.ProcessGroupConditions[0].Timestamp = targetTimestamp
+				processGroup.ProcessGroupConditions[1].Timestamp = targetTimestamp - 60
+			})
+
+			It("should use the older timestamp", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(targetTimestamp - 60))
+			})
+		})
+
+		Context("with a process group that failed", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(PodFailing, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		Context("with a process group that had the wrong command line", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(IncorrectCommandLine, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should not need replacement", func() {
+				Expect(needsReplacement).To(BeFalse())
+			})
+		})
+	})
 })
