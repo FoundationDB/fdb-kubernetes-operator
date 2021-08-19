@@ -952,7 +952,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
-		Context("with a missing process and pending exclusion", func() {
+		Context("with missing processes and pending exclusion", func() {
 			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
@@ -966,6 +966,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				adminClient.MockMissingProcessGroup("storage-2", true)
+				adminClient.MockMissingProcessGroup("storage-3", true)
 				shouldCompleteReconciliation = false
 				generationGap = 0
 			})

@@ -82,6 +82,17 @@ Remove [storage-1] from cluster default/example-cluster with exclude: false and 
 This will delete the pod and the PVC without checking that the data has been re-replicated.
 You should only due this after checking that the database is available, has not had any data loss, and that the pod is currently not running. You can confirm the first and second check by looking at the cluster status.
 
+## Exclusions Not Starting Due to Missing Processes
+
+Before the operator excludes a process, it checks that the cluster will have a sufficient number of processes remaining after the exclusion. If there are too many missing processes, you will see reconciliation get requeued with a message of the form: `"Waiting for missing processes: [storage-1 storage-2 storage-3 storage-4]. Addresses to exclude: [10.1.6.69 10.1.6.68]`. When this happens, there are a few options to get reconciliation unstuck:
+
+1. Wait for the missing processes to come online. If they are missing for a temporary reason, such as getting rescheduled or being in an initializing state, then once they come online the operator will be able to move forward with the exclusion.
+2. Fix the issue with the missing processes. If the new processes are not coming up due to a configuration error or something else that is not localized to specific processes or machines, you should fix that error before doing any exclusions.
+3. Replace the missing processes as well. After triggering a replacement, the operator will bring up replacement processes, and once those processes come on line all of the processes can be excluded.
+4. Manually start an exclusion. You can open a CLI and run `exclude 10.1.6.69 10.1.6.68` to start an exclusion without these safety checks. Excluding too many processes can also cause further problems, such as overloading the remaining processes or leaving the database without enough workers to fulfill the required roles.
+
+The operator will prevent excluding a process if the remaining number of processes for that process class is less than 80% of the desired number **and** the remaining number is 2+ fewer processes than the desired number.
+
 ## Reconciliation Not Running
 
 If reconciliation is not complete, and there are no recent messages in the operator logs for the cluster, it may be that the reconciliation is backing off due to repeated failures. It should eventually retry the reconciliation. If you want to force it to run reconciliation again immediately, you can edit the cluster metadata. The operator will receive an event about the change and start reconciling. The best no-op change to make is a new annotation.
