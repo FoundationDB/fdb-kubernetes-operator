@@ -2873,12 +2873,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		type testCase struct {
 			initialProcessGroup  ProcessGroupStatus
 			inputAddresses       []string
+			keepOldAddresses     bool
 			expectedProcessGroup ProcessGroupStatus
 		}
 
 		DescribeTable("should add or ignore the addresses",
 			func(tc testCase) {
-				tc.initialProcessGroup.AddAddresses(tc.inputAddresses)
+				tc.initialProcessGroup.AddAddresses(tc.inputAddresses, tc.keepOldAddresses)
 				Expect(tc.expectedProcessGroup).To(Equal(tc.initialProcessGroup))
 
 			},
@@ -2905,20 +2906,21 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						"2.2.2.2",
 					}},
 				}),
-			Entry("New Pod IP and process group is marked for removal",
+			Entry("New Pod IP and keep old addresses",
 				testCase{
 					initialProcessGroup: ProcessGroupStatus{
 						Addresses: []string{
 							"1.1.1.1",
 						},
-						Remove: true},
+					},
 					inputAddresses: []string{
 						"2.2.2.2",
 					},
+					keepOldAddresses: true,
 					expectedProcessGroup: ProcessGroupStatus{Addresses: []string{
 						"1.1.1.1",
 						"2.2.2.2",
-					}, Remove: true},
+					}},
 				}),
 		)
 	})

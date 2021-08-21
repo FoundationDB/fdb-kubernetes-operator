@@ -121,7 +121,18 @@ The `ExcludeInstances` subreconciler can get stuck if it needs to exclude proces
 
 Any step that requires a lock can get stuck indefinitely if the locking is blocked. See the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations) for more background on the locking system. You can see if the operator is trying to take a lock by looking in the logs for the message `Taking lock on cluster`. This will identify why the operator needs a lock. If another instance of the operator has a lock, you will see a log message `Failed to get lock`, which will have an `owner` field that tells you what instance has the lock, as well as an `endTime` field that tells you when the lock will expire. You can then look in the logs for the instance of the operator that has the lock and see if that operator is stuck in reconciliation, and try to get it unstuck. Once the operator completes reconciliation and the lock expires, your original instance of the operator should able to get the lock for itself.
 
-### Running CLI Commands
+## Coordinators Getting New IPs
+
+The FDB cluster file contains a list of coordinator IPs, and if the coordinator processes are not listening on those IPs, the database will be unavailable. If you have your processes listening on their pod IPs, and a majority of the coordinator pods are deleted in a short window, the operator will not be able to automatically recover the cluster. You can fix this through a manual recovery process:
+
+1. Identify the coordinator processes based on the IPs in the connection string, and the addresses in the process group status
+2. Replace the coordinator IPs in the connection string with the new IPs for those processes
+3. Edit the file `/var/fdb/data/fdb.cluster` in the `foundationdb` container in each pod to contain the new connection string, and kill the fdbserver processes.
+4. Edit the `connectionString` in the cluster status, or the `seedConnectionString` in the cluster spec, to contain the new connection string.
+
+To simplify this process, the kubectl-fdb plugin has a command that encapsulates these steps. You can run `kubectl fdb fix-coordinator-ips -c example-cluster`, and that should update everything with the modified connection string, bring the cluster back up, and allow the operator to continue with any further reconciliation work.
+
+## Running CLI Commands
 
 If you want to open up a shell or run a CLI, you can use the [plugin](#kubectl-fdb-plugin):
 

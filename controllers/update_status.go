@@ -118,6 +118,11 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				status.RequiredAddresses.NonTLS = true
 			}
 		}
+
+		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
+		status.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
+		status.Health.FullReplication = databaseStatus.Cluster.FullReplication
+		status.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
 	}
 
 	cluster.Status.RequiredAddresses = status.RequiredAddresses
@@ -251,13 +256,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	status.HasIncorrectServiceConfig = (service == nil) != (existingService == nil)
-
-	if databaseStatus != nil {
-		status.Health.Available = databaseStatus.Client.DatabaseStatus.Available
-		status.Health.Healthy = databaseStatus.Client.DatabaseStatus.Healthy
-		status.Health.FullReplication = databaseStatus.Cluster.FullReplication
-		status.Health.DataMovementPriority = databaseStatus.Cluster.Data.MovingData.HighestPriority
-	}
 
 	if status.Configured && cluster.Status.ConnectionString != "" {
 		coordinatorStatus := make(map[string]bool, len(databaseStatus.Client.Coordinators.Coordinators))
@@ -471,7 +469,7 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 			processGroupMap[instanceID] = processGroupStatus
 		}
 
-		processGroupStatus.AddAddresses(instance.GetPublicIPs())
+		processGroupStatus.AddAddresses(instance.GetPublicIPs(), processGroupStatus.Remove || !status.Health.Available)
 
 		instanceMap[instanceID] = internal.None{}
 
