@@ -66,7 +66,7 @@ jobs:
         curl --fail -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz" -o kustomize.tar.gz
         os=$(go env GOOS)
         arch=$(go env GOARCH)
-        curl --fail -L "https://go.kubebuilder.io/dl/${KUBEBUILDER_VER}/${os}/${arch}" -o kubebuilder.tar.gz
+        curl --fail -L "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VER}/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}.tar.gz" -o kubebuilder.tar.gz
         curl --fail "https://www.foundationdb.org/downloads/${{ matrix.fdbver }}/ubuntu/installers/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
         curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz
