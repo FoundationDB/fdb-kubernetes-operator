@@ -216,9 +216,8 @@ func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbtypes.Foundation
 		return err
 	}
 
-	logger := log.Default()
 	if dryRun {
-		logger.Printf("New connection string: %s", cluster.Status.ConnectionString)
+		log.Printf("New connection string: %s", cluster.Status.ConnectionString)
 	}
 
 	commands, err := buildClusterFileUpdateCommands(cluster, kubeClient, context, namespace)
@@ -227,11 +226,11 @@ func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbtypes.Foundation
 	}
 	for _, command := range commands {
 		if dryRun {
-			logger.Printf("Update command: %s", strings.Join(command.Args, " "))
+			log.Printf("Update command: %s", strings.Join(command.Args, " "))
 		} else {
 			err := command.Run()
 			if err != nil {
-				logger.Print(err.Error())
+				log.Print(err.Error())
 			}
 		}
 	}
