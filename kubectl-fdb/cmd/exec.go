@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -113,19 +114,24 @@ func buildCommand(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluste
 
 	selector := labels.NewSelector()
 
+	err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+	if err != nil {
+		return exec.Cmd{}, err
+	}
+
 	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
 			return exec.Cmd{}, nil
 		}
-		selector.Add(*requirement)
+		selector = selector.Add(*requirement)
 	}
 
 	processClassRequirement, err := labels.NewRequirement(fdbtypes.FDBProcessClassLabel, selection.Exists, nil)
 	if err != nil {
 		return exec.Cmd{}, nil
 	}
-	selector.Add(*processClassRequirement)
+	selector = selector.Add(*processClassRequirement)
 
 	err = kubeClient.List(ctx.Background(), pods,
 		client.InNamespace(namespace),

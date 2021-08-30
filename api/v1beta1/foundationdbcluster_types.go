@@ -468,7 +468,7 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) 
 
 // AddAddresses adds the new address to the ProcessGroupStatus and removes duplicates and old addresses
 // if the process group is not marked as removal.
-func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string) {
+func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, includeOldAddresses bool) {
 	newAddresses := make([]string, 0, len(addresses))
 	// Currently this only contains one address but might include in the future multiple addresses
 	// e.g. for dual stack
@@ -483,14 +483,12 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string) {
 
 	// If the newAddresses contains at least one IP address use this list as the new addresses
 	// and return
-	if len(newAddresses) > 0 && !processGroupStatus.Remove {
+	if len(newAddresses) > 0 && !includeOldAddresses {
 		processGroupStatus.Addresses = newAddresses
 		return
 	}
 
-	// The process group is marked for removal so we want to track all addresses during that removal
-	// to ensure we exclude and include all addresses during the removal process.
-	if processGroupStatus.Remove {
+	if includeOldAddresses {
 		processGroupStatus.Addresses = cleanAddressList(append(processGroupStatus.Addresses, newAddresses...))
 		return
 	}
