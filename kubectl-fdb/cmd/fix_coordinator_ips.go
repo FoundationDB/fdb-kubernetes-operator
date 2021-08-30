@@ -115,7 +115,7 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 
 // buildClusterFileUpdateCommands generates commands for using kubectl exec to
 // update the cluster file in the pods for a cluster.
-func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client, context string, namespace string) ([]exec.Cmd, error) {
+func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client, context string, namespace string, kubectlPath string) ([]exec.Cmd, error) {
 	pods := &corev1.PodList{}
 
 	selector := labels.NewSelector()
@@ -144,11 +144,6 @@ func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeC
 		client.MatchingLabelsSelector{Selector: selector},
 		client.MatchingFields{"status.phase": "Running"},
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	kubectlPath, err := exec.LookPath("kubectl")
 	if err != nil {
 		return nil, err
 	}
@@ -216,11 +211,14 @@ func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbtypes.Foundation
 		return err
 	}
 
-	if dryRun {
-		log.Printf("New connection string: %s", cluster.Status.ConnectionString)
+	log.Printf("New connection string: %s", cluster.Status.ConnectionString)
+
+	kubectlPath, err := exec.LookPath("kubectl")
+	if err != nil {
+		return err
 	}
 
-	commands, err := buildClusterFileUpdateCommands(cluster, kubeClient, context, namespace)
+	commands, err := buildClusterFileUpdateCommands(cluster, kubeClient, context, namespace, kubectlPath)
 	if err != nil {
 		return err
 	}

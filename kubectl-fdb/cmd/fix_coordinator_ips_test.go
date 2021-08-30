@@ -84,7 +84,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 				cluster.Status.ConnectionString = "test:test@127.0.0.1:4501"
 
-				commands, err := buildClusterFileUpdateCommands(&cluster, kubeClient, input.Context, namespace)
+				commands, err := buildClusterFileUpdateCommands(&cluster, kubeClient, input.Context, namespace, "/usr/local/bin/kubectl")
 
 				if input.ExpectedError != "" {
 					Expect(err).To(HaveOccurred())
