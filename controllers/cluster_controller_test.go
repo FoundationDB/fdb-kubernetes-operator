@@ -1717,67 +1717,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 		})
 
-		Context("with a change to environment variables with the deprecated field", func() {
-			BeforeEach(func() {
-				cluster.Spec.MainContainer.Env = append(cluster.Spec.MainContainer.Env, corev1.EnvVar{
-					Name:  "TEST_CHANGE",
-					Value: "1",
-				})
-			})
-
-			Context("with deletion enabled", func() {
-				BeforeEach(func() {
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should set the environment variable on the pods", func() {
-					pods := &corev1.PodList{}
-					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
-
-					for _, pod := range pods.Items {
-						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(2))
-						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("TEST_CHANGE"))
-						Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
-					}
-				})
-			})
-
-			Context("with deletion disabled", func() {
-				BeforeEach(func() {
-					var flag = false
-					cluster.Spec.AutomationOptions.DeletePods = &flag
-
-					shouldCompleteReconciliation = false
-
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				JustBeforeEach(func() {
-					generations, err := reloadClusterGenerations(cluster)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(generations).To(Equal(fdbtypes.ClusterGenerationStatus{
-						Reconciled:          originalVersion,
-						NeedsPodDeletion:    originalVersion + 1,
-						HasUnhealthyProcess: originalVersion + 1,
-					}))
-				})
-
-				It("should not set the environment variable on the pods", func() {
-					pods := &corev1.PodList{}
-					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
-
-					for _, pod := range pods.Items {
-						Expect(len(pod.Spec.Containers[0].Env)).To(Equal(1))
-						Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal("FDB_CLUSTER_FILE"))
-					}
-				})
-			})
-		})
-
 		Context("with a change to the public IP source", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourceService

@@ -1452,81 +1452,16 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with custom environment from the Spec.MainContainer field", func() {
-			BeforeEach(func() {
-				cluster.Spec.MainContainer.Env = []corev1.EnvVar{
-					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
-				}
-				cluster.Spec.SidecarContainer.Env = []corev1.EnvVar{
-					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
-				}
-
-				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should set the environment on the containers", func() {
-				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
-				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-				}))
-
-				mainContainer := spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
-				Expect(mainContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_CA_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
-				}))
-
-				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
-				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "ADDITIONAL_ENV_FILE", Value: "/var/custom-env"},
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-				}))
-			})
-		})
-
 		Context("with TLS for the sidecar", func() {
 			BeforeEach(func() {
 				cluster.Spec.SidecarContainer.EnableTLS = true
-				cluster.Spec.SidecarContainer.Env = []corev1.EnvVar{
-					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
-				}
-
 				cluster.Spec.SidecarContainer.PeerVerificationRules = "S.CN=foundationdb.org"
 
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("passes the TLS environment to the init container", func() {
+			It("does not pass the TLS flags to the init container", func() {
 				initContainer := spec.InitContainers[0]
 				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
 				Expect(initContainer.Args).To(Equal([]string{
@@ -1543,8 +1478,6 @@ var _ = Describe("pod_models", func() {
 					"--init-mode",
 				}))
 				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},
@@ -1558,7 +1491,7 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
-			It("passes the TLS environment to the sidecar", func() {
+			It("passes the TLS flags to the sidecar", func() {
 				Expect(len(spec.Containers)).To(Equal(2))
 
 				sidecarContainer := spec.Containers[1]
@@ -1577,8 +1510,6 @@ var _ = Describe("pod_models", func() {
 					"--tls",
 				}))
 				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_TLS_CERTIFICATE_FILE", Value: "/var/secrets/cert.pem"},
-					{Name: "FDB_TLS_KEY_FILE", Value: "/var/secrets/cert.pem"},
 					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 					}},

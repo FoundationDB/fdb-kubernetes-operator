@@ -188,6 +188,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		cluster.Spec.ConnectionString = ""
 	}
 
+	updateContainerOverrides(&cluster.Spec, &cluster.Spec.MainContainer, "foundationdb")
+	updateContainerOverrides(&cluster.Spec, &cluster.Spec.SidecarContainer, "foundationdb-kubernetes-sidecar")
+
 	if len(cluster.Spec.CustomParameters) > 0 {
 		params := cluster.Spec.CustomParameters
 		ensureCustomParametersPresent(&cluster.Spec)
@@ -227,7 +230,7 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	}
 
 	if cluster.Spec.SidecarContainer.ImageName != "" {
-		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: cluster.Spec.MainContainer.ImageName})
+		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: cluster.Spec.SidecarContainer.ImageName})
 		cluster.Spec.SidecarContainer.ImageName = ""
 	}
 
@@ -437,6 +440,37 @@ func mergeLabels(metadata *metav1.ObjectMeta, labels map[string]string) {
 		if !present {
 			metadata.Labels[key] = value
 		}
+	}
+}
+
+// updateContainerOverrides moves deprecated fields from the container overrides
+// into the pod template in the process settings.
+func updateContainerOverrides(spec *fdbtypes.FoundationDBClusterSpec, overrides *fdbtypes.ContainerOverrides, containerName string) {
+	if overrides.Env != nil {
+		updatePodTemplates(spec, func(podSpec *corev1.PodTemplateSpec) {
+			podSpec.Spec.Containers = customizeContainerFromList(podSpec.Spec.Containers, containerName, func(container *corev1.Container) {
+				container.Env = append(container.Env, overrides.Env...)
+			})
+		})
+		overrides.Env = nil
+	}
+
+	if overrides.VolumeMounts != nil {
+		updatePodTemplates(spec, func(podSpec *corev1.PodTemplateSpec) {
+			podSpec.Spec.Containers = customizeContainerFromList(podSpec.Spec.Containers, containerName, func(container *corev1.Container) {
+				container.VolumeMounts = append(container.VolumeMounts, overrides.VolumeMounts...)
+			})
+		})
+		overrides.VolumeMounts = nil
+	}
+
+	if overrides.SecurityContext != nil {
+		updatePodTemplates(spec, func(podSpec *corev1.PodTemplateSpec) {
+			podSpec.Spec.Containers = customizeContainerFromList(podSpec.Spec.Containers, containerName, func(container *corev1.Container) {
+				container.SecurityContext = overrides.SecurityContext
+			})
+		})
+		overrides.SecurityContext = nil
 	}
 }
 

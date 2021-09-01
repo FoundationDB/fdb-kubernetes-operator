@@ -457,9 +457,23 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 			})
 
-			Context("with an image name on the container overrides", func() {
+			Context("with overrides for the main container", func() {
 				BeforeEach(func() {
-					cluster.Spec.MainContainer.ImageName = "foundationdb/foundationdb-test"
+					var uid int64 = 4059
+					cluster.Spec.MainContainer = fdbtypes.ContainerOverrides{
+						EnableTLS: true,
+						ImageName: "foundationdb/foundationdb-test",
+						Env: []corev1.EnvVar{{
+							Name:  "FDB_TEST",
+							Value: "test1",
+						}},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name: "test-volume",
+						}},
+						SecurityContext: &corev1.SecurityContext{
+							RunAsUser: &uid,
+						},
+					}
 				})
 
 				It("moves the image name to the image configs", func() {
@@ -468,6 +482,82 @@ var _ = Describe("[internal] deprecations", func() {
 						{BaseImage: "foundationdb/foundationdb"},
 					}))
 					Expect(spec.MainContainer.ImageName).To(Equal(""))
+				})
+
+				It("moves the pod fields into the pod template", func() {
+					podSpec := spec.Processes["general"].PodTemplate.Spec
+					container := podSpec.Containers[0]
+					Expect(container.Name).To(Equal("foundationdb"))
+
+					Expect(container.Env).To(HaveLen(1))
+					Expect(container.Env[0]).To(Equal(corev1.EnvVar{
+						Name:  "FDB_TEST",
+						Value: "test1",
+					}))
+					Expect(spec.MainContainer.Env).To(BeNil())
+
+					Expect(container.VolumeMounts).To(HaveLen(1))
+					Expect(container.VolumeMounts[0]).To(Equal(corev1.VolumeMount{
+						Name: "test-volume",
+					}))
+					Expect(spec.MainContainer.VolumeMounts).To(BeNil())
+
+					Expect(container.SecurityContext).NotTo(BeNil())
+					Expect(container.SecurityContext.RunAsUser).NotTo(BeNil())
+					Expect(*container.SecurityContext.RunAsUser).To(Equal(int64(4059)))
+					Expect(spec.MainContainer.SecurityContext).To(BeNil())
+				})
+			})
+
+			Context("with overrides for the sidecar container", func() {
+				BeforeEach(func() {
+					var uid int64 = 4059
+					cluster.Spec.SidecarContainer = fdbtypes.ContainerOverrides{
+						EnableTLS: true,
+						ImageName: "foundationdb/foundationdb-kubernetes-sidecar-test",
+						Env: []corev1.EnvVar{{
+							Name:  "FDB_TEST",
+							Value: "test1",
+						}},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name: "test-volume",
+						}},
+						SecurityContext: &corev1.SecurityContext{
+							RunAsUser: &uid,
+						},
+					}
+				})
+
+				It("moves the image name to the image configs", func() {
+					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
+						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
+					}))
+					Expect(spec.SidecarContainer.ImageName).To(Equal(""))
+				})
+
+				It("moves the pod fields into the pod template", func() {
+					podSpec := spec.Processes["general"].PodTemplate.Spec
+					container := podSpec.Containers[1]
+					Expect(container.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+
+					Expect(container.Env).To(HaveLen(1))
+					Expect(container.Env[0]).To(Equal(corev1.EnvVar{
+						Name:  "FDB_TEST",
+						Value: "test1",
+					}))
+					Expect(spec.MainContainer.Env).To(BeNil())
+
+					Expect(container.VolumeMounts).To(HaveLen(1))
+					Expect(container.VolumeMounts[0]).To(Equal(corev1.VolumeMount{
+						Name: "test-volume",
+					}))
+					Expect(spec.MainContainer.VolumeMounts).To(BeNil())
+
+					Expect(container.SecurityContext).NotTo(BeNil())
+					Expect(container.SecurityContext.RunAsUser).NotTo(BeNil())
+					Expect(*container.SecurityContext.RunAsUser).To(Equal(int64(4059)))
+					Expect(spec.MainContainer.SecurityContext).To(BeNil())
 				})
 			})
 		})
