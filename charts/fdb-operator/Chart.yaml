@@ -17,22 +17,10 @@ type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
-<<<<<<< HEAD:helm/fdb-operator/Chart.yaml
-version: 0.2.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: 0.42.1
-=======
-version: 0.29.0
-
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application.
-appVersion: 0.29.0
-home: https://github.com/FoundationDB/fdb-kubernetes-operator
-
-sources:
-    - https://github.com/FoundationDB/fdb-kubernetes-operator
+version: 0.3.0
 
 maintainers:
     - name: brownleej
@@ -41,4 +29,3 @@ maintainers:
     - name: funkypenguin
       email: davidy@funkypenguin.co.nz
       url: https://www.funkypenguin.co.nz
->>>>>>> 82111ba0 (Add helm chart publishing and tests):charts/fdb-operator/Chart.yaml
