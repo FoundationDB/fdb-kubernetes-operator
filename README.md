@@ -10,13 +10,21 @@ clusters on Kubernetes.
 ## Running the Operator
 
 To run the operator in your environment, you need to install the controller and
-the CRDs:
+the CRDs, either by installing the manifests directly:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
 kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
 kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+```
+
+Or by installing the helm chart (*see values.yaml [here](charts/fdb-operator/values.yaml)*):
+
+```bash
+helm repo add fdb-kubernetes-operator https://foundationdb.github.io/fdb-kubernetes-operator/
+helm repo update
+helm install fdb-kubernetes-operator fdb-kubernetes-operator/fdb-kubernetes-operator
 ```
 
 At that point, you can set up a sample cluster:
