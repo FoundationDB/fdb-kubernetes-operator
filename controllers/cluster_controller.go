@@ -683,3 +683,28 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (in
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
 	return internal.GetPodSpec(cluster, processClass, idNum)
 }
+
+func (r *FoundationDBClusterReconciler) hasFullReplication(cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return false, err
+	}
+	defer adminClient.Close()
+
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
+	}
+
+	return status.Cluster.FullReplication, nil
+}
+
+func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]internal.None, error) {
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return map[string]internal.None{}, err
+	}
+	defer adminClient.Close()
+
+	return adminClient.GetCoordinatorSet()
+}
