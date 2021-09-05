@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -30,63 +31,51 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("remove_process_groups", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	//var fakeConnectionString string
+	var result *Requeue
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		//fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
+		err := k8sClient.Create(context.TODO(), cluster)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := reconcileCluster(cluster)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Requeue).To(BeFalse())
+
+		generation, err := reloadCluster(cluster)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(generation).To(Equal(int64(1)))
+
+		originalPods := &corev1.PodList{}
+		err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(originalPods.Items)).To(Equal(17))
+
+		_, err = reconcileCluster(cluster)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
-	Describe("Reconciliation", func() {
-		var result *Requeue
+	JustBeforeEach(func() {
+		result = RemoveProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+	})
 
+	When("removing a process group", func() {
 		BeforeEach(func() {
-			err := k8sClient.Create(context.TODO(), cluster)
-			Expect(err).NotTo(HaveOccurred())
-
-			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
-
-			generation, err := reloadCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(generation).To(Equal(int64(1)))
-
-			originalPods := &corev1.PodList{}
-			err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(originalPods.Items)).To(Equal(17))
-
-			_, err = reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
+			removedProcessGroup := cluster.Status.ProcessGroups[0]
+			_, _ = fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 		})
 
-		JustBeforeEach(func() {
-			result = RemoveProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		It("should successfully remove that process group", func() {
+			Expect(result).To(BeNil())
 		})
 
-		When("removing a process group", func() {
-			BeforeEach(func() {
-				removedProcessGroup := cluster.Status.ProcessGroups[0]
-				_, _ = fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
-			})
-
-			It("should successfully remove that process group", func() {
-				Expect(result).To(BeNil())
-			})
-		})
-
-		When("removing a process group with EnforceFullReplicationForDeletion enabled", func() {
+		When("enabling the EnforceFullReplicationForDeletion setting", func() {
 			BeforeEach(func() {
 				cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion = pointer.BoolPtr(true)
-				removedProcessGroup := cluster.Status.ProcessGroups[0]
-				_, _ = fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 			})
 
 			When("the cluster is fully replicated", func() {
@@ -112,9 +101,9 @@ var _ = Describe("remove_process_groups", func() {
 				})
 			})
 		})
+	})
 
-		AfterEach(func() {
-			k8sClient.Clear()
-		})
+	AfterEach(func() {
+		k8sClient.Clear()
 	})
 })
