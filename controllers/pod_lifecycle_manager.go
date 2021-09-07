@@ -108,7 +108,7 @@ func (manager StandardPodLifecycleManager) CanDeletePods(adminClient AdminClient
 		return false, err
 	}
 
-	return status.Client.DatabaseStatus.Healthy, nil
+	return status.Cluster.FullReplication && status.Client.DatabaseStatus.Available, nil
 }
 
 // UpdatePods updates a list of pods to match the latest specs.
