@@ -110,7 +110,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			}))
 
 			backup = createBackup()
-			backup.Spec.BackupState = "Stopped"
+			backup.Spec.BackupState = BackupStateStopped
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
@@ -121,7 +121,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 
 			backup = createBackup()
 			backup.Status.BackupDetails = nil
-			backup.Spec.BackupState = "Stopped"
+			backup.Spec.BackupState = BackupStateStopped
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
@@ -131,7 +131,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 
 			backup = createBackup()
 			backup.Status.BackupDetails.Running = false
-			backup.Spec.BackupState = "Stopped"
+			backup.Spec.BackupState = BackupStateStopped
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeTrue())
@@ -140,7 +140,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			}))
 
 			backup = createBackup()
-			backup.Spec.BackupState = "Paused"
+			backup.Spec.BackupState = BackupStatePaused
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeFalse())
@@ -150,7 +150,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			}))
 
 			backup = createBackup()
-			backup.Spec.BackupState = "Paused"
+			backup.Spec.BackupState = BackupStatePaused
 			backup.Status.BackupDetails = nil
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
@@ -162,7 +162,7 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			}))
 
 			backup = createBackup()
-			backup.Spec.BackupState = "Paused"
+			backup.Spec.BackupState = BackupStatePaused
 			backup.Status.BackupDetails.Paused = true
 			result, err = backup.CheckReconciliation()
 			Expect(err).NotTo(HaveOccurred())
@@ -201,15 +201,15 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			Expect(backup.ShouldRun()).To(BeTrue())
 			Expect(backup.ShouldBePaused()).To(BeFalse())
 
-			backup.Spec.BackupState = "Running"
+			backup.Spec.BackupState = BackupStateRunning
 			Expect(backup.ShouldRun()).To(BeTrue())
 			Expect(backup.ShouldBePaused()).To(BeFalse())
 
-			backup.Spec.BackupState = "Stopped"
+			backup.Spec.BackupState = BackupStateStopped
 			Expect(backup.ShouldRun()).To(BeFalse())
 			Expect(backup.ShouldBePaused()).To(BeFalse())
 
-			backup.Spec.BackupState = "Paused"
+			backup.Spec.BackupState = BackupStatePaused
 			Expect(backup.ShouldRun()).To(BeTrue())
 			Expect(backup.ShouldBePaused()).To(BeTrue())
 		})
