@@ -101,7 +101,7 @@ func (r *FoundationDBRestoreReconciler) getDatabaseClientProvider() DatabaseClie
 // AdminClientForRestore provides an admin client for a restore reconciler.
 func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
-	err := r.Get(context, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
+	err := r.Get(context, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.GetClusterName()}, cluster)
 	if err != nil {
 		return nil, err
 	}

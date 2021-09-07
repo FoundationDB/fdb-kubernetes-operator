@@ -50,7 +50,13 @@ type FoundationDBRestoreList struct {
 type FoundationDBRestoreSpec struct {
 	// DestinationClusterName provides the name of the cluster that the data is
 	// being restored into.
+	// Deprecated: Use ClusterName instead.
 	DestinationClusterName string `json:"destinationClusterName"`
+
+	// clusterName provides the name of the cluster that the data is
+	// being restored into.
+	// +kubebuilder:validation:Required
+	ClusterName string `json:"clusterName"`
 
 	// BackupURL provides the URL for the backup.
 	BackupURL string `json:"backupURL"`
@@ -78,4 +84,15 @@ type FoundationDBKeyRange struct {
 	// End provides the end of the key range.
 	// +kubebuilder:validation:Pattern:=^[A-Za-z0-9\/\\-]+$
 	End string `json:"end"`
+}
+
+// GetClusterName returns the cluster name for the targeted cluster for the restore.
+// If .Spec.ClusterName is defined the according value is returned otherwise it will fallback
+// to .Spec.DestinationClusterName.
+func (restore *FoundationDBRestore) GetClusterName() string {
+	if restore.Spec.ClusterName != "" {
+		return restore.Spec.ClusterName
+	}
+
+	return restore.Spec.DestinationClusterName
 }

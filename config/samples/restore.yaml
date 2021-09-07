@@ -1,4 +1,4 @@
-# This is a sample configuratikon for restoring a FoundationDB cluster from a
+# This is a sample configuration for restoring a FoundationDB cluster from a
 # backup.
 #
 # This sample assumes some configuration that you will need to fill in based on
@@ -9,7 +9,7 @@ kind: FoundationDBRestore
 metadata:
   name: sample-cluster
 spec:
-  destinationClusterName: sample-cluster
+  clusterName: sample-cluster
 
   # This assumes that you have an account called `account` at an S3-compatible
   # object store at `https://object-store.example:443`. It also assumes that you

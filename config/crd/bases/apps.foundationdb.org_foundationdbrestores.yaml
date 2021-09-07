@@ -30,6 +30,8 @@ spec:
               properties:
                 backupURL:
                   type: string
+                clusterName:
+                  type: string
                 destinationClusterName:
                   type: string
                 keyRanges:
@@ -48,6 +50,7 @@ spec:
                   type: array
               required:
                 - backupURL
+                - clusterName
                 - destinationClusterName
               type: object
             status:

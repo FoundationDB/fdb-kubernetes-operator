@@ -3,5 +3,5 @@ kind: FoundationDBRestore
 metadata:
  name: test-cluster
 spec:
- destinationClusterName: test-cluster
+ clusterName: test-cluster
  backupURL: "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"

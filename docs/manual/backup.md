@@ -106,7 +106,7 @@ kind: FoundationDBRestore
 metadata:
   name: sample-cluster
 spec:
-  destinationClusterName: sample-cluster
+  clusterName: sample-cluster
   backupURL: "blobstore://account@object-store.example:443/sample-cluster?bucket=fdb-backups"
 ```
 
