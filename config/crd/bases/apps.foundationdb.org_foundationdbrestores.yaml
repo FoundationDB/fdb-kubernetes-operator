@@ -51,7 +51,6 @@ spec:
               required:
                 - backupURL
                 - clusterName
-                - destinationClusterName
               type: object
             status:
               properties:
