@@ -327,39 +327,6 @@ type FoundationDBClusterSpec struct {
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
-	// ProcessCounts defines the number of processes that are currently running
-	// in the cluster.
-	// Deprecated: Use ProcessGroups instead.
-	ProcessCounts `json:"processCounts,omitempty"`
-
-	// IncorrectProcesses provides the processes that do not have the correct
-	// configuration.
-	//
-	// This will map the instance ID to the timestamp when we observed the
-	// incorrect configuration.
-	// Deprecated: Use ProcessGroups instead.
-	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
-
-	// IncorrectPods provides the pods that do not have the correct
-	// spec.
-	//
-	// This will contain the name of the pod.
-	// Deprecated: Use ProcessGroups instead.
-	IncorrectPods []string `json:"incorrectPods,omitempty"`
-
-	// FailingPods provides the pods that are not starting correctly.
-	//
-	// This will contain the name of the pod.
-	// Deprecated: Use ProcessGroups instead.
-	FailingPods []string `json:"failingPods,omitempty"`
-
-	// MissingProcesses provides the processes that are not reporting to the
-	// cluster.
-	// This will map the names of the pod to the timestamp when we observed
-	// that the process was missing.
-	// Deprecated: Use ProcessGroups instead.
-	MissingProcesses map[string]int64 `json:"missingProcesses,omitempty"`
-
 	// DatabaseConfiguration provides the running configuration of the database.
 	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
@@ -399,11 +366,6 @@ type FoundationDBClusterStatus struct {
 	// HasListenIPsForAllPods defines whether every pod has an environment
 	// variable for its listen address.
 	HasListenIPsForAllPods bool `json:"hasListenIPsForAllPods,omitempty"`
-
-	// PendingRemovals defines the processes that are pending removal.
-	// This maps the instance ID to its removal state.
-	// Deprecated: Use ProcessGroups instead.
-	PendingRemovals map[string]PendingRemovalState `json:"pendingRemovals,omitempty"`
 
 	// NeedsSidecarConfInConfigMap determines whether we need to include the
 	// sidecar conf in the config map even when the latest version should not
@@ -903,26 +865,6 @@ type ClusterHealth struct {
 	// DataMovementPriority reports the priority of the highest-priority data
 	// movement in the cluster.
 	DataMovementPriority int `json:"dataMovementPriority,omitempty"`
-}
-
-// PendingRemovalState holds information about a process that is being removed.
-// Deprecated: This is modeled in the process group status instead.
-type PendingRemovalState struct {
-	// The name of the pod that is being removed.
-	PodName string `json:"podName,omitempty"`
-
-	// The public address of the process.
-	Address string `json:"address,omitempty"`
-
-	// Whether we have started the exclusion.
-	// Deprecated: This field is no longer filled in.
-	ExclusionStarted bool `json:"exclusionStarted,omitempty"`
-
-	// Whether we have completed the exclusion.
-	ExclusionComplete bool `json:"exclusionComplete,omitempty"`
-
-	// Whether this removal has ever corresponded to a real instance.
-	HadInstance bool `json:"hadInstance,omitempty"`
 }
 
 // RoleCounts represents the roles whose counts can be customized.
@@ -2229,13 +2171,6 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 
 // InstanceIsBeingRemoved determines if an instance is pending removal.
 func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bool {
-	if cluster.Status.PendingRemovals != nil {
-		_, present := cluster.Status.PendingRemovals[instanceID]
-		if present {
-			return true
-		}
-	}
-
 	if cluster.Spec.PendingRemovals != nil {
 		podName := fmt.Sprintf("%s-%s", cluster.Name, instanceID)
 		_, pendingRemoval := cluster.Spec.PendingRemovals[podName]

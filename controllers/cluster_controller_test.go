@@ -354,7 +354,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
 				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
-				Expect(cluster.Status.PendingRemovals).To(BeNil())
 
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -474,7 +473,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
 				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
-				Expect(cluster.Status.PendingRemovals).To(BeNil())
 			})
 
 			It("should clear removals from the process group status", func() {
@@ -548,7 +546,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 				It("should clear the removal list", func() {
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
-					Expect(cluster.Status.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.InstancesToRemove).To(Equal([]string{
 						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel],
 					}))
@@ -684,73 +681,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 			})
 
-			Context("with an entry in the pendingRemovals map", func() {
-				BeforeEach(func() {
-					pod := originalPods.Items[firstStorageIndex]
-					cluster.Status.PendingRemovals = map[string]fdbtypes.PendingRemovalState{
-						pod.ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel]: {
-							PodName: pod.Name,
-							Address: pod.Status.PodIP,
-						},
-					}
-					err := k8sClient.Status().Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-
-					cluster.Spec.SeedConnectionString = "touch"
-					err = k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should keep the process counts the same", func() {
-					pods := &corev1.PodList{}
-					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(pods.Items)).To(Equal(17))
-
-					Expect(getProcessClassMap(pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-						fdbtypes.ProcessClassStorage:           4,
-						fdbtypes.ProcessClassLog:               4,
-						fdbtypes.ProcessClassStateless:         8,
-						fdbtypes.ProcessClassClusterController: 1,
-					}))
-				})
-
-				It("should replace one of the pods", func() {
-					pods := &corev1.PodList{}
-					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(pods.Items)).To(Equal(17))
-
-					sortPodsByID(pods)
-
-					Expect(pods.Items[firstStorageIndex].Name).To(Equal(originalPods.Items[firstStorageIndex+1].Name))
-					Expect(pods.Items[firstStorageIndex+1].Name).To(Equal(originalPods.Items[firstStorageIndex+2].Name))
-					Expect(pods.Items[firstStorageIndex+2].Name).To(Equal(originalPods.Items[firstStorageIndex+3].Name))
-					Expect(pods.Items[firstStorageIndex+3].Name).To(Equal("operator-test-1-storage-5"))
-				})
-
-				It("should exclude and re-include the instance", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(adminClient).NotTo(BeNil())
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
-
-					Expect(adminClient.ReincludedAddresses).To(Equal(map[string]bool{
-						originalPods.Items[firstStorageIndex].Status.PodIP: true,
-					}))
-				})
-
-				It("should change the connection string", func() {
-					Expect(cluster.Status.ConnectionString).NotTo(Equal(originalConnectionString))
-				})
-
-				It("should clear the removal list", func() {
-					Expect(cluster.Spec.PendingRemovals).To(BeNil())
-					Expect(cluster.Status.PendingRemovals).To(BeNil())
-					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
-				})
-			})
-
 			Context("with an entry in the pendingRemovals in the spec", func() {
 				BeforeEach(func() {
 					pod := originalPods.Items[firstStorageIndex]
@@ -810,7 +740,6 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
-					Expect(cluster.Status.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 				})
 			})

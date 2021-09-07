@@ -8694,10 +8694,6 @@ spec:
                     usable_regions:
                       type: integer
                   type: object
-                failingPods:
-                  items:
-                    type: string
-                  type: array
                 generations:
                   properties:
                     hasExtraListeners:
@@ -8766,15 +8762,6 @@ spec:
                     healthy:
                       type: boolean
                   type: object
-                incorrectPods:
-                  items:
-                    type: string
-                  type: array
-                incorrectProcesses:
-                  additionalProperties:
-                    format: int64
-                    type: integer
-                  type: object
                 locks:
                   properties:
                     lockDenyList:
@@ -8782,69 +8769,10 @@ spec:
                         type: string
                       type: array
                   type: object
-                missingProcesses:
-                  additionalProperties:
-                    format: int64
-                    type: integer
-                  type: object
                 needsNewCoordinators:
                   type: boolean
                 needsSidecarConfInConfigMap:
                   type: boolean
-                pendingRemovals:
-                  additionalProperties:
-                    properties:
-                      address:
-                        type: string
-                      exclusionComplete:
-                        type: boolean
-                      exclusionStarted:
-                        type: boolean
-                      hadInstance:
-                        type: boolean
-                      podName:
-                        type: string
-                    type: object
-                  type: object
-                processCounts:
-                  properties:
-                    backup:
-                      type: integer
-                    cluster_controller:
-                      type: integer
-                    coordinator:
-                      type: integer
-                    data_distributor:
-                      type: integer
-                    fast_restore:
-                      type: integer
-                    log:
-                      type: integer
-                    master:
-                      type: integer
-                    proxy:
-                      type: integer
-                    ratekeeper:
-                      type: integer
-                    resolution:
-                      type: integer
-                    resolver:
-                      type: integer
-                    router:
-                      type: integer
-                    stateless:
-                      type: integer
-                    storage:
-                      type: integer
-                    storage_cache:
-                      type: integer
-                    tester:
-                      type: integer
-                    transaction:
-                      type: integer
-                    unset:
-                      type: integer
-                  type: object
                 processGroups:
                   items:
                     properties:

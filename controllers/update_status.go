@@ -225,25 +225,6 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 	}
 
-	if cluster.Status.PendingRemovals != nil {
-		for instanceID, state := range cluster.Status.PendingRemovals {
-			pods := &corev1.PodList{}
-			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": state.PodName})
-			if err != nil {
-				return &Requeue{Error: err}
-			}
-			var processClass fdbtypes.ProcessClass
-			if len(pods.Items) > 0 {
-				processClass = internal.ProcessClassFromLabels(pods.Items[0].ObjectMeta.Labels)
-			}
-			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, state.Address)
-			if !included {
-				status.ProcessGroups = append(status.ProcessGroups, newStatus)
-			}
-		}
-		cluster.Status.PendingRemovals = nil
-	}
-
 	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)

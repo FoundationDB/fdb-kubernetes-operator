@@ -2433,22 +2433,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeTrue())
 			Expect(cluster.InstanceIsBeingRemoved("log-1")).To(BeFalse())
-			cluster.Spec.PendingRemovals = nil
-
-			cluster.Status.PendingRemovals = map[string]PendingRemovalState{
-				"log-1": {
-					PodName: "sample-cluster-log-1",
-					Address: "127.0.0.2",
-				},
-			}
-			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeFalse())
-			Expect(cluster.InstanceIsBeingRemoved("log-1")).To(BeTrue())
-			cluster.Status.PendingRemovals = nil
-
-			cluster.Spec.InstancesToRemove = []string{"log-1"}
-			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeFalse())
-			Expect(cluster.InstanceIsBeingRemoved("log-1")).To(BeTrue())
-			cluster.Spec.InstancesToRemove = nil
 		})
 	})
 
@@ -2487,11 +2471,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 						Generations: ClusterGenerationStatus{
 							Reconciled: 1,
-						},
-						ProcessCounts: ProcessCounts{
-							Storage:   3,
-							Stateless: 9,
-							Log:       4,
 						},
 						ProcessGroups: []*ProcessGroupStatus{
 							{ProcessGroupID: "storage-1", ProcessClass: "storage"},

@@ -24,7 +24,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
-* [PendingRemovalState](#pendingremovalstate)
 * [ProcessAddress](#processaddress)
 * [ProcessCounts](#processcounts)
 * [ProcessGroupCondition](#processgroupcondition)
@@ -284,11 +283,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. **Deprecated: Use ProcessGroups instead.** | [ProcessCounts](#processcounts) | false |
-| incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the instance ID to the timestamp when we observed the incorrect configuration. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
-| incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
-| failingPods | FailingPods provides the pods that are not starting correctly.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
-| missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
@@ -300,7 +294,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |
-| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the instance ID to its removal state. **Deprecated: Use ProcessGroups instead.** | map[string][PendingRemovalState](#pendingremovalstate) | false |
 | needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. | bool | false |
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
@@ -364,20 +357,6 @@ LockSystemStatus provides a summary of the status of the locking system.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | lockDenyList | DenyList contains a list of operator instances that are prevented from taking locks. | []string | false |
-
-[Back to TOC](#table-of-contents)
-
-## PendingRemovalState
-
-PendingRemovalState holds information about a process that is being removed. **Deprecated: This is modeled in the process group status instead.**
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| podName | The name of the pod that is being removed. | string | false |
-| address | The public address of the process. | string | false |
-| exclusionStarted | Whether we have started the exclusion. **Deprecated: This field is no longer filled in.** | bool | false |
-| exclusionComplete | Whether we have completed the exclusion. | bool | false |
-| hadInstance | Whether this removal has ever corresponded to a real instance. | bool | false |
 
 [Back to TOC](#table-of-contents)
 
