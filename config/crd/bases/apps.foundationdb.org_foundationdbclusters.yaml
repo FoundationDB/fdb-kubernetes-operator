@@ -29,6 +29,10 @@ spec:
           jsonPath: .status.health.available
           name: Available
           type: boolean
+        - description: Database fully replicated
+          jsonPath: .status.health.fullReplication
+          name: FullReplication
+          type: boolean
         - description: Running version
           jsonPath: .status.runningVersion
           name: Version
