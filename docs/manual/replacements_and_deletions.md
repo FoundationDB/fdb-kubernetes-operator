@@ -27,6 +27,12 @@ The following conditions are currently eligible for replacement:
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
 
+## Enforce Full Replication
+
+Per default the operator doesn't check if the cluster is fully replicated before removing process groups that are marked for removal.
+This behaviour can be changed by setting `enforceFullReplicationForDeletion` to `true`.
+When the `enforceFullReplicationForDeletion` setting is `true` the operator will only delete process groups when the cluster is fully replicated.
+
 ## Next
 
 You can continue on to the [next section](fault_domains.md) or go back to the [table of contents](index.md).

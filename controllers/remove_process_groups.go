@@ -24,6 +24,7 @@ import (
 	ctx "context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -49,6 +50,25 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 			return &Requeue{Message: "Reconciliation needs to exclude more processes"}
 		}
 		return nil
+	}
+
+	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node
+	// or a set of Pods is not reachable anymore). We still end up with the risk to actually query the FDB cluster and after that
+	// query the cluster gets into a degraded state.
+	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
+	// processGroupsToRemove slice.
+	if cluster.GetEnforceFullReplicationForDeletion() {
+		fullyReplicated, err := r.hasFullReplication(cluster)
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+
+		if !fullyReplicated {
+			return &Requeue{
+				Message: "Cluster is not fully replicated but is required for removals",
+				Delay:   30 * time.Second,
+			}
+		}
 	}
 
 	removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
@@ -264,18 +284,6 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 	return remainingMap, nil
 }
 
-func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]internal.None, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
-	if err != nil {
-		logger.Error(err, "Fetching coordinator set for removal")
-		return map[string]internal.None{}, err
-	}
-	defer adminClient.Close()
-
-	return adminClient.GetCoordinatorSet()
-}
-
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
 	var cordSet map[string]internal.None
@@ -293,6 +301,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 			cordSet, err = r.getCoordinatorSet(cluster)
 
 			if err != nil {
+				logger.Error(err, "Fetching coordinator set for removal")
 				return false, []string{}
 			}
 		}

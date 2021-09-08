@@ -58,6 +58,8 @@ spec:
                       type: boolean
                     deletePods:
                       type: boolean
+                    enforceFullReplicationForDeletion:
+                      type: boolean
                     ignorePendingPodsDuration:
                       format: int64
                       type: integer
