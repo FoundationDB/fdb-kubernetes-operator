@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("remove_process_groups", func() {
@@ -50,24 +49,44 @@ var _ = Describe("remove_process_groups", func() {
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
-
-		originalPods := &corev1.PodList{}
-		err = k8sClient.List(context.TODO(), originalPods, getListOptions(cluster)...)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(originalPods.Items)).To(Equal(17))
-
-		_, err = reconcileCluster(cluster)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
 		result = RemoveProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
 	})
 
+	When("trying to remove a coordinator", func() {
+		coordinatorIP := "1.1.1.1"
+		coordinatorID := "storage-1"
+
+		BeforeEach(func() {
+			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdbtypes.ProcessClassStorage, coordinatorIP)
+			Expect(marked).To(BeTrue())
+			Expect(processGroup).To(BeNil())
+		})
+
+		It("should not remove the coordinator", func() {
+			Expect(result).NotTo(BeNil())
+			Expect(result.Message).To(Equal("Reconciliation needs to exclude more processes"))
+		})
+
+		It("should exclude the coordinator from the process group list to remove", func() {
+			remaining := map[string]bool{
+				coordinatorIP: false,
+			}
+
+			allExcluded, processes := clusterReconciler.getProcessGroupsToRemove(cluster, remaining)
+			Expect(allExcluded).To(BeFalse())
+			Expect(processes).To(BeEmpty())
+		})
+	})
+
 	When("removing a process group", func() {
 		BeforeEach(func() {
 			removedProcessGroup := cluster.Status.ProcessGroups[0]
-			_, _ = fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
+			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
+			Expect(marked).To(BeTrue())
+			Expect(processGroup).To(BeNil())
 		})
 
 		When("using the default setting of EnforceFullReplicationForDeletion", func() {
