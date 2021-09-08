@@ -55,7 +55,7 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node
 	// or a set of Pods is not reachable anymore). We still end up with the risk to actually query the FDB cluster and after that
 	// query the cluster gets into a degraded state.
-	// We could be smarter here and only block removals that target stateful processes by e.g. filtering hose out of the
+	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
 	if cluster.GetEnforceFullReplicationForDeletion() {
 		fullyReplicated, err := r.hasFullReplication(cluster)
