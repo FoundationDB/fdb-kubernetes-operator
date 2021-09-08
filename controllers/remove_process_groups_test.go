@@ -70,8 +70,33 @@ var _ = Describe("remove_process_groups", func() {
 			_, _ = fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 		})
 
-		It("should successfully remove that process group", func() {
-			Expect(result).To(BeNil())
+		When("using the default setting of EnforceFullReplicationForDeletion", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion = nil
+			})
+
+			When("the cluster is fully replicated", func() {
+				It("should successfully remove that process group", func() {
+					Expect(result).To(BeNil())
+				})
+			})
+
+			When("the cluster is not fully replicated", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
+						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+							FullReplication: false,
+						},
+					}
+				})
+
+				It("should not remove that process group", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.Message).To(Equal("Cluster is not fully replicated but is required for removals"))
+				})
+			})
 		})
 
 		When("enabling the EnforceFullReplicationForDeletion setting", func() {
@@ -99,6 +124,34 @@ var _ = Describe("remove_process_groups", func() {
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
 					Expect(result.Message).To(Equal("Cluster is not fully replicated but is required for removals"))
+				})
+			})
+		})
+
+		When("disabling the EnforceFullReplicationForDeletion setting", func() {
+			BeforeEach(func() {
+				cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion = pointer.BoolPtr(false)
+			})
+
+			When("the cluster is fully replicated", func() {
+				It("should successfully remove that process group", func() {
+					Expect(result).To(BeNil())
+				})
+			})
+
+			When("the cluster is not fully replicated", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
+						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+							FullReplication: false,
+						},
+					}
+				})
+
+				It("should successfully remove that process group", func() {
+					Expect(result).To(BeNil())
 				})
 			})
 		})

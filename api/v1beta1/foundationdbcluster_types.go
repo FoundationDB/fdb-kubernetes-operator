@@ -1104,7 +1104,7 @@ type FoundationDBClusterAutomationOptions struct {
 	// EnforceFullReplicationForDeletion defines if the operator is only allowed to delete Pods
 	// if the cluster is fully replicated. If the cluster is not fully replicated the Operator won't
 	// delete any Pods that are marked for removal.
-	// Defaults to false.
+	// Defaults to true.
 	EnforceFullReplicationForDeletion *bool `json:"enforceFullReplicationForDeletion,omitempty"`
 }
 
@@ -2897,10 +2897,10 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 	return cluster.Spec.AutomationOptions.IgnorePendingPodsDuration
 }
 
-// GetEnforceFullReplicationForDeletion returns the value of enforceFullReplicationForDeletion false if unset.
+// GetEnforceFullReplicationForDeletion returns the value of enforceFullReplicationForDeletion or true if unset.
 func (cluster *FoundationDBCluster) GetEnforceFullReplicationForDeletion() bool {
 	if cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion == nil {
-		return false
+		return true
 	}
 
 	return *cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion
