@@ -142,7 +142,7 @@ jobs:
       - name: Build and push to registry
         uses: docker/build-push-action@v2
         with:
-          build-args: TAG=${{ GITHUB_SHA }}
+          build-args: TAG=${GITHUB_SHA}
           push: true
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest
