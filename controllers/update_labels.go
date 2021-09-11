@@ -52,7 +52,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			return &Requeue{Error: err}
 		}
 
-		metadata := internal.GetPodMetadata(cluster, processClass, GetInstanceID(pod), "")
+		metadata := internal.GetPodMetadata(cluster, processClass, GetProcessGroupID(pod), "")
 		if metadata.Annotations == nil {
 			metadata.Annotations = make(map[string]string)
 		}

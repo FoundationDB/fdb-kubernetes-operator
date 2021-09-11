@@ -47,7 +47,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	updates := make(map[string][]*corev1.Pod)
 	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
 	for _, pod := range pods {
-		processGroupID := GetInstanceID(pod)
+		processGroupID := GetProcessGroupID(pod)
 		if processGroupID == "" {
 			continue
 		}
@@ -78,7 +78,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: podSchedulingDelayDuration}
 		}
 
-		_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
+		_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &Requeue{Error: err}
 		}

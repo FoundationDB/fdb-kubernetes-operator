@@ -41,7 +41,7 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			continue
 		}
 
-		_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
+		_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &Requeue{Error: err}
 		}

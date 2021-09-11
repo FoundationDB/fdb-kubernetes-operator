@@ -134,12 +134,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
-	Context("when the public IP source is removed", func() {
+	When("the public IP source is removed", func() {
 		It("should need a removal", func() {
 			status := &fdbtypes.ProcessGroupStatus{
 				ProcessGroupID: instanceName,
 				Remove:         false,
 			}
+
+			pod.ObjectMeta.Annotations = map[string]string{
+				fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
+			}
+
 			ipSource := fdbtypes.PublicIPSourceService
 			cluster.Spec.Routing.PublicIPSource = &ipSource
 

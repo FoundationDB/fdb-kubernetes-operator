@@ -87,7 +87,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, pod := range pods {
-		processGroupStatus := processGroups[GetInstanceID(pod)]
+		processGroupStatus := processGroups[GetProcessGroupID(pod)]
 		needsRemoval, err := instanceNeedsRemoval(cluster, pod, processGroupStatus)
 		if err != nil {
 			return &Requeue{Error: err}
@@ -128,7 +128,7 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
-	_, idNum, err := ParseInstanceID(instanceID)
+	_, idNum, err := ParseProcessGroupID(instanceID)
 	if err != nil {
 		return false, err
 	}
@@ -159,7 +159,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	instanceID := GetInstanceID(pod)
+	instanceID := GetProcessGroupID(pod)
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
@@ -171,7 +171,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	_, idNum, err := ParseInstanceID(instanceID)
+	_, idNum, err := ParseProcessGroupID(instanceID)
 	if err != nil {
 		return false, err
 	}

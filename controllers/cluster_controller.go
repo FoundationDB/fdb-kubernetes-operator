@@ -226,12 +226,12 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
-	if cluster.InstanceIsBeingRemoved(GetInstanceID(pod)) {
+	if cluster.InstanceIsBeingRemoved(GetProcessGroupID(pod)) {
 		return true, nil
 	}
 	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
-		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", GetInstanceID(pod), "message", message)
+		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", GetProcessGroupID(pod), "message", message)
 		return false, nil
 	}
 

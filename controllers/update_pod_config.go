@@ -50,7 +50,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
 	for _, pod := range pods {
-		processGroupID := GetInstanceID(pod)
+		processGroupID := GetProcessGroupID(pod)
 		if processGroupID == "" {
 			continue
 		}

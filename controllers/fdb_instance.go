@@ -28,72 +28,16 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-var instanceIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
+var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
-// FdbInstance represents an instance of FDB that has been configured in
-// Kubernetes.
-type FdbInstance struct {
-	Metadata *metav1.ObjectMeta
-	Pod      *corev1.Pod
-}
-
-func newFdbInstance(pod corev1.Pod) FdbInstance {
-	return FdbInstance{Metadata: &pod.ObjectMeta, Pod: &pod}
-}
-
-// NamespacedName gets the name of an instance along with its namespace
-func (instance FdbInstance) NamespacedName() types.NamespacedName {
-	return types.NamespacedName{Namespace: instance.Metadata.Namespace, Name: instance.Metadata.Name}
-}
-
-// GetInstanceID fetches the instance ID from an instance's metadata.
-func (instance FdbInstance) GetInstanceID() string {
-	return internal.GetInstanceIDFromMeta(*instance.Metadata)
-}
-
-// GetProcessClass fetches the process class from an instance's metadata.
-func (instance FdbInstance) GetProcessClass() fdbtypes.ProcessClass {
-	return internal.GetProcessClassFromMeta(*instance.Metadata)
-}
-
-// GetPublicIPSource determines how an instance has gotten its public IP.
-func (instance FdbInstance) GetPublicIPSource() fdbtypes.PublicIPSource {
-	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
-	if source == "" {
-		return fdbtypes.PublicIPSourcePod
-	}
-	return fdbtypes.PublicIPSource(source)
-}
-
-// GetPublicIPs returns the public IP of an instance.
-func (instance FdbInstance) GetPublicIPs() []string {
-	if instance.Pod == nil {
-		return []string{}
-	}
-
-	source := instance.Metadata.Annotations[fdbtypes.PublicIPSourceAnnotation]
-	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
-		return internal.GetPublicIPsForPod(instance.Pod)
-	}
-
-	return []string{instance.Pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
-}
-
-// GetProcessID fetches the instance ID from an instance's metadata.
-func (instance FdbInstance) GetProcessID(processNumber int) string {
-	return fmt.Sprintf("%s-%d", internal.GetInstanceIDFromMeta(*instance.Metadata), processNumber)
-}
-
-// ParseInstanceID extracts the components of an instance ID.
-func ParseInstanceID(id string) (fdbtypes.ProcessClass, int, error) {
-	result := instanceIDRegex.FindStringSubmatch(id)
+// ParseProcessGroupID extracts the components of an process group ID.
+func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
+	result := processGroupIDRegex.FindStringSubmatch(id)
 	if result == nil {
-		return "", 0, fmt.Errorf("could not parse instance ID %s", id)
+		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
 	}
 	prefix := result[1]
 	number, err := strconv.Atoi(result[2])
@@ -103,7 +47,7 @@ func ParseInstanceID(id string) (fdbtypes.ProcessClass, int, error) {
 	return fdbtypes.ProcessClass(prefix), number, nil
 }
 
-// GetInstanceIDFromProcessID returns the instance ID for the process ID
+// GetInstanceIDFromProcessID returns the process group ID for the process ID
 func GetInstanceIDFromProcessID(id string) string {
 	result := processIDRegex.FindStringSubmatch(id)
 	if result == nil {
@@ -114,8 +58,8 @@ func GetInstanceIDFromProcessID(id string) string {
 	return result[1]
 }
 
-// GetInstanceID returns the instance ID from the Pods metadata
-func GetInstanceID(pod *corev1.Pod) string {
+// GetProcessGroupID returns the process group ID from the Pods metadata
+func GetProcessGroupID(pod *corev1.Pod) string {
 	if pod == nil {
 		return ""
 	}

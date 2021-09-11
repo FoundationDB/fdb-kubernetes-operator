@@ -66,7 +66,7 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 			continue
 		}
 
-		instanceID := GetInstanceID(pod)
+		instanceID := GetProcessGroupID(pod)
 		_, pendingRemoval := removals[instanceID]
 		if pendingRemoval {
 			continue
