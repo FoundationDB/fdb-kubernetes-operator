@@ -3491,7 +3491,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("gives a parsing error", func() {
 				_, _, err := ParseProcessGroupID("6")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("could not parse instance ID 6"))
+				Expect(err.Error()).To(Equal("could not parse process group ID 6"))
 			})
 		})
 
@@ -3499,7 +3499,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("gives a parsing error", func() {
 				_, _, err := ParseProcessGroupID("storage")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("could not parse instance ID storage"))
+				Expect(err.Error()).To(Equal("could not parse process group ID storage"))
 			})
 		})
 
@@ -3507,7 +3507,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("gives a parsing error", func() {
 				_, _, err := ParseProcessGroupID("storage-bad")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("could not parse instance ID storage-bad"))
+				Expect(err.Error()).To(Equal("could not parse process group ID storage-bad"))
 			})
 		})
 	})
