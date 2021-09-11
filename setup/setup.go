@@ -46,6 +46,7 @@ import (
 )
 
 var setupLog = ctrl.Log.WithName("setup")
+var operatorVersion = "latest"
 
 // Options provides all configuration Options for the operator
 type Options struct {
@@ -62,6 +63,7 @@ type Options struct {
 	LogFileMaxAge           int
 	MaxNumberOfOldLogFiles  int
 	CompressOldFiles        bool
+	PrintVersion            bool
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -83,9 +85,10 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
 	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
+	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exists.")
 }
 
-// StartManager will start the FoundtionDB operator manager.
+// StartManager will start the FoundationDB operator manager.
 // Each reconciler that is not nil will be added to the list of reconcilers
 // For all reconcilers the Client, Recorder and if appropriate the namespace will be set.
 func StartManager(
@@ -99,6 +102,11 @@ func StartManager(
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
 	var file *os.File
+
+	if operatorOpts.PrintVersion {
+		fmt.Printf("version: %s\n", operatorVersion)
+		os.Exit(0)
+	}
 
 	if operatorOpts.LogFile != "" {
 		lumberjackLogger := &lumberjack.Logger{
