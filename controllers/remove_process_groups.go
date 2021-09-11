@@ -128,26 +128,26 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 	return nil
 }
 
-func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) (bool, bool, error) {
+func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupID string) (bool, bool, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
 	canBeIncluded := true
-	instanceListOptions := internal.GetSinglePodListOptions(cluster, instanceID)
+	instanceListOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
+	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, instanceListOptions...)
 	if err != nil {
 		return false, false, err
 	}
 
-	if len(instances) == 1 {
+	if len(pods) == 1 {
 		// If the Pod is already in a terminating state we don't have to care for it
-		if instances[0].Metadata != nil && instances[0].Metadata.DeletionTimestamp == nil {
-			logger.Info("Waiting for instance to get torn down", "processGroupID", instanceID, "pod", instances[0].Metadata.Name)
+		if pods[0] != nil && pods[0].ObjectMeta.DeletionTimestamp == nil {
+			logger.Info("Waiting for instance to get torn down", "processGroupID", processGroupID, "pod", pods[0].Name)
 			return false, false, nil
 		}
 		// Pod is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(instances) > 0 {
-		return false, false, fmt.Errorf("multiple pods found for cluster %s, processGroup %s", cluster.Name, instanceID)
+	} else if len(pods) > 0 {
+		return false, false, fmt.Errorf("multiple pods found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -158,13 +158,13 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 
 	if len(pvcs.Items) == 1 {
 		if pvcs.Items[0].DeletionTimestamp == nil {
-			logger.Info("Waiting for volume claim to get torn down", "processGroupID", instanceID, "pvc", pvcs.Items[0].Name)
+			logger.Info("Waiting for volume claim to get torn down", "processGroupID", processGroupID, "pvc", pvcs.Items[0].Name)
 			return false, canBeIncluded, nil
 		}
 		// PVC is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
 	} else if len(pvcs.Items) > 0 {
-		return false, canBeIncluded, fmt.Errorf("multiple PVCs found for cluster %s, processGroup %s", cluster.Name, instanceID)
+		return false, canBeIncluded, fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
 	services := &corev1.ServiceList{}
@@ -175,13 +175,13 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 
 	if len(services.Items) == 1 {
 		if services.Items[0].DeletionTimestamp == nil {
-			logger.Info("Waiting for service to get torn down", "processGroupID", instanceID, "service", services.Items[0].Name)
+			logger.Info("Waiting for service to get torn down", "processGroupID", processGroupID, "service", services.Items[0].Name)
 			return false, canBeIncluded, nil
 		}
 		// service is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
 	} else if len(services.Items) > 0 {
-		return false, canBeIncluded, fmt.Errorf("multiple services found for cluster %s, processGroup %s", cluster.Name, instanceID)
+		return false, canBeIncluded, fmt.Errorf("multiple services found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
 	return true, canBeIncluded, nil

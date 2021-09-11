@@ -81,14 +81,14 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 		}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	for _, instance := range instances {
-		processGroupStatus := processGroups[instance.GetInstanceID()]
-		needsRemoval, err := instanceNeedsRemoval(cluster, instance, processGroupStatus)
+	for _, pod := range pods {
+		processGroupStatus := processGroups[GetInstanceID(pod)]
+		needsRemoval, err := instanceNeedsRemoval(cluster, pod, processGroupStatus)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -154,12 +154,12 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 	return false, nil
 }
 
-func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
-	if instance.Pod == nil {
+func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+	if pod == nil {
 		return false, nil
 	}
 
-	instanceID := instance.GetInstanceID()
+	instanceID := GetInstanceID(pod)
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
@@ -176,22 +176,31 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 		return false, err
 	}
 
-	_, desiredInstanceID := internal.GetInstanceID(cluster, instance.GetProcessClass(), idNum)
+	processClass, err := GetProcessClass(pod)
+	if err != nil {
+		return false, err
+	}
+
+	_, desiredInstanceID := internal.GetInstanceID(cluster, processClass, idNum)
 	if instanceID != desiredInstanceID {
 		logger.Info("Replace instance",
 			"reason", fmt.Sprintf("expect instanceID: %s", desiredInstanceID))
 		return true, nil
 	}
 
-	if instance.GetPublicIPSource() != cluster.GetPublicIPSource() {
+	ipSource, err := GetPublicIPSource(pod)
+	if err != nil {
+		return false, err
+	}
+	if ipSource != cluster.GetPublicIPSource() {
 		logger.Info("Replace instance",
-			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", instance.GetPublicIPSource(), cluster.GetPublicIPSource()))
+			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", ipSource, cluster.GetPublicIPSource()))
 		return true, nil
 	}
 
-	if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
+	if processClass == fdbtypes.ProcessClassStorage {
 		// Replace the instance if the storage servers differ
-		storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
+		storageServersPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
 			return false, err
 		}
@@ -203,39 +212,39 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, instance FdbIns
 		}
 	}
 
-	expectedNodeSelector := cluster.GetProcessSettings(instance.GetProcessClass()).PodTemplate.Spec.NodeSelector
-	if !equality.Semantic.DeepEqual(instance.Pod.Spec.NodeSelector, expectedNodeSelector) {
+	expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
+	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
 		logger.Info("Replace instance",
-			"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", instance.Pod.Spec.NodeSelector, expectedNodeSelector))
+			"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
 		return true, nil
 	}
 
 	if cluster.Spec.UpdatePodsByReplacement {
-		specHash, err := internal.GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
 		if err != nil {
 			return false, err
 		}
 
-		if instance.Metadata.Annotations[fdbtypes.LastSpecKey] != specHash {
+		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
 			logger.Info("Replace instance",
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[fdbtypes.LastSpecKey]))
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]))
 			return true, nil
 		}
 	}
 
 	if cluster.Spec.ReplaceInstancesWhenResourcesChange != nil && *cluster.Spec.ReplaceInstancesWhenResourcesChange {
-		desiredSpec, err := internal.GetPodSpec(cluster, instance.GetProcessClass(), idNum)
+		desiredSpec, err := internal.GetPodSpec(cluster, processClass, idNum)
 		if err != nil {
 			return false, err
 		}
 
-		if resourcesNeedsReplacement(desiredSpec.Containers, instance.Pod.Spec.Containers) {
+		if resourcesNeedsReplacement(desiredSpec.Containers, pod.Spec.Containers) {
 			logger.Info("Replace instance",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}
 
-		if resourcesNeedsReplacement(desiredSpec.InitContainers, instance.Pod.Spec.InitContainers) {
+		if resourcesNeedsReplacement(desiredSpec.InitContainers, pod.Spec.InitContainers) {
 			logger.Info("Replace instance",
 				"reason", "Resource requests have changed")
 			return true, nil

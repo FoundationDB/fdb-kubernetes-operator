@@ -79,15 +79,15 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		addresses = append(addresses, addressMap[process]...)
 
 		instanceID := GetInstanceIDFromProcessID(process)
-		instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
+		pod, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
-		if len(instances) == 0 {
+		if len(pod) == 0 {
 			return &Requeue{Message: fmt.Sprintf("No pod defined for instance %s", instanceID), Delay: podSchedulingDelayDuration}
 		}
 
-		synced, err := r.updatePodDynamicConf(cluster, instances[0])
+		synced, err := r.updatePodDynamicConf(cluster, pod[0])
 		if !synced {
 			allSynced = false
 			logger.Info("Update dynamic Pod config", "processGroupID", instanceID, "synced", synced, "error", err)

@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -41,14 +43,18 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		return &Requeue{Error: err}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	instanceProcessGroupMap := make(map[string]FdbInstance, len(instances))
-	for _, instance := range instances {
-		instanceProcessGroupMap[instance.GetInstanceID()] = instance
+	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
+	for _, pod := range pods {
+		processGroupID := GetInstanceID(pod)
+		if processGroupID == "" {
+			continue
+		}
+		podProcessGroupMap[processGroupID] = pod
 	}
 
 	allSynced := true
@@ -63,32 +69,39 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			continue
 		}
 
-		instance, ok := instanceProcessGroupMap[processGroup.ProcessGroupID]
-		if !ok || instance.Pod == nil || instance.Metadata == nil {
+		pod, ok := podProcessGroupMap[processGroup.ProcessGroupID]
+		if !ok || pod == nil {
 			curLogger.Info("Could not find Pod for process group")
 			// TODO (johscheuer): we should requeue if that happens.
 			continue
 		}
 
-		serverPerPod, err := getStorageServersPerPodForInstance(&instance)
+		serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
 			curLogger.Info("Error when receiving storage server per Pod", "error", err)
 			errs = append(errs, err)
 			continue
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, instance.GetProcessClass(), serverPerPod)
+		processClass, err := GetProcessClass(pod)
+		if err != nil {
+			curLogger.Info("Error when fetching process class from Pod", "error", err)
+			errs = append(errs, err)
+			continue
+		}
+
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, serverPerPod)
 		if err != nil {
 			curLogger.Info("Error when receiving dynamic ConfigMap hash", "error", err)
 			errs = append(errs, err)
 			continue
 		}
 
-		if instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
+		if pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
 			continue
 		}
 
-		synced, err := r.updatePodDynamicConf(cluster, instance)
+		synced, err := r.updatePodDynamicConf(cluster, pod)
 		if !synced {
 			allSynced = false
 			hasUpdate = true
@@ -99,8 +112,8 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 
-			instance.Metadata.Annotations[fdbtypes.OutdatedConfigMapKey] = time.Now().Format(time.RFC3339)
-			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
+			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = time.Now().Format(time.RFC3339)
+			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 			if err != nil {
 				allSynced = false
 				curLogger.Info("Update Pod ConfigMap annotation", "error", err)
@@ -108,9 +121,9 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			continue
 		}
 
-		instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
-		delete(instance.Metadata.Annotations, fdbtypes.OutdatedConfigMapKey)
-		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
+		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
+		delete(pod.ObjectMeta.Annotations, fdbtypes.OutdatedConfigMapKey)
+		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 		if err != nil {
 			allSynced = false
 			curLogger.Info("Update Pod metadata", "error", err)

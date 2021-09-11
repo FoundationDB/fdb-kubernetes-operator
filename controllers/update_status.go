@@ -99,7 +99,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
 	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -139,7 +139,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		}
 	}
 
-	status.ProcessGroups, err = validateInstances(r, context, cluster, &status, processMap, instances, configMap)
+	status.ProcessGroups, err = validateProcessGroups(r, context, cluster, &status, processMap, pods, configMap)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -388,30 +388,30 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 }
 
 // CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
+func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
-	instanceID := instance.GetInstanceID()
+	processID := processGroupStatus.ProcessGroupID
 
 	if processCount > 1 {
-		instanceID = fmt.Sprintf("%s-%d", instanceID, processNumber)
+		processID = fmt.Sprintf("%s-%d", processID, processNumber)
 	}
 
-	processStatus := processMap[instanceID]
+	processStatus := processMap[processID]
 
-	processGroupStatus.UpdateCondition(fdbtypes.MissingProcesses, len(processStatus) == 0, cluster.Status.ProcessGroups, instanceID)
+	processGroupStatus.UpdateCondition(fdbtypes.MissingProcesses, len(processStatus) == 0, cluster.Status.ProcessGroups, processID)
 	if len(processStatus) == 0 {
 		return nil
 	}
 
-	podClient, message := r.getPodClient(cluster, instance)
+	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
-		logger.Info("Unable to build pod client", "processGroupID", instance.Metadata.Name, "message", message)
+		logger.Info("Unable to build pod client", "processGroupID", processGroupStatus.ProcessGroupID, "message", message)
 		return nil
 	}
 
 	correct := false
 	for _, process := range processStatus {
-		commandLine, err := internal.GetStartCommand(cluster, instance.GetProcessClass(), podClient, processNumber, processCount)
+		commandLine, err := internal.GetStartCommand(cluster, processGroupStatus.ProcessClass, podClient, processNumber, processCount)
 		if err != nil {
 			if internal.IsNetworkError(err) {
 				processGroupStatus.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
@@ -421,7 +421,7 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 			return err
 		}
 
-		settings := cluster.GetProcessSettings(instance.GetProcessClass())
+		settings := cluster.GetProcessSettings(processGroupStatus.ProcessClass)
 		versionMatch := true
 		// if we allow to override the tag we can't compare the versions here
 		if !settings.GetAllowTagOverride() {
@@ -432,68 +432,55 @@ func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 		correct = commandLine == process.CommandLine && versionMatch && !cluster.Spec.Buggify.EmptyMonitorConf
 
 		if !correct {
-			log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version, "processGroupID", instanceID)
+			log.Info("IncorrectProcess", "expected", commandLine, "got", process.CommandLine, "expectedVersion", cluster.Spec.Version, "version", process.Version, "processGroupID", processGroupStatus.ProcessGroupID)
 		}
 	}
 
-	processGroupStatus.UpdateCondition(fdbtypes.IncorrectCommandLine, !correct, cluster.Status.ProcessGroups, instanceID)
+	processGroupStatus.UpdateCondition(fdbtypes.IncorrectCommandLine, !correct, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	// Reset status for sidecar unreachable, since we are here at this point we were able to reach the sidecar for the substitute variables.
 	processGroupStatus.UpdateCondition(fdbtypes.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	return nil
 }
 
-func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, instances []FdbInstance, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
+func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, pods []*corev1.Pod, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
-	processGroupMap := make(map[string]*fdbtypes.ProcessGroupStatus, len(processGroups))
 	processGroupsWithoutExclusion := make(map[string]internal.None, len(cluster.Spec.InstancesToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = internal.None{}
 	}
 
+	instanceMap := make(map[string]internal.None, len(pods))
+
 	for _, processGroup := range processGroups {
-		processGroupMap[processGroup.ProcessGroupID] = processGroup
-	}
-
-	instanceMap := make(map[string]internal.None, len(instances))
-
-	for _, instance := range instances {
-		processClass := instance.GetProcessClass()
-		instanceID := instance.GetInstanceID()
-
-		processGroupStatus, found := processGroupMap[instanceID]
-		if !found {
-			processGroupStatus = fdbtypes.NewProcessGroupStatus(instanceID, processClass, nil)
-			processGroups = append(processGroups, processGroupStatus)
-			processGroupMap[instanceID] = processGroupStatus
+		pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)
+		if err != nil {
+			return processGroups, err
 		}
-
-		processGroupStatus.AddAddresses(instance.GetPublicIPs(), processGroupStatus.Remove || !status.Health.Available)
-
-		instanceMap[instanceID] = internal.None{}
-
-		processCount := 1
 
 		// If the instance is not being removed and the Pod is not set we need to put it into
 		// the failing list.
-		isBeingRemoved := cluster.InstanceIsBeingRemoved(instanceID)
+		isBeingRemoved := cluster.InstanceIsBeingRemoved(processGroup.ProcessGroupID)
 
-		missingPod := instance.Pod == nil && !isBeingRemoved
-		processGroupStatus.UpdateCondition(fdbtypes.MissingPod, missingPod, processGroups, instanceID)
-		if missingPod {
+		if len(pods) == 0 {
+			processGroup.UpdateCondition(fdbtypes.MissingPod, !isBeingRemoved, processGroups, processGroup.ProcessGroupID)
 			continue
 		}
 
-		if processGroupStatus.Remove && instance.Metadata.DeletionTimestamp != nil {
-			processGroupStatus.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, instanceID)
+		pod := pods[0]
+
+		processGroup.AddAddresses(GetPublicIPs(pod), processGroup.Remove || !status.Health.Available)
+		processCount := 1
+
+		if processGroup.Remove && pod.ObjectMeta.DeletionTimestamp != nil {
+			processGroup.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
 		}
 
 		// Even the instance will be removed we need to keep the config around.
 		// Set the processCount for the instance specific storage servers per pod
-		var err error
-		if processClass == fdbtypes.ProcessClassStorage {
-			processCount, err = getStorageServersPerPodForInstance(&instance)
+		if processGroup.ProcessClass == fdbtypes.ProcessClassStorage {
+			processCount, err = internal.GetStorageServersPerPodForPod(pod)
 			if err != nil {
 				return processGroups, err
 			}
@@ -502,16 +489,16 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		}
 
 		if isBeingRemoved {
-			processGroupStatus.Remove = true
+			processGroup.Remove = true
 			// Check if we should skip exclusion for the process group
-			_, ok := processGroupsWithoutExclusion[processGroupStatus.ProcessGroupID]
-			processGroupStatus.ExclusionSkipped = ok
+			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
+			processGroup.ExclusionSkipped = ok
 			continue
 		}
 
-		if instance.Metadata.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
+		if pod.ObjectMeta.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
 			hasPodIP := false
-			for _, container := range instance.Pod.Spec.Containers {
+			for _, container := range pod.Spec.Containers {
 				if container.Name == "foundationdb-kubernetes-sidecar" {
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {
@@ -527,18 +514,18 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
-			err := CheckAndSetProcessStatus(r, cluster, instance, processMap, i, processCount, processGroupStatus)
+			err := CheckAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
 			if err != nil {
 				return processGroups, err
 			}
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, instance.GetProcessClass(), processCount)
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, processCount)
 		if err != nil {
 			return processGroups, err
 		}
 
-		needsSidecarConfInConfigMap, err := validateInstance(r, context, cluster, instance, configMapHash, processGroupStatus)
+		needsSidecarConfInConfigMap, err := validateInstance(r, context, cluster, pod, configMapHash, processGroup)
 
 		if err != nil {
 			return processGroups, err
@@ -547,14 +534,15 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 		if needsSidecarConfInConfigMap {
 			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
 		}
-	}
 
-	// Mark process groups as terminating if the pod has been deleted but other
-	// resources are stuck in terminating.
-	for _, processGroupStatus := range processGroups {
-		_, found := instanceMap[processGroupStatus.ProcessGroupID]
-		if processGroupStatus.Remove && !found {
-			processGroupStatus.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroupStatus.ProcessGroupID)
+		// TODO think about this one !
+		// Mark process groups as terminating if the pod has been deleted but other
+		// resources are stuck in terminating.
+		for _, processGroupStatus := range processGroups {
+			_, found := instanceMap[processGroupStatus.ProcessGroupID]
+			if processGroupStatus.Remove && !found {
+				processGroupStatus.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroupStatus.ProcessGroupID)
+			}
 		}
 	}
 
@@ -563,46 +551,43 @@ func validateInstances(r *FoundationDBClusterReconciler, context ctx.Context, cl
 
 // validateInstance runs specific checks for the status of an instance.
 // returns failing, incorrect, error
-func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
-	processClass := instance.GetProcessClass()
-	instanceID := instance.GetInstanceID()
-
-	processGroupStatus.UpdateCondition(fdbtypes.MissingPod, instance.Pod == nil, cluster.Status.ProcessGroups, instanceID)
-	if instance.Pod == nil {
+	processGroupStatus.UpdateCondition(fdbtypes.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	if pod == nil {
 		return false, nil
 	}
 
-	_, idNum, err := ParseInstanceID(instanceID)
+	_, idNum, err := ParseInstanceID(processGroupStatus.ProcessGroupID)
 	if err != nil {
 		return false, err
 	}
 
-	specHash, err := internal.GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
 	if err != nil {
 		return false, err
 	}
 
-	incorrectPod := !metadataMatches(*instance.Metadata, internal.GetPodMetadata(cluster, processClass, instanceID, specHash))
+	incorrectPod := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
 	if !incorrectPod {
-		updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, instance)
+		updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, pod)
 		if err != nil {
 			return false, err
 		}
 		incorrectPod = !updated
 	}
 
-	processGroupStatus.UpdateCondition(fdbtypes.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, instanceID)
+	processGroupStatus.UpdateCondition(fdbtypes.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	incorrectConfigMap := instance.Metadata.Annotations[fdbtypes.LastConfigMapKey] != configMapHash
-	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, instanceID)
+	incorrectConfigMap := pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] != configMapHash
+	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, processClass, instanceID)...)
+	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID)...)
 	if err != nil {
 		return false, err
 	}
-	desiredPvc, err := internal.GetPvc(cluster, processClass, idNum)
+	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
 		return false, err
 	}
@@ -612,10 +597,10 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		incorrectPVC = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
 	}
 
-	processGroupStatus.UpdateCondition(fdbtypes.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, instanceID)
+	processGroupStatus.UpdateCondition(fdbtypes.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	var needsSidecarConfInConfigMap bool
-	for _, container := range instance.Pod.Spec.Containers {
+	for _, container := range pod.Spec.Containers {
 		if container.Name == "foundationdb" {
 			version, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 			if err != nil {
@@ -627,13 +612,13 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 		}
 	}
 
-	if instance.Pod.Status.Phase == corev1.PodPending {
-		processGroupStatus.UpdateCondition(fdbtypes.PodPending, true, cluster.Status.ProcessGroups, instanceID)
+	if pod.Status.Phase == corev1.PodPending {
+		processGroupStatus.UpdateCondition(fdbtypes.PodPending, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 		return needsSidecarConfInConfigMap, nil
 	}
 
 	failing := false
-	for _, container := range instance.Pod.Status.ContainerStatuses {
+	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			failing = true
 			break
@@ -643,24 +628,24 @@ func validateInstance(r *FoundationDBClusterReconciler, context ctx.Context, clu
 	// Fix for https://github.com/kubernetes/kubernetes/issues/92067
 	// This will delete the Pod that is stuck in the "NodeAffinity"
 	// at a later stage the Pod will be recreated by the operator.
-	if instance.Pod.Status.Phase == corev1.PodFailed {
+	if pod.Status.Phase == corev1.PodFailed {
 		failing = true
 
 		// Only recreate the Pod if it is already 5 minutes up (just to prevent to recreate the Pod multiple times
 		// and give the cluster some time to get the kubelet up
-		if instance.Pod.Status.Reason == "NodeAffinity" && instance.Pod.CreationTimestamp.Add(5*time.Minute).Before(time.Now()) {
+		if pod.Status.Reason == "NodeAffinity" && pod.CreationTimestamp.Add(5*time.Minute).Before(time.Now()) {
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
-				"processGroupID", instanceID)
+				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeleteInstance(r, context, instance)
+			err = r.PodLifecycleManager.DeleteInstance(r, context, pod)
 			if err != nil {
 				return needsSidecarConfInConfigMap, err
 			}
 		}
 	}
 
-	processGroupStatus.UpdateCondition(fdbtypes.PodFailing, failing, cluster.Status.ProcessGroups, instanceID)
-	processGroupStatus.UpdateCondition(fdbtypes.PodPending, false, cluster.Status.ProcessGroups, instanceID)
+	processGroupStatus.UpdateCondition(fdbtypes.PodFailing, failing, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
+	processGroupStatus.UpdateCondition(fdbtypes.PodPending, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	return needsSidecarConfInConfigMap, nil
 }

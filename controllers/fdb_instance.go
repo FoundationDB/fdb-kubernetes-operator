@@ -114,6 +114,47 @@ func GetInstanceIDFromProcessID(id string) string {
 	return result[1]
 }
 
-func getStorageServersPerPodForInstance(instance *FdbInstance) (int, error) {
-	return internal.GetStorageServersPerPodForPod(instance.Pod)
+// GetInstanceID returns the instance ID from the Pods metadata
+func GetInstanceID(pod *corev1.Pod) string {
+	if pod == nil {
+		return ""
+	}
+
+	return internal.GetInstanceIDFromMeta(pod.ObjectMeta)
+}
+
+// GetProcessClass fetches the process class from a Pod's metadata.
+func GetProcessClass(pod *corev1.Pod) (fdbtypes.ProcessClass, error) {
+	if pod == nil {
+		return "", fmt.Errorf("failed to fetch process class from nil Pod")
+	}
+
+	return internal.GetProcessClassFromMeta(pod.ObjectMeta), nil
+}
+
+// GetPublicIPSource determines how a Pod has gotten its public IP.
+func GetPublicIPSource(pod *corev1.Pod) (fdbtypes.PublicIPSource, error) {
+	if pod == nil {
+		return "", fmt.Errorf("failed to fetch public IP source from nil Pod")
+	}
+
+	source := pod.ObjectMeta.Annotations[fdbtypes.PublicIPSourceAnnotation]
+	if source == "" {
+		return fdbtypes.PublicIPSourcePod, nil
+	}
+	return fdbtypes.PublicIPSource(source), nil
+}
+
+// GetPublicIPs returns the public IP of a pod.
+func GetPublicIPs(pod *corev1.Pod) []string {
+	if pod == nil {
+		return []string{}
+	}
+
+	source := pod.ObjectMeta.Annotations[fdbtypes.PublicIPSourceAnnotation]
+	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
+		return internal.GetPublicIPsForPod(pod)
+	}
+
+	return []string{pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
 }

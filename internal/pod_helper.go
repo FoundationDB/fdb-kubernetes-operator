@@ -157,3 +157,19 @@ func GetPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 	}
 	return GetObjectMetadata(cluster, customMetadata, processClass, id)
 }
+
+// GetSidecarImage returns the expected sidecar image for a specific process class
+func GetSidecarImage(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.ProcessClass) (string, error) {
+	settings := cluster.GetProcessSettings(pClass)
+
+	image := ""
+	if settings.PodTemplate != nil {
+		for _, container := range settings.PodTemplate.Spec.Containers {
+			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+				image = container.Image
+			}
+		}
+	}
+
+	return GetImage(image, cluster.Spec.SidecarContainer.ImageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
+}

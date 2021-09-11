@@ -34,124 +34,24 @@ import (
 )
 
 var _ = Describe("update_status", func() {
-	Describe("getStorageServersPerPodForInstance", func() {
-		Context("when env var is set with 1", func() {
-			It("should return 1", func() {
-				instance := FdbInstance{
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Env: []corev1.EnvVar{
-									{
-										Name:  "STORAGE_SERVERS_PER_POD",
-										Value: "1",
-									},
-								},
-							}},
-						},
-					},
-				}
-
-				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(storageServersPerPod).To(Equal(1))
-			})
-		})
-
-		Context("when env var is set with 2", func() {
-			It("should return 2", func() {
-				instance := FdbInstance{
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Env: []corev1.EnvVar{
-									{
-										Name:  "STORAGE_SERVERS_PER_POD",
-										Value: "2",
-									},
-								},
-							}},
-						},
-					},
-				}
-
-				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(storageServersPerPod).To(Equal(2))
-			})
-		})
-
-		Context("when env var is unset", func() {
-			It("should return 1", func() {
-				instance := FdbInstance{
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Env: []corev1.EnvVar{},
-							}},
-						},
-					},
-				}
-
-				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(storageServersPerPod).To(Equal(1))
-			})
-		})
-
-		Context("when instance is missing Pod", func() {
-			It("should return 1", func() {
-				instance := FdbInstance{
-					Pod: &corev1.Pod{},
-				}
-
-				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(storageServersPerPod).To(Equal(1))
-			})
-		})
-
-		Context("when Pod doesn't contain a Spec", func() {
-			It("should return 1", func() {
-				instance := FdbInstance{}
-				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(storageServersPerPod).To(Equal(1))
-			})
-		})
-
-		Context("when Pod doesn't contain a containers", func() {
-			It("should return 1", func() {
-				instance := FdbInstance{
-					Pod: &corev1.Pod{
-						Spec: corev1.PodSpec{},
-					},
-				}
-
-				storageServersPerPod, err := getStorageServersPerPodForInstance(&instance)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(storageServersPerPod).To(Equal(1))
-			})
-		})
-	})
-
 	Describe("validateInstance", func() {
 		When("instance has no Pod", func() {
 			It("should be added to the failing Pods", func() {
-				instance := FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 							fdbtypes.FDBInstanceIDLabel:   "1337",
 						},
 					},
 				}
+
 				cluster := internal.CreateDefaultCluster()
 				processGroupStatus := fdbtypes.NewProcessGroupStatus("1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
 
-				_, err := validateInstance(clusterReconciler, context.TODO(), cluster, instance, "", processGroupStatus)
+				_, err := validateInstance(clusterReconciler, context.TODO(), cluster, pod, "", processGroupStatus)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
 				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
@@ -163,7 +63,7 @@ var _ = Describe("update_status", func() {
 		var cluster *fdbtypes.FoundationDBCluster
 		var configMap *corev1.ConfigMap
 		var adminClient *MockAdminClient
-		var instances []FdbInstance
+		var pods []*corev1.Pod
 		var processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo
 		var err error
 
@@ -172,11 +72,11 @@ var _ = Describe("update_status", func() {
 			err = setupClusterForTest(cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			instances, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
+			pods, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
 			Expect(err).NotTo(HaveOccurred())
 
-			for _, container := range instances[0].Pod.Spec.Containers {
-				instances[0].Pod.Status.ContainerStatuses = append(instances[0].Pod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+			for _, container := range pods[0].Spec.Containers {
+				pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 			}
 
 			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
@@ -203,7 +103,7 @@ var _ = Describe("update_status", func() {
 
 		When("an instance is fine", func() {
 			It("should not get any condition assigned", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
@@ -214,10 +114,10 @@ var _ = Describe("update_status", func() {
 
 		When("the pod for instance is missing", func() {
 			It("should get a condition assigned", func() {
-				instances[0].Pod = nil
+				pods[0] = nil
 				Expect(err).NotTo(HaveOccurred())
 
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingPod, false)
@@ -236,7 +136,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				incorrectProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectCommandLine, false)
@@ -255,7 +155,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingProcesses, false)
@@ -270,11 +170,11 @@ var _ = Describe("update_status", func() {
 
 		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
-				instances[0].Metadata.Annotations[fdbtypes.LastSpecKey] = "bad"
+				pods[0].ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "bad"
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				incorrectPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectPodSpec, false)
@@ -289,11 +189,11 @@ var _ = Describe("update_status", func() {
 
 		When("the pod is failing to launch", func() {
 			BeforeEach(func() {
-				instances[0].Pod.Status.ContainerStatuses[0].Ready = false
+				pods[0].Status.ContainerStatuses[0].Ready = false
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
@@ -308,11 +208,11 @@ var _ = Describe("update_status", func() {
 
 		When("the pod is failed", func() {
 			BeforeEach(func() {
-				instances[0].Pod.Status.Phase = corev1.PodFailed
+				pods[0].Status.Phase = corev1.PodFailed
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
@@ -330,12 +230,12 @@ var _ = Describe("update_status", func() {
 
 			BeforeEach(func() {
 				removedProcessGroup = "storage-1"
-				instances[0].Pod.Status.Phase = corev1.PodFailed
+				pods[0].Status.Phase = corev1.PodFailed
 				cluster.Spec.InstancesToRemove = []string{removedProcessGroup}
 			})
 
 			It("should mark the instance for removal", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -359,12 +259,12 @@ var _ = Describe("update_status", func() {
 
 			BeforeEach(func() {
 				removedProcessGroup = "storage-1"
-				instances[0].Pod.Status.Phase = corev1.PodFailed
+				pods[0].Status.Phase = corev1.PodFailed
 				cluster.Spec.InstancesToRemoveWithoutExclusion = []string{removedProcessGroup}
 			})
 
 			It("should be mark the instance for removal without exclusion", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -387,12 +287,12 @@ var _ = Describe("update_status", func() {
 			var unreachableProcessGroup string
 
 			BeforeEach(func() {
-				unreachableProcessGroup = instances[0].GetInstanceID()
-				instances[0].Pod.Annotations[internal.MockUnreachableAnnotation] = "banana"
+				unreachableProcessGroup = GetInstanceID(pods[0])
+				pods[0].Annotations[internal.MockUnreachableAnnotation] = "banana"
 			})
 
 			It("should mark the instance as unreachable", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				unreachableCount := 0
@@ -410,11 +310,11 @@ var _ = Describe("update_status", func() {
 
 			When("the instance is reachable again", func() {
 				BeforeEach(func() {
-					delete(instances[0].Pod.Annotations, internal.MockUnreachableAnnotation)
+					delete(pods[0].Annotations, internal.MockUnreachableAnnotation)
 				})
 
 				It("should remove the condition", func() {
-					processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+					processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 					Expect(err).NotTo(HaveOccurred())
 
 					unreachableCount := 0
@@ -435,12 +335,12 @@ var _ = Describe("update_status", func() {
 			var pendingProcessGroup string
 
 			BeforeEach(func() {
-				pendingProcessGroup = instances[0].GetInstanceID()
-				instances[0].Pod.Status.Phase = corev1.PodPending
+				pendingProcessGroup = GetInstanceID(pods[0])
+				pods[0].Status.Phase = corev1.PodPending
 			})
 
 			It("should mark the process group as Pod pending", func() {
-				processGroupStatus, err := validateInstances(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, instances, configMap)
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, pods, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				pendingCount := 0

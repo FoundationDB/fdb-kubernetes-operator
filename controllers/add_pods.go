@@ -54,19 +54,19 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return &Requeue{Error: err}
 	}
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	instanceMap := make(map[string]FdbInstance, len(instances))
-	for _, instance := range instances {
-		instanceMap[instance.GetInstanceID()] = instance
+	podMap := make(map[string]*corev1.Pod, len(pods))
+	for _, pod := range pods {
+		podMap[GetInstanceID(pod)] = pod
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		_, instanceExists := instanceMap[processGroup.ProcessGroupID]
-		if !instanceExists && !processGroup.Remove {
+		_, podExists := podMap[processGroup.ProcessGroupID]
+		if !podExists && !processGroup.Remove {
 			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
 			if err != nil {
 				return &Requeue{Error: err}
