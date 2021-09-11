@@ -128,8 +128,7 @@ jobs:
       - name: Build and push to registry
         uses: docker/build-push-action@v2
         with:
-          build-args:
-            - TAG=${{ steps.get_tag.outputs.TAG }}
+          build-args: TAG=${{ steps.get_tag.outputs.TAG }}
           push: true
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}
