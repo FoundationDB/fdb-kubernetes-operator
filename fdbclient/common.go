@@ -23,10 +23,10 @@ package fdbclient
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	controllers "github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -44,7 +44,7 @@ var DefaultCLITimeout = 10
 // getFDBDatabase opens an FDB database. The result will be cached for
 // subsequent calls, based on the cluster namespace and name.
 func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error) {
-	clusterFile, err := ioutil.TempFile("", "")
+	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return fdb.Database{}, err
 	}
