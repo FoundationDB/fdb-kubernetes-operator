@@ -699,6 +699,32 @@ func (r *FoundationDBClusterReconciler) hasFullReplication(cluster *fdbtypes.Fou
 	return status.Cluster.FullReplication, nil
 }
 
+func (r *FoundationDBClusterReconciler) hasDesiredFaultTolerance(cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return false, err
+	}
+	defer adminClient.Close()
+
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
+	}
+
+	expectedFaultTolerance := cluster.DesiredFaultTolerance()
+	log.V(0).Info("Has desired fault tolerance",
+		"namespace", cluster.Namespace,
+		"cluster", cluster.Name,
+		"expectedFaultTolerance", expectedFaultTolerance,
+		"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
+
+	return internal.HasDesiredFaultTolerance(
+		expectedFaultTolerance,
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability), nil
+}
+
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]internal.None, error) {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {

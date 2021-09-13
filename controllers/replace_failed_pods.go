@@ -34,7 +34,7 @@ type ReplaceFailedPods struct{}
 
 // Reconcile runs the reconciler's work.
 func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	if chooseNewRemovals(cluster) {
+	if chooseNewRemovals(r, cluster) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return &Requeue{Error: err}
@@ -48,9 +48,20 @@ func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context c
 
 // chooseNewRemovals flags failed processes for removal and returns an indicator
 // of whether any processes were thus flagged.
-func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
+func chooseNewRemovals(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) bool {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ReplaceFailedPods")
 	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
+		return false
+	}
+
+	// If we are not able to replace any failed instance because the fault tolerance dropped
+	// we don't want to block any subsequent steps.
+	hasDesiredFaultTolerance, err := r.hasDesiredFaultTolerance(cluster)
+	if err != nil {
+		return false
+	}
+
+	if !hasDesiredFaultTolerance {
 		return false
 	}
 

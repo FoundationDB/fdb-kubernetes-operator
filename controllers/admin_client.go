@@ -113,20 +113,22 @@ type AdminClient interface {
 
 // MockAdminClient provides a mock implementation of the cluster admin interface
 type MockAdminClient struct {
-	Cluster               *fdbtypes.FoundationDBCluster
-	KubeClient            client.Client
-	DatabaseConfiguration *fdbtypes.DatabaseConfiguration
-	ExcludedAddresses     []string
-	ReincludedAddresses   map[string]bool
-	KilledAddresses       []string
-	frozenStatus          *fdbtypes.FoundationDBStatus
-	Backups               map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
-	restoreURL            string
-	clientVersions        map[string][]string
-	missingProcessGroups  map[string]bool
-	additionalProcesses   []fdbtypes.ProcessGroupStatus
-	localityInfo          map[string]map[string]string
-	incorrectCommandLines map[string]bool
+	Cluster                                  *fdbtypes.FoundationDBCluster
+	KubeClient                               client.Client
+	DatabaseConfiguration                    *fdbtypes.DatabaseConfiguration
+	ExcludedAddresses                        []string
+	ReincludedAddresses                      map[string]bool
+	KilledAddresses                          []string
+	frozenStatus                             *fdbtypes.FoundationDBStatus
+	Backups                                  map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
+	restoreURL                               string
+	clientVersions                           map[string][]string
+	missingProcessGroups                     map[string]bool
+	additionalProcesses                      []fdbtypes.ProcessGroupStatus
+	localityInfo                             map[string]map[string]string
+	incorrectCommandLines                    map[string]bool
+	maxZoneFailuresWithoutLosingData         *int
+	maxZoneFailuresWithoutLosingAvailability *int
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -360,6 +362,14 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			}
 			status.Cluster.Layers.Backup.Paused = tagStatus.Paused
 		}
+	}
+
+	if client.maxZoneFailuresWithoutLosingData == nil {
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData = client.Cluster.DesiredFaultTolerance()
+	}
+
+	if client.maxZoneFailuresWithoutLosingAvailability == nil {
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability = client.Cluster.DesiredFaultTolerance()
 	}
 
 	return status, nil

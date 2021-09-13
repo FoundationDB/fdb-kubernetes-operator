@@ -27,7 +27,6 @@ import (
 )
 
 var _ = Describe("FoundationDBStatus", func() {
-
 	When("parsing the status json with a 6.1 cluster", func() {
 		It("should parse all values correctly", func() {
 			statusFile, err := os.OpenFile(filepath.Join("testdata", "fdb_status_6_1.json"), os.O_RDONLY, os.ModePerm)
@@ -67,6 +66,11 @@ var _ = Describe("FoundationDBStatus", func() {
 					DatabaseStatus: FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
 				},
 				Cluster: FoundationDBStatusClusterInfo{
+					// In FDB 6.1 this would be machines failures.
+					FaultTolerance: FaultTolerance{
+						MaxZoneFailuresWithoutLosingAvailability: 0,
+						MaxZoneFailuresWithoutLosingData:         0,
+					},
 					DatabaseConfiguration: DatabaseConfiguration{
 						RedundancyMode: RedundancyModeDouble,
 						StorageEngine:  "ssd-2",
@@ -377,6 +381,10 @@ var _ = Describe("FoundationDBStatus", func() {
 					DatabaseStatus: FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
 				},
 				Cluster: FoundationDBStatusClusterInfo{
+					FaultTolerance: FaultTolerance{
+						MaxZoneFailuresWithoutLosingAvailability: 1,
+						MaxZoneFailuresWithoutLosingData:         1,
+					},
 					DatabaseConfiguration: DatabaseConfiguration{
 						RedundancyMode: RedundancyModeDouble,
 						StorageEngine:  "ssd-2",

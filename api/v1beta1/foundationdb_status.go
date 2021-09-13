@@ -63,6 +63,19 @@ type FoundationDBStatusClusterInfo struct {
 	// Layers provides information about layers that are running against the
 	// cluster.
 	Layers FoundationDBStatusLayerInfo `json:"layers,omitempty"`
+
+	// FaultTolerance provides information about the fault tolerance status
+	// of the cluster.
+	FaultTolerance FaultTolerance `json:"fault_tolerance,omitempty"`
+}
+
+// FaultTolerance provides information about the fault tolerance status
+// of the cluster.
+type FaultTolerance struct {
+	// MaxZoneFailuresWithoutLosingData defines the maximum number of zones that can fail before losing data.
+	MaxZoneFailuresWithoutLosingData int `json:"max_zone_failures_without_losing_data,omitempty"`
+	// MaxZoneFailuresWithoutLosingAvailability defines the maximum number of zones that can fail before losing availability.
+	MaxZoneFailuresWithoutLosingAvailability int `json:"max_zone_failures_without_losing_availability,omitempty"`
 }
 
 // FoundationDBStatusProcessInfo describes the "processes" portion of the
