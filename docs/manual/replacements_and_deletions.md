@@ -29,6 +29,7 @@ The following conditions are currently eligible for replacement:
 
 The operator will only replace failed Pods when the cluster meets the desired fault tolerance.
 If the cluster doesn't meet the desired fault tolerance the automatic replacement step will be skipped.
+This fault tolerance check is only active for clusters with FDB 6.2+ or newer.
 
 ## Enforce Full Replication
 

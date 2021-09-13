@@ -700,6 +700,18 @@ func (r *FoundationDBClusterReconciler) hasFullReplication(cluster *fdbtypes.Fou
 }
 
 func (r *FoundationDBClusterReconciler) hasDesiredFaultTolerance(cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return false, err
+	}
+
+	// TODO (johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/743
+	// For FDB versions lower than 6.2.0 we just approve the replacement.
+	// In 6.1 we only have machine information.
+	if !version.IsAtLeast(fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 0}) {
+		return true, nil
+	}
+
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
 		return false, err

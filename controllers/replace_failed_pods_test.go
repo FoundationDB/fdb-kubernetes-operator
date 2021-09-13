@@ -210,6 +210,44 @@ var _ = Describe("replace_failed_pods", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
 			})
 		})
+
+		When("The max zone failures without losing data is degraded and the version lower than 6.2", func() {
+			BeforeEach(func() {
+				client, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				client.maxZoneFailuresWithoutLosingData = pointer.Int(cluster.DesiredFaultTolerance() - 1)
+				cluster.Spec.Version = "6.1.1"
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return true", func() {
+				Expect(result).To(BeTrue())
+			})
+
+			It("should not mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+		})
+
+		When("The max zone failures without losing availability is degraded and the version lower than 6.2", func() {
+			BeforeEach(func() {
+				client, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				client.maxZoneFailuresWithoutLosingAvailability = pointer.Int(cluster.DesiredFaultTolerance() - 1)
+				cluster.Spec.Version = "6.1.1"
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return true", func() {
+				Expect(result).To(BeTrue())
+			})
+
+			It("should not mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+		})
 	})
 
 	Context("with a process that has been missing for a brief time", func() {
