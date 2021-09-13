@@ -27,6 +27,9 @@ The following conditions are currently eligible for replacement:
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
 
+The operator will only replace failed Pods when the cluster meets the desired fault tolerance.
+If the cluster doesn't meet the desired fault tolerance the automatic replacement step will be skipped.
+
 ## Enforce Full Replication
 
 Per default the operator doesn't check if the cluster is fully replicated before removing process groups that are marked for removal.
