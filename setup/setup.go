@@ -85,7 +85,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&o.LogFileMaxSize, "log-file-max-size", 250, "Defines the maximum size in megabytes of the operator log file before it gets rotated.")
 	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
-	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exists.")
+	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
 }
 
 // StartManager will start the FoundationDB operator manager.
