@@ -66,7 +66,7 @@ endif
 manager: bin/manager
 
 bin/manager: ${GO_SRC}
-	go build -o bin/manager main.go
+	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/setup.operatorVersion=${TAG}" -o bin/manager main.go
 
 # package the plugin
 package: plugin bin/kubectl-fdb.tar.gz
@@ -132,7 +132,7 @@ ${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt ${CONTROLLER_GEN}
 
 # Build the docker image
 docker-build: test_if_changed
-	docker build ${docker_build_args} . -t ${IMG}
+	docker build --build-arg=TAG=${TAG} ${docker_build_args} . -t ${IMG}
 
 # Push the docker image
 docker-push:

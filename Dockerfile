@@ -8,6 +8,7 @@ FROM golang:1.15.13 as builder
 # Install FDB
 ARG FDB_VERSION=6.2.30
 ARG FDB_WEBSITE=https://www.foundationdb.org
+ARG TAG="latest"
 
 RUN set -eux && \
 	curl --fail ${FDB_WEBSITE}/downloads/${FDB_VERSION}/ubuntu/installers/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
@@ -43,6 +44,7 @@ RUN go mod download
 
 # Copy the go source
 COPY main.go main.go
+COPY Makefile Makefile
 COPY api/ api/
 COPY controllers/ controllers/
 COPY setup/ setup/
@@ -50,7 +52,7 @@ COPY fdbclient/ fdbclient/
 COPY internal/ internal/
 
 # Build
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on make manager
 
 # Create user and group here since we don't have the tools
 # in distroless
@@ -65,7 +67,7 @@ WORKDIR /
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
-COPY --chown=fdb:fdb --from=builder /workspace/manager .
+COPY --chown=fdb:fdb --from=builder /workspace/bin/manager .
 COPY --from=builder /usr/bin/fdb /usr/bin/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
 COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
