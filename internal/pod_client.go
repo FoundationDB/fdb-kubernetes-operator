@@ -162,12 +162,12 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 
 	protocol := "http"
 	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 10
-	retryClient.RetryWaitMax = 5 * time.Second
+	retryClient.RetryMax = 2
+	retryClient.RetryWaitMax = 1 * time.Second
 	// Prevent logging
 	retryClient.Logger = nil
 	retryClient.CheckRetry = func(c context.Context, resp *http.Response, err error) (bool, error) {
-		if c.Err() != nil && err != nil && resp != nil && resp.StatusCode >= 400 {
+		if c.Err() != nil && err != nil && resp != nil && resp.StatusCode >= http.StatusBadRequest {
 			return true, nil
 		}
 
@@ -182,9 +182,13 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 
 	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
 	switch method {
-	case "GET":
+	case http.MethodGet:
+		// We assume that a get request should be relative fast.
+		retryClient.HTTPClient.Timeout = 2 * time.Second
 		resp, err = retryClient.Get(url)
-	case "POST":
+	case http.MethodPost:
+		// A post request could take a little bit longer since we copy sometimes files.
+		retryClient.HTTPClient.Timeout = 10 * time.Second
 		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
 	default:
 		return "", fmt.Errorf("unknown HTTP method %s", method)
@@ -203,7 +207,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 		return "", err
 	}
 
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode >= http.StatusBadRequest {
 		return "", failedResponse{response: resp, body: bodyText}
 	}
 
