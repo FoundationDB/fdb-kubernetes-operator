@@ -29,7 +29,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -124,7 +124,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 			tlsConfig.InsecureSkipVerify = true
 		}
 		certPool := x509.NewCertPool()
-		caList, err := ioutil.ReadFile(caFile)
+		caList, err := os.ReadFile(caFile)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +196,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	bodyText := string(body)
 
 	if err != nil {

@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -72,7 +71,7 @@ type cliAdminClient struct {
 
 // NewCliAdminClient generates an Admin client for a cluster
 func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (controllers.AdminClient, error) {
-	clusterFile, err := ioutil.TempFile("", "")
+	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +368,7 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAdd
 		return "", err
 	}
 
-	connectionStringBytes, err := ioutil.ReadFile(client.clusterFilePath)
+	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
 	if err != nil {
 		return "", err
 	}
@@ -392,7 +391,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 		return "", fmt.Errorf("unable to fetch connection string: %s", output)
 	}
 
-	connectionStringBytes, err := ioutil.ReadFile(client.clusterFilePath)
+	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
 	if err != nil {
 		return "", err
 	}
