@@ -100,20 +100,48 @@ var _ = Describe("remove_process_groups", func() {
 				})
 			})
 
-			When("the cluster is not fully replicated", func() {
+			When("the cluster has degraded availability fault tolerance", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
+				})
+
+				It("should not remove that process group", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+				})
+			})
+
+			When("the cluster has degraded data fault tolerance", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+				})
+
+				It("should not remove that process group", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+				})
+			})
+
+			When("the cluster is not available", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
-						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-							FullReplication: false,
+						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+								Available: false,
+							},
 						},
 					}
 				})
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster is not fully replicated but is required for removals"))
+					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
 				})
 			})
 		})
@@ -129,20 +157,48 @@ var _ = Describe("remove_process_groups", func() {
 				})
 			})
 
-			When("the cluster is not fully replicated", func() {
+			When("the cluster has degraded availability fault tolerance", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
+				})
+
+				It("should not remove that process group", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+				})
+			})
+
+			When("the cluster has degraded data fault tolerance", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+				})
+
+				It("should not remove that process group", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+				})
+			})
+
+			When("the cluster is not available", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
-						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-							FullReplication: false,
+						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+								Available: false,
+							},
 						},
 					}
 				})
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster is not fully replicated but is required for removals"))
+					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
 				})
 			})
 		})
@@ -162,14 +218,40 @@ var _ = Describe("remove_process_groups", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
+				})
+
+				It("should successfully remove that process group", func() {
+					Expect(result).To(BeNil())
+				})
+			})
+
+			When("the cluster has degraded data fault tolerance", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+				})
+
+				It("should successfully remove that process group", func() {
+					Expect(result).To(BeNil())
+				})
+			})
+
+			When("the cluster is not available", func() {
+				BeforeEach(func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
-						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-							FullReplication: false,
+						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+								Available: false,
+							},
 						},
 					}
 				})
 
-				It("should successfully remove that process group", func() {
+				It("should not remove that process group", func() {
 					Expect(result).To(BeNil())
 				})
 			})

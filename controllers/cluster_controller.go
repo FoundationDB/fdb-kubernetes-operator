@@ -684,22 +684,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	return internal.GetPodSpec(cluster, processClass, idNum)
 }
 
-func (r *FoundationDBClusterReconciler) hasFullReplication(cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
-	if err != nil {
-		return false, err
-	}
-	defer adminClient.Close()
-
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return false, err
-	}
-
-	return status.Cluster.FullReplication, nil
-}
-
-func (r *FoundationDBClusterReconciler) hasDesiredFaultTolerance(cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func hasDesiredFaultTolerance(adminClient AdminClient, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return false, err
@@ -712,15 +697,17 @@ func (r *FoundationDBClusterReconciler) hasDesiredFaultTolerance(cluster *fdbtyp
 		return true, nil
 	}
 
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
-	if err != nil {
-		return false, err
-	}
-	defer adminClient.Close()
-
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
+	}
+
+	if !status.Client.DatabaseStatus.Available {
+		log.V(0).Info("Cluster is not available",
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name)
+
+		return false, nil
 	}
 
 	expectedFaultTolerance := cluster.DesiredFaultTolerance()

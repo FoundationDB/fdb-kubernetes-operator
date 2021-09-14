@@ -58,14 +58,20 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
 	if cluster.GetEnforceFullReplicationForDeletion() {
-		fullyReplicated, err := r.hasFullReplication(cluster)
+		adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+		defer adminClient.Close()
+
+		fullReplication, err := hasDesiredFaultTolerance(adminClient, cluster)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		if !fullyReplicated {
+		if !fullReplication {
 			return &Requeue{
-				Message: "Cluster is not fully replicated but is required for removals",
+				Message: "Cluster has degraded fault tolerance but is required for removals",
 				Delay:   30 * time.Second,
 			}
 		}
