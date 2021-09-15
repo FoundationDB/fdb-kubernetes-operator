@@ -35,10 +35,10 @@ type PodLifecycleManager interface {
 	GetPods(client.Client, *fdbtypes.FoundationDBCluster, ctx.Context, ...client.ListOption) ([]*corev1.Pod, error)
 
 	// CreatePods creates a new instance based on a pod definition
-	CreatePods(client.Client, ctx.Context, *corev1.Pod) error
+	CreatePod(client.Client, ctx.Context, *corev1.Pod) error
 
 	// DeletePods shuts down an instance
-	DeletePods(client.Client, ctx.Context, *corev1.Pod) error
+	DeletePod(client.Client, ctx.Context, *corev1.Pod) error
 
 	// CanDeletePods checks whether it is safe to delete pods.
 	CanDeletePods(AdminClient, ctx.Context, *fdbtypes.FoundationDBCluster) (bool, error)
@@ -93,13 +93,13 @@ func (manager StandardPodLifecycleManager) GetPods(r client.Client, cluster *fdb
 	return resPods, nil
 }
 
-// CreatePods creates a new Pods based on a pod definition
-func (manager StandardPodLifecycleManager) CreatePods(r client.Client, context ctx.Context, pod *corev1.Pod) error {
+// CreatePod creates a new Pod based on a Pod definition
+func (manager StandardPodLifecycleManager) CreatePod(r client.Client, context ctx.Context, pod *corev1.Pod) error {
 	return r.Create(context, pod)
 }
 
-// DeletePods shuts down a Pod
-func (manager StandardPodLifecycleManager) DeletePods(r client.Client, context ctx.Context, pod *corev1.Pod) error {
+// DeletePod shuts down a Pod
+func (manager StandardPodLifecycleManager) DeletePod(r client.Client, context ctx.Context, pod *corev1.Pod) error {
 	return r.Delete(context, pod)
 }
 

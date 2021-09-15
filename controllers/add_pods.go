@@ -104,7 +104,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
 			}
 
-			err = r.PodLifecycleManager.CreatePods(r, context, pod)
+			err = r.PodLifecycleManager.CreatePod(r, context, pod)
 			if err != nil {
 				return &Requeue{Error: err}
 			}

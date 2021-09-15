@@ -88,7 +88,7 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 	}
 
 	if len(instances) == 1 {
-		err = r.PodLifecycleManager.DeletePods(r, context, instances[0])
+		err = r.PodLifecycleManager.DeletePod(r, context, instances[0])
 
 		if err != nil {
 			return err

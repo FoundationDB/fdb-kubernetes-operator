@@ -625,7 +625,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeletePods(r, context, pod)
+			err = r.PodLifecycleManager.DeletePod(r, context, pod)
 			if err != nil {
 				return needsSidecarConfInConfigMap, err
 			}
