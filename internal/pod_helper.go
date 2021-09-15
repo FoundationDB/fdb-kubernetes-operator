@@ -68,8 +68,8 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 	return []string{pod.Status.PodIP}
 }
 
-// GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
-func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
+// GetProcessGroupIDFromMeta fetches the instance ID from an object's metadata.
+func GetProcessGroupIDFromMeta(metadata metav1.ObjectMeta) string {
 	return metadata.Labels[fdbtypes.FDBInstanceIDLabel]
 }
 

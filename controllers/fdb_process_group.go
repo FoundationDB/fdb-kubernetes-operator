@@ -1,5 +1,5 @@
 /*
- * fdb_instance.go
+ * fdb_process_group.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -47,11 +47,11 @@ func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
 	return fdbtypes.ProcessClass(prefix), number, nil
 }
 
-// GetInstanceIDFromProcessID returns the process group ID for the process ID
-func GetInstanceIDFromProcessID(id string) string {
+// GetProcessGroupIDFromProcessID returns the process group ID for the process ID
+func GetProcessGroupIDFromProcessID(id string) string {
 	result := processIDRegex.FindStringSubmatch(id)
 	if result == nil {
-		// In this case we assume that instance ID == process ID
+		// In this case we assume that process group ID == process ID
 		return id
 	}
 
@@ -64,7 +64,7 @@ func GetProcessGroupID(pod *corev1.Pod) string {
 		return ""
 	}
 
-	return internal.GetInstanceIDFromMeta(pod.ObjectMeta)
+	return internal.GetProcessGroupIDFromMeta(pod.ObjectMeta)
 }
 
 // GetProcessClass fetches the process class from a Pod's metadata.

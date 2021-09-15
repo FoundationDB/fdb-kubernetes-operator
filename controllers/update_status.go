@@ -447,7 +447,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 	}
 
 	for _, processGroup := range processGroups {
-		pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)
+		pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)
 		if err != nil {
 			return processGroups, err
 		}
@@ -558,7 +558,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 
 	incorrectPod := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
 	if !incorrectPod {
-		updated, err := r.PodLifecycleManager.InstanceIsUpdated(r, context, cluster, pod)
+		updated, err := r.PodLifecycleManager.PodIsUpdated(r, context, cluster, pod)
 		if err != nil {
 			return false, err
 		}
@@ -625,7 +625,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeleteInstance(r, context, pod)
+			err = r.PodLifecycleManager.DeletePods(r, context, pod)
 			if err != nil {
 				return needsSidecarConfInConfigMap, err
 			}

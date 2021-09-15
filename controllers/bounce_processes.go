@@ -78,8 +78,8 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 		addresses = append(addresses, addressMap[process]...)
 
-		instanceID := GetInstanceIDFromProcessID(process)
-		pod, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
+		instanceID := GetProcessGroupIDFromProcessID(process)
+		pod, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return &Requeue{Error: err}
 		}

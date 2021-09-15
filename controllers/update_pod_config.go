@@ -43,7 +43,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		return &Requeue{Error: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}

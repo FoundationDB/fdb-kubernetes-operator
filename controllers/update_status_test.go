@@ -46,7 +46,7 @@ var _ = Describe("update_status", func() {
 			err = setupClusterForTest(cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			pods, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
+			pods, err = clusterReconciler.PodLifecycleManager.GetPods(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, container := range pods[0].Spec.Containers {

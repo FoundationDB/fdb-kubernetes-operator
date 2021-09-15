@@ -332,7 +332,7 @@ func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx
 
 func sortPodsByID(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return internal.GetInstanceIDFromMeta(pods.Items[i].ObjectMeta) < internal.GetInstanceIDFromMeta(pods.Items[j].ObjectMeta)
+		return internal.GetProcessGroupIDFromMeta(pods.Items[i].ObjectMeta) < internal.GetProcessGroupIDFromMeta(pods.Items[j].ObjectMeta)
 	})
 }
 

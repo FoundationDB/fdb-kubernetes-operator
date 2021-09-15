@@ -37,7 +37,7 @@ type UpdateLabels struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	pods, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
@@ -72,7 +72,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 	for _, pvc := range pvcs.Items {
 		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
-		instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
 
 		metadata := internal.GetPvcMetadata(cluster, processClass, instanceID)
 		if metadata.Annotations == nil {
