@@ -74,7 +74,7 @@ var _ = Describe("replace_failed_pods", func() {
 		})
 
 		Context("with no other removals", func() {
-			It("should return false", func() {
+			It("should return true", func() {
 				Expect(result).To(BeTrue())
 			})
 

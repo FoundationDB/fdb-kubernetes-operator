@@ -22,5 +22,7 @@ package internal
 
 // HasDesiredFaultTolerance checks if the cluster has the desired fault tolerance.
 func HasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithoutLosingData int, maxZoneFailuresWithoutLosingAvailability int) bool {
-	return !(maxZoneFailuresWithoutLosingData < expectedFaultTolerance || maxZoneFailuresWithoutLosingAvailability < expectedFaultTolerance)
+	// Only if both max zone failures for availability and data loss are greater or equal to the expected fault tolerance we know that we meet
+	// our fault tolerance requirements.
+	return maxZoneFailuresWithoutLosingData >= expectedFaultTolerance && maxZoneFailuresWithoutLosingAvailability >= expectedFaultTolerance
 }

@@ -64,12 +64,12 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 		}
 		defer adminClient.Close()
 
-		fullReplication, err := hasDesiredFaultTolerance(adminClient, cluster)
+		hasDesiredFaultTolerance, err := hasDesiredFaultTolerance(adminClient, cluster)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		if !fullReplication {
+		if !hasDesiredFaultTolerance {
 			return &Requeue{
 				Message: "Cluster has degraded fault tolerance but is required for removals",
 				Delay:   30 * time.Second,
