@@ -99,5 +99,8 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	cluster.Status.ConnectionString = connectionString.String()
 
 	err = r.Status().Update(context, cluster)
-	return &Requeue{Error: err}
+	if err != nil {
+		return &Requeue{Error: err}
+	}
+	return nil
 }
