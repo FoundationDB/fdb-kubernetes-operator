@@ -71,7 +71,7 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 
 		if !hasDesiredFaultTolerance {
 			return &Requeue{
-				Message: "Cluster has degraded fault tolerance but is required for removals",
+				Message: "Removals cannot proceed because cluster has degraded fault tolerance",
 				Delay:   30 * time.Second,
 			}
 		}

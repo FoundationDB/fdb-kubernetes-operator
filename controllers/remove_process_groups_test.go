@@ -109,7 +109,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -122,7 +122,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -141,7 +141,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 		})
@@ -166,7 +166,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -179,7 +179,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -198,7 +198,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Cluster has degraded fault tolerance but is required for removals"))
+					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 		})

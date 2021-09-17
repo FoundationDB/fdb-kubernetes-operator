@@ -690,10 +690,7 @@ func hasDesiredFaultTolerance(adminClient AdminClient, cluster *fdbtypes.Foundat
 		return false, err
 	}
 
-	// TODO (johscheuer): https://github.com/FoundationDB/fdb-kubernetes-operator/issues/743
-	// For FDB versions lower than 6.2.0 we just approve the replacement.
-	// In 6.1 we only have machine information.
-	if !version.IsAtLeast(fdbtypes.FdbVersion{Major: 6, Minor: 2, Patch: 0}) {
+	if !version.HasZoneFaultToleranceInStatus() {
 		return true, nil
 	}
 
@@ -711,7 +708,7 @@ func hasDesiredFaultTolerance(adminClient AdminClient, cluster *fdbtypes.Foundat
 	}
 
 	expectedFaultTolerance := cluster.DesiredFaultTolerance()
-	log.V(0).Info("Has desired fault tolerance",
+	log.V(0).Info("Check desired fault tolerance",
 		"namespace", cluster.Namespace,
 		"cluster", cluster.Name,
 		"expectedFaultTolerance", expectedFaultTolerance,

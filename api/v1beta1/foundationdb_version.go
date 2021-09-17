@@ -147,6 +147,12 @@ func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 20})
 }
 
+// HasZoneFaultToleranceInStatus determines if a version has maxZoneFailuresWithoutLosingData
+// and maxZoneFailuresWithoutLosingAvailability in the status.
+func (version FdbVersion) HasZoneFaultToleranceInStatus() bool {
+	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
+}
+
 // HasNonBlockingExcludes determines if a version has support for non-blocking
 // exclude commands.
 //
