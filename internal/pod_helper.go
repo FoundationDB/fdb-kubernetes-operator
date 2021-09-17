@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"k8s.io/utils/pointer"
 	"net"
 	"strconv"
 
@@ -120,13 +121,12 @@ func GetMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdb
 
 // BuildOwnerReference returns an OwnerReference for the provided input
 func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta) []metav1.OwnerReference {
-	var isController = true
 	return []metav1.OwnerReference{{
 		APIVersion: ownerType.APIVersion,
 		Kind:       ownerType.Kind,
 		Name:       ownerMetadata.Name,
 		UID:        ownerMetadata.UID,
-		Controller: &isController,
+		Controller: pointer.Bool(true),
 	}}
 }
 
