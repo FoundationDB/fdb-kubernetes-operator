@@ -34,6 +34,7 @@ import (
 var _ = Describe("replace_failed_pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
+	var result bool
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -49,109 +50,75 @@ var _ = Describe("replace_failed_pods", func() {
 		Expect(generation).To(Equal(int64(1)))
 	})
 
-	Describe("chooseNewRemovals", func() {
-		var result bool
-		JustBeforeEach(func() {
-			result = chooseNewRemovals(cluster)
+	JustBeforeEach(func() {
+		result = chooseNewRemovals(cluster)
+	})
+
+	Context("with no missing processes", func() {
+		It("should return false", func() {
+			Expect(result).To(BeFalse())
 		})
 
-		Context("with no missing processes", func() {
-			It("should return false", func() {
-				Expect(result).To(BeFalse())
-			})
+		It("should not mark anything for removal", func() {
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+		})
+	})
 
-			It("should not mark anything for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+	Context("with a process that has been missing for a long time", func() {
+		BeforeEach(func() {
+			processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbtypes.MissingProcesses,
+				Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
 			})
 		})
 
-		Context("with a process that has been missing for a long time", func() {
+		Context("with no other removals", func() {
+			It("should return true", func() {
+				Expect(result).To(BeTrue())
+			})
+
+			It("should mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+		})
+
+		Context("with multiple failed processes", func() {
 			BeforeEach(func() {
-				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
 				processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
 					ProcessGroupConditionType: fdbtypes.MissingProcesses,
 					Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
 				})
 			})
 
-			Context("with no other removals", func() {
-				It("should return false", func() {
-					Expect(result).To(BeTrue())
-				})
-
-				It("should mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
-				})
+			It("should return true", func() {
+				Expect(result).To(BeTrue())
 			})
 
-			Context("with multiple failed processes", func() {
-				BeforeEach(func() {
-					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
-					processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-						ProcessGroupConditionType: fdbtypes.MissingProcesses,
-						Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
-					})
-				})
+			It("should mark the first process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+		})
 
-				It("should return true", func() {
-					Expect(result).To(BeTrue())
-				})
-
-				It("should mark the first process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
-				})
+		Context("with another in-flight exclusion", func() {
+			BeforeEach(func() {
+				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
+				processGroup.Remove = true
 			})
 
-			Context("with another in-flight exclusion", func() {
-				BeforeEach(func() {
-					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
-					processGroup.Remove = true
-				})
-
-				It("should return false", func() {
-					Expect(result).To(BeFalse())
-				})
-
-				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
-				})
-
-				When("max concurrent replacements is set to two", func() {
-					BeforeEach(func() {
-						replacements := 2
-						cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
-					})
-
-					It("should return true", func() {
-						Expect(result).To(BeTrue())
-					})
-
-					It("should mark the process group for removal", func() {
-						Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2", "storage-3"}))
-					})
-				})
-
-				When("max concurrent replacements is set to zero", func() {
-					BeforeEach(func() {
-						replacements := 0
-						cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
-					})
-
-					It("should return false", func() {
-						Expect(result).To(BeFalse())
-					})
-
-					It("should not mark the process group for removal", func() {
-						Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
-					})
-				})
+			It("should return false", func() {
+				Expect(result).To(BeFalse())
 			})
 
-			Context("with another complete exclusion", func() {
+			It("should not mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
+			})
+
+			When("max concurrent replacements is set to two", func() {
 				BeforeEach(func() {
-					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
-					processGroup.Remove = true
-					processGroup.Excluded = true
+					replacements := 2
+					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
 				})
 
 				It("should return true", func() {
@@ -163,10 +130,10 @@ var _ = Describe("replace_failed_pods", func() {
 				})
 			})
 
-			Context("with no addresses", func() {
+			When("max concurrent replacements is set to zero", func() {
 				BeforeEach(func() {
-					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-					processGroup.Addresses = nil
+					replacements := 0
+					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
 				})
 
 				It("should return false", func() {
@@ -174,18 +141,31 @@ var _ = Describe("replace_failed_pods", func() {
 				})
 
 				It("should not mark the process group for removal", func() {
-					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-3"}))
 				})
 			})
 		})
 
-		Context("with a process that has been missing for a brief time", func() {
+		Context("with another complete exclusion", func() {
+			BeforeEach(func() {
+				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
+				processGroup.Remove = true
+				processGroup.Excluded = true
+			})
+
+			It("should return true", func() {
+				Expect(result).To(BeTrue())
+			})
+
+			It("should mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2", "storage-3"}))
+			})
+		})
+
+		Context("with no addresses", func() {
 			BeforeEach(func() {
 				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-				processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-					ProcessGroupConditionType: fdbtypes.MissingProcesses,
-					Timestamp:                 time.Now().Unix(),
-				})
+				processGroup.Addresses = nil
 			})
 
 			It("should return false", func() {
@@ -196,23 +176,41 @@ var _ = Describe("replace_failed_pods", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
 			})
 		})
+	})
 
-		Context("with a process that has had an incorrect pod spec for a long time", func() {
-			BeforeEach(func() {
-				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-				processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-					ProcessGroupConditionType: fdbtypes.IncorrectPodSpec,
-					Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
-				})
+	Context("with a process that has been missing for a brief time", func() {
+		BeforeEach(func() {
+			processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbtypes.MissingProcesses,
+				Timestamp:                 time.Now().Unix(),
 			})
+		})
 
-			It("should return false", func() {
-				Expect(result).To(BeFalse())
-			})
+		It("should return false", func() {
+			Expect(result).To(BeFalse())
+		})
 
-			It("should not mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+		It("should not mark the process group for removal", func() {
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+		})
+	})
+
+	Context("with a process that has had an incorrect pod spec for a long time", func() {
+		BeforeEach(func() {
+			processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbtypes.IncorrectPodSpec,
+				Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
 			})
+		})
+
+		It("should return false", func() {
+			Expect(result).To(BeFalse())
+		})
+
+		It("should not mark the process group for removal", func() {
+			Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
 		})
 	})
 })

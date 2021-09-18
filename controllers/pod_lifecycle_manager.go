@@ -103,12 +103,7 @@ func (manager StandardPodLifecycleManager) DeleteInstance(r client.Client, conte
 
 // CanDeletePods checks whether it is safe to delete pods.
 func (manager StandardPodLifecycleManager) CanDeletePods(adminClient AdminClient, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return false, err
-	}
-
-	return status.Cluster.FullReplication && status.Client.DatabaseStatus.Available, nil
+	return hasDesiredFaultTolerance(adminClient, cluster)
 }
 
 // UpdatePods updates a list of pods to match the latest specs.

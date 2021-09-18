@@ -684,19 +684,41 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	return internal.GetPodSpec(cluster, processClass, idNum)
 }
 
-func (r *FoundationDBClusterReconciler) hasFullReplication(cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+func hasDesiredFaultTolerance(adminClient AdminClient, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return false, err
 	}
-	defer adminClient.Close()
+
+	if !version.HasZoneFaultToleranceInStatus() {
+		return true, nil
+	}
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
 	}
 
-	return status.Cluster.FullReplication, nil
+	if !status.Client.DatabaseStatus.Available {
+		log.V(0).Info("Cluster is not available",
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name)
+
+		return false, nil
+	}
+
+	expectedFaultTolerance := cluster.DesiredFaultTolerance()
+	log.V(0).Info("Check desired fault tolerance",
+		"namespace", cluster.Namespace,
+		"cluster", cluster.Name,
+		"expectedFaultTolerance", expectedFaultTolerance,
+		"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
+
+	return internal.HasDesiredFaultTolerance(
+		expectedFaultTolerance,
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability), nil
 }
 
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]internal.None, error) {

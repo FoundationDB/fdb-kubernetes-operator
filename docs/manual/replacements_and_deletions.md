@@ -29,9 +29,11 @@ The following conditions are currently eligible for replacement:
 
 ## Enforce Full Replication
 
-Per default the operator doesn't check if the cluster is fully replicated before removing process groups that are marked for removal.
-This behaviour can be changed by setting `enforceFullReplicationForDeletion` to `true`.
-When the `enforceFullReplicationForDeletion` setting is `true` the operator will only delete process groups when the cluster is fully replicated.
+With this setting enabled (defaults to `true`) the operator will check if the cluster has the desired fault tolerance and is available.
+If one of the conditions above is not met the operator won't remove the underlying resources of that process group (Pod, PVC, Service).
+The processes of that process group will stay excluded until the resources are removed.
+This is a safety measure to reduce the risk of data and availability loss.
+With the `enforceFullReplicationForDeletion` a human operator can decide to disable this safety check.roups when the cluster is fully replicated.
 
 ## Next
 
