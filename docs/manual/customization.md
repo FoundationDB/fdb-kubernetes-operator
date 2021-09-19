@@ -301,7 +301,7 @@ Add both sets of labels to all resources:
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-    name: sample-cluster
+  name: sample-cluster
 spec:
   version: 6.2.30
   labels:
@@ -322,7 +322,7 @@ Update the match labels:
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-    name: sample-cluster
+  name: sample-cluster
 spec:
   version: 6.2.30
   labels:
@@ -339,7 +339,7 @@ Remove the old labels from the spec:
 apiVersion: apps.foundationdb.org/v1beta1
 kind: FoundationDBCluster
 metadata:
-    name: sample-cluster
+  name: sample-cluster
 spec:
   version: 6.2.30
   labels:
@@ -354,6 +354,66 @@ kubectl label pod -l this-cluster=sample-cluster my-cluster-
 kubectl label pvc -l this-cluster=sample-cluster my-cluster-
 kubectl label configmap -l this-cluster=sample-cluster my-cluster-
 kubectl label service -l this-cluster=sample-cluster my-cluster-
+```
+
+### Per-Resource Labels
+
+The operator also sets labels on pods and PVCs indicating the process class and instance ID associated with the pod. You can customize the labels used for this through the label config in the cluster spec:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    processClassLabels:
+      # Default: ["fdb-process-class", "foundationdb.org/fdb-process-class"]
+      - my-class
+    instanceIDLabels:
+      # Default: ["fdb-instance-id", "foundationdb.org/fdb-instance-id"]
+      - my-instance
+```
+
+You can provide multiple label names in these fields. The first entry in the list will be the label that is used when listing resources in the operator. In order to change the labels used, you will have to follow a multi-step process. The examples below will focus on changing the process class label, but the same series of steps will work for changing the instance ID labels.
+
+First, you will need to add the new label to all of the resources:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+    name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    processClassLabels:
+      - my-class
+      - this-class
+```
+
+Once this change is reconciled and the new label is applied, you can remove the old label from the spec:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBCluster
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  labels:
+    processClassLabels:
+      - this-class
+```
+
+This will tell the operator to stop applying or using the labels, but existing resources will still have the old labels. Then you can remove the old labels from existing resources:
+
+```bash
+kubectl label pod -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
+kubectl label pvc -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
+kubectl label configmap -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
+kubectl label service -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
 ```
 
 ## Next

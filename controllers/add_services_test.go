@@ -88,6 +88,34 @@ var _ = Describe("add_services", func() {
 		It("should not create any services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 		})
+
+		Context("with a change to the resource labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig.MatchLabels["fdb-test-label"] = "true"
+			})
+
+			It("should not create any services", func() {
+				Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
+			})
+
+			It("should set the selector on the services", func() {
+				for _, service := range newServices.Items {
+					labels := map[string]string{
+						internal.OldFDBClusterLabel: cluster.Name,
+						"fdb-test-label":            "true",
+					}
+					if service.ObjectMeta.Labels[internal.OldFDBInstanceIDLabel] != "" {
+						labels[internal.OldFDBInstanceIDLabel] = service.ObjectMeta.Labels[internal.OldFDBInstanceIDLabel]
+					}
+					Expect(service.Spec.Selector).To(Equal(labels))
+				}
+			})
+			It("should set the metadata on the services", func() {
+				for _, service := range newServices.Items {
+					Expect(service.Labels["fdb-test-label"]).To(Equal("true"))
+				}
+			})
+		})
 	})
 
 	Context("with a process group with no service defined", func() {

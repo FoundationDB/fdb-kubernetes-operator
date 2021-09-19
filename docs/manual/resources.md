@@ -53,14 +53,18 @@ The table below provides examples of different resource names for a process grou
 
 The operator sets some built-in fields in the metadata for the resources it creates. The operator sets the following labels:
 
-* `fdb-cluster-name`: The name of the FoundationDBCluster object the resource is for.
-* `fdb-process-class`: The process class that the associated process is running.
-* `fdb-instance-id`: The ID of the process group that the resource is related to.
+* `foundationdb.org/fdb-cluster-name`: The name of the FoundationDBCluster object the resource is for.
+* `foundationdb.org/fdb-process-class`: The process class that the associated process is running.
+* `foundationdb.org/fdb-instance-id`: The ID of the process group that the resource is related to.
+
+It also sets the labels `fdb-cluster-name`, `fdb-process-class`, and `fdb-instance-id`, which are deprecated aliases for the three labels above. 
 
 The operator sets the following annotations on pods:
 
 * `foundationdb.org/last-applied-spec`: A hash of the spec that was used to create the resource.
 * `foundationdb.org/public-ip`: The value for the `services.publicIPSource` field in the cluster spec when the pod was created.
+
+See the [Customization guide](customization.md#resource-labeling) to learn how to customize the labels that the operator uses.
 
 ## Next
 
