@@ -29,9 +29,6 @@ import (
 	"strings"
 	"time"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -346,8 +343,8 @@ func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, 
 			}
 		}
 	} else if kindKey == "/v1/Pod" {
-		v4Address := generatePodIPv4(object.GetLabels())
-		v6Address := generatePodIPv6(object.GetLabels())
+		v4Address := client.generatePodIPv4()
+		v6Address := client.generatePodIPv6()
 		err = setJSONValue(genericObject, []string{"status", "podIP"}, v4Address)
 		if err != nil {
 			return err
@@ -761,35 +758,17 @@ func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
 }
 
 // generatePodIPv4 generates a mock IPv4 address for Pods
-func generatePodIPv4(labels map[string]string) string {
-	instanceID, ok := labels[internal.OldFDBInstanceIDLabel]
-	if !ok {
-		return ""
-	}
-
-	components := strings.Split(instanceID, "-")
-	for index, class := range fdbtypes.ProcessClasses {
-		if string(class) == components[len(components)-2] {
-			return fmt.Sprintf("1.1.%d.%s", index, components[len(components)-1])
-		}
-	}
-
-	return "0.0.0.0"
+func (client *MockClient) generatePodIPv4() string {
+	client.ipCounter++
+	return fmt.Sprintf("1.1.%d.%d", client.ipCounter/256, client.ipCounter%256)
 }
 
 // generatePodIPv6 generates a mock IPv6 address for Pods
-func generatePodIPv6(labels map[string]string) string {
-	instanceID, ok := labels[internal.OldFDBInstanceIDLabel]
-	if !ok {
-		return ""
+func (client *MockClient) generatePodIPv6() string {
+	client.ipCounter++
+	if client.ipCounter < 256 {
+		return fmt.Sprintf("::%d", client.ipCounter)
 	}
+	return fmt.Sprintf("::%d:%d", client.ipCounter/256, client.ipCounter%256)
 
-	components := strings.Split(instanceID, "-")
-	for index, class := range fdbtypes.ProcessClasses {
-		if string(class) == components[len(components)-2] {
-			return fmt.Sprintf("::%d:%s", index, components[len(components)-1])
-		}
-	}
-
-	return "::"
 }

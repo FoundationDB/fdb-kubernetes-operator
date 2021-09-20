@@ -54,7 +54,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, pvc := range pvcs.Items {
-		instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 		processGroupStatus := processGroups[instanceID]
 		if processGroupStatus == nil {
 			return &Requeue{Error: fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)}
@@ -87,7 +87,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, pod := range pods {
-		processGroupStatus := processGroups[GetProcessGroupID(pod)]
+		processGroupStatus := processGroups[GetProcessGroupID(cluster, pod)]
 		needsRemoval, err := instanceNeedsRemoval(cluster, pod, processGroupStatus)
 		if err != nil {
 			return &Requeue{Error: err}
@@ -112,7 +112,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 }
 
 func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim) (bool, error) {
-	instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
+	instanceID := internal.GetInstanceIDFromMeta(cluster, pvc.ObjectMeta)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
@@ -136,7 +136,7 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 	if err != nil {
 		return false, err
 	}
-	processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
+	processClass := internal.GetProcessClassFromMeta(cluster, pvc.ObjectMeta)
 	desiredPVC, err := internal.GetPvc(cluster, processClass, idNum)
 	if err != nil {
 		return false, err
@@ -164,7 +164,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	instanceID := GetProcessGroupID(pod)
+	instanceID := GetProcessGroupID(cluster, pod)
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
@@ -181,7 +181,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, err
 	}
 
-	processClass, err := GetProcessClass(pod)
+	processClass, err := GetProcessClass(cluster, pod)
 	if err != nil {
 		return false, err
 	}

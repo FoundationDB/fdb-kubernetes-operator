@@ -71,8 +71,8 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		return &Requeue{Error: err}
 	}
 	for _, pvc := range pvcs.Items {
-		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
-		instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
+		processClass := internal.GetProcessClassFromMeta(cluster, pvc.ObjectMeta)
+		instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 
 		metadata := internal.GetPvcMetadata(cluster, processClass, instanceID)
 		if metadata.Annotations == nil {

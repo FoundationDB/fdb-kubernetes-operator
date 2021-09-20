@@ -214,7 +214,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
-		instanceID := GetProcessGroupID(&pod)
+		instanceID := GetProcessGroupID(client.Cluster, &pod)
 
 		if client.missingProcessGroups[instanceID] {
 			continue
@@ -243,7 +243,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				fdbRoles = append(fdbRoles, fdbtypes.FoundationDBStatusProcessRoleInfo{Role: string(fdbtypes.ProcessRoleCoordinator)})
 			}
 
-			pClass, err := GetProcessClass(&pod)
+			pClass, err := GetProcessClass(client.Cluster, &pod)
 			if err != nil {
 				return nil, err
 			}
@@ -272,7 +272,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 
 			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbtypes.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
-				ProcessClass:  internal.GetProcessClassFromMeta(pod.ObjectMeta),
+				ProcessClass:  internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
 				CommandLine:   command,
 				Excluded:      excluded,
 				Locality:      locality,

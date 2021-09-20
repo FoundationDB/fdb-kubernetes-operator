@@ -226,18 +226,18 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
-	if cluster.InstanceIsBeingRemoved(GetProcessGroupID(pod)) {
+	if cluster.InstanceIsBeingRemoved(GetProcessGroupID(cluster, pod)) {
 		return true, nil
 	}
 	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
-		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", GetProcessGroupID(pod), "message", message)
+		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", GetProcessGroupID(cluster, pod), "message", message)
 		return false, nil
 	}
 
 	serversPerPod := 1
 
-	processClass, err := GetProcessClass(pod)
+	processClass, err := GetProcessClass(cluster, pod)
 	if err != nil {
 		return false, err
 	}
@@ -332,7 +332,7 @@ func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx
 
 func sortPodsByID(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return internal.GetProcessGroupIDFromMeta(pods.Items[i].ObjectMeta) < internal.GetProcessGroupIDFromMeta(pods.Items[j].ObjectMeta)
+		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
 	})
 }
 

@@ -160,7 +160,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 			continue
 		}
 
-		instances = append(instances, pod.Labels[internal.OldFDBInstanceIDLabel])
+		instances = append(instances, pod.Labels[cluster.GetInstanceIDLabel()])
 	}
 
 	return instances, nil
@@ -194,7 +194,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		}
 
 		for _, pod := range pods.Items {
-			class := internal.GetProcessClassFromMeta(pod.ObjectMeta)
+			class := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
 			shrinkMap[class]++
 		}
 	}

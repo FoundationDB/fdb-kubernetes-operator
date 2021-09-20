@@ -2920,3 +2920,23 @@ func (cluster *FoundationDBCluster) GetEnforceFullReplicationForDeletion() bool 
 
 	return *cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion
 }
+
+// GetProcessClassLabel provides the label that this cluster is using for the
+// process class when identifying resources.
+func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
+	labels := cluster.Spec.LabelConfig.ProcessClassLabels
+	if len(labels) == 0 {
+		return FDBProcessClassLabel
+	}
+	return labels[0]
+}
+
+// GetInstanceIDLabel provides the label that this cluster is using for the
+// instance ID when identifying resources.
+func (cluster *FoundationDBCluster) GetInstanceIDLabel() string {
+	labels := cluster.Spec.LabelConfig.InstanceIDLabels
+	if len(labels) == 0 {
+		return FDBInstanceIDLabel
+	}
+	return labels[0]
+}

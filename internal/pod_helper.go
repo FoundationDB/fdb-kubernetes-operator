@@ -71,8 +71,8 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 }
 
 // GetProcessGroupIDFromMeta fetches the instance ID from an object's metadata.
-func GetProcessGroupIDFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels[OldFDBInstanceIDLabel]
+func GetProcessGroupIDFromMeta(cluster *fdbtypes.FoundationDBCluster, metadata metav1.ObjectMeta) string {
+	return metadata.Labels[cluster.GetInstanceIDLabel()]
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.

@@ -170,7 +170,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 				continue
 			}
 
-			if pod.Labels[internal.OldFDBInstanceIDLabel] != process {
+			if pod.Labels[cluster.GetInstanceIDLabel()] != process {
 				continue
 			}
 

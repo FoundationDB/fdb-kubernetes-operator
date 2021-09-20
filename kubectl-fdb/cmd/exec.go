@@ -39,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -127,7 +126,7 @@ func buildCommand(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluste
 		selector = selector.Add(*requirement)
 	}
 
-	processClassRequirement, err := labels.NewRequirement(internal.OldFDBProcessClassLabel, selection.Exists, nil)
+	processClassRequirement, err := labels.NewRequirement(cluster.GetProcessClassLabel(), selection.Exists, nil)
 	if err != nil {
 		return exec.Cmd{}, nil
 	}
