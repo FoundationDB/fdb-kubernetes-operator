@@ -214,8 +214,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
-		instance := newFdbInstance(pod)
-		instanceID := instance.GetInstanceID()
+		instanceID := GetProcessGroupID(&pod)
 
 		if client.missingProcessGroups[instanceID] {
 			continue
@@ -243,26 +242,32 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				coordinators[fullAddress.String()] = true
 				fdbRoles = append(fdbRoles, fdbtypes.FoundationDBStatusProcessRoleInfo{Role: string(fdbtypes.ProcessRoleCoordinator)})
 			}
-			command, err := internal.GetStartCommand(client.Cluster, instance.GetProcessClass(), podClient, processIndex, processCount)
+
+			pClass, err := GetProcessClass(&pod)
 			if err != nil {
 				return nil, err
 			}
-			if client.incorrectCommandLines != nil && client.incorrectCommandLines[instance.GetInstanceID()] {
+
+			command, err := internal.GetStartCommand(client.Cluster, pClass, podClient, processIndex, processCount)
+			if err != nil {
+				return nil, err
+			}
+			if client.incorrectCommandLines != nil && client.incorrectCommandLines[instanceID] {
 				command += " --locality_incorrect=1"
 			}
 
 			locality := map[string]string{
-				fdbtypes.FDBLocalityInstanceIDKey: instance.GetInstanceID(),
+				fdbtypes.FDBLocalityInstanceIDKey: instanceID,
 				fdbtypes.FDBLocalityZoneIDKey:     pod.Name,
 				fdbtypes.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 			}
 
-			for key, value := range client.localityInfo[instance.GetInstanceID()] {
+			for key, value := range client.localityInfo[instanceID] {
 				locality[key] = value
 			}
 
 			if processCount > 1 {
-				locality["process_id"] = fmt.Sprintf("%s-%d", instance.GetInstanceID(), processIndex)
+				locality["process_id"] = fmt.Sprintf("%s-%d", instanceID, processIndex)
 			}
 
 			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbtypes.FoundationDBStatusProcessInfo{
@@ -283,7 +288,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				fdbtypes.FDBLocalityZoneIDKey:     processGroup.ProcessGroupID,
 			}
 
-			for key, value := range client.localityInfo[instance.GetInstanceID()] {
+			for key, value := range client.localityInfo[instanceID] {
 				locality[key] = value
 			}
 

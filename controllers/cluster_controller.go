@@ -225,27 +225,31 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	return builder.Complete(r)
 }
 
-func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (bool, error) {
-	if cluster.InstanceIsBeingRemoved(instance.GetInstanceID()) {
+func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
+	if cluster.InstanceIsBeingRemoved(GetProcessGroupID(pod)) {
 		return true, nil
 	}
-	podClient, message := r.getPodClient(cluster, instance)
+	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
-		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instance.GetInstanceID(), "message", message)
+		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", GetProcessGroupID(pod), "message", message)
 		return false, nil
 	}
 
-	var err error
-
 	serversPerPod := 1
-	if instance.GetProcessClass() == fdbtypes.ProcessClassStorage {
-		serversPerPod, err = getStorageServersPerPodForInstance(&instance)
+
+	processClass, err := GetProcessClass(pod)
+	if err != nil {
+		return false, err
+	}
+
+	if processClass == fdbtypes.ProcessClassStorage {
+		serversPerPod, err = internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
 			return false, err
 		}
 	}
 
-	conf, err := internal.GetMonitorConf(cluster, instance.GetProcessClass(), podClient, serversPerPod)
+	conf, err := internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
 	if err != nil {
 		return false, err
 	}
@@ -272,18 +276,17 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	return true, nil
 }
 
-func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (internal.FdbPodClient, string) {
-	if instance.Pod == nil {
-		return nil, fmt.Sprintf("Instance %s in cluster %s/%s does not have pod defined", instance.GetInstanceID(), cluster.Namespace, cluster.Name)
+func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, string) {
+	if pod == nil {
+		return nil, fmt.Sprintf("Process group in cluster %s/%s does not have pod defined", cluster.Namespace, cluster.Name)
 	}
 
-	pod := instance.Pod
-	client, err := r.PodClientProvider(cluster, pod)
+	podClient, err := r.PodClientProvider(cluster, pod)
 	if err != nil {
 		return nil, err.Error()
 	}
 
-	return client, ""
+	return podClient, ""
 }
 
 // getDatabaseClientProvider gets the client provider for a reconciler.
@@ -329,7 +332,7 @@ func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx
 
 func sortPodsByID(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return internal.GetInstanceIDFromMeta(pods.Items[i].ObjectMeta) < internal.GetInstanceIDFromMeta(pods.Items[j].ObjectMeta)
+		return internal.GetProcessGroupIDFromMeta(pods.Items[i].ObjectMeta) < internal.GetProcessGroupIDFromMeta(pods.Items[j].ObjectMeta)
 	})
 }
 

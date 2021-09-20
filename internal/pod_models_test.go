@@ -2922,4 +2922,94 @@ var _ = Describe("pod_models", func() {
 			)
 		})
 	})
+
+	Describe("getStorageServersPerPodForInstance", func() {
+		Context("when env var is set with 1", func() {
+			It("should return 1", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Env: []corev1.EnvVar{
+								{
+									Name:  "STORAGE_SERVERS_PER_POD",
+									Value: "1",
+								},
+							},
+						}},
+					},
+				}
+
+				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(storageServersPerPod).To(Equal(1))
+			})
+		})
+
+		Context("when env var is set with 2", func() {
+			It("should return 2", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Env: []corev1.EnvVar{
+								{
+									Name:  "STORAGE_SERVERS_PER_POD",
+									Value: "2",
+								},
+							},
+						}},
+					},
+				}
+
+				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(storageServersPerPod).To(Equal(2))
+			})
+		})
+
+		Context("when env var is unset", func() {
+			It("should return 1", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Env: []corev1.EnvVar{},
+						}},
+					},
+				}
+
+				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(storageServersPerPod).To(Equal(1))
+			})
+		})
+
+		Context("when pod is nil", func() {
+			It("should return 1", func() {
+				storageServersPerPod, err := GetStorageServersPerPodForPod(nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(storageServersPerPod).To(Equal(1))
+			})
+		})
+
+		Context("when Pod doesn't contain a Spec", func() {
+			It("should return 1", func() {
+				pod := &corev1.Pod{}
+
+				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(storageServersPerPod).To(Equal(1))
+			})
+		})
+
+		Context("when Pod doesn't contain a containers", func() {
+			It("should return 1", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{},
+				}
+
+				storageServersPerPod, err := GetStorageServersPerPodForPod(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(storageServersPerPod).To(Equal(1))
+			})
+		})
+	})
 })

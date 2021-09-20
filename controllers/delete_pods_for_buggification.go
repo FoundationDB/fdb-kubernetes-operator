@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -35,12 +37,12 @@ type DeletePodsForBuggification struct{}
 // Reconcile runs the reconciler's work.
 func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "DeletePodsForBuggification")
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	updates := make([]FdbInstance, 0)
+	updates := make([]*corev1.Pod, 0)
 
 	removals := make(map[string]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -51,27 +53,23 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 
 	crashLoopPods := make(map[string]bool, len(cluster.Spec.Buggify.CrashLoop))
 	crashLoopAll := false
-	for _, instanceID := range cluster.Spec.Buggify.CrashLoop {
-		if instanceID == "*" {
+	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == "*" {
 			crashLoopAll = true
 		} else {
-			crashLoopPods[instanceID] = true
+			crashLoopPods[processGroupID] = true
 		}
 	}
 
-	for _, instance := range instances {
-		if instance.Pod == nil {
-			continue
-		}
-
-		instanceID := instance.GetInstanceID()
+	for _, pod := range pods {
+		instanceID := GetProcessGroupID(pod)
 		_, pendingRemoval := removals[instanceID]
 		if pendingRemoval {
 			continue
 		}
 
 		inCrashLoop := false
-		for _, container := range instance.Pod.Spec.Containers {
+		for _, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb" && len(container.Args) > 0 {
 				inCrashLoop = container.Args[0] == "crash-loop"
 			}
@@ -84,7 +82,7 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 				"processGroupID", instanceID,
 				"shouldCrashLoop", shouldCrashLoop,
 				"inCrashLoop", inCrashLoop)
-			updates = append(updates, instance)
+			updates = append(updates, pod)
 		}
 	}
 

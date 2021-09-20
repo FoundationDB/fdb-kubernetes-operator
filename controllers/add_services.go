@@ -60,7 +60,7 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 				continue
 			}
 
-			_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
+			_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
 			if err != nil {
 				return &Requeue{Error: err}
 			}

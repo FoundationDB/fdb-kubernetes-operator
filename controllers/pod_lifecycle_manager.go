@@ -31,48 +31,48 @@ import (
 // PodLifecycleManager provides an abstraction around Pod management to allow
 // using intermediary controllers that will manage the Pod lifecycle.
 type PodLifecycleManager interface {
-	// GetInstances lists the instances in the cluster
-	GetInstances(client.Client, *fdbtypes.FoundationDBCluster, ctx.Context, ...client.ListOption) ([]FdbInstance, error)
+	// GetPods lists the instances in the cluster
+	GetPods(client.Client, *fdbtypes.FoundationDBCluster, ctx.Context, ...client.ListOption) ([]*corev1.Pod, error)
 
-	// CreateInstance creates a new instance based on a pod definition
-	CreateInstance(client.Client, ctx.Context, *corev1.Pod) error
+	// CreatePods creates a new instance based on a pod definition
+	CreatePod(client.Client, ctx.Context, *corev1.Pod) error
 
-	// DeleteInstance shuts down an instance
-	DeleteInstance(client.Client, ctx.Context, FdbInstance) error
+	// DeletePods shuts down an instance
+	DeletePod(client.Client, ctx.Context, *corev1.Pod) error
 
 	// CanDeletePods checks whether it is safe to delete pods.
 	CanDeletePods(AdminClient, ctx.Context, *fdbtypes.FoundationDBCluster) (bool, error)
 
 	// UpdatePods updates a list of pods to match the latest specs.
-	UpdatePods(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, []FdbInstance, bool) error
+	UpdatePods(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, []*corev1.Pod, bool) error
 
 	// UpdateImageVersion updates a container's image.
-	UpdateImageVersion(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance, int, string) error
+	UpdateImageVersion(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod, int, string) error
 
 	// UpdateMetadata updates an instance's metadata.
-	UpdateMetadata(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) error
+	UpdateMetadata(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) error
 
-	// InstanceIsUpdated determines whether an instance is up to date.
+	// PodIsUpdated determines whether an instance is up to date.
 	//
 	// This does not need to check the metadata or the pod spec hash. This only
 	// needs to check aspects of the rollout that are not available in the
 	// instance metadata.
-	InstanceIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error)
+	PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error)
 }
 
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
 // that directly creates pods.
 type StandardPodLifecycleManager struct{}
 
-// GetInstances returns a list of instances for FDB pods that have been
+// GetPods returns a list of Pods for FDB pods that have been
 // created.
-func (manager StandardPodLifecycleManager) GetInstances(r client.Client, cluster *fdbtypes.FoundationDBCluster, context ctx.Context, options ...client.ListOption) ([]FdbInstance, error) {
+func (manager StandardPodLifecycleManager) GetPods(r client.Client, cluster *fdbtypes.FoundationDBCluster, context ctx.Context, options ...client.ListOption) ([]*corev1.Pod, error) {
 	pods := &corev1.PodList{}
 	err := r.List(context, pods, options...)
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]FdbInstance, 0, len(pods.Items))
+	resPods := make([]*corev1.Pod, 0, len(pods.Items))
 	for _, pod := range pods.Items {
 		ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 		if !ownedByCluster {
@@ -83,33 +83,35 @@ func (manager StandardPodLifecycleManager) GetInstances(r client.Client, cluster
 				}
 			}
 		}
+
 		if ownedByCluster {
-			instances = append(instances, newFdbInstance(pod))
+			resPod := pod
+			resPods = append(resPods, &resPod)
 		}
 	}
 
-	return instances, nil
+	return resPods, nil
 }
 
-// CreateInstance creates a new instance based on a pod definition
-func (manager StandardPodLifecycleManager) CreateInstance(r client.Client, context ctx.Context, pod *corev1.Pod) error {
+// CreatePod creates a new Pod based on a Pod definition
+func (manager StandardPodLifecycleManager) CreatePod(r client.Client, context ctx.Context, pod *corev1.Pod) error {
 	return r.Create(context, pod)
 }
 
-// DeleteInstance shuts down an instance
-func (manager StandardPodLifecycleManager) DeleteInstance(r client.Client, context ctx.Context, instance FdbInstance) error {
-	return r.Delete(context, instance.Pod)
+// DeletePod shuts down a Pod
+func (manager StandardPodLifecycleManager) DeletePod(r client.Client, context ctx.Context, pod *corev1.Pod) error {
+	return r.Delete(context, pod)
 }
 
-// CanDeletePods checks whether it is safe to delete pods.
+// CanDeletePods checks whether it is safe to delete Pods.
 func (manager StandardPodLifecycleManager) CanDeletePods(adminClient AdminClient, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
 	return hasDesiredFaultTolerance(adminClient, cluster)
 }
 
-// UpdatePods updates a list of pods to match the latest specs.
-func (manager StandardPodLifecycleManager) UpdatePods(r client.Client, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instances []FdbInstance, unsafe bool) error {
-	for _, instance := range instances {
-		err := r.Delete(context, instance.Pod)
+// UpdatePods updates a list of Pods to match the latest specs.
+func (manager StandardPodLifecycleManager) UpdatePods(r client.Client, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pods []*corev1.Pod, unsafe bool) error {
+	for _, pod := range pods {
+		err := r.Delete(context, pod)
 		if err != nil {
 			return err
 		}
@@ -117,23 +119,22 @@ func (manager StandardPodLifecycleManager) UpdatePods(r client.Client, context c
 	return nil
 }
 
-// UpdateImageVersion updates a container's image.
-func (manager StandardPodLifecycleManager) UpdateImageVersion(r client.Client, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance, containerIndex int, image string) error {
-	instance.Pod.Spec.Containers[containerIndex].Image = image
-	return r.Update(context, instance.Pod)
+// UpdateImageVersion updates a Pod container's image.
+func (manager StandardPodLifecycleManager) UpdateImageVersion(r client.Client, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, containerIndex int, image string) error {
+	pod.Spec.Containers[containerIndex].Image = image
+	return r.Update(context, pod)
 }
 
-// UpdateMetadata updates an instance's metadata.
-func (manager StandardPodLifecycleManager) UpdateMetadata(r client.Client, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) error {
-	instance.Pod.ObjectMeta = *instance.Metadata
-	return r.Update(context, instance.Pod)
+// UpdateMetadata updates an Pod's metadata.
+func (manager StandardPodLifecycleManager) UpdateMetadata(r client.Client, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) error {
+	return r.Update(context, pod)
 }
 
-// InstanceIsUpdated determines whether an instance is up to date.
+// PodIsUpdated determines whether a Pod is up to date.
 //
 // This does not need to check the metadata or the pod spec hash. This only
 // needs to check aspects of the rollout that are not available in the
-// instance metadata.
-func (manager StandardPodLifecycleManager) InstanceIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, FdbInstance) (bool, error) {
+// PodIsUpdated metadata.
+func (manager StandardPodLifecycleManager) PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error) {
 	return true, nil
 }

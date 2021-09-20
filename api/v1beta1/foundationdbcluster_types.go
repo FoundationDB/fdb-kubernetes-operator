@@ -2236,6 +2236,10 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 
 // InstanceIsBeingRemoved determines if an instance is pending removal.
 func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bool {
+	if instanceID == "" {
+		return false
+	}
+
 	if cluster.Status.PendingRemovals != nil {
 		_, present := cluster.Status.PendingRemovals[instanceID]
 		if present {

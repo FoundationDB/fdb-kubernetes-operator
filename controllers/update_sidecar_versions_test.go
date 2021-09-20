@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func createClusterSpec(sidecarOverrides fdbtypes.ContainerOverrides, processes map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings) *fdbtypes.FoundationDBCluster {
@@ -43,7 +42,7 @@ var _ = Describe("update_sidecar_versions", func() {
 	trueBool := true
 	Context("When fetching the sidecar image", func() {
 		type testCase struct {
-			instance FdbInstance
+			pClass   fdbtypes.ProcessClass
 			cluster  *fdbtypes.FoundationDBCluster
 			hasError bool
 		}
@@ -53,7 +52,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				err := internal.NormalizeClusterSpec(input.cluster, internal.DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				image, err := getSidecarImage(input.cluster, input.instance)
+				image, err := internal.GetSidecarImage(input.cluster, input.pClass)
 				if input.hasError {
 					Expect(err).To(HaveOccurred())
 				} else {
@@ -64,13 +63,7 @@ var _ = Describe("update_sidecar_versions", func() {
 			},
 			Entry("only defaults used",
 				testCase{
-					instance: FdbInstance{
-						Metadata: &metav1.ObjectMeta{
-							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-							},
-						},
-					},
+					pClass: fdbtypes.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbtypes.ContainerOverrides{},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{}),
@@ -78,13 +71,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
 			Entry("sidecar override is set",
 				testCase{
-					instance: FdbInstance{
-						Metadata: &metav1.ObjectMeta{
-							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-							},
-						},
-					},
+					pClass: fdbtypes.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{}),
@@ -92,13 +79,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "sidecar-override:6.2.20-1"),
 			Entry("settings override sidecar",
 				testCase{
-					instance: FdbInstance{
-						Metadata: &metav1.ObjectMeta{
-							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-							},
-						},
-					},
+					pClass: fdbtypes.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
@@ -119,13 +100,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "settings-override:6.2.20-1"),
 			Entry("settings override sidecar with tag without override",
 				testCase{
-					instance: FdbInstance{
-						Metadata: &metav1.ObjectMeta{
-							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-							},
-						},
-					},
+					pClass: fdbtypes.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
@@ -146,13 +121,7 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, ""),
 			Entry("settings override sidecar with tag with override",
 				testCase{
-					instance: FdbInstance{
-						Metadata: &metav1.ObjectMeta{
-							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-							},
-						},
-					},
+					pClass: fdbtypes.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbtypes.ContainerOverrides{ImageConfigs: []fdbtypes.ImageConfig{{BaseImage: "sidecar-override"}}},
 						map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{

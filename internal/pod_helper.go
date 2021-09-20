@@ -7,6 +7,8 @@ import (
 	"net"
 	"strconv"
 
+	"k8s.io/utils/pointer"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,8 +70,8 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 	return []string{pod.Status.PodIP}
 }
 
-// GetInstanceIDFromMeta fetches the instance ID from an object's metadata.
-func GetInstanceIDFromMeta(metadata metav1.ObjectMeta) string {
+// GetProcessGroupIDFromMeta fetches the instance ID from an object's metadata.
+func GetProcessGroupIDFromMeta(metadata metav1.ObjectMeta) string {
 	return metadata.Labels[fdbtypes.FDBInstanceIDLabel]
 }
 
@@ -120,13 +122,12 @@ func GetMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdb
 
 // BuildOwnerReference returns an OwnerReference for the provided input
 func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectMeta) []metav1.OwnerReference {
-	var isController = true
 	return []metav1.OwnerReference{{
 		APIVersion: ownerType.APIVersion,
 		Kind:       ownerType.Kind,
 		Name:       ownerMetadata.Name,
 		UID:        ownerMetadata.UID,
-		Controller: &isController,
+		Controller: pointer.Bool(true),
 	}}
 }
 
@@ -156,4 +157,20 @@ func GetPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 		customMetadata = nil
 	}
 	return GetObjectMetadata(cluster, customMetadata, processClass, id)
+}
+
+// GetSidecarImage returns the expected sidecar image for a specific process class
+func GetSidecarImage(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.ProcessClass) (string, error) {
+	settings := cluster.GetProcessSettings(pClass)
+
+	image := ""
+	if settings.PodTemplate != nil {
+		for _, container := range settings.PodTemplate.Spec.Containers {
+			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+				image = container.Image
+			}
+		}
+	}
+
+	return GetImage(image, cluster.Spec.SidecarContainer.ImageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
 }

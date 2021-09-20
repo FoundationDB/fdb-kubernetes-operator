@@ -36,18 +36,18 @@ var _ = Describe("UpdatePodConfig", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var requeue *Requeue
 	var err error
-	var instances []FdbInstance
+	var pods []*corev1.Pod
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
 		err = setupClusterForTest(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		instances, err = clusterReconciler.PodLifecycleManager.GetInstances(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
+		pods, err = clusterReconciler.PodLifecycleManager.GetPods(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, container := range instances[0].Pod.Spec.Containers {
-			instances[0].Pod.Status.ContainerStatuses = append(instances[0].Pod.Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
+		for _, container := range pods[0].Spec.Containers {
+			pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 		}
 	})
 
@@ -65,7 +65,7 @@ var _ = Describe("UpdatePodConfig", func() {
 
 	When("a Pod is stuck in Pending", func() {
 		BeforeEach(func() {
-			instances[0].Pod.Status.Phase = corev1.PodPending
+			pods[0].Status.Phase = corev1.PodPending
 		})
 
 		It("should not requeue", func() {

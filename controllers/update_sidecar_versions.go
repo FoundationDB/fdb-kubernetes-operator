@@ -39,25 +39,26 @@ type UpdateSidecarVersions struct {
 // Reconcile runs the reconciler's work.
 func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateSidecarVersions")
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 	upgraded := false
-	for _, instance := range instances {
-		if instance.Pod == nil {
-			return &Requeue{Message: fmt.Sprintf("No pod defined for instance %s", instance.GetInstanceID()), Delay: podSchedulingDelayDuration}
-		}
-
-		image, err := getSidecarImage(cluster, instance)
+	for _, pod := range pods {
+		processClass, err := GetProcessClass(pod)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		for containerIndex, container := range instance.Pod.Spec.Containers {
+		image, err := internal.GetSidecarImage(cluster, processClass)
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+
+		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
-				logger.Info("Upgrading sidecar", "processGroupID", instance.GetInstanceID(), "oldImage", container.Image, "newImage", image)
-				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, instance, containerIndex, image)
+				logger.Info("Upgrading sidecar", "processGroupID", GetProcessGroupID(pod), "oldImage", container.Image, "newImage", image)
+				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, pod, containerIndex, image)
 				if err != nil {
 					return &Requeue{Error: err}
 				}
@@ -71,19 +72,4 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 	}
 
 	return nil
-}
-
-func getSidecarImage(cluster *fdbtypes.FoundationDBCluster, instance FdbInstance) (string, error) {
-	settings := cluster.GetProcessSettings(instance.GetProcessClass())
-
-	image := ""
-	if settings.PodTemplate != nil {
-		for _, container := range settings.PodTemplate.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
-				image = container.Image
-			}
-		}
-	}
-
-	return internal.GetImage(image, cluster.Spec.SidecarContainer.ImageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
 }

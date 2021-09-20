@@ -37,25 +37,30 @@ type UpdateLabels struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
-	for _, instance := range instances {
-		if instance.Pod != nil {
-			processClass := instance.GetProcessClass()
-			instanceID := instance.GetInstanceID()
 
-			metadata := internal.GetPodMetadata(cluster, processClass, instanceID, "")
-			if metadata.Annotations == nil {
-				metadata.Annotations = make(map[string]string)
-			}
+	for _, pod := range pods {
+		if pod == nil {
+			continue
+		}
 
-			if !podMetadataCorrect(metadata, &instance) {
-				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, instance)
-				if err != nil {
-					return &Requeue{Error: err}
-				}
+		processClass, err := GetProcessClass(pod)
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+
+		metadata := internal.GetPodMetadata(cluster, processClass, GetProcessGroupID(pod), "")
+		if metadata.Annotations == nil {
+			metadata.Annotations = make(map[string]string)
+		}
+
+		if !podMetadataCorrect(metadata, pod) {
+			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
+			if err != nil {
+				return &Requeue{Error: err}
 			}
 		}
 	}
@@ -67,7 +72,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 	for _, pvc := range pvcs.Items {
 		processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
-		instanceID := internal.GetInstanceIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
 
 		metadata := internal.GetPvcMetadata(cluster, processClass, instanceID)
 		if metadata.Annotations == nil {
@@ -96,15 +101,15 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	return nil
 }
 
-func podMetadataCorrect(metadata metav1.ObjectMeta, instance *FdbInstance) bool {
+func podMetadataCorrect(metadata metav1.ObjectMeta, pod *corev1.Pod) bool {
 	metadataCorrect := true
-	metadata.Annotations[fdbtypes.LastSpecKey] = instance.Metadata.Annotations[fdbtypes.LastSpecKey]
+	metadata.Annotations[fdbtypes.LastSpecKey] = pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]
 
-	if mergeLabelsInMetadata(instance.Metadata, metadata) {
+	if mergeLabelsInMetadata(&pod.ObjectMeta, metadata) {
 		metadataCorrect = false
 	}
 
-	if mergeAnnotations(instance.Metadata, metadata) {
+	if mergeAnnotations(&pod.ObjectMeta, metadata) {
 		metadataCorrect = false
 	}
 

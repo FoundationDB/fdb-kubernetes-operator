@@ -25,13 +25,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Update labels", func() {
 	type testCase struct {
-		instance     FdbInstance
+		pod          *corev1.Pod
 		metadata     metav1.ObjectMeta
 		expected     bool
 		expectedMeta metav1.ObjectMeta
@@ -39,15 +40,15 @@ var _ = Describe("Update labels", func() {
 
 	DescribeTable("Test metadata correctness",
 		func(tc testCase) {
-			result := podMetadataCorrect(tc.metadata, &tc.instance)
+			result := podMetadataCorrect(tc.metadata, tc.pod)
 			Expect(result).To(Equal(tc.expected))
-			Expect(equality.Semantic.DeepEqual(tc.instance.Metadata.Labels, tc.expectedMeta.Labels)).To(BeTrue())
-			Expect(equality.Semantic.DeepEqual(tc.instance.Metadata.Annotations, tc.expectedMeta.Annotations)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Labels, tc.expectedMeta.Labels)).To(BeTrue())
+			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Annotations, tc.expectedMeta.Annotations)).To(BeTrue())
 		},
 		Entry("Metadata matches with instance metadata",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 						},
@@ -68,8 +69,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Metadata last spec is not matching",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 						},
@@ -90,8 +91,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Metadata Annotation is not matching",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 							"special":            "43",
@@ -115,8 +116,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Missing annotation on metadata",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 						},
@@ -139,8 +140,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Ignore additional annotation",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 							"controller/X":       "wrong",
@@ -163,8 +164,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Annotation has wrong value",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 							"controller/X":       "true",
@@ -188,8 +189,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Ignore additional label",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 						},
@@ -216,8 +217,8 @@ var _ = Describe("Update labels", func() {
 		),
 		Entry("Label has wrong value",
 			testCase{
-				instance: FdbInstance{
-					Metadata: &metav1.ObjectMeta{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							fdbtypes.LastSpecKey: "1",
 						},

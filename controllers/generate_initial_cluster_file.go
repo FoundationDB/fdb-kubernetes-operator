@@ -44,7 +44,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
+	instances, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}

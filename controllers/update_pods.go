@@ -39,16 +39,19 @@ type UpdatePods struct{}
 func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdatePods")
 
-	instances, err := r.PodLifecycleManager.GetInstances(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
 
-	updates := make(map[string][]FdbInstance)
-
-	instanceProcessGroupMap := make(map[string]FdbInstance, len(instances))
-	for _, instance := range instances {
-		instanceProcessGroupMap[instance.GetInstanceID()] = instance
+	updates := make(map[string][]*corev1.Pod)
+	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
+	for _, pod := range pods {
+		processGroupID := GetProcessGroupID(pod)
+		if processGroupID == "" {
+			continue
+		}
+		podProcessGroupMap[processGroupID] = pod
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -64,33 +67,38 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			continue
 		}
 
-		instance, ok := instanceProcessGroupMap[processGroup.ProcessGroupID]
-		if !ok || instance.Pod == nil || instance.Metadata == nil {
+		pod, ok := podProcessGroupMap[processGroup.ProcessGroupID]
+		if !ok || pod == nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
-		if instance.Pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(processGroup.ProcessGroupID) {
+		if pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(processGroup.ProcessGroupID) {
 			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: podSchedulingDelayDuration}
 		}
 
-		_, idNum, err := ParseInstanceID(processGroup.ProcessGroupID)
+		_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		specHash, err := internal.GetPodSpecHash(cluster, instance.GetProcessClass(), idNum, nil)
+		processClass, err := GetProcessClass(pod)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		if instance.Metadata.Annotations[fdbtypes.LastSpecKey] != specHash {
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+		if err != nil {
+			return &Requeue{Error: err}
+		}
+
+		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
 			logger.Info("Update Pod",
 				"processGroupID", processGroup.ProcessGroupID,
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, instance.Metadata.Annotations[fdbtypes.LastSpecKey]))
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]))
 
-			podClient, message := r.getPodClient(cluster, instance)
+			podClient, message := r.getPodClient(cluster, pod)
 			if podClient == nil {
 				return &Requeue{Message: message, Delay: podSchedulingDelayDuration}
 			}
@@ -106,9 +114,9 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			}
 
 			if updates[zone] == nil {
-				updates[zone] = make([]FdbInstance, 0)
+				updates[zone] = make([]*corev1.Pod, 0)
 			}
-			updates[zone] = append(updates[zone], instance)
+			updates[zone] = append(updates[zone], pod)
 		}
 	}
 
