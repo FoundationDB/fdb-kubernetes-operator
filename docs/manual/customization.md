@@ -350,10 +350,7 @@ spec:
 Remove the old labels from existing resources:
 
 ```bash
-kubectl label pod -l this-cluster=sample-cluster my-cluster-
-kubectl label pvc -l this-cluster=sample-cluster my-cluster-
-kubectl label configmap -l this-cluster=sample-cluster my-cluster-
-kubectl label service -l this-cluster=sample-cluster my-cluster-
+kubectl label pod,pvc,configmap,service -l this-cluster=sample-cluster my-cluster-
 ```
 
 ### Per-Resource Labels
@@ -410,10 +407,7 @@ spec:
 This will tell the operator to stop applying or using the labels, but existing resources will still have the old labels. Then you can remove the old labels from existing resources:
 
 ```bash
-kubectl label pod -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
-kubectl label pvc -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
-kubectl label configmap -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
-kubectl label service -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
+kubectl label pod,pvc,configmap,service -l foundationdb.org/fdb-cluster-name=sample-cluster my-class-
 ```
 
 ## Next
