@@ -1240,6 +1240,16 @@ func (in *LabelConfig) DeepCopyInto(out *LabelConfig) {
 			(*out)[key] = val
 		}
 	}
+	if in.InstanceIDLabels != nil {
+		in, out := &in.InstanceIDLabels, &out.InstanceIDLabels
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.ProcessClassLabels != nil {
+		in, out := &in.ProcessClassLabels, &out.ProcessClassLabels
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.FilterOnOwnerReferences != nil {
 		in, out := &in.FilterOnOwnerReferences, &out.FilterOnOwnerReferences
 		*out = new(bool)

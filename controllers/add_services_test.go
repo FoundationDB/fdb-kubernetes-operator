@@ -34,7 +34,6 @@ import (
 )
 
 var _ = Describe("add_services", func() {
-
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 	var requeue *Requeue
@@ -61,6 +60,9 @@ var _ = Describe("add_services", func() {
 
 		initialServices = &corev1.ServiceList{}
 		err = k8sClient.List(context.TODO(), initialServices)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 

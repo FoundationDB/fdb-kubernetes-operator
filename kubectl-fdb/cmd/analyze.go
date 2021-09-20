@@ -27,6 +27,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
@@ -311,7 +312,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 			// The instance should be delete so we can safely replace it
 			if autoFix {
-				replaceInstances = append(replaceInstances, pod.Labels[fdbtypes.FDBInstanceIDLabel])
+				replaceInstances = append(replaceInstances, pod.Labels[internal.OldFDBInstanceIDLabel])
 			}
 		}
 	}

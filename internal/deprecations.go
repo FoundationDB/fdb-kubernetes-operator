@@ -277,12 +277,6 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 			cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = &duration
 		}
 
-		if cluster.Spec.LabelConfig.MatchLabels == nil {
-			cluster.Spec.LabelConfig.MatchLabels = map[string]string{
-				fdbtypes.FDBClusterLabel: cluster.Name,
-			}
-		}
-
 		cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})
 		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
 	}
@@ -351,6 +345,45 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	if cluster.Spec.LabelConfig.FilterOnOwnerReferences == nil {
 		enabled := !options.UseFutureDefaults
 		cluster.Spec.LabelConfig.FilterOnOwnerReferences = &enabled
+	}
+
+	if cluster.Spec.LabelConfig.MatchLabels == nil {
+		if options.UseFutureDefaults {
+			cluster.Spec.LabelConfig.MatchLabels = map[string]string{
+				fdbtypes.FDBClusterLabel: cluster.Name,
+			}
+		} else {
+			cluster.Spec.LabelConfig.MatchLabels = map[string]string{
+				OldFDBClusterLabel: cluster.Name,
+			}
+
+		}
+	}
+
+	if cluster.Spec.LabelConfig.ResourceLabels == nil && !options.UseFutureDefaults {
+		cluster.Spec.LabelConfig.ResourceLabels = map[string]string{
+			fdbtypes.FDBClusterLabel: cluster.Name,
+		}
+	}
+
+	if cluster.Spec.LabelConfig.InstanceIDLabels == nil {
+		if options.UseFutureDefaults {
+			cluster.Spec.LabelConfig.InstanceIDLabels = []string{fdbtypes.FDBInstanceIDLabel}
+		} else {
+			cluster.Spec.LabelConfig.InstanceIDLabels = []string{
+				OldFDBInstanceIDLabel, fdbtypes.FDBInstanceIDLabel,
+			}
+		}
+	}
+
+	if cluster.Spec.LabelConfig.ProcessClassLabels == nil {
+		if options.UseFutureDefaults {
+			cluster.Spec.LabelConfig.ProcessClassLabels = []string{fdbtypes.FDBProcessClassLabel}
+		} else {
+			cluster.Spec.LabelConfig.ProcessClassLabels = []string{
+				OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
+			}
+		}
 	}
 
 	if cluster.Spec.UseExplicitListenAddress == nil {

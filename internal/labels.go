@@ -1,5 +1,5 @@
 /*
- * process_class.go
+ * labels.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,17 +20,16 @@
 
 package internal
 
-import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+const (
+	// OldFDBInstanceIDLabel represents the label that is used to represent a instance ID
+	// Deprecated: This label will not be applied by default in the future.
+	OldFDBInstanceIDLabel = "fdb-instance-id"
+
+	// OldFDBProcessClassLabel represents the label that is used to represent the process class
+	// Deprecated: This label will not be applied by default in the future.
+	OldFDBProcessClassLabel = "fdb-process-class"
+
+	// OldFDBClusterLabel represents the label that is used to represent the cluster of an instance
+	// Deprecated: This label will not be applied by default in the future.
+	OldFDBClusterLabel = "fdb-cluster-name"
 )
-
-// ProcessClassFromLabels extracts the ProcessClass label from the metav1.ObjectMeta.Labels map
-func ProcessClassFromLabels(labels map[string]string) v1beta1.ProcessClass {
-	return v1beta1.ProcessClass(labels[OldFDBProcessClassLabel])
-}
-
-// GetProcessClassFromMeta fetches the process class from an object's metadata.
-func GetProcessClassFromMeta(metadata v1.ObjectMeta) v1beta1.ProcessClass {
-	return ProcessClassFromLabels(metadata.Labels)
-}

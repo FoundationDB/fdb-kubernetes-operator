@@ -148,7 +148,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, pvc := range pvcs.Items {
-		processGroupID := pvc.Labels[fdbtypes.FDBInstanceIDLabel]
+		processGroupID := pvc.Labels[internal.OldFDBInstanceIDLabel]
 		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
@@ -164,7 +164,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, service := range services.Items {
-		processGroupID := service.Labels[fdbtypes.FDBInstanceIDLabel]
+		processGroupID := service.Labels[internal.OldFDBInstanceIDLabel]
 		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
@@ -210,7 +210,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				return &Requeue{Error: err}
 			}
 			if len(pods.Items) > 0 {
-				instanceID := pods.Items[0].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel]
+				instanceID := pods.Items[0].ObjectMeta.Labels[internal.OldFDBInstanceIDLabel]
 				processClass := internal.ProcessClassFromLabels(pods.Items[0].ObjectMeta.Labels)
 				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
 				if !included {

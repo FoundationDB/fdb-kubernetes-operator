@@ -38,6 +38,7 @@ import (
 	ctx "context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -162,7 +163,7 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 				continue
 			}
 
-			instanceID, ok := pod.Labels[fdbtypes.FDBInstanceIDLabel]
+			instanceID, ok := pod.Labels[internal.OldFDBInstanceIDLabel]
 			if !ok {
 				fmt.Printf("could not fetch instance ID from Pod: %s\n", pod.Name)
 				continue

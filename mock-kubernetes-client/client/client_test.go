@@ -26,6 +26,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -87,6 +88,7 @@ var _ = Describe("[mock client]", func() {
 		BeforeEach(func() {
 			initialPod = createDummyPod()
 			initialPod.Labels[fdbtypes.FDBInstanceIDLabel] = "storage-1"
+			initialPod.Labels[internal.OldFDBInstanceIDLabel] = "storage-1"
 			err := client.Create(context.TODO(), initialPod)
 			Expect(err).NotTo(HaveOccurred())
 		})

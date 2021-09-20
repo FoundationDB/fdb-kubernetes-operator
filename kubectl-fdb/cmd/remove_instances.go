@@ -160,7 +160,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 			continue
 		}
 
-		instances = append(instances, pod.Labels[fdbtypes.FDBInstanceIDLabel])
+		instances = append(instances, pod.Labels[internal.OldFDBInstanceIDLabel])
 	}
 
 	return instances, nil

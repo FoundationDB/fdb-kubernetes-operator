@@ -2775,6 +2775,16 @@ type LabelConfig struct {
 	// resources it creates.
 	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
 
+	// InstanceIDLabels provides the labels that we use for the instance ID
+	// field. The first label will be used by the operator when filtering
+	// resources.
+	InstanceIDLabels []string `json:"instanceIDLabels,omitempty"`
+
+	// ProcessClassLabels provides the labels that we use for the process class
+	// field. The first label will be used by the operator when filtering
+	// resources.
+	ProcessClassLabels []string `json:"processClassLabels,omitempty"`
+
 	// FilterOnOwnerReferences determines whether we should check that resources
 	// are owned by the cluster object, in addition to the constraints provided
 	// by the match labels.

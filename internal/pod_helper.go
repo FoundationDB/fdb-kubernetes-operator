@@ -72,7 +72,7 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 
 // GetProcessGroupIDFromMeta fetches the instance ID from an object's metadata.
 func GetProcessGroupIDFromMeta(metadata metav1.ObjectMeta) string {
-	return metadata.Labels[fdbtypes.FDBInstanceIDLabel]
+	return metadata.Labels[OldFDBInstanceIDLabel]
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
@@ -101,8 +101,8 @@ func GetJSONHash(object interface{}) (string, error) {
 	return hex.EncodeToString(specHash), nil
 }
 
-// GetMinimalPodLabels creates the minimal required labels for a Pod
-func GetMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
+// GetPodLabels creates the labels that we will apply to a Pod
+func GetPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
 	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
@@ -110,11 +110,34 @@ func GetMinimalPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdb
 	}
 
 	if processClass != "" {
-		labels[fdbtypes.FDBProcessClassLabel] = string(processClass)
+		for _, label := range cluster.Spec.LabelConfig.ProcessClassLabels {
+			labels[label] = string(processClass)
+		}
 	}
 
 	if id != "" {
-		labels[fdbtypes.FDBInstanceIDLabel] = id
+		for _, label := range cluster.Spec.LabelConfig.InstanceIDLabels {
+			labels[label] = id
+		}
+	}
+
+	return labels
+}
+
+// GetPodMatchLabels creates the labels that we will use when filtering for a pod.
+func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
+	labels := map[string]string{}
+
+	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+		labels[key] = value
+	}
+
+	if processClass != "" {
+		labels[cluster.Spec.LabelConfig.ProcessClassLabels[0]] = string(processClass)
+	}
+
+	if id != "" {
+		labels[cluster.Spec.LabelConfig.InstanceIDLabels[0]] = id
 	}
 
 	return labels
@@ -133,17 +156,12 @@ func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 
 // GetSinglePodListOptions returns the listOptions to list a single Pod
 func GetSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetMinimalSinglePodLabels(cluster, instanceID))}
+	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", instanceID))}
 }
 
 // GetPodListOptions returns the listOptions to list Pods
 func GetPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetMinimalPodLabels(cluster, processClass, id))}
-}
-
-// GetMinimalSinglePodLabels returns the minimal listOptions to list Pods
-func GetMinimalSinglePodLabels(cluster *fdbtypes.FoundationDBCluster, id string) map[string]string {
-	return GetMinimalPodLabels(cluster, "", id)
+	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id))}
 }
 
 // GetPvcMetadata returns the metadata for a PVC

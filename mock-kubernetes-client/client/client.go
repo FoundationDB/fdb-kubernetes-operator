@@ -30,6 +30,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -761,7 +762,7 @@ func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
 
 // generatePodIPv4 generates a mock IPv4 address for Pods
 func generatePodIPv4(labels map[string]string) string {
-	instanceID, ok := labels[fdbtypes.FDBInstanceIDLabel]
+	instanceID, ok := labels[internal.OldFDBInstanceIDLabel]
 	if !ok {
 		return ""
 	}
@@ -778,7 +779,7 @@ func generatePodIPv4(labels map[string]string) string {
 
 // generatePodIPv6 generates a mock IPv6 address for Pods
 func generatePodIPv6(labels map[string]string) string {
-	instanceID, ok := labels[fdbtypes.FDBInstanceIDLabel]
+	instanceID, ok := labels[internal.OldFDBInstanceIDLabel]
 	if !ok {
 		return ""
 	}

@@ -46,13 +46,13 @@ const (
 	PublicIPAnnotation = "foundationdb.org/public-ip"
 
 	// FDBInstanceIDLabel represents the label that is used to represent a instance ID
-	FDBInstanceIDLabel = "fdb-instance-id"
+	FDBInstanceIDLabel = "foundationdb.org/fdb-instance-id"
 
 	// FDBProcessClassLabel represents the label that is used to represent the process class
-	FDBProcessClassLabel = "fdb-process-class"
+	FDBProcessClassLabel = "foundationdb.org/fdb-process-class"
 
 	// FDBClusterLabel represents the label that is used to represent the cluster of an instance
-	FDBClusterLabel = "fdb-cluster-name"
+	FDBClusterLabel = "foundationdb.org/fdb-cluster-name"
 
 	// NodeSelectorNoScheduleLabel is a label used when adding node selectors to block scheduling.
 	NodeSelectorNoScheduleLabel = "foundationdb.org/no-schedule-allowed"

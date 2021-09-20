@@ -936,6 +936,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the pod", func() {
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, internal.GetSinglePodListOptions(cluster, "storage-1")...)
 				Expect(err).NotTo(HaveOccurred())
@@ -985,6 +988,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should not exclude or remove the process", func() {
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				Expect(adminClient.ExcludedAddresses).To(BeNil())
 				Expect(len(adminClient.ReincludedAddresses)).To(Equal(0))
 
@@ -1027,6 +1033,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with a pod that gets deleted", func() {
 			var pod corev1.Pod
 			BeforeEach(func() {
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				generationGap = 0
 
 				pods := &corev1.PodList{}
@@ -1039,6 +1048,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the pod", func() {
+				err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				pods := &corev1.PodList{}
 				err = k8sClient.List(context.TODO(), pods, internal.GetSinglePodListOptions(cluster, "storage-1")...)
 				Expect(err).NotTo(HaveOccurred())
@@ -2507,7 +2519,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(configMap.Namespace).To(Equal("my-ns"))
 				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-config", cluster.Name)))
 				Expect(configMap.Labels).To(Equal(map[string]string{
-					fdbtypes.FDBClusterLabel: cluster.Name,
+					fdbtypes.FDBClusterLabel:    cluster.Name,
+					internal.OldFDBClusterLabel: cluster.Name,
 				}))
 				Expect(configMap.Annotations).To(BeNil())
 			})
@@ -2667,8 +2680,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 			It("should put the label on the config map", func() {
 				Expect(configMap.Labels).To(Equal(map[string]string{
-					fdbtypes.FDBClusterLabel: cluster.Name,
-					"fdb-label":              "value1",
+					fdbtypes.FDBClusterLabel:    cluster.Name,
+					internal.OldFDBClusterLabel: cluster.Name,
+					"fdb-label":                 "value1",
 				}))
 			})
 		})
