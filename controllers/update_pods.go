@@ -83,7 +83,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Error: err}
 		}
 
-		processClass, err := GetProcessClass(pod)
+		processClass, err := GetProcessClass(cluster, pod)
 		if err != nil {
 			return &Requeue{Error: err}
 		}

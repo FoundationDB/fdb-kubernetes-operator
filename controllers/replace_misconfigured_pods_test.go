@@ -52,8 +52,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					fdbtypes.FDBInstanceIDLabel:   instanceName,
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBInstanceIDLabel:      instanceName,
+					fdbtypes.FDBProcessClassLabel:    string(fdbtypes.ProcessClassStorage),
+					internal.OldFDBInstanceIDLabel:   instanceName,
+					internal.OldFDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
 				},
 				Annotations: map[string]string{},
 			},

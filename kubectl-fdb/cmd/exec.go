@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
 func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {

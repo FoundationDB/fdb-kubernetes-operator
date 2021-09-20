@@ -445,6 +445,11 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = internal.None{}
 	}
+	// Clear the IncorrectCommandLine condition to prevent it being held over
+	// when pods get deleted.
+	for _, processGroup := range processGroups {
+		processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, false, nil, "")
+	}
 
 	for _, processGroup := range processGroups {
 		pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)

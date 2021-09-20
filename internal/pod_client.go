@@ -395,7 +395,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		}
 	}
 
-	substitutions["FDB_INSTANCE_ID"] = GetProcessGroupIDFromMeta(cluster, client.Pod.ObjectMeta)
+	substitutions["FDB_INSTANCE_ID"] = GetProcessGroupIDFromMeta(client.Cluster, client.Pod.ObjectMeta)
 
 	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {

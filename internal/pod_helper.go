@@ -133,11 +133,11 @@ func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbty
 	}
 
 	if processClass != "" {
-		labels[cluster.Spec.LabelConfig.ProcessClassLabels[0]] = string(processClass)
+		labels[cluster.GetProcessClassLabel()] = string(processClass)
 	}
 
 	if id != "" {
-		labels[cluster.Spec.LabelConfig.InstanceIDLabels[0]] = id
+		labels[cluster.GetInstanceIDLabel()] = id
 	}
 
 	return labels

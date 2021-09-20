@@ -3295,7 +3295,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				command, err = internal.GetStartCommand(cluster, pClass, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				id := GetProcessGroupID(&pods.Items[firstStorageIndex])
+				id := GetProcessGroupID(cluster, &pods.Items[firstStorageIndex])
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
@@ -3321,7 +3321,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				command, err = internal.GetStartCommand(cluster, pClass, podClient, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
 
-				id := GetProcessGroupID(&pods.Items[firstStorageIndex])
+				id := GetProcessGroupID(cluster, &pods.Items[firstStorageIndex])
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
@@ -3361,7 +3361,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				pod := pods.Items[firstStorageIndex]
 				pod.Spec.NodeName = "machine1"
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
-				pClass, err := GetProcessClass(&pods.Items[firstStorageIndex])
+				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 
 				podClient, _ := internal.NewMockFdbPodClient(cluster, &pod)
@@ -3390,7 +3390,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			BeforeEach(func() {
 				pod := pods.Items[firstStorageIndex]
 				pod.Spec.NodeName = "machine1"
-				pClass, err := GetProcessClass(&pods.Items[firstStorageIndex])
+				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{

@@ -133,7 +133,7 @@ func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeC
 		selector = selector.Add(*requirement)
 	}
 
-	processClassRequirement, err := labels.NewRequirement(fdbtypes.FDBProcessClassLabel, selection.Exists, nil)
+	processClassRequirement, err := labels.NewRequirement(cluster.GetProcessClassLabel(), selection.Exists, nil)
 	if err != nil {
 		return nil, err
 	}

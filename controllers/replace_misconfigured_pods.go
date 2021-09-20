@@ -112,7 +112,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 }
 
 func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim) (bool, error) {
-	instanceID := internal.GetInstanceIDFromMeta(cluster, pvc.ObjectMeta)
+	instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
@@ -128,9 +128,6 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 		logger.Info("Ignoring PVC that is not owned by the cluster")
 		return false, nil
 	}
-	instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
-
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
 	_, idNum, err := ParseProcessGroupID(instanceID)
 	if err != nil {

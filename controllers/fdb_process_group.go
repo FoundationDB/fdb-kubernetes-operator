@@ -59,21 +59,21 @@ func GetProcessGroupIDFromProcessID(id string) string {
 }
 
 // GetProcessGroupID returns the process group ID from the Pods metadata
-func GetProcessGroupID(pod *corev1.Pod) string {
+func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) string {
 	if pod == nil {
 		return ""
 	}
 
-	return internal.GetProcessGroupIDFromMeta(pod.ObjectMeta)
+	return internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
 }
 
 // GetProcessClass fetches the process class from a Pod's metadata.
-func GetProcessClass(pod *corev1.Pod) (fdbtypes.ProcessClass, error) {
+func GetProcessClass(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (fdbtypes.ProcessClass, error) {
 	if pod == nil {
 		return "", fmt.Errorf("failed to fetch process class from nil Pod")
 	}
 
-	return internal.GetProcessClassFromMeta(pod.ObjectMeta), nil
+	return internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta), nil
 }
 
 // GetPublicIPSource determines how a Pod has gotten its public IP.
