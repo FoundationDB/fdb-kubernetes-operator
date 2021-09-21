@@ -1240,8 +1240,8 @@ func (in *LabelConfig) DeepCopyInto(out *LabelConfig) {
 			(*out)[key] = val
 		}
 	}
-	if in.InstanceIDLabels != nil {
-		in, out := &in.InstanceIDLabels, &out.InstanceIDLabels
+	if in.ProcessGroupIDLabels != nil {
+		in, out := &in.ProcessGroupIDLabels, &out.ProcessGroupIDLabels
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

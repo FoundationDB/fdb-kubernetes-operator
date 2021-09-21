@@ -72,7 +72,7 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 
 // GetProcessGroupIDFromMeta fetches the instance ID from an object's metadata.
 func GetProcessGroupIDFromMeta(cluster *fdbtypes.FoundationDBCluster, metadata metav1.ObjectMeta) string {
-	return metadata.Labels[cluster.GetInstanceIDLabel()]
+	return metadata.Labels[cluster.GetProcessGroupIDLabel()]
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
@@ -116,7 +116,7 @@ func GetPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.P
 	}
 
 	if id != "" {
-		for _, label := range cluster.Spec.LabelConfig.InstanceIDLabels {
+		for _, label := range cluster.Spec.LabelConfig.ProcessGroupIDLabels {
 			labels[label] = id
 		}
 	}
@@ -137,7 +137,7 @@ func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbty
 	}
 
 	if id != "" {
-		labels[cluster.GetInstanceIDLabel()] = id
+		labels[cluster.GetProcessGroupIDLabel()] = id
 	}
 
 	return labels

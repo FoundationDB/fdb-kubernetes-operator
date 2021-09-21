@@ -104,8 +104,8 @@ var _ = Describe("add_services", func() {
 						internal.OldFDBClusterLabel: cluster.Name,
 						"fdb-test-label":            "true",
 					}
-					if service.ObjectMeta.Labels[internal.OldFDBInstanceIDLabel] != "" {
-						labels[internal.OldFDBInstanceIDLabel] = service.ObjectMeta.Labels[internal.OldFDBInstanceIDLabel]
+					if service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel] != "" {
+						labels[internal.OldFDBProcessGroupIDLabel] = service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel]
 					}
 					Expect(service.Spec.Selector).To(Equal(labels))
 				}
@@ -131,7 +131,7 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
 			lastService := newServices.Items[len(newServices.Items)-1]
 			Expect(lastService.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastService.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
+			Expect(lastService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
 			Expect(lastService.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastService.Spec.ClusterIP).NotTo(Equal("None"))
 			Expect(lastService.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
@@ -186,7 +186,7 @@ var _ = Describe("add_services", func() {
 			firstService := newServices.Items[0]
 
 			Expect(firstService.Name).To(Equal("operator-test-1"))
-			Expect(firstService.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal(""))
+			Expect(firstService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal(""))
 			Expect(firstService.Spec.ClusterIP).To(Equal("None"))
 		})
 

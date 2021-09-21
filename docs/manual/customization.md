@@ -355,7 +355,7 @@ kubectl label pod,pvc,configmap,service -l this-cluster=sample-cluster my-cluste
 
 ### Per-Resource Labels
 
-The operator also sets labels on pods and PVCs indicating the process class and instance ID associated with the pod. You can customize the labels used for this through the label config in the cluster spec:
+The operator also sets labels on pods and PVCs indicating the process class and process group ID associated with the pod. You can customize the labels used for this through the label config in the cluster spec:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
@@ -368,12 +368,12 @@ spec:
     processClassLabels:
       # Default: ["fdb-process-class", "foundationdb.org/fdb-process-class"]
       - my-class
-    instanceIDLabels:
-      # Default: ["fdb-instance-id", "foundationdb.org/fdb-instance-id"]
+    processGroupIDLabels:
+      # Default: ["fdb-instance-id", "foundationdb.org/fdb-process-group-id"]
       - my-instance
 ```
 
-You can provide multiple label names in these fields. The first entry in the list will be the label that is used when listing resources in the operator. In order to change the labels used, you will have to follow a multi-step process. The examples below will focus on changing the process class label, but the same series of steps will work for changing the instance ID labels.
+You can provide multiple label names in these fields. The first entry in the list will be the label that is used when listing resources in the operator. In order to change the labels used, you will have to follow a multi-step process. The examples below will focus on changing the process class label, but the same series of steps will work for changing the process group ID labels.
 
 First, you will need to add the new label to all of the resources:
 

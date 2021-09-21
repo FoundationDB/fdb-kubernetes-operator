@@ -52,10 +52,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					fdbtypes.FDBInstanceIDLabel:      instanceName,
-					fdbtypes.FDBProcessClassLabel:    string(fdbtypes.ProcessClassStorage),
-					internal.OldFDBInstanceIDLabel:   instanceName,
-					internal.OldFDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessGroupIDLabel:    instanceName,
+					fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
+					internal.OldFDBProcessGroupIDLabel: instanceName,
+					internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
 				},
 				Annotations: map[string]string{},
 			},
@@ -205,10 +205,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		It("should not need a removal", func() {
 			pod.ObjectMeta = metav1.ObjectMeta{
 				Labels: map[string]string{
-					fdbtypes.FDBInstanceIDLabel:      fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
-					fdbtypes.FDBProcessClassLabel:    string(fdbtypes.ProcessClassLog),
-					internal.OldFDBInstanceIDLabel:   fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
-					internal.OldFDBProcessClassLabel: string(fdbtypes.ProcessClassLog),
+					fdbtypes.FDBProcessGroupIDLabel:    fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
+					fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassLog),
+					internal.OldFDBProcessGroupIDLabel: fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
+					internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassLog),
 				},
 				Annotations: map[string]string{},
 			}

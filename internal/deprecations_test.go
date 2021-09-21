@@ -771,8 +771,8 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.LabelConfig.ResourceLabels).To(Equal(map[string]string{
 						fdbtypes.FDBClusterLabel: cluster.Name,
 					}))
-					Expect(spec.LabelConfig.InstanceIDLabels).To(Equal([]string{
-						OldFDBInstanceIDLabel, fdbtypes.FDBInstanceIDLabel,
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{
+						OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
 					}))
 					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{
 						OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
@@ -852,8 +852,8 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.LabelConfig.ResourceLabels).To(Equal(map[string]string{
 						fdbtypes.FDBClusterLabel: cluster.Name,
 					}))
-					Expect(spec.LabelConfig.InstanceIDLabels).To(Equal([]string{
-						OldFDBInstanceIDLabel, fdbtypes.FDBInstanceIDLabel,
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{
+						OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
 					}))
 					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{
 						OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
@@ -1026,7 +1026,7 @@ var _ = Describe("[internal] deprecations", func() {
 						fdbtypes.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ResourceLabels).To(BeNil())
-					Expect(spec.LabelConfig.InstanceIDLabels).To(Equal([]string{fdbtypes.FDBInstanceIDLabel}))
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdbtypes.FDBProcessGroupIDLabel}))
 					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdbtypes.FDBProcessClassLabel}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
@@ -1085,7 +1085,7 @@ var _ = Describe("[internal] deprecations", func() {
 						fdbtypes.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ResourceLabels).To(BeNil())
-					Expect(spec.LabelConfig.InstanceIDLabels).To(Equal([]string{fdbtypes.FDBInstanceIDLabel}))
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdbtypes.FDBProcessGroupIDLabel}))
 					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdbtypes.FDBProcessClassLabel}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())

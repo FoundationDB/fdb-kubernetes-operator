@@ -2775,10 +2775,10 @@ type LabelConfig struct {
 	// resources it creates.
 	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
 
-	// InstanceIDLabels provides the labels that we use for the instance ID
+	// ProcessGroupIDLabels provides the labels that we use for the instance ID
 	// field. The first label will be used by the operator when filtering
 	// resources.
-	InstanceIDLabels []string `json:"instanceIDLabels,omitempty"`
+	ProcessGroupIDLabels []string `json:"processGroupIDLabels,omitempty"`
 
 	// ProcessClassLabels provides the labels that we use for the process class
 	// field. The first label will be used by the operator when filtering
@@ -2931,12 +2931,12 @@ func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 	return labels[0]
 }
 
-// GetInstanceIDLabel provides the label that this cluster is using for the
+// GetProcessGroupIDLabel provides the label that this cluster is using for the
 // instance ID when identifying resources.
-func (cluster *FoundationDBCluster) GetInstanceIDLabel() string {
-	labels := cluster.Spec.LabelConfig.InstanceIDLabels
+func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
+	labels := cluster.Spec.LabelConfig.ProcessGroupIDLabels
 	if len(labels) == 0 {
-		return FDBInstanceIDLabel
+		return FDBProcessGroupIDLabel
 	}
 	return labels[0]
 }

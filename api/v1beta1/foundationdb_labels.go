@@ -45,8 +45,8 @@ const (
 	// IP for a pod.
 	PublicIPAnnotation = "foundationdb.org/public-ip"
 
-	// FDBInstanceIDLabel represents the label that is used to represent a instance ID
-	FDBInstanceIDLabel = "foundationdb.org/fdb-instance-id"
+	// FDBProcessGroupIDLabel represents the label that is used to represent a instance ID
+	FDBProcessGroupIDLabel = "foundationdb.org/fdb-process-group-id"
 
 	// FDBProcessClassLabel represents the label that is used to represent the process class
 	FDBProcessClassLabel = "foundationdb.org/fdb-process-class"

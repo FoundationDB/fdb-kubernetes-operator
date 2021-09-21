@@ -162,7 +162,7 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 				continue
 			}
 
-			instanceID, ok := pod.Labels[cluster.GetInstanceIDLabel()]
+			instanceID, ok := pod.Labels[cluster.GetProcessGroupIDLabel()]
 			if !ok {
 				fmt.Printf("could not fetch instance ID from Pod: %s\n", pod.Name)
 				continue

@@ -330,7 +330,7 @@ LabelConfig allows customizing labels used by the operator.
 | ----- | ----------- | ------ | -------- |
 | matchLabels | MatchLabels provides the labels that the operator should use to identify resources owned by the cluster. These will automatically be applied to all resources the operator creates. | map[string]string | false |
 | resourceLabels | ResourceLabels provides additional labels that the operator should apply to resources it creates. | map[string]string | false |
-| instanceIDLabels | InstanceIDLabels provides the labels that we use for the instance ID field. The first label will be used by the operator when filtering resources. | []string | false |
+| processGroupIDLabels | ProcessGroupIDLabels provides the labels that we use for the instance ID field. The first label will be used by the operator when filtering resources. | []string | false |
 | processClassLabels | ProcessClassLabels provides the labels that we use for the process class field. The first label will be used by the operator when filtering resources. | []string | false |
 | filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. | *bool | false |
 

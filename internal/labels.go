@@ -21,9 +21,9 @@
 package internal
 
 const (
-	// OldFDBInstanceIDLabel represents the label that is used to represent a instance ID
+	// OldFDBProcessGroupIDLabel represents the label that is used to represent a instance ID
 	// Deprecated: This label will not be applied by default in the future.
-	OldFDBInstanceIDLabel = "fdb-instance-id"
+	OldFDBProcessGroupIDLabel = "fdb-instance-id"
 
 	// OldFDBProcessClassLabel represents the label that is used to represent the process class
 	// Deprecated: This label will not be applied by default in the future.

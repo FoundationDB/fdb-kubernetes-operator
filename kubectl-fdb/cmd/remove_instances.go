@@ -112,7 +112,7 @@ kubectl fdb remove instances -c cluster pod-1 -i pod-2
 kubectl fdb -n default remove instances -c cluster pod-1 pod-2
 
 # Remove instances for a cluster with the instance ID.
-# The instance ID of a Pod can be fetched with "kubectl get po -L fdb-instance-id"
+# The instance ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
 kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
 
 # Remove all failed instances for a cluster (all instances that have a missing process)
@@ -160,7 +160,7 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 			continue
 		}
 
-		instances = append(instances, pod.Labels[cluster.GetInstanceIDLabel()])
+		instances = append(instances, pod.Labels[cluster.GetProcessGroupIDLabel()])
 	}
 
 	return instances, nil

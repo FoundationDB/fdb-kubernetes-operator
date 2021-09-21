@@ -170,7 +170,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 				continue
 			}
 
-			if pod.Labels[cluster.GetInstanceIDLabel()] != process {
+			if pod.Labels[cluster.GetProcessGroupIDLabel()] != process {
 				continue
 			}
 

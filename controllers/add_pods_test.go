@@ -97,7 +97,7 @@ var _ = Describe("add_pods", func() {
 			Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
 			lastPod := newPods.Items[len(newPods.Items)-1]
 			Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastPod.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
+			Expect(lastPod.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
 			Expect(lastPod.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})

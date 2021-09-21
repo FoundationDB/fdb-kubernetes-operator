@@ -330,7 +330,7 @@ func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx
 	return r.Update(context, modifiedCluster)
 }
 
-func sortPodsByID(pods *corev1.PodList) {
+func sortPodsByName(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
 		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
 	})

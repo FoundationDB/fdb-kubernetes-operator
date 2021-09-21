@@ -56,12 +56,12 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.Namespace).To(Equal("my-ns"))
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 
@@ -89,13 +89,13 @@ var _ = Describe("pod_models", func() {
 				Expect(pod.Namespace).To(Equal("my-ns"))
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-custom-name":             cluster.Name,
-					"fdb-new-custom-name":         cluster.Name,
-					"fdb-managed-by-operator":     "true",
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+					"fdb-custom-name":               cluster.Name,
+					"fdb-new-custom-name":           cluster.Name,
+					"fdb-managed-by-operator":       "true",
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 		})
@@ -109,12 +109,12 @@ var _ = Describe("pod_models", func() {
 			It("should contain the instance's metadata", func() {
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassClusterController),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassClusterController),
-					OldFDBInstanceIDLabel:         "cluster_controller-1",
-					fdbtypes.FDBInstanceIDLabel:   "cluster_controller-1",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassClusterController),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassClusterController),
+					OldFDBProcessGroupIDLabel:       "cluster_controller-1",
+					fdbtypes.FDBProcessGroupIDLabel: "cluster_controller-1",
 				}))
 			})
 
@@ -138,12 +138,12 @@ var _ = Describe("pod_models", func() {
 
 			It("should contain the prefix in the instance labels labels", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "dc1-storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "dc1-storage-1",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "dc1-storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "dc1-storage-1",
 				}))
 			})
 		})
@@ -190,13 +190,13 @@ var _ = Describe("pod_models", func() {
 
 			It("should add the labels to the metadata", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
-					"fdb-label":                   "value2",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
+					"fdb-label":                     "value2",
 				}))
 			})
 		})
@@ -2137,12 +2137,12 @@ var _ = Describe("pod_models", func() {
 				Expect(service.Namespace).To(Equal("my-ns"))
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 
@@ -2156,8 +2156,8 @@ var _ = Describe("pod_models", func() {
 				Expect(service.Spec.Ports[1].Port).To(Equal(int32(4501)))
 
 				Expect(service.Spec.Selector).To(Equal(map[string]string{
-					OldFDBClusterLabel:    cluster.Name,
-					OldFDBInstanceIDLabel: "storage-1",
+					OldFDBClusterLabel:        cluster.Name,
+					OldFDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 		})
@@ -2179,13 +2179,13 @@ var _ = Describe("pod_models", func() {
 				Expect(service.Namespace).To(Equal("my-ns"))
 				Expect(service.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(service.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-custom-name":             cluster.Name,
-					"fdb-managed-by-operator":     "true",
-					"fdb-new-custom-name":         cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+					"fdb-custom-name":               cluster.Name,
+					"fdb-managed-by-operator":       "true",
+					"fdb-new-custom-name":           cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 
@@ -2201,7 +2201,7 @@ var _ = Describe("pod_models", func() {
 				Expect(service.Spec.Selector).To(Equal(map[string]string{
 					"fdb-custom-name":         cluster.Name,
 					"fdb-managed-by-operator": "true",
-					OldFDBInstanceIDLabel:     "storage-1",
+					OldFDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 		})
@@ -2220,12 +2220,12 @@ var _ = Describe("pod_models", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 
@@ -2258,13 +2258,13 @@ var _ = Describe("pod_models", func() {
 				Expect(pvc.Namespace).To(Equal("my-ns"))
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					"fdb-custom-name":             cluster.Name,
-					"fdb-new-custom-name":         cluster.Name,
-					"fdb-managed-by-operator":     "true",
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
+					"fdb-custom-name":               cluster.Name,
+					"fdb-new-custom-name":           cluster.Name,
+					"fdb-managed-by-operator":       "true",
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
 				}))
 			})
 		})
@@ -2317,13 +2317,13 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/last-applied-spec": "f0c8a45ea6c3dd26c2dc2b5f3c699f38d613dab273d0f8a6eae6abd9a9569063",
 				}))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "storage-1",
-					"fdb-label":                   "value2",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "storage-1",
+					"fdb-label":                     "value2",
 				}))
 			})
 		})
@@ -2387,12 +2387,12 @@ var _ = Describe("pod_models", func() {
 			It("should include the prefix in the instance IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
-					OldFDBClusterLabel:            cluster.Name,
-					fdbtypes.FDBClusterLabel:      cluster.Name,
-					OldFDBProcessClassLabel:       string(fdbtypes.ProcessClassStorage),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-					OldFDBInstanceIDLabel:         "dc1-storage-1",
-					fdbtypes.FDBInstanceIDLabel:   "dc1-storage-1",
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "dc1-storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "dc1-storage-1",
 				}))
 			})
 		})

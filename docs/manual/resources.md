@@ -38,7 +38,7 @@ Volume claims have the same name as a pod, with a suffix taken from the name in 
 
 Per-pod services have the same name as the pod.
 
-The process group ID will be put in a label called `fdb-instance-id` on any resource the operator creates for that process group.
+The process group ID will be put in a label called `foundationdb.org/fdb-process-group-id` on any resource the operator creates for that process group.
 
 The table below provides examples of different resource names for a process group. These examples assume that your cluster is called `example`.
 
@@ -55,7 +55,7 @@ The operator sets some built-in fields in the metadata for the resources it crea
 
 * `foundationdb.org/fdb-cluster-name`: The name of the FoundationDBCluster object the resource is for.
 * `foundationdb.org/fdb-process-class`: The process class that the associated process is running.
-* `foundationdb.org/fdb-instance-id`: The ID of the process group that the resource is related to.
+* `foundationdb.org/fdb-process-group-id`: The ID of the process group that the resource is related to.
 
 It also sets the labels `fdb-cluster-name`, `fdb-process-class`, and `fdb-instance-id`, which are deprecated aliases for the three labels above. 
 

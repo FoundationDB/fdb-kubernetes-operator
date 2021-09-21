@@ -319,10 +319,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			labelSelectors[key] = value
 		}
 
-		if len(cluster.Spec.LabelConfig.ProcessClassLabels) == 0 {
-			return nil, fmt.Errorf("No process class labels are present in the cluster spec")
-		}
-		processClassLabel := cluster.Spec.LabelConfig.ProcessClassLabels[0]
+		processClassLabel := cluster.GetProcessClassLabel()
 		labelSelectors[processClassLabel] = string(processClass)
 
 		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,

@@ -166,8 +166,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 								ResourceLabels: map[string]string{
 									fdbtypes.FDBClusterLabel: clusterName,
 								},
-								InstanceIDLabels:   []string{fdbtypes.FDBInstanceIDLabel},
-								ProcessClassLabels: []string{fdbtypes.FDBProcessClassLabel},
+								ProcessGroupIDLabels: []string{fdbtypes.FDBProcessGroupIDLabel},
+								ProcessClassLabels:   []string{fdbtypes.FDBProcessClassLabel},
 							},
 						},
 					},
@@ -353,8 +353,8 @@ var _ = Describe("[plugin] deprecation command", func() {
 								ResourceLabels: map[string]string{
 									fdbtypes.FDBClusterLabel: clusterName,
 								},
-								InstanceIDLabels:   []string{fdbtypes.FDBInstanceIDLabel},
-								ProcessClassLabels: []string{fdbtypes.FDBProcessClassLabel},
+								ProcessGroupIDLabels: []string{fdbtypes.FDBProcessGroupIDLabel},
+								ProcessClassLabels:   []string{fdbtypes.FDBProcessClassLabel},
 							},
 						},
 					},
@@ -424,14 +424,14 @@ automationOptions:
     failureDetectionTimeSeconds: 1800
 labels:
   filterOnOwnerReference: true
-  instanceIDLabels:
-  - fdb-instance-id
-  - foundationdb.org/fdb-instance-id
   matchLabels:
     fdb-cluster-name: test
   processClassLabels:
   - fdb-process-class
   - foundationdb.org/fdb-process-class
+  processGroupIDLabels:
+  - fdb-instance-id
+  - foundationdb.org/fdb-process-group-id
   resourceLabels:
     foundationdb.org/fdb-cluster-name: test
 mainContainer:
@@ -542,14 +542,14 @@ configMap:
       test: test
 labels:
   filterOnOwnerReference: true
-  instanceIDLabels:
-  - fdb-instance-id
-  - foundationdb.org/fdb-instance-id
   matchLabels:
     fdb-cluster-name: test
   processClassLabels:
   - fdb-process-class
   - foundationdb.org/fdb-process-class
+  processGroupIDLabels:
+  - fdb-instance-id
+  - foundationdb.org/fdb-process-group-id
   resourceLabels:
     foundationdb.org/fdb-cluster-name: test
 minimumUptimeSecondsForBounce: 600

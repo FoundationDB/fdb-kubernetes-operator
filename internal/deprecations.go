@@ -366,12 +366,12 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		}
 	}
 
-	if cluster.Spec.LabelConfig.InstanceIDLabels == nil {
+	if cluster.Spec.LabelConfig.ProcessGroupIDLabels == nil {
 		if options.UseFutureDefaults {
-			cluster.Spec.LabelConfig.InstanceIDLabels = []string{fdbtypes.FDBInstanceIDLabel}
+			cluster.Spec.LabelConfig.ProcessGroupIDLabels = []string{fdbtypes.FDBProcessGroupIDLabel}
 		} else {
-			cluster.Spec.LabelConfig.InstanceIDLabels = []string{
-				OldFDBInstanceIDLabel, fdbtypes.FDBInstanceIDLabel,
+			cluster.Spec.LabelConfig.ProcessGroupIDLabels = []string{
+				OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
 			}
 		}
 	}

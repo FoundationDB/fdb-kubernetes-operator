@@ -161,19 +161,19 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	instanceID := GetProcessGroupID(cluster, pod)
+	processGroupID := GetProcessGroupID(cluster, pod)
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "ReplaceMisconfiguredPods")
 
 	if processGroupStatus == nil {
-		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", instanceID)
+		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", processGroupID)
 	}
 
 	if processGroupStatus.Remove {
 		return false, nil
 	}
 
-	_, idNum, err := ParseProcessGroupID(instanceID)
+	_, idNum, err := ParseProcessGroupID(processGroupID)
 	if err != nil {
 		return false, err
 	}
@@ -183,10 +183,10 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, err
 	}
 
-	_, desiredInstanceID := internal.GetInstanceID(cluster, processClass, idNum)
-	if instanceID != desiredInstanceID {
+	_, desiredProcessGroupID := internal.GetInstanceID(cluster, processClass, idNum)
+	if processGroupID != desiredProcessGroupID {
 		logger.Info("Replace instance",
-			"reason", fmt.Sprintf("expect instanceID: %s", desiredInstanceID))
+			"reason", fmt.Sprintf("expect instanceID: %s", desiredProcessGroupID))
 		return true, nil
 	}
 
