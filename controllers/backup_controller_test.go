@@ -186,7 +186,7 @@ var _ = Describe("backup_controller", func() {
 
 		Context("when stopping a new backup", func() {
 			BeforeEach(func() {
-				backup.Spec.BackupState = "Stopped"
+				backup.Spec.BackupState = fdbtypes.BackupStateStopped
 				err = k8sClient.Update(context.TODO(), backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -200,7 +200,7 @@ var _ = Describe("backup_controller", func() {
 
 		Context("when pausing a backup", func() {
 			BeforeEach(func() {
-				backup.Spec.BackupState = "Paused"
+				backup.Spec.BackupState = fdbtypes.BackupStatePaused
 				err = k8sClient.Update(context.TODO(), backup)
 				Expect(err).NotTo(HaveOccurred())
 			})

@@ -62,17 +62,18 @@ type FoundationDBBackupSpec struct {
 	// +kubebuilder:validation:Enum=Running;Stopped;Paused
 	// The desired state of the backup.
 	// The default is Running.
-	BackupState string `json:"backupState,omitempty"`
+	BackupState BackupState `json:"backupState,omitempty"`
 
 	// The name for the backup.
-	// The default is to use the name from the backup metadata.
+	// If empty defaults to .metadata.name.
 	BackupName string `json:"backupName,omitempty"`
 
 	// The account name to use with the backup destination.
+	// +kubebuilder:validation:Required
 	AccountName string `json:"accountName"`
 
 	// The backup bucket to write to.
-	// The default is to use "fdb-backups".
+	// The default is "fdb-backups".
 	Bucket string `json:"bucket,omitempty"`
 
 	// AgentCount defines the number of backup agents to run.
@@ -159,14 +160,26 @@ type BackupGenerationStatus struct {
 	NeedsBackupReconfiguration int64 `json:"needsBackupModification,omitempty"`
 }
 
+// BackupState defines the desired state of a backup
+type BackupState string
+
+const (
+	// BackupStateRunning defines the running state
+	BackupStateRunning BackupState = "Running"
+	// BackupStatePaused defines the paused state
+	BackupStatePaused BackupState = "Paused"
+	// BackupStateStopped defines the stopped state
+	BackupStateStopped BackupState = "Stopped"
+)
+
 // ShouldRun determines whether a backup should be running.
 func (backup *FoundationDBBackup) ShouldRun() bool {
-	return backup.Spec.BackupState == "" || backup.Spec.BackupState == "Running" || backup.Spec.BackupState == "Paused"
+	return backup.Spec.BackupState == "" || backup.Spec.BackupState == BackupStateRunning || backup.Spec.BackupState == BackupStatePaused
 }
 
 // ShouldBePaused determines whether the backups should be paused.
 func (backup *FoundationDBBackup) ShouldBePaused() bool {
-	return backup.Spec.BackupState == "Paused"
+	return backup.Spec.BackupState == BackupStatePaused
 }
 
 // Bucket gets the bucket this backup will use.
