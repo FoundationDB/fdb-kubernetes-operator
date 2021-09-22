@@ -89,7 +89,7 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 		})
 
-		Context("with a change to the resource labels", func() {
+		Context("with a change to the match labels", func() {
 			BeforeEach(func() {
 				cluster.Spec.LabelConfig.MatchLabels["fdb-test-label"] = "true"
 			})
