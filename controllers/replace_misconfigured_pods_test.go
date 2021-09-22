@@ -38,9 +38,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	var err error
 	instanceName := fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337)
 	var pod *corev1.Pod
+	falseValue := false
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
+		cluster.Spec.LabelConfig.FilterOnOwnerReferences = &falseValue
 		cluster.Spec.UpdatePodsByReplacement = false
 		cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 			fdbtypes.ProcessClassGeneral: {
@@ -50,8 +52,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					fdbtypes.FDBInstanceIDLabel:   instanceName,
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessGroupIDLabel:    instanceName,
+					fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
+					internal.OldFDBProcessGroupIDLabel: instanceName,
+					internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
 				},
 				Annotations: map[string]string{},
 			},
@@ -64,6 +68,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				},
 			},
 		}
+		Expect(err).NotTo(HaveOccurred())
+
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -198,8 +205,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		It("should not need a removal", func() {
 			pod.ObjectMeta = metav1.ObjectMeta{
 				Labels: map[string]string{
-					fdbtypes.FDBInstanceIDLabel:   fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
-					fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassLog),
+					fdbtypes.FDBProcessGroupIDLabel:    fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
+					fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassLog),
+					internal.OldFDBProcessGroupIDLabel: fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
+					internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassLog),
 				},
 				Annotations: map[string]string{},
 			}

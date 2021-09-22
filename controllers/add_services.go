@@ -25,6 +25,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -41,7 +42,13 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 	if service != nil {
 		existingService := &corev1.Service{}
 		err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
-		if err != nil {
+		if err == nil {
+			// Update the existing service
+			err = updateService(r, context, cluster, existingService, service)
+			if err != nil {
+				return &Requeue{Error: err}
+			}
+		} else {
 			if !k8serrors.IsNotFound(err) {
 				return &Requeue{Error: err}
 			}
@@ -66,26 +73,55 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 			}
 
 			serviceName, _ := internal.GetInstanceID(cluster, processGroup.ProcessClass, idNum)
+			service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
+			if err != nil {
+				return &Requeue{Error: err}
+			}
+
 			existingService := &corev1.Service{}
 			err = r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
-			if err != nil {
-
-				if !k8serrors.IsNotFound(err) {
-					return &Requeue{Error: err}
-				}
-				service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
+			if err == nil {
+				// Update the existing service
+				err = updateService(r, context, cluster, existingService, service)
 				if err != nil {
 					return &Requeue{Error: err}
 				}
-
+			} else if k8serrors.IsNotFound(err) {
+				// Create a new service
 				err = r.Create(context, service)
 
 				if err != nil {
 					return &Requeue{Error: err}
 				}
+			} else {
+				return &Requeue{Error: err}
 			}
 		}
 	}
 
+	return nil
+}
+
+// updateServices updates selected safe fields on a service based on a new
+// service definition.
+func updateService(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, currentService *corev1.Service, newService *corev1.Service) error {
+	serviceLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "service", currentService.Name)
+	originalSpec := currentService.Spec.DeepCopy()
+
+	currentService.Spec.Selector = newService.Spec.Selector
+
+	needsUpdate := !equality.Semantic.DeepEqual(currentService.Spec, *originalSpec)
+	metadata := currentService.ObjectMeta
+	if mergeLabelsInMetadata(&metadata, newService.ObjectMeta) {
+		needsUpdate = true
+	}
+	if mergeAnnotations(&metadata, newService.ObjectMeta) {
+		needsUpdate = true
+	}
+	if needsUpdate {
+		currentService.ObjectMeta = metadata
+		serviceLog.Info("Updating service")
+		return r.Update(context, currentService)
+	}
 	return nil
 }

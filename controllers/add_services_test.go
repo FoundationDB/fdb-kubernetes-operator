@@ -34,7 +34,6 @@ import (
 )
 
 var _ = Describe("add_services", func() {
-
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 	var requeue *Requeue
@@ -62,6 +61,9 @@ var _ = Describe("add_services", func() {
 		initialServices = &corev1.ServiceList{}
 		err = k8sClient.List(context.TODO(), initialServices)
 		Expect(err).NotTo(HaveOccurred())
+
+		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
@@ -86,6 +88,34 @@ var _ = Describe("add_services", func() {
 		It("should not create any services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 		})
+
+		Context("with a change to the match labels", func() {
+			BeforeEach(func() {
+				cluster.Spec.LabelConfig.MatchLabels["fdb-test-label"] = "true"
+			})
+
+			It("should not create any services", func() {
+				Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
+			})
+
+			It("should set the selector on the services", func() {
+				for _, service := range newServices.Items {
+					labels := map[string]string{
+						internal.OldFDBClusterLabel: cluster.Name,
+						"fdb-test-label":            "true",
+					}
+					if service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel] != "" {
+						labels[internal.OldFDBProcessGroupIDLabel] = service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel]
+					}
+					Expect(service.Spec.Selector).To(Equal(labels))
+				}
+			})
+			It("should set the metadata on the services", func() {
+				for _, service := range newServices.Items {
+					Expect(service.Labels["fdb-test-label"]).To(Equal("true"))
+				}
+			})
+		})
 	})
 
 	Context("with a process group with no service defined", func() {
@@ -101,7 +131,7 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
 			lastService := newServices.Items[len(newServices.Items)-1]
 			Expect(lastService.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastService.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal("storage-9"))
+			Expect(lastService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
 			Expect(lastService.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastService.Spec.ClusterIP).NotTo(Equal("None"))
 			Expect(lastService.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
@@ -156,7 +186,7 @@ var _ = Describe("add_services", func() {
 			firstService := newServices.Items[0]
 
 			Expect(firstService.Name).To(Equal("operator-test-1"))
-			Expect(firstService.Labels[fdbtypes.FDBInstanceIDLabel]).To(Equal(""))
+			Expect(firstService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal(""))
 			Expect(firstService.Spec.ClusterIP).To(Equal("None"))
 		})
 

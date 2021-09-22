@@ -2775,6 +2775,16 @@ type LabelConfig struct {
 	// resources it creates.
 	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
 
+	// ProcessGroupIDLabels provides the labels that we use for the instance ID
+	// field. The first label will be used by the operator when filtering
+	// resources.
+	ProcessGroupIDLabels []string `json:"processGroupIDLabels,omitempty"`
+
+	// ProcessClassLabels provides the labels that we use for the process class
+	// field. The first label will be used by the operator when filtering
+	// resources.
+	ProcessClassLabels []string `json:"processClassLabels,omitempty"`
+
 	// FilterOnOwnerReferences determines whether we should check that resources
 	// are owned by the cluster object, in addition to the constraints provided
 	// by the match labels.
@@ -2909,4 +2919,24 @@ func (cluster *FoundationDBCluster) GetEnforceFullReplicationForDeletion() bool 
 	}
 
 	return *cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion
+}
+
+// GetProcessClassLabel provides the label that this cluster is using for the
+// process class when identifying resources.
+func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
+	labels := cluster.Spec.LabelConfig.ProcessClassLabels
+	if len(labels) == 0 {
+		return FDBProcessClassLabel
+	}
+	return labels[0]
+}
+
+// GetProcessGroupIDLabel provides the label that this cluster is using for the
+// instance ID when identifying resources.
+func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
+	labels := cluster.Spec.LabelConfig.ProcessGroupIDLabels
+	if len(labels) == 0 {
+		return FDBProcessGroupIDLabel
+	}
+	return labels[0]
 }

@@ -174,7 +174,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			}
 		}
 
-		logger.Info("Bouncing instances", "addresses", addresses)
+		logger.Info("Bouncing instances", "addresses", addresses, "upgrading", upgrading)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {

@@ -24,6 +24,12 @@ spec:
   useExplicitListenAddress: true
   labels:
     filterOnOwnerReference: false
+    matchLabels:
+      foundationdb.org/fdb-cluster-name: test-cluster
+    processGroupIDLabels:
+      - foundationdb.org/fdb-process-group-id
+    processClassLabels:
+      - foundationdb.org/fdb-process-class
   automationOptions:
     replacements:
       enabled: true

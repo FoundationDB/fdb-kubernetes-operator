@@ -95,7 +95,7 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			Type:                     corev1.ServiceTypeClusterIP,
 			Ports:                    generateServicePorts(processesPerPod),
 			PublishNotReadyAddresses: true,
-			Selector:                 GetMinimalSinglePodLabels(cluster, id),
+			Selector:                 GetPodMatchLabels(cluster, "", id),
 		},
 	}, nil
 }
@@ -318,7 +318,9 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		for key, value := range cluster.Spec.LabelConfig.MatchLabels {
 			labelSelectors[key] = value
 		}
-		labelSelectors[fdbtypes.FDBProcessClassLabel] = string(processClass)
+
+		processClassLabel := cluster.GetProcessClassLabel()
+		labelSelectors[processClassLabel] = string(processClass)
 
 		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			corev1.WeightedPodAffinityTerm{
@@ -890,7 +892,7 @@ func GetObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 	if metadata.Labels == nil {
 		metadata.Labels = make(map[string]string)
 	}
-	for label, value := range GetMinimalPodLabels(cluster, processClass, id) {
+	for label, value := range GetPodLabels(cluster, processClass, id) {
 		metadata.Labels[label] = value
 	}
 	for label, value := range cluster.Spec.LabelConfig.ResourceLabels {

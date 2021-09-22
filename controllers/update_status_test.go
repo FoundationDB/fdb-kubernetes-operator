@@ -284,7 +284,7 @@ var _ = Describe("update_status", func() {
 
 			// Must be a JustBeforeEach otherwise the cluster status will result in an error
 			JustBeforeEach(func() {
-				unreachableProcessGroup = GetProcessGroupID(pods[0])
+				unreachableProcessGroup = GetProcessGroupID(cluster, pods[0])
 				pods[0].Annotations[internal.MockUnreachableAnnotation] = "banana"
 				err = k8sClient.Update(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())
@@ -336,7 +336,7 @@ var _ = Describe("update_status", func() {
 			var pendingProcessGroup string
 
 			BeforeEach(func() {
-				pendingProcessGroup = GetProcessGroupID(pods[0])
+				pendingProcessGroup = GetProcessGroupID(cluster, pods[0])
 				pods[0].Status.Phase = corev1.PodPending
 				err = k8sClient.Update(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())

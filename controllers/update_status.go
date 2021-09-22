@@ -148,12 +148,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, pvc := range pvcs.Items {
-		processGroupID := pvc.Labels[fdbtypes.FDBInstanceIDLabel]
+		processGroupID := pvc.Labels[cluster.GetProcessGroupIDLabel()]
 		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
 
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(pvc.Labels), nil))
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pvc.Labels), nil))
 	}
 
 	// Track all Services
@@ -164,12 +164,12 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	}
 
 	for _, service := range services.Items {
-		processGroupID := service.Labels[fdbtypes.FDBInstanceIDLabel]
+		processGroupID := service.Labels[cluster.GetProcessGroupIDLabel()]
 		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
 			continue
 		}
 
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(service.Labels), nil))
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
 	}
 
 	existingConfigMap := &corev1.ConfigMap{}
@@ -210,8 +210,8 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 				return &Requeue{Error: err}
 			}
 			if len(pods.Items) > 0 {
-				instanceID := pods.Items[0].ObjectMeta.Labels[fdbtypes.FDBInstanceIDLabel]
-				processClass := internal.ProcessClassFromLabels(pods.Items[0].ObjectMeta.Labels)
+				instanceID := pods.Items[0].ObjectMeta.Labels[cluster.GetProcessGroupIDLabel()]
+				processClass := internal.ProcessClassFromLabels(cluster, pods.Items[0].ObjectMeta.Labels)
 				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
 				if !included {
 					status.ProcessGroups = append(status.ProcessGroups, newStatus)
@@ -229,7 +229,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			}
 			var processClass fdbtypes.ProcessClass
 			if len(pods.Items) > 0 {
-				processClass = internal.ProcessClassFromLabels(pods.Items[0].ObjectMeta.Labels)
+				processClass = internal.ProcessClassFromLabels(cluster, pods.Items[0].ObjectMeta.Labels)
 			}
 			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, state.Address)
 			if !included {
@@ -444,6 +444,11 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 
 	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = internal.None{}
+	}
+	// Clear the IncorrectCommandLine condition to prevent it being held over
+	// when pods get deleted.
+	for _, processGroup := range processGroups {
+		processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, false, nil, "")
 	}
 
 	for _, processGroup := range processGroups {

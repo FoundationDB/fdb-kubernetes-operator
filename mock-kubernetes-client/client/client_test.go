@@ -25,8 +25,6 @@ import (
 	"sort"
 	"time"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -86,7 +84,6 @@ var _ = Describe("[mock client]", func() {
 
 		BeforeEach(func() {
 			initialPod = createDummyPod()
-			initialPod.Labels[fdbtypes.FDBInstanceIDLabel] = "storage-1"
 			err := client.Create(context.TODO(), initialPod)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -99,7 +96,7 @@ var _ = Describe("[mock client]", func() {
 			Expect(len(pod.Spec.Containers)).To(Equal(1))
 			Expect(pod.Spec.Containers[0].Name).To(Equal("test-container"))
 			Expect(pod.ObjectMeta.Generation).To(Equal(int64(1)))
-			Expect(pod.Status.PodIP).To(Equal("1.1.1.1"))
+			Expect(pod.Status.PodIP).To(Equal("1.1.0.1"))
 		})
 
 		When("Removing the Pod IP", func() {

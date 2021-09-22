@@ -1322,6 +1322,14 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    processClassLabels:
+                      items:
+                        type: string
+                      type: array
+                    processGroupIDLabels:
+                      items:
+                        type: string
+                      type: array
                     resourceLabels:
                       additionalProperties:
                         type: string

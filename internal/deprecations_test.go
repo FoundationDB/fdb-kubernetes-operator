@@ -765,7 +765,18 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the default label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
+					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{
+						OldFDBClusterLabel: cluster.Name,
+					}))
+					Expect(spec.LabelConfig.ResourceLabels).To(Equal(map[string]string{
+						fdbtypes.FDBClusterLabel: cluster.Name,
+					}))
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{
+						OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
+					}))
+					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{
+						OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
+					}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
 				})
@@ -835,7 +846,18 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have changes to the label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
+					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{
+						OldFDBClusterLabel: cluster.Name,
+					}))
+					Expect(spec.LabelConfig.ResourceLabels).To(Equal(map[string]string{
+						fdbtypes.FDBClusterLabel: cluster.Name,
+					}))
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{
+						OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
+					}))
+					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{
+						OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
+					}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
 				})
@@ -1000,7 +1022,12 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have the default label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{fdbtypes.FDBClusterLabel: cluster.Name}))
+					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{
+						fdbtypes.FDBClusterLabel: cluster.Name,
+					}))
+					Expect(spec.LabelConfig.ResourceLabels).To(BeNil())
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdbtypes.FDBProcessGroupIDLabel}))
+					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdbtypes.FDBProcessClassLabel}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})
@@ -1054,7 +1081,12 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have changes to the label config", func() {
-					Expect(spec.LabelConfig.MatchLabels).To(BeNil())
+					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{
+						fdbtypes.FDBClusterLabel: cluster.Name,
+					}))
+					Expect(spec.LabelConfig.ResourceLabels).To(BeNil())
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdbtypes.FDBProcessGroupIDLabel}))
+					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdbtypes.FDBProcessClassLabel}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})

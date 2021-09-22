@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -80,14 +81,15 @@ var _ = Describe("admin_client_test", func() {
 					},
 				}))
 
+				address := cluster.Status.ProcessGroups[firstStorageIndex].Addresses[0]
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
 				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
 					Address: fdbtypes.ProcessAddress{
-						IPAddress: net.ParseIP("1.1.1.1"),
+						IPAddress: net.ParseIP(address),
 						Port:      4501,
 					},
 					ProcessClass: fdbtypes.ProcessClassStorage,
-					CommandLine:  "/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=1.1.1.1:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address),
 					Excluded:     false,
 					Locality: map[string]string{
 						"instance_id": "storage-1",

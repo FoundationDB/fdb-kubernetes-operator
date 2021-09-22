@@ -54,7 +54,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, pvc := range pvcs.Items {
-		instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
+		instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 		processGroupStatus := processGroups[instanceID]
 		if processGroupStatus == nil {
 			return &Requeue{Error: fmt.Errorf("unknown PVC %s in replace_misconfigured_pods", instanceID)}
@@ -87,7 +87,7 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 	}
 
 	for _, pod := range pods {
-		processGroupStatus := processGroups[GetProcessGroupID(pod)]
+		processGroupStatus := processGroups[GetProcessGroupID(cluster, pod)]
 		needsRemoval, err := instanceNeedsRemoval(cluster, pod, processGroupStatus)
 		if err != nil {
 			return &Requeue{Error: err}
@@ -112,6 +112,9 @@ func (c ReplaceMisconfiguredPods) Reconcile(r *FoundationDBClusterReconciler, co
 }
 
 func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim) (bool, error) {
+	instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
+
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 	if !ownedByCluster {
 		for _, ownerReference := range pvc.OwnerReferences {
@@ -122,17 +125,15 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 		}
 	}
 	if !ownedByCluster {
+		logger.Info("Ignoring PVC that is not owned by the cluster")
 		return false, nil
 	}
-	instanceID := internal.GetProcessGroupIDFromMeta(pvc.ObjectMeta)
-
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
 
 	_, idNum, err := ParseProcessGroupID(instanceID)
 	if err != nil {
 		return false, err
 	}
-	processClass := internal.GetProcessClassFromMeta(pvc.ObjectMeta)
+	processClass := internal.GetProcessClassFromMeta(cluster, pvc.ObjectMeta)
 	desiredPVC, err := internal.GetPvc(cluster, processClass, idNum)
 	if err != nil {
 		return false, err
@@ -141,6 +142,7 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 	if err != nil {
 		return false, err
 	}
+
 	if pvc.Annotations[fdbtypes.LastSpecKey] != pvcHash {
 		logger.Info("Replace instance",
 			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbtypes.LastSpecKey]))
@@ -159,32 +161,32 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	instanceID := GetProcessGroupID(pod)
+	processGroupID := GetProcessGroupID(cluster, pod)
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredPods")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "ReplaceMisconfiguredPods")
 
 	if processGroupStatus == nil {
-		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", instanceID)
+		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", processGroupID)
 	}
 
 	if processGroupStatus.Remove {
 		return false, nil
 	}
 
-	_, idNum, err := ParseProcessGroupID(instanceID)
+	_, idNum, err := ParseProcessGroupID(processGroupID)
 	if err != nil {
 		return false, err
 	}
 
-	processClass, err := GetProcessClass(pod)
+	processClass, err := GetProcessClass(cluster, pod)
 	if err != nil {
 		return false, err
 	}
 
-	_, desiredInstanceID := internal.GetInstanceID(cluster, processClass, idNum)
-	if instanceID != desiredInstanceID {
+	_, desiredProcessGroupID := internal.GetInstanceID(cluster, processClass, idNum)
+	if processGroupID != desiredProcessGroupID {
 		logger.Info("Replace instance",
-			"reason", fmt.Sprintf("expect instanceID: %s", desiredInstanceID))
+			"reason", fmt.Sprintf("expect instanceID: %s", desiredProcessGroupID))
 		return true, nil
 	}
 

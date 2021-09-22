@@ -127,7 +127,7 @@ func buildCommand(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluste
 		selector = selector.Add(*requirement)
 	}
 
-	processClassRequirement, err := labels.NewRequirement(fdbtypes.FDBProcessClassLabel, selection.Exists, nil)
+	processClassRequirement, err := labels.NewRequirement(cluster.GetProcessClassLabel(), selection.Exists, nil)
 	if err != nil {
 		return exec.Cmd{}, nil
 	}

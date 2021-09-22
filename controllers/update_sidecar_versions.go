@@ -45,7 +45,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 	}
 	upgraded := false
 	for _, pod := range pods {
-		processClass, err := GetProcessClass(pod)
+		processClass, err := GetProcessClass(cluster, pod)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -57,7 +57,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 
 		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
-				logger.Info("Upgrading sidecar", "processGroupID", GetProcessGroupID(pod), "oldImage", container.Image, "newImage", image)
+				logger.Info("Upgrading sidecar", "processGroupID", GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
 				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, pod, containerIndex, image)
 				if err != nil {
 					return &Requeue{Error: err}

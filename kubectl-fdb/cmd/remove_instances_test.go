@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,9 +71,12 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-1",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-									fdbtypes.FDBClusterLabel:      clusterName,
-									fdbtypes.FDBInstanceIDLabel:   "storage-1",
+									fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
+									internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+									fdbtypes.FDBClusterLabel:           clusterName,
+									internal.OldFDBClusterLabel:        clusterName,
+									fdbtypes.FDBProcessGroupIDLabel:    "storage-1",
+									internal.OldFDBProcessGroupIDLabel: "storage-1",
 								},
 							},
 						},
@@ -81,9 +85,12 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-2",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-									fdbtypes.FDBClusterLabel:      clusterName,
-									fdbtypes.FDBInstanceIDLabel:   "storage-2",
+									fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
+									internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+									fdbtypes.FDBClusterLabel:           clusterName,
+									internal.OldFDBClusterLabel:        clusterName,
+									fdbtypes.FDBProcessGroupIDLabel:    "storage-2",
+									internal.OldFDBProcessGroupIDLabel: "storage-2",
 								},
 							},
 						},
@@ -147,8 +154,10 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-1",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-									fdbtypes.FDBClusterLabel:      clusterName,
+									fdbtypes.FDBProcessClassLabel:    string(fdbtypes.ProcessClassStorage),
+									internal.OldFDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
+									fdbtypes.FDBClusterLabel:         clusterName,
+									internal.OldFDBClusterLabel:      clusterName,
 								},
 							},
 						},

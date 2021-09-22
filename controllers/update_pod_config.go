@@ -50,7 +50,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
 	for _, pod := range pods {
-		processGroupID := GetProcessGroupID(pod)
+		processGroupID := GetProcessGroupID(cluster, pod)
 		if processGroupID == "" {
 			continue
 		}
@@ -83,7 +83,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			continue
 		}
 
-		processClass, err := GetProcessClass(pod)
+		processClass, err := GetProcessClass(cluster, pod)
 		if err != nil {
 			curLogger.Info("Error when fetching process class from Pod", "error", err)
 			errs = append(errs, err)
