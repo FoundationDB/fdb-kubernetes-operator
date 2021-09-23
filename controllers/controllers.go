@@ -110,12 +110,10 @@ func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.
 
 	recorder.Event(object, corev1.EventTypeNormal, "ReconciliationTerminatedEarly", requeue.Message)
 
-
 	if err != nil {
 		curLog.Error(err, "Error in reconciliation")
 		return ctrl.Result{}, err
 	}
-
 	curLog.Info("Reconciliation terminated early", "message", requeue.Message)
 
 	return ctrl.Result{Requeue: true, RequeueAfter: requeue.Delay}, nil
