@@ -93,7 +93,7 @@ type Requeue struct {
 	DelayedRequeue bool
 }
 
-// processRequeue interprets a requeue resulit from a subreconciler.
+// processRequeue interprets a requeue result from a subreconciler.
 func processRequeue(requeue *Requeue, subReconciler interface{}, object runtime.Object, recorder record.EventRecorder, logger logr.Logger) (ctrl.Result, error) {
 	curLog := logger.WithValues("subReconciler", fmt.Sprintf("%T", subReconciler), "requeueAfter", requeue.Delay)
 	if requeue.Message == "" && requeue.Error != nil {

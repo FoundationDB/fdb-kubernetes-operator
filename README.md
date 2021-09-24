@@ -63,25 +63,5 @@ To get this controller running in a local Kubernetes cluster:
 3. Run `config/test-certs/generate_secrets.bash` to set up a secret with
    self-signed test certs.
 4. Run `make rebuild-operator` to install the operator.
-5. Run `kubectl apply -f config/samples/cluster_local_tls.yaml`
+5. Run `kubectl apply -k ./config/tests/base`
    to create a new FoundationDB cluster with the operator.
-
-### Testing
-
-The test suite runs a live copy of etcd which is heavily dependent on disk I/O
-performance; if you encounter unexpected test failures, slow test warnings, or
-overall slow test runs (more than 2 minutes in duration), this may be the cause.
-
-One workaround is to run the test suite with etcd writing to an in-memory
-filesystem. To configure this on Linux:
-
-```shell
-mkdir ramdisk
-sudo mount -t tmpfs tempfs $(pwd)/ramdisk
-export TMPDIR=$(pwd)/ramdisk
-```
-
-Then run the test suite under that environment.
-
-For `MacOS` you can use the script located under `./scripts/setup_ramdisk_macos.sh`.
-This script will setup a ramdisk and mount it (the default location will be `${HOME}/volatile`).
