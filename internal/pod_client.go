@@ -21,7 +21,6 @@
 package internal
 
 import (
-	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -166,14 +165,6 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	retryClient.RetryWaitMax = 1 * time.Second
 	// Prevent logging
 	retryClient.Logger = nil
-	retryClient.CheckRetry = func(c context.Context, resp *http.Response, err error) (bool, error) {
-		if c.Err() != nil && err != nil && resp != nil && resp.StatusCode >= http.StatusBadRequest {
-			return true, nil
-		}
-
-		// All other go to default policy
-		return retryablehttp.DefaultRetryPolicy(c, resp, err)
-	}
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
