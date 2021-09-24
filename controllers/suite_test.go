@@ -134,7 +134,7 @@ func reconcileRestore(restore *fdbtypes.FoundationDBRestore) (reconcile.Result, 
 func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta, requeueLimit int) (reconcile.Result, error) {
 	attempts := requeueLimit + 1
 	result := reconcile.Result{Requeue: true}
-	var err error = nil
+	var err error
 	for result.Requeue && attempts > 0 {
 		log.Info("Running test reconciliation")
 		attempts--
