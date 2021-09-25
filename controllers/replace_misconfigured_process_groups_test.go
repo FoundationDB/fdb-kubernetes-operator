@@ -1,5 +1,5 @@
 /*
- * replace_misconfigured_pods.go
+ * replace_misconfigured_process_groups.go
  *
  * This source file is part of the FoundationDB open source project
  *

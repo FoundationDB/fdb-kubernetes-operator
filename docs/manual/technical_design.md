@@ -88,7 +88,7 @@ The cluster reconciler runs the following subreconcilers:
 1. UpdateLockConfiguration
 1. UpdateConfigMap
 1. CheckClientCompatibility
-1. ReplaceMisconfiguredPods
+1. ReplaceMisconfiguredProcessGroups
 1. ReplaceFailedPods
 1. DeletePodsForBuggification
 1. AddProcessGroups
@@ -135,9 +135,9 @@ The `CheckClientCompatibility` subreconciler is used during upgrades to ensure t
 
 You can skip this check by setting the `ignoreUpgradabilityChecks` flag in the cluster spec.
 
-### ReplaceMisconfiguredPods
+### ReplaceMisconfiguredProcessGroups
 
-The `ReplaceMisconfiguredPods` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
+The `ReplaceMisconfiguredProcessGroups` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
 
 See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
 

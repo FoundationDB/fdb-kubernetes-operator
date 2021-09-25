@@ -45,14 +45,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	}
 
 	updates := make(map[string][]*corev1.Pod)
-	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
-	for _, pod := range pods {
-		processGroupID := GetProcessGroupID(cluster, pod)
-		if processGroupID == "" {
-			continue
-		}
-		podProcessGroupMap[processGroupID] = pod
-	}
+	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
@@ -67,7 +60,7 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			continue
 		}
 
-		pod, ok := podProcessGroupMap[processGroup.ProcessGroupID]
+		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
