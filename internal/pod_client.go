@@ -246,6 +246,9 @@ func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	}
 	substitutions := map[string]string{}
 	err = json.Unmarshal([]byte(contents), &substitutions)
+	if err != nil {
+		log.Error(err, "Error deserializing pod substitutions", "responseBody", contents)
+	}
 	return substitutions, err
 }
 
