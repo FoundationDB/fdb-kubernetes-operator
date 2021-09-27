@@ -93,8 +93,9 @@ var _ = Describe("BounceProcesses", func() {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 				}
 			}
-			sort.Strings(adminClient.KilledAddresses)
-			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+
+			Expect(len(adminClient.KilledAddresses)).To(Equal(len(addresses)))
+			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 		})
 	})
 
