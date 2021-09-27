@@ -95,7 +95,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 	}
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.Name == "foundationdb-kubernetes-sidecar" && !container.Ready {
-			return nil, fmt.Errorf("Waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
+			return nil, fmt.Errorf("waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
 		}
 	}
 
@@ -199,25 +199,17 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 		return "", err
 	}
 
-	if resp.StatusCode >= http.StatusBadRequest {
-		return "", failedResponse{response: resp, body: bodyText}
-	}
-
 	return bodyText, nil
 }
 
 // IsPresent checks whether a file in the sidecar is present.
 func (client *realFdbPodClient) IsPresent(filename string) (bool, error) {
 	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
-	if err == nil {
-		return true, err
+	if err != nil {
+		return false, err
 	}
 
-	response, isResponse := err.(failedResponse)
-	if isResponse && response.response.StatusCode == 404 {
-		return false, nil
-	}
-	return false, err
+	return true, nil
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
@@ -363,7 +355,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	if ipString != "" {
 		ip := net.ParseIP(ipString)
 		if ip == nil {
-			return nil, fmt.Errorf("Failed to parse IP from pod: %s", ipString)
+			return nil, fmt.Errorf("failed to parse IP from pod: %s", ipString)
 		}
 
 		if ip.To4() == nil {
@@ -407,17 +399,6 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	}
 
 	return substitutions, nil
-}
-
-// failedResponse is an error thrown when a request to the sidecar fails.
-type failedResponse struct {
-	response *http.Response
-	body     string
-}
-
-// Error generates an error message.
-func (response failedResponse) Error() string {
-	return fmt.Sprintf("HTTP request failed. Status=%d; response=%s", response.response.StatusCode, response.body)
 }
 
 // podHasSidecarTLS determines whether a pod currently has TLS enabled for the
