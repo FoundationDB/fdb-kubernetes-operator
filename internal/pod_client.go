@@ -165,6 +165,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	retryClient.RetryWaitMax = 1 * time.Second
 	// Prevent logging
 	retryClient.Logger = nil
+	retryClient.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
