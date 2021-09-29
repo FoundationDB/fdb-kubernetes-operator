@@ -2778,11 +2778,13 @@ type LabelConfig struct {
 	// ProcessGroupIDLabels provides the labels that we use for the instance ID
 	// field. The first label will be used by the operator when filtering
 	// resources.
+	// +kubebuilder:validation:MaxItems=100
 	ProcessGroupIDLabels []string `json:"processGroupIDLabels,omitempty"`
 
 	// ProcessClassLabels provides the labels that we use for the process class
 	// field. The first label will be used by the operator when filtering
 	// resources.
+	// +kubebuilder:validation:MaxItems=100
 	ProcessClassLabels []string `json:"processClassLabels,omitempty"`
 
 	// FilterOnOwnerReferences determines whether we should check that resources
