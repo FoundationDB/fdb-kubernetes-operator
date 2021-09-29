@@ -2,11 +2,11 @@
 
 ## Kubectl FDB Plugin
 
-You can use the [kubectl-fdb](/tree/master/kubectl-fdb) plugin when investigating issues and running imperative commands.
+You can use the [kubectl-fdb](/kubectl-fdb) plugin when investigating issues and running imperative commands.
 
 If a cluster is stuck in a reconciliation you can use the `kubectl-fdb` plugin to analyze the issue:
 
-```
+```bash
 $ kubectl fdb analyze example-cluster
 Checking cluster: default/example-cluster
 ✔ Cluster is available
@@ -27,7 +27,7 @@ found issues for cluster example-cluster. Please check them
 
 The plugin can also resolve most of these issues automatically:
 
-```
+```bash
 $ kubectl fdb analyze example-cluster --auto-fix
 Checking cluster: default/example-cluster
 ✔ Cluster is available
@@ -57,7 +57,7 @@ If you have Pods that are failing to launch, because they are stuck in either a 
 
 Let's assume we are working with the cluster `example-cluster`, and the pod `example-cluster-storage-1` is failing to launch.
 
-```
+```bash
 $ kubectl fdb remove instances -c example-cluster example-cluster-storage-1
 Remove [storage-1] from cluster default/example-cluster with exclude: true and shrink: false [y/n]:
 # Confirm with 'y' if the excluded Pod is the correct one
