@@ -47,6 +47,12 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 
 	podMap := internal.CreatePodMap(cluster, pods)
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			logger.V(1).Info("Ignore process group marked for removal",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
 		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
 			logger.V(1).Info("Could not find Pod for process group ID",

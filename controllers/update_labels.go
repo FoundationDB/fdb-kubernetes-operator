@@ -51,7 +51,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
-			logger.V(1).Info("Ignore removed Pod",
+			logger.V(1).Info("Ignore process group marked for removal",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

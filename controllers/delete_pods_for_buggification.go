@@ -57,7 +57,7 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
-			logger.V(1).Info("Ignore removed Pod",
+			logger.V(1).Info("Ignore process group marked for removal",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}

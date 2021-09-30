@@ -55,6 +55,11 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 
+		if processGroup.Remove {
+			curLogger.V(1).Info("Ignore process group marked for removal")
+			continue
+		}
+
 		if cluster.SkipProcessGroup(processGroup) {
 			curLogger.Info("Process group has pending Pod, will be skipped")
 			continue

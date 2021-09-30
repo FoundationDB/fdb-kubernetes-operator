@@ -72,11 +72,9 @@ func (c ReplaceMisconfiguredProcessGroups) Reconcile(r *FoundationDBClusterRecon
 				return &Requeue{Error: err}
 			}
 
-			if needsPVCRemoval {
-				if hasPod {
-					processGroup.Remove = true
-					hasNewRemovals = true
-				}
+			if needsPVCRemoval && hasPod {
+				processGroup.Remove = true
+				hasNewRemovals = true
 				continue
 			}
 		} else {
