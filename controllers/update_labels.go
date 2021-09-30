@@ -22,10 +22,8 @@ package controllers
 
 import (
 	ctx "context"
-	"reflect"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -37,60 +35,58 @@ type UpdateLabels struct{}
 
 // Reconcile runs the reconciler's work.
 func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateLabels")
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
-
-	for _, pod := range pods {
-		if pod == nil {
-			continue
-		}
-
-		processClass, err := GetProcessClass(cluster, pod)
-		if err != nil {
-			return &Requeue{Error: err}
-		}
-
-		metadata := internal.GetPodMetadata(cluster, processClass, GetProcessGroupID(cluster, pod), "")
-		if metadata.Annotations == nil {
-			metadata.Annotations = make(map[string]string)
-		}
-
-		if !podMetadataCorrect(metadata, pod) {
-			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
-			if err != nil {
-				return &Requeue{Error: err}
-			}
-		}
-	}
+	podMap := internal.CreatePodMap(cluster, pods)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &Requeue{Error: err}
 	}
-	for _, pvc := range pvcs.Items {
-		processClass := internal.GetProcessClassFromMeta(cluster, pvc.ObjectMeta)
-		instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
+	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
-		metadata := internal.GetPvcMetadata(cluster, processClass, instanceID)
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			logger.V(1).Info("Ignore process group marked for removal",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		pod, ok := podMap[processGroup.ProcessGroupID]
+		if ok {
+			metadata := internal.GetPodMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID, "")
+			if metadata.Annotations == nil {
+				metadata.Annotations = make(map[string]string, 1)
+			}
+
+			if !metadataCorrect(metadata, &pod.ObjectMeta) {
+				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
+				if err != nil {
+					return &Requeue{Error: err}
+				}
+			}
+		} else {
+			logger.V(1).Info("Could not find Pod for process group ID",
+				"processGroupID", processGroup.ProcessGroupID)
+		}
+
+		pvc, ok := pvcMap[processGroup.ProcessGroupID]
+		if !ok || pod == nil {
+			logger.V(1).Info("Could not find PVC for process group ID",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		metadata := internal.GetPvcMetadata(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)
 		if metadata.Annotations == nil {
 			metadata.Annotations = make(map[string]string, 1)
 		}
-		metadata.Annotations[fdbtypes.LastSpecKey] = pvc.ObjectMeta.Annotations[fdbtypes.LastSpecKey]
 
-		metadataCorrect := true
-		if !reflect.DeepEqual(pvc.ObjectMeta.Labels, metadata.Labels) {
-			pvc.Labels = metadata.Labels
-			metadataCorrect = false
-		}
-
-		if mergeAnnotations(&pvc.ObjectMeta, metadata) {
-			metadataCorrect = false
-		}
-
-		if !metadataCorrect {
+		if !metadataCorrect(metadata, &pvc.ObjectMeta) {
 			err = r.Update(context, &pvc)
 			if err != nil {
 				return &Requeue{Error: err}
@@ -101,15 +97,15 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	return nil
 }
 
-func podMetadataCorrect(metadata metav1.ObjectMeta, pod *corev1.Pod) bool {
+func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
 	metadataCorrect := true
-	metadata.Annotations[fdbtypes.LastSpecKey] = pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]
+	desiredMetadata.Annotations[fdbtypes.LastSpecKey] = currentMetadata.Annotations[fdbtypes.LastSpecKey]
 
-	if mergeLabelsInMetadata(&pod.ObjectMeta, metadata) {
+	if mergeLabelsInMetadata(currentMetadata, desiredMetadata) {
 		metadataCorrect = false
 	}
 
-	if mergeAnnotations(&pod.ObjectMeta, metadata) {
+	if mergeAnnotations(currentMetadata, desiredMetadata) {
 		metadataCorrect = false
 	}
 

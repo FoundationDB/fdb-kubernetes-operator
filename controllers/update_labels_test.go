@@ -40,7 +40,7 @@ var _ = Describe("Update labels", func() {
 
 	DescribeTable("Test metadata correctness",
 		func(tc testCase) {
-			result := podMetadataCorrect(tc.metadata, tc.pod)
+			result := metadataCorrect(tc.metadata, &tc.pod.ObjectMeta)
 			Expect(result).To(Equal(tc.expected))
 			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Labels, tc.expectedMeta.Labels)).To(BeTrue())
 			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Annotations, tc.expectedMeta.Annotations)).To(BeTrue())

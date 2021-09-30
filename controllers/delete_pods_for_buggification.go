@@ -42,14 +42,8 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 		return &Requeue{Error: err}
 	}
 
+	podMap := internal.CreatePodMap(cluster, pods)
 	updates := make([]*corev1.Pod, 0)
-
-	removals := make(map[string]bool)
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove {
-			removals[processGroup.ProcessGroupID] = true
-		}
-	}
 
 	crashLoopPods := make(map[string]bool, len(cluster.Spec.Buggify.CrashLoop))
 	crashLoopAll := false
@@ -61,10 +55,17 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 		}
 	}
 
-	for _, pod := range pods {
-		instanceID := GetProcessGroupID(cluster, pod)
-		_, pendingRemoval := removals[instanceID]
-		if pendingRemoval {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.Remove {
+			logger.V(1).Info("Ignore process group marked for removal",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		pod, ok := podMap[processGroup.ProcessGroupID]
+		if !ok || pod == nil {
+			logger.V(1).Info("Could not find Pod for process group ID",
+				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
@@ -75,11 +76,11 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 			}
 		}
 
-		shouldCrashLoop := crashLoopAll || crashLoopPods[instanceID]
+		shouldCrashLoop := crashLoopAll || crashLoopPods[processGroup.ProcessGroupID]
 
 		if shouldCrashLoop != inCrashLoop {
 			logger.Info("Deleting pod for buggification",
-				"processGroupID", instanceID,
+				"processGroupID", processGroup.ProcessGroupID,
 				"shouldCrashLoop", shouldCrashLoop,
 				"inCrashLoop", inCrashLoop)
 			updates = append(updates, pod)

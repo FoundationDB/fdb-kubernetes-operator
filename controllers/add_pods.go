@@ -59,10 +59,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return &Requeue{Error: err}
 	}
 
-	podMap := make(map[string]*corev1.Pod, len(pods))
-	for _, pod := range pods {
-		podMap[GetProcessGroupID(cluster, pod)] = pod
-	}
+	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		_, podExists := podMap[processGroup.ProcessGroupID]

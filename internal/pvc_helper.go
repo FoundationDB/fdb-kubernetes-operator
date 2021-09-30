@@ -1,5 +1,5 @@
 /*
- * service_helper.go
+ * pvc_helper.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,23 +21,21 @@
 package internal
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	v1 "k8s.io/api/core/v1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 )
 
-// GetHeadlessService builds a headless service for a FoundationDB cluster.
-func GetHeadlessService(cluster *v1beta1.FoundationDBCluster) *v1.Service {
-	headless := cluster.Spec.Routing.HeadlessService
-	if headless == nil || !*headless {
-		return nil
+// CreatePVCMap creates a map with the process group ID as a key and the according PVC as a value
+func CreatePVCMap(cluster *fdbtypes.FoundationDBCluster, pvcs *corev1.PersistentVolumeClaimList) map[string]corev1.PersistentVolumeClaim {
+	pvcMap := make(map[string]corev1.PersistentVolumeClaim, len(pvcs.Items))
+	for _, pvc := range pvcs.Items {
+		processGroupID := GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
+		if processGroupID == "" {
+			continue
+		}
+
+		pvcMap[processGroupID] = pvc
 	}
 
-	service := &v1.Service{
-		ObjectMeta: GetObjectMetadata(cluster, nil, "", ""),
-	}
-	service.ObjectMeta.Name = cluster.ObjectMeta.Name
-	service.Spec.ClusterIP = "None"
-	service.Spec.Selector = cluster.Spec.LabelConfig.MatchLabels
-
-	return service
+	return pvcMap
 }

@@ -24,8 +24,6 @@ import (
 	ctx "context"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -48,14 +46,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		return &Requeue{Error: err}
 	}
 
-	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
-	for _, pod := range pods {
-		processGroupID := GetProcessGroupID(cluster, pod)
-		if processGroupID == "" {
-			continue
-		}
-		podProcessGroupMap[processGroupID] = pod
-	}
+	podMap := internal.CreatePodMap(cluster, pods)
 
 	allSynced := true
 	hasUpdate := false
@@ -64,12 +55,17 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 
+		if processGroup.Remove {
+			curLogger.V(1).Info("Ignore process group marked for removal")
+			continue
+		}
+
 		if cluster.SkipProcessGroup(processGroup) {
 			curLogger.Info("Process group has pending Pod, will be skipped")
 			continue
 		}
 
-		pod, ok := podProcessGroupMap[processGroup.ProcessGroupID]
+		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
 			curLogger.Info("Could not find Pod for process group")
 			// TODO (johscheuer): we should requeue if that happens.
