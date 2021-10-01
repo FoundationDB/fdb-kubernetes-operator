@@ -1,4 +1,4 @@
-# Design Doc Template
+# Support bin packing of fault domains
 
 ## Metadata
 
