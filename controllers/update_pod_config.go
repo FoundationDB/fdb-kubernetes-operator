@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -79,7 +81,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			continue
 		}
 
-		processClass, err := GetProcessClass(cluster, pod)
+		processClass, err := podmanager.GetProcessClass(cluster, pod)
 		if err != nil {
 			curLogger.Error(err, "Error when fetching process class from Pod")
 			errs = append(errs, err)

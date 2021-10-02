@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("choose_removals", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var adminClient *MockAdminClient
+	var adminClient *mockAdminClient
 	var err error
 	var requeue *Requeue
 	var removals []string

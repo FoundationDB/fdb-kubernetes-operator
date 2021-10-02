@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -64,7 +66,7 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		_, podExists := podMap[processGroup.ProcessGroupID]
 		if !podExists && !processGroup.Remove {
-			_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
+			_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 			if err != nil {
 				return &Requeue{Error: err}
 			}

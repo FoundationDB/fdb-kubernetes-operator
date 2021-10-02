@@ -37,7 +37,7 @@ var _ = Describe("fault_tolerance", func() {
 
 		DescribeTable("should return if the cluster has the desired fault tolerance",
 			func(input testCase) {
-				Expect(HasDesiredFaultTolerance(
+				Expect(hasDesiredFaultTolerance(
 					input.expectedFaultTolerance,
 					input.maxZoneFailuresWithoutLosingData,
 					input.maxZoneFailuresWithoutLosingAvailability)).To(Equal(input.expected))

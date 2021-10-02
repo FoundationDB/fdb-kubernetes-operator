@@ -22,6 +22,7 @@ package controllers
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -33,11 +34,11 @@ type DatabaseClientProvider interface {
 
 	// GetAdminClient generates a client for performing administrative actions
 	// against the database.
-	GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error)
+	GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error)
 }
 
 type legacyDatabaseClientProvider struct {
-	AdminClientProvider func(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error)
+	AdminClientProvider func(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error)
 	LockClientProvider  LockClientProvider
 }
 
@@ -48,7 +49,7 @@ func (p legacyDatabaseClientProvider) GetLockClient(cluster *fdbtypes.Foundation
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p legacyDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error) {
+func (p legacyDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
 	return p.AdminClientProvider(cluster, kubernetesClient)
 }
 
@@ -65,6 +66,6 @@ func (p mockDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDB
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p mockDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (AdminClient, error) {
-	return NewMockAdminClient(cluster, kubernetesClient)
+func (p mockDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
+	return newMockAdminClient(cluster, kubernetesClient)
 }

@@ -26,6 +26,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -78,7 +81,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 		addresses = append(addresses, addressMap[process]...)
 
-		instanceID := GetProcessGroupIDFromProcessID(process)
+		instanceID := podmanager.GetProcessGroupIDFromProcessID(process)
 		pod, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
 			return &Requeue{Error: err}
@@ -195,7 +198,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *Requeue) {
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *Requeue) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "BounceProcesses")
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {

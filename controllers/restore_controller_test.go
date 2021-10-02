@@ -37,7 +37,7 @@ func reloadRestore(backup *fdbtypes.FoundationDBRestore) error {
 var _ = Describe("restore_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var restore *fdbtypes.FoundationDBRestore
-	var adminClient *MockAdminClient
+	var adminClient *mockAdminClient
 	var err error
 
 	BeforeEach(func() {

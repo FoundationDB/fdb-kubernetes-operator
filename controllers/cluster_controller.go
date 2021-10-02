@@ -28,6 +28,9 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -50,7 +53,7 @@ type FoundationDBClusterReconciler struct {
 	Recorder            record.EventRecorder
 	Log                 logr.Logger
 	InSimulation        bool
-	PodLifecycleManager PodLifecycleManager
+	PodLifecycleManager podmanager.PodLifecycleManager
 	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (internal.FdbPodClient, error)
 
 	DatabaseClientProvider DatabaseClientProvider
@@ -58,14 +61,14 @@ type FoundationDBClusterReconciler struct {
 	RequeueOnNotFound      bool
 
 	// Deprecated: Use DatabaseClientProvider instead
-	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
+	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (fdbadminclient.AdminClient, error)
 
 	// Deprecated: Use DatabaseClientProvider instead
 	LockClientProvider LockClientProvider
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
-func NewFoundationDBClusterReconciler(podLifecycleManager PodLifecycleManager) *FoundationDBClusterReconciler {
+func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycleManager) *FoundationDBClusterReconciler {
 	return &FoundationDBClusterReconciler{
 		PodLifecycleManager: podLifecycleManager,
 		PodClientProvider:   NewFdbPodClient,
@@ -226,18 +229,18 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
-	if cluster.InstanceIsBeingRemoved(GetProcessGroupID(cluster, pod)) {
+	if cluster.InstanceIsBeingRemoved(podmanager.GetProcessGroupID(cluster, pod)) {
 		return true, nil
 	}
 	podClient, message := r.getPodClient(cluster, pod)
 	if podClient == nil {
-		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", GetProcessGroupID(cluster, pod), "message", message)
+		log.Info("Unable to generate pod client", "namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", podmanager.GetProcessGroupID(cluster, pod), "message", message)
 		return false, nil
 	}
 
 	serversPerPod := 1
 
-	processClass, err := GetProcessClass(cluster, pod)
+	processClass, err := podmanager.GetProcessClass(cluster, pod)
 	if err != nil {
 		return false, err
 	}
@@ -687,47 +690,10 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	return internal.GetPodSpec(cluster, processClass, idNum)
 }
 
-func hasDesiredFaultTolerance(adminClient AdminClient, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return false, err
-	}
-
-	if !version.HasZoneFaultToleranceInStatus() {
-		return true, nil
-	}
-
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return false, err
-	}
-
-	if !status.Client.DatabaseStatus.Available {
-		log.V(0).Info("Cluster is not available",
-			"namespace", cluster.Namespace,
-			"cluster", cluster.Name)
-
-		return false, nil
-	}
-
-	expectedFaultTolerance := cluster.DesiredFaultTolerance()
-	log.V(0).Info("Check desired fault tolerance",
-		"namespace", cluster.Namespace,
-		"cluster", cluster.Name,
-		"expectedFaultTolerance", expectedFaultTolerance,
-		"maxZoneFailuresWithoutLosingData", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
-		"maxZoneFailuresWithoutLosingAvailability", status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability)
-
-	return internal.HasDesiredFaultTolerance(
-		expectedFaultTolerance,
-		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData,
-		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability), nil
-}
-
-func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]internal.None, error) {
+func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]struct{}, error) {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
-		return map[string]internal.None{}, err
+		return map[string]struct{}{}, err
 	}
 	defer adminClient.Close()
 

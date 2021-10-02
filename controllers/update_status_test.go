@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -36,7 +38,7 @@ var _ = Describe("update_status", func() {
 	Context("validate process group", func() {
 		var cluster *fdbtypes.FoundationDBCluster
 		var configMap *corev1.ConfigMap
-		var adminClient *MockAdminClient
+		var adminClient *mockAdminClient
 		var pods []*corev1.Pod
 		var processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo
 		var err error
@@ -284,7 +286,7 @@ var _ = Describe("update_status", func() {
 
 			// Must be a JustBeforeEach otherwise the cluster status will result in an error
 			JustBeforeEach(func() {
-				unreachableProcessGroup = GetProcessGroupID(cluster, pods[0])
+				unreachableProcessGroup = podmanager.GetProcessGroupID(cluster, pods[0])
 				pods[0].Annotations[internal.MockUnreachableAnnotation] = "banana"
 				err = k8sClient.Update(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())
@@ -336,7 +338,7 @@ var _ = Describe("update_status", func() {
 			var pendingProcessGroup string
 
 			BeforeEach(func() {
-				pendingProcessGroup = GetProcessGroupID(cluster, pods[0])
+				pendingProcessGroup = podmanager.GetProcessGroupID(cluster, pods[0])
 				pods[0].Status.Phase = corev1.PodPending
 				err = k8sClient.Update(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())

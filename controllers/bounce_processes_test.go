@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("BounceProcesses", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var adminClient *MockAdminClient
+	var adminClient *mockAdminClient
 	var lockClient *MockLockClient
 	var requeue *Requeue
 	var err error

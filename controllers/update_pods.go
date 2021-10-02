@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -71,12 +73,12 @@ func (u UpdatePods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			return &Requeue{Message: "Cluster has pod that is pending deletion", Delay: podSchedulingDelayDuration}
 		}
 
-		_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
+		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
 
-		processClass, err := GetProcessClass(cluster, pod)
+		processClass, err := podmanager.GetProcessClass(cluster, pod)
 		if err != nil {
 			return &Requeue{Error: err}
 		}

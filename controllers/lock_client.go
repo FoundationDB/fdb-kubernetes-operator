@@ -164,7 +164,7 @@ func (client *MockLockClient) ClearPendingUpgrades() error {
 	return nil
 }
 
-// ClearMockLockClients clears the cache of mock lock clients
-func ClearMockLockClients() {
+// clearMockLockClients clears the cache of mock lock clients
+func clearMockLockClients() {
 	lockClientCache = map[string]*MockLockClient{}
 }

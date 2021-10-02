@@ -19,6 +19,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
@@ -55,7 +57,7 @@ func main() {
 		operatorOpts,
 		logOpts,
 		controllers.NewFoundationDBClusterReconciler(
-			controllers.StandardPodLifecycleManager{},
+			podmanager.StandardPodLifecycleManager{},
 		),
 		&controllers.FoundationDBBackupReconciler{},
 		&controllers.FoundationDBRestoreReconciler{},

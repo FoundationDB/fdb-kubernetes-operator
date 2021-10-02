@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -46,7 +48,7 @@ type FoundationDBRestoreReconciler struct {
 
 	DatabaseClientProvider DatabaseClientProvider
 	// Deprecated: Use DatabaseClientProvider instead
-	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
+	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (fdbadminclient.AdminClient, error)
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores,verbs=get;list;watch;create;update;patch;delete
@@ -99,7 +101,7 @@ func (r *FoundationDBRestoreReconciler) getDatabaseClientProvider() DatabaseClie
 }
 
 // AdminClientForRestore provides an admin client for a restore reconciler.
-func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (AdminClient, error) {
+func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
 	err := r.Get(context, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
 	if err != nil {

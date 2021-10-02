@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -130,7 +132,7 @@ func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationD
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (controllers.AdminClient, error) {
+func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
 	return NewCliAdminClient(cluster, kubernetesClient)
 }
 

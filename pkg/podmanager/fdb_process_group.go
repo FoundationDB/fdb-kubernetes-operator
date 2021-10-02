@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package controllers
+package podmanager
 
 import (
 	"fmt"

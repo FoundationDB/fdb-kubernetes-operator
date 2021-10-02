@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Change coordinators", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var adminClient *MockAdminClient
+	var adminClient *mockAdminClient
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()

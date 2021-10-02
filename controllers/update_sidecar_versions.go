@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -60,7 +62,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 			continue
 		}
 
-		processClass, err := GetProcessClass(cluster, pod)
+		processClass, err := podmanager.GetProcessClass(cluster, pod)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -72,7 +74,7 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 
 		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
-				logger.Info("Upgrading sidecar", "processGroupID", GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
+				logger.Info("Upgrading sidecar", "processGroupID", podmanager.GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
 				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, pod, containerIndex, image)
 				if err != nil {
 					return &Requeue{Error: err}

@@ -27,6 +27,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -473,7 +475,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 
 		pod := pods[0]
 
-		processGroup.AddAddresses(GetPublicIPs(pod), processGroup.Remove || !status.Health.Available)
+		processGroup.AddAddresses(podmanager.GetPublicIPs(pod), processGroup.Remove || !status.Health.Available)
 		processCount := 1
 
 		if processGroup.Remove && pod.ObjectMeta.DeletionTimestamp != nil {
@@ -551,7 +553,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 		return false, nil
 	}
 
-	_, idNum, err := ParseProcessGroupID(processGroupStatus.ProcessGroupID)
+	_, idNum, err := podmanager.ParseProcessGroupID(processGroupStatus.ProcessGroupID)
 	if err != nil {
 		return false, err
 	}

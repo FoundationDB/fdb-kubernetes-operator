@@ -54,7 +54,7 @@ func reloadBackupGenerations(backup *fdbtypes.FoundationDBBackup) (fdbtypes.Back
 var _ = Describe("backup_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var backup *fdbtypes.FoundationDBBackup
-	var adminClient *MockAdminClient
+	var adminClient *mockAdminClient
 	var err error
 
 	BeforeEach(func() {

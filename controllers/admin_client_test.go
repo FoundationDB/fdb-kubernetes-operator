@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("admin_client_test", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var client *MockAdminClient
+	var client *mockAdminClient
 
 	var err error
 
@@ -81,7 +81,7 @@ var _ = Describe("admin_client_test", func() {
 					},
 				}))
 
-				address := cluster.Status.ProcessGroups[firstStorageIndex].Addresses[0]
+				address := cluster.Status.ProcessGroups[13].Addresses[0]
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
 				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
 					Address: fdbtypes.ProcessAddress{

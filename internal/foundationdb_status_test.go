@@ -31,7 +31,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 	When("parsing the status for coordinators", func() {
 		type testCase struct {
 			status   *fdbtypes.FoundationDBStatus
-			expected map[string]None
+			expected map[string]struct{}
 		}
 
 		DescribeTable("parse the status",
@@ -42,7 +42,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 			Entry("no coordinators",
 				testCase{
 					status:   &fdbtypes.FoundationDBStatus{},
-					expected: map[string]None{},
+					expected: map[string]struct{}{},
 				}),
 			Entry("single coordinators",
 				testCase{
@@ -67,7 +67,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 							},
 						},
 					},
-					expected: map[string]None{
+					expected: map[string]struct{}{
 						"foo": {},
 					},
 				}),
@@ -99,7 +99,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 							},
 						},
 					},
-					expected: map[string]None{
+					expected: map[string]struct{}{
 						"foo": {},
 						"bar": {},
 					},

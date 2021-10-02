@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -129,7 +131,7 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 		return false, nil
 	}
 
-	_, idNum, err := ParseProcessGroupID(instanceID)
+	_, idNum, err := podmanager.ParseProcessGroupID(instanceID)
 	if err != nil {
 		return false, err
 	}
@@ -162,7 +164,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	processGroupID := GetProcessGroupID(cluster, pod)
+	processGroupID := podmanager.GetProcessGroupID(cluster, pod)
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "ReplaceMisconfiguredProcessGroups")
 
@@ -174,12 +176,12 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, nil
 	}
 
-	_, idNum, err := ParseProcessGroupID(processGroupID)
+	_, idNum, err := podmanager.ParseProcessGroupID(processGroupID)
 	if err != nil {
 		return false, err
 	}
 
-	processClass, err := GetProcessClass(cluster, pod)
+	processClass, err := podmanager.GetProcessClass(cluster, pod)
 	if err != nil {
 		return false, err
 	}
@@ -191,7 +193,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return true, nil
 	}
 
-	ipSource, err := GetPublicIPSource(pod)
+	ipSource, err := podmanager.GetPublicIPSource(pod)
 	if err != nil {
 		return false, err
 	}

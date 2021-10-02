@@ -1,5 +1,5 @@
 /*
- * admin_client.go
+ * fdbadminclient.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,6 +31,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -70,7 +72,7 @@ type cliAdminClient struct {
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (controllers.AdminClient, error) {
+func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
 	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
@@ -587,7 +589,7 @@ func removeWarningsInJSON(jsonString string) (string, error) {
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
-func (client *cliAdminClient) GetCoordinatorSet() (map[string]internal.None, error) {
+func (client *cliAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 	status, err := getStatusFromDB(client.Cluster)
 	if err != nil {
 		return nil, err

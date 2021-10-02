@@ -64,7 +64,7 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 		}
 		defer adminClient.Close()
 
-		hasDesiredFaultTolerance, err := hasDesiredFaultTolerance(adminClient, cluster)
+		hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
 		if err != nil {
 			return &Requeue{Error: err}
 		}
@@ -292,7 +292,7 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
-	var cordSet map[string]internal.None
+	var cordSet map[string]struct{}
 	allExcluded := true
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 
