@@ -559,7 +559,7 @@ func chooseDistributedProcesses(cluster *fdbtypes.FoundationDBCluster, processes
 }
 
 func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
-	if cluster.Spec.UsableRegions <= 1 {
+	if cluster.Spec.DatabaseConfiguration.UsableRegions <= 1 {
 		return map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1}
 	}
 
@@ -653,7 +653,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 	var maxCoordinatorsPerDC int
 	hasEnoughDCs := true
-	if cluster.Spec.UsableRegions > 1 {
+	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 		maxCoordinatorsPerDC = int(math.Floor(float64(desiredCount) / 2.0))
 
 		for dc, count := range coordinatorDCs {
