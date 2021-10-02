@@ -35,11 +35,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// AddServices provides a reconciliation step for adding services to a cluster.
-type AddServices struct{}
+// addServices provides a reconciliation step for adding services to a cluster.
+type addServices struct{}
 
-// Reconcile runs the reconciler's work.
-func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (a addServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
@@ -48,17 +48,17 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 			// Update the existing service
 			err = updateService(r, context, cluster, existingService, service)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		} else {
 			if !k8serrors.IsNotFound(err) {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			service.ObjectMeta.OwnerReferences = owner
 			err = r.Create(context, service)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 	}
@@ -71,13 +71,13 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 
 			_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			serviceName, _ := internal.GetInstanceID(cluster, processGroup.ProcessClass, idNum)
 			service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			existingService := &corev1.Service{}
@@ -86,17 +86,17 @@ func (a AddServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 				// Update the existing service
 				err = updateService(r, context, cluster, existingService, service)
 				if err != nil {
-					return &Requeue{Error: err}
+					return &requeue{curError: err}
 				}
 			} else if k8serrors.IsNotFound(err) {
 				// Create a new service
 				err = r.Create(context, service)
 
 				if err != nil {
-					return &Requeue{Error: err}
+					return &requeue{curError: err}
 				}
 			} else {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 	}

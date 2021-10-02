@@ -30,38 +30,18 @@ import (
 // communicate with the database.
 type DatabaseClientProvider interface {
 	// GetLockClient generates a client for working with locks through the database.
-	GetLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error)
+	GetLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error)
 
 	// GetAdminClient generates a client for performing administrative actions
 	// against the database.
 	GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error)
 }
 
-type legacyDatabaseClientProvider struct {
-	AdminClientProvider func(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error)
-	LockClientProvider  LockClientProvider
-}
-
-// GetLockClient generates a client for working with locks through the database.
-func (p legacyDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	return p.LockClientProvider(cluster)
-}
-
-// GetAdminClient generates a client for performing administrative actions
-// against the database.
-func (p legacyDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
-	return p.AdminClientProvider(cluster, kubernetesClient)
-}
-
-// CleanUpCache removes the cache entry for a cluster.
-func (p legacyDatabaseClientProvider) CleanUpCache(namespace string, name string) {
-}
-
 type mockDatabaseClientProvider struct{}
 
 // GetLockClient generates a client for working with locks through the database.
-func (p mockDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
-	return NewMockLockClient(cluster)
+func (p mockDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+	return newMockLockClient(cluster)
 }
 
 // GetAdminClient generates a client for performing administrative actions

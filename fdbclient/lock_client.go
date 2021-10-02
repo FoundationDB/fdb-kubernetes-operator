@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	controllers "github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
@@ -302,7 +303,7 @@ func (err invalidLockValue) Error() string {
 }
 
 // NewRealLockClient creates a lock client.
-func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (controllers.LockClient, error) {
+func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	if !cluster.ShouldUseLocks() {
 		return &realLockClient{disableLocks: true}, nil
 	}

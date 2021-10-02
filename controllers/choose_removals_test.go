@@ -34,7 +34,7 @@ var _ = Describe("choose_removals", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var adminClient *mockAdminClient
 	var err error
-	var requeue *Requeue
+	var requeue *requeue
 	var removals []string
 
 	BeforeEach(func() {
@@ -55,7 +55,7 @@ var _ = Describe("choose_removals", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = ChooseRemovals{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = chooseRemovals{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

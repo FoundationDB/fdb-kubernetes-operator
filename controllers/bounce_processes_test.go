@@ -33,11 +33,11 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-var _ = Describe("BounceProcesses", func() {
+var _ = Describe("bounceProcesses", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var adminClient *mockAdminClient
-	var lockClient *MockLockClient
-	var requeue *Requeue
+	var lockClient *mockLockClient
+	var requeue *requeue
 	var err error
 
 	BeforeEach(func() {
@@ -55,7 +55,7 @@ var _ = Describe("BounceProcesses", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = BounceProcesses{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = bounceProcesses{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -208,7 +208,7 @@ var _ = Describe("BounceProcesses", func() {
 
 			It("should requeue", func() {
 				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.Message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
+				Expect(requeue.message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
 			})
 
 			It("should not kill any processes", func() {
@@ -261,7 +261,7 @@ var _ = Describe("BounceProcesses", func() {
 
 				It("should requeue", func() {
 					Expect(requeue).NotTo(BeNil())
-					Expect(requeue.Message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
+					Expect(requeue.message).To(Equal("Waiting for processes to be updated: [dc2-storage-1]"))
 				})
 
 				It("should not kill any processes", func() {

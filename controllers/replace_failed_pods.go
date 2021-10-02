@@ -28,19 +28,19 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// ReplaceFailedPods identifies processes that have failed and need to be
+// replaceFailedPods identifies processes that have failed and need to be
 // replaced.
-type ReplaceFailedPods struct{}
+type replaceFailedPods struct{}
 
-// Reconcile runs the reconciler's work.
-func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (c replaceFailedPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	if chooseNewRemovals(cluster) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
-		return &Requeue{Message: "Removals have been updated in the cluster status"}
+		return &requeue{message: "Removals have been updated in the cluster status"}
 	}
 
 	return nil
@@ -49,7 +49,7 @@ func (c ReplaceFailedPods) Reconcile(r *FoundationDBClusterReconciler, context c
 // chooseNewRemovals flags failed processes for removal and returns an indicator
 // of whether any processes were thus flagged.
 func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ReplaceFailedPods")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedPods")
 	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
 		return false
 	}

@@ -661,7 +661,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Context("with cluster skip enabled", func() {
 				BeforeEach(func() {
 					cluster.Spec.Skip = true
-					// Since we don't reconcile we don't expect a generationGap
+					// Since we don't Reconcile we don't expect a generationGap
 					generationGap = 0
 				})
 
@@ -2482,7 +2482,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("It should report the incorrect commandline in the process groups", func() {
-				// We have to reload the cluster because we don't reach the reconcile state
+				// We have to reload the cluster because we don't reach the Reconcile state
 				_, err = reloadClusterGenerations(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
@@ -2497,7 +2497,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("It should report the incorrect commandline in the process groups", func() {
-					// We have to reload the cluster because we don't reach the reconcile state
+					// We have to reload the cluster because we don't reach the Reconcile state
 					_, err = reloadClusterGenerations(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)

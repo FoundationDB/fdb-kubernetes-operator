@@ -33,11 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// AddPVCs provides a reconciliation step for adding new PVCs to a cluster.
-type AddPVCs struct{}
+// addPVCs provides a reconciliation step for adding new PVCs to a cluster.
+type addPVCs struct{}
 
-// Reconcile runs the reconciler's work.
-func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (a addPVCs) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
 			continue
@@ -45,12 +45,12 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		pvc, err := internal.GetPvc(cluster, processGroup.ProcessClass, idNum)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		if pvc == nil {
@@ -61,7 +61,7 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		err = r.Get(context, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -69,7 +69,7 @@ func (a AddPVCs) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 			err = r.Create(context, pvc)
 
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 	}

@@ -126,7 +126,7 @@ func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.Foundatio
 type realDatabaseClientProvider struct{}
 
 // GetLockClient generates a client for working with locks through the database.
-func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (controllers.LockClient, error) {
+func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return NewRealLockClient(cluster)
 }
 

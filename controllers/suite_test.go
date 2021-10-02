@@ -89,7 +89,6 @@ var _ = BeforeSuite(func(done Done) {
 		Client:                 k8sClient,
 		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
 		Recorder:               k8sClient,
-		InSimulation:           true,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 

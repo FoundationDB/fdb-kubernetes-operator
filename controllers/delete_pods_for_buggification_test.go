@@ -36,7 +36,7 @@ import (
 var _ = Describe("delete_pods_for_buggification", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var requeue *requeue
 	var originalPods *corev1.PodList
 
 	BeforeEach(func() {
@@ -61,9 +61,9 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = DeletePodsForBuggification{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = deletePodsForBuggification{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		if requeue != nil {
-			Expect(requeue.Error).NotTo(HaveOccurred())
+			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
@@ -93,7 +93,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		It("should requeue", func() {
 			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.Message).To(Equal("Pods need to be recreated"))
+			Expect(requeue.message).To(Equal("Pods need to be recreated"))
 		})
 
 		It("should delete the pod", func() {
@@ -116,7 +116,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		It("should requeue", func() {
 			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.Message).To(Equal("Pods need to be recreated"))
+			Expect(requeue.message).To(Equal("Pods need to be recreated"))
 		})
 
 		It("should delete the pods", func() {
@@ -148,7 +148,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 		It("should requeue", func() {
 			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.Message).To(Equal("Pods need to be recreated"))
+			Expect(requeue.message).To(Equal("Pods need to be recreated"))
 		})
 
 		It("should delete the pod", func() {

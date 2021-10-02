@@ -50,6 +50,7 @@ COPY controllers/ controllers/
 COPY setup/ setup/
 COPY fdbclient/ fdbclient/
 COPY internal/ internal/
+COPY pkg/ pkg/
 
 # Build
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on make manager

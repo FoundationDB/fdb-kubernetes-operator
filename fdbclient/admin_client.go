@@ -37,7 +37,6 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -413,7 +412,7 @@ func (client *cliAdminClient) VersionSupported(versionString string) (bool, erro
 		return false, err
 	}
 
-	if !version.IsAtLeast(controllers.MinimumFDBVersion()) {
+	if !version.IsSupported() {
 		return false, nil
 	}
 

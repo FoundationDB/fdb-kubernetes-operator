@@ -31,25 +31,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UpdateBackupStatus provides a reconciliation step for updating the status in the
+// updateBackupStatus provides a reconciliation step for updating the status in the
 // CRD.
-type UpdateBackupStatus struct {
-}
+type updateBackupStatus struct{}
 
-// Reconcile runs the reconciler's work.
-func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue {
+// reconcile runs the reconciler's work.
+func (s updateBackupStatus) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
 	status := fdbtypes.FoundationDBBackupStatus{}
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
 	backupDeployments := &appsv1.DeploymentList{}
 	err := r.List(context, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbtypes.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	desiredBackupDeployment, err := internal.GetBackupDeployment(backup)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if len(backupDeployments.Items) == 1 && desiredBackupDeployment != nil {
@@ -77,15 +76,15 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 		status.DeploymentConfigured = false
 	}
 
-	adminClient, err := r.AdminClientForBackup(context, backup)
+	adminClient, err := r.adminClientForBackup(context, backup)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
 	liveStatus, err := adminClient.GetBackupStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	status.BackupDetails = &fdbtypes.FoundationDBBackupStatusBackupDetails{
@@ -101,14 +100,14 @@ func (s UpdateBackupStatus) Reconcile(r *FoundationDBBackupReconciler, context c
 
 	_, err = backup.CheckReconciliation()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if !reflect.DeepEqual(backup.Status, *originalStatus) {
 		err = r.Status().Update(context, backup)
 		if err != nil {
 			log.Error(err, "Error updating backup status", "namespace", backup.Namespace, "backup", backup.Name)
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 

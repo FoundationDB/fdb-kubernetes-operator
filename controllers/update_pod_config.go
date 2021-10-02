@@ -31,21 +31,21 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// UpdatePodConfig provides a reconciliation step for updating the dynamic conf
+// updatePodConfig provides a reconciliation step for updating the dynamic conf
 // for a all pods.
-type UpdatePodConfig struct{}
+type updatePodConfig struct{}
 
-// Reconcile runs the reconciler's work.
-func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdatePodConfig")
+// reconcile runs the reconciler's work.
+func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePodConfig")
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
@@ -136,20 +136,20 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	if hasUpdate {
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
 	// If any error has happened requeue.
 	// We don't provide an error here since we log all errors above.
 	if len(errs) > 0 {
-		return &Requeue{Message: "errors occurred during update pod config reconcile"}
+		return &requeue{message: "errors occurred during update pod config reconcile"}
 	}
 
 	// If we return an error we don't requeue
 	// So we just return that we can't continue but don't have an error
 	if !allSynced {
-		return &Requeue{Message: "Waiting for Pod to receive ConfigMap update", Delay: podSchedulingDelayDuration}
+		return &requeue{message: "Waiting for Pod to receive ConfigMap update", delay: podSchedulingDelayDuration}
 	}
 
 	return nil

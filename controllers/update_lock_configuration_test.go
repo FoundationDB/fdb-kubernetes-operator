@@ -32,9 +32,9 @@ import (
 
 var _ = Describe("update_lock_configuration", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var lockClient *MockLockClient
+	var lockClient *mockLockClient
 	var err error
-	var requeue *Requeue
+	var requeue *requeue
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -59,9 +59,9 @@ var _ = Describe("update_lock_configuration", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = UpdateLockConfiguration{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = updateLockConfiguration{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		if requeue != nil {
-			Expect(requeue.Error).NotTo(HaveOccurred())
+			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

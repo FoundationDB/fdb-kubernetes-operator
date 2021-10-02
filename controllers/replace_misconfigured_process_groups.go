@@ -36,26 +36,26 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// ReplaceMisconfiguredProcessGroups identifies processes that need to be replaced in
+// replaceMisconfiguredProcessGroups identifies processes that need to be replaced in
 // order to bring up new processes with different configuration.
-type ReplaceMisconfiguredProcessGroups struct{}
+type replaceMisconfiguredProcessGroups struct{}
 
-// Reconcile runs the reconciler's work.
-func (c ReplaceMisconfiguredProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ReplaceMisconfiguredProcessGroups")
+// reconcile runs the reconciler's work.
+func (c replaceMisconfiguredProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceMisconfiguredProcessGroups")
 	hasNewRemovals := false
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err := r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
@@ -71,7 +71,7 @@ func (c ReplaceMisconfiguredProcessGroups) Reconcile(r *FoundationDBClusterRecon
 		if hasPVC {
 			needsPVCRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			if needsPVCRemoval && hasPod {
@@ -92,7 +92,7 @@ func (c ReplaceMisconfiguredProcessGroups) Reconcile(r *FoundationDBClusterRecon
 
 		needsRemoval, err := instanceNeedsRemoval(cluster, pod, processGroup)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		if needsRemoval {
@@ -104,10 +104,10 @@ func (c ReplaceMisconfiguredProcessGroups) Reconcile(r *FoundationDBClusterRecon
 	if hasNewRemovals {
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
-		return &Requeue{Message: "Removals have been updated in the cluster status"}
+		return &requeue{message: "Removals have been updated in the cluster status"}
 	}
 
 	return nil
@@ -115,7 +115,7 @@ func (c ReplaceMisconfiguredProcessGroups) Reconcile(r *FoundationDBClusterRecon
 
 func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim) (bool, error) {
 	instanceID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "ReplaceMisconfiguredProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", instanceID, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	ownedByCluster := !cluster.ShouldFilterOnOwnerReferences()
 	if !ownedByCluster {
@@ -166,7 +166,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 
 	processGroupID := podmanager.GetProcessGroupID(cluster, pod)
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "ReplaceMisconfiguredProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	if processGroupStatus == nil {
 		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", processGroupID)

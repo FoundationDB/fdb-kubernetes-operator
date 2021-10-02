@@ -50,28 +50,20 @@ import (
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
-	Recorder            record.EventRecorder
-	Log                 logr.Logger
-	InSimulation        bool
-	PodLifecycleManager podmanager.PodLifecycleManager
-	PodClientProvider   func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (internal.FdbPodClient, error)
-
+	Recorder               record.EventRecorder
+	Log                    logr.Logger
+	InSimulation           bool
+	PodLifecycleManager    podmanager.PodLifecycleManager
+	PodClientProvider      func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (internal.FdbPodClient, error)
 	DatabaseClientProvider DatabaseClientProvider
 	DeprecationOptions     internal.DeprecationOptions
-	RequeueOnNotFound      bool
-
-	// Deprecated: Use DatabaseClientProvider instead
-	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (fdbadminclient.AdminClient, error)
-
-	// Deprecated: Use DatabaseClientProvider instead
-	LockClientProvider LockClientProvider
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
 func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycleManager) *FoundationDBClusterReconciler {
 	return &FoundationDBClusterReconciler{
 		PodLifecycleManager: podLifecycleManager,
-		PodClientProvider:   NewFdbPodClient,
+		PodClientProvider:   newFdbPodClient,
 	}
 }
 
@@ -86,9 +78,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			if r.RequeueOnNotFound {
-				return ctrl.Result{Requeue: true}, nil
-			}
 			return ctrl.Result{}, nil
 
 		}
@@ -123,31 +112,31 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
 	}
 
-	subReconcilers := []ClusterSubReconciler{
-		UpdateStatus{},
-		UpdateLockConfiguration{},
-		UpdateConfigMap{},
-		CheckClientCompatibility{},
-		ReplaceMisconfiguredProcessGroups{},
-		ReplaceFailedPods{},
-		DeletePodsForBuggification{},
-		AddProcessGroups{},
-		AddServices{},
-		AddPVCs{},
-		AddPods{},
-		GenerateInitialClusterFile{},
-		UpdateSidecarVersions{},
-		UpdatePodConfig{},
-		UpdateLabels{},
-		UpdateDatabaseConfiguration{},
-		ChooseRemovals{},
-		ExcludeInstances{},
-		ChangeCoordinators{},
-		BounceProcesses{},
-		UpdatePods{},
-		RemoveServices{},
-		RemoveProcessGroups{},
-		UpdateStatus{},
+	subReconcilers := []clusterSubReconciler{
+		updateStatus{},
+		updateLockConfiguration{},
+		updateConfigMap{},
+		checkClientCompatibility{},
+		replaceMisconfiguredProcessGroups{},
+		replaceFailedPods{},
+		deletePodsForBuggification{},
+		addProcessGroups{},
+		addServices{},
+		addPVCs{},
+		addPods{},
+		generateInitialClusterFile{},
+		updateSidecarVersions{},
+		updatePodConfig{},
+		updateLabels{},
+		updateDatabaseConfiguration{},
+		chooseRemovals{},
+		excludeInstances{},
+		changeCoordinators{},
+		bounceProcesses{},
+		updatePods{},
+		removeServices{},
+		removeProcessGroups{},
+		updateStatus{},
 	}
 
 	originalGeneration := cluster.ObjectMeta.Generation
@@ -160,15 +149,15 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		cluster.Spec = *(normalizedSpec.DeepCopy())
 		clusterLog.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
-		requeue := subReconciler.Reconcile(r, ctx, cluster)
+		requeue := subReconciler.reconcile(r, ctx, cluster)
 		if requeue == nil {
 			continue
 		}
 
-		if requeue.DelayedRequeue {
+		if requeue.delayedRequeue {
 			clusterLog.Info("Delaying requeue for sub-reconciler",
 				"subReconciler", fmt.Sprintf("%T", subReconciler),
-				"message", requeue.Message)
+				"message", requeue.message)
 			delayedRequeue = true
 			continue
 		}
@@ -297,13 +286,11 @@ func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() DatabaseClie
 	if r.DatabaseClientProvider != nil {
 		return r.DatabaseClientProvider
 	}
-	if r.AdminClientProvider != nil || r.LockClientProvider != nil {
-		return legacyDatabaseClientProvider{AdminClientProvider: r.AdminClientProvider, LockClientProvider: r.LockClientProvider}
-	}
+
 	panic("Cluster reconciler does not have a DatabaseClientProvider defined")
 }
 
-func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (LockClient, error) {
+func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return r.getDatabaseClientProvider().GetLockClient(cluster)
 }
 
@@ -341,26 +328,21 @@ func sortPodsByName(pods *corev1.PodList) {
 
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
 
-// ClusterSubReconciler describes a class that does part of the work of
+// clusterSubReconciler describes a class that does part of the work of
 // reconciliation for a cluster.
-type ClusterSubReconciler interface {
+type clusterSubReconciler interface {
 	/**
-	Reconcile runs the reconciler's work.
+	reconcile runs the reconciler's work.
 
 	If reconciliation can continue, this should return nil.
 
-	If reconciliation encounters an error, this should return a	Requeue object
+	If reconciliation encounters an error, this should return a	requeue object
 	with an `Error` field.
 
-	If reconciliation cannot proceed, this should return a Requeue object with
+	If reconciliation cannot proceed, this should return a requeue object with
 	a `Message` field.
 	*/
-	Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue
-}
-
-// MinimumFDBVersion defines the minimum supported FDB version.
-func MinimumFDBVersion() fdbtypes.FdbVersion {
-	return fdbtypes.FdbVersion{Major: 6, Minor: 1, Patch: 12}
+	reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue
 }
 
 // localityInfo captures information about a process for the purposes of
@@ -679,15 +661,9 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	return hasEnoughDCs && hasEnoughZones && allHealthy && allEligible, allAddressesValid, nil
 }
 
-// NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, error) {
+// newFdbPodClient builds a client for working with an FDB Pod
+func newFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, error) {
 	return internal.NewFdbPodClient(cluster, pod)
-}
-
-// GetPodSpec provides an external interface for the internal GetPodSpec method
-// This is necessary for compatibility reasons.
-func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
-	return internal.GetPodSpec(cluster, processClass, idNum)
 }
 
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]struct{}, error) {

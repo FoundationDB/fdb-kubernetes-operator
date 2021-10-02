@@ -36,22 +36,22 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// BounceProcesses provides a reconciliation step for bouncing fdbserver
+// bounceProcesses provides a reconciliation step for bouncing fdbserver
 // processes.
-type BounceProcesses struct{}
+type bounceProcesses struct{}
 
-// Reconcile runs the reconciler's work.
-func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "BounceProcesses")
+// reconcile runs the reconciler's work.
+func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	minimumUptime := math.Inf(1)
@@ -84,10 +84,10 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		instanceID := podmanager.GetProcessGroupIDFromProcessID(process)
 		pod, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		if len(pod) == 0 {
-			return &Requeue{Message: fmt.Sprintf("No pod defined for instance %s", instanceID), Delay: podSchedulingDelayDuration}
+			return &requeue{message: fmt.Sprintf("No pod defined for instance %s", instanceID), delay: podSchedulingDelayDuration}
 		}
 
 		synced, err := r.updatePodDynamicConf(cluster, pod[0])
@@ -98,11 +98,11 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 	}
 
 	if len(missingAddress) > 0 {
-		return &Requeue{Error: fmt.Errorf("could not find address for processes: %s", missingAddress)}
+		return &requeue{curError: fmt.Errorf("could not find address for processes: %s", missingAddress)}
 	}
 
 	if !allSynced {
-		return &Requeue{Message: "Waiting for config map to sync to all pods"}
+		return &requeue{message: "Waiting for config map to sync to all pods"}
 	}
 
 	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
@@ -118,7 +118,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 				logger.Error(err, "Error updating cluster status")
 			}
 
-			return &Requeue{Message: "Kills are disabled"}
+			return &requeue{message: "Kills are disabled"}
 		}
 
 		if minimumUptime < float64(cluster.Spec.MinimumUptimeSecondsForBounce) {
@@ -131,23 +131,23 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			}
 
 			// Retry after we waited the minimum uptime
-			return &Requeue{
-				Message: "Cluster needs to stabilize before bouncing",
-				Delay:   time.Second * time.Duration(cluster.Spec.MinimumUptimeSecondsForBounce-int(minimumUptime)),
+			return &requeue{
+				message: "Cluster needs to stabilize before bouncing",
+				delay:   time.Second * time.Duration(cluster.Spec.MinimumUptimeSecondsForBounce-int(minimumUptime)),
 			}
 		}
 
-		var lockClient LockClient
+		var lockClient fdbadminclient.LockClient
 		useLocks := cluster.ShouldUseLocks()
 		if useLocks {
 			lockClient, err = r.getLockClient(cluster)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 		version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		if useLocks && upgrading {
@@ -157,23 +157,23 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			}
 			err = lockClient.AddPendingUpgrades(version, processGroupIDs)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 
 		hasLock, err := r.takeLock(cluster, fmt.Sprintf("bouncing processes: %v", addresses))
 		if !hasLock {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		if useLocks && upgrading {
-			var requeue *Requeue
-			addresses, requeue = getAddressesForUpgrade(r, adminClient, lockClient, cluster, version)
-			if requeue != nil {
-				return requeue
+			var req *requeue
+			addresses, req = getAddressesForUpgrade(r, adminClient, lockClient, cluster, version)
+			if req != nil {
+				return req
 			}
 			if addresses == nil {
-				return &Requeue{Error: fmt.Errorf("unknown error when getting addresses that are ready for upgrade")}
+				return &requeue{curError: fmt.Errorf("unknown error when getting addresses that are ready for upgrade")}
 			}
 		}
 
@@ -181,7 +181,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
 		err = adminClient.KillInstances(addresses)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
@@ -189,7 +189,7 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		cluster.Status.RunningVersion = cluster.Spec.Version
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
@@ -198,22 +198,22 @@ func (b BounceProcesses) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *Requeue) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "BounceProcesses")
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient fdbadminclient.LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *requeue) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {
-		return nil, &Requeue{Error: err}
+		return nil, &requeue{curError: err}
 	}
 
 	databaseStatus, err := adminClient.GetStatus()
 	if err != nil {
-		return nil, &Requeue{Error: err}
+		return nil, &requeue{curError: err}
 	}
 
 	if !databaseStatus.Client.DatabaseStatus.Available {
 		logger.Info("Deferring upgrade until database is available")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
-		return nil, &Requeue{Message: "Deferring upgrade until database is available"}
+		return nil, &requeue{message: "Deferring upgrade until database is available"}
 	}
 
 	notReadyProcesses := make([]string, 0)
@@ -233,11 +233,11 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadm
 		logger.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
 		message := fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", message)
-		return nil, &Requeue{Message: message}
+		return nil, &requeue{message: message}
 	}
 	err = lockClient.ClearPendingUpgrades()
 	if err != nil {
-		return nil, &Requeue{Error: err}
+		return nil, &requeue{curError: err}
 	}
 
 	return addresses, nil

@@ -41,14 +41,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-// UpdateStatus provides a reconciliation step for updating the status in the
+// updateStatus provides a reconciliation step for updating the status in the
 // CRD.
-type UpdateStatus struct {
-}
+type updateStatus struct{}
 
-// Reconcile runs the reconciler's work.
-func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
+// reconcile runs the reconciler's work.
+func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	originalStatus := cluster.Status.DeepCopy()
 	status := fdbtypes.FoundationDBClusterStatus{}
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
@@ -70,20 +69,20 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	} else {
 		version, connectionString, err := tryConnectionOptions(cluster, r)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		cluster.Status.RunningVersion = version
 		cluster.Status.ConnectionString = connectionString
 
 		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		defer adminClient.Close()
 
 		databaseStatus, err = adminClient.GetStatus()
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
@@ -126,7 +125,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	status.ProcessGroups = make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
@@ -138,7 +137,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	status.ProcessGroups, err = validateProcessGroups(r, context, cluster, &status, processMap, configMap)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	removeDuplicateConditions(status)
 
@@ -146,7 +145,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	for _, pvc := range pvcs.Items {
@@ -162,7 +161,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	services := &corev1.ServiceList{}
 	err = r.List(context, services, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	for _, service := range services.Items {
@@ -179,7 +178,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if err != nil && k8serrors.IsNotFound(err) {
 		status.HasIncorrectConfigMap = true
 	} else if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	status.RunningVersion = cluster.Status.RunningVersion
@@ -209,7 +208,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			pods := &corev1.PodList{}
 			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": podName})
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 			if len(pods.Items) > 0 {
 				instanceID := pods.Items[0].ObjectMeta.Labels[cluster.GetProcessGroupIDLabel()]
@@ -227,7 +226,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			pods := &corev1.PodList{}
 			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": state.PodName})
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 			var processClass fdbtypes.ProcessClass
 			if len(pods.Items) > 0 {
@@ -249,7 +248,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if err != nil && k8serrors.IsNotFound(err) {
 		existingService = nil
 	} else if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	status.HasIncorrectServiceConfig = (service == nil) != (existingService == nil)
@@ -262,7 +261,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus, coordinatorStatus)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		status.NeedsNewCoordinators = !coordinatorsValid
@@ -271,11 +270,11 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 	if len(cluster.Spec.LockOptions.DenyList) > 0 && cluster.ShouldUseLocks() && status.Configured {
 		lockClient, err := r.getLockClient(cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		denyList, err := lockClient.GetDenyList()
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		if len(denyList) == 0 {
 			denyList = nil
@@ -283,7 +282,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		status.Locks.DenyList = denyList
 	}
 
-	// Sort the storage servers per Disk to prevent a reodering to issue a new reconcile loop.
+	// Sort the storage servers per Disk to prevent a reodering to issue a new Reconcile loop.
 	sort.Ints(status.StorageServersPerDisk)
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
@@ -295,7 +294,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 
 	_, err = cluster.CheckReconciliation(log)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	// See: https://github.com/kubernetes-sigs/kubebuilder/issues/592
@@ -305,7 +304,7 @@ func (s UpdateStatus) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		err = r.Status().Update(context, cluster)
 		if err != nil {
 			logger.Error(err, "Error updating cluster status")
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
@@ -341,7 +340,7 @@ func optionList(options ...string) []string {
 // versions and connection strings for this cluster and returns the set that
 // allow connecting to the cluster.
 func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, string, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	versions := optionList(cluster.Status.RunningVersion, cluster.Spec.Version)
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
@@ -384,9 +383,9 @@ func tryConnectionOptions(cluster *fdbtypes.FoundationDBCluster, r *FoundationDB
 	return originalVersion, originalConnectionString, nil
 }
 
-// CheckAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func CheckAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
+// checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
+func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processID := processGroupStatus.ProcessGroupID
 
 	if processCount > 1 {
@@ -519,7 +518,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 
 		// In theory we could also support multiple processes per pod for different classes
 		for i := 1; i <= processCount; i++ {
-			err := CheckAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
+			err := checkAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
 			if err != nil {
 				return processGroups, err
 			}
@@ -547,7 +546,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 // validateProcessGroup runs specific checks for the status of an instance.
 // returns failing, incorrect, error
 func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateStatus")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processGroupStatus.UpdateCondition(fdbtypes.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	if pod == nil {
 		return false, nil

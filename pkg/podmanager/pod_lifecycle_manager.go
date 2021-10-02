@@ -62,8 +62,6 @@ type PodLifecycleManager interface {
 	PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error)
 }
 
-// TODO (johscheuer): move back into controller but not as an exposed struct?
-
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
 // that directly creates pods.
 type StandardPodLifecycleManager struct{}
@@ -141,4 +139,10 @@ func (manager StandardPodLifecycleManager) UpdateMetadata(r client.Client, conte
 // PodIsUpdated metadata.
 func (manager StandardPodLifecycleManager) PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error) {
 	return true, nil
+}
+
+// GetPodSpec provides an external interface for the internal GetPodSpec method
+// This is necessary for compatibility reasons.
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+	return internal.GetPodSpec(cluster, processClass, idNum)
 }

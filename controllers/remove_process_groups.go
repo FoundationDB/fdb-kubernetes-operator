@@ -32,22 +32,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// RemoveProcessGroups provides a reconciliation step for removing process groups as part of a
+// removeProcessGroups provides a reconciliation step for removing process groups as part of a
 // shrink or replacement.
-type RemoveProcessGroups struct{}
+type removeProcessGroups struct{}
 
-// Reconcile runs the reconciler's work.
-func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (u removeProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	allExcluded, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
-			return &Requeue{Message: "Reconciliation needs to exclude more processes"}
+			return &requeue{message: "Reconciliation needs to exclude more processes"}
 		}
 		return nil
 	}
@@ -60,19 +60,19 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 	if cluster.GetEnforceFullReplicationForDeletion() {
 		adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		defer adminClient.Close()
 
 		hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		if !hasDesiredFaultTolerance {
-			return &Requeue{
-				Message: "Removals cannot proceed because cluster has degraded fault tolerance",
-				Delay:   30 * time.Second,
+			return &requeue{
+				message: "Removals cannot proceed because cluster has degraded fault tolerance",
+				delay:   30 * time.Second,
 			}
 		}
 	}
@@ -80,7 +80,7 @@ func (u RemoveProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context
 	removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
 	err = includeInstance(r, context, cluster, removedProcessGroups)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	return nil
@@ -135,7 +135,7 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 }
 
 func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupID string) (bool, bool, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	canBeIncluded := true
 	instanceListOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
 
@@ -244,7 +244,7 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 }
 
 func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.FoundationDBCluster) (map[string]bool, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return map[string]bool{}, err
@@ -291,7 +291,7 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	var cordSet map[string]struct{}
 	allExcluded := true
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
@@ -314,7 +314,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 
 		excluded, err := processGroup.IsExcluded(remainingMap)
 		if !excluded || err != nil {
-			logger.Info("Incomplete exclusion still present in RemoveProcessGroups step", "processGroupID", processGroup.ProcessGroupID, "error", err)
+			logger.Info("Incomplete exclusion still present in removeProcessGroups step", "processGroupID", processGroup.ProcessGroupID, "error", err)
 			allExcluded = false
 			continue
 		}
@@ -334,7 +334,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 }
 
 func (r *FoundationDBClusterReconciler) removeProcessGroups(context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupsToRemove []string) map[string]bool {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "RemoveProcessGroups")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 
 	removedProcessGroups := make(map[string]bool)

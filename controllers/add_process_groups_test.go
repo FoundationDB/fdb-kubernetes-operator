@@ -34,7 +34,7 @@ import (
 var _ = Describe("add_process_groups", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var requeue *requeue
 	var initialProcessCounts fdbtypes.ProcessCounts
 	var newProcessCounts fdbtypes.ProcessCounts
 
@@ -55,9 +55,9 @@ var _ = Describe("add_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = AddProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = addProcessGroups{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		if requeue != nil {
-			Expect(requeue.Error).NotTo(HaveOccurred())
+			Expect(requeue.curError).NotTo(HaveOccurred())
 		}
 
 		_, err = reloadCluster(cluster)

@@ -42,13 +42,10 @@ import (
 // FoundationDBRestoreReconciler reconciles a FoundationDBRestore object
 type FoundationDBRestoreReconciler struct {
 	client.Client
-	Recorder     record.EventRecorder
-	Log          logr.Logger
-	InSimulation bool
+	Recorder record.EventRecorder
+	Log      logr.Logger
 
 	DatabaseClientProvider DatabaseClientProvider
-	// Deprecated: Use DatabaseClientProvider instead
-	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (fdbadminclient.AdminClient, error)
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores,verbs=get;list;watch;create;update;patch;delete
@@ -71,12 +68,12 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 
 	restoreLog := log.WithValues("namespace", restore.Namespace, "restore", restore.Name)
 
-	subReconcilers := []RestoreSubReconciler{
-		StartRestore{},
+	subReconcilers := []restoreSubReconciler{
+		startRestore{},
 	}
 
 	for _, subReconciler := range subReconcilers {
-		requeue := subReconciler.Reconcile(r, ctx, restore)
+		requeue := subReconciler.reconcile(r, ctx, restore)
 		if requeue == nil {
 			continue
 		}
@@ -94,14 +91,11 @@ func (r *FoundationDBRestoreReconciler) getDatabaseClientProvider() DatabaseClie
 	if r.DatabaseClientProvider != nil {
 		return r.DatabaseClientProvider
 	}
-	if r.AdminClientProvider != nil {
-		return legacyDatabaseClientProvider{AdminClientProvider: r.AdminClientProvider}
-	}
 	panic("Restore reconciler does not have a DatabaseClientProvider defined")
 }
 
-// AdminClientForRestore provides an admin client for a restore reconciler.
-func (r *FoundationDBRestoreReconciler) AdminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
+// adminClientForRestore provides an admin client for a restore reconciler.
+func (r *FoundationDBRestoreReconciler) adminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
 	err := r.Get(context, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
 	if err != nil {
@@ -123,19 +117,19 @@ func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		Complete(r)
 }
 
-// RestoreSubReconciler describes a class that does part of the work of
+// restoreSubReconciler describes a class that does part of the work of
 // reconciliation for a restore.
-type RestoreSubReconciler interface {
+type restoreSubReconciler interface {
 	/**
-	Reconcile runs the reconciler's work.
+	reconcile runs the reconciler's work.
 
 	If reconciliation can continue, this should return nil.
 
-	If reconciliation encounters an error, this should return a `Requeue` object
+	If reconciliation encounters an error, this should return a `requeue` object
 	with an `Error` field.
 
-	If reconciliation cannot proceed, this should return a `Requeue` object with
+	If reconciliation cannot proceed, this should return a `requeue` object with
 	a `Message` field.
 	*/
-	Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *Requeue
+	reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *requeue
 }

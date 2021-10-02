@@ -33,14 +33,14 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// AddProcessGroups provides a reconciliation step for adding new pods to a cluster.
-type AddProcessGroups struct{}
+// addProcessGroups provides a reconciliation step for adding new pods to a cluster.
+type addProcessGroups struct{}
 
-// Reconcile runs the reconciler's work.
-func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (a addProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	desiredCounts := desiredCountStruct.Map()
 
@@ -50,7 +50,7 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 		processGroupID := processGroup.ProcessGroupID
 		_, num, err := podmanager.ParseProcessGroupID(processGroupID)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		class := processGroup.ProcessClass
@@ -103,7 +103,7 @@ func (a AddProcessGroups) Reconcile(r *FoundationDBClusterReconciler, context ct
 	if hasNewProcessGroups {
 		err = r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 

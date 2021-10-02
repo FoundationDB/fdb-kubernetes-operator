@@ -367,7 +367,7 @@ var _ = Describe("update_status", func() {
 	Describe("Reconcile", func() {
 		var cluster *fdbtypes.FoundationDBCluster
 		var err error
-		var requeue *Requeue
+		var requeue *requeue
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -386,9 +386,9 @@ var _ = Describe("update_status", func() {
 		JustBeforeEach(func() {
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			requeue = UpdateStatus{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+			requeue = updateStatus{}.reconcile(clusterReconciler, context.TODO(), cluster)
 			if requeue != nil {
-				Expect(requeue.Error).NotTo(HaveOccurred())
+				Expect(requeue.curError).NotTo(HaveOccurred())
 			}
 			_, err = reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())

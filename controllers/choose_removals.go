@@ -29,12 +29,12 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// ChooseRemovals chooses which processes will be removed during a shrink.
-type ChooseRemovals struct{}
+// chooseRemovals chooses which processes will be removed during a shrink.
+type chooseRemovals struct{}
 
-// Reconcile runs the reconciler's work.
-func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ChooseRemovals")
+// reconcile runs the reconciler's work.
+func (c chooseRemovals) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "chooseRemovals")
 	hasNewRemovals := false
 
 	var removals = make(map[string]bool)
@@ -47,17 +47,17 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 	currentCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	desiredCounts := desiredCountStruct.Map()
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	localityMap := make(map[string]localityInfo)
 	for _, process := range status.Cluster.Processes {
@@ -88,7 +88,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 
 			remainingProcesses, err := chooseDistributedProcesses(cluster, processClassLocality, desiredCount, processSelectionConstraint{})
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			logger.Info("Chose remaining processes after shrink",
@@ -116,7 +116,7 @@ func (c ChooseRemovals) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		}
 		err := r.Status().Update(context, cluster)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 

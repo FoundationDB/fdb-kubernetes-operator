@@ -29,26 +29,26 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// ChangeCoordinators provides a reconciliation step for choosing new
+// changeCoordinators provides a reconciliation step for choosing new
 // coordinators.
-type ChangeCoordinators struct{}
+type changeCoordinators struct{}
 
-// Reconcile runs the reconciler's work.
-func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ChangeCoordinators")
+// reconcile runs the reconciler's work.
+func (c changeCoordinators) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
 	if !cluster.Status.Configured {
 		return nil
 	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
 	connectionString, err := adminClient.GetConnectionString()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if connectionString != cluster.Status.ConnectionString {
@@ -58,13 +58,13 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 		err = r.Status().Update(context, cluster)
 
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
@@ -74,7 +74,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if hasValidCoordinators {
@@ -89,7 +89,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	hasLock, err := r.takeLock(cluster, "changing coordinators")
 	if !hasLock {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	logger.Info("Changing coordinators")
@@ -97,7 +97,7 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 
 	coordinators, err := selectCoordinators(cluster, status)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	coordinatorAddresses := make([]fdbtypes.ProcessAddress, len(coordinators))
@@ -108,12 +108,12 @@ func (c ChangeCoordinators) Reconcile(r *FoundationDBClusterReconciler, context 
 	logger.Info("Final coordinators candidates", "coordinators", coordinatorAddresses)
 	connectionString, err = adminClient.ChangeCoordinators(coordinatorAddresses)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	cluster.Status.ConnectionString = connectionString
 	err = r.Status().Update(context, cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	return nil
@@ -147,7 +147,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 }
 
 func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ChangeCoordinators")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
 
