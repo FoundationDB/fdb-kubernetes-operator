@@ -1,9 +1,9 @@
-FROM foundationdb/foundationdb:6.2.30 as fdb62
-FROM foundationdb/foundationdb:6.1.13 as fdb61
-FROM foundationdb/foundationdb:6.3.10 as fdb63
+FROM docker.io/foundationdb/foundationdb:6.2.30 as fdb62
+FROM docker.io/foundationdb/foundationdb:6.1.13 as fdb61
+FROM docker.io/foundationdb/foundationdb:6.3.10 as fdb63
 
 # Build the manager binary
-FROM golang:1.16.8 as builder
+FROM docker.io/library/golang:1.16.8 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.30
