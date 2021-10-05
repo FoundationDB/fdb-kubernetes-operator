@@ -1106,6 +1106,7 @@ type FoundationDBClusterAutomationOptions struct {
 	// if the cluster is fully replicated. If the cluster is not fully replicated the Operator won't
 	// delete any Pods that are marked for removal.
 	// Defaults to true.
+	// Deprecated: Will be enforced by default in 1.0.0 without disabling.
 	EnforceFullReplicationForDeletion *bool `json:"enforceFullReplicationForDeletion,omitempty"`
 }
 
