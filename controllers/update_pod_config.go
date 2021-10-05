@@ -74,21 +74,21 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 
 		serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
-			curLogger.Info("Error when receiving storage server per Pod", "error", err)
+			curLogger.Error(err, "Error when receiving storage server per Pod")
 			errs = append(errs, err)
 			continue
 		}
 
 		processClass, err := GetProcessClass(cluster, pod)
 		if err != nil {
-			curLogger.Info("Error when fetching process class from Pod", "error", err)
+			curLogger.Error(err, "Error when fetching process class from Pod")
 			errs = append(errs, err)
 			continue
 		}
 
 		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, serverPerPod)
 		if err != nil {
-			curLogger.Info("Error when receiving dynamic ConfigMap hash", "error", err)
+			curLogger.Error(err, "Error when receiving dynamic ConfigMap hash")
 			errs = append(errs, err)
 			continue
 		}
@@ -101,7 +101,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		if !synced {
 			allSynced = false
 			hasUpdate = true
-			curLogger.Info("Update dynamic Pod config", "synced", synced, "error", err)
+			curLogger.Error(err, "Update Pod ConfigMap annotation")
 			if internal.IsNetworkError(err) {
 				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
@@ -112,7 +112,8 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 			if err != nil {
 				allSynced = false
-				curLogger.Info("Update Pod ConfigMap annotation", "error", err)
+				curLogger.Error(err, "Update Pod ConfigMap annotation")
+				errs = append(errs, err)
 			}
 			continue
 		}
@@ -122,7 +123,7 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 		if err != nil {
 			allSynced = false
-			curLogger.Info("Update Pod metadata", "error", err)
+			curLogger.Error(err, "Update Pod metadata")
 			errs = append(errs, err)
 		}
 
@@ -137,9 +138,10 @@ func (u UpdatePodConfig) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		}
 	}
 
-	// If any error has happened return the first error
+	// If any error has happened requeue.
+	// We don't provide an error here since we log all errors above.
 	if len(errs) > 0 {
-		return &Requeue{Error: errs[0]}
+		return &Requeue{Message: "errors occurred during update pod config reconcile"}
 	}
 
 	// If we return an error we don't requeue
