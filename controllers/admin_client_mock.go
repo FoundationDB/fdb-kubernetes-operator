@@ -1,3 +1,23 @@
+/*
+ * admin_client_mock.go
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package controllers
 
 import (
@@ -293,7 +313,7 @@ func (client *mockAdminClient) ConfigureDatabase(configuration fdbtypes.Database
 	return nil
 }
 
-// excludeInstances starts evacuating processes so that they can be removed
+// ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
 func (client *mockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
@@ -389,7 +409,7 @@ func (client *mockAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress
 	return nil
 }
 
-// changeCoordinators changes the coordinator set
+// ChangeCoordinators changes the coordinator set
 func (client *mockAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
@@ -440,7 +460,7 @@ func (client *mockAdminClient) GetProtocolVersion(version string) (string, error
 	return version, nil
 }
 
-// startBackup starts a new backup.
+// StartBackup starts a new backup.
 func (client *mockAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
@@ -477,7 +497,7 @@ func (client *mockAdminClient) ResumeBackups() error {
 	return nil
 }
 
-// modifyBackup reconfigures the backup.
+// ModifyBackup reconfigures the backup.
 func (client *mockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
@@ -488,7 +508,7 @@ func (client *mockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	return nil
 }
 
-// stopBackup stops a backup.
+// StopBackup stops a backup.
 func (client *mockAdminClient) StopBackup(url string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
@@ -522,7 +542,7 @@ func (client *mockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBack
 	return status, nil
 }
 
-// startRestore starts a new restore.
+// StartRestore starts a new restore.
 func (client *mockAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()

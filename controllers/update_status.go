@@ -282,7 +282,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		status.Locks.DenyList = denyList
 	}
 
-	// Sort the storage servers per Disk to prevent a reodering to issue a new Reconcile loop.
+	// Sort the storage servers per disk to prevent a reordering to issue a new reconcile loop.
 	sort.Ints(status.StorageServersPerDisk)
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
