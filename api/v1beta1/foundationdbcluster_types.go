@@ -87,7 +87,7 @@ type FoundationDBClusterSpec struct {
 	SidecarVersions map[string]int `json:"sidecarVersions,omitempty"`
 
 	// DatabaseConfiguration defines the database configuration.
-	DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Processes defines process-level settings.
 	Processes map[ProcessClass]ProcessSettings `json:"processes,omitempty"`
@@ -1219,7 +1219,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
-	counts := cluster.Spec.RoleCounts.DeepCopy()
+	counts := cluster.Spec.DatabaseConfiguration.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
 		counts.Storage = 2*cluster.DesiredFaultTolerance() + 1
 	}
@@ -1233,14 +1233,14 @@ func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 		counts.Resolvers = 1
 	}
 	if counts.RemoteLogs == 0 {
-		if cluster.Spec.UsableRegions > 1 {
+		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 			counts.RemoteLogs = counts.Logs
 		} else {
 			counts.RemoteLogs = -1
 		}
 	}
 	if counts.LogRouters == 0 {
-		if cluster.Spec.UsableRegions > 1 {
+		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 			counts.LogRouters = counts.Logs
 		} else {
 			counts.LogRouters = -1
@@ -1390,7 +1390,7 @@ func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
 // DesiredFaultTolerance returns the number of replicas we should be able to
 // lose when the cluster is at full replication health.
 func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
-	return DesiredFaultTolerance(cluster.Spec.RedundancyMode)
+	return DesiredFaultTolerance(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
 // MinimumFaultDomains returns the number of fault domains given a redundancy mode.
@@ -1410,13 +1410,13 @@ func MinimumFaultDomains(redundancyMode RedundancyMode) int {
 // MinimumFaultDomains returns the number of fault domains the cluster needs
 // to function.
 func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
-	return MinimumFaultDomains(cluster.Spec.RedundancyMode)
+	return MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	if cluster.Spec.UsableRegions > 1 {
+	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 		return 9
 	}
 

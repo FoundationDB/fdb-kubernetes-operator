@@ -3771,7 +3771,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.UsableRegions = 2
+				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 
 				coordinators := make([]fdbtypes.FoundationDBStatusCoordinator, 0, coordinatorCount)
 				dc := 0

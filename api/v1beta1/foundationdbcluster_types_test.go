@@ -69,9 +69,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				"remote_logs": -1,
 				"log_routers": -1,
 			}))
-			Expect(cluster.Spec.RoleCounts).To(Equal(RoleCounts{}))
+			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
 
-			cluster.Spec.UsableRegions = 2
+			cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 			counts = cluster.GetRoleCountsWithDefaults()
 			Expect(counts).To(Equal(RoleCounts{
 				Storage:    3,
@@ -89,7 +89,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				"log_routers": 3,
 			}))
 
-			cluster.Spec.RoleCounts = RoleCounts{
+			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
 				Storage: 5,
 			}
 
@@ -103,7 +103,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				LogRouters: 3,
 			}))
 
-			cluster.Spec.RoleCounts = RoleCounts{
+			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
 				Logs: 8,
 			}
 			counts = cluster.GetRoleCountsWithDefaults()
@@ -116,7 +116,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				LogRouters: 8,
 			}))
 
-			cluster.Spec.RoleCounts = RoleCounts{
+			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
 				Logs:       4,
 				RemoteLogs: 5,
 				LogRouters: 6,
@@ -215,8 +215,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(counts.Log).To(Equal(2))
 
 			cluster.Spec.ProcessCounts = ProcessCounts{}
-			cluster.Spec.RoleCounts.RemoteLogs = 4
-			cluster.Spec.RoleCounts.LogRouters = 8
+			cluster.Spec.DatabaseConfiguration.RoleCounts.RemoteLogs = 4
+			cluster.Spec.DatabaseConfiguration.RoleCounts.LogRouters = 8
 
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
@@ -227,7 +227,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}))
 
 			cluster.Spec.ProcessCounts = ProcessCounts{}
-			cluster.Spec.RoleCounts = RoleCounts{}
+			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{}
 			cluster.Spec.Version = Versions.WithoutRatekeeperRole.String()
 
 			counts, err = cluster.GetProcessCountsWithDefaults()
@@ -447,12 +447,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(3))
 
-			cluster.Spec.RedundancyMode = RedundancyModeSingle
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeSingle
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(0))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(1))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(1))
 
-			cluster.Spec.RedundancyMode = RedundancyModeDouble
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeDouble
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(1))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(3))

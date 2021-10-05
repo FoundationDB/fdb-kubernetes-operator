@@ -214,7 +214,7 @@ var _ = Describe("Change coordinators", func() {
 		})
 
 		JustBeforeEach(func() {
-			cluster.Spec.UsableRegions = 2
+			cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 			cluster.Spec.DataCenter = "primary"
 			cluster.Spec.InstancesToRemove = removals
 
