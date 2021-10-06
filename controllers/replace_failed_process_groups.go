@@ -1,5 +1,5 @@
 /*
- * replace_failed_pods.go
+ * replace_failed_process_groups.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,12 +31,12 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// replaceFailedPods identifies processes groups that have failed and need to be
+// replaceFailedProcessGroups identifies processes groups that have failed and need to be
 // replaced.
-type replaceFailedPods struct{}
+type replaceFailedProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (c replaceFailedPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c replaceFailedProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -58,7 +58,7 @@ func (c replaceFailedPods) reconcile(r *FoundationDBClusterReconciler, context c
 // chooseNewRemovals flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
 func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedPods")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
 	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
 		return false
 	}

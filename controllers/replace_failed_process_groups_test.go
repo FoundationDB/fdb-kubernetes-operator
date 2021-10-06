@@ -1,5 +1,5 @@
 /*
- * replace_failed_pods.go
+ * replace_failed_process_groups_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -33,7 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("replace_failed_pods", func() {
+var _ = Describe("replace_failed_process_groups", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 	var result bool
