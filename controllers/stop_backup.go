@@ -26,25 +26,25 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// StopBackup provides a reconciliation step for stopping backup.
-type StopBackup struct {
+// stopBackup provides a reconciliation step for stopping backup.
+type stopBackup struct {
 }
 
-// Reconcile runs the reconciler's work.
-func (s StopBackup) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue {
+// reconcile runs the reconciler's work.
+func (s stopBackup) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
 	if backup.ShouldRun() || backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
 		return nil
 	}
 
-	adminClient, err := r.AdminClientForBackup(context, backup)
+	adminClient, err := r.adminClientForBackup(context, backup)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
 	err = adminClient.StopBackup(backup.BackupURL())
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	return nil

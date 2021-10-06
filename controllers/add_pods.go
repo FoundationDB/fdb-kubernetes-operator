@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -32,15 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// AddPods provides a reconciliation step for adding new pods to a cluster.
-type AddPods struct{}
+// addPods provides a reconciliation step for adding new pods to a cluster.
+type addPods struct{}
 
-// Reconcile runs the reconciler's work.
-func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (a addPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "AddPods")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPods")
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
@@ -48,15 +50,15 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		logger.Info("Creating config map", "name", configMap.Name)
 		err = r.Create(context, configMap)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	} else if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
@@ -64,25 +66,25 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		_, podExists := podMap[processGroup.ProcessGroupID]
 		if !podExists && !processGroup.Remove {
-			_, idNum, err := ParseProcessGroupID(processGroup.ProcessGroupID)
+			_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
 				r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, serverPerPod)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 
 			pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
@@ -91,19 +93,19 @@ func (a AddPods) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				service := &corev1.Service{}
 				err = r.Get(context, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 				if err != nil {
-					return &Requeue{Error: err}
+					return &requeue{curError: err}
 				}
 				ip := service.Spec.ClusterIP
 				if ip == "" {
 					logger.Info("Service does not have an IP address", "processGroupID", processGroup.ProcessGroupID)
-					return &Requeue{Message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
+					return &requeue{message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
 				}
 				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
 			}
 
 			err = r.PodLifecycleManager.CreatePod(r, context, pod)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 	}

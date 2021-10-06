@@ -31,35 +31,35 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// CheckClientCompatibility confirms that all clients are compatible with the
+// checkClientCompatibility confirms that all clients are compatible with the
 // version of FoundationDB configured on the cluster.
-type CheckClientCompatibility struct{}
+type checkClientCompatibility struct{}
 
-// Reconcile runs the reconciler's work.
-func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "CheckClientCompatibility")
+// reconcile runs the reconciler's work.
+func (c checkClientCompatibility) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "checkClientCompatibility")
 	if !cluster.Status.Configured {
 		return nil
 	}
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
 	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if !version.IsAtLeast(runningVersion) {
-		return &Requeue{Message: "cluster downgrade operation is not supported"}
+		return &requeue{message: "cluster downgrade operation is not supported"}
 	}
 
 	if version.IsProtocolCompatible(runningVersion) {
@@ -68,12 +68,12 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	protocolVersion, err := adminClient.GetProtocolVersion(cluster.Spec.Version)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if !cluster.Spec.IgnoreUpgradabilityChecks {
@@ -123,7 +123,7 @@ func (c CheckClientCompatibility) Reconcile(r *FoundationDBClusterReconciler, co
 			)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
 			logger.Info("Deferring reconciliation due to unsupported clients", "message", message)
-			return &Requeue{Message: message, Delay: 1 * time.Minute}
+			return &requeue{message: message, delay: 1 * time.Minute}
 		}
 	}
 

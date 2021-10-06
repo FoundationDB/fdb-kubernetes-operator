@@ -27,33 +27,33 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// StartRestore provides a reconciliation step for starting a new restore.
-type StartRestore struct {
+// startRestore provides a reconciliation step for starting a new restore.
+type startRestore struct {
 }
 
-// Reconcile runs the reconciler's work.
-func (s StartRestore) Reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *Requeue {
-	adminClient, err := r.AdminClientForRestore(context, restore)
+// reconcile runs the reconciler's work.
+func (s startRestore) reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *requeue {
+	adminClient, err := r.adminClientForRestore(context, restore)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetRestoreStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if len(strings.TrimSpace(status)) == 0 {
 		err = adminClient.StartRestore(restore.Spec.BackupURL, restore.Spec.KeyRanges)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		restore.Status.Running = true
 		err = r.Status().Update(context, restore)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 

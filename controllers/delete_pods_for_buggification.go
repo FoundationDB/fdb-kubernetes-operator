@@ -30,16 +30,16 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// DeletePodsForBuggification provides a reconciliation step for recreating
+// deletePodsForBuggification provides a reconciliation step for recreating
 // pods with new pod specs when buggifying the config.
-type DeletePodsForBuggification struct{}
+type deletePodsForBuggification struct{}
 
-// Reconcile runs the reconciler's work.
-func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "DeletePodsForBuggification")
+// reconcile runs the reconciler's work.
+func (d deletePodsForBuggification) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "deletePodsForBuggification")
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
@@ -93,10 +93,10 @@ func (d DeletePodsForBuggification) Reconcile(r *FoundationDBClusterReconciler, 
 
 		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, updates, true)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
-		return &Requeue{Message: "Pods need to be recreated"}
+		return &requeue{message: "Pods need to be recreated"}
 	}
 	return nil
 }

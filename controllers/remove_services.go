@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// RemoveServices provides a reconciliation step for removing services from a cluster.
-type RemoveServices struct{}
+// removeServices provides a reconciliation step for removing services from a cluster.
+type removeServices struct{}
 
-// Reconcile runs the reconciler's work.
-func (u RemoveServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (u removeServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	if internal.GetHeadlessService(cluster) != nil {
 		return nil
 	}
@@ -47,12 +47,12 @@ func (u RemoveServices) Reconcile(r *FoundationDBClusterReconciler, context ctx.
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	err = r.Delete(context, existingService)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	return nil

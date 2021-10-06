@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("remove_process_groups", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var result *Requeue
+	var result *requeue
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -52,7 +52,7 @@ var _ = Describe("remove_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		result = RemoveProcessGroups{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		result = removeProcessGroups{}.reconcile(clusterReconciler, context.TODO(), cluster)
 	})
 
 	When("trying to remove a coordinator", func() {
@@ -67,7 +67,7 @@ var _ = Describe("remove_process_groups", func() {
 
 		It("should not remove the coordinator", func() {
 			Expect(result).NotTo(BeNil())
-			Expect(result.Message).To(Equal("Reconciliation needs to exclude more processes"))
+			Expect(result.message).To(Equal("Reconciliation needs to exclude more processes"))
 		})
 
 		It("should exclude the coordinator from the process group list to remove", func() {
@@ -109,7 +109,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -122,7 +122,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -141,7 +141,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 		})
@@ -166,7 +166,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -179,7 +179,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 
@@ -198,7 +198,7 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
-					Expect(result.Message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
 				})
 			})
 		})

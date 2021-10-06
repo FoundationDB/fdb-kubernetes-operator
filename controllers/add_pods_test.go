@@ -35,7 +35,7 @@ import (
 var _ = Describe("add_pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var requeue *requeue
 	var initialPods *corev1.PodList
 	var newPods *corev1.PodList
 
@@ -61,7 +61,7 @@ var _ = Describe("add_pods", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = AddPods{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = addPods{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

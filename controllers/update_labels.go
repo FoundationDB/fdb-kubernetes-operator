@@ -30,22 +30,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// UpdateLabels provides a reconciliation step for updating the labels on pods.
-type UpdateLabels struct{}
+// updateLabels provides a reconciliation step for updating the labels on pods.
+type updateLabels struct{}
 
-// Reconcile runs the reconciler's work.
-func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateLabels")
+// reconcile runs the reconciler's work.
+func (updateLabels) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateLabels")
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
@@ -66,7 +66,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 			if !metadataCorrect(metadata, &pod.ObjectMeta) {
 				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 				if err != nil {
-					return &Requeue{Error: err}
+					return &requeue{curError: err}
 				}
 			}
 		} else {
@@ -89,7 +89,7 @@ func (u UpdateLabels) Reconcile(r *FoundationDBClusterReconciler, context ctx.Co
 		if !metadataCorrect(metadata, &pvc.ObjectMeta) {
 			err = r.Update(context, &pvc)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 	}

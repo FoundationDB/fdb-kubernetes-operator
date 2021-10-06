@@ -36,12 +36,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UpdateBackupAgents provides a reconciliation step for updating the
+// updateBackupAgents provides a reconciliation step for updating the
 // deployment for the backup agents.
-type UpdateBackupAgents struct{}
+type updateBackupAgents struct{}
 
-// Reconcile runs the reconciler's work.
-func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue {
+// reconcile runs the reconciler's work.
+func (u updateBackupAgents) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false
@@ -51,24 +51,24 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		if k8serrors.IsNotFound(err) {
 			needCreation = true
 		} else {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
 	deployment, err := internal.GetBackupDeployment(backup)
 	if err != nil {
 		r.Recorder.Event(backup, corev1.EventTypeWarning, "GetBackupDeployment", err.Error())
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	if deployment != nil && deployment.ObjectMeta.Name != deploymentName {
-		return &Requeue{Error: fmt.Errorf("inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)}
+		return &requeue{curError: fmt.Errorf("inconsistent deployment names: %s != %s", deployment.ObjectMeta.Name, deploymentName)}
 	}
 
 	if needCreation && deployment != nil {
 		err = r.Create(context, deployment)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 	if !needCreation && deployment != nil {
@@ -78,7 +78,7 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 		if annotationChange || !reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
 			err = r.Update(context, deployment)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 	}
@@ -86,7 +86,7 @@ func (u UpdateBackupAgents) Reconcile(r *FoundationDBBackupReconciler, context c
 	if !needCreation && deployment == nil {
 		err = r.Delete(context, existingDeployment)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 	return nil

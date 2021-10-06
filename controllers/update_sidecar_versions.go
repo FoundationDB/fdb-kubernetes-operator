@@ -24,6 +24,8 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,17 +33,16 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// UpdateSidecarVersions provides a reconciliation step for upgrading the
+// updateSidecarVersions provides a reconciliation step for upgrading the
 // sidecar.
-type UpdateSidecarVersions struct {
-}
+type updateSidecarVersions struct{}
 
-// Reconcile runs the reconciler's work.
-func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateSidecarVersions")
+// reconcile runs the reconciler's work.
+func (updateSidecarVersions) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateSidecarVersions")
 	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	upgraded := false
 
@@ -60,22 +61,22 @@ func (u UpdateSidecarVersions) Reconcile(r *FoundationDBClusterReconciler, conte
 			continue
 		}
 
-		processClass, err := GetProcessClass(cluster, pod)
+		processClass, err := podmanager.GetProcessClass(cluster, pod)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		image, err := internal.GetSidecarImage(cluster, processClass)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
-				logger.Info("Upgrading sidecar", "processGroupID", GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
+				logger.Info("Upgrading sidecar", "processGroupID", podmanager.GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
 				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, pod, containerIndex, image)
 				if err != nil {
-					return &Requeue{Error: err}
+					return &requeue{curError: err}
 				}
 				upgraded = true
 			}

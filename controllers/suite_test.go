@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	. "github.com/onsi/ginkgo"
@@ -87,7 +89,6 @@ var _ = BeforeSuite(func(done Done) {
 		Client:                 k8sClient,
 		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBRestore"),
 		Recorder:               k8sClient,
-		InSimulation:           true,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
 
@@ -101,8 +102,8 @@ var _ = AfterSuite(func() {
 
 var _ = AfterEach(func() {
 	k8sClient.Clear()
-	ClearMockAdminClients()
-	ClearMockLockClients()
+	clearMockAdminClients()
+	clearMockLockClients()
 })
 
 func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBRestore {
@@ -182,7 +183,7 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		Log:                    ctrl.Log.WithName("controllers").WithName("FoundationDBCluster"),
 		Recorder:               k8sClient,
 		InSimulation:           true,
-		PodLifecycleManager:    StandardPodLifecycleManager{},
+		PodLifecycleManager:    podmanager.StandardPodLifecycleManager{},
 		PodClientProvider:      internal.NewMockFdbPodClient,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}

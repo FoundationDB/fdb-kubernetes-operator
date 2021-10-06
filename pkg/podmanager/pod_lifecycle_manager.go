@@ -18,12 +18,14 @@
  * limitations under the License.
  */
 
-package controllers
+package podmanager
 
 import (
 	ctx "context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,7 +43,7 @@ type PodLifecycleManager interface {
 	DeletePod(client.Client, ctx.Context, *corev1.Pod) error
 
 	// CanDeletePods checks whether it is safe to delete pods.
-	CanDeletePods(AdminClient, ctx.Context, *fdbtypes.FoundationDBCluster) (bool, error)
+	CanDeletePods(fdbadminclient.AdminClient, ctx.Context, *fdbtypes.FoundationDBCluster) (bool, error)
 
 	// UpdatePods updates a list of pods to match the latest specs.
 	UpdatePods(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, []*corev1.Pod, bool) error
@@ -104,8 +106,8 @@ func (manager StandardPodLifecycleManager) DeletePod(r client.Client, context ct
 }
 
 // CanDeletePods checks whether it is safe to delete Pods.
-func (manager StandardPodLifecycleManager) CanDeletePods(adminClient AdminClient, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	return hasDesiredFaultTolerance(adminClient, cluster)
+func (manager StandardPodLifecycleManager) CanDeletePods(adminClient fdbadminclient.AdminClient, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+	return internal.HasDesiredFaultTolerance(adminClient, cluster)
 }
 
 // UpdatePods updates a list of Pods to match the latest specs.
@@ -137,4 +139,10 @@ func (manager StandardPodLifecycleManager) UpdateMetadata(r client.Client, conte
 // PodIsUpdated metadata.
 func (manager StandardPodLifecycleManager) PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error) {
 	return true, nil
+}
+
+// GetPodSpec provides an external interface for the internal GetPodSpec method
+// This is necessary for compatibility reasons.
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+	return internal.GetPodSpec(cluster, processClass, idNum)
 }

@@ -33,7 +33,7 @@ import (
 
 var _ = Describe("lock_client_test", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var client *MockLockClient
+	var client *mockLockClient
 
 	var err error
 

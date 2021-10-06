@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -658,7 +661,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Context("with cluster skip enabled", func() {
 				BeforeEach(func() {
 					cluster.Spec.Skip = true
-					// Since we don't reconcile we don't expect a generationGap
+					// Since we don't Reconcile we don't expect a generationGap
 					generationGap = 0
 				})
 
@@ -907,7 +910,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with a missing process", func() {
-			var adminClient *MockAdminClient
+			var adminClient *mockAdminClient
 
 			BeforeEach(func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
@@ -958,7 +961,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with missing processes and pending exclusion", func() {
-			var adminClient *MockAdminClient
+			var adminClient *mockAdminClient
 
 			BeforeEach(func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
@@ -1061,7 +1064,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with a knob change", func() {
-			var adminClient *MockAdminClient
+			var adminClient *mockAdminClient
 
 			BeforeEach(func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
@@ -1187,7 +1190,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with a configuration change", func() {
-			var adminClient *MockAdminClient
+			var adminClient *mockAdminClient
 			BeforeEach(func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -1353,7 +1356,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					_, id, err := ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
+					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1492,7 +1495,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						_, id, err := ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
+						_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
 						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1600,7 +1603,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					_, id, err := ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
+					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1978,8 +1981,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		Context("with a newly created IPv6 cluster", func() {
 			BeforeEach(func() {
 				k8sClient.Clear()
-				ClearMockAdminClients()
-				ClearMockLockClients()
+				clearMockAdminClients()
+				clearMockLockClients()
 
 				cluster = internal.CreateDefaultCluster()
 				family := 6
@@ -2088,7 +2091,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with an upgrade", func() {
-			var adminClient *MockAdminClient
+			var adminClient *mockAdminClient
 
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbtypes.Versions.NextMajorVersion.String()
@@ -2468,7 +2471,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		When("When a process have an incorrect commandline", func() {
-			var adminClient *MockAdminClient
+			var adminClient *mockAdminClient
 
 			BeforeEach(func() {
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
@@ -2479,7 +2482,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("It should report the incorrect commandline in the process groups", func() {
-				// We have to reload the cluster because we don't reach the reconcile state
+				// We have to reload the cluster because we don't reach the Reconcile state
 				_, err = reloadClusterGenerations(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
@@ -2494,7 +2497,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("It should report the incorrect commandline in the process groups", func() {
-					// We have to reload the cluster because we don't reach the reconcile state
+					// We have to reload the cluster because we don't reach the Reconcile state
 					_, err = reloadClusterGenerations(cluster)
 					Expect(err).NotTo(HaveOccurred())
 					incorrectProcesses := fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, fdbtypes.IncorrectCommandLine, false)
@@ -3290,12 +3293,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("should substitute the variables in the start command", func() {
 				podClient, err := internal.NewMockFdbPodClient(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
-				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
+				pClass, err := podmanager.GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 				command, err = internal.GetStartCommand(cluster, pClass, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				id := GetProcessGroupID(cluster, &pods.Items[firstStorageIndex])
+				id := podmanager.GetProcessGroupID(cluster, &pods.Items[firstStorageIndex])
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
@@ -3316,12 +3319,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			It("should substitute the variables in the start command", func() {
 				podClient, err := internal.NewMockFdbPodClient(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
-				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
+				pClass, err := podmanager.GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 				command, err = internal.GetStartCommand(cluster, pClass, podClient, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
 
-				id := GetProcessGroupID(cluster, &pods.Items[firstStorageIndex])
+				id := podmanager.GetProcessGroupID(cluster, &pods.Items[firstStorageIndex])
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
@@ -3361,7 +3364,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				pod := pods.Items[firstStorageIndex]
 				pod.Spec.NodeName = "machine1"
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
-				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
+				pClass, err := podmanager.GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 
 				podClient, _ := internal.NewMockFdbPodClient(cluster, &pod)
@@ -3390,7 +3393,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			BeforeEach(func() {
 				pod := pods.Items[firstStorageIndex]
 				pod.Spec.NodeName = "machine1"
-				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
+				pClass, err := podmanager.GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
@@ -3426,7 +3429,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient, _ := internal.NewMockFdbPodClient(cluster, &pod)
-				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
+				pClass, err := podmanager.GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 
 				command, err = internal.GetStartCommand(cluster, pClass, podClient, 1, 1)
@@ -3457,7 +3460,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
 				pod := pods.Items[firstStorageIndex]
 				podClient, _ := internal.NewMockFdbPodClient(cluster, &pod)
-				pClass, err := GetProcessClass(cluster, &pods.Items[firstStorageIndex])
+				pClass, err := podmanager.GetProcessClass(cluster, &pods.Items[firstStorageIndex])
 				Expect(err).NotTo(HaveOccurred())
 				command, err = internal.GetStartCommand(cluster, pClass, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -3485,7 +3488,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 	Describe("ParseProcessGroupID", func() {
 		Context("with a storage ID", func() {
 			It("can parse the ID", func() {
-				prefix, id, err := ParseProcessGroupID("storage-12")
+				prefix, id, err := podmanager.ParseProcessGroupID("storage-12")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(prefix).To(Equal(fdbtypes.ProcessClassStorage))
 				Expect(id).To(Equal(12))
@@ -3494,7 +3497,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with a cluster controller ID", func() {
 			It("can parse the ID", func() {
-				prefix, id, err := ParseProcessGroupID("cluster_controller-3")
+				prefix, id, err := podmanager.ParseProcessGroupID("cluster_controller-3")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(prefix).To(Equal(fdbtypes.ProcessClassClusterController))
 				Expect(id).To(Equal(3))
@@ -3503,7 +3506,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with a custom prefix", func() {
 			It("parses the prefix", func() {
-				prefix, id, err := ParseProcessGroupID("dc1-storage-12")
+				prefix, id, err := podmanager.ParseProcessGroupID("dc1-storage-12")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(prefix).To(Equal(fdbtypes.ProcessClass("dc1-storage")))
 				Expect(id).To(Equal(12))
@@ -3512,7 +3515,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with no prefix", func() {
 			It("gives a parsing error", func() {
-				_, _, err := ParseProcessGroupID("6")
+				_, _, err := podmanager.ParseProcessGroupID("6")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("could not parse process group ID 6"))
 			})
@@ -3520,7 +3523,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with no numbers", func() {
 			It("gives a parsing error", func() {
-				_, _, err := ParseProcessGroupID("storage")
+				_, _, err := podmanager.ParseProcessGroupID("storage")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("could not parse process group ID storage"))
 			})
@@ -3528,7 +3531,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with a text suffix", func() {
 			It("gives a parsing error", func() {
-				_, _, err := ParseProcessGroupID("storage-bad")
+				_, _, err := podmanager.ParseProcessGroupID("storage-bad")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("could not parse process group ID storage-bad"))
 			})
@@ -3537,14 +3540,14 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 	Describe("GetProcessGroupIDFromProcessID", func() {
 		It("can parse a process ID", func() {
-			Expect(GetProcessGroupIDFromProcessID("storage-1-1")).To(Equal("storage-1"))
+			Expect(podmanager.GetProcessGroupIDFromProcessID("storage-1-1")).To(Equal("storage-1"))
 		})
 		It("can parse a process ID with a prefix", func() {
-			Expect(GetProcessGroupIDFromProcessID("dc1-storage-1-1")).To(Equal("dc1-storage-1"))
+			Expect(podmanager.GetProcessGroupIDFromProcessID("dc1-storage-1-1")).To(Equal("dc1-storage-1"))
 		})
 
 		It("can handle a process group ID with no process number", func() {
-			Expect(GetProcessGroupIDFromProcessID("storage-2")).To(Equal("storage-2"))
+			Expect(podmanager.GetProcessGroupIDFromProcessID("storage-2")).To(Equal("storage-2"))
 		})
 	})
 
@@ -3670,7 +3673,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 	Describe("checkCoordinatorValidity", func() {
 		var status *fdbtypes.FoundationDBStatus
-		var adminClient AdminClient
+		var adminClient fdbadminclient.AdminClient
 		var err error
 
 		BeforeEach(func() {
@@ -3685,7 +3688,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generations.Reconciled).To(Equal(int64(1)))
 
-			adminClient, err = NewMockAdminClient(cluster, k8sClient)
+			adminClient, err = newMockAdminClient(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			status, err = adminClient.GetStatus()
@@ -3842,7 +3845,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						EnableTLS: false,
 					}
 
-					adminClient, err = NewMockAdminClient(cluster, k8sClient)
+					adminClient, err = newMockAdminClient(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					status, err = adminClient.GetStatus()
@@ -3869,7 +3872,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 							EnableTLS: true,
 						}
 
-						adminClient, err = NewMockAdminClient(cluster, k8sClient)
+						adminClient, err = newMockAdminClient(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 
 						status, err = adminClient.GetStatus()
@@ -3898,7 +3901,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						EnableTLS: true,
 					}
 
-					adminClient, err = NewMockAdminClient(cluster, k8sClient)
+					adminClient, err = newMockAdminClient(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					status, err = adminClient.GetStatus()
@@ -3926,7 +3929,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 							EnableTLS: false,
 						}
 
-						adminClient, err = NewMockAdminClient(cluster, k8sClient)
+						adminClient, err = newMockAdminClient(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 
 						status, err = adminClient.GetStatus()
@@ -3961,7 +3964,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					EnableTLS: true,
 				}
 
-				adminClient, err = NewMockAdminClient(cluster, k8sClient)
+				adminClient, err = newMockAdminClient(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				status, err = adminClient.GetStatus()
@@ -4073,7 +4076,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should be the public IP from the pod", func() {
-				result := GetPublicIPs(pod)
+				result := podmanager.GetPublicIPs(pod)
 				Expect(result).To(Equal([]string{"1.1.1.1"}))
 			})
 		})
@@ -4092,7 +4095,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should select the address based on the spec", func() {
-				result := GetPublicIPs(pod)
+				result := podmanager.GetPublicIPs(pod)
 				Expect(result).To(Equal([]string{"2001:db8::ff00:42:8329"}))
 			})
 
@@ -4107,7 +4110,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should be empty", func() {
-					result := GetPublicIPs(pod)
+					result := podmanager.GetPublicIPs(pod)
 					Expect(result).To(BeEmpty())
 				})
 			})
@@ -4127,14 +4130,14 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should select the address based on the spec", func() {
-				result := GetPublicIPs(pod)
+				result := podmanager.GetPublicIPs(pod)
 				Expect(result).To(Equal([]string{"1.1.1.2"}))
 			})
 		})
 
 		Context("with no pod", func() {
 			It("should be empty", func() {
-				result := GetPublicIPs(nil)
+				result := podmanager.GetPublicIPs(nil)
 				Expect(result).To(BeEmpty())
 			})
 		})

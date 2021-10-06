@@ -32,9 +32,9 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-var _ = Describe("UpdatePodConfig", func() {
+var _ = Describe("updatePodConfig", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var requeue *Requeue
+	var requeue *requeue
 	var err error
 	var pods []*corev1.Pod
 
@@ -52,7 +52,7 @@ var _ = Describe("UpdatePodConfig", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = UpdatePodConfig{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = updatePodConfig{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

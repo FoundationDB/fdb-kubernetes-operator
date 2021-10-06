@@ -26,24 +26,24 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// UpdateLockConfiguration reconciles the state of the locking system in the
+// updateLockConfiguration reconciles the state of the locking system in the
 // database with the cluster configuration.
-type UpdateLockConfiguration struct{}
+type updateLockConfiguration struct{}
 
-// Reconcile runs the reconciler's work.
-func (UpdateLockConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (updateLockConfiguration) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() || !cluster.Status.Configured {
 		return nil
 	}
 
 	lockClient, err := r.getLockClient(cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	err = lockClient.UpdateDenyList(cluster.Spec.LockOptions.DenyList)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	return nil

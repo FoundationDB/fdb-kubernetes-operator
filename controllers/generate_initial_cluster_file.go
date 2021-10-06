@@ -31,13 +31,13 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// GenerateInitialClusterFile provides a reconciliation step for generating the
+// generateInitialClusterFile provides a reconciliation step for generating the
 // cluster file for a newly created cluster.
-type GenerateInitialClusterFile struct{}
+type generateInitialClusterFile struct{}
 
-// Reconcile runs the reconciler's work.
-func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "GenerateInitialClusterFile")
+// reconcile runs the reconciler's work.
+func (g generateInitialClusterFile) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "generateInitialClusterFile")
 	if cluster.Status.ConnectionString != "" {
 		return nil
 	}
@@ -46,14 +46,14 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
 	instances, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(instances) < count {
-		return &Requeue{
-			Message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(instances)),
-			Delay:   podSchedulingDelayDuration,
+		return &requeue{
+			message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(instances)),
+			delay:   podSchedulingDelayDuration,
 		}
 	}
 
@@ -70,7 +70,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	} else {
 		err = connectionString.GenerateNewGenerationID()
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
@@ -78,18 +78,18 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 	for indexOfProcess := range instances {
 		client, message := r.getPodClient(cluster, instances[indexOfProcess])
 		if client == nil {
-			return &Requeue{Message: message, Delay: podSchedulingDelayDuration}
+			return &requeue{message: message, delay: podSchedulingDelayDuration}
 		}
 		locality, err := localityInfoFromSidecar(cluster, client)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		processLocality[indexOfProcess] = locality
 	}
 
 	coordinators, err := chooseDistributedProcesses(cluster, processLocality, count, processSelectionConstraint{})
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	for _, locality := range coordinators {
@@ -100,7 +100,7 @@ func (g GenerateInitialClusterFile) Reconcile(r *FoundationDBClusterReconciler, 
 
 	err = r.Status().Update(context, cluster)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	return nil
 }

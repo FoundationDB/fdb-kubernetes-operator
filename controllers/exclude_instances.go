@@ -36,15 +36,15 @@ import (
 // exclusion.
 var missingProcessThreshold = 0.8
 
-// ExcludeInstances provides a reconciliation step for excluding instances from
+// excludeInstances provides a reconciliation step for excluding instances from
 // the database.
-type ExcludeInstances struct{}
+type excludeInstances struct{}
 
-// Reconcile runs the reconciler's work.
-func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (e excludeInstances) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
@@ -60,7 +60,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		currentExclusionMap := make(map[string]bool, len(exclusions))
@@ -82,20 +82,20 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 		for processClass := range processClassesToExclude {
 			canExclude, missingProcesses := canExcludeNewInstances(cluster, processClass)
 			if !canExclude {
-				return &Requeue{Message: fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, addresses)}
+				return &requeue{message: fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, addresses)}
 			}
 		}
 
 		hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding instances: %v", addresses))
 		if !hasLock {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
 
 		err = adminClient.ExcludeInstances(addresses)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 
@@ -103,7 +103,7 @@ func (e ExcludeInstances) Reconcile(r *FoundationDBClusterReconciler, context ct
 }
 
 func canExcludeNewInstances(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (bool, []string) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "ExcludeInstances")
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeInstances")
 
 	// Block excludes on missing processes not marked for removal
 	missingProcesses := make([]string, 0)

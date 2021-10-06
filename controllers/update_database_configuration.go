@@ -30,17 +30,17 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// UpdateDatabaseConfiguration provides a reconciliation step for changing the
+// updateDatabaseConfiguration provides a reconciliation step for changing the
 // database configuration.
-type UpdateDatabaseConfiguration struct{}
+type updateDatabaseConfiguration struct{}
 
-// Reconcile runs the reconciler's work.
-func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "UpdateDatabaseConfiguration")
+// reconcile runs the reconciler's work.
+func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateDatabaseConfiguration")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
@@ -51,7 +51,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	initialConfig := !cluster.Status.Configured
@@ -94,14 +94,14 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
-			return &Requeue{Message: "Database configuration changes are disabled"}
+			return &requeue{message: "Database configuration changes are disabled"}
 		}
 
 		if !initialConfig {
 			hasLock, err := r.takeLock(cluster,
 				fmt.Sprintf("reconfiguring the database to `%s`", configurationString))
 			if !hasLock {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 		}
 
@@ -111,13 +111,13 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 		)
 		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		if initialConfig {
 			cluster.Status.Configured = true
 			err = r.Status().Update(context, cluster)
 			if err != nil {
-				return &Requeue{Error: err}
+				return &requeue{curError: err}
 			}
 			return nil
 		}
@@ -125,7 +125,7 @@ func (u UpdateDatabaseConfiguration) Reconcile(r *FoundationDBClusterReconciler,
 
 		if !reflect.DeepEqual(nextConfiguration, desiredConfiguration) {
 			logger.Info("Requeuing for next stage of database configuration change")
-			return &Requeue{Message: "Requeuing for next stage of database configuration change"}
+			return &requeue{message: "Requeuing for next stage of database configuration change"}
 		}
 	}
 

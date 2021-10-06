@@ -1,5 +1,5 @@
 /*
- * admin_client.go
+ * fdbadminclient.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,10 +32,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -70,7 +71,7 @@ type cliAdminClient struct {
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (controllers.AdminClient, error) {
+func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
 	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
@@ -411,7 +412,7 @@ func (client *cliAdminClient) VersionSupported(versionString string) (bool, erro
 		return false, err
 	}
 
-	if !version.IsAtLeast(controllers.MinimumFDBVersion()) {
+	if !version.IsSupported() {
 		return false, nil
 	}
 
@@ -587,7 +588,7 @@ func removeWarningsInJSON(jsonString string) (string, error) {
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
-func (client *cliAdminClient) GetCoordinatorSet() (map[string]internal.None, error) {
+func (client *cliAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 	status, err := getStatusFromDB(client.Cluster)
 	if err != nil {
 		return nil, err

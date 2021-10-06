@@ -36,26 +36,26 @@ import (
 
 // UpdateConfigMap provides a reconciliation step for updating the dynamic config
 // for a cluster.
-type UpdateConfigMap struct{}
+type updateConfigMap struct{}
 
-// Reconcile runs the reconciler's work.
-func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *Requeue {
+// reconcile runs the reconciler's work.
+func (u updateConfigMap) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
-	logger := log.WithValues("namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name, "reconciler", "UpdateConfigMap")
 	if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
+	logger := log.WithValues("namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name, "reconciler", "UpdateConfigMap")
 	existing := &corev1.ConfigMap{}
 	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("Creating config map")
 		err = r.Create(context, configMap)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 		return nil
 	} else if err != nil {
-		return &Requeue{Error: err}
+		return &requeue{curError: err}
 	}
 
 	metadataCorrect := true
@@ -74,7 +74,7 @@ func (u UpdateConfigMap) Reconcile(r *FoundationDBClusterReconciler, context ctx
 		existing.Data = configMap.Data
 		err = r.Update(context, existing)
 		if err != nil {
-			return &Requeue{Error: err}
+			return &requeue{curError: err}
 		}
 	}
 

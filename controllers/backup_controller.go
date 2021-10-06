@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -45,8 +47,6 @@ type FoundationDBBackupReconciler struct {
 	Log                    logr.Logger
 	InSimulation           bool
 	DatabaseClientProvider DatabaseClientProvider
-	// Deprecated: Use DatabaseClientProvider instead
-	AdminClientProvider func(*fdbtypes.FoundationDBCluster, client.Client) (AdminClient, error)
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -73,18 +73,18 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 
 	backupLog := log.WithValues("namespace", backup.Namespace, "backup", backup.Name)
 
-	subReconcilers := []BackupSubReconciler{
-		UpdateBackupStatus{},
-		UpdateBackupAgents{},
-		StartBackup{},
-		StopBackup{},
-		ToggleBackupPaused{},
-		ModifyBackup{},
-		UpdateBackupStatus{},
+	subReconcilers := []backupSubReconciler{
+		updateBackupStatus{},
+		updateBackupAgents{},
+		startBackup{},
+		stopBackup{},
+		toggleBackupPaused{},
+		modifyBackup{},
+		updateBackupStatus{},
 	}
 
 	for _, subReconciler := range subReconcilers {
-		requeue := subReconciler.Reconcile(r, ctx, backup)
+		requeue := subReconciler.reconcile(r, ctx, backup)
 		if requeue == nil {
 			continue
 		}
@@ -107,14 +107,11 @@ func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() DatabaseClien
 	if r.DatabaseClientProvider != nil {
 		return r.DatabaseClientProvider
 	}
-	if r.AdminClientProvider != nil {
-		return legacyDatabaseClientProvider{AdminClientProvider: r.AdminClientProvider}
-	}
 	panic("Backup reconciler does not have a DatabaseClientProvider defined")
 }
 
-// AdminClientForBackup provides an admin client for a backup reconciler.
-func (r *FoundationDBBackupReconciler) AdminClientForBackup(context ctx.Context, backup *fdbtypes.FoundationDBBackup) (AdminClient, error) {
+// adminClientForBackup provides an admin client for a backup reconciler.
+func (r *FoundationDBBackupReconciler) adminClientForBackup(context ctx.Context, backup *fdbtypes.FoundationDBBackup) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
 	err := r.Get(context, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
 	if err != nil {
@@ -144,19 +141,19 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxCon
 		Complete(r)
 }
 
-// BackupSubReconciler describes a class that does part of the work of
+// backupSubReconciler describes a class that does part of the work of
 // reconciliation for a backup.
-type BackupSubReconciler interface {
+type backupSubReconciler interface {
 	/**
-	Reconcile runs the reconciler's work.
+	reconcile runs the reconciler's work.
 
 	If reconciliation can continue, this should return nil.
 
-	If reconciliation encounters an error, this should return a Requeue object
+	If reconciliation encounters an error, this should return a requeue object
 	with an `Error` field.
 
-	If reconciliation cannot proceed, this should return a Requeue object with a
+	If reconciliation cannot proceed, this should return a requeue object with a
 	`Message` field.
 	*/
-	Reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *Requeue
+	reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue
 }

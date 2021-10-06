@@ -35,7 +35,7 @@ import (
 var _ = Describe("add_pvcs", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
-	var requeue *Requeue
+	var requeue *requeue
 	var initialPVCs *corev1.PersistentVolumeClaimList
 	var newPVCs *corev1.PersistentVolumeClaimList
 
@@ -61,7 +61,7 @@ var _ = Describe("add_pvcs", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = AddPVCs{}.Reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = addPVCs{}.reconcile(clusterReconciler, context.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())

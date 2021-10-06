@@ -1,9 +1,9 @@
 /*
- * admin_client.go
+ * admin_client_mock.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,92 +27,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// AdminClient describes an interface for running administrative commands on a
-// cluster
-type AdminClient interface {
-	// GetStatus gets the database's status
-	GetStatus() (*fdbtypes.FoundationDBStatus, error)
-
-	// ConfigureDatabase sets the database configuration
-	ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error
-
-	// ExcludeInstances starts evacuating processes so that they can be removed
-	// from the database.
-	ExcludeInstances(addresses []fdbtypes.ProcessAddress) error
-
-	// IncludeInstances removes processes from the exclusion list and allows
-	// them to take on roles again.
-	IncludeInstances(addresses []fdbtypes.ProcessAddress) error
-
-	// GetExclusions gets a list of the addresses currently excluded from the
-	// database.
-	GetExclusions() ([]fdbtypes.ProcessAddress, error)
-
-	// CanSafelyRemove checks whether it is safe to remove processes from the
-	// cluster.
-	//
-	// The list returned by this method will be the addresses that are *not*
-	// safe to remove.
-	CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error)
-
-	// KillProcesses restarts processes
-	KillInstances(addresses []fdbtypes.ProcessAddress) error
-
-	// ChangeCoordinators changes the coordinator set
-	ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error)
-
-	// GetConnectionString fetches the latest connection string.
-	GetConnectionString() (string, error)
-
-	// VersionSupported reports whether we can support a cluster with a given
-	// version.
-	VersionSupported(version string) (bool, error)
-
-	// GetProtocolVersion determines the protocol version that is used by a
-	// version of FDB.
-	GetProtocolVersion(version string) (string, error)
-
-	// StartBackup starts a new backup.
-	StartBackup(url string, snapshotPeriodSeconds int) error
-
-	// StopBackup stops a backup.
-	StopBackup(url string) error
-
-	// PauseBackups pauses the backups.
-	PauseBackups() error
-
-	// ResumeBackups resumes the backups.
-	ResumeBackups() error
-
-	// ModifyBackup modifies the configuration of the backup.
-	ModifyBackup(int) error
-
-	// GetBackupStatus gets the status of the current backup.
-	GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error)
-
-	// StartRestore starts a new restore.
-	StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error
-
-	// GetRestoreStatus gets the status of the current restore.
-	GetRestoreStatus() (string, error)
-
-	// Close shuts down any resources for the client once it is no longer
-	// needed.
-	Close() error
-
-	// GetCoordinatorSet returns a set of the current coordinators.
-	GetCoordinatorSet() (map[string]internal.None, error)
-}
-
-// MockAdminClient provides a mock implementation of the cluster admin interface
-type MockAdminClient struct {
+// mockAdminClient provides a mock implementation of the cluster admin interface
+type mockAdminClient struct {
 	Cluster                                  *fdbtypes.FoundationDBCluster
 	KubeClient                               client.Client
 	DatabaseConfiguration                    *fdbtypes.DatabaseConfiguration
@@ -132,25 +56,25 @@ type MockAdminClient struct {
 }
 
 // adminClientCache provides a cache of mock admin clients.
-var adminClientCache = make(map[string]*MockAdminClient)
+var adminClientCache = make(map[string]*mockAdminClient)
 var adminClientMutex sync.Mutex
 
-// NewMockAdminClient creates an admin client for a cluster.
-func NewMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (AdminClient, error) {
+// newMockAdminClient creates an admin client for a cluster.
+func newMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (fdbadminclient.AdminClient, error) {
 	return newMockAdminClientUncast(cluster, kubeClient)
 }
 
 // newMockAdminClientUncast creates a mock admin client for a cluster.
 // nolint:unparam
 // is required because we always return a nil error
-func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*MockAdminClient, error) {
+func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*mockAdminClient, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
 	client := adminClientCache[cluster.Name]
 
 	if client == nil {
-		client = &MockAdminClient{
+		client = &mockAdminClient{
 			Cluster:              cluster.DeepCopy(),
 			KubeClient:           kubeClient,
 			ReincludedAddresses:  make(map[string]bool),
@@ -165,13 +89,13 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 	return client, nil
 }
 
-// ClearMockAdminClients clears the cache of mock Admin clients
-func ClearMockAdminClients() {
-	adminClientCache = map[string]*MockAdminClient{}
+// clearMockAdminClients clears the cache of mock Admin clients
+func clearMockAdminClients() {
+	adminClientCache = map[string]*mockAdminClient{}
 }
 
 // GetStatus gets the database's status
-func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+func (client *mockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -214,7 +138,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
-		instanceID := GetProcessGroupID(client.Cluster, &pod)
+		instanceID := podmanager.GetProcessGroupID(client.Cluster, &pod)
 
 		if client.missingProcessGroups[instanceID] {
 			continue
@@ -243,7 +167,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				fdbRoles = append(fdbRoles, fdbtypes.FoundationDBStatusProcessRoleInfo{Role: string(fdbtypes.ProcessRoleCoordinator)})
 			}
 
-			pClass, err := GetProcessClass(client.Cluster, &pod)
+			pClass, err := podmanager.GetProcessClass(client.Cluster, &pod)
 			if err != nil {
 				return nil, err
 			}
@@ -381,7 +305,7 @@ func (client *MockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 }
 
 // ConfigureDatabase changes the database configuration
-func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
+func (client *mockAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -391,7 +315,7 @@ func (client *MockAdminClient) ConfigureDatabase(configuration fdbtypes.Database
 
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
-func (client *MockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *mockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -420,7 +344,7 @@ func (client *MockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddr
 
 // IncludeInstances removes instances from the exclusion list and allows
 // them to take on roles again.
-func (client *MockAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *mockAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -450,26 +374,31 @@ func (client *MockAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddr
 //
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
-func (client *MockAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
+func (client *mockAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
 	return nil, nil
 }
 
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
-func (client *MockAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error) {
+func (client *mockAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
 	pAddrs := make([]fdbtypes.ProcessAddress, len(client.ExcludedAddresses))
 	for _, addr := range client.ExcludedAddresses {
-		pAddrs = append(pAddrs, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(addr)})
+		pAddrs = append(pAddrs, fdbtypes.ProcessAddress{
+			IPAddress:   net.ParseIP(addr),
+			Placeholder: "",
+			Port:        0,
+			Flags:       nil,
+		})
 	}
 
 	return pAddrs, nil
 }
 
 // KillInstances restarts processes
-func (client *MockAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *mockAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
 	for _, addr := range addresses {
 		client.KilledAddresses = append(client.KilledAddresses, addr.String())
@@ -481,7 +410,7 @@ func (client *MockAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *MockAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
+func (client *mockAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -503,7 +432,7 @@ func (client *MockAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAd
 }
 
 // GetConnectionString fetches the latest connection string.
-func (client *MockAdminClient) GetConnectionString() (string, error) {
+func (client *mockAdminClient) GetConnectionString() (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -512,13 +441,13 @@ func (client *MockAdminClient) GetConnectionString() (string, error) {
 
 // VersionSupported reports whether we can support a cluster with a given
 // version.
-func (client *MockAdminClient) VersionSupported(versionString string) (bool, error) {
+func (client *mockAdminClient) VersionSupported(versionString string) (bool, error) {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return false, err
 	}
 
-	if !version.IsAtLeast(MinimumFDBVersion()) {
+	if !version.IsSupported() {
 		return false, nil
 	}
 
@@ -527,12 +456,12 @@ func (client *MockAdminClient) VersionSupported(versionString string) (bool, err
 
 // GetProtocolVersion determines the protocol version that is used by a
 // version of FDB.
-func (client *MockAdminClient) GetProtocolVersion(version string) (string, error) {
+func (client *mockAdminClient) GetProtocolVersion(version string) (string, error) {
 	return version, nil
 }
 
 // StartBackup starts a new backup.
-func (client *MockAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
+func (client *mockAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -545,7 +474,7 @@ func (client *MockAdminClient) StartBackup(url string, snapshotPeriodSeconds int
 }
 
 // PauseBackups pauses backups.
-func (client *MockAdminClient) PauseBackups() error {
+func (client *mockAdminClient) PauseBackups() error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -557,7 +486,7 @@ func (client *MockAdminClient) PauseBackups() error {
 }
 
 // ResumeBackups resumes backups.
-func (client *MockAdminClient) ResumeBackups() error {
+func (client *mockAdminClient) ResumeBackups() error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -569,7 +498,7 @@ func (client *MockAdminClient) ResumeBackups() error {
 }
 
 // ModifyBackup reconfigures the backup.
-func (client *MockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
+func (client *mockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -580,7 +509,7 @@ func (client *MockAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 }
 
 // StopBackup stops a backup.
-func (client *MockAdminClient) StopBackup(url string) error {
+func (client *mockAdminClient) StopBackup(url string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -595,7 +524,7 @@ func (client *MockAdminClient) StopBackup(url string) error {
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+func (client *mockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -614,7 +543,7 @@ func (client *MockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBack
 }
 
 // StartRestore starts a new restore.
-func (client *MockAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
+func (client *mockAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -623,7 +552,7 @@ func (client *MockAdminClient) StartRestore(url string, keyRanges []fdbtypes.Fou
 }
 
 // GetRestoreStatus gets the status of the current restore.
-func (client *MockAdminClient) GetRestoreStatus() (string, error) {
+func (client *mockAdminClient) GetRestoreStatus() (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -631,7 +560,7 @@ func (client *MockAdminClient) GetRestoreStatus() (string, error) {
 }
 
 // MockClientVersion returns a mocked client version
-func (client *MockAdminClient) MockClientVersion(version string, clients []string) {
+func (client *mockAdminClient) MockClientVersion(version string, clients []string) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -642,7 +571,7 @@ func (client *MockAdminClient) MockClientVersion(version string, clients []strin
 }
 
 // MockAdditionalProcesses adds additional processes to the cluster status.
-func (client *MockAdminClient) MockAdditionalProcesses(processes []fdbtypes.ProcessGroupStatus) {
+func (client *mockAdminClient) MockAdditionalProcesses(processes []fdbtypes.ProcessGroupStatus) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -651,18 +580,18 @@ func (client *MockAdminClient) MockAdditionalProcesses(processes []fdbtypes.Proc
 
 // MockMissingProcessGroup updates the mock for whether a process group should
 // be missing from the cluster status.
-func (client *MockAdminClient) MockMissingProcessGroup(instanceID string, missing bool) {
+func (client *mockAdminClient) MockMissingProcessGroup(instanceID string, missing bool) {
 	client.missingProcessGroups[instanceID] = missing
 }
 
 // MockLocalityInfo sets mock locality information for a process.
-func (client *MockAdminClient) MockLocalityInfo(processGroupID string, locality map[string]string) {
+func (client *mockAdminClient) MockLocalityInfo(processGroupID string, locality map[string]string) {
 	client.localityInfo[processGroupID] = locality
 }
 
 // MockIncorrectCommandLine updates the mock for whether a process group should
 // be have an incorrect command-line.
-func (client *MockAdminClient) MockIncorrectCommandLine(instanceID string, incorrect bool) {
+func (client *mockAdminClient) MockIncorrectCommandLine(instanceID string, incorrect bool) {
 	if client.incorrectCommandLines == nil {
 		client.incorrectCommandLines = make(map[string]bool)
 	}
@@ -671,14 +600,14 @@ func (client *MockAdminClient) MockIncorrectCommandLine(instanceID string, incor
 
 // Close shuts down any resources for the client once it is no longer
 // needed.
-func (client *MockAdminClient) Close() error {
+func (client *mockAdminClient) Close() error {
 	return nil
 }
 
 // FreezeStatus causes the GetStatus method to return its current value until
 // UnfreezeStatus is called, or another method is called which would invalidate
 // the status.
-func (client *MockAdminClient) FreezeStatus() error {
+func (client *mockAdminClient) FreezeStatus() error {
 	status, err := client.GetStatus()
 	if err != nil {
 		return err
@@ -693,7 +622,7 @@ func (client *MockAdminClient) FreezeStatus() error {
 
 // UnfreezeStatus causes the admin client to start recalculating the status
 // on every call to GetStatus
-func (client *MockAdminClient) UnfreezeStatus() {
+func (client *mockAdminClient) UnfreezeStatus() {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -701,7 +630,7 @@ func (client *MockAdminClient) UnfreezeStatus() {
 }
 
 // GetCoordinatorSet gets the current coordinators from the status
-func (client *MockAdminClient) GetCoordinatorSet() (map[string]internal.None, error) {
+func (client *mockAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 	status, err := client.GetStatus()
 	if err != nil {
 		return nil, err

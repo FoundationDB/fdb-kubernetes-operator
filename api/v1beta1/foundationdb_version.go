@@ -184,6 +184,11 @@ func (version FdbVersion) Equal(other FdbVersion) bool {
 		version.Patch == other.Patch
 }
 
+// IsSupported defines the minimum supported FDB version.
+func (version FdbVersion) IsSupported() bool {
+	return version.IsAtLeast(Versions.MinimumVersion)
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
@@ -193,6 +198,7 @@ var Versions = struct {
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
 	WithRatekeeperRole, WithoutRatekeeperRole,
 	WithSidecarCrashOnEmpty, WithoutSidecarCrashOnEmpty,
+	MinimumVersion,
 	Default FdbVersion
 }{
 	Default:                              FdbVersion{Major: 6, Minor: 2, Patch: 20},
@@ -208,4 +214,5 @@ var Versions = struct {
 	WithoutRatekeeperRole:                FdbVersion{Major: 6, Minor: 1, Patch: 12},
 	WithSidecarCrashOnEmpty:              FdbVersion{Major: 6, Minor: 2, Patch: 20},
 	WithoutSidecarCrashOnEmpty:           FdbVersion{Major: 6, Minor: 2, Patch: 15},
+	MinimumVersion:                       FdbVersion{Major: 6, Minor: 1, Patch: 12},
 }
