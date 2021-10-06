@@ -25,16 +25,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// replaceFailedPods identifies processes that have failed and need to be
+// replaceFailedPods identifies processes groups that have failed and need to be
 // replaced.
 type replaceFailedPods struct{}
 
 // reconcile runs the reconciler's work.
 func (c replaceFailedPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
-	if chooseNewRemovals(cluster) {
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	defer adminClient.Close()
+
+	if chooseNewRemovals(cluster, adminClient) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return &requeue{curError: err}
@@ -46,9 +55,9 @@ func (c replaceFailedPods) reconcile(r *FoundationDBClusterReconciler, context c
 	return nil
 }
 
-// chooseNewRemovals flags failed processes for removal and returns an indicator
+// chooseNewRemovals flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
-func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
+func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedPods")
 	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
 		return false
@@ -59,9 +68,9 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 	// not fully excluded.
 	removalCount := 0
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.Remove && !processGroupStatus.Excluded {
+		if processGroupStatus.Remove && (!processGroupStatus.Excluded || processGroupStatus.ExclusionSkipped) {
 			// If we already have a removal in-flight, we should not try
-			// replacing more failed pods.
+			// replacing more failed process groups.
 			removalCount++
 		}
 	}
@@ -76,13 +85,26 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster) bool {
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)
 		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
 			if len(processGroupStatus.Addresses) == 0 {
+				// Only replace process groups without an address if the cluster has the desired fault tolerance
+				// and is available.
+				hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
+				if err != nil {
+					log.Error(err, "Could not fetch if cluster has desired fault tolerance")
+					continue
+				}
+
+				if !hasDesiredFaultTolerance {
+					log.Info(
+						"Replace instance with missing address",
+						"processGroupID", processGroupStatus.ProcessGroupID,
+						"failureTime", time.Unix(missingTime, 0).UTC().String())
+					continue
+				}
+
 				log.Info(
-					"Ignore failed process group with missing address",
-					"namespace", cluster.Namespace,
-					"cluster", cluster.Name,
+					"Replace instance with missing address",
 					"processGroupID", processGroupStatus.ProcessGroupID,
 					"failureTime", time.Unix(missingTime, 0).UTC().String())
-				continue
 			}
 
 			logger.Info("Replace instance",

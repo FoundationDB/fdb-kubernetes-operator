@@ -221,7 +221,7 @@ var _ = Describe("remove_process_groups", func() {
 					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
 				})
 
-				It("should successfully remove that process group", func() {
+				It("should not remove that process group", func() {
 					Expect(result).To(BeNil())
 				})
 			})
@@ -233,7 +233,7 @@ var _ = Describe("remove_process_groups", func() {
 					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
 
-				It("should successfully remove that process group", func() {
+				It("should not remove that process group", func() {
 					Expect(result).To(BeNil())
 				})
 			})
