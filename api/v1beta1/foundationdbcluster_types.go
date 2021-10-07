@@ -1131,6 +1131,10 @@ type AutomaticReplacementOptions struct {
 	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Minimum=0
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
+
+	// UseNonBlockingExcludes controls whether non blocking exclude command should be allowed.
+	// The default is false.
+	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.
