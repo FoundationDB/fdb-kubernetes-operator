@@ -93,16 +93,16 @@ var _ = Describe("[api] FDBVersion", func() {
 		})
 	})
 
-	FWhen("checking if the version has support for non-blocking exclude commands", func() {
+	When("checking if the version has support for non-blocking exclude commands", func() {
 		type testCase struct {
 			version                FdbVersion
 			useNonBlockingExcludes bool
 			expectedResult         bool
 		}
 
-		DescribeTable("should check the version supports non-blocking exclude commands",
+		DescribeTable("should return if non-blocking excludes are enabled",
 			func(tc testCase) {
-				Expect(tc.version.HasNonBlockingExcludes(tc.useNonBlockingExcludes)).To(BeEquivalentTo(tc.expectedResult))
+				Expect(tc.version.HasNonBlockingExcludes(tc.useNonBlockingExcludes)).To(Equal(tc.expectedResult))
 			},
 			Entry("When version is below 6.3.5 and useNonBlockingExcludes is false",
 				testCase{
