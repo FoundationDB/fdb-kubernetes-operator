@@ -1108,6 +1108,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// Defaults to true.
 	// Deprecated: Will be enforced by default in 1.0.0 without disabling.
 	EnforceFullReplicationForDeletion *bool `json:"enforceFullReplicationForDeletion,omitempty"`
+
+	// UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands.
+	// The default is false.
+	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -1131,10 +1135,6 @@ type AutomaticReplacementOptions struct {
 	// +kubebuilder:default:=1
 	// +kubebuilder:validation:Minimum=0
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
-
-	// UseNonBlockingExcludes controls whether non blocking exclude command should be allowed.
-	// The default is false.
-	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 }
 
 // ProcessSettings defines process-level settings.
@@ -2926,6 +2926,15 @@ func (cluster *FoundationDBCluster) GetEnforceFullReplicationForDeletion() bool 
 	}
 
 	return *cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion
+}
+
+// GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
+func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
+	if cluster.Spec.AutomationOptions.UseNonBlockingExcludes == nil {
+		return false
+	}
+
+	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the

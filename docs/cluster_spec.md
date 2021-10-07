@@ -46,7 +46,6 @@ AutomaticReplacementOptions controls options for automatically replacing failed 
 | enabled | Enabled controls whether automatic replacements are enabled. The default is false. | *bool | false |
 | failureDetectionTimeSeconds | FailureDetectionTimeSeconds controls how long a process must be failed or missing before it is automatically replaced. The default is 1800 seconds, or 30 minutes. | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements controls how many automatic replacements are allowed to take part. This will take the list of current replacements and then calculate the difference between maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are queued (e.g. in the instancesToRemove list) and maxConcurrentReplacements is 5 the operator is allowed to replace at most 2 process groups. Setting this to 0 will basically disable the automatic replacements. | *int | false |
-| useNonBlockingExcludes |  UseNonBlockingExcludes controls whether non blocking exclude command should be allowed. The default is false. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -192,6 +191,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | enforceFullReplicationForDeletion | EnforceFullReplicationForDeletion defines if the operator is only allowed to delete Pods if the cluster is fully replicated. If the cluster is not fully replicated the Operator won't delete any Pods that are marked for removal. Defaults to true. **Deprecated: Will be enforced by default in 1.0.0 without disabling.** | *bool | false |
+| useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
