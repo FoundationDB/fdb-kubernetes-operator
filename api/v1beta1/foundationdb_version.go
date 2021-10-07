@@ -157,7 +157,6 @@ func (version FdbVersion) HasZoneFaultToleranceInStatus() bool {
 // exclude commands.
 func (version FdbVersion) HasNonBlockingExcludes(useNonBlockingExcludes bool) bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 5}) && useNonBlockingExcludes
-
 }
 
 // NextMajorVersion returns the next major version of FoundationDB.
