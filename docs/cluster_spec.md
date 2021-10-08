@@ -191,6 +191,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | enforceFullReplicationForDeletion | EnforceFullReplicationForDeletion defines if the operator is only allowed to delete Pods if the cluster is fully replicated. If the cluster is not fully replicated the Operator won't delete any Pods that are marked for removal. Defaults to true. **Deprecated: Will be enforced by default in 1.0.0 without disabling.** | *bool | false |
+| useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 

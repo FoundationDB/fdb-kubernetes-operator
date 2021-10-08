@@ -22,6 +22,7 @@ package v1beta1
 
 import (
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -90,5 +91,44 @@ var _ = Describe("[api] FDBVersion", func() {
 			Expect(version.Equal(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
 			Expect(version.Equal(FdbVersion{Major: 6, Minor: 2, Patch: 21})).To(BeFalse())
 		})
+	})
+
+	When("checking if the version has support for non-blocking exclude commands", func() {
+		type testCase struct {
+			version                FdbVersion
+			useNonBlockingExcludes bool
+			expectedResult         bool
+		}
+
+		DescribeTable("should return if non-blocking excludes are enabled",
+			func(tc testCase) {
+				Expect(tc.version.HasNonBlockingExcludes(tc.useNonBlockingExcludes)).To(Equal(tc.expectedResult))
+			},
+			Entry("When version is below 6.3.5 and useNonBlockingExcludes is false",
+				testCase{
+					version:                FdbVersion{Major: 6, Minor: 3, Patch: 0},
+					useNonBlockingExcludes: false,
+					expectedResult:         false,
+				}),
+			Entry("When version is below 6.3.5 and useNonBlockingExcludes is true",
+				testCase{
+					version:                FdbVersion{Major: 6, Minor: 3, Patch: 0},
+					useNonBlockingExcludes: false,
+					expectedResult:         false,
+				}),
+			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is false",
+				testCase{
+					version:                FdbVersion{Major: 6, Minor: 3, Patch: 5},
+					useNonBlockingExcludes: false,
+					expectedResult:         false,
+				}),
+			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is true",
+				testCase{
+					version:                FdbVersion{Major: 6, Minor: 3, Patch: 6},
+					useNonBlockingExcludes: true,
+					expectedResult:         true,
+				}),
+		)
+
 	})
 })

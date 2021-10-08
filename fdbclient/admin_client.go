@@ -237,7 +237,7 @@ func (client *cliAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddre
 		return err
 	}
 
-	if version.HasNonBlockingExcludes() {
+	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude no_wait %s",
@@ -299,7 +299,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddres
 		return nil, err
 	}
 
-	if version.HasNonBlockingExcludes() {
+	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
 			fdbtypes.ProcessAddressesString(addresses, " "),

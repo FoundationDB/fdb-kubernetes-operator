@@ -76,6 +76,8 @@ spec:
                           minimum: 0
                           type: integer
                       type: object
+                    useNonBlockingExcludes:
+                      type: boolean
                   type: object
                 automountServiceAccountToken:
                   type: boolean
