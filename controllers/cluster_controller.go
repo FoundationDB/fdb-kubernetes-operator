@@ -118,7 +118,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		updateConfigMap{},
 		checkClientCompatibility{},
 		replaceMisconfiguredProcessGroups{},
-		replaceFailedPods{},
+		replaceFailedProcessGroups{},
 		deletePodsForBuggification{},
 		addProcessGroups{},
 		addServices{},

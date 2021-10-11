@@ -1,5 +1,5 @@
 /*
- * replace_failed_pods.go
+ * replace_failed_process_groups_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,6 +24,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -31,7 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("replace_failed_pods", func() {
+var _ = Describe("replace_failed_process_groups", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 	var result bool
@@ -48,10 +50,14 @@ var _ = Describe("replace_failed_pods", func() {
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
+
 	})
 
 	JustBeforeEach(func() {
-		result = chooseNewRemovals(cluster)
+		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(adminClient).NotTo(BeNil())
+		result = chooseNewRemovals(cluster, adminClient)
 	})
 
 	Context("with no missing processes", func() {
@@ -81,6 +87,16 @@ var _ = Describe("replace_failed_pods", func() {
 			It("should mark the process group for removal", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
 			})
+
+			It("should not be marked to skip exclusion", func() {
+				for _, pg := range cluster.Status.ProcessGroups {
+					if pg.ProcessGroupID != "storage-2" {
+						continue
+					}
+
+					Expect(pg.ExclusionSkipped).To(BeFalse())
+				}
+			})
 		})
 
 		Context("with multiple failed processes", func() {
@@ -98,6 +114,16 @@ var _ = Describe("replace_failed_pods", func() {
 
 			It("should mark the first process group for removal", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+
+			It("should not be marked to skip exclusion", func() {
+				for _, pg := range cluster.Status.ProcessGroups {
+					if pg.ProcessGroupID != "storage-2" {
+						continue
+					}
+
+					Expect(pg.ExclusionSkipped).To(BeFalse())
+				}
 			})
 		})
 
@@ -168,12 +194,66 @@ var _ = Describe("replace_failed_pods", func() {
 				processGroup.Addresses = nil
 			})
 
-			It("should return false", func() {
-				Expect(result).To(BeFalse())
+			It("should return true", func() {
+				Expect(result).To(BeTrue())
 			})
 
-			It("should not mark the process group for removal", func() {
-				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+			It("should mark the process group for removal", func() {
+				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+
+			It("should marked to skip exclusion", func() {
+				for _, pg := range cluster.Status.ProcessGroups {
+					if pg.ProcessGroupID != "storage-2" {
+						continue
+					}
+
+					Expect(pg.ExclusionSkipped).To(BeTrue())
+				}
+			})
+
+			When("the cluster is not available", func() {
+				BeforeEach(func() {
+					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+					processGroup.Addresses = nil
+
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
+						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+								Available: false,
+							},
+						},
+					}
+				})
+
+				It("should return false", func() {
+					Expect(result).To(BeFalse())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
+
+			When("the cluster doesn't have full fault tolerance", func() {
+				BeforeEach(func() {
+					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+					processGroup.Addresses = nil
+
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
+				})
+
+				It("should return false", func() {
+					Expect(result).To(BeFalse())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
 			})
 		})
 	})
