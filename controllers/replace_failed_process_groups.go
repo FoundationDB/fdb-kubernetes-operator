@@ -95,12 +95,16 @@ func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster, adminClient fdbadm
 
 				if !hasDesiredFaultTolerance {
 					log.Info(
-						"Replace instance with missing address",
+						"Skip instance with missing address",
 						"processGroupID", processGroupStatus.ProcessGroupID,
 						"failureTime", time.Unix(missingTime, 0).UTC().String())
 					continue
 				}
 
+				// Since the process groups doesn't contain any addresses we have to skip exclusion.
+				// The assumption here is that this is safe since we assume that the process group was never scheduled onto any node
+				// otherwise the process group should have an address associated.
+				processGroupStatus.ExclusionSkipped = true
 				log.Info(
 					"Replace instance with missing address",
 					"processGroupID", processGroupStatus.ProcessGroupID,

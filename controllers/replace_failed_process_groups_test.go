@@ -87,6 +87,16 @@ var _ = Describe("replace_failed_process_groups", func() {
 			It("should mark the process group for removal", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
 			})
+
+			It("should not be marked to skip exclusion", func() {
+				for _, pg := range cluster.Status.ProcessGroups {
+					if pg.ProcessGroupID != "storage-2" {
+						continue
+					}
+
+					Expect(pg.ExclusionSkipped).To(BeFalse())
+				}
+			})
 		})
 
 		Context("with multiple failed processes", func() {
@@ -104,6 +114,16 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			It("should mark the first process group for removal", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+
+			It("should not be marked to skip exclusion", func() {
+				for _, pg := range cluster.Status.ProcessGroups {
+					if pg.ProcessGroupID != "storage-2" {
+						continue
+					}
+
+					Expect(pg.ExclusionSkipped).To(BeFalse())
+				}
 			})
 		})
 
@@ -180,6 +200,16 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			It("should mark the process group for removal", func() {
 				Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{"storage-2"}))
+			})
+
+			It("should marked to skip exclusion", func() {
+				for _, pg := range cluster.Status.ProcessGroups {
+					if pg.ProcessGroupID != "storage-2" {
+						continue
+					}
+
+					Expect(pg.ExclusionSkipped).To(BeTrue())
+				}
 			})
 
 			When("the cluster is not available", func() {
