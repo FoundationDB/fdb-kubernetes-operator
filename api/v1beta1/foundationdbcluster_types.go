@@ -2825,6 +2825,8 @@ const (
 	ProcessClassGeneral ProcessClass = "general"
 	// ProcessClassClusterController model for FDB class cluster_controller
 	ProcessClassClusterController ProcessClass = "cluster_controller"
+	// ProcessClassTest model for FDB class test
+	ProcessClassTest ProcessClass = "test"
 )
 
 // IsStateful determines whether a process class should store data.
