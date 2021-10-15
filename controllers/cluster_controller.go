@@ -582,6 +582,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	for _, process := range status.Cluster.Processes {
 		pLogger := curLog.WithValues("process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey])
 		if process.Address.IsEmpty() {
+			pLogger.Info("Skip process with empty address")
 			continue
 		}
 
