@@ -65,6 +65,9 @@ spec:
                       type: integer
                     killProcesses:
                       type: boolean
+                    maxConcurrentMisconfiguredReplacements:
+                      minimum: 0
+                      type: integer
                     replacements:
                       properties:
                         enabled:

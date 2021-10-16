@@ -38,15 +38,15 @@ var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
 // GetInstanceID generates an ID for an instance.
 //
-// This will return the pod name and the instance ID.
+// This will return the pod name and the processGroup ID.
 func GetInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (string, string) {
-	var instanceID string
+	var processGroupID string
 	if cluster.Spec.InstanceIDPrefix != "" {
-		instanceID = fmt.Sprintf("%s-%s-%d", cluster.Spec.InstanceIDPrefix, processClass, idNum)
+		processGroupID = fmt.Sprintf("%s-%s-%d", cluster.Spec.InstanceIDPrefix, processClass, idNum)
 	} else {
-		instanceID = fmt.Sprintf("%s-%d", processClass, idNum)
+		processGroupID = fmt.Sprintf("%s-%d", processClass, idNum)
 	}
-	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(string(processClass), "-"), idNum), instanceID
+	return fmt.Sprintf("%s-%s-%d", cluster.Name, processClassSanitizationPattern.ReplaceAllString(string(processClass), "-"), idNum), processGroupID
 }
 
 func generateServicePorts(processesPerPod int) []corev1.ServicePort {

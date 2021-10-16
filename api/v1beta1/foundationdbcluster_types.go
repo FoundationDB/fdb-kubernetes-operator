@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -1112,6 +1114,16 @@ type FoundationDBClusterAutomationOptions struct {
 	// UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands.
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
+
+	// MaxConcurrentMisconfiguredReplacements defines how many process groups can be concurrently
+	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
+	// and these misconfigured Pods must be replaced manually or by another process. For each reconcile
+	// loop the operator calculates the maximum number of possible replacements by taken this value as the
+	// upper limit and removes all ongoing replacements that have not finished. Which means if the value is
+	// set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the
+	// operator is allowed to replace on further process group.
+	// +kubebuilder:validation:Minimum=0
+	MaxConcurrentMisconfiguredReplacements *int `json:"maxConcurrentMisconfiguredReplacements,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -2845,11 +2857,7 @@ func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversP
 
 // GetMaxConcurrentReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
 func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
-	if cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements == nil {
-		return 1
-	}
-
-	return *cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements, 1)
 }
 
 // CoordinatorSelectionSetting defines the process class and the priority of it.
@@ -2921,11 +2929,7 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 
 // GetEnforceFullReplicationForDeletion returns the value of enforceFullReplicationForDeletion or true if unset.
 func (cluster *FoundationDBCluster) GetEnforceFullReplicationForDeletion() bool {
-	if cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion == nil {
-		return true
-	}
-
-	return *cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion, true)
 }
 
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.
@@ -2955,4 +2959,9 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 		return FDBProcessGroupIDLabel
 	}
 	return labels[0]
+}
+
+// GetMaxConcurrentMisconfiguredReplacements returns the getMaxConcurrentMisconfiguredReplacements or defaults to math.MaxInt64
+func (cluster *FoundationDBCluster) GetMaxConcurrentMisconfiguredReplacements() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentMisconfiguredReplacements, math.MaxInt64)
 }
