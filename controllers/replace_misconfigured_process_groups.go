@@ -50,7 +50,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(r *FoundationDBClusterRecon
 		return &requeue{curError: err}
 	}
 
-	hasReplacements, err := replacements.HasReplacements(logger, cluster, internal.CreatePVCMap(cluster, pvcs), internal.CreatePodMap(cluster, pods))
+	hasReplacements, err := replacements.ReplaceMisconfiguredProcessGroups(logger, cluster, internal.CreatePVCMap(cluster, pvcs), internal.CreatePodMap(cluster, pods))
 	if err != nil {
 		return &requeue{curError: err}
 	}

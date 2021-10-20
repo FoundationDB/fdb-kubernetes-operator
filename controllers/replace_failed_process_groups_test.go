@@ -58,7 +58,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
-		result = replacements.ChooseNewRemovals(log, cluster, adminClient)
+		result = replacements.ReplaceFailedProcessGroups(log, cluster, adminClient)
 	})
 
 	Context("with no missing processes", func() {

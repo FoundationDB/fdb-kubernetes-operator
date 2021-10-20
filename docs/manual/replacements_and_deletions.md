@@ -24,7 +24,7 @@ The following changes can only be rolled out through replacement:
 * Changing any part of the PVC spec
 * Increasing the resource requirements, when the `replaceInstancesWhenResourcesChange` flag is set.
 
-The number of inflight replacements can be configured by setting `maxConcurrentMisconfiguredReplacements`, per default the operator will replace all misconfigured process groups.
+The number of inflight replacements can be configured by setting `maxConcurrentReplacements`, per default the operator will replace all misconfigured process groups.
 Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources. 
 
 ## Automatic Replacements

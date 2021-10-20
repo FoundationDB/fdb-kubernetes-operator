@@ -39,7 +39,7 @@ func (c replaceFailedProcessGroups) reconcile(r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	if replacements.ChooseNewRemovals(log, cluster, adminClient) {
+	if replacements.ReplaceFailedProcessGroups(log, cluster, adminClient) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return &requeue{curError: err}

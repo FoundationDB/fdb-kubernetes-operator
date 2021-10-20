@@ -1123,7 +1123,7 @@ type FoundationDBClusterAutomationOptions struct {
 	// set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the
 	// operator is allowed to replace on further process group.
 	// +kubebuilder:validation:Minimum=0
-	MaxConcurrentMisconfiguredReplacements *int `json:"maxConcurrentMisconfiguredReplacements,omitempty"`
+	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -2855,8 +2855,8 @@ func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversP
 	clusterStatus.StorageServersPerDisk = append(clusterStatus.StorageServersPerDisk, serversPerDisk)
 }
 
-// GetMaxConcurrentReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
-func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
+// GetMaxConcurrentAutomaticReplacements returns the cluster setting for MaxConcurrentReplacements, defaults to 1 if unset.
+func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements, 1)
 }
 
@@ -2961,7 +2961,7 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 	return labels[0]
 }
 
-// GetMaxConcurrentMisconfiguredReplacements returns the getMaxConcurrentMisconfiguredReplacements or defaults to math.MaxInt64
-func (cluster *FoundationDBCluster) GetMaxConcurrentMisconfiguredReplacements() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentMisconfiguredReplacements, math.MaxInt64)
+// GetMaxConcurrentReplacements returns the maxConcurrentReplacements or defaults to math.MaxInt64
+func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
 }

@@ -1,5 +1,5 @@
 /*
- * removals.go
+ * replace_failed_process_groups.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -46,15 +46,15 @@ func getMaxReplacements(cluster *fdbtypes.FoundationDBCluster, maxReplacements i
 	return maxReplacements - removalCount
 }
 
-// ChooseNewRemovals flags failed processes groups for removal and returns an indicator
+// ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
-func ChooseNewRemovals(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
+func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
 	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
 		return false
 	}
 
-	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentReplacements())
+	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentAutomaticReplacements())
 	hasReplacement := false
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if maxReplacements <= 0 {

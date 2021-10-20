@@ -31,11 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// HasReplacements checks if the cluster has any misconfigured process groups that must be replaced.
-func HasReplacements(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, pvcMap map[string]corev1.PersistentVolumeClaim, podMap map[string]*corev1.Pod) (bool, error) {
+// ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
+func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, pvcMap map[string]corev1.PersistentVolumeClaim, podMap map[string]*corev1.Pod) (bool, error) {
 	hasReplacements := false
 
-	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentMisconfiguredReplacements())
+	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentReplacements())
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if maxReplacements <= 0 {
 			log.Info("Early abort, reached limit of concurrent replacements")

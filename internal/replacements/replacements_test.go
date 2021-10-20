@@ -551,7 +551,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not have a replacements", func() {
-				hasReplacement, err := HasReplacements(log, cluster, pvcMap, podMap)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
@@ -574,7 +574,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			})
 
 			It("should not have a replacements", func() {
-				hasReplacement, err := HasReplacements(log, cluster, pvcMap, podMap)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
@@ -593,7 +593,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Setting is unset", func() {
 			It("should replace all process groups", func() {
-				hasReplacement, err := HasReplacements(log, cluster, pvcMap, podMap)
+				hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hasReplacement).To(BeFalse())
 
