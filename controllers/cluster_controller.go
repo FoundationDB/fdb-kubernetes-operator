@@ -567,6 +567,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		return false, false, errors.New("unable to get coordinator status")
 	}
 
+	curLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+
 	allAddressesValid := true
 	allEligible := true
 
@@ -578,7 +580,14 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	}
 
 	for _, process := range status.Cluster.Processes {
+		pLogger := curLog.WithValues("process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey])
 		if process.Address.IsEmpty() {
+			pLogger.Info("Skip process with empty address")
+			continue
+		}
+
+		if process.ProcessClass == fdbtypes.ProcessClassTest {
+			pLogger.Info("Ignoring tester process")
 			continue
 		}
 
@@ -598,6 +607,8 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			// We will end here in the error case when the address
 			// is not parsable e.g. no IP address is assigned.
 			allAddressesValid = false
+			// add: command_line
+			pLogger.Info("Could not parse address from command_line", "command_line", process.CommandLine)
 			continue
 		}
 
@@ -619,13 +630,13 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
-				log.Info("Process class of process is not eligible as coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "class", process.ProcessClass, "address", address)
+				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", address)
 				allEligible = false
 			}
 		}
 
 		if address == "" {
-			log.Info("Process has invalid address", "namespace", cluster.Namespace, "cluster", cluster.Name, "process", process.Locality[fdbtypes.FDBLocalityInstanceIDKey], "address", address)
+			pLogger.Info("Process has invalid address", "address", address)
 			allAddressesValid = false
 		}
 	}
@@ -633,7 +644,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 	desiredCount := cluster.DesiredCoordinatorCount()
 	hasEnoughZones := len(coordinatorZones) == desiredCount
 	if !hasEnoughZones {
-		log.Info("Cluster does not have coordinators in the correct number of zones", "namespace", cluster.Namespace, "cluster", cluster.Name, "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
+		curLog.Info("Cluster does not have coordinators in the correct number of zones", "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
 	}
 
 	var maxCoordinatorsPerDC int
@@ -643,7 +654,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 		for dc, count := range coordinatorDCs {
 			if count > maxCoordinatorsPerDC {
-				log.Info("Cluster has too many coordinators in a single DC", "namespace", cluster.Namespace, "cluster", cluster.Name, "DC", dc, "count", count, "max", maxCoordinatorsPerDC)
+				curLog.Info("Cluster has too many coordinators in a single DC", "DC", dc, "count", count, "max", maxCoordinatorsPerDC)
 				hasEnoughDCs = false
 			}
 		}
@@ -654,7 +665,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		allHealthy = allHealthy && healthy
 
 		if !healthy {
-			log.Info("Cluster has an unhealthy coordinator", "namespace", cluster.Namespace, "cluster", cluster.Name, "address", address)
+			curLog.Info("Cluster has an unhealthy coordinator", "address", address)
 		}
 	}
 

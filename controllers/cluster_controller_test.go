@@ -25,6 +25,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
@@ -3697,6 +3698,29 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 
 		Context("with the default configuration", func() {
 			It("should report the coordinators as valid", func() {
+				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+				for _, coordinator := range status.Client.Coordinators.Coordinators {
+					coordinatorStatus[coordinator.Address.String()] = false
+				}
+
+				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+				Expect(coordinatorsValid).To(BeTrue())
+				Expect(addressesValid).To(BeTrue())
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("with a tester process without a command line field", func() {
+			It("should ignore the test process and report the coordinators as valid", func() {
+				testProcess := fdbtypes.FoundationDBStatusProcessInfo{
+					Address: fdbtypes.ProcessAddress{
+						IPAddress: net.ParseIP("9.9.9.9"),
+					},
+					ProcessClass: fdbtypes.ProcessClassTest,
+				}
+				Expect(testProcess.Address.IsEmpty()).To(BeFalse())
+				status.Cluster.Processes[string(fdbtypes.ProcessClassTest)] = testProcess
+
 				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 				for _, coordinator := range status.Client.Coordinators.Coordinators {
 					coordinatorStatus[coordinator.Address.String()] = false
