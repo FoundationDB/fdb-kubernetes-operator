@@ -476,8 +476,8 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
-	if in.MaxConcurrentMisconfiguredReplacements != nil {
-		in, out := &in.MaxConcurrentMisconfiguredReplacements, &out.MaxConcurrentMisconfiguredReplacements
+	if in.MaxConcurrentReplacements != nil {
+		in, out := &in.MaxConcurrentReplacements, &out.MaxConcurrentReplacements
 		*out = new(int)
 		**out = **in
 	}

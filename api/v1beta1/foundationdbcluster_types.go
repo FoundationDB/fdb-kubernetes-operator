@@ -1115,7 +1115,7 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
-	// MaxConcurrentMisconfiguredReplacements defines how many process groups can be concurrently
+	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
 	// and these misconfigured Pods must be replaced manually or by another process. For each reconcile
 	// loop the operator calculates the maximum number of possible replacements by taken this value as the

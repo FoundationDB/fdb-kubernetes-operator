@@ -547,7 +547,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("No replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentMisconfiguredReplacements = pointer.Int(0)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(0)
 			})
 
 			It("should not have a replacements", func() {
@@ -570,7 +570,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("Two replacements are allowed", func() {
 			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.MaxConcurrentMisconfiguredReplacements = pointer.Int(2)
+				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(2)
 			})
 
 			It("should not have a replacements", func() {
