@@ -68,27 +68,68 @@ type cliAdminClient struct {
 	// clusterFilePath is the path to the temp file containing the cluster file
 	// for this session.
 	clusterFilePath string
+
+	// caFilePath is the path to the temp file containing the trusted CA's
+	// for this session.
+	caFilePath string
+
+	// useCAFile defines if the trusted CA's are defined as part of the cluster spec.
+	useCAFile bool
+}
+
+func createTmpFile(content string) (string, error) {
+	clusterFile, err := os.CreateTemp("", "")
+	if err != nil {
+		return "", err
+	}
+	filePath := clusterFile.Name()
+
+	defer clusterFile.Close()
+	_, err = clusterFile.WriteString(content)
+	if err != nil {
+		return "", err
+	}
+	err = clusterFile.Close()
+	if err != nil {
+		return "", err
+	}
+
+	return filePath, nil
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
 func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
-	clusterFile, err := os.CreateTemp("", "")
-	if err != nil {
-		return nil, err
-	}
-	clusterFilePath := clusterFile.Name()
-
-	defer clusterFile.Close()
-	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
-	if err != nil {
-		return nil, err
-	}
-	err = clusterFile.Close()
+	clusterFilePath, err := createTmpFile(cluster.Status.ConnectionString)
 	if err != nil {
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath}, nil
+	// If we have TrustedCAs defined use them
+	useCAFile := false
+	if len(cluster.Spec.TrustedCAs) > 0 {
+		useCAFile = true
+	}
+
+	caFilePath := ""
+	if useCAFile {
+		var sb strings.Builder
+		for _, ca := range cluster.Spec.TrustedCAs {
+			sb.WriteString(ca)
+			sb.WriteString("\n")
+		}
+
+		caFilePath, err = createTmpFile(sb.String())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &cliAdminClient{
+		Cluster:         cluster,
+		clusterFilePath: clusterFilePath,
+		caFilePath:      caFilePath,
+		useCAFile:       useCAFile,
+	}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -156,6 +197,12 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
+
+	// If the cluster has some trusted CA's defined we use them instead of
+	// the FDB_TLS_CA_FILE
+	if client.useCAFile {
+		args = append(args, "--tls_ca_file", client.caFilePath)
+	}
 
 	if binaryName == "fdbcli" {
 		format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
@@ -571,11 +618,16 @@ func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 
 // Close cleans up any pending resources.
 func (client *cliAdminClient) Close() error {
+	// We try to delete both files
 	err := os.Remove(client.clusterFilePath)
+	caErr := os.Remove(client.caFilePath)
+	// If an error happens for either the clusterFilePath or
+	// caFilePath return the error.
 	if err != nil {
 		return err
 	}
-	return nil
+
+	return caErr
 }
 
 func removeWarningsInJSON(jsonString string) (string, error) {
