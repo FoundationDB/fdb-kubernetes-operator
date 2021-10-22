@@ -24,6 +24,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
+
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -50,14 +52,13 @@ var _ = Describe("replace_failed_process_groups", func() {
 		generation, err := reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
-
 	})
 
 	JustBeforeEach(func() {
 		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
-		result = chooseNewRemovals(cluster, adminClient)
+		result = replacements.ReplaceFailedProcessGroups(log, cluster, adminClient)
 	})
 
 	Context("with no missing processes", func() {

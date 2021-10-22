@@ -24,6 +24,9 @@ The following changes can only be rolled out through replacement:
 * Changing any part of the PVC spec
 * Increasing the resource requirements, when the `replaceInstancesWhenResourcesChange` flag is set.
 
+The number of inflight replacements can be configured by setting `maxConcurrentReplacements`, per default the operator will replace all misconfigured process groups.
+Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources. 
+
 ## Automatic Replacements
 
 The operator has an option to automatically replace pods that are in a bad state. This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.

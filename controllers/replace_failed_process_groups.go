@@ -22,13 +22,9 @@ package controllers
 
 import (
 	ctx "context"
-	"fmt"
-	"time"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 )
 
 // replaceFailedProcessGroups identifies processes groups that have failed and need to be
@@ -43,7 +39,7 @@ func (c replaceFailedProcessGroups) reconcile(r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	if chooseNewRemovals(cluster, adminClient) {
+	if replacements.ReplaceFailedProcessGroups(log, cluster, adminClient) {
 		err := r.Status().Update(context, cluster)
 		if err != nil {
 			return &requeue{curError: err}
@@ -53,73 +49,4 @@ func (c replaceFailedProcessGroups) reconcile(r *FoundationDBClusterReconciler, 
 	}
 
 	return nil
-}
-
-// chooseNewRemovals flags failed processes groups for removal and returns an indicator
-// of whether any processes were thus flagged.
-func chooseNewRemovals(cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
-	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
-		return false
-	}
-
-	// The maximum number of removals will be the defined number in the cluster spec
-	// minus all currently ongoing removals e.g. process groups marked fro removal but
-	// not fully excluded.
-	removalCount := 0
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.Remove && (!processGroupStatus.Excluded || processGroupStatus.ExclusionSkipped) {
-			// If we already have a removal in-flight, we should not try
-			// replacing more failed process groups.
-			removalCount++
-		}
-	}
-	maxReplacements := cluster.GetMaxConcurrentReplacements() - removalCount
-
-	hasReplacement := false
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if maxReplacements <= 0 {
-			return hasReplacement
-		}
-
-		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)
-		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
-			if len(processGroupStatus.Addresses) == 0 {
-				// Only replace process groups without an address if the cluster has the desired fault tolerance
-				// and is available.
-				hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
-				if err != nil {
-					log.Error(err, "Could not fetch if cluster has desired fault tolerance")
-					continue
-				}
-
-				if !hasDesiredFaultTolerance {
-					log.Info(
-						"Skip instance with missing address",
-						"processGroupID", processGroupStatus.ProcessGroupID,
-						"failureTime", time.Unix(missingTime, 0).UTC().String())
-					continue
-				}
-
-				// Since the process groups doesn't contain any addresses we have to skip exclusion.
-				// The assumption here is that this is safe since we assume that the process group was never scheduled onto any node
-				// otherwise the process group should have an address associated.
-				processGroupStatus.ExclusionSkipped = true
-				log.Info(
-					"Replace instance with missing address",
-					"processGroupID", processGroupStatus.ProcessGroupID,
-					"failureTime", time.Unix(missingTime, 0).UTC().String())
-			}
-
-			logger.Info("Replace instance",
-				"processGroupID", processGroupStatus.ProcessGroupID,
-				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
-
-			processGroupStatus.Remove = true
-			hasReplacement = true
-			maxReplacements--
-		}
-	}
-
-	return hasReplacement
 }

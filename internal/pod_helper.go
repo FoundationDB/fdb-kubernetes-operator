@@ -24,7 +24,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 
 	"k8s.io/utils/pointer"
@@ -34,6 +36,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
 // GetPublicIPsForPod returns the public IPs for a Pod
 func GetPublicIPsForPod(pod *corev1.Pod) []string {
@@ -225,4 +229,31 @@ func CreatePodMap(cluster *fdbtypes.FoundationDBCluster, pods []*corev1.Pod) map
 	}
 
 	return podProcessGroupMap
+}
+
+// ParseProcessGroupID extracts the components of an process group ID.
+func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
+	result := processGroupIDRegex.FindStringSubmatch(id)
+	if result == nil {
+		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
+	}
+	prefix := result[1]
+	number, err := strconv.Atoi(result[2])
+	if err != nil {
+		return "", 0, err
+	}
+	return fdbtypes.ProcessClass(prefix), number, nil
+}
+
+// GetPublicIPSource determines how a Pod has gotten its public IP.
+func GetPublicIPSource(pod *corev1.Pod) (fdbtypes.PublicIPSource, error) {
+	if pod == nil {
+		return "", fmt.Errorf("failed to fetch public IP source from nil Pod")
+	}
+
+	source := pod.ObjectMeta.Annotations[fdbtypes.PublicIPSourceAnnotation]
+	if source == "" {
+		return fdbtypes.PublicIPSourcePod, nil
+	}
+	return fdbtypes.PublicIPSource(source), nil
 }
