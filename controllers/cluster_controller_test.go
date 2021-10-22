@@ -84,6 +84,12 @@ func getListOptions(cluster *fdbtypes.FoundationDBCluster) []client.ListOption {
 	}
 }
 
+func sortPodsByName(pods *corev1.PodList) {
+	sort.Slice(pods.Items, func(i, j int) bool {
+		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
+	})
+}
+
 var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var fakeConnectionString string
@@ -1087,13 +1093,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
 					}
 
-					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
-						return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
-					})
-					sort.Slice(addresses, func(i, j int) bool {
-						return strings.Compare(addresses[i], addresses[j]) < 0
-					})
-					Expect(adminClient.KilledAddresses).To(Equal(addresses))
+					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 				})
 
 				It("should update the config map", func() {
@@ -1179,13 +1180,8 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 						}
 					}
 
-					sort.Slice(adminClient.KilledAddresses, func(i, j int) bool {
-						return strings.Compare(adminClient.KilledAddresses[i], adminClient.KilledAddresses[j]) < 0
-					})
-					sort.Slice(addresses, func(i, j int) bool {
-						return strings.Compare(addresses[i], addresses[j]) < 0
-					})
-					Expect(adminClient.KilledAddresses).To(Equal(addresses))
+					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 				})
 			})
 		})

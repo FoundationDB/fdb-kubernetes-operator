@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-	"sort"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -92,14 +91,15 @@ var _ = Describe("add_process_groups", func() {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			sort.Strings(storageProcesses)
-			Expect(storageProcesses).To(Equal([]string{
+			expectedStorageProcesses := []string{
 				"storage-1",
 				"storage-2",
 				"storage-3",
 				"storage-4",
 				"storage-5",
-			}))
+			}
+			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
+			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -125,14 +125,15 @@ var _ = Describe("add_process_groups", func() {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			sort.Strings(storageProcesses)
-			Expect(storageProcesses).To(Equal([]string{
+			expectedStorageProcesses := []string{
 				"old-prefix-storage-4",
 				"storage-1",
 				"storage-2",
 				"storage-3",
 				"storage-5",
-			}))
+			}
+			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
+			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -157,15 +158,16 @@ var _ = Describe("add_process_groups", func() {
 					storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 				}
 			}
-			sort.Strings(storageProcesses)
-			Expect(storageProcesses).To(Equal([]string{
+			expectedStorageProcesses := []string{
 				"storage-1",
 				"storage-2",
 				"storage-3",
 				"storage-4",
 				"storage-5",
 				"storage-6",
-			}))
+			}
+			Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
+			Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 		})
 
 		It("should not change the log or stateless processes", func() {
@@ -189,15 +191,16 @@ var _ = Describe("add_process_groups", func() {
 						storageProcesses = append(storageProcesses, processGroup.ProcessGroupID)
 					}
 				}
-				sort.Strings(storageProcesses)
-				Expect(storageProcesses).To(Equal([]string{
+				expectedStorageProcesses := []string{
 					"storage-1",
 					"storage-2",
 					"storage-3",
 					"storage-4",
 					"storage-5",
 					"storage-7",
-				}))
+				}
+				Expect(len(storageProcesses)).To(BeNumerically("==", len(expectedStorageProcesses)))
+				Expect(storageProcesses).To(ContainElements(expectedStorageProcesses))
 			})
 		})
 	})

@@ -320,12 +320,6 @@ func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx
 	return r.Update(context, modifiedCluster)
 }
 
-func sortPodsByName(pods *corev1.PodList) {
-	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].ObjectMeta.Name < pods.Items[j].ObjectMeta.Name
-	})
-}
-
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
 
 // clusterSubReconciler describes a class that does part of the work of
