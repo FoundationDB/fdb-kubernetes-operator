@@ -23,6 +23,7 @@ package controllers
 import (
 	ctx "context"
 	"fmt"
+	"k8s.io/utils/pointer"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -54,8 +55,7 @@ func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler,
 		return &requeue{curError: err}
 	}
 
-	initialConfig := !cluster.Status.Configured
-
+	initialConfig := status.Cluster.Layers.Error == "configurationMissing"
 	available := initialConfig || status.Client.DatabaseStatus.Available
 	dataState := status.Cluster.Data.State
 	dataHealthy := initialConfig || dataState.Healthy
@@ -77,7 +77,6 @@ func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler,
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
 		configurationString, _ := nextConfiguration.GetConfigurationString()
-		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
 
 		if !dataHealthy {
 			logger.Info("Waiting for data distribution to be healthy", "stateName", dataState.Name, "stateDescription", dataState.Description)
@@ -86,7 +85,7 @@ func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler,
 			return nil
 		}
 
-		if enabled != nil && !*enabled {
+		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
