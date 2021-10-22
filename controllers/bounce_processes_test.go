@@ -23,7 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -154,8 +153,8 @@ var _ = Describe("bounceProcesses", func() {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address), fmt.Sprintf("%s:4503", address))
 				}
 			}
-			sort.Strings(adminClient.KilledAddresses)
-			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 		})
 	})
 
@@ -178,9 +177,8 @@ var _ = Describe("bounceProcesses", func() {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 				}
 			}
-			sort.Strings(addresses)
-			sort.Strings(adminClient.KilledAddresses)
-			Expect(adminClient.KilledAddresses).To(Equal(addresses))
+			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 		})
 
 		It("should update the running version in the status", func() {
@@ -247,9 +245,8 @@ var _ = Describe("bounceProcesses", func() {
 						}
 					}
 					addresses = append(addresses, "1.2.3.4:4501")
-					sort.Strings(addresses)
-					sort.Strings(adminClient.KilledAddresses)
-					Expect(adminClient.KilledAddresses).To(Equal(addresses))
+					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 				})
 			})
 
@@ -286,9 +283,8 @@ var _ = Describe("bounceProcesses", func() {
 							addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 						}
 					}
-					sort.Strings(addresses)
-					sort.Strings(adminClient.KilledAddresses)
-					Expect(adminClient.KilledAddresses).To(Equal(addresses))
+					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
 				})
 
 				It("should not submit pending upgrade information", func() {
