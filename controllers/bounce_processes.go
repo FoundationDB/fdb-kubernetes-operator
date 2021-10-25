@@ -32,6 +32,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -108,8 +109,7 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
 
 	if len(addresses) > 0 {
-		var enabled = cluster.Spec.AutomationOptions.KillProcesses
-		if enabled != nil && !*enabled {
+		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				"Spec require a bounce of some processes, but killing processes is disabled")
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
