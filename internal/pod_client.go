@@ -176,7 +176,7 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 	switch method {
 	case http.MethodGet:
 		// We assume that a get request should be relative fast.
-		retryClient.HTTPClient.Timeout = 2 * time.Second
+		retryClient.HTTPClient.Timeout = 5 * time.Second
 		resp, err = retryClient.Get(url)
 	case http.MethodPost:
 		// A post request could take a little bit longer since we copy sometimes files.
