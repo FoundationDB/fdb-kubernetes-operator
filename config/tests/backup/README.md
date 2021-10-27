@@ -7,6 +7,7 @@ is reconciled, you can run backup commands from the backup agent containers:
 ```bash
 # Check status
 kubectl exec deployment/test-cluster-backup-agents -- fdbbackup status
+```
 
 This example uses configuration for a local MinIO instance, which is set up as
 part of the local testing environment for the operator. This instance has
@@ -43,3 +44,4 @@ Once that is done, you can clean up the backup by running:
 
 ```bash
 kubectl exec deployment/test-cluster-backup-agents -- fdbbackup delete -d "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
+```
