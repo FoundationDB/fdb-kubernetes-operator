@@ -160,7 +160,7 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 	_, desiredProcessGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
 	if processGroupID != desiredProcessGroupID {
 		logger.Info("Replace process group",
-			"reason", fmt.Sprintf("expect instanceID: %s", desiredProcessGroupID))
+			"reason", fmt.Sprintf("expect process group ID: %s", desiredProcessGroupID))
 		return true, nil
 	}
 
