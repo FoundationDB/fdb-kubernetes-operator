@@ -1,5 +1,5 @@
 /*
- * remove_instances.go
+ * remove_process_group.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,13 +42,13 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-func newRemoveInstancesCmd(streams genericclioptions.IOStreams) *cobra.Command {
+func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	o := newFDBOptions(streams)
 
 	cmd := &cobra.Command{
-		Use:   "instances",
-		Short: "Adds an instance (or multiple) to the remove list of the given cluster",
-		Long:  "Adds an instance (or multiple) to the remove list field of the given cluster",
+		Use:   "process-groups",
+		Short: "Adds a process group (or multiple) to the remove list of the given cluster",
+		Long:  "Adds a process group (or multiple) to the remove list field of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			force, err := cmd.Root().Flags().GetBool("force")
 			if err != nil {
@@ -66,11 +66,15 @@ func newRemoveInstancesCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			useInstanceID, err := cmd.Flags().GetBool("use-instance-id")
+			useProcessGroupID, err := cmd.Flags().GetBool("use-process-group-id")
 			if err != nil {
 				return err
 			}
 			removeAllFailed, err := cmd.Flags().GetBool("remove-all-failed")
+			if err != nil {
+				return err
+			}
+			useInstanceList, err := cmd.Root().Flags().GetBool("use-old-instances-remove")
 			if err != nil {
 				return err
 			}
@@ -94,36 +98,36 @@ func newRemoveInstancesCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			instances := args
-			if !useInstanceID {
-				instances, err = getInstanceIDsFromPod(kubeClient, cluster, instances, namespace)
+			processGroups := args
+			if !useProcessGroupID {
+				processGroups, err = getProcessGroupIDsFromPod(kubeClient, cluster, processGroups, namespace)
 				if err != nil {
 					return err
 				}
 			}
 
-			return removeInstances(kubeClient, cluster, instances, namespace, withExclusion, withShrink, force, removeAllFailed)
+			return replaceProcessGroups(kubeClient, cluster, processGroups, namespace, withExclusion, withShrink, force, removeAllFailed, useInstanceList)
 		},
 		Example: `
-# Remove instances for a cluster in the current namespace
-kubectl fdb remove instances -c cluster pod-1 -i pod-2
+# Remove process groups for a cluster in the current namespace
+kubectl fdb remove process-group -c cluster pod-1 -i pod-2
 
-# Remove instances for a cluster in the namespace default
-kubectl fdb -n default remove instances -c cluster pod-1 pod-2
+# Remove process groups for a cluster in the namespace default
+kubectl fdb -n default remove process-group  -c cluster pod-1 pod-2
 
-# Remove instances for a cluster with the instance ID.
-# The instance ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
-kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
+# Remove process groups for a cluster with the process group ID.
+# The process group ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
+kubectl fdb -n default remove process-group  --use-process-group-id -c cluster storage-1 storage-2
 
-# Remove all failed instances for a cluster (all instances that have a missing process)
-kubectl fdb -n default remove instances -c cluster --remove-all-failed
+# Remove all failed process groups for a cluster (all process groups that have a missing process)
+kubectl fdb -n default remove process-group  -c cluster --remove-all-failed
 `,
 	}
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "remove instance(s) from the provided cluster.")
-	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be removed with exclusion.")
-	cmd.Flags().Bool("use-instance-id", false, "if set the operator will use the instance ID to remove it rather than the Pod(s) name.")
-	cmd.Flags().Bool("shrink", false, "define if the removed instances should not be replaced.")
+	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groupss from the provided cluster.")
+	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
+	cmd.Flags().Bool("use-process-group-id", false, "if set the operator will use the process group ID to remove it rather than the Pod(s) name.")
+	cmd.Flags().Bool("shrink", false, "define if the removed process groups should not be replaced.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
@@ -138,21 +142,21 @@ kubectl fdb -n default remove instances -c cluster --remove-all-failed
 	return cmd
 }
 
-func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podNames []string, namespace string) ([]string, error) {
-	instances := make([]string, 0, len(podNames))
+func getProcessGroupIDsFromPod(kubeClient client.Client, clusterName string, podNames []string, namespace string) ([]string, error) {
+	processGroups := make([]string, 0, len(podNames))
 	// Build a map to filter faster
-	podNameMap := map[string]bool{}
-	for _, instance := range podNames {
-		podNameMap[instance] = true
+	podNameMap := map[string]struct{}{}
+	for _, name := range podNames {
+		podNameMap[name] = struct{}{}
 	}
 
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
-		return instances, err
+		return processGroups, err
 	}
 	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
 	if err != nil {
-		return instances, err
+		return processGroups, err
 	}
 
 	for _, pod := range pods.Items {
@@ -160,14 +164,26 @@ func getInstanceIDsFromPod(kubeClient client.Client, clusterName string, podName
 			continue
 		}
 
-		instances = append(instances, pod.Labels[cluster.GetProcessGroupIDLabel()])
+		processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
 	}
 
-	return instances, nil
+	return processGroups, nil
 }
 
-// removeInstances adds instances to the instancesToRemove field
-func removeInstances(kubeClient client.Client, clusterName string, instances []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
+func filterAlreadyMarkedProcessGroups(cluster *fdbtypes.FoundationDBCluster, processGroupIDs []string) []string {
+	res := make([]string, 0, len(processGroupIDs))
+
+	for _, processGroupID := range processGroupIDs {
+		if !cluster.ProcessGroupIsBeingRemoved(processGroupID) {
+			res = append(res, processGroupID)
+		}
+	}
+
+	return res
+}
+
+// replaceProcessGroups adds process groups to the removal list of the cluster
+func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool, useInstanceList bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
 	if err != nil {
@@ -177,7 +193,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		return err
 	}
 
-	if len(instances) == 0 && !removeAllFailed {
+	if len(processGroups) == 0 && !removeAllFailed {
 		return nil
 	}
 
@@ -205,7 +221,7 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 		for _, processGroupStatus := range cluster.Status.ProcessGroups {
 			needsReplacement, _ := processGroupStatus.NeedsReplacement(0)
 			if needsReplacement {
-				instances = append(instances, processGroupStatus.ProcessGroupID)
+				processGroups = append(processGroups, processGroupStatus.ProcessGroupID)
 			}
 		}
 	}
@@ -215,16 +231,26 @@ func removeInstances(kubeClient client.Client, clusterName string, instances []s
 	}
 
 	if !force {
-		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", instances, namespace, clusterName, withExclusion, withShrink))
+		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", processGroups, namespace, clusterName, withExclusion, withShrink))
 		if !confirmed {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
 
-	if withExclusion {
-		cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instances...)
+	processGroups = filterAlreadyMarkedProcessGroups(cluster, processGroups)
+
+	if useInstanceList {
+		if withExclusion {
+			cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, processGroups...)
+		} else {
+			cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, processGroups...)
+		}
 	} else {
-		cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, instances...)
+		if withExclusion {
+			cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, processGroups...)
+		} else {
+			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroups...)
+		}
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)

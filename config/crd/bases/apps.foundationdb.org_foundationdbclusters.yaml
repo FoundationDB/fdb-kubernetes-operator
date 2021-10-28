@@ -4497,6 +4497,23 @@ spec:
                     unset:
                       type: integer
                   type: object
+                processGroupIDPrefix:
+                  maxLength: 32
+                  type: string
+                processGroupsToRemove:
+                  items:
+                    type: string
+                  maxItems: 100
+                  minItems: 0
+                  type: array
+                  uniqueItems: true
+                processGroupsToRemoveWithoutExclusion:
+                  items:
+                    type: string
+                  maxItems: 100
+                  minItems: 0
+                  type: array
+                  uniqueItems: true
                 processes:
                   additionalProperties:
                     properties:

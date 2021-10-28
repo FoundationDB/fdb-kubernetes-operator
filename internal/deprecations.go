@@ -26,6 +26,8 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/utils/pointer"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -273,8 +275,7 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		}
 
 		if cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds == nil {
-			duration := 1800
-			cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = &duration
+			cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = pointer.Int(1800)
 		}
 
 		cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})
@@ -387,8 +388,11 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	}
 
 	if cluster.Spec.UseExplicitListenAddress == nil {
-		enabled := options.UseFutureDefaults
-		cluster.Spec.UseExplicitListenAddress = &enabled
+		cluster.Spec.UseExplicitListenAddress = pointer.Bool(options.UseFutureDefaults)
+	}
+
+	if cluster.Spec.InstanceIDPrefix != "" {
+		cluster.Spec.ProcessGroupIDPrefix = cluster.Spec.InstanceIDPrefix
 	}
 
 	return nil

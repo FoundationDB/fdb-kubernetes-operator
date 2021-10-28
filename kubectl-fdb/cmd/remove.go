@@ -1,5 +1,5 @@
 /*
- * remove.go
+ * remove_process_group.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,28 +31,28 @@ func newRemoveCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "remove",
-		Short: "Subcommand to remove instances from a given cluster",
-		Long:  "Subcommand to remove instances from a given cluster",
+		Short: "Subcommand to remove process groups from a given cluster",
+		Long:  "Subcommand to remove process groups from a given cluster",
 		RunE: func(c *cobra.Command, args []string) error {
 			return c.Help()
 		},
 		Example: `
-# Remove instances for a cluster in the current namespace
-kubectl fdb remove instances -c cluster pod-1 -i pod-2
+# Remove process groups for a cluster in the current namespace
+kubectl fdb remove process-groups -c cluster pod-1 -i pod-2
 
-# Remove instances for a cluster in the namespace default
-kubectl fdb -n default remove instances -c cluster pod-1 pod-2
+# Remove process groups for a cluster in the namespace default
+kubectl fdb -n default remove process-groups -c cluster pod-1 pod-2
 
-# Remove instances for a cluster with the instance ID.
-# The instance ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
-kubectl fdb -n default remove instances --use-instance-id -c cluster storage-1 storage-2
+# Remove process groups for a cluster with the process group ID.
+# The process group ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
+kubectl fdb -n default remove process-groups --use-process-group-id -c cluster storage-1 storage-2
 `,
 	}
 	cmd.SetOut(o.Out)
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.AddCommand(newRemoveInstancesCmd(streams))
+	cmd.AddCommand(newRemoveProcessGroupCmd(streams))
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd

@@ -74,7 +74,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBC
 
 				if !hasDesiredFaultTolerance {
 					log.Info(
-						"Skip instance with missing address",
+						"Skip process group with missing address",
 						"processGroupID", processGroupStatus.ProcessGroupID,
 						"failureTime", time.Unix(missingTime, 0).UTC().String())
 					continue
@@ -85,12 +85,12 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBC
 				// otherwise the process group should have an address associated.
 				processGroupStatus.ExclusionSkipped = true
 				log.Info(
-					"Replace instance with missing address",
+					"Replace process group with missing address",
 					"processGroupID", processGroupStatus.ProcessGroupID,
 					"failureTime", time.Unix(missingTime, 0).UTC().String())
 			}
 
-			logger.Info("Replace instance",
+			logger.Info("Replace process group",
 				"processGroupID", processGroupStatus.ProcessGroupID,
 				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
 

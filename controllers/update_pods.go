@@ -74,7 +74,7 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 			continue
 		}
 
-		if pod.DeletionTimestamp != nil && !cluster.InstanceIsBeingRemoved(processGroup.ProcessGroupID) {
+		if pod.DeletionTimestamp != nil && !cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID) {
 			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration}
 		}
 
@@ -155,19 +155,19 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 	if deletionMode == fdbtypes.DeletionModeAll {
 		var deletions []*corev1.Pod
 
-		for _, zoneInstances := range updates {
-			deletions = append(deletions, zoneInstances...)
+		for _, zoneProcesses := range updates {
+			deletions = append(deletions, zoneProcesses...)
 		}
 
 		return "cluster", deletions, nil
 	}
 
 	if deletionMode == fdbtypes.DeletionModeProcessGroup {
-		for _, zoneInstances := range updates {
-			if len(zoneInstances) < 1 {
+		for _, zoneProcesses := range updates {
+			if len(zoneProcesses) < 1 {
 				continue
 			}
-			pod := zoneInstances[0]
+			pod := zoneProcesses[0]
 			// Fetch the first pod and delete it
 			return pod.Name, []*corev1.Pod{pod}, nil
 		}
@@ -175,9 +175,9 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 
 	if deletionMode == fdbtypes.DeletionModeZone {
 		// Default case is zone
-		for zoneName, zoneInstances := range updates {
+		for zoneName, zoneProcesses := range updates {
 			// Fetch the first zone and stop
-			return zoneName, zoneInstances, nil
+			return zoneName, zoneProcesses, nil
 		}
 	}
 

@@ -87,10 +87,10 @@ var _ = Describe("Change coordinators", func() {
 			removedProcess := "storage-2"
 
 			BeforeEach(func() {
-				cluster.Spec.InstancesToRemove = []string{
+				cluster.Spec.ProcessGroupsToRemove = []string{
 					removedProcess,
 				}
-				Expect(cluster.InstanceIsBeingRemoved(removedProcess)).To(BeTrue())
+				Expect(cluster.ProcessGroupIsBeingRemoved(removedProcess)).To(BeTrue())
 			})
 
 			It("should only select storage processes and exclude the removed process", func() {
@@ -130,9 +130,9 @@ var _ = Describe("Change coordinators", func() {
 			}
 
 			BeforeEach(func() {
-				cluster.Spec.InstancesToRemove = removals
+				cluster.Spec.ProcessGroupsToRemove = removals
 				for _, removal := range removals {
-					Expect(cluster.InstanceIsBeingRemoved(removal)).To(BeTrue())
+					Expect(cluster.ProcessGroupIsBeingRemoved(removal)).To(BeTrue())
 				}
 			})
 
@@ -216,7 +216,7 @@ var _ = Describe("Change coordinators", func() {
 		JustBeforeEach(func() {
 			cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 			cluster.Spec.DataCenter = "primary"
-			cluster.Spec.InstancesToRemove = removals
+			cluster.Spec.ProcessGroupsToRemove = removals
 
 			var err error
 			status, err = adminClient.GetStatus()
@@ -723,13 +723,13 @@ func generateProcessInfo(dcCount int, satCount int, excludes []string) map[strin
 	return res
 }
 
-func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProcessInfo, dcid string, cnt int, excludes []string, pClass fdbtypes.ProcessClass) {
+func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbtypes.ProcessClass) {
 	for idx := 0; idx < cnt; idx++ {
 		excluded := false
-		zondeid := fmt.Sprintf("%s-%s-%d", dcid, pClass, idx)
+		zoneID := fmt.Sprintf("%s-%s-%d", dcID, pClass, idx)
 
 		for _, exclude := range excludes {
-			if exclude != zondeid {
+			if exclude != zoneID {
 				continue
 			}
 
@@ -738,12 +738,12 @@ func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProces
 		}
 
 		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
-		res[zondeid] = fdbtypes.FoundationDBStatusProcessInfo{
+		res[zoneID] = fdbtypes.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
 			Locality: map[string]string{
-				fdbtypes.FDBLocalityInstanceIDKey: zondeid,
-				fdbtypes.FDBLocalityZoneIDKey:     zondeid,
-				fdbtypes.FDBLocalityDCIDKey:       dcid,
+				fdbtypes.FDBLocalityInstanceIDKey: zoneID,
+				fdbtypes.FDBLocalityZoneIDKey:     zoneID,
+				fdbtypes.FDBLocalityDCIDKey:       dcID,
 			},
 			Excluded: excluded,
 			Address: fdbtypes.ProcessAddress{

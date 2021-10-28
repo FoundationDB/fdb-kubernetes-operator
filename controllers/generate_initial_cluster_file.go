@@ -44,15 +44,15 @@ func (g generateInitialClusterFile) reconcile(r *FoundationDBClusterReconciler, 
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	instances, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
 	count := cluster.DesiredCoordinatorCount()
-	if len(instances) < count {
+	if len(pods) < count {
 		return &requeue{
-			message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(instances)),
+			message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(pods)),
 			delay:   podSchedulingDelayDuration,
 		}
 	}
@@ -74,9 +74,9 @@ func (g generateInitialClusterFile) reconcile(r *FoundationDBClusterReconciler, 
 		}
 	}
 
-	processLocality := make([]localityInfo, len(instances))
-	for indexOfProcess := range instances {
-		client, message := r.getPodClient(cluster, instances[indexOfProcess])
+	processLocality := make([]localityInfo, len(pods))
+	for indexOfProcess := range pods {
+		client, message := r.getPodClient(cluster, pods[indexOfProcess])
 		if client == nil {
 			return &requeue{message: message, delay: podSchedulingDelayDuration}
 		}

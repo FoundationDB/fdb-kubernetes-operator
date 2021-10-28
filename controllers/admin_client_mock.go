@@ -138,9 +138,9 @@ func (client *mockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			return nil, err
 		}
 
-		instanceID := podmanager.GetProcessGroupID(client.Cluster, &pod)
+		processGroupID := podmanager.GetProcessGroupID(client.Cluster, &pod)
 
-		if client.missingProcessGroups[instanceID] {
+		if client.missingProcessGroups[processGroupID] {
 			continue
 		}
 
@@ -176,22 +176,22 @@ func (client *mockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 			if err != nil {
 				return nil, err
 			}
-			if client.incorrectCommandLines != nil && client.incorrectCommandLines[instanceID] {
+			if client.incorrectCommandLines != nil && client.incorrectCommandLines[processGroupID] {
 				command += " --locality_incorrect=1"
 			}
 
 			locality := map[string]string{
-				fdbtypes.FDBLocalityInstanceIDKey: instanceID,
+				fdbtypes.FDBLocalityInstanceIDKey: processGroupID,
 				fdbtypes.FDBLocalityZoneIDKey:     pod.Name,
 				fdbtypes.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 			}
 
-			for key, value := range client.localityInfo[instanceID] {
+			for key, value := range client.localityInfo[processGroupID] {
 				locality[key] = value
 			}
 
 			if processCount > 1 {
-				locality["process_id"] = fmt.Sprintf("%s-%d", instanceID, processIndex)
+				locality["process_id"] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
 			}
 
 			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbtypes.FoundationDBStatusProcessInfo{
@@ -212,7 +212,7 @@ func (client *mockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				fdbtypes.FDBLocalityZoneIDKey:     processGroup.ProcessGroupID,
 			}
 
-			for key, value := range client.localityInfo[instanceID] {
+			for key, value := range client.localityInfo[processGroupID] {
 				locality[key] = value
 			}
 
@@ -313,9 +313,9 @@ func (client *mockAdminClient) ConfigureDatabase(configuration fdbtypes.Database
 	return nil
 }
 
-// ExcludeInstances starts evacuating processes so that they can be removed
+// ExcludeProcesses starts evacuating processes so that they can be removed
 // from the database.
-func (client *mockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *mockAdminClient) ExcludeProcesses(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -342,9 +342,9 @@ func (client *mockAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddr
 	return nil
 }
 
-// IncludeInstances removes instances from the exclusion list and allows
+// IncludeProcesses removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *mockAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *mockAdminClient) IncludeProcesses(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -369,7 +369,7 @@ func (client *mockAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddr
 	return nil
 }
 
-// CanSafelyRemove checks whether it is safe to remove instances from the
+// CanSafelyRemove checks whether it is safe to remove the process group from the
 // cluster
 //
 // The list returned by this method will be the addresses that are *not*
@@ -397,8 +397,8 @@ func (client *mockAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error
 	return pAddrs, nil
 }
 
-// KillInstances restarts processes
-func (client *mockAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
+// KillProcesses restarts processes
+func (client *mockAdminClient) KillProcesses(addresses []fdbtypes.ProcessAddress) error {
 	adminClientMutex.Lock()
 	for _, addr := range addresses {
 		client.KilledAddresses = append(client.KilledAddresses, addr.String())
@@ -580,8 +580,8 @@ func (client *mockAdminClient) MockAdditionalProcesses(processes []fdbtypes.Proc
 
 // MockMissingProcessGroup updates the mock for whether a process group should
 // be missing from the cluster status.
-func (client *mockAdminClient) MockMissingProcessGroup(instanceID string, missing bool) {
-	client.missingProcessGroups[instanceID] = missing
+func (client *mockAdminClient) MockMissingProcessGroup(processGroupID string, missing bool) {
+	client.missingProcessGroups[processGroupID] = missing
 }
 
 // MockLocalityInfo sets mock locality information for a process.
@@ -591,11 +591,11 @@ func (client *mockAdminClient) MockLocalityInfo(processGroupID string, locality 
 
 // MockIncorrectCommandLine updates the mock for whether a process group should
 // be have an incorrect command-line.
-func (client *mockAdminClient) MockIncorrectCommandLine(instanceID string, incorrect bool) {
+func (client *mockAdminClient) MockIncorrectCommandLine(processGroupID string, incorrect bool) {
 	if client.incorrectCommandLines == nil {
 		client.incorrectCommandLines = make(map[string]bool)
 	}
-	client.incorrectCommandLines[instanceID] = incorrect
+	client.incorrectCommandLines[processGroupID] = incorrect
 }
 
 // Close shuts down any resources for the client once it is no longer

@@ -46,13 +46,13 @@ var _ = Describe("pod_models", func() {
 
 	Describe("GetPod", func() {
 		var pod *corev1.Pod
-		Context("with a basic storage instance", func() {
+		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should contain the instance's metadata", func() {
+			It("should contain the process group's metadata", func() {
 				Expect(pod.Namespace).To(Equal("my-ns"))
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
@@ -65,7 +65,7 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
-			It("should contain the instance's pod spec", func() {
+			It("should contain the process group's pod spec", func() {
 				spec, err := GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.Spec).To(Equal(*spec))
@@ -85,7 +85,7 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should contain the instance's metadata", func() {
+			It("should contain the process group's metadata", func() {
 				Expect(pod.Namespace).To(Equal("my-ns"))
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
@@ -100,13 +100,13 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with a cluster controller instance", func() {
+		Context("with a cluster controller process group", func() {
 			BeforeEach(func() {
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassClusterController, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should contain the instance's metadata", func() {
+			It("should contain the process group's metadata", func() {
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-cluster-controller-1", cluster.Name)))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					OldFDBClusterLabel:              cluster.Name,
@@ -118,25 +118,25 @@ var _ = Describe("pod_models", func() {
 				}))
 			})
 
-			It("should contain the instance's pod spec", func() {
+			It("should contain the process group's pod spec", func() {
 				spec, err := GetPodSpec(cluster, fdbtypes.ProcessClassClusterController, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.Spec).To(Equal(*spec))
 			})
 		})
 
-		Context("with an instance ID prefix", func() {
+		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstanceIDPrefix = "dc1"
 				pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should not include the prefix in the instance name", func() {
+			It("should not include the prefix in the process group name", func() {
 				Expect(pod.Name).To(Equal(fmt.Sprintf("%s-storage-1", cluster.Name)))
 			})
 
-			It("should contain the prefix in the instance labels labels", func() {
+			It("should contain the prefix in the process group labels labels", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					OldFDBClusterLabel:              cluster.Name,
 					fdbtypes.FDBClusterLabel:        cluster.Name,
@@ -205,7 +205,7 @@ var _ = Describe("pod_models", func() {
 	Describe("GetPodSpec", func() {
 		var spec *corev1.PodSpec
 
-		Context("with a basic storage instance", func() {
+		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
 			})
@@ -640,7 +640,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an instance that is crash looping", func() {
+		Context("with an process group that is crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -653,7 +653,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with all instances crash looping", func() {
+		Context("with all process group crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"*"}
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -666,7 +666,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with a different instance crash looping", func() {
+		Context("with a different process group crash looping", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -684,7 +684,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an instance with scheduling broken", func() {
+		Context("with an process group with scheduling broken", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -702,7 +702,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with a basic storage instance with multiple storage servers per disk", func() {
+		Context("with a basic storage process group with multiple storage servers per disk", func() {
 			BeforeEach(func() {
 				cluster.Spec.StorageServersPerPod = 2
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -1716,7 +1716,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an instance ID prefix", func() {
+		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstanceIDPrefix = "dc1"
 				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -2127,7 +2127,7 @@ var _ = Describe("pod_models", func() {
 	Describe("GetService", func() {
 		var service *corev1.Service
 
-		Context("with a basic storage instance", func() {
+		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				service, err = GetService(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -2210,7 +2210,7 @@ var _ = Describe("pod_models", func() {
 	Describe("GetPvc", func() {
 		var pvc *corev1.PersistentVolumeClaim
 
-		Context("with a basic storage instance", func() {
+		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -2366,7 +2366,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("for a stateless instance", func() {
+		Context("for a stateless process group", func() {
 			BeforeEach(func() {
 				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStateless, 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -2377,14 +2377,34 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an instance ID prefix", func() {
+		Context("with an process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstanceIDPrefix = "dc1"
 				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should include the prefix in the instance IDs", func() {
+			It("should include the prefix in the process group IDs", func() {
+				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
+				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
+					OldFDBClusterLabel:              cluster.Name,
+					fdbtypes.FDBClusterLabel:        cluster.Name,
+					OldFDBProcessClassLabel:         string(fdbtypes.ProcessClassStorage),
+					fdbtypes.FDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
+					OldFDBProcessGroupIDLabel:       "dc1-storage-1",
+					fdbtypes.FDBProcessGroupIDLabel: "dc1-storage-1",
+				}))
+			})
+		})
+
+		Context("with an process group ID prefix", func() {
+			BeforeEach(func() {
+				cluster.Spec.ProcessGroupIDPrefix = "dc1"
+				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the prefix in the process group IDs", func() {
 				Expect(pvc.Name).To(Equal(fmt.Sprintf("%s-storage-1-data", cluster.Name)))
 				Expect(pvc.ObjectMeta.Labels).To(Equal(map[string]string{
 					OldFDBClusterLabel:              cluster.Name,
@@ -2918,16 +2938,16 @@ var _ = Describe("pod_models", func() {
 
 		Context("Configure the sidecar image", func() {
 			type testCase struct {
-				container     *corev1.Container
-				initMode      bool
-				instanceID    string
-				allowOverride bool
-				hasError      bool
+				container      *corev1.Container
+				initMode       bool
+				processGroupID string
+				allowOverride  bool
+				hasError       bool
 			}
 
 			DescribeTable("should return the correct image",
 				func(input testCase, expected string) {
-					err = configureSidecarContainerForCluster(cluster, input.container, input.initMode, input.instanceID, input.allowOverride)
+					err = configureSidecarContainerForCluster(cluster, input.container, input.initMode, input.processGroupID, input.allowOverride)
 					if input.hasError {
 						Expect(err).To(HaveOccurred())
 					} else {
@@ -2938,37 +2958,37 @@ var _ = Describe("pod_models", func() {
 				},
 				Entry("only defaults used",
 					testCase{
-						container:     &corev1.Container{},
-						initMode:      false,
-						instanceID:    "123",
-						allowOverride: false,
-						hasError:      false,
+						container:      &corev1.Container{},
+						initMode:       false,
+						processGroupID: "123",
+						allowOverride:  false,
+						hasError:       false,
 					}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
 				Entry("set a tag in the image without override",
 					testCase{
 						container: &corev1.Container{
 							Image: "myimage:mytag",
 						},
-						initMode:      false,
-						instanceID:    "123",
-						allowOverride: false,
-						hasError:      true,
+						initMode:       false,
+						processGroupID: "123",
+						allowOverride:  false,
+						hasError:       true,
 					}, "myimage:mytag"),
 				Entry("set a tag in the image with override",
 					testCase{
 						container: &corev1.Container{
 							Image: "myimage:mytag",
 						},
-						initMode:      false,
-						instanceID:    "123",
-						allowOverride: true,
-						hasError:      false,
+						initMode:       false,
+						processGroupID: "123",
+						allowOverride:  true,
+						hasError:       false,
 					}, "myimage:mytag"),
 			)
 		})
 	})
 
-	Describe("getStorageServersPerPodForInstance", func() {
+	Describe("GetStorageServersPerPodForPod", func() {
 		Context("when env var is set with 1", func() {
 			It("should return 1", func() {
 				pod := &corev1.Pod{

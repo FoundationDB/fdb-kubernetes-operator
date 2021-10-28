@@ -118,7 +118,15 @@ type FoundationDBClusterSpec struct {
 
 	// InstancesToRemove defines the instances that we should remove from the
 	// cluster. This list contains the instance IDs.
+	// Deprecated: Use ProcessGroupsToRemove instead.
 	InstancesToRemove []string `json:"instancesToRemove,omitempty"`
+
+	// ProcessGroupsToRemove defines the process groups that we should remove from the
+	// cluster. This list contains the process group IDs.
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=100
+	// +kubebuilder:validation:UniqueItems=true
+	ProcessGroupsToRemove []string `json:"processGroupsToRemove,omitempty"`
 
 	// InstancesToRemoveWithoutExclusion defines the instances that we should
 	// remove from the cluster without excluding them. This list contains the
@@ -127,7 +135,20 @@ type FoundationDBClusterSpec struct {
 	// This should be used for cases where a pod does not have an IP address and
 	// you want to remove it and destroy its volume without confirming the data
 	// is fully replicated.
+	// Deprecated: Use ProcessGroupsToRemoveWithoutExclusion instead.
 	InstancesToRemoveWithoutExclusion []string `json:"instancesToRemoveWithoutExclusion,omitempty"`
+
+	// ProcessGroupsToRemoveWithoutExclusion defines the process groups that we should
+	// remove from the cluster without excluding them. This list contains the
+	// process group IDs.
+	//
+	// This should be used for cases where a pod does not have an IP address and
+	// you want to remove it and destroy its volume without confirming the data
+	// is fully replicated.
+	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MaxItems=100
+	// +kubebuilder:validation:UniqueItems=true
+	ProcessGroupsToRemoveWithoutExclusion []string `json:"processGroupsToRemoveWithoutExclusion,omitempty"`
 
 	// ConfigMap allows customizing the config map the operator creates.
 	ConfigMap *corev1.ConfigMap `json:"configMap,omitempty"`
@@ -166,7 +187,17 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
+	// Deprecated: Use ProcessGroupsToRemoveWithoutExclusion instead.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
+
+	// ProcessGroupIDPrefix defines a prefix to append to the process group IDs in the
+	// locality fields.
+	//
+	// This must be a valid Kubernetes label value. See
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	// for more details on that.
+	// +kubebuilder:validation:MaxLength=32
+	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// UpdatePodsByReplacement determines whether we should update pod config
 	// by replacing the pods rather than deleting them.
@@ -288,7 +319,7 @@ type FoundationDBClusterSpec struct {
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
 
 	// StorageServersPerPod defines how many Storage Servers should run in
-	// a single Instance (Pod). This number defines the number of processes running
+	// a single process group (Pod). This number defines the number of processes running
 	// in one Pod whereas the ProcessCounts defines the number of Pods created.
 	// This means that you end up with ProcessCounts["storage"] * StorageServersPerPod
 	// storage processes
@@ -338,7 +369,7 @@ type FoundationDBClusterStatus struct {
 	// IncorrectProcesses provides the processes that do not have the correct
 	// configuration.
 	//
-	// This will map the instance ID to the timestamp when we observed the
+	// This will map the process group ID to the timestamp when we observed the
 	// incorrect configuration.
 	// Deprecated: Use ProcessGroups instead.
 	IncorrectProcesses map[string]int64 `json:"incorrectProcesses,omitempty"`
@@ -404,7 +435,7 @@ type FoundationDBClusterStatus struct {
 	HasListenIPsForAllPods bool `json:"hasListenIPsForAllPods,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
-	// This maps the instance ID to its removal state.
+	// This maps the process group ID to its removal state.
 	// Deprecated: Use ProcessGroups instead.
 	PendingRemovals map[string]PendingRemovalState `json:"pendingRemovals,omitempty"`
 
@@ -2260,21 +2291,21 @@ func (cluster *FoundationDBCluster) IsBeingUpgraded() bool {
 	return cluster.Status.RunningVersion != "" && cluster.Status.RunningVersion != cluster.Spec.Version
 }
 
-// InstanceIsBeingRemoved determines if an instance is pending removal.
-func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bool {
-	if instanceID == "" {
+// ProcessGroupIsBeingRemoved determines if an instance is pending removal.
+func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID string) bool {
+	if processGroupID == "" {
 		return false
 	}
 
 	if cluster.Status.PendingRemovals != nil {
-		_, present := cluster.Status.PendingRemovals[instanceID]
+		_, present := cluster.Status.PendingRemovals[processGroupID]
 		if present {
 			return true
 		}
 	}
 
 	if cluster.Spec.PendingRemovals != nil {
-		podName := fmt.Sprintf("%s-%s", cluster.Name, instanceID)
+		podName := fmt.Sprintf("%s-%s", cluster.Name, processGroupID)
 		_, pendingRemoval := cluster.Spec.PendingRemovals[podName]
 		if pendingRemoval {
 			return true
@@ -2282,19 +2313,31 @@ func (cluster *FoundationDBCluster) InstanceIsBeingRemoved(instanceID string) bo
 	}
 
 	for _, id := range cluster.Spec.InstancesToRemove {
-		if id == instanceID {
+		if id == processGroupID {
 			return true
 		}
 	}
 
 	for _, id := range cluster.Spec.InstancesToRemoveWithoutExclusion {
-		if id == instanceID {
+		if id == processGroupID {
 			return true
 		}
 	}
 
 	for _, status := range cluster.Status.ProcessGroups {
-		if status.ProcessGroupID == instanceID && status.Remove {
+		if status.ProcessGroupID == processGroupID && status.Remove {
+			return true
+		}
+	}
+
+	for _, id := range cluster.Spec.ProcessGroupsToRemove {
+		if id == processGroupID {
+			return true
+		}
+	}
+
+	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
+		if id == processGroupID {
 			return true
 		}
 	}
@@ -2778,10 +2821,10 @@ type RequiredAddressSet struct {
 
 // BuggifyConfig provides options for injecting faults into a cluster for testing.
 type BuggifyConfig struct {
-	// NoSchedule defines a list of instance IDs that should fail to schedule.
+	// NoSchedule defines a list of process group IDs that should fail to schedule.
 	NoSchedule []string `json:"noSchedule,omitempty"`
 
-	// CrashLoops defines a list of instance IDs that should be put into a
+	// CrashLoops defines a list of process group IDs that should be put into a
 	// crash looping state.
 	CrashLoop []string `json:"crashLoop,omitempty"`
 
@@ -2801,7 +2844,7 @@ type LabelConfig struct {
 	// resources it creates.
 	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
 
-	// ProcessGroupIDLabels provides the labels that we use for the instance ID
+	// ProcessGroupIDLabels provides the labels that we use for the process group ID
 	// field. The first label will be used by the operator when filtering
 	// resources.
 	// +kubebuilder:validation:MaxItems=100
@@ -2963,7 +3006,7 @@ func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 }
 
 // GetProcessGroupIDLabel provides the label that this cluster is using for the
-// instance ID when identifying resources.
+// process group ID when identifying resources.
 func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 	labels := cluster.Spec.LabelConfig.ProcessGroupIDLabels
 	if len(labels) == 0 {

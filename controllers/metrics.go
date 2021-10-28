@@ -54,14 +54,28 @@ var (
 
 	descInstancesToRemove = prometheus.NewDesc(
 		"fdb_operator_instances_to_remove_total",
-		"the count of instances that should be removed from the cluster.",
+		"the count of instances that should be removed from the cluster. Deprecated, use fdb_operator_process_groups_to_remove_total instead",
 		descClusterDefaultLabels,
 		nil,
 	)
 
 	descInstancesToRemoveWithoutExclusion = prometheus.NewDesc(
 		"fdb_operator_instances_to_remove_without_exclusion_total",
-		"the count of instances that should be removed from the cluster without excluding.",
+		"the count of instances that should be removed from the cluster without excluding. Deprecated use fdb_operator_process_groups_to_remove_total instead",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	descProcessGroupsToRemove = prometheus.NewDesc(
+		"fdb_operator_process_groups_to_remove_total",
+		"the count of process groups that should be removed from the cluster.",
+		descClusterDefaultLabels,
+		nil,
+	)
+
+	descProcessGroupsToRemoveWithoutExclusion = prometheus.NewDesc(
+		"fdb_operator_process_group_to_remove_without_exclusion_total",
+		"the count of rocess groups that should be removed from the cluster without excluding.",
 		descClusterDefaultLabels,
 		nil,
 	)
@@ -125,6 +139,8 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	addGauge(descClusterReconciled, boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled))
 	addGauge(descInstancesToRemove, float64(len(cluster.Spec.InstancesToRemove)))
 	addGauge(descInstancesToRemoveWithoutExclusion, float64(len(cluster.Spec.InstancesToRemoveWithoutExclusion)))
+	addGauge(descProcessGroupsToRemove, float64(len(cluster.Spec.ProcessGroupsToRemove)))
+	addGauge(descProcessGroupsToRemoveWithoutExclusion, float64(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)))
 
 	// Calculate the process group metrics
 	for pclass, conditionMap := range getProcessGroupMetrics(cluster) {

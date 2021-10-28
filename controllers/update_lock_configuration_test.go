@@ -38,7 +38,7 @@ var _ = Describe("update_lock_configuration", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.InstanceIDPrefix = "dc1"
+		cluster.Spec.ProcessGroupIDPrefix = "dc1"
 		var locksDisabled = false
 		cluster.Spec.LockOptions.DisableLocks = &locksDisabled
 		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})

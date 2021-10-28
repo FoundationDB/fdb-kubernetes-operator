@@ -29,9 +29,9 @@ import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
 
-// GetStartCommand builds the expected start command for an instance.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processCless fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
-	lines, err := getStartCommandLines(cluster, processCless, podClient, processNumber, processCount)
+// GetStartCommand builds the expected start command for a process group.
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
+	lines, err := getStartCommandLines(cluster, processClass, podClient, processNumber, processCount)
 	if err != nil {
 		return "", err
 	}

@@ -53,7 +53,7 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 	allSynced := true
 	hasUpdate := false
 	var errs []error
-	// We try to update all instances and if we observe an error we add it to the error list.
+	// We try to update all process groups and if we observe an error we add it to the error list.
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 
@@ -70,7 +70,6 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
 			curLogger.Info("Could not find Pod for process group")
-			// TODO (johscheuer): we should requeue if that happens.
 			continue
 		}
 

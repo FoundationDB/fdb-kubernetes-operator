@@ -1,5 +1,5 @@
 /*
- * exclude_instances_test.go
+ * exclude_processes_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,7 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("exclude_instances", func() {
+var _ = Describe("exclude_processes", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var err error
 
@@ -48,11 +48,11 @@ var _ = Describe("exclude_instances", func() {
 		Expect(generation).To(Equal(int64(1)))
 	})
 
-	Describe("canExcludeNewInstances", func() {
+	Describe("canExcludeNewProcesses", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewInstances(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -64,7 +64,7 @@ var _ = Describe("exclude_instances", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewInstances(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -76,7 +76,7 @@ var _ = Describe("exclude_instances", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewInstances(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-2"}))
 				})
@@ -88,7 +88,7 @@ var _ = Describe("exclude_instances", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewInstances(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -115,7 +115,7 @@ var _ = Describe("exclude_instances", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewInstances(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -127,7 +127,7 @@ var _ = Describe("exclude_instances", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewInstances(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})

@@ -68,7 +68,7 @@ type FdbPodClient interface {
 	CopyFiles() error
 
 	// GetVariableSubstitutions gets the current keys and values that this
-	// instance will substitute into its monitor conf.
+	// process group will substitute into its monitor conf.
 	GetVariableSubstitutions() (map[string]string, error)
 }
 
@@ -238,7 +238,7 @@ func (client *realFdbPodClient) CopyFiles() error {
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
-// instance will substitute into its monitor conf.
+// process group will substitute into its monitor conf.
 func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	contents, err := client.makeRequest("GET", "substitutions")
 	if err != nil {
@@ -343,7 +343,7 @@ func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error)
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
-// instance will substitute into its monitor conf.
+// process group will substitute into its monitor conf.
 func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
 	substitutions := map[string]string{}
 

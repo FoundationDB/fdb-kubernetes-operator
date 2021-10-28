@@ -130,7 +130,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		updateLabels{},
 		updateDatabaseConfiguration{},
 		chooseRemovals{},
-		excludeInstances{},
+		excludeProcesses{},
 		changeCoordinators{},
 		bounceProcesses{},
 		updatePods{},
@@ -218,7 +218,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 }
 
 func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
-	if cluster.InstanceIsBeingRemoved(podmanager.GetProcessGroupID(cluster, pod)) {
+	if cluster.ProcessGroupIsBeingRemoved(podmanager.GetProcessGroupID(cluster, pod)) {
 		return true, nil
 	}
 	podClient, message := r.getPodClient(cluster, pod)
@@ -342,7 +342,7 @@ type clusterSubReconciler interface {
 // localityInfo captures information about a process for the purposes of
 // choosing diverse locality.
 type localityInfo struct {
-	// The instance ID
+	// The process group ID
 	ID string
 
 	// The process's public address.

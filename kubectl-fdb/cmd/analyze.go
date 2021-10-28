@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	ctx "context"
 	"fmt"
 	"strings"
 	"time"
@@ -61,6 +60,11 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			}
 
 			allClusters, err := cmd.Flags().GetBool("all-clusters")
+			if err != nil {
+				return err
+			}
+
+			useInstanceList, err := cmd.Root().Flags().GetBool("use-old-instances-remove")
 			if err != nil {
 				return err
 			}
@@ -109,7 +113,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, useInstanceList)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -166,33 +170,7 @@ func printStatement(cmd *cobra.Command, line string, err bool) {
 	color.Unset()
 }
 
-// TODO (johscheuer): check if we have enough resources.
-func replaceFailedInstances(cluster *fdbtypes.FoundationDBCluster, instanceIDs []string) {
-	for _, instanceID := range instanceIDs {
-		markedForRemoval := false
-		for _, removal := range cluster.Spec.InstancesToRemove {
-			if removal != instanceID {
-				continue
-			}
-
-			markedForRemoval = true
-		}
-
-		for _, removal := range cluster.Spec.InstancesToRemoveWithoutExclusion {
-			if removal != instanceID {
-				continue
-			}
-
-			markedForRemoval = true
-		}
-
-		if !markedForRemoval {
-			cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, instanceID)
-		}
-	}
-}
-
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, useInstanceList bool) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -204,7 +182,6 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	}
 
 	cmd.Printf("Checking cluster: %s/%s\n", namespace, clusterName)
-	patch := client.MergeFrom(cluster.DeepCopy())
 
 	// 1. Check if the cluster is available
 	if cluster.Status.Health.Available {
@@ -230,7 +207,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	}
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
-	var replaceInstances []string
+	var failedProcessGroups []string
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -254,7 +231,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		needsReplacement, _ := processGroup.NeedsReplacement(0)
 		if needsReplacement && autoFix {
-			replaceInstances = append(replaceInstances, processGroup.ProcessGroupID)
+			failedProcessGroups = append(failedProcessGroups, processGroup.ProcessGroupID)
 		}
 	}
 
@@ -309,9 +286,9 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", namespace, pod.Name, pod.DeletionTimestamp)
 			printStatement(cmd, statement, true)
 
-			// The instance should be delete so we can safely replace it
+			// The process groups that should be delete so we can safely replace it
 			if autoFix {
-				replaceInstances = append(replaceInstances, pod.Labels[cluster.GetProcessGroupIDLabel()])
+				failedProcessGroups = append(failedProcessGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
 			}
 		}
 	}
@@ -326,20 +303,15 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	// We could add more auto fixes in the future.
 	if autoFix {
 		confirmed := false
-		if !force && len(replaceInstances) > 0 {
-			confirmed = confirmAction(fmt.Sprintf("Replace instances %v in cluster %s/%s", replaceInstances, namespace, clusterName))
-		}
 
-		if force || confirmed {
-			cmd.Printf("Replacing the following instances: %s", replaceInstances)
-			replaceFailedInstances(cluster, replaceInstances)
-			err := kubeClient.Patch(ctx.Background(), cluster, patch)
+		if len(failedProcessGroups) > 0 {
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, force, false, useInstanceList)
 			if err != nil {
 				return err
 			}
 		}
 
-		pods := filterDeletePods(replaceInstances, killPods)
+		pods := filterDeletePods(failedProcessGroups, killPods)
 		if !force && len(pods) > 0 {
 			podNames := make([]string, 0, len(killPods))
 			for _, pod := range killPods {
@@ -367,13 +339,13 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	return nil
 }
 
-func filterDeletePods(replaceInstances []string, killPods []corev1.Pod) []corev1.Pod {
+func filterDeletePods(replacements []string, killPods []corev1.Pod) []corev1.Pod {
 	res := make([]corev1.Pod, 0, len(killPods))
 
 	for _, killPod := range killPods {
 		contained := false
-		for _, replaceInstance := range replaceInstances {
-			if replaceInstance == killPod.Name {
+		for _, replacement := range replacements {
+			if replacement == killPod.Name {
 				contained = true
 			}
 		}

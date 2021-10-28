@@ -17,7 +17,7 @@ There is also a flag in the cluster spec called `updatePodsByReplacement` that w
 
 The following changes can only be rolled out through replacement:
 
-* Changing the instance ID prefix
+* Changing the process group ID prefix
 * Changing the public IP source
 * Changing the number of storage servers per pod
 * Changing the node selector

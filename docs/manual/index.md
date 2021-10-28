@@ -2,7 +2,8 @@
 
 This document provides practical examples of how to use the FoundationDB Kubernetes Operator to accomplish common tasks, and additional information and areas to consider when you are managing these tasks in a real environment.
 
-This document assumes that you are generally familiar with Kubernetes. For more information on that area, see the [Kubernetes documentation](https://kubernetes.io/docs/home/).
+This document assumes that you are generally familiar with Kubernetes.
+For more information on that area, see the [Kubernetes documentation](https://kubernetes.io/docs/home/).
 
 ## Table of Contents
 

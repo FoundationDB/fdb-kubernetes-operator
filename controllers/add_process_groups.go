@@ -84,15 +84,15 @@ func (a addProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ct
 
 		for i := 0; i < newCount; i++ {
 			for idNum > 0 {
-				_, processGroupID := internal.GetInstanceID(cluster, processClass, idNum)
+				_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
 
-				if !cluster.InstanceIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
+				if !cluster.ProcessGroupIsBeingRemoved(processGroupID) && !processGroupIDs[processClass][idNum] {
 					break
 				}
 
 				idNum++
 			}
-			_, processGroupID := internal.GetInstanceID(cluster, processClass, idNum)
+			_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
 			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClass, nil))
 
 			idNum++

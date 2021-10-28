@@ -46,8 +46,8 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cordon",
-		Short: "Adds all instance (or multiple) that run on a node to the remove list of the given cluster",
-		Long:  "Adds all instance (or multiple) that run on a node to the remove list of the given cluster",
+		Short: "Adds all process groups (or multiple) that run on a node to the remove list of the given cluster",
+		Long:  "Adds all process groups (or multiple) that run on a node to the remove list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			force, err := cmd.Root().Flags().GetBool("force")
 			if err != nil {
@@ -66,6 +66,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 			config, err := o.configFlags.ToRESTConfig()
+			if err != nil {
+				return err
+			}
+			useInstanceList, err := cmd.Root().Flags().GetBool("use-old-instances-remove")
 			if err != nil {
 				return err
 			}
@@ -99,19 +103,19 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, force)
+				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, force, useInstanceList)
 			}
 
-			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, force)
+			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, force, useInstanceList)
 		},
 		Example: `
-# Evacuate all instances for a cluster in the current namespace that are hosted on node-1
+# Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
 kubectl fdb cordon -c cluster node-1
 
-# Evacuate all instances for a cluster in the default namespace that are hosted on node-1
+# Evacuate all process groups for a cluster in the default namespace that are hosted on node-1
 kubectl fdb cordon -n default -c cluster node-1
 
-# Evacuate all instances for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
+# Evacuate all process groups for a cluster in the current namespace that are hosted on nodes with the labels machine=a,disk=fast
 kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 `,
 	}
@@ -119,9 +123,9 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate instance(s) from the provided cluster.")
+	cmd.Flags().StringP("fdb-cluster", "c", "", "evacuate process group(s) from the provided cluster.")
 	cmd.Flags().StringToStringVarP(&nodeSelectors, "node-selector", "", nil, "node-selector to select all nodes that should be cordoned. Can't be used with specific nodes.")
-	cmd.Flags().BoolP("exclusion", "e", true, "define if the instances should be removed with exclusion.")
+	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
 		log.Fatal(err)
@@ -132,14 +136,14 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 	return cmd
 }
 
-// cordonNode gets all instances of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, force bool) error {
+// cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
+func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, force bool, useInstanceList bool) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
 	}
 
-	var instances []string
+	var processGroups []string
 
 	for _, node := range nodes {
 		var pods corev1.PodList
@@ -162,14 +166,14 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 				continue
 			}
 
-			instanceID, ok := pod.Labels[cluster.GetProcessGroupIDLabel()]
+			processGroup, ok := pod.Labels[cluster.GetProcessGroupIDLabel()]
 			if !ok {
-				fmt.Printf("could not fetch instance ID from Pod: %s\n", pod.Name)
+				fmt.Printf("could not fetch process group ID from Pod: %s\n", pod.Name)
 				continue
 			}
-			instances = append(instances, instanceID)
+			processGroups = append(processGroups, processGroup)
 		}
 	}
 
-	return removeInstances(kubeClient, cluster.Name, instances, namespace, withExclusion, false, force, false)
+	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, force, false, useInstanceList)
 }

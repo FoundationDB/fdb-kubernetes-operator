@@ -119,7 +119,7 @@ var _ = Describe("[plugin] cordon command", func() {
 				_ = fdbtypes.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList, &nodeList).Build()
 
-				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true)
+				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true, true)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbtypes.FoundationDBCluster
@@ -132,6 +132,71 @@ var _ = Describe("[plugin] cordon command", func() {
 				// Use equality.Semantic.DeepEqual here since the Equal check of gomega is to strict
 				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, resCluster.Spec.InstancesToRemove)).To(BeTrue())
 				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.InstancesToRemoveWithoutExclusion)).To(BeTrue())
+			},
+			Entry("Cordon node with exclusion",
+				testCase{
+					nodes:                     []string{"node-1"},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{"instance-1"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+				}),
+			Entry("Cordon node without exclusion",
+				testCase{
+					nodes:                     []string{"node-1"},
+					WithExclusion:             false,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
+				}),
+			Entry("Cordon no nodes with exclusion",
+				testCase{
+					nodes:                     []string{""},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+				}),
+			Entry("Cordon no node nodes without exclusion",
+				testCase{
+					nodes:                     []string{""},
+					WithExclusion:             false,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+				}),
+			Entry("Cordon all nodes with exclusion",
+				testCase{
+					nodes:                     []string{"node-1", "node-2"},
+					WithExclusion:             true,
+					ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{},
+				}),
+			Entry("Cordon all nodes without exclusion",
+				testCase{
+					nodes:                     []string{"node-1", "node-2"},
+					WithExclusion:             false,
+					ExpectedInstancesToRemove: []string{},
+					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
+				}),
+		)
+
+		DescribeTable("should cordon all targeted processes",
+			func(input testCase) {
+				scheme := runtime.NewScheme()
+				_ = clientgoscheme.AddToScheme(scheme)
+				_ = fdbtypes.AddToScheme(scheme)
+				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList, &nodeList).Build()
+
+				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true, false)
+				Expect(err).NotTo(HaveOccurred())
+
+				var resCluster fdbtypes.FoundationDBCluster
+				err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+					Namespace: namespace,
+					Name:      clusterName,
+				}, &resCluster)
+
+				Expect(err).NotTo(HaveOccurred())
+				// Use equality.Semantic.DeepEqual here since the Equal check of gomega is to strict
+				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, resCluster.Spec.ProcessGroupsToRemove)).To(BeTrue())
+				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeTrue())
 			},
 			Entry("Cordon node with exclusion",
 				testCase{

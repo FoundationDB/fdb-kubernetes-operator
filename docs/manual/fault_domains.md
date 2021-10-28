@@ -65,7 +65,7 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  instanceIDPrefix: zone2
+  processGroupIDPrefix: zone2
   faultDomain:
     key: foundationdb.org/kubernetes-cluster
     value: zone2
@@ -77,7 +77,9 @@ This tells the operator to use the value "zone2" as the fault domain for every p
 
 When running across multiple KCs, you will need to apply more care in managing the configurations to make sure all the KCs converge on the same view of the desired configuration. You will likely need some kind of external, global system to store the canonical configuration and push it out to all of your KCs. You will also need to make sure that the different KCs are not fighting each other to control the database configuration.
 
-You must always specify an `instanceIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters. You must set it to a different value in each Kubernetes cluster. This will prevent instance ID duplicates in the different Kubernetes clusters.
+You must always specify an `processGroupIDPrefix` when deploying an FDB cluster to multiple Kubernetes clusters.
+You must set it to a different value in each Kubernetes cluster.
+This will prevent process group ID duplicates in the different Kubernetes clusters.
 
 ## Option 3: Fake Replication
 
@@ -124,7 +126,10 @@ spec:
             satellite: 1
 ```
 
-The `dataCenter` field in the top level of the spec specifies what data center these instances are running in. This will be used to set the `dcid` locality field. The `regions` section of the database describes all of the available regions. See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions.
+The `dataCenter` field in the top level of the spec specifies what data center these process groups are running in.
+This will be used to set the `dcid` locality field.
+The `regions` section of the database describes all of the available regions.
+See the [FoundationDB documentation](https://apple.github.io/foundationdb/configuration.html#configuring-regions) for more information on how to configure regions.
 
 Replicating across data centers will likely mean running your cluster across multiple Kubernetes clusters, even if you are using a single-Kubernetes replication strategy within each DC. This will mean taking on the operational challenges described in the "Multi-Kubernetes Replication" section above.
 
@@ -132,7 +137,8 @@ Replicating across data centers will likely mean running your cluster across mul
 
 When running a FoundationDB cluster that is deployed across multiple Kubernetes clusters, each Kubernetes cluster will have its own instance of the operator working on the processes in its cluster. There will be some operations that cannot be scoped to a single Kubernetes cluster, such as changing the database configuration. The operator provides a locking system to ensure that only one instance of the operator can perform these operations at a time. You can enable this locking system by setting `lockOptions.disableLocks = false` in the cluster spec. The locking system is automatically enabled by default for any cluster that has multiple regions in its database configuration, or a `zoneCount` greater than 1 in its fault domain configuration.
 
-The locking system uses the `instanceIDPrefix` from the cluster spec to identify an instance of the operator. Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate instance IDs.
+The locking system uses the `processGroupIDPrefix` from the cluster spec to identify an process group of the operator.
+Make sure to set this to a unique value for each Kubernetes cluster, both to support the locking system and to prevent duplicate process group IDs.
 
 This locking system uses the FoundationDB cluster as its data source. This means that if the cluster is unavailable, no instance of the operator will be able to get a lock. If you hit a case where this becomes an issue, you can disable the locking system by setting `lockOptions.disableLocks = true` in the cluster spec.
 
@@ -140,7 +146,10 @@ In most cases, restarts will be done independently in each Kubernetes cluster, a
 
 ### Deny List
 
-There are some situations where an instance of the operator is able to get locks but should not be trusted to perform global actions. For instance, the operator could be partitioned in a way where it cannot access the Kubernetes API but can access the FoundationDB cluster. To block such an instance from taking locks, you can add it to the `denyList` in the lock options. You can set this in the cluster spec on any Kubernetes cluster.
+There are some situations where an instance of the operator is able to get locks but should not be trusted to perform global actions.
+For instance, the operator could be partitioned in a way where it cannot access the Kubernetes API but can access the FoundationDB cluster.
+To block such an instance from taking locks, you can add it to the `denyList` in the lock options.
+You can set this in the cluster spec on any Kubernetes cluster.
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
@@ -148,13 +157,14 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  instanceIDPrefix: dc1
+  processGroupIDPrefix: dc1
   lockOptions:
     denyList:
       - id: dc2
 ```
 
-This will clear any locks held by `dc2`, and prevent it from taking further locks. In order to clear this deny list, you must change it to allow that instance again:
+This will clear any locks held by `dc2`, and prevent it from taking further locks.
+In order to clear this deny list, you must change it to allow that instance again:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
@@ -162,7 +172,7 @@ kind: FoundationDBCluster
 metadata:
   name: sample-cluster
 spec:
-  instanceIDPrefix: dc1
+  processGroupIDPrefix: dc1
   lockOptions:
     denyList:
       - id: dc2

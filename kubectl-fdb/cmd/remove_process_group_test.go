@@ -1,5 +1,5 @@
 /*
- * remove_instances_test.go
+ * remove_process_group_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -110,7 +110,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 					_ = fdbtypes.AddToScheme(scheme)
 					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
 
-					instances, err := getInstanceIDsFromPod(kubeClient, clusterName, input.Instances, namespace)
+					instances, err := getProcessGroupIDsFromPod(kubeClient, clusterName, input.Instances, namespace)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(input.ExpectedInstances).To(Equal(instances))
 				},
@@ -182,7 +182,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 					_ = fdbtypes.AddToScheme(scheme)
 					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
 
-					err := removeInstances(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed)
+					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed, true)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbtypes.FoundationDBCluster
@@ -193,6 +193,88 @@ var _ = Describe("[plugin] remove instances command", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(equality.Semantic.DeepEqual(tc.ExpectedInstancesToRemove, resCluster.Spec.InstancesToRemove)).To(BeTrue())
 					Expect(equality.Semantic.DeepEqual(tc.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.InstancesToRemoveWithoutExclusion)).To(BeTrue())
+					Expect(tc.ExpectedProcessCounts.Storage).To(Equal(resCluster.Spec.ProcessCounts.Storage))
+				},
+				Entry("Remove instance with exclusion",
+					testCase{
+						Instances:                 []string{"instance-1"},
+						WithExclusion:             true,
+						WithShrink:                false,
+						ExpectedInstancesToRemove: []string{"instance-1"},
+						ExpectedInstancesToRemoveWithoutExclusion: []string{},
+						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+							Storage: 1,
+						},
+						RemoveAllFailed: false,
+					}),
+				Entry("Remove instance without exclusion",
+					testCase{
+						Instances:                 []string{"instance-1"},
+						WithExclusion:             false,
+						WithShrink:                false,
+						ExpectedInstancesToRemove: []string{},
+						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
+						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+							Storage: 1,
+						},
+					}),
+				Entry("Remove instance with exclusion and shrink",
+					testCase{
+						Instances:                 []string{"instance-1"},
+						WithExclusion:             true,
+						WithShrink:                true,
+						ExpectedInstancesToRemove: []string{"instance-1"},
+						ExpectedInstancesToRemoveWithoutExclusion: []string{},
+						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+							Storage: 0,
+						},
+						RemoveAllFailed: false,
+					}),
+
+				Entry("Remove instance without exclusion and shrink",
+					testCase{
+						Instances:                 []string{"instance-1"},
+						WithExclusion:             false,
+						WithShrink:                true,
+						ExpectedInstancesToRemove: []string{},
+						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
+						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+							Storage: 0,
+						},
+						RemoveAllFailed: false,
+					}),
+				Entry("Remove all failed instances",
+					testCase{
+						Instances:                 []string{"failed"},
+						WithExclusion:             true,
+						WithShrink:                false,
+						ExpectedInstancesToRemove: []string{"failed"},
+						ExpectedInstancesToRemoveWithoutExclusion: []string{},
+						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+							Storage: 1,
+						},
+						RemoveAllFailed: true,
+					}),
+			)
+
+			DescribeTable("should cordon all targeted processes",
+				func(tc testCase) {
+					scheme := runtime.NewScheme()
+					_ = clientgoscheme.AddToScheme(scheme)
+					_ = fdbtypes.AddToScheme(scheme)
+					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+
+					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed, false)
+					Expect(err).NotTo(HaveOccurred())
+
+					var resCluster fdbtypes.FoundationDBCluster
+					err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+						Namespace: namespace,
+						Name:      clusterName,
+					}, &resCluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(equality.Semantic.DeepEqual(tc.ExpectedInstancesToRemove, resCluster.Spec.ProcessGroupsToRemove)).To(BeTrue())
+					Expect(equality.Semantic.DeepEqual(tc.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeTrue())
 					Expect(tc.ExpectedProcessCounts.Storage).To(Equal(resCluster.Spec.ProcessCounts.Storage))
 				},
 				Entry("Remove instance with exclusion",
