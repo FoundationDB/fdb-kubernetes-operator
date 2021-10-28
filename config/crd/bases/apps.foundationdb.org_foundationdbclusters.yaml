@@ -4506,14 +4506,12 @@ spec:
                   maxItems: 100
                   minItems: 0
                   type: array
-                  uniqueItems: true
                 processGroupsToRemoveWithoutExclusion:
                   items:
                     type: string
                   maxItems: 100
                   minItems: 0
                   type: array
-                  uniqueItems: true
                 processes:
                   additionalProperties:
                     properties:

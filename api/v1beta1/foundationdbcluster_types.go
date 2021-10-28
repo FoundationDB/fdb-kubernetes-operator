@@ -125,7 +125,6 @@ type FoundationDBClusterSpec struct {
 	// cluster. This list contains the process group IDs.
 	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=100
-	// +kubebuilder:validation:UniqueItems=true
 	ProcessGroupsToRemove []string `json:"processGroupsToRemove,omitempty"`
 
 	// InstancesToRemoveWithoutExclusion defines the instances that we should
@@ -147,7 +146,6 @@ type FoundationDBClusterSpec struct {
 	// is fully replicated.
 	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=100
-	// +kubebuilder:validation:UniqueItems=true
 	ProcessGroupsToRemoveWithoutExclusion []string `json:"processGroupsToRemoveWithoutExclusion,omitempty"`
 
 	// ConfigMap allows customizing the config map the operator creates.
