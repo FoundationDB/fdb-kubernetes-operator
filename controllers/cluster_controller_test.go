@@ -90,7 +90,7 @@ func sortPodsByName(pods *corev1.PodList) {
 	})
 }
 
-var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
+var _ = Describe("cluster_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var fakeConnectionString string
 
@@ -2618,6 +2618,32 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 				Expect(configMap.Data["running-version"]).To(Equal(fdbtypes.Versions.Default.String()))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
+			})
+		})
+
+		When("the unified image is enabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+			})
+			It("includes the data for the unified monitor conf", func() {
+				jsonData, present := configMap.Data["fdbmonitor-conf-storage-json"]
+				Expect(present).To(BeTrue())
+				config := internal.KubernetesMonitorProcessConfiguration{}
+				err = json.Unmarshal([]byte(jsonData), &config)
+				Expect(err).NotTo(HaveOccurred())
+				expectedConfig, err := internal.GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config).To(Equal(expectedConfig))
+			})
+		})
+
+		When("the unified image is disabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.UseUnifiedImage = pointer.Bool(false)
+			})
+			It("does not include the data for the unified monitor conf", func() {
+				_, present := configMap.Data["fdbmonitor-conf-storage-json"]
+				Expect(present).To(BeFalse())
 			})
 		})
 

@@ -171,3 +171,187 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fd
 	}
 	return confLines, nil
 }
+
+// GetUnifiedMonitorConf builds the monitor conf template for the unifed image.
+func GetUnifiedMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (KubernetesMonitorProcessConfiguration, error) {
+	if cluster.Status.ConnectionString == "" {
+		return KubernetesMonitorProcessConfiguration{ServerCount: 0}, nil
+	}
+
+	configuration := KubernetesMonitorProcessConfiguration{
+		ServerCount: 1,
+		Version:     cluster.Spec.Version,
+	}
+
+	logGroup := cluster.Spec.LogGroup
+	if logGroup == "" {
+		logGroup = cluster.Name
+	}
+
+	var zoneVariable string
+	if strings.HasPrefix(cluster.Spec.FaultDomain.ValueFrom, "$") {
+		zoneVariable = cluster.Spec.FaultDomain.ValueFrom[1:]
+	} else {
+		zoneVariable = "FDB_ZONE_ID"
+	}
+
+	sampleAddresses := cluster.GetFullAddressList("FDB_PUBLIC_IP", false, 1)
+
+	configuration.Arguments = append(configuration.Arguments,
+		KubernetesMonitorArgument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"},
+		KubernetesMonitorArgument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"},
+		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: buildIPArgument("public_address", "FDB_PUBLIC_IP", sampleAddresses)},
+		KubernetesMonitorArgument{Value: fmt.Sprintf("--class=%s", processClass)},
+		KubernetesMonitorArgument{Value: "--logdir=/var/log/fdb-trace-logs"},
+		KubernetesMonitorArgument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},
+		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+			{Value: "--datadir=/var/fdb/data/"},
+			{ArgumentType: ProcessNumberArgumentType},
+		}},
+		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+			{Value: "--locality_instance_id="},
+			{ArgumentType: EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+		}},
+		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+			{Value: "--locality_machineid="},
+			{ArgumentType: EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
+		}},
+		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+			{Value: "--locality_zoneid="},
+			{ArgumentType: EnvironmentArgumentType, Source: zoneVariable},
+		}},
+	)
+
+	if cluster.NeedsExplicitListenAddress() && cluster.Status.HasListenIPsForAllPods {
+		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: buildIPArgument("listen_address", "FDB_POD_IP", sampleAddresses)})
+	}
+
+	if cluster.Spec.MainContainer.PeerVerificationRules != "" {
+		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{Value: fmt.Sprintf("--tls_verify_peers=%s", cluster.Spec.MainContainer.PeerVerificationRules)})
+	}
+
+	podSettings := cluster.GetProcessSettings(processClass)
+
+	if podSettings.CustomParameters != nil {
+		equalPattern, err := regexp.Compile(`\s*=\s*`)
+		if err != nil {
+			return configuration, err
+		}
+		for _, argument := range *podSettings.CustomParameters {
+			sanitizedArgument := "--" + equalPattern.ReplaceAllString(argument, "=")
+			configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{Value: sanitizedArgument})
+		}
+	}
+
+	if cluster.Spec.DataCenter != "" {
+		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{Value: fmt.Sprintf("--locality_dcid=%s", cluster.Spec.DataCenter)})
+	}
+
+	if cluster.Spec.DataHall != "" {
+		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{Value: fmt.Sprintf("--locality_data_hall=%s", cluster.Spec.DataHall)})
+	}
+
+	/*
+		confLines = append(confLines,
+
+		for index := range confLines {
+			for key, value := range substitutions {
+				confLines[index] = strings.Replace(confLines[index], "$"+key, value, -1)
+			}
+		}
+		return confLines, nil
+	*/
+	return configuration, nil
+}
+
+// KubernetesMonitorProcessConfiguration models the configuration for starting a FoundationDB
+// process.
+type KubernetesMonitorProcessConfiguration struct {
+	// Version provides the version of FoundationDB the process should run.
+	Version string `json:"version"`
+
+	// ServerCount defines the number of processes to start.
+	ServerCount int `json:"serverCount,omitempty"`
+
+	// BinaryPath provides the path to the binary to launch.
+	BinaryPath string `json:"-"`
+
+	// Arguments provides the arguments to the process.
+	Arguments []KubernetesMonitorArgument `json:"arguments,omitempty"`
+}
+
+// Argument defines an argument to the process.
+type KubernetesMonitorArgument struct {
+	// ArgumentType determines how the value is generated.
+	ArgumentType KubernetesMonitorArgumentType `json:"type,omitempty"`
+
+	// Value provides the value for a Literal type argument.
+	Value string `json:"value,omitempty"`
+
+	// Values provides the sub-values for a Concatenate type argument.
+	Values []KubernetesMonitorArgument `json:"values,omitempty"`
+
+	// Source provides the name of the environment variable to use for an
+	// Environment type argument.
+	Source string `json:"source,omitempty"`
+
+	// Multiplier provides a multiplier for the process number for ProcessNumber
+	// type arguments.
+	Multiplier int `json:"multiplier,omitempty"`
+
+	// Offset provides an offset to add to the process number for ProcessNumber
+	// type argujments.
+	Offset int `json:"offset,omitempty"`
+}
+
+// KubernetesMonitorArgumentType defines the types for arguments.
+type KubernetesMonitorArgumentType string
+
+const (
+	// LiteralArgumentType defines an argument with a literal string value.
+	LiteralArgumentType KubernetesMonitorArgumentType = "Literal"
+
+	// ConcatenateArgumentType defines an argument composed of other arguments.
+	ConcatenateArgumentType = "Concatenate"
+
+	// EnvironmentArgumentType defines an argument that is pulled from an
+	// environment variable.
+	EnvironmentArgumentType = "Environment"
+
+	// ProcessNumberArgumentType defines an argument that is calculated using
+	// the number of the process in the process list.
+	ProcessNumberArgumentType = "ProcessNumber"
+)
+
+// buildIPArgument builds an argument that takes an IP address from an environment variable
+func buildIPArgument(parameter string, environmentVariable string, sampleAddresses []fdbtypes.ProcessAddress) []KubernetesMonitorArgument {
+	arguments := []KubernetesMonitorArgument{{Value: fmt.Sprintf("--%s=", parameter)}}
+
+	for indexOfAddress, address := range sampleAddresses {
+		if indexOfAddress != 0 {
+			arguments = append(arguments, KubernetesMonitorArgument{Value: ","})
+		}
+
+		arguments = append(arguments,
+			KubernetesMonitorArgument{ArgumentType: EnvironmentArgumentType, Source: environmentVariable},
+			KubernetesMonitorArgument{Value: ":"},
+			KubernetesMonitorArgument{ArgumentType: ProcessNumberArgumentType, Offset: address.Port - 2, Multiplier: 2},
+		)
+
+		flags := make([]string, 0, len(address.Flags))
+		for flag, set := range address.Flags {
+			if set {
+				flags = append(flags, flag)
+			}
+		}
+
+		sort.Slice(flags, func(i int, j int) bool {
+			return flags[i] < flags[j]
+		})
+
+		if len(flags) > 0 {
+			arguments = append(arguments, KubernetesMonitorArgument{Value: fmt.Sprintf(":%s", strings.Join(flags, ":"))})
+		}
+	}
+	return arguments
+}

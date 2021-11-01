@@ -28,6 +28,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -61,28 +62,42 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 	}
 	desiredCounts := desiredCountStruct.Map()
 
+	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+
 	for processClass, count := range desiredCounts {
 		if count > 0 {
-			if processClass == v1beta1.ProcessClassStorage {
-				storageServersPerDisk := cluster.Status.StorageServersPerDisk
-				// If the status field is not initialized we fallback to only the specified count
-				// in the cluster spec. This should only happen in the initial phase of a new cluster.
-				if len(cluster.Status.StorageServersPerDisk) == 0 {
-					storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
+			if useUnifiedImages {
+				config, err := GetUnifiedMonitorConf(cluster, processClass)
+				if err != nil {
+					return nil, err
 				}
-
-				for _, serversPerPod := range storageServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, serversPerPod), connectionString, processClass, serversPerPod)
-					if err != nil {
-						return nil, err
+				jsonData, err := json.Marshal(config)
+				if err != nil {
+					return nil, err
+				}
+				data[fmt.Sprintf("fdbmonitor-conf-%s-json", processClass)] = string(jsonData)
+			} else {
+				if processClass == v1beta1.ProcessClassStorage {
+					storageServersPerDisk := cluster.Status.StorageServersPerDisk
+					// If the status field is not initialized we fallback to only the specified count
+					// in the cluster spec. This should only happen in the initial phase of a new cluster.
+					if len(cluster.Status.StorageServersPerDisk) == 0 {
+						storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 					}
-				}
-				continue
-			}
 
-			err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, 1), connectionString, processClass, 1)
-			if err != nil {
-				return nil, err
+					for _, serversPerPod := range storageServersPerDisk {
+						err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, serversPerPod), connectionString, processClass, serversPerPod)
+						if err != nil {
+							return nil, err
+						}
+					}
+					continue
+				}
+
+				err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, 1), connectionString, processClass, 1)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
