@@ -114,7 +114,7 @@ type realFdbPodAnnotationClient struct {
 
 // NewFdbPodClient builds a client for working with an FDB Pod
 func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (FdbPodClient, error) {
-	if getImageType(pod) == FDBImageTypeUnified {
+	if GetImageType(pod) == FDBImageTypeUnified {
 		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod}, nil
 	}
 
@@ -423,6 +423,7 @@ func (client *mockFdbPodClient) GetPod() *corev1.Pod {
 	return client.Pod
 }
 
+// UpdateFile checks if a file is up-to-date and tries to update it.
 func (client *mockFdbPodClient) UpdateFile(name string, contents string) (bool, error) {
 	return true, nil
 }
@@ -510,9 +511,9 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 	return false
 }
 
-// getImageType determines whether a pod is using the unified or the split
+// GetImageType determines whether a pod is using the unified or the split
 // image.
-func getImageType(pod *corev1.Pod) FDBImageType {
+func GetImageType(pod *corev1.Pod) FDBImageType {
 	for _, container := range pod.Spec.Containers {
 		if container.Name != "foundationdb" {
 			continue
@@ -536,6 +537,7 @@ const (
 	fdbPodAnnotationErrorMissingAnnotations fdbPodAnnotationError = "MissingAnnotations"
 )
 
+// Error gets a description of the error.
 func (err fdbPodAnnotationError) Error() string {
 	if err == fdbPodAnnotationErrorMissingAnnotations {
 		return "Pod does not have required annotation"

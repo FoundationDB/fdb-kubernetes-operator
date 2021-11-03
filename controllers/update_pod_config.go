@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -109,7 +110,7 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 
-			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = time.Now().Format(time.RFC3339)
+			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
 			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 			if err != nil {
 				allSynced = false

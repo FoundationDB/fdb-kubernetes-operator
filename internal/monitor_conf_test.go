@@ -52,6 +52,7 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.ServerCount).To(Equal(0))
+				Expect(config.Version).To(Equal(fdbtypes.Versions.Default.String()))
 			})
 		})
 

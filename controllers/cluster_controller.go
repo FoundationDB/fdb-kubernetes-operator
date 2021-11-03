@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -257,13 +258,27 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		}
 	}
 
-	conf, err := internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
-	if err != nil {
-		return false, err
+	var expectedConf string
+
+	if internal.GetImageType(pod) == internal.FDBImageTypeUnified {
+		config, err := internal.GetUnifiedMonitorConf(cluster, processClass)
+		if err != nil {
+			return false, err
+		}
+		configData, err := json.Marshal(config)
+		if err != nil {
+			return false, err
+		}
+		expectedConf = string(configData)
+	} else {
+		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	syncedFDBcluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
-	syncedFDBMonitor, err := podClient.UpdateFile("fdbmonitor.conf", conf)
+	syncedFDBMonitor, err := podClient.UpdateFile("fdbmonitor.conf", expectedConf)
 	if !syncedFDBcluster || !syncedFDBMonitor {
 		if clusterErr != nil {
 			return false, clusterErr

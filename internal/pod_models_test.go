@@ -499,6 +499,12 @@ var _ = Describe("pod_models", func() {
 					}},
 					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
 					{Name: "FDB_IMAGE_TYPE", Value: "unified"},
+					{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+					}},
 				}))
 
 				Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("1")))

@@ -174,13 +174,15 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fd
 
 // GetUnifiedMonitorConf builds the monitor conf template for the unifed image.
 func GetUnifiedMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (KubernetesMonitorProcessConfiguration, error) {
-	if cluster.Status.ConnectionString == "" {
-		return KubernetesMonitorProcessConfiguration{ServerCount: 0}, nil
-	}
-
 	configuration := KubernetesMonitorProcessConfiguration{
 		ServerCount: 1,
 		Version:     cluster.Spec.Version,
+	}
+
+	if cluster.Status.ConnectionString == "" {
+		// Return a placeholder configuration with server count set to 0 until
+		// we have the initial connection string.
+		configuration.ServerCount = 0
 	}
 
 	logGroup := cluster.Spec.LogGroup
