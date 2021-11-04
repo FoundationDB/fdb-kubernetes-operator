@@ -29,6 +29,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -121,8 +122,7 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 			return &requeue{message: "Requeueing reconciliation to replace pods"}
 		}
 
-		var enabled = cluster.Spec.AutomationOptions.DeletePods
-		if enabled != nil && !*enabled {
+		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.DeletePods, true) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
