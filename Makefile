@@ -1,8 +1,8 @@
+.DEFAULT_GOAL=all
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
-CONTROLLER_GEN_VERSION ?= 0.6.1
 
 ifneq "$(FDB_WEBSITE)" ""
 	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
@@ -11,8 +11,6 @@ endif
 ifdef RUN_E2E
 	 E2E_TAG := --tags=e2e
 endif
-
-
 
 # TAG is used to define the version in the kubectl-fdb plugin.
 # If not defined we use the current git hash.
@@ -27,19 +25,48 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# Dependencies to fetch through `go`
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v3@v3.9.4
+KUSTOMIZE=$(GOBIN)/kustomize
+YQ_PKG?=github.com/mikefarah/yq/v4@v4.13.5
+YQ=$(GOBIN)/yq
+GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
+GOLANGCI_LINT=$(GOBIN)/golangci-lint
+BUILD_DEPS?=
+
+define godep
+BUILD_DEPS+=$(1)
+$($2):
+	(export TMP_DIR=$$$$(mktemp -d) ;\
+	cd $$$$TMP_DIR ;\
+	go get $$($2_PKG) ;\
+	cd - ;\
+	rm -rf $$$$TMP_DIR )
+$(1): $$($2)
+endef
+
+$(eval $(call godep,controller-gen,CONTROLLER_GEN))
+$(eval $(call godep,golangci-lint,GOLANGCI_LINT))
+$(eval $(call godep,kustomize,KUSTOMIZE))
+$(eval $(call godep,yq,YQ))
+
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta1/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
-CONTROLLER_GEN=$(GOBIN)/controller-gen
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race
 endif
 
-all: generate fmt vet manager plugin manifests samples documentation test_if_changed
+
+all: deps generate fmt vet manager plugin manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-operator bounce lint
+
+deps: $(BUILD_DEPS)
 
 clean:
 	find config/crd/bases -type f -name "*.yaml" -delete
@@ -48,6 +75,9 @@ clean:
 	rm -r bin
 	find config/samples -type f -name deployment.yaml -delete
 	find . -name "cover.out" -delete
+
+clean-deps:
+	@rm $(CONTROLLER_GEN) $(KUSTOMIZE) $(KUBEBUILDER) $(GOLANGCI_LINT)
 
 # Run tests
 test:
@@ -166,16 +196,3 @@ documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 lint:
 	golangci-lint run ./...
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen: ${CONTROLLER_GEN}
-
-${CONTROLLER_GEN}:
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION} ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
