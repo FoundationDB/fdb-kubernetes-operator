@@ -1,6 +1,6 @@
 FROM docker.io/foundationdb/foundationdb:6.2.30 as fdb62
 FROM docker.io/foundationdb/foundationdb:6.1.13 as fdb61
-FROM docker.io/foundationdb/foundationdb:6.3.10 as fdb63
+FROM docker.io/foundationdb/foundationdb:6.3.22 as fdb63
 
 # Build the manager binary
 FROM docker.io/library/golang:1.16.8 as builder
