@@ -190,9 +190,16 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 
 	expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
 	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		logger.Info("Replace instance",
-			"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
-		return true, nil
+		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+		if err != nil {
+			return false, err
+		}
+
+		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
+			logger.Info("Replace instance",
+				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
+			return true, nil
+		}
 	}
 
 	if cluster.Spec.UpdatePodsByReplacement {
