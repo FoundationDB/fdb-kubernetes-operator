@@ -23,12 +23,26 @@ package internal
 import (
 	"errors"
 	"net"
+	"strings"
 )
 
 // IsNetworkError returns true if the network is a network error net.Error
 func IsNetworkError(err error) bool {
 	for err != nil {
 		if _, ok := err.(net.Error); ok {
+			return true
+		}
+
+		err = errors.Unwrap(err)
+	}
+
+	return false
+}
+
+// IsTimeoutError returns true if the observed error was a timeout error
+func IsTimeoutError(err error) bool {
+	for err != nil {
+		if strings.Contains(err.Error(), "Specified timeout reached") {
 			return true
 		}
 

@@ -82,7 +82,12 @@ func (e excludeProcesses) reconcile(r *FoundationDBClusterReconciler, context ct
 		for processClass := range processClassesToExclude {
 			canExclude, missingProcesses := canExcludeNewProcesses(cluster, processClass)
 			if !canExclude {
-				return &requeue{message: fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, addresses)}
+				// We want to delay the requeue so that the operator can do some other tasks
+				// before retrying.
+				return &requeue{
+					message:        fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, addresses),
+					delayedRequeue: true,
+				}
 			}
 		}
 
@@ -95,6 +100,17 @@ func (e excludeProcesses) reconcile(r *FoundationDBClusterReconciler, context ct
 
 		err = adminClient.ExcludeProcesses(addresses)
 		if err != nil {
+			// If we run into a timeout error don't requeue directly
+			// to allow the operator to take some other tasks.
+			// This can be useful with blocking exclusions and exclusions
+			// that take a longer time.
+			if internal.IsTimeoutError(err) {
+				return &requeue{
+					message:        err.Error(),
+					delayedRequeue: true,
+				}
+			}
+
 			return &requeue{curError: err}
 		}
 	}
