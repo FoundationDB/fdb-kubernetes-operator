@@ -2377,7 +2377,7 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with an process group ID prefix", func() {
+		Context("with an instance ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.InstanceIDPrefix = "dc1"
 				pvc, err = GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
