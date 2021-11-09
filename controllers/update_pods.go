@@ -151,20 +151,20 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 	return deletePodsForUpdates(context, r, cluster, adminClient, updates, logger)
 }
 
-func getPodsToDelete(cluster *fdbtypes.FoundationDBCluster, updates map[string][]*corev1.Pod) (string, []*corev1.Pod) {
+func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
 	var deletions []*corev1.Pod
 	var zone string
 
-	if cluster.Spec.AutomationOptions.DeletionMode == fdbtypes.DeletionModeAll {
-		zone = cluster.Name
+	if deletionMode == fdbtypes.DeletionModeAll {
+		zone = "cluster"
 		for _, zoneInstances := range updates {
 			deletions = append(deletions, zoneInstances...)
 		}
 
-		return zone, deletions
+		return zone, deletions, nil
 	}
 
-	if cluster.Spec.AutomationOptions.DeletionMode == fdbtypes.DeletionModeProcessGroup {
+	if deletionMode == fdbtypes.DeletionModeProcessGroup {
 		for _, zoneInstances := range updates {
 			if len(zoneInstances) < 1 {
 				continue
@@ -173,24 +173,29 @@ func getPodsToDelete(cluster *fdbtypes.FoundationDBCluster, updates map[string][
 			zone = pod.Name
 			deletions = append(deletions, pod)
 			// Fetch the first pod and delete it
-			return zone, deletions
+			return zone, deletions, nil
 		}
 	}
 
-	// Default case is zone
-	for zoneName, zoneInstances := range updates {
-		zone = zoneName
-		deletions = zoneInstances
-		// Fetch the first zone and stop
-		break
+	if deletionMode == fdbtypes.DeletionModeZone {
+		// Default case is zone
+		for zoneName, zoneInstances := range updates {
+			zone = zoneName
+			deletions = zoneInstances
+			// Fetch the first zone and stop
+			return zone, deletions, nil
+		}
 	}
 
-	return zone, deletions
+	return zone, deletions, fmt.Errorf("unknown deletion mode: \"%s\"", deletionMode)
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
 func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
-	zone, deletions := getPodsToDelete(cluster, updates)
+	zone, deletions, err := getPodsToDelete(r.PodLifecycleManager.GetDeletionMode(cluster), updates)
+	if err != nil {
+		return &requeue{curError: err}
+	}
 
 	ready, err := r.PodLifecycleManager.CanDeletePods(adminClient, context, cluster)
 	if err != nil {

@@ -21,8 +21,9 @@
 package controllers
 
 import (
+	"fmt"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -35,8 +36,9 @@ var _ = Describe("update_pods", func() {
 		var updates map[string][]*corev1.Pod
 
 		type testCase struct {
-			cluster              *fdbtypes.FoundationDBCluster
+			deletionMode         fdbtypes.DeletionMode
 			expectedDeletionsCnt int
+			expectedErr          error
 		}
 
 		BeforeEach(func() {
@@ -70,62 +72,32 @@ var _ = Describe("update_pods", func() {
 
 		DescribeTable("should delete the Pods based on the deletion mode",
 			func(input testCase) {
-				err := internal.NormalizeClusterSpec(input.cluster, internal.DeprecationOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				_, deletion := getPodsToDelete(input.cluster, updates)
+				_, deletion, err := getPodsToDelete(input.deletionMode, updates)
+				if input.expectedErr != nil {
+					Expect(err).To(Equal(input.expectedErr))
+				}
 				Expect(len(deletion)).To(Equal(input.expectedDeletionsCnt))
 			},
-			Entry("With the default deletion Policy",
-				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test",
-						},
-					},
-					expectedDeletionsCnt: 2,
-				}),
 			Entry("With the deletion mode Zone",
 				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test",
-						},
-						Spec: fdbtypes.FoundationDBClusterSpec{
-							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-								DeletionMode: fdbtypes.DeletionModeZone,
-							},
-						},
-					},
+					deletionMode:         fdbtypes.DeletionModeZone,
 					expectedDeletionsCnt: 2,
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test",
-						},
-						Spec: fdbtypes.FoundationDBClusterSpec{
-							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-								DeletionMode: fdbtypes.DeletionModeProcessGroup,
-							},
-						},
-					},
+					deletionMode:         fdbtypes.DeletionModeProcessGroup,
 					expectedDeletionsCnt: 1,
 				}),
 			Entry("With the deletion mode All",
 				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test",
-						},
-						Spec: fdbtypes.FoundationDBClusterSpec{
-							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-								DeletionMode: fdbtypes.DeletionModeAll,
-							},
-						},
-					},
+					deletionMode:         fdbtypes.DeletionModeAll,
 					expectedDeletionsCnt: 4,
+				}),
+			Entry("With the deletion mode All",
+				testCase{
+					deletionMode:         "banana",
+					expectedDeletionsCnt: 0,
+					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
 		)
 	})
