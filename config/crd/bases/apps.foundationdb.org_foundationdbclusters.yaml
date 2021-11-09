@@ -58,6 +58,13 @@ spec:
                       type: boolean
                     deletePods:
                       type: boolean
+                    deletionMode:
+                      default: Zone
+                      enum:
+                        - All
+                        - Zone
+                        - ProcessGroup
+                      type: string
                     enforceFullReplicationForDeletion:
                       type: boolean
                     ignorePendingPodsDuration:
