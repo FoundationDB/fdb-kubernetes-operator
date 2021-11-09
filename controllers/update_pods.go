@@ -192,7 +192,8 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
 func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
-	zone, deletions, err := getPodsToDelete(r.PodLifecycleManager.GetDeletionMode(cluster), updates)
+	deletioNMode := r.PodLifecycleManager.GetDeletionMode(cluster)
+	zone, deletions, err := getPodsToDelete(deletioNMode, updates)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -205,9 +206,13 @@ func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconci
 		return &requeue{message: "Reconciliation requires deleting pods, but deletion is not currently safe", delay: podSchedulingDelayDuration}
 	}
 
-	hasLock, err := r.takeLock(cluster, "updating pods")
-	if !hasLock {
-		return &requeue{curError: err}
+	// Only lock the cluster if we are not running in the delete "All" mode.
+	// Otherwise we want to delete all Pods and don't require a lock to sync with other clusters.
+	if deletioNMode != fdbtypes.DeletionModeAll {
+		hasLock, err := r.takeLock(cluster, "updating pods")
+		if !hasLock {
+			return &requeue{curError: err}
+		}
 	}
 
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
