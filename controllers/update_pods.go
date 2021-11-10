@@ -152,16 +152,14 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 }
 
 func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
-	var deletions []*corev1.Pod
-	var zone string
-
 	if deletionMode == fdbtypes.DeletionModeAll {
-		zone = "cluster"
+		var deletions []*corev1.Pod
+
 		for _, zoneInstances := range updates {
 			deletions = append(deletions, zoneInstances...)
 		}
 
-		return zone, deletions, nil
+		return "cluster", deletions, nil
 	}
 
 	if deletionMode == fdbtypes.DeletionModeProcessGroup {
@@ -170,24 +168,20 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 				continue
 			}
 			pod := zoneInstances[0]
-			zone = pod.Name
-			deletions = append(deletions, pod)
 			// Fetch the first pod and delete it
-			return zone, deletions, nil
+			return pod.Name, []*corev1.Pod{pod}, nil
 		}
 	}
 
 	if deletionMode == fdbtypes.DeletionModeZone {
 		// Default case is zone
 		for zoneName, zoneInstances := range updates {
-			zone = zoneName
-			deletions = zoneInstances
 			// Fetch the first zone and stop
-			return zone, deletions, nil
+			return zoneName, zoneInstances, nil
 		}
 	}
 
-	return zone, deletions, fmt.Errorf("unknown deletion mode: \"%s\"", deletionMode)
+	return "", nil, fmt.Errorf("unknown deletion mode: \"%s\"", deletionMode)
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
