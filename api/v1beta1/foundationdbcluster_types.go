@@ -1124,6 +1124,15 @@ type FoundationDBClusterAutomationOptions struct {
 	// operator is allowed to replace on further process group.
 	// +kubebuilder:validation:Minimum=0
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
+
+	// DeletionMode defines the deletion mode for this cluster. This can be
+	// DeletionModeAll, DeletionModeZone or DeletionModeProcessGroup. The
+	// DeletionMode defines how Pods are deleted in order to update them or
+	// when they are removed.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup
+	// +kubebuilder:default:=Zone
+	DeletionMode DeletionMode `json:"deletionMode,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -2967,3 +2976,15 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
 }
+
+// DeletionMode defines the deletion mode for the cluster
+type DeletionMode string
+
+const (
+	// DeletionModeAll deletes all process groups at once
+	DeletionModeAll DeletionMode = "All"
+	// DeletionModeZone deletes process groups in the same zone at the same time
+	DeletionModeZone DeletionMode = "Zone"
+	// DeletionModeProcessGroup deletes one process group at a time
+	DeletionModeProcessGroup DeletionMode = "ProcessGroup"
+)

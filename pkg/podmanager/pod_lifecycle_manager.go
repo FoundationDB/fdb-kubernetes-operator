@@ -60,6 +60,9 @@ type PodLifecycleManager interface {
 	// needs to check aspects of the rollout that are not available in the
 	// instance metadata.
 	PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error)
+
+	// GetDeletionMode returns the DeletionMode of the cluster if set or the default value.
+	GetDeletionMode(*fdbtypes.FoundationDBCluster) fdbtypes.DeletionMode
 }
 
 // StandardPodLifecycleManager provides an implementation of PodLifecycleManager
@@ -145,4 +148,13 @@ func (manager StandardPodLifecycleManager) PodIsUpdated(client.Client, ctx.Conte
 // This is necessary for compatibility reasons.
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
 	return internal.GetPodSpec(cluster, processClass, idNum)
+}
+
+// GetDeletionMode returns the DeletionMode of the cluster if set or the default value Zone.
+func (manager StandardPodLifecycleManager) GetDeletionMode(cluster *fdbtypes.FoundationDBCluster) fdbtypes.DeletionMode {
+	if cluster.Spec.AutomationOptions.DeletionMode == "" {
+		return fdbtypes.DeletionModeZone
+	}
+
+	return cluster.Spec.AutomationOptions.DeletionMode
 }

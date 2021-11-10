@@ -24,6 +24,10 @@ import (
 	ctx "context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/go-logr/logr"
+	"golang.org/x/net/context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -140,30 +144,78 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 	}
 	defer adminClient.Close()
 
-	for zone, zoneInstances := range updates {
-		ready, err := r.PodLifecycleManager.CanDeletePods(adminClient, context, cluster)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-		if !ready {
-			return &requeue{message: "Reconciliation requires deleting pods, but deletion is not currently safe", delay: podSchedulingDelayDuration}
+	if len(updates) == 0 {
+		return nil
+	}
+
+	return deletePodsForUpdates(context, r, cluster, adminClient, updates, logger)
+}
+
+func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
+	if deletionMode == fdbtypes.DeletionModeAll {
+		var deletions []*corev1.Pod
+
+		for _, zoneInstances := range updates {
+			deletions = append(deletions, zoneInstances...)
 		}
 
+		return "cluster", deletions, nil
+	}
+
+	if deletionMode == fdbtypes.DeletionModeProcessGroup {
+		for _, zoneInstances := range updates {
+			if len(zoneInstances) < 1 {
+				continue
+			}
+			pod := zoneInstances[0]
+			// Fetch the first pod and delete it
+			return pod.Name, []*corev1.Pod{pod}, nil
+		}
+	}
+
+	if deletionMode == fdbtypes.DeletionModeZone {
+		// Default case is zone
+		for zoneName, zoneInstances := range updates {
+			// Fetch the first zone and stop
+			return zoneName, zoneInstances, nil
+		}
+	}
+
+	return "", nil, fmt.Errorf("unknown deletion mode: \"%s\"", deletionMode)
+}
+
+// deletePodsForUpdates will delete Pods with the specified deletion mode
+func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
+	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
+	zone, deletions, err := getPodsToDelete(deletionMode, updates)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
+	ready, err := r.PodLifecycleManager.CanDeletePods(adminClient, context, cluster)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	if !ready {
+		return &requeue{message: "Reconciliation requires deleting pods, but deletion is not currently safe", delay: podSchedulingDelayDuration}
+	}
+
+	// Only lock the cluster if we are not running in the delete "All" mode.
+	// Otherwise we want to delete all Pods and don't require a lock to sync with other clusters.
+	if deletionMode != fdbtypes.DeletionModeAll {
 		hasLock, err := r.takeLock(cluster, "updating pods")
 		if !hasLock {
 			return &requeue{curError: err}
 		}
-
-		logger.Info("Deleting pods", "zone", zone, "count", len(zoneInstances))
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
-
-		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, zoneInstances, false)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-
-		return &requeue{message: "Pods need to be recreated"}
 	}
 
-	return nil
+	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
+	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
+
+	err = r.PodLifecycleManager.UpdatePods(r, context, cluster, deletions, false)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
+	return &requeue{message: "Pods need to be recreated"}
 }

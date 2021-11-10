@@ -48,6 +48,17 @@ The processes of that process group will stay excluded until the resources are r
 This is a safety measure to reduce the risk of data and availability loss.
 With the `enforceFullReplicationForDeletion` a human operator can decide to disable this safety check.roups when the cluster is fully replicated.
 
+## Deletion mode
+
+The operator supports different deletion modes (`All`, `Zone`, `ProcessGroup`).
+The default deletion mode is `Zone`.
+
+* `All` will delete all pods at once.
+* `Zone` deletes all Pods in fault domain at once.
+* `ProcessGroup` delete one Pod ar a time.
+
+Depending on your requirements and the underlying Kubernetes cluster you might choose a different deletion mode than the default.
+
 ## Next
 
 You can continue on to the [next section](fault_domains.md) or go back to the [table of contents](index.md).
