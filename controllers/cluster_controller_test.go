@@ -221,7 +221,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should send the configuration to the cluster", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
 				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
@@ -236,7 +236,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should update the status with the reconciliation result", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
@@ -315,7 +315,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					Expect(file).To(Not(ContainSubstring("fdbserver")))
 				}
 
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
 
@@ -368,7 +368,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 				Expect(cluster.Status.PendingRemovals).To(BeNil())
 
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
 				Expect(adminClient.ExcludedAddresses).To(BeNil())
@@ -544,7 +544,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should exclude and re-include the instance", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
@@ -608,7 +608,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					})
 
 					It("should exclude but not re-include the instance", func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(adminClient).NotTo(BeNil())
 						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
@@ -654,7 +654,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					})
 
 					It("should exclude but not re-include the instance", func() {
-						adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+						adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(adminClient).NotTo(BeNil())
 						Expect(adminClient.ReincludedAddresses).To(HaveLen(0))
@@ -742,7 +742,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should exclude and re-include the instance", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
@@ -803,7 +803,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should exclude and re-include the instance", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
@@ -858,7 +858,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should exclude and re-include the instance", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
@@ -900,7 +900,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should not exclude anything", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(adminClient).NotTo(BeNil())
 					Expect(adminClient.ExcludedAddresses).To(BeNil())
@@ -917,10 +917,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with a missing process", func() {
-			var adminClient *mockAdminClient
+			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
-				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				adminClient.MockMissingProcessGroup("storage-1", true)
@@ -968,10 +968,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with missing processes and pending exclusion", func() {
-			var adminClient *mockAdminClient
+			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
-				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.InstancesToRemove = []string{
@@ -1071,10 +1071,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with a knob change", func() {
-			var adminClient *mockAdminClient
+			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
-				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				err = adminClient.FreezeStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -1187,9 +1187,9 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with a configuration change", func() {
-			var adminClient *mockAdminClient
+			var adminClient *MockAdminClient
 			BeforeEach(func() {
-				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				status, err := adminClient.GetStatus()
@@ -1271,7 +1271,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should not change the database configuration", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
@@ -1684,7 +1684,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should replace the instance", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					replacements := make(map[string]bool, len(originalPods.Items))
@@ -1777,7 +1777,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the old processes", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				replacements := make(map[string]bool, len(originalPods.Items))
@@ -1913,7 +1913,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the old processes", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				replacements := make(map[string]bool, len(originalPods.Items))
@@ -1939,7 +1939,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 					addresses[fmt.Sprintf("%s:4500:tls", pod.Status.PodIP)] = true
 				}
 
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
@@ -2088,12 +2088,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		Context("with an upgrade", func() {
-			var adminClient *mockAdminClient
+			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbtypes.Versions.NextMajorVersion.String()
 
-				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2276,7 +2276,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should replace the instances", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
 					replacements := make(map[string]bool, len(originalPods.Items))
@@ -2312,7 +2312,7 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the instances", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
 				replacements := make(map[string]bool, len(originalPods.Items))
@@ -2468,10 +2468,10 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 		})
 
 		When("When a process have an incorrect commandline", func() {
-			var adminClient *mockAdminClient
+			var adminClient *MockAdminClient
 
 			BeforeEach(func() {
-				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+				adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.MockIncorrectCommandLine("storage-1", true)
 				generationGap = 0

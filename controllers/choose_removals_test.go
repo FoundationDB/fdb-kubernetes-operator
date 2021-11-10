@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("choose_removals", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var adminClient *mockAdminClient
+	var adminClient *MockAdminClient
 	var err error
 	var requeue *requeue
 	var removals []string
@@ -50,7 +50,7 @@ var _ = Describe("choose_removals", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

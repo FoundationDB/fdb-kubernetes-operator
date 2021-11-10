@@ -34,7 +34,7 @@ import (
 
 var _ = Describe("bounceProcesses", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var adminClient *mockAdminClient
+	var adminClient *MockAdminClient
 	var lockClient *mockLockClient
 	var requeue *requeue
 	var err error
@@ -46,7 +46,7 @@ var _ = Describe("bounceProcesses", func() {
 		err = setupClusterForTest(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 
 		lockClient = newMockLockClientUncast(cluster)

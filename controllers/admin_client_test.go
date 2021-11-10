@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("admin_client_test", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var client *mockAdminClient
+	var client *MockAdminClient
 
 	var err error
 
@@ -52,7 +52,7 @@ var _ = Describe("admin_client_test", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).NotTo(Equal(int64(0)))
 
-		client, err = newMockAdminClientUncast(cluster, k8sClient)
+		client, err = NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

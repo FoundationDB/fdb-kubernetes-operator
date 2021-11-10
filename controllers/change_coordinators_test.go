@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Change coordinators", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var adminClient *mockAdminClient
+	var adminClient *MockAdminClient
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -54,7 +54,7 @@ var _ = Describe("Change coordinators", func() {
 		err := setupClusterForTest(cluster)
 		Expect(err).NotTo(HaveOccurred())
 
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

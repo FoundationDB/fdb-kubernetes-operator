@@ -37,13 +37,13 @@ func reloadRestore(backup *fdbtypes.FoundationDBRestore) error {
 var _ = Describe("restore_controller", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var restore *fdbtypes.FoundationDBRestore
-	var adminClient *mockAdminClient
+	var adminClient *MockAdminClient
 	var err error
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
 		restore = createDefaultRestore(cluster)
-		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

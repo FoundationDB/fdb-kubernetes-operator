@@ -38,7 +38,7 @@ var _ = Describe("update_status", func() {
 	Context("validate process group", func() {
 		var cluster *fdbtypes.FoundationDBCluster
 		var configMap *corev1.ConfigMap
-		var adminClient *mockAdminClient
+		var adminClient *MockAdminClient
 		var pods []*corev1.Pod
 		var processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo
 		var err error
@@ -55,7 +55,7 @@ var _ = Describe("update_status", func() {
 				pods[0].Status.ContainerStatuses = append(pods[0].Status.ContainerStatuses, corev1.ContainerStatus{Ready: true, Name: container.Name})
 			}
 
-			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			configMap = &corev1.ConfigMap{}

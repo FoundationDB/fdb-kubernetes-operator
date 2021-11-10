@@ -102,7 +102,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster has degraded availability fault tolerance", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
 				})
@@ -115,7 +115,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster has degraded data fault tolerance", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
@@ -128,7 +128,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster is not available", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
 						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
@@ -159,7 +159,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster has degraded availability fault tolerance", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
 				})
@@ -172,7 +172,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster has degraded data fault tolerance", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
@@ -185,7 +185,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster is not available", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
 						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
@@ -216,7 +216,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster is not fully replicated", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
 				})
@@ -228,7 +228,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster has degraded data fault tolerance", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
@@ -240,7 +240,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("the cluster is not available", func() {
 				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
 						Client: fdbtypes.FoundationDBStatusLocalClientInfo{

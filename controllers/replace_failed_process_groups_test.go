@@ -55,7 +55,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 	})
 
 	JustBeforeEach(func() {
-		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+		adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
 		result = replacements.ReplaceFailedProcessGroups(log, cluster, adminClient)
@@ -218,7 +218,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
 						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
@@ -243,7 +243,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					adminClient, err := NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
