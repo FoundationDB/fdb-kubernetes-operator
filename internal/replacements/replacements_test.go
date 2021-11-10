@@ -254,6 +254,27 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
+	Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
+		It("should not need a removal", func() {
+			status := &fdbtypes.ProcessGroupStatus{
+				ProcessGroupID: instanceName,
+				Remove:         false,
+			}
+			processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
+			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+			_, idNum, err := internal.ParseProcessGroupID(processGroupID)
+			Expect(err).NotTo(HaveOccurred())
+			pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+			Expect(err).NotTo(HaveOccurred())
+			pod.Spec.NodeSelector = map[string]string{
+				"dummy": "test",
+			}
+			needsRemoval, err := instanceNeedsRemoval(cluster, pod, status, log)
+			Expect(needsRemoval).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
 	Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 		It("should not need a removal", func() {
 			pod.Spec = corev1.PodSpec{
@@ -540,7 +561,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			}
 
 			// Force a replacement of all processes
-			cluster.Spec.Processes[fdbtypes.ProcessClassStorage].PodTemplate.Spec.NodeSelector = map[string]string{
+			cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
 				"dummy": "test",
 			}
 		})
@@ -573,10 +594,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				cluster.Spec.AutomationOptions.MaxConcurrentReplacements = pointer.Int(2)
 			})
 
-			It("should not have a replacements", func() {
+			It("should have two replacements", func() {
 				hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(hasReplacement).To(BeFalse())
+				Expect(hasReplacement).To(BeTrue())
 
 				cntReplacements := 0
 				for _, pGroup := range cluster.Status.ProcessGroups {
@@ -595,7 +616,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			It("should replace all process groups", func() {
 				hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(hasReplacement).To(BeFalse())
+				Expect(hasReplacement).To(BeTrue())
 
 				cntReplacements := 0
 				for _, pGroup := range cluster.Status.ProcessGroups {
