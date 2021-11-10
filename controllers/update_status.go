@@ -82,7 +82,16 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 		databaseStatus, err = adminClient.GetStatus()
 		if err != nil {
-			return &requeue{curError: err}
+			if cluster.Status.Configured {
+				return &requeue{curError: err}
+			}
+			databaseStatus = &fdbtypes.FoundationDBStatus{
+				Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+					Layers: fdbtypes.FoundationDBStatusLayerInfo{
+						Error: "configurationMissing",
+					},
+				},
+			}
 		}
 	}
 
