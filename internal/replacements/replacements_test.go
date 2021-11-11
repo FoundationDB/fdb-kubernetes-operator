@@ -263,7 +263,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
 		It("should not need a removal", func() {
 			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: instanceName,
+				ProcessGroupID: processGroupName,
 				Remove:         false,
 			}
 			processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
@@ -275,7 +275,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			pod.Spec.NodeSelector = map[string]string{
 				"dummy": "test",
 			}
-			needsRemoval, err := instanceNeedsRemoval(cluster, pod, status, log)
+			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 			Expect(needsRemoval).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 		})

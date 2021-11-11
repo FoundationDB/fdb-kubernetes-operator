@@ -144,7 +144,7 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	if processGroupStatus == nil {
-		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", processGroupID)
+		return false, fmt.Errorf("unknown process group %s in replace_misconfigured_pods", processGroupID)
 	}
 
 	if processGroupStatus.Remove {
