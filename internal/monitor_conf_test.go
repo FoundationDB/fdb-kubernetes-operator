@@ -72,9 +72,9 @@ var _ = Describe("pod_models", func() {
 				Expect(config.Arguments[0]).To(Equal(KubernetesMonitorArgument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"}))
 				Expect(config.Arguments[1]).To(Equal(KubernetesMonitorArgument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"}))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--public_address="},
+					{Value: "--public_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 				Expect(config.Arguments[3]).To(Equal(KubernetesMonitorArgument{Value: "--class=storage"}))
@@ -122,9 +122,9 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--public_address="},
+					{Value: "--public_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
@@ -142,15 +142,15 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--public_address="},
+					{Value: "--public_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--listen_address="},
+					{Value: "--listen_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_POD_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
@@ -160,14 +160,14 @@ var _ = Describe("pod_models", func() {
 					cluster.Status.HasListenIPsForAllPods = false
 				})
 
-				It("does not havce a listen address", func() {
+				It("does not have a listen address", func() {
 					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-						{Value: "--public_address="},
+						{Value: "--public_address=["},
 						{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-						{Value: ":"},
+						{Value: "]:"},
 						{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 					}}))
 				})
@@ -186,9 +186,9 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--public_address="},
+					{Value: "--public_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
 				}}))
@@ -207,14 +207,14 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--public_address="},
+					{Value: "--public_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
-					{Value: ","},
+					{Value: ",["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
@@ -232,14 +232,14 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--public_address="},
+					{Value: "--public_address=["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
-					{Value: ","},
+					{Value: ",["},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
-					{Value: ":"},
+					{Value: "]:"},
 					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
@@ -409,7 +409,7 @@ var _ = Describe("pod_models", func() {
 					"/usr/bin/fdbserver",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-					fmt.Sprintf("--public_address=%s:4501", address),
+					fmt.Sprintf("--public_address=[%s]:4501", address),
 					"--class=storage",
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
@@ -432,7 +432,7 @@ var _ = Describe("pod_models", func() {
 						"/usr/bin/fdbserver",
 						"--cluster_file=/var/fdb/data/fdb.cluster",
 						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-						fmt.Sprintf("--public_address=%s:4503", address),
+						fmt.Sprintf("--public_address=[%s]:4503", address),
 						"--class=storage",
 						"--logdir=/var/log/fdb-trace-logs",
 						"--loggroup=" + cluster.Name,

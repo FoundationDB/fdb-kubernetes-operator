@@ -410,16 +410,16 @@ func (argument KubernetesMonitorArgument) generateArgument(processNumber int, en
 
 // buildIPArgument builds an argument that takes an IP address from an environment variable
 func buildIPArgument(parameter string, environmentVariable string, sampleAddresses []fdbtypes.ProcessAddress) []KubernetesMonitorArgument {
-	arguments := []KubernetesMonitorArgument{{Value: fmt.Sprintf("--%s=", parameter)}}
+	arguments := []KubernetesMonitorArgument{{Value: fmt.Sprintf("--%s=[", parameter)}}
 
 	for indexOfAddress, address := range sampleAddresses {
 		if indexOfAddress != 0 {
-			arguments = append(arguments, KubernetesMonitorArgument{Value: ","})
+			arguments = append(arguments, KubernetesMonitorArgument{Value: ",["})
 		}
 
 		arguments = append(arguments,
 			KubernetesMonitorArgument{ArgumentType: EnvironmentArgumentType, Source: environmentVariable},
-			KubernetesMonitorArgument{Value: ":"},
+			KubernetesMonitorArgument{Value: "]:"},
 			KubernetesMonitorArgument{ArgumentType: ProcessNumberArgumentType, Offset: address.Port - 2, Multiplier: 2},
 		)
 

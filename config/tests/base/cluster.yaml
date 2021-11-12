@@ -55,6 +55,9 @@ spec:
                 requests:
                   cpu: 100m
                   memory: 128Mi
+              # Use a non-root user to match upcoming defaults
+              securityContext:
+                runAsUser: 4059
             - name: foundationdb-kubernetes-sidecar
               # Use reduced resources to pack more processes on a node.
               resources:
@@ -64,6 +67,9 @@ spec:
                 limits:
                   cpu: 100m
                   memory: 128Mi
+              # Use a non-root user to match upcoming defaults
+              securityContext:
+                runAsUser: 4059
           initContainers:
             - name: foundationdb-kubernetes-init
               # Use reduced resources to pack more processes on a node.
@@ -74,3 +80,6 @@ spec:
                 limits:
                   cpu: 100m
                   memory: 128Mi
+              # Use a non-root user to match upcoming defaults
+              securityContext:
+                runAsUser: 4059
