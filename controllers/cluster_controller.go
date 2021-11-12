@@ -39,6 +39,7 @@ import (
 	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +55,7 @@ type FoundationDBClusterReconciler struct {
 	Log                    logr.Logger
 	InSimulation           bool
 	PodLifecycleManager    podmanager.PodLifecycleManager
-	PodClientProvider      func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (internal.FdbPodClient, error)
+	PodClientProvider      func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
 	DatabaseClientProvider DatabaseClientProvider
 	DeprecationOptions     internal.DeprecationOptions
 }
@@ -246,8 +247,8 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		return false, err
 	}
 
-	syncedFDBcluster, clusterErr := internal.UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client internal.FdbPodClient) error { return client.CopyFiles() })
-	syncedFDBMonitor, err := internal.UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client internal.FdbPodClient) error { return client.GenerateMonitorConf() })
+	syncedFDBcluster, clusterErr := internal.UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client podclient.FdbPodClient) error { return client.CopyFiles() })
+	syncedFDBMonitor, err := internal.UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client podclient.FdbPodClient) error { return client.GenerateMonitorConf() })
 	if !syncedFDBcluster || !syncedFDBMonitor {
 		if clusterErr != nil {
 			return false, clusterErr
@@ -268,7 +269,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	return true, nil
 }
 
-func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, string) {
+func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, string) {
 	if pod == nil {
 		return nil, fmt.Sprintf("Process group in cluster %s/%s does not have pod defined", cluster.Namespace, cluster.Name)
 	}
@@ -402,7 +403,7 @@ func localityInfoForProcess(process fdbtypes.FoundationDBStatusProcessInfo, main
 
 // localityInfoForProcess converts the process information from the sidecar's
 // context into locality info for selecting processes.
-func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client internal.FdbPodClient) (localityInfo, error) {
+func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client podclient.FdbPodClient) (localityInfo, error) {
 	substitutions, err := client.GetVariableSubstitutions()
 	if err != nil {
 		return localityInfo{}, err
@@ -667,7 +668,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
-func newFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (internal.FdbPodClient, error) {
+func newFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	return internal.NewFdbPodClient(cluster, pod)
 }
 

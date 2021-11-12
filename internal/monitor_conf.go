@@ -27,10 +27,11 @@ import (
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 )
 
 // GetStartCommand builds the expected start command for a process group.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
 	lines, err := getStartCommandLines(cluster, processClass, podClient, processNumber, processCount)
 	if err != nil {
 		return "", err
@@ -54,7 +55,7 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtype
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, serversPerPod int) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -81,7 +82,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 	return strings.Join(confLines, "\n"), nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
+func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	var substitutions map[string]string

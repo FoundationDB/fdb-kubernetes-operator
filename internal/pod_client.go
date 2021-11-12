@@ -36,6 +36,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -45,32 +46,6 @@ const (
 	// is currently only used for testing cases.
 	MockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
 )
-
-// FdbPodClient provides methods for working with a FoundationDB pod
-type FdbPodClient interface {
-	// GetCluster returns the cluster associated with a client
-	GetCluster() *fdbtypes.FoundationDBCluster
-
-	// GetPod returns the pod associated with a client
-	GetPod() *corev1.Pod
-
-	// IsPresent checks whether a file in the sidecar is present
-	IsPresent(filename string) (bool, error)
-
-	// CheckHash checks whether a file in the sidecar has the expected contents.
-	CheckHash(filename string, contents string) (bool, error)
-
-	// GenerateMonitorConf updates the monitor conf file for a pod
-	GenerateMonitorConf() error
-
-	// CopyFiles copies the files from the config map to the shared dynamic conf
-	// volume
-	CopyFiles() error
-
-	// GetVariableSubstitutions gets the current keys and values that this
-	// process group will substitute into its monitor conf.
-	GetVariableSubstitutions() (map[string]string, error)
-}
 
 // realPodClient provides a client for use in real environments.
 type realFdbPodClient struct {
@@ -89,7 +64,7 @@ type realFdbPodClient struct {
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (FdbPodClient, error) {
+func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	if pod.Status.PodIP == "" {
 		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	}
@@ -259,7 +234,7 @@ type mockFdbPodClient struct {
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
-func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (FdbPodClient, error) {
+func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
@@ -297,7 +272,7 @@ func (client *mockFdbPodClient) CopyFiles() error {
 // UpdateDynamicFiles checks if the files in the dynamic conf volume match the
 // expected contents, and tries to copy the latest files from the input volume
 // if they do not.
-func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, updateFunc func(client FdbPodClient) error) (bool, error) {
+func UpdateDynamicFiles(client podclient.FdbPodClient, filename string, contents string, updateFunc func(client podclient.FdbPodClient) error) (bool, error) {
 	match := false
 	var err error
 
@@ -328,7 +303,7 @@ func UpdateDynamicFiles(client FdbPodClient, filename string, contents string, u
 }
 
 // CheckDynamicFilePresent waits for a file to be present in the dynamic conf
-func CheckDynamicFilePresent(client FdbPodClient, filename string) (bool, error) {
+func CheckDynamicFilePresent(client podclient.FdbPodClient, filename string) (bool, error) {
 	present, err := client.IsPresent(filename)
 
 	if !present {
