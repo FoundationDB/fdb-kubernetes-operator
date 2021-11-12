@@ -1,5 +1,5 @@
 /*
- * exclude_instances.go
+ * exclude_processes.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -36,12 +36,12 @@ import (
 // exclusion.
 var missingProcessThreshold = 0.8
 
-// excludeInstances provides a reconciliation step for excluding instances from
+// excludeProcesses provides a reconciliation step for excluding processes from
 // the database.
-type excludeInstances struct{}
+type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (e excludeInstances) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (e excludeProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -80,20 +80,20 @@ func (e excludeInstances) reconcile(r *FoundationDBClusterReconciler, context ct
 
 	if len(addresses) > 0 {
 		for processClass := range processClassesToExclude {
-			canExclude, missingProcesses := canExcludeNewInstances(cluster, processClass)
+			canExclude, missingProcesses := canExcludeNewProcesses(cluster, processClass)
 			if !canExclude {
 				return &requeue{message: fmt.Sprintf("Waiting for missing processes: %v. Addresses to exclude: %v", missingProcesses, addresses)}
 			}
 		}
 
-		hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding instances: %v", addresses))
+		hasLock, err := r.takeLock(cluster, fmt.Sprintf("excluding processes: %v", addresses))
 		if !hasLock {
 			return &requeue{curError: err}
 		}
 
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ExcludingProcesses", fmt.Sprintf("Excluding %v", addresses))
 
-		err = adminClient.ExcludeInstances(addresses)
+		err = adminClient.ExcludeProcesses(addresses)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -102,8 +102,8 @@ func (e excludeInstances) reconcile(r *FoundationDBClusterReconciler, context ct
 	return nil
 }
 
-func canExcludeNewInstances(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (bool, []string) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeInstances")
+func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (bool, []string) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 
 	// Block excludes on missing processes not marked for removal
 	missingProcesses := make([]string, 0)
@@ -118,9 +118,10 @@ func canExcludeNewInstances(cluster *fdbtypes.FoundationDBCluster, processClass 
 			processGroupStatus.GetConditionTime(fdbtypes.MissingPod) != nil {
 			missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
 			logger.Info("Missing processes", "processGroupID", processGroupStatus.ProcessGroupID)
-		} else {
-			validProcesses = append(validProcesses, processGroupStatus.ProcessGroupID)
+			continue
 		}
+
+		validProcesses = append(validProcesses, processGroupStatus.ProcessGroupID)
 	}
 
 	desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
@@ -133,5 +134,6 @@ func canExcludeNewInstances(cluster *fdbtypes.FoundationDBCluster, processClass 
 	if len(validProcesses) < desiredCount-1 && len(validProcesses) < int(math.Ceil(float64(desiredCount)*missingProcessThreshold)) {
 		return false, missingProcesses
 	}
+
 	return true, nil
 }

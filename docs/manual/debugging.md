@@ -42,7 +42,7 @@ Checking cluster: default/example-cluster
 ✖ Pod default/example-cluster-storage-2 has an unready container: foundationdb
 ✖ Pod default/example-cluster-storage-2 has an unready container: foundationdb-kubernetes-sidecar
 ✖ Pod default/example-cluster-storage-2 has an unready container: trace-log-forwarder
-Replace instances [stateless-5 storage-2 transaction-5] in cluster default/example-cluster [y/n]: y
+Replace process groups [stateless-5 storage-2 transaction-5] in cluster default/example-cluster [y/n]: y
 Error:
 found issues for cluster example-cluster. Please check them
 ```
@@ -51,29 +51,30 @@ When using this feature, read carefully what the plugin wants to do and only con
 
 ## Pods stuck in Pending
 
-If you have Pods that are failing to launch, because they are stuck in either a pending or terminating state, you can address that by replacing the failing instance. You can do that using a [plugin command](#replacing-pods-with-the-kubectl-plugin).
+If you have Pods that are failing to launch, because they are stuck in either a pending or terminating state, you can address that by replacing the failing instance.
+You can do that using a [plugin command](#replacing-pods-with-the-kubectl-plugin).
 
 ## Replacing Pods with the kubectl plugin
 
 Let's assume we are working with the cluster `example-cluster`, and the pod `example-cluster-storage-1` is failing to launch.
 
 ```bash
-$ kubectl fdb remove instances -c example-cluster example-cluster-storage-1
+$ kubectl fdb remove process-groups -c example-cluster example-cluster-storage-1
 Remove [storage-1] from cluster default/example-cluster with exclude: true and shrink: false [y/n]:
 # Confirm with 'y' if the excluded Pod is the correct one
 ```
 
-Once you confirm this change, the operator begins replacing the instance, and should be able to complete reconciliation.
+Once you confirm this change, the operator begins replacing the process groups, and should be able to complete reconciliation.
 If additional pods fail to launch, you can replace them with the same command.
 
 ## Exclusions Failing Due to Missing IP
 
 If the pod does not have an IP assigned, the exclusion will not be possible, because the IP address is the only thing we can exclude on.
-If this happens, you will see an error of the form `Cannot check the exclusion state of instance storage-1, which has no IP address`.
+If this happens, you will see an error of the form `Cannot check the exclusion state of process group storage-1, which has no IP address`.
 When this happens, the only way to finish the replacement is to skip the exclusion:
 
-```yaml
-$ kubectl fdb remove instances --exclusion=false -c example-cluster example-cluster-storage-1
+```bash
+$ kubectl fdb remove process-groups --exclusion=false -c example-cluster example-cluster-storage-1
 Remove [storage-1] from cluster default/example-cluster with exclude: false and shrink: false [y/n]:
 # Confirm with 'y' if the excluded Pod is the correct one
 ```
@@ -117,7 +118,7 @@ If reconciliation encounters an error in one subreconciler, it will generally st
 
 The `UpdatePodConfig` subreconciler can get stuck if it is unable to confirm that a pod has the latest config map contents. If this step is stuck, you can look in the logs for the message `Update dynamic Pod config` to determine what pods it is trying to update. If the pods are failing, you may need to delete them, or replace them.
 
-The `ExcludeInstances` subreconciler can get stuck if it needs to exclude processes, but there are processes that are not flagged for removal and are not healthy. If this step is stuck, you can look in the logs for the message `Waiting for missing processes` to determine what processes are missing. If the pods are failing, you may need to delete them, or replace them.
+The `ExcludeProcesses` subreconciler can get stuck if it needs to exclude processes, but there are processes that are not flagged for removal and are not healthy. If this step is stuck, you can look in the logs for the message `Waiting for missing processes` to determine what processes are missing. If the pods are failing, you may need to delete them, or replace them.
 
 Any step that requires a lock can get stuck indefinitely if the locking is blocked. See the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations) for more background on the locking system. You can see if the operator is trying to take a lock by looking in the logs for the message `Taking lock on cluster`. This will identify why the operator needs a lock. If another instance of the operator has a lock, you will see a log message `Failed to get lock`, which will have an `owner` field that tells you what instance has the lock, as well as an `endTime` field that tells you when the lock will expire. You can then look in the logs for the instance of the operator that has the lock and see if that operator is stuck in reconciliation, and try to get it unstuck. Once the operator completes reconciliation and the lock expires, your original instance of the operator should able to get the lock for itself.
 

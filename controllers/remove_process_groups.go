@@ -78,7 +78,7 @@ func (u removeProcessGroups) reconcile(r *FoundationDBClusterReconciler, context
 	}
 
 	removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
-	err = includeInstance(r, context, cluster, removedProcessGroups)
+	err = includeProcessGroup(r, context, cluster, removedProcessGroups)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -86,25 +86,25 @@ func (u removeProcessGroups) reconcile(r *FoundationDBClusterReconciler, context
 	return nil
 }
 
-func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, instanceID string) error {
-	instanceListOptions := internal.GetSinglePodListOptions(cluster, instanceID)
-	instances, err := r.PodLifecycleManager.GetPods(r, cluster, context, instanceListOptions...)
+func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupID string) error {
+	listOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, listOptions...)
 	if err != nil {
 		return err
 	}
 
-	if len(instances) == 1 {
-		err = r.PodLifecycleManager.DeletePod(r, context, instances[0])
+	if len(pods) == 1 {
+		err = r.PodLifecycleManager.DeletePod(r, context, pods[0])
 
 		if err != nil {
 			return err
 		}
-	} else if len(instances) > 0 {
-		return fmt.Errorf("multiple pods found for cluster %s, processGroup %s", cluster.Name, instanceID)
+	} else if len(pods) > 0 {
+		return fmt.Errorf("multiple pods found for cluster %s, processGroup %s", cluster.Name, processGroupID)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, instanceListOptions...)
+	err = r.List(context, pvcs, listOptions...)
 	if err != nil {
 		return err
 	}
@@ -114,11 +114,11 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 			return err
 		}
 	} else if len(pvcs.Items) > 0 {
-		return fmt.Errorf("multiple PVCs found for cluster %s, processGroup %s", cluster.Name, instanceID)
+		return fmt.Errorf("multiple PVCs found for cluster %s, processGroup %s", cluster.Name, processGroupID)
 	}
 
 	services := &corev1.ServiceList{}
-	err = r.List(context, services, instanceListOptions...)
+	err = r.List(context, services, listOptions...)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 			return err
 		}
 	} else if len(services.Items) > 0 {
-		return fmt.Errorf("multiple services found for cluster %s, processGroup %s", cluster.Name, instanceID)
+		return fmt.Errorf("multiple services found for cluster %s, processGroup %s", cluster.Name, processGroupID)
 	}
 
 	return nil
@@ -137,9 +137,9 @@ func removeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, c
 func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, processGroupID string) (bool, bool, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	canBeIncluded := true
-	instanceListOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
+	listOptions := internal.GetSinglePodListOptions(cluster, processGroupID)
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, instanceListOptions...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, listOptions...)
 	if err != nil {
 		return false, false, err
 	}
@@ -147,7 +147,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 	if len(pods) == 1 {
 		// If the Pod is already in a terminating state we don't have to care for it
 		if pods[0] != nil && pods[0].ObjectMeta.DeletionTimestamp == nil {
-			logger.Info("Waiting for instance to get torn down", "processGroupID", processGroupID, "pod", pods[0].Name)
+			logger.Info("Waiting for process group to get torn down", "processGroupID", processGroupID, "pod", pods[0].Name)
 			return false, false, nil
 		}
 		// Pod is in terminating state so we don't want to block but we also don't want to include it
@@ -157,7 +157,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, instanceListOptions...)
+	err = r.List(context, pvcs, listOptions...)
 	if err != nil {
 		return false, canBeIncluded, err
 	}
@@ -174,7 +174,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 	}
 
 	services := &corev1.ServiceList{}
-	err = r.List(context, services, instanceListOptions...)
+	err = r.List(context, services, listOptions...)
 	if err != nil {
 		return false, canBeIncluded, err
 	}
@@ -193,7 +193,7 @@ func confirmRemoval(r *FoundationDBClusterReconciler, context ctx.Context, clust
 	return true, canBeIncluded, nil
 }
 
-func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, removedProcessGroups map[string]bool) error {
+func includeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, removedProcessGroups map[string]bool) error {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return err
@@ -217,9 +217,9 @@ func includeInstance(r *FoundationDBClusterReconciler, context ctx.Context, clus
 	}
 
 	if len(addresses) > 0 {
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingInstances", fmt.Sprintf("Including removed processes: %v", addresses))
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", addresses))
 
-		err = adminClient.IncludeInstances(addresses)
+		err = adminClient.IncludeProcesses(addresses)
 		if err != nil {
 			return err
 		}

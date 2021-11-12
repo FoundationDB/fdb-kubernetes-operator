@@ -2419,20 +2419,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
-	When("an instance is being removed", func() {
-		It("should remove the instance", func() {
+	When("a process group is being removed", func() {
+		It("should remove the process group", func() {
 			cluster := &FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sample-cluster",
 				},
 			}
-			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeFalse())
+			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
 
 			cluster.Spec.PendingRemovals = map[string]string{
 				"sample-cluster-storage-1": "127.0.0.1",
 			}
-			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeTrue())
-			Expect(cluster.InstanceIsBeingRemoved("log-1")).To(BeFalse())
+			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeTrue())
+			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeFalse())
 			cluster.Spec.PendingRemovals = nil
 
 			cluster.Status.PendingRemovals = map[string]PendingRemovalState{
@@ -2441,14 +2441,24 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Address: "127.0.0.2",
 				},
 			}
-			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeFalse())
-			Expect(cluster.InstanceIsBeingRemoved("log-1")).To(BeTrue())
+			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
+			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeTrue())
 			cluster.Status.PendingRemovals = nil
 
 			cluster.Spec.InstancesToRemove = []string{"log-1"}
-			Expect(cluster.InstanceIsBeingRemoved("storage-1")).To(BeFalse())
-			Expect(cluster.InstanceIsBeingRemoved("log-1")).To(BeTrue())
+			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
+			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeTrue())
 			cluster.Spec.InstancesToRemove = nil
+
+			cluster.Spec.ProcessGroupsToRemove = []string{"log-1"}
+			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
+			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeTrue())
+			cluster.Spec.ProcessGroupsToRemove = nil
+
+			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []string{"log-1"}
+			Expect(cluster.ProcessGroupIsBeingRemoved("storage-1")).To(BeFalse())
+			Expect(cluster.ProcessGroupIsBeingRemoved("log-1")).To(BeTrue())
+			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = nil
 		})
 	})
 
@@ -3312,7 +3322,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	When("checking for instances that need replacement", func() {
+	When("checking if the process group needs a replacement", func() {
 		var processGroup *ProcessGroupStatus
 		var needsReplacement bool
 		var timestamp int64

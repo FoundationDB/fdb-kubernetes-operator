@@ -250,6 +250,37 @@ var _ = Describe("update_status", func() {
 			})
 		})
 
+		When("adding a process group to the ProcessGroupsToRemove list", func() {
+			var removedProcessGroup string
+
+			BeforeEach(func() {
+				removedProcessGroup = "storage-1"
+				pods[0].Status.Phase = corev1.PodFailed
+				err = k8sClient.Update(context.TODO(), pods[0])
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.ProcessGroupsToRemove = []string{removedProcessGroup}
+			})
+
+			It("should mark the process group for removal", func() {
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				removalCount := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == removedProcessGroup {
+						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.ExclusionSkipped).To(BeFalse())
+						removalCount++
+						continue
+					}
+
+					Expect(processGroup.Remove).To(BeFalse())
+				}
+
+				Expect(removalCount).To(BeNumerically("==", 1))
+			})
+		})
+
 		When("adding a process group to the InstancesToRemoveWithoutExclusion list", func() {
 			var removedProcessGroup string
 
@@ -259,6 +290,37 @@ var _ = Describe("update_status", func() {
 				err = k8sClient.Update(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.InstancesToRemoveWithoutExclusion = []string{removedProcessGroup}
+			})
+
+			It("should be mark the process group for removal without exclusion", func() {
+				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				removalCount := 0
+				for _, processGroup := range processGroupStatus {
+					if processGroup.ProcessGroupID == removedProcessGroup {
+						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.ExclusionSkipped).To(BeTrue())
+						removalCount++
+						continue
+					}
+
+					Expect(processGroup.Remove).To(BeFalse())
+				}
+
+				Expect(removalCount).To(BeNumerically("==", 1))
+			})
+		})
+
+		When("adding a process group to the ProcessGroupsToRemoveWithoutExclusion list", func() {
+			var removedProcessGroup string
+
+			BeforeEach(func() {
+				removedProcessGroup = "storage-1"
+				pods[0].Status.Phase = corev1.PodFailed
+				err = k8sClient.Update(context.TODO(), pods[0])
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []string{removedProcessGroup}
 			})
 
 			It("should be mark the process group for removal without exclusion", func() {

@@ -33,13 +33,13 @@ import (
 // PodLifecycleManager provides an abstraction around Pod management to allow
 // using intermediary controllers that will manage the Pod lifecycle.
 type PodLifecycleManager interface {
-	// GetPods lists the instances in the cluster
+	// GetPods lists the Pods in the cluster
 	GetPods(client.Client, *fdbtypes.FoundationDBCluster, ctx.Context, ...client.ListOption) ([]*corev1.Pod, error)
 
-	// CreatePods creates a new instance based on a pod definition
+	// CreatePods creates a new Pod based on a pod definition
 	CreatePod(client.Client, ctx.Context, *corev1.Pod) error
 
-	// DeletePods shuts down an instance
+	// DeletePods deletes a Pod
 	DeletePod(client.Client, ctx.Context, *corev1.Pod) error
 
 	// CanDeletePods checks whether it is safe to delete pods.
@@ -51,14 +51,14 @@ type PodLifecycleManager interface {
 	// UpdateImageVersion updates a container's image.
 	UpdateImageVersion(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod, int, string) error
 
-	// UpdateMetadata updates an instance's metadata.
+	// UpdateMetadata updates a Pod's metadata.
 	UpdateMetadata(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) error
 
-	// PodIsUpdated determines whether an instance is up to date.
+	// PodIsUpdated determines whether a Pod is up to date.
 	//
 	// This does not need to check the metadata or the pod spec hash. This only
 	// needs to check aspects of the rollout that are not available in the
-	// instance metadata.
+	// Pod's metadata.
 	PodIsUpdated(client.Client, ctx.Context, *fdbtypes.FoundationDBCluster, *corev1.Pod) (bool, error)
 
 	// GetDeletionMode returns the DeletionMode of the cluster if set or the default value.

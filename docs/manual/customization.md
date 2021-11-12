@@ -196,17 +196,25 @@ The operator uses a default tag suffix of `-1` for the sidecar container. If you
 
 When you need to update your pods in a way that requires recreating them, there are two strategies you can use.
 
-The default strategy is to do a rolling bounce, where at most one fault domain is bounced at a time. While a pod is being recreated, it is unavailable, so this will degrade the fault tolerance for the cluster. The operator will ensure that pods are not deleted unless the cluster is at full fault tolerance, so if all goes well this will not create an availability loss for clients.
+The default strategy is to do a rolling bounce, where at most one fault domain is bounced at a time.
+While a pod is being recreated, it is unavailable, so this will degrade the fault tolerance for the cluster.
+The operator will ensure that pods are not deleted unless the cluster is at full fault tolerance, so if all goes well this will not create an availability loss for clients.
 
-Deleting a pod may cause it to come back with a different IP address. If the process was serving as a coordinator, the coordinator will still be considered unavailable after the replaced pod starts. The operator will detect this condition, and will change the coordinators automatically to ensure that we regain fault tolerance.
+Deleting a pod may cause it to come back with a different IP address.
+If the process was serving as a coordinator, the coordinator will still be considered unavailable after the replaced pod starts.
+The operator will detect this condition, and will change the coordinators automatically to ensure that we regain fault tolerance.
 
-The other strategy you can use is to do a migration, where we replace all of the instances in the cluster. If you want to opt in to this strategy, you can set the field `updatePodsByReplacement` in the cluster spec to `true`. This strategy will temporarily use more resources, and requires moving all of the data to a new set of pods, but it will not degrade fault tolerance, and will require fewer recoveries and coordinator changes.
+The other strategy you can use is to do a migration, where we replace all process groups in the cluster.
+If you want to opt in to this strategy, you can set the field `updatePodsByReplacement` in the cluster spec to `true`.
+This strategy will temporarily use more resources, and requires moving the data to a new set of pods, but it will not degrade fault tolerance, and will require fewer recoveries and coordinator changes.
 
-There are some changes that require a migration regardless of the value for the `updatePodsByReplacement` section. For instance, changing the volume size or any other part of the volume spec is always done through a migration.
+There are some changes that require a migration regardless of the value for the `updatePodsByReplacement` section.
+For instance, changing the volume size or any other part of the volume spec is always done through a migration.
 
 ## Choosing Your Public IP Source
 
-The default behavior of the operator is to use the IP assigned to the pod as the public IP for FoundationDB. This is not the right choice for some environments, so you may need to consider an alternative approach.
+The default behavior of the operator is to use the IP assigned to the pod as the public IP for FoundationDB.
+This is not the right choice for some environments, so you may need to consider an alternative approach.
 
 ### Pod IPs
 

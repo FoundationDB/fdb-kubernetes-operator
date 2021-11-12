@@ -566,8 +566,18 @@ func (in *FoundationDBClusterSpec) DeepCopyInto(out *FoundationDBClusterSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.ProcessGroupsToRemove != nil {
+		in, out := &in.ProcessGroupsToRemove, &out.ProcessGroupsToRemove
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.InstancesToRemoveWithoutExclusion != nil {
 		in, out := &in.InstancesToRemoveWithoutExclusion, &out.InstancesToRemoveWithoutExclusion
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.ProcessGroupsToRemoveWithoutExclusion != nil {
+		in, out := &in.ProcessGroupsToRemoveWithoutExclusion, &out.ProcessGroupsToRemoveWithoutExclusion
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

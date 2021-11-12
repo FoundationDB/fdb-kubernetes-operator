@@ -68,6 +68,8 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	viper.SetDefault("license", "apache 2")
 	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
 	cmd.PersistentFlags().BoolP("force", "f", false, "Suppress the confirmation dialog")
+	// TODO (johscheuer): Once we cut the 1.0 release this should be removed.
+	cmd.PersistentFlags().BoolP("use-old-instances-remove", "", true, "Defines if the old instancesToRemove field should be used")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	cmd.AddCommand(

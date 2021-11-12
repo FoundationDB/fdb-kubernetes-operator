@@ -48,7 +48,7 @@ var _ = Describe("metrics", func() {
 	})
 
 	Context("Collecting the processGroup metrics", func() {
-		It("should not have TLS sidecar TLS", func() {
+		It("generate the process class metrics", func() {
 			stats := getProcessGroupMetrics(cluster)
 			Expect(len(stats)).To(BeNumerically("==", 2))
 			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))

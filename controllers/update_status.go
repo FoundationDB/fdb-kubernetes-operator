@@ -220,9 +220,9 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 				return &requeue{curError: err}
 			}
 			if len(pods.Items) > 0 {
-				instanceID := pods.Items[0].ObjectMeta.Labels[cluster.GetProcessGroupIDLabel()]
+				processGroupID := pods.Items[0].ObjectMeta.Labels[cluster.GetProcessGroupIDLabel()]
 				processClass := internal.ProcessClassFromLabels(cluster, pods.Items[0].ObjectMeta.Labels)
-				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, address)
+				included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, processGroupID, processClass, address)
 				if !included {
 					status.ProcessGroups = append(status.ProcessGroups, newStatus)
 				}
@@ -231,7 +231,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	}
 
 	if cluster.Status.PendingRemovals != nil {
-		for instanceID, state := range cluster.Status.PendingRemovals {
+		for processGroupID, state := range cluster.Status.PendingRemovals {
 			pods := &corev1.PodList{}
 			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": state.PodName})
 			if err != nil {
@@ -241,7 +241,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			if len(pods.Items) > 0 {
 				processClass = internal.ProcessClassFromLabels(cluster, pods.Items[0].ObjectMeta.Labels)
 			}
-			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, instanceID, processClass, state.Address)
+			included, newStatus := fdbtypes.MarkProcessGroupForRemoval(status.ProcessGroups, processGroupID, processClass, state.Address)
 			if !included {
 				status.ProcessGroups = append(status.ProcessGroups, newStatus)
 			}
@@ -450,11 +450,16 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 
 func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
-	processGroupsWithoutExclusion := make(map[string]internal.None, len(cluster.Spec.InstancesToRemoveWithoutExclusion))
+	processGroupsWithoutExclusion := make(map[string]internal.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
 		processGroupsWithoutExclusion[processGroupID] = internal.None{}
 	}
+
+	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
+		processGroupsWithoutExclusion[processGroupID] = internal.None{}
+	}
+
 	// Clear the IncorrectCommandLine condition to prevent it being held over
 	// when pods get deleted.
 	for _, processGroup := range processGroups {
@@ -467,9 +472,9 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 			return processGroups, err
 		}
 
-		// If the instance is not being removed and the Pod is not set we need to put it into
+		// If the process group is not being removed and the Pod is not set we need to put it into
 		// the failing list.
-		isBeingRemoved := cluster.InstanceIsBeingRemoved(processGroup.ProcessGroupID)
+		isBeingRemoved := cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID)
 		if len(pods) == 0 {
 			// Mark process groups as terminating if the pod has been deleted but other
 			// resources are stuck in terminating.
@@ -490,8 +495,8 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 			processGroup.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
 		}
 
-		// Even the instance will be removed we need to keep the config around.
-		// Set the processCount for the instance specific storage servers per pod
+		// Even the process group will be removed we need to keep the config around.
+		// Set the processCount for the process group specific storage servers per pod
 		if processGroup.ProcessClass == fdbtypes.ProcessClassStorage {
 			processCount, err = internal.GetStorageServersPerPodForPod(pod)
 			if err != nil {
@@ -552,7 +557,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 	return processGroups, nil
 }
 
-// validateProcessGroup runs specific checks for the status of an instance.
+// validateProcessGroup runs specific checks for the status of an process group.
 // returns failing, incorrect, error
 func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")

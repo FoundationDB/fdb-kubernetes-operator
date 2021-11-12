@@ -82,19 +82,19 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 
 		addresses = append(addresses, addressMap[process]...)
 
-		instanceID := podmanager.GetProcessGroupIDFromProcessID(process)
-		pod, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetSinglePodListOptions(cluster, instanceID)...)
+		processGroupID := podmanager.GetProcessGroupIDFromProcessID(process)
+		pod, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetSinglePodListOptions(cluster, processGroupID)...)
 		if err != nil {
 			return &requeue{curError: err}
 		}
 		if len(pod) == 0 {
-			return &requeue{message: fmt.Sprintf("No pod defined for instance %s", instanceID), delay: podSchedulingDelayDuration}
+			return &requeue{message: fmt.Sprintf("No pod defined for process group ID: \"%s\"", processGroupID), delay: podSchedulingDelayDuration}
 		}
 
 		synced, err := r.updatePodDynamicConf(cluster, pod[0])
 		if !synced {
 			allSynced = false
-			logger.Info("Update dynamic Pod config", "processGroupID", instanceID, "synced", synced, "error", err)
+			logger.Info("Update dynamic Pod config", "processGroupID", processGroupID, "synced", synced, "error", err)
 		}
 	}
 
@@ -177,9 +177,9 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 			}
 		}
 
-		logger.Info("Bouncing instances", "addresses", addresses, "upgrading", upgrading)
-		r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingInstances", fmt.Sprintf("Bouncing processes: %v", addresses))
-		err = adminClient.KillInstances(addresses)
+		logger.Info("Bouncing processes", "addresses", addresses, "upgrading", upgrading)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingProcesses", fmt.Sprintf("Bouncing processes: %v", addresses))
+		err = adminClient.KillProcesses(addresses)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -229,6 +229,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadm
 			notReadyProcesses = append(notReadyProcesses, processID)
 		}
 	}
+
 	if len(notReadyProcesses) > 0 {
 		logger.Info("Deferring upgrade until all processes are ready to be upgraded", "remainingProcesses", notReadyProcesses)
 		message := fmt.Sprintf("Waiting for processes to be updated: %v", notReadyProcesses)

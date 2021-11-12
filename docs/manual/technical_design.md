@@ -45,7 +45,9 @@ In our operator, we add an additional abstraction to help structure the reconcil
 
 ## Locking Operations
 
-This document will note which operations require a lock in order to complete. This means that the operation needs to ensure that it is the only instance of the operator acting on the cluster, to prevent conflicts in multi-DC clusters. For more using and configuring on the locking system, see the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations).
+This document will note which operations require a lock in order to complete.
+This means that the operation needs to ensure that it is the only instance of the operator acting on the cluster, to prevent conflicts in multi-DC clusters.
+For more using and configuring on the locking system, see the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations).
 
 The locking system works by setting a key in the database to indicate which instance of the operator can perform global operations. This key is `\xff\x02/org.foundationdb.kubernetes-operator/global`. This key will be set to a value of `tuple.Tuple{lockID,start,end}`. `lockID` is the `instanceIDPrefix` from the cluster spec. `start` is a 64-bit integer representing a Unix timestamp with precision to the second, giving the time when this instance of the operator took the lock. `end` is a similar timestamp representing the time when the lock will automatically expire. The default lock duration is 10 minutes. If the operator tries to acquire a lock and sees that it already has the lock, it will extend it for another 10 minutes past the current time. If it sees that another instance of the operator has a lock, and the current time is past the end of the lock, it will clear the old lock and take a new lock for itself. If it sees that another instance of the operator has a lock, and the current time is before the end of the lock, it will requeue reconciliation until it can acquire the lock.
 
@@ -101,7 +103,7 @@ The cluster reconciler runs the following subreconcilers:
 1. UpdateLabels
 1. UpdateDatabaseConfiguration
 1. ChooseRemovals
-1. ExcludeInstances
+1. ExcludeProcesses
 1. ChangeCoordinators
 1. BounceProcesses
 1. UpdatePods
@@ -207,9 +209,9 @@ This action requires a lock.
 
 The `ChooseRemovals` subreconciler flags processes for removal when the current process count is more than the desired process count. The processes that are removed will be chosen so that the remaining process are spread across as many fault domains as possible. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the removal.
 
-### ExcludeInstances
+### ExcludeProcesses
 
-The `ExcludeInstances` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded. The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes. This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
+The `ExcludeProcesses` subreconciler runs an `exclude` command in `fdbcli` for any process group that is marked for removal and is not already being excluded. The `exclude` command tells FoundationDB that a process should not serve any roles, and that any data on that process should be moved to other processes. This exclusion can take a long time, but this subreconciler does not wait for exclusion to complete.
 
 If there are processes that are not reporting to the cluster and are not marked for removal, this subreconciler will not run any exclusion commands. This is designed to prevent the operator from triggering exclusions before the replacement processes are available. In the case where there are multiple processes that are failing, this can cause reconciliation to get stuck. You can work around this by telling the operator to replace all of the failing processes.
 

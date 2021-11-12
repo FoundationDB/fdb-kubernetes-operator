@@ -33,13 +33,13 @@ type AdminClient interface {
 	// ConfigureDatabase sets the database configuration
 	ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error
 
-	// ExcludeInstances starts evacuating processes so that they can be removed
+	// ExcludeProcesses starts evacuating processes so that they can be removed
 	// from the database.
-	ExcludeInstances(addresses []fdbtypes.ProcessAddress) error
+	ExcludeProcesses(addresses []fdbtypes.ProcessAddress) error
 
-	// IncludeInstances removes processes from the exclusion list and allows
+	// IncludeProcesses removes processes from the exclusion list and allows
 	// them to take on roles again.
-	IncludeInstances(addresses []fdbtypes.ProcessAddress) error
+	IncludeProcesses(addresses []fdbtypes.ProcessAddress) error
 
 	// GetExclusions gets a list of the addresses currently excluded from the
 	// database.
@@ -53,7 +53,7 @@ type AdminClient interface {
 	CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error)
 
 	// KillProcesses restarts processes
-	KillInstances(addresses []fdbtypes.ProcessAddress) error
+	KillProcesses(addresses []fdbtypes.ProcessAddress) error
 
 	// ChangeCoordinators changes the coordinator set
 	ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error)

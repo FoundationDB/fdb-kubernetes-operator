@@ -45,7 +45,7 @@ var _ = Describe("Update labels", func() {
 			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Labels, tc.expectedMeta.Labels)).To(BeTrue())
 			Expect(equality.Semantic.DeepEqual(tc.pod.ObjectMeta.Annotations, tc.expectedMeta.Annotations)).To(BeTrue())
 		},
-		Entry("Metadata matches with instance metadata",
+		Entry("Metadata matches with Pod metadata",
 			testCase{
 				pod: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{

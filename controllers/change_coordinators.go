@@ -119,7 +119,7 @@ func (c changeCoordinators) reconcile(r *FoundationDBClusterReconciler, context 
 	return nil
 }
 
-// selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching instances.
+// selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
 func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
 	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
@@ -131,7 +131,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 			continue
 		}
 
-		if cluster.InstanceIsBeingRemoved(process.Locality[fdbtypes.FDBLocalityInstanceIDKey]) {
+		if cluster.ProcessGroupIsBeingRemoved(process.Locality[fdbtypes.FDBLocalityInstanceIDKey]) {
 			continue
 		}
 

@@ -94,7 +94,7 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 	return []string{pod.Status.PodIP}
 }
 
-// GetProcessGroupIDFromMeta fetches the instance ID from an object's metadata.
+// GetProcessGroupIDFromMeta fetches the process group ID from an object's metadata.
 func GetProcessGroupIDFromMeta(cluster *fdbtypes.FoundationDBCluster, metadata metav1.ObjectMeta) string {
 	return metadata.Labels[cluster.GetProcessGroupIDLabel()]
 }
@@ -179,8 +179,8 @@ func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 }
 
 // GetSinglePodListOptions returns the listOptions to list a single Pod
-func GetSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, instanceID string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", instanceID))}
+func GetSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, processGroupID string) []client.ListOption {
+	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", processGroupID))}
 }
 
 // GetPodListOptions returns the listOptions to list Pods

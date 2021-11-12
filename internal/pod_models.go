@@ -36,12 +36,14 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
-// GetInstanceID generates an ID for an instance.
+// GetProcessGroupID generates an ID for a process group.
 //
-// This will return the pod name and the processGroup ID.
-func GetInstanceID(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (string, string) {
+// This will return the pod name and the processGroupID ID.
+func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (string, string) {
 	var processGroupID string
-	if cluster.Spec.InstanceIDPrefix != "" {
+	if cluster.Spec.ProcessGroupIDPrefix != "" {
+		processGroupID = fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum)
+	} else if cluster.Spec.InstanceIDPrefix != "" {
 		processGroupID = fmt.Sprintf("%s-%s-%d", cluster.Spec.InstanceIDPrefix, processClass, idNum)
 	} else {
 		processGroupID = fmt.Sprintf("%s-%d", processClass, idNum)
@@ -75,9 +77,9 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 	return ports
 }
 
-// GetService builds a service for a new instance
+// GetService builds a service for a new process group
 func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.Service, error) {
-	name, id := GetInstanceID(cluster, processClass, idNum)
+	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	metadata := GetObjectMetadata(cluster, nil, processClass, id)
@@ -100,9 +102,9 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	}, nil
 }
 
-// GetPod builds a pod for a new instance
+// GetPod builds a pod for a new process group
 func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.Pod, error) {
-	name, id := GetInstanceID(cluster, processClass, idNum)
+	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 	spec, err := GetPodSpec(cluster, processClass, idNum)
@@ -177,7 +179,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		return nil, fmt.Errorf("could not create init container")
 	}
 
-	podName, instanceID := GetInstanceID(cluster, processClass, idNum)
+	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
 
 	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
@@ -214,8 +216,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		" --loggroup " + logGroup +
 		" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
 
-	for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-		if instanceID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+	for _, pID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == pID || pID == "*" {
 			args = "crash-loop"
 		}
 	}
@@ -236,12 +238,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 	}
 
-	err = configureSidecarContainerForCluster(cluster, initContainer, true, instanceID, processSettings.GetAllowTagOverride())
+	err = configureSidecarContainerForCluster(cluster, initContainer, true, processGroupID, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
 
-	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID, processSettings.GetAllowTagOverride())
+	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, processGroupID, processSettings.GetAllowTagOverride())
 	if err != nil {
 		return nil, err
 	}
@@ -332,8 +334,8 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			})
 	}
 
-	for _, noScheduleInstanceID := range cluster.Spec.Buggify.NoSchedule {
-		if instanceID != noScheduleInstanceID {
+	for _, noSchedulePID := range cluster.Spec.Buggify.NoSchedule {
+		if processGroupID != noSchedulePID {
 			continue
 		}
 
@@ -375,13 +377,13 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, instanceID string, allowOverride bool) error {
+func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, processGroupID string, allowOverride bool) error {
 	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
 
-	return configureSidecarContainer(container, initMode, instanceID, versionString, cluster, allowOverride)
+	return configureSidecarContainer(container, initMode, processGroupID, versionString, cluster, allowOverride)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
@@ -392,7 +394,7 @@ func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, con
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, instanceID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster, allowOverride bool) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster, allowOverride bool) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
@@ -520,7 +522,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, insta
 			}
 		}
 
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: processGroupID})
 
 		if !initMode && *cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
 			// We can't use a HTTP handler here since the server
@@ -615,12 +617,12 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 	return processClass.IsStateful() && (storage == nil || !storage.IsZero())
 }
 
-// GetPvc builds a persistent volume claim for a FoundationDB instance.
+// GetPvc builds a persistent volume claim for a FoundationDB process group.
 func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PersistentVolumeClaim, error) {
 	if !usePvc(cluster, processClass) {
 		return nil, nil
 	}
-	name, id := GetInstanceID(cluster, processClass, idNum)
+	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
 	processSettings := cluster.GetProcessSettings(processClass)
 	var pvc *corev1.PersistentVolumeClaim

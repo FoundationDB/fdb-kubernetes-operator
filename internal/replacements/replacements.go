@@ -51,7 +51,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 		pod, hasPod := podMap[processGroup.ProcessGroupID]
 
 		if hasPVC {
-			needsPVCRemoval, err := instanceNeedsRemovalForPVC(cluster, pvc, log)
+			needsPVCRemoval, err := processGroupNeedsRemovalForPVC(cluster, pvc, log)
 			if err != nil {
 				return hasReplacements, err
 			}
@@ -73,7 +73,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 			continue
 		}
 
-		needsRemoval, err := instanceNeedsRemoval(cluster, pod, processGroup, log)
+		needsRemoval, err := processGroupNeedsRemoval(cluster, pod, processGroup, log)
 		if err != nil {
 			return hasReplacements, err
 		}
@@ -88,7 +88,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 	return hasReplacements, nil
 }
 
-func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger) (bool, error) {
+func processGroupNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
 
@@ -121,12 +121,12 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 	}
 
 	if pvc.Annotations[fdbtypes.LastSpecKey] != pvcHash {
-		logger.Info("Replace instance",
+		logger.Info("Replace process group",
 			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbtypes.LastSpecKey]))
 		return true, nil
 	}
 	if pvc.Name != desiredPVC.Name {
-		logger.Info("Replace instance",
+		logger.Info("Replace process group",
 			"reason", fmt.Sprintf("PVC name has changed from %s to %s", desiredPVC.Name, pvc.Name))
 		return true, nil
 	}
@@ -134,7 +134,7 @@ func instanceNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev
 	return false, nil
 }
 
-func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbtypes.ProcessGroupStatus, log logr.Logger) (bool, error) {
+func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbtypes.ProcessGroupStatus, log logr.Logger) (bool, error) {
 	if pod == nil {
 		return false, nil
 	}
@@ -144,7 +144,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	if processGroupStatus == nil {
-		return false, fmt.Errorf("unknown instance %s in replace_misconfigured_pods", processGroupID)
+		return false, fmt.Errorf("unknown process group %s in replace_misconfigured_pods", processGroupID)
 	}
 
 	if processGroupStatus.Remove {
@@ -157,10 +157,10 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 	}
 
 	processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
-	_, desiredProcessGroupID := internal.GetInstanceID(cluster, processClass, idNum)
+	_, desiredProcessGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
 	if processGroupID != desiredProcessGroupID {
-		logger.Info("Replace instance",
-			"reason", fmt.Sprintf("expect instanceID: %s", desiredProcessGroupID))
+		logger.Info("Replace process group",
+			"reason", fmt.Sprintf("expect process group ID: %s", desiredProcessGroupID))
 		return true, nil
 	}
 
@@ -169,20 +169,20 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		return false, err
 	}
 	if ipSource != cluster.GetPublicIPSource() {
-		logger.Info("Replace instance",
+		logger.Info("Replace process group",
 			"reason", fmt.Sprintf("publicIP source has changed from %s to %s", ipSource, cluster.GetPublicIPSource()))
 		return true, nil
 	}
 
 	if processClass == fdbtypes.ProcessClassStorage {
-		// Replace the instance if the storage servers differ
+		// Replace the process group if the storage servers differ
 		storageServersPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
 			return false, err
 		}
 
 		if storageServersPerPod != cluster.GetStorageServersPerPod() {
-			logger.Info("Replace instance",
+			logger.Info("Replace process group",
 				"reason", fmt.Sprintf("storageServersPerPod has changed from %d to %d", storageServersPerPod, cluster.GetStorageServersPerPod()))
 			return true, nil
 		}
@@ -196,7 +196,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		}
 
 		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
-			logger.Info("Replace instance",
+			logger.Info("Replace process group",
 				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
 			return true, nil
 		}
@@ -209,7 +209,7 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		}
 
 		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
-			logger.Info("Replace instance",
+			logger.Info("Replace process group",
 				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]))
 			return true, nil
 		}
@@ -222,13 +222,13 @@ func instanceNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod
 		}
 
 		if resourcesNeedsReplacement(desiredSpec.Containers, pod.Spec.Containers) {
-			logger.Info("Replace instance",
+			logger.Info("Replace process group",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}
 
 		if resourcesNeedsReplacement(desiredSpec.InitContainers, pod.Spec.InitContainers) {
-			logger.Info("Replace instance",
+			logger.Info("Replace process group",
 				"reason", "Resource requests have changed")
 			return true, nil
 		}

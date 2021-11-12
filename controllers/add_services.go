@@ -74,7 +74,7 @@ func (a addServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 				return &requeue{curError: err}
 			}
 
-			serviceName, _ := internal.GetInstanceID(cluster, processGroup.ProcessClass, idNum)
+			serviceName, _ := internal.GetProcessGroupID(cluster, processGroup.ProcessClass, idNum)
 			service, err := internal.GetService(cluster, processGroup.ProcessClass, idNum)
 			if err != nil {
 				return &requeue{curError: err}

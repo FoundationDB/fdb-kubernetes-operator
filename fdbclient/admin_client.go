@@ -227,7 +227,7 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 
 // ExcludeInstances starts evacuating processes so that they can be removed
 // from the database.
-func (client *cliAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *cliAdminClient) ExcludeProcesses(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -255,7 +255,7 @@ func (client *cliAdminClient) ExcludeInstances(addresses []fdbtypes.ProcessAddre
 
 // IncludeInstances removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *cliAdminClient) IncludeInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *cliAdminClient) IncludeProcesses(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -348,7 +348,7 @@ func parseExclusionOutput(output string) map[string]string {
 }
 
 // KillInstances restarts processes
-func (client *cliAdminClient) KillInstances(addresses []fdbtypes.ProcessAddress) error {
+func (client *cliAdminClient) KillProcesses(addresses []fdbtypes.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
