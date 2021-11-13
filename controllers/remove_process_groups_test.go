@@ -87,6 +87,10 @@ var _ = Describe("remove_process_groups", func() {
 			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
+			// Exclude the process group
+			adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			adminClient.ExcludedAddresses = removedProcessGroup.Addresses
 		})
 
 		When("using the default setting of EnforceFullReplicationForDeletion", func() {

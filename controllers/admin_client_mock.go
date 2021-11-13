@@ -375,7 +375,39 @@ func (client *mockAdminClient) IncludeProcesses(addresses []fdbtypes.ProcessAddr
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
 func (client *mockAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
-	return nil, nil
+	skipExclude := map[string]internal.None{}
+
+	// Check which process groups have the skip exclusion flag or are already
+	// excluded
+	for _, pg := range client.Cluster.Status.ProcessGroups {
+		if !(pg.ExclusionSkipped || pg.Excluded) {
+			continue
+		}
+
+		for _, addr := range pg.Addresses {
+			skipExclude[addr] = internal.None{}
+		}
+	}
+
+	// Add all process groups that are excluded in the client
+	for _, addr := range client.ExcludedAddresses {
+		skipExclude[addr] = internal.None{}
+	}
+
+	// Filter out all excluded process groups and also all process groups
+	// that skip exclusion
+	remaining := make([]fdbtypes.ProcessAddress, 0, len(addresses))
+
+	for _, addr := range addresses {
+		// Is already excluded or skipped
+		if _, ok := skipExclude[addr.String()]; ok {
+			continue
+		}
+
+		remaining = append(remaining, addr)
+	}
+
+	return remaining, nil
 }
 
 // GetExclusions gets a list of the addresses currently excluded from the
