@@ -1211,6 +1211,7 @@ type ProcessSettings struct {
 	// You have to ensure that the specified version in the Spec is compatible
 	// with the given version in your custom image.
 	// +kubebuilder:default:=false
+	// Deprecated: Use ImageConfigs instead.
 	AllowTagOverride *bool `json:"allowTagOverride,omitempty"`
 }
 
