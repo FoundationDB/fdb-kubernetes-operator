@@ -3,16 +3,16 @@
 ## Metadata
 
 * Authors: @johscheuer
-* Created: 2020-07-05
-* Updated: 2020-07-05
+* Created: 2021-07-05
+* Updated: 2021-11-13
 
 ## Background
 
-Many Cloud Provder offer regional Kubernetes clusters that are span across multiple avalability zones (AZ).
-An avalability zone is an isolated zone in a region and offers users the ability ro create systems that run atop of these failure domains.
+Many Cloud Provider offer regional Kubernetes clusters that span across multiple availability zones (AZ).
+An availability zone is an isolated zone in a region and offers users the ability to create systems that run atop of these failure domains.
 For on-premise clusters this could be a rack, a datahall or a data center.
-The current implementation of the operator only supports either single FoundationDB clusters with the redundancy modes `single`, `dobule`, `triple` or HA clusters span across multiple Kubernetes clusters.
-FoundationDB offers the redundnacy mode [three_data_hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) or [three_datacenter](https://apple.github.io/foundationdb/configuration.html#datacenter-aware-mode) that fits well in these enviornments without the overhead of the HA solution.
+The current implementation of the operator only supports either single FoundationDB clusters with the redundancy modes `single`, `double`, `triple` or HA clusters span across multiple Kubernetes clusters.
+FoundationDB offers the redundancy mode [three_data_hall](https://apple.github.io/foundationdb/configuration.html#single-datacenter-modes) or [three_datacenter](https://apple.github.io/foundationdb/configuration.html#datacenter-aware-mode) that fits well in these enviornments without the overhead of the HA solution.
 The current requirement for `three_data_hall` and `three_datacenter` is to have 3 AZs and at least two different failure zones per `data_hall`/`datacenter`.
 
 ## General Design Goals
@@ -22,7 +22,7 @@ The goal of this design is to support the redundancy modes `three_data_hall` and
 * Single Kubernetes cluster across multiple AZs.
 * One Kubernetes cluster per AZ.
 
-The implemenation should be flexible enough to give the user a choice of the used AZ.
+The implementation should be flexible enough to give the user a choice of the used AZ.
 
 ## Current Implementation
 
@@ -37,25 +37,32 @@ The design is split into the two main parts of the deployment: configure the loc
 
 The `three_data_hall` deployment requires the `locality_data_hall` locality to be set and the `three_datacenter` requires the `locality_dcid` to be set.
 There must be at least and at most 3 different values for these localities.
-Additionaly to these localties at least two different `locality_zone` per `data_hall`/`datacenter` is required to fullfill the requirements.
+Additionally to these localities at least two different `locality_zone` per `data_hall`/`datacenter` is required to fullfill the requirements.
 The `locality_zone` can be configured with [FoundationDBClusterFaultDomain](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#foundationdbclusterfaultdomain).
-In addition to that the user can configure additional variables that the sidecar will use for substition in the [FoundationDBClusterSpec](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#foundationdbclusterspec) with the `sidecarVariables` list.
+In addition to that the user can configure additional variables that the sidecar will use for substitution in the [FoundationDBClusterSpec](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#foundationdbclusterspec) with the `sidecarVariables` list.
 The current implementation would allow to set `dataHall: $AZ` and in `sidecarVariables` we would list `AZ` to define the `locality_data_hall` based on an environment variable that will be replaced by the sidecar with the actual value.
-Instead of having these different mechanisims spread across different settings I propose to have a new `localities` setting in the `FoundationDBClusterSpec`:
+Instead of having these different mechanisms spread across different settings I propose to have a new `localities` setting in the `FoundationDBClusterSpec`.
+The key will always be prefixed with `locality_`:
 
 ```yaml
 localities:
-- key: "locality_data_hall"
+- key: "data_hall"
   value: ""
   valueFromEnv: ""
   valueFromNode: "topology.kubernetes.io/zone"
   topologyKey: ""
-- key: "locality_zone"
+- key: "zone"
   value: ""
   valueFromEnv: "MyFancyZone"
   valueFromNode: ""
   topologyKey: "kubernetes.io/hostname"
 ```
+
+If multiple fields of the `value`, `valueFromEnv` or `valueFromNode` are set the following ordering will be used:
+
+1. `value`
+1. `valueFromEnv`
+1. `valueFromNode`
 
 The `topologyKey` will be used for `topologySpreadConstraints` and for `PodAntiAffinity` and only has to be set if `valueFromNode` is empty, otherwise it will default to that value.
 The `FoundationDBClusterFaultDomain` would then be reduced to only have `key`, `zoneCount` and `zoneIndex` since the locality will be configured in `localities`.
@@ -81,6 +88,7 @@ To ensure that all Pods are spread evenly across the AZs the operator should use
     labelSelector:
       matchLabels:
         foundationdb.org/fdb-cluster-name: test-cluster
+        fdb-process-class: <process-class>
 ```
 
 The `topologySpreadConstraints` above ensures that all Pods are evenly spread across the different `topology.kubernetes.io/zone` and must be set by the operator.
@@ -126,14 +134,14 @@ spec:
   version: 6.2.30
   instanceIDPrefix: az1
   databaseConfiguration:
-    redundancy_mode: "triple"
+    redundancy_mode: triple
   localities:
-  - key: "locality_data_hall"
-    valueFromNode: "topology.kubernetes.io/zone"
+  - key: data_hall
+    valueFromNode: az1
 ```
 
 With this configuration we will use the default fault domain the Kubernetes nodes as `locality_zone`.
-When the clutser is reconciled we can create the `FoundationDBCluster` spec in the other two Kubernetes clusters and set the `redundancy_mode: "three_data_hall"`:
+When the cluster is reconciled we can create the `FoundationDBCluster` spec in the other two Kubernetes clusters and set the `redundancy_mode: "three_data_hall"`:
 
 ```yaml
 apiVersion: apps.foundationdb.org/v1beta1
@@ -147,10 +155,10 @@ spec:
   instanceIDPrefix: $az
   seedConnectionString: $connectionString
   databaseConfiguration:
-    redundancy_mode: "three_data_hall"
+    redundancy_mode: three_data_hall
   localities:
-  - key: "locality_data_hall"
-    valueFromNode: "topology.kubernetes.io/zone"
+  - key: data_hall"
+    value: $az
 ```
 
 The processes in the other Kubernetes clusters will join the current `FoundationDBCluster`.
@@ -158,28 +166,25 @@ Once enough processes joined the cluster one of the operator will select 5 Coord
 
 ### Coordinator selection
 
-The coordinator selecion must be adjusted to select at most 2 coordinators in the same `data_hall` or `datacenter` depending on the redundancy mode.
+The coordinator selection must be adjusted to select at most 4 coordinators in the same `data_hall` or `datacenter` depending on the redundancy mode.
+For the `three_data_hall` mode we will select 9 coordinators which should be equally distributed across these 3 data halls.
 Currently the selection happens in the [cluster_controller](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/controllers/cluster_controller.go#L1283-L1292) with a small extension we can support the coordinator selection:
 
 ```go
 func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
-    // Multi region cluster (HA)
-    if cluster.Spec.UsableRegions > 1 {
-        return map[string]int{
-            fdbtypes.FDBLocalityZoneIDKey: 1, 
-            fdbtypes.FDBLocalityDCIDKey: int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
-        }
-    }
-
-    // Single region cluster (non-HA)
     req := map[string]int{fdbtypes.FDBLocalityZoneIDKey: 1}
 
+    // Multi region cluster (HA)
+    if cluster.Spec.UsableRegions > 1 {
+        req[fdbtypes.FDBLocalityDCIDKey] = int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
+    }
+
     if cluster.Spec.RedundancyMode == fdbtypes.RedundancyModeThreeDataHall {
-        req[fdbtypes.FDBLocalityDataHallKey] = 2
+        req[fdbtypes.FDBLocalityDataHallKey] = 4
     }
 
     if cluster.Spec.RedundancyMode == fdbtypes.RedundancyModeThreeDatacenter {
-        req[fdbtypes.FDBLocalityDatacenterKey] = 2
+        req[fdbtypes.FDBLocalityDatacenterKey] = 4
     }
 
     return req
