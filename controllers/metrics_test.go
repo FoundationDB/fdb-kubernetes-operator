@@ -42,6 +42,15 @@ var _ = Describe("metrics", func() {
 							fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
 						},
 					},
+					{
+						ProcessClass: fdbtypes.ProcessClassStorage,
+						Remove:       true,
+					},
+					{
+						ProcessClass: fdbtypes.ProcessClassStateless,
+						Remove:       true,
+						Excluded:     true,
+					},
 				},
 			},
 		}
@@ -49,13 +58,18 @@ var _ = Describe("metrics", func() {
 
 	Context("Collecting the processGroup metrics", func() {
 		It("generate the process class metrics", func() {
-			stats := getProcessGroupMetrics(cluster)
-			Expect(len(stats)).To(BeNumerically("==", 2))
+			stats, removals, exclusions := getProcessGroupMetrics(cluster)
+			Expect(len(stats)).To(BeNumerically("==", 3))
 			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
 			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
-			Expect(stats[fdbtypes.ProcessClassStorage][fdbtypes.ReadyCondition]).To(BeNumerically("==", 1))
+			Expect(stats[fdbtypes.ProcessClassStorage][fdbtypes.ReadyCondition]).To(BeNumerically("==", 2))
 			Expect(stats[fdbtypes.ProcessClassLog][fdbtypes.ReadyCondition]).To(BeNumerically("==", 0))
 			Expect(stats[fdbtypes.ProcessClassLog][fdbtypes.MissingProcesses]).To(BeNumerically("==", 1))
+			Expect(stats[fdbtypes.ProcessClassStateless][fdbtypes.ReadyCondition]).To(BeNumerically("==", 1))
+			Expect(removals[fdbtypes.ProcessClassStorage]).To(BeNumerically("==", 1))
+			Expect(exclusions[fdbtypes.ProcessClassStorage]).To(BeNumerically("==", 0))
+			Expect(removals[fdbtypes.ProcessClassStateless]).To(BeNumerically("==", 1))
+			Expect(exclusions[fdbtypes.ProcessClassStateless]).To(BeNumerically("==", 1))
 		})
 	})
 })
