@@ -160,7 +160,7 @@ func StartManager(
 		os.Exit(1)
 	}
 
-	labelSelector, err := metav1.ParseToLabelSelector(strings.Trim(operatorOpts.LabelSelector,"\""))
+	labelSelector, err := metav1.ParseToLabelSelector(strings.Trim(operatorOpts.LabelSelector, "\""))
 	if err != nil {
 		setupLog.Error(err, "unable to parse provided label selector")
 		os.Exit(1)
