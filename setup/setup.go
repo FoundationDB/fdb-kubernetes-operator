@@ -26,7 +26,10 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -64,6 +67,7 @@ type Options struct {
 	MaxNumberOfOldLogFiles  int
 	CompressOldFiles        bool
 	PrintVersion            bool
+	LabelSelector           string
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -86,6 +90,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&o.MaxNumberOfOldLogFiles, "max-old-log-files", 3, "Defines the maximum number of old operator log files to retain.")
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
+	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -155,6 +160,12 @@ func StartManager(
 		os.Exit(1)
 	}
 
+	labelSelector, err := metav1.ParseToLabelSelector(strings.Trim(operatorOpts.LabelSelector,"\""))
+	if err != nil {
+		setupLog.Error(err, "unable to parse provided label selector")
+		os.Exit(1)
+	}
+
 	if clusterReconciler != nil {
 		clusterReconciler.Client = mgr.GetClient()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
@@ -162,7 +173,7 @@ func StartManager(
 		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
 
-		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, watchedObjects...); err != nil {
+		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
 			os.Exit(1)
 		}
@@ -178,7 +189,7 @@ func StartManager(
 		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 
-		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
+		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
 			os.Exit(1)
 		}
@@ -190,7 +201,7 @@ func StartManager(
 		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
 		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
 
-		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles); err != nil {
+		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
 			os.Exit(1)
 		}

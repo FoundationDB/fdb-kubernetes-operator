@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -122,10 +124,14 @@ func (r *FoundationDBBackupReconciler) adminClientForBackup(context ctx.Context,
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int) error {
+func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector) error {
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*appsv1.Deployment).Name}
 	})
+	if err != nil {
+		return err
+	}
+	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
 	if err != nil {
 		return err
 	}
@@ -136,8 +142,16 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxCon
 		).
 		For(&fdbtypes.FoundationDBBackup{}).
 		Owns(&appsv1.Deployment{}).
-		// Only react on generation changes or annotation changes
-		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
+		// Only react on generation changes or annotation changes and only watch
+		// resources with the provided label selector.
+		WithEventFilter(
+			predicate.And(
+				labelSelectorPredicate,
+				predicate.Or(
+					predicate.GenerationChangedPredicate{},
+					predicate.AnnotationChangedPredicate{},
+				),
+			)).
 		Complete(r)
 }
 

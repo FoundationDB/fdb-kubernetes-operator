@@ -28,6 +28,8 @@ import (
 	"regexp"
 	"sort"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -178,7 +180,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, watchedObjects ...client.Object) error {
+func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
 	err := mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
@@ -199,6 +201,10 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	if err != nil {
 		return err
 	}
+	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
+	if err != nil {
+		return err
+	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
@@ -209,8 +215,17 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
-		// Only react on generation changes or annotation changes
-		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
+		// Only react on generation changes or annotation changes and only watch
+		// resources with the provided label selector.
+		WithEventFilter(
+			predicate.And(
+				labelSelectorPredicate,
+				predicate.Or(
+					predicate.GenerationChangedPredicate{},
+					predicate.AnnotationChangedPredicate{},
+				),
+			))
+
 	for _, object := range watchedObjects {
 		builder.Owns(object)
 	}

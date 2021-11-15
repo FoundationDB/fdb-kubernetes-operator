@@ -66,6 +66,15 @@ The name of a cluster is immutable, and it is included in the names of all of th
 
 At that point, you will be left with just the resources for `sample-cluster-2`. You can continue performing operations on `sample-cluster-2` as normal. You can also change or remove the `processGroupIdPrefix` if you had to set it to a different value earlier in the process.
 
+## Sharding for the operator
+
+The operator supports the `--label-selector` flag to select only a subset of clusters to manage.
+The label selector can be useful for sharding multiple operators in addition to add more concurrent reconcile loops with the `--max-concurrent-reconciles` flag.
+A human operator can operate multiple FDB operator in the same namespace with that approach or multiple global FDB operators.
+When using a label selector you must ensure that your FDB custom resources like the `FoundationDBCluster` has the required label.
+In addition to that you must ensure that you add the required labels in the `resourceLabels` of the `labels` section in the `FoundationDBCluster` otherwise the operator will ignore events from the created resources.
+For more information how to add additional labels to the resources managed by the operator refer to the [Resource Labeling](customization.md#resource-labeling) section.
+
 ## Next
 
 You can continue on to the [next section](scaling.md) or go back to the [table of contents](index.md).
