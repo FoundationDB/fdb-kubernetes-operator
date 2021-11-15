@@ -37,6 +37,7 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
+	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -107,16 +108,6 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (po
 	}
 
 	return &realFdbPodClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig}, nil
-}
-
-// GetCluster returns the cluster associated with a client
-func (client *realFdbPodClient) GetCluster() *fdbtypes.FoundationDBCluster {
-	return client.Cluster
-}
-
-// GetPod returns the pod associated with a client
-func (client *realFdbPodClient) GetPod() *corev1.Pod {
-	return client.Pod
 }
 
 // getListenIP gets the IP address that a pod listens on.
@@ -238,16 +229,6 @@ func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod)
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
-// GetCluster returns the cluster associated with a client
-func (client *mockFdbPodClient) GetCluster() *fdbtypes.FoundationDBCluster {
-	return client.Cluster
-}
-
-// GetPod returns the pod associated with a client
-func (client *mockFdbPodClient) GetPod() *corev1.Pod {
-	return client.Pod
-}
-
 // IsPresent checks whether a file in the sidecar is prsent.
 func (client *mockFdbPodClient) IsPresent(filename string) (bool, error) {
 	return true, nil
@@ -272,7 +253,7 @@ func (client *mockFdbPodClient) CopyFiles() error {
 // UpdateDynamicFiles checks if the files in the dynamic conf volume match the
 // expected contents, and tries to copy the latest files from the input volume
 // if they do not.
-func UpdateDynamicFiles(client podclient.FdbPodClient, filename string, contents string, updateFunc func(client podclient.FdbPodClient) error) (bool, error) {
+func UpdateDynamicFiles(client podclient.FdbPodClient, filename string, contents string, updateFunc func(client podclient.FdbPodClient) error, logger logr.Logger) (bool, error) {
 	match := false
 	var err error
 
@@ -289,11 +270,7 @@ func UpdateDynamicFiles(client podclient.FdbPodClient, filename string, contents
 		// We check this more or less instantly, maybe we should add some delay?
 		match, err = client.CheckHash(filename, contents)
 		if !match {
-			log.Info("Waiting for config update",
-				"namespace", client.GetCluster().Namespace,
-				"cluster", client.GetCluster().Name,
-				"pod", client.GetPod().Name,
-				"file", filename)
+			logger.Info("Waiting for config update", "file", filename)
 		}
 
 		return match, err
@@ -303,15 +280,11 @@ func UpdateDynamicFiles(client podclient.FdbPodClient, filename string, contents
 }
 
 // CheckDynamicFilePresent waits for a file to be present in the dynamic conf
-func CheckDynamicFilePresent(client podclient.FdbPodClient, filename string) (bool, error) {
+func CheckDynamicFilePresent(client podclient.FdbPodClient, filename string, logger logr.Logger) (bool, error) {
 	present, err := client.IsPresent(filename)
 
 	if !present {
-		log.Info("Waiting for file",
-			"namespace", client.GetCluster().Namespace,
-			"cluster", client.GetCluster().Name,
-			"pod", client.GetPod().Name,
-			"file", filename)
+		logger.Info("Waiting for config update", "file", filename)
 	}
 
 	return present, err

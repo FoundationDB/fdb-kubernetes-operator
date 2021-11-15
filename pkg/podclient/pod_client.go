@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2018-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2018-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,8 @@
 
 package podclient
 
-import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-)
-
 // FdbPodClient provides methods for working with a FoundationDB pod
 type FdbPodClient interface {
-	// GetCluster returns the cluster associated with a client
-	GetCluster() *fdbtypes.FoundationDBCluster
-
-	// GetPod returns the pod associated with a client
-	GetPod() *corev1.Pod
-
 	// IsPresent checks whether a file in the sidecar is present
 	IsPresent(filename string) (bool, error)
 

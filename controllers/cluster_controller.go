@@ -247,8 +247,10 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		return false, err
 	}
 
-	syncedFDBcluster, clusterErr := internal.UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client podclient.FdbPodClient) error { return client.CopyFiles() })
-	syncedFDBMonitor, err := internal.UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client podclient.FdbPodClient) error { return client.GenerateMonitorConf() })
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
+
+	syncedFDBcluster, clusterErr := internal.UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client podclient.FdbPodClient) error { return client.CopyFiles() }, logger)
+	syncedFDBMonitor, err := internal.UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client podclient.FdbPodClient) error { return client.GenerateMonitorConf() }, logger)
 	if !syncedFDBcluster || !syncedFDBMonitor {
 		if clusterErr != nil {
 			return false, clusterErr
@@ -263,7 +265,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	}
 
 	if !version.SupportsUsingBinariesFromMainContainer() || cluster.IsBeingUpgraded() {
-		return internal.CheckDynamicFilePresent(podClient, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
+		return internal.CheckDynamicFilePresent(podClient, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), logger)
 	}
 
 	return true, nil
