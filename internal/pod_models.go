@@ -293,6 +293,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		sidecarContainer.Image = sidecarImage
 		sidecarContainer.Args = []string{
 			"--mode", "sidecar",
+			"--output-dir", "/var/fdb/shared-binaries",
 			"--main-container-version", versionString,
 			"--copy-binary", "fdbserver",
 			"--copy-binary", "fdbcli",
