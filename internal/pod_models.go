@@ -245,6 +245,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 		for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
 			if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+				mainContainer.Command = []string{"crash-loop"}
 				mainContainer.Args = []string{"crash-loop"}
 			}
 		}

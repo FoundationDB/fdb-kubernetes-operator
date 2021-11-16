@@ -693,7 +693,7 @@ var _ = Describe("pod_models", func() {
 				It("should have a crash loop arg", func() {
 					mainContainer := spec.Containers[0]
 					Expect(mainContainer.Name).To(Equal("foundationdb"))
-					Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
+					Expect(mainContainer.Command).To(Equal([]string{"crash-loop"}))
 				})
 			})
 		})
