@@ -234,7 +234,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, instanceID)...)
+		mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -244,7 +244,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		}})
 
 		for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
-			if instanceID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+			if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
 				mainContainer.Args = []string{"crash-loop"}
 			}
 		}
@@ -257,7 +257,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
 
 		for _, crashLoopID := range cluster.Spec.Buggify.CrashLoop {
-			if pID == crashLoopID || crashLoopID == "*" {
+			if processGroupID == crashLoopID || crashLoopID == "*" {
 				args = "crash-loop"
 			}
 		}
@@ -311,12 +311,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			sidecarContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 		}
 	} else {
-		err = configureSidecarContainerForCluster(cluster, initContainer, true, instanceID, processSettings.GetAllowTagOverride())
+		err = configureSidecarContainerForCluster(cluster, initContainer, true, processGroupID, processSettings.GetAllowTagOverride())
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, instanceID, processSettings.GetAllowTagOverride())
+		err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, processGroupID, processSettings.GetAllowTagOverride())
 		if err != nil {
 			return nil, err
 		}

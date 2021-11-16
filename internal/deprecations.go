@@ -26,8 +26,6 @@ import (
 	"sort"
 	"strings"
 
-	"k8s.io/utils/pointer"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
