@@ -90,7 +90,7 @@ func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Arg
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, serversPerPod int) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -102,11 +102,21 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 		"restart_delay = 60",
 	)
 
+	var substitutions map[string]string
+	var err error
+
+	if podClient != nil {
+		substitutions, err = podClient.GetVariableSubstitutions()
+		if err != nil {
+			return "", err
+		}
+	}
+
 	// Don't instantiate any servers if the `EmptyMonitorConf` buggify option is engaged.
 	if !cluster.Spec.Buggify.EmptyMonitorConf {
 		for i := 1; i <= serversPerPod; i++ {
 			confLines = append(confLines, fmt.Sprintf("[fdbserver.%d]", i))
-			commands, err := getMonitorConfStartCommandLines(cluster, processClass, nil, i, serversPerPod)
+			commands, err := getMonitorConfStartCommandLines(cluster, processClass, substitutions, i, serversPerPod)
 			if err != nil {
 				return "", err
 			}
@@ -138,7 +148,12 @@ func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, proc
 	}
 
 	if version.SupportsUsingBinariesFromMainContainer() {
-		binaryDir = "$BINARY_DIR"
+		substitution, hasSubstitution := substitutions["BINARY_DIR"]
+		if hasSubstitution {
+			binaryDir = substitution
+		} else {
+			binaryDir = "$BINARY_DIR"
+		}
 	} else {
 		binaryDir = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
 	}

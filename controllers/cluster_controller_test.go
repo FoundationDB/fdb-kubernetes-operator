@@ -2620,7 +2620,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2648,7 +2648,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a basic storage process group with multiple storage servers per Pod", func() {
 			BeforeEach(func() {
 				cluster.Spec.StorageServersPerPod = 2
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2691,7 +2691,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2721,7 +2721,7 @@ var _ = Describe("cluster_controller", func() {
 				source := fdbtypes.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Status.HasListenIPsForAllPods = true
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2749,7 +2749,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with pods without the listen IP environment variable", func() {
 				BeforeEach(func() {
 					cluster.Status.HasListenIPsForAllPods = false
-					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
+					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2780,7 +2780,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.MainContainer.EnableTLS = true
 				cluster.Status.RequiredAddresses.NonTLS = false
 				cluster.Status.RequiredAddresses.TLS = true
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2811,7 +2811,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RequiredAddresses.NonTLS = true
 				cluster.Status.RequiredAddresses.TLS = true
 
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2842,7 +2842,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RequiredAddresses.NonTLS = true
 				cluster.Status.RequiredAddresses.TLS = true
 
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2873,7 +2873,7 @@ var _ = Describe("cluster_controller", func() {
 					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
-					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2912,7 +2912,7 @@ var _ = Describe("cluster_controller", func() {
 							"knob_test = test2",
 						}},
 					}
-					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2945,7 +2945,7 @@ var _ = Describe("cluster_controller", func() {
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2974,7 +2974,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 
 			})
@@ -3004,7 +3004,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3032,7 +3032,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with peer verification rules", func() {
 			BeforeEach(func() {
 				cluster.Spec.MainContainer.PeerVerificationRules = "S.CN=foundationdb.org"
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3061,7 +3061,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a custom log group", func() {
 			BeforeEach(func() {
 				cluster.Spec.LogGroup = "test-fdb-cluster"
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3089,7 +3089,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a data center", func() {
 			BeforeEach(func() {
 				cluster.Spec.DataCenter = "dc01"
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 

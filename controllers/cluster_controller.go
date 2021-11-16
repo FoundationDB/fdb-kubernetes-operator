@@ -272,7 +272,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		}
 		expectedConf = string(configData)
 	} else {
-		expectedConf, err = internal.GetMonitorConf(cluster, processClass, serversPerPod)
+		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
 		if err != nil {
 			return false, err
 		}

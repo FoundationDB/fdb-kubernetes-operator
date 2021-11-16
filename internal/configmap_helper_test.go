@@ -73,7 +73,7 @@ var _ = Describe("configmap_helper", func() {
 			})
 
 			It("should have the basic files", func() {
-				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
+				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(configMap.Data[ClusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
@@ -111,7 +111,7 @@ var _ = Describe("configmap_helper", func() {
 			})
 
 			It("includes the data for the split monitor conf", func() {
-				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
+				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 			})
@@ -145,11 +145,11 @@ var _ = Describe("configmap_helper", func() {
 					cluster.Status.ImageTypes = []string{"split"}
 				})
 				It("includes the data for both configurations", func() {
-					expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
+					expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 
-					expectedConf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, 2)
+					expectedConf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 2)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-storage-density-2"]).To(Equal(expectedConf))
 				})

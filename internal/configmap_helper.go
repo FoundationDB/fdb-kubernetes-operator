@@ -209,7 +209,7 @@ func setMonitorConfForFilename(cluster *v1beta1.FoundationDBCluster, data map[st
 	if connectionString == "" {
 		data[filename] = ""
 	} else {
-		conf, err := GetMonitorConf(cluster, processClass, serversPerPod)
+		conf, err := GetMonitorConf(cluster, processClass, nil, serversPerPod)
 		if err != nil {
 			return err
 		}
