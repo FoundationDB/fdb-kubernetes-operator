@@ -8109,6 +8109,8 @@ spec:
                   type: boolean
                 useExplicitListenAddress:
                   type: boolean
+                useUnifiedImage:
+                  type: boolean
                 version:
                   pattern: (\d+)\.(\d+)\.(\d+)
                   type: string

@@ -282,6 +282,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. | *bool | false |
+| useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 

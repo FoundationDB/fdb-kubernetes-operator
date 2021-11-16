@@ -355,6 +355,10 @@ type FoundationDBClusterSpec struct {
 	// UseExplicitListenAddress determines if we should add a listen address
 	// that is separate from the public address.
 	UseExplicitListenAddress *bool `json:"useExplicitListenAddress,omitempty"`
+
+	// UseUnifiedImage determines if we should use the unified image rather than
+	// separate images for the main container and the sidecar container.
+	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster

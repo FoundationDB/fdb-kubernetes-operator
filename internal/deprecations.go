@@ -33,6 +33,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 // DeprecationOptions controls how deprecations and changes to defaults
@@ -51,6 +52,11 @@ type DeprecationOptions struct {
 // future-proof form, by applying any implicit defaults and moving configuration
 // from deprecated fields into fully-supported fields.
 func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options DeprecationOptions) error {
+	useUnifiedImage := false
+	if cluster.Spec.UseUnifiedImage != nil {
+		useUnifiedImage = *cluster.Spec.UseUnifiedImage
+	}
+
 	if cluster.Spec.PodTemplate != nil {
 		ensurePodTemplatePresent(&cluster.Spec)
 		generalSettings := cluster.Spec.Processes[fdbtypes.ProcessClassGeneral]
@@ -278,8 +284,16 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 			cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = pointer.Int(1800)
 		}
 
-		cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})
-		cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
+		if cluster.Spec.UseUnifiedImage == nil {
+			cluster.Spec.UseUnifiedImage = pointer.Bool(useUnifiedImage)
+		}
+
+		if *cluster.Spec.UseUnifiedImage {
+			cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes"})
+		} else {
+			cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})
+			cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
+		}
 	}
 
 	// Apply changes between old and new defaults.
@@ -320,7 +334,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 			}
 		}
 
-		template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
+		if !useUnifiedImage {
+			template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
+		}
 		template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
 	})
 

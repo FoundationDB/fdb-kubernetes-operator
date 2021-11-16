@@ -42,10 +42,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+type FDBImageType string
+
 const (
 	// MockUnreachableAnnotation defines if a Pod should be unreachable. This annotation
 	// is currently only used for testing cases.
 	MockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
+
+	// FDBImageTypeUnified indicates that a pod is using a unified image for the
+	// main container and sidecar container.
+	FDBImageTypeUnified FDBImageType = "unified"
+
+	// FDBImageTypeSplit indicates that a pod is using a different image for the
+	// main container and sidecar container.
+	FDBImageTypeSplit FDBImageType = "split"
 )
 
 // realPodClient provides a client for use in real environments.
