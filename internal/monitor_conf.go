@@ -27,12 +27,13 @@ import (
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"k8s.io/utils/pointer"
 )
 
 // GetStartCommand builds the expected start command for a process group.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
 	imageType := GetDesiredImageType(cluster)
 	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType)
 	if err != nil {
@@ -90,7 +91,7 @@ func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Arg
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, serversPerPod int) (string, error) {
+func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}

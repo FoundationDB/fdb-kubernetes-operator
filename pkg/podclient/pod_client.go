@@ -22,18 +22,11 @@ package podclient
 
 // FdbPodClient provides methods for working with a FoundationDB pod
 type FdbPodClient interface {
-	// IsPresent checks whether a file in the sidecar is present
-	IsPresent(filename string) (bool, error)
+	// IsPresent checks whether a file is present.
+	IsPresent(path string) (bool, error)
 
-	// CheckHash checks whether a file in the sidecar has the expected contents.
-	CheckHash(filename string, contents string) (bool, error)
-
-	// GenerateMonitorConf updates the monitor conf file for a pod
-	GenerateMonitorConf() error
-
-	// CopyFiles copies the files from the config map to the shared dynamic conf
-	// volume
-	CopyFiles() error
+	// UpdateFile checks if a file is up-to-date and tries to update it.
+	UpdateFile(name string, contents string) (bool, error)
 
 	// GetVariableSubstitutions gets the current keys and values that this
 	// process group will substitute into its monitor conf.

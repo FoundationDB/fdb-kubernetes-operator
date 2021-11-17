@@ -37,8 +37,9 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
-	"github.com/docker/docker/daemon/logger"
+	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -68,25 +69,6 @@ const (
 	EnvironmentAnnotation = "foundationdb.org/launcher-environment"
 )
 
-// FdbPodClient provides methods for working with a FoundationDB pod.
-type FdbPodClient interface {
-	// GetCluster returns the cluster associated with a client
-	GetCluster() *fdbtypes.FoundationDBCluster
-
-	// GetPod returns the pod associated with a client
-	GetPod() *corev1.Pod
-
-	// IsPresent checks whether a file is present.
-	IsPresent(path string) (bool, error)
-
-	// UpdateFile checks if a file is up-to-date and tries to update it.
-	UpdateFile(name string, contents string) (bool, error)
-
-	// GetVariableSubstitutions gets the current keys and values that this
-	// process group will substitute into its monitor conf.
-	GetVariableSubstitutions() (map[string]string, error)
-}
-
 // realPodSidecarClient provides a client for use in real environments, using
 // the Kubernetes sidecar.
 type realFdbPodSidecarClient struct {
@@ -102,6 +84,9 @@ type realFdbPodSidecarClient struct {
 	// tlsConfig contains the TLS configuration for the connection to the
 	// sidecar.
 	tlsConfig *tls.Config
+
+	// logger is used to add common fields to log messages.
+	logger logr.Logger
 }
 
 // realPodSidecarClient provides a client for use in real environments, using
@@ -112,12 +97,16 @@ type realFdbPodAnnotationClient struct {
 
 	// Pod is the pod we are connecting to.
 	Pod *corev1.Pod
+
+	// logger is used to add common fields to log messages.
+	logger logr.Logger
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (FdbPodClient, error) {
+func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
 	if GetImageType(pod) == FDBImageTypeUnified {
-		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod}, nil
+		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: logger}, nil
 	}
 
 	if pod.Status.PodIP == "" {
@@ -161,7 +150,7 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (Fd
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig}, nil
+	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: logger}, nil
 }
 
 // GetCluster returns the cluster associated with a client
@@ -236,12 +225,7 @@ func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (
 func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) {
 	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
-		log.Info("Waiting for file",
-			"namespace", client.GetCluster().Namespace,
-			"cluster", client.GetCluster().Name,
-			"pod", client.GetPod().Name,
-			"file", filename)
-
+		client.logger.Info("Waiting for file", "file", filename)
 		return false, err
 	}
 
@@ -283,7 +267,7 @@ func (client *realFdbPodSidecarClient) GetVariableSubstitutions() (map[string]st
 	substitutions := map[string]string{}
 	err = json.Unmarshal([]byte(contents), &substitutions)
 	if err != nil {
-		log.Error(err, "Error deserializing pod substitutions", "responseBody", contents)
+		client.logger.Error(err, "Error deserializing pod substitutions", "responseBody", contents)
 	}
 	return substitutions, err
 }
@@ -316,7 +300,7 @@ func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, conte
 		// We check this more or less instantly, maybe we should add some delay?
 		match, err = client.checkHash(filename, contents)
 		if !match {
-			logger.Info("Waiting for config update", "file", filename)
+			client.logger.Info("Waiting for config update", "file", filename)
 		}
 
 		return match, err
@@ -340,11 +324,7 @@ func (client *realFdbPodAnnotationClient) GetPod() *corev1.Pod {
 func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string]string, error) {
 	environmentData, present := client.Pod.Annotations[EnvironmentAnnotation]
 	if !present {
-		log.Info("Waiting for Kubernetes monitor to update annotations",
-			"namespace", client.GetCluster().Namespace,
-			"cluster", client.GetCluster().Name,
-			"pod", client.GetPod().Name,
-			"annotation", EnvironmentAnnotation)
+		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", EnvironmentAnnotation)
 		return nil, nil
 	}
 	environment := make(map[string]string)
@@ -366,30 +346,23 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 		desiredConfiguration := monitorapi.ProcessConfiguration{}
 		err := json.Unmarshal([]byte(contents), &desiredConfiguration)
 		if err != nil {
-			log.Error(err, "Error parsing desired process configuration", "input", contents)
+			client.logger.Error(err, "Error parsing desired process configuration", "input", contents)
 			return false, err
 		}
 		currentConfiguration := monitorapi.ProcessConfiguration{}
 		currentData, present := client.Pod.Annotations[CurrentConfigurationAnnotation]
 		if !present {
-			log.Info("Waiting for Kubernetes monitor to update annotations",
-				"namespace", client.GetCluster().Namespace,
-				"cluster", client.GetCluster().Name,
-				"pod", client.GetPod().Name,
-				"annotation", currentConfiguration)
+			client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", currentConfiguration)
 			return false, nil
 		}
 		err = json.Unmarshal([]byte(currentData), &currentConfiguration)
 		if err != nil {
-			log.Error(err, "Error parsing current process configuration", "input", currentData)
+			client.logger.Error(err, "Error parsing current process configuration", "input", currentData)
 			return false, err
 		}
 		match := reflect.DeepEqual(currentConfiguration, desiredConfiguration)
 		if !match {
-			log.Info("Waiting for Kubernetes monitor config update",
-				"namespace", client.GetCluster().Namespace,
-				"cluster", client.GetCluster().Name,
-				"pod", client.GetPod().Name,
+			client.logger.Info("Waiting for Kubernetes monitor config update",
 				"desired", desiredConfiguration, "current", currentConfiguration)
 		}
 		return match, nil
@@ -411,7 +384,7 @@ type mockFdbPodClient struct {
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
-func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (FdbPodClient, error) {
+func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
