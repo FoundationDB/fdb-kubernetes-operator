@@ -271,6 +271,26 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		When("converting a cluster to use unified images", func() {
+			BeforeEach(func() {
+				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should update the pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+
+				for _, pod := range pods.Items {
+					Expect(pod.Spec.Containers[0].Name).To(Equal("foundationdb"))
+					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbtypes.Versions.Default)))
+					Expect(pod.Spec.Containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(pod.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbtypes.Versions.Default)))
+				}
+			})
+		})
+
 		Context("when buggifying a pod to make it crash loop", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}

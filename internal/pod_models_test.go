@@ -521,7 +521,7 @@ var _ = Describe("pod_models", func() {
 				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
-					"--mode", "--sidecar",
+					"--mode", "sidecar",
 					"--main-container-version", "6.2.20",
 					"--copy-binary", "fdbserver",
 					"--copy-binary", "fdbcli",
