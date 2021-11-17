@@ -23,6 +23,8 @@ package controllers
 import (
 	ctx "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -106,14 +108,27 @@ func (r *FoundationDBRestoreReconciler) adminClientForRestore(context ctx.Contex
 }
 
 // SetupWithManager prepares a reconciler for use.
-func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int) error {
+func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector) error {
+	labelSelectorPredicate, err := predicate.LabelSelectorPredicate(selector)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles},
 		).
 		For(&fdbtypes.FoundationDBRestore{}).
-		// Only react on generation changes or annotation changes
-		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
+		// Only react on generation changes or annotation changes and only watch
+		// resources with the provided label selector.
+		WithEventFilter(
+			predicate.And(
+				labelSelectorPredicate,
+				predicate.Or(
+					predicate.GenerationChangedPredicate{},
+					predicate.AnnotationChangedPredicate{},
+				),
+			)).
 		Complete(r)
 }
 
