@@ -70,6 +70,10 @@ github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk5
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
 github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c h1:+NyJPOJEmyYbbN8YyfGWk2XJMMLyrBJI8UY5s8dWMPI=
 github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c/go.mod h1:OMVSB21p9+xQUIqlGizHPZfjK+SHws1ht+ZytVDoz9U=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20211117184536-874c4184599c h1:wVskbvTCl3GoACjbKbaBiahTYKP1PeIBpGx54i8DR14=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20211117184536-874c4184599c/go.mod h1:LgBm9afX7nbQnDQa6bOXluKRnXypEDni36EJExtih80=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20211117195619-01c37a053a62 h1:qZCIRm+CYoFtyiWPchNBaKELEvb83XZ5FuHM0SGEKyE=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20211117195619-01c37a053a62/go.mod h1:LgBm9afX7nbQnDQa6bOXluKRnXypEDni36EJExtih80=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e h1:QEF07wC0T1rKkctt1RINW/+RMTVmiwxETico2l3gxJA=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
@@ -92,8 +96,6 @@ github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c h1:+0HFd5KSZ/mm3
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/blang/semver v3.5.1+incompatible h1:cQNTCjp13qL8KC3Nbxr/y2Bqb63oX6wdnnjpJbkM4JQ=
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
-github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20211112195838-2f2e5219daeb h1:uHILccVd6jwTyACY6P3GsXLQEfWCZSMdR37LipV8xiY=
-github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20211112195838-2f2e5219daeb/go.mod h1:LgBm9afX7nbQnDQa6bOXluKRnXypEDni36EJExtih80=
 github.com/census-instrumentation/opencensus-proto v0.2.1 h1:glEXhBS5PSLLv4IXzLA5yPRVX4bilULVyxxbrfOtDAk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
