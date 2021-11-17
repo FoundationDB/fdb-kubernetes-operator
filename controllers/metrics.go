@@ -93,6 +93,20 @@ var (
 		append(descClusterDefaultLabels, "process_class", "condition"),
 		nil,
 	)
+
+	descProcessGroupMarkedRemoval = prometheus.NewDesc(
+		"fdb_operator_process_group_marked_removal",
+		"the count of Fdb process groups that are marked for removal.",
+		append(descClusterDefaultLabels, "process_class"),
+		nil,
+	)
+
+	descProcessGroupMarkedExcluded = prometheus.NewDesc(
+		"fdb_operator_process_group_marked_excluded",
+		"the count of Fdb process groups that are marked as excluded.",
+		append(descClusterDefaultLabels, "process_class"),
+		nil,
+	)
 )
 
 type fdbClusterCollector struct {
@@ -143,19 +157,36 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	addGauge(descProcessGroupsToRemoveWithoutExclusion, float64(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)))
 
 	// Calculate the process group metrics
-	for pclass, conditionMap := range getProcessGroupMetrics(cluster) {
+	conditionMap, removals, exclusions := getProcessGroupMetrics(cluster)
+
+	for pclass, conditionMap := range conditionMap {
 		for condition, count := range conditionMap {
 			addGauge(descProcessGroupStatus, float64(count), string(pclass), string(condition))
 		}
+
+		addGauge(descProcessGroupMarkedRemoval, float64(removals[pclass]), string(pclass))
+		addGauge(descProcessGroupMarkedExcluded, float64(exclusions[pclass]), string(pclass))
 	}
 }
 
-func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) map[fdbtypes.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int {
+func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) (map[fdbtypes.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int, map[fdbtypes.ProcessClass]int, map[fdbtypes.ProcessClass]int) {
 	metricMap := map[fdbtypes.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int{}
+	removals := map[fdbtypes.ProcessClass]int{}
+	exclusions := map[fdbtypes.ProcessClass]int{}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if _, exits := metricMap[processGroup.ProcessClass]; !exits {
 			metricMap[processGroup.ProcessClass] = map[fdbtypes.ProcessGroupConditionType]int{}
+			removals[processGroup.ProcessClass] = 0
+			exclusions[processGroup.ProcessClass] = 0
+		}
+
+		if processGroup.Remove {
+			removals[processGroup.ProcessClass]++
+		}
+
+		if processGroup.Excluded {
+			exclusions[processGroup.ProcessClass]++
 		}
 
 		if len(processGroup.ProcessGroupConditions) == 0 {
@@ -180,7 +211,7 @@ func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) map[fdbtypes.
 		}
 	}
 
-	return metricMap
+	return metricMap, removals, exclusions
 }
 
 // InitCustomMetrics initializes the metrics collectors for the operator.
