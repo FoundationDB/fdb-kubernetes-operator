@@ -345,7 +345,7 @@ func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string
 			"cluster", client.GetCluster().Name,
 			"pod", client.GetPod().Name,
 			"annotation", EnvironmentAnnotation)
-		return nil, fdbPodAnnotationErrorMissingAnnotations
+		return nil, nil
 	}
 	environment := make(map[string]string)
 	err := json.Unmarshal([]byte(environmentData), &environment)
@@ -377,7 +377,7 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 				"cluster", client.GetCluster().Name,
 				"pod", client.GetPod().Name,
 				"annotation", currentConfiguration)
-			return false, fdbPodAnnotationErrorMissingAnnotations
+			return false, nil
 		}
 		err = json.Unmarshal([]byte(currentData), &currentConfiguration)
 		if err != nil {
@@ -458,6 +458,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
 		}
 	}
+	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
 
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
@@ -536,22 +537,4 @@ func GetDesiredImageType(cluster *fdbtypes.FoundationDBCluster) FDBImageType {
 		return FDBImageTypeUnified
 	}
 	return FDBImageTypeSplit
-}
-
-// fdbPodAnnotationError Describes custom errors returned when getting info from
-// pod annotations.
-type fdbPodAnnotationError string
-
-const (
-	// fdbPodAnnotationErrorMissingAnnotations is returned when a pod is missing
-	// a required annotation.
-	fdbPodAnnotationErrorMissingAnnotations fdbPodAnnotationError = "MissingAnnotations"
-)
-
-// Error gets a description of the error.
-func (err fdbPodAnnotationError) Error() string {
-	if err == fdbPodAnnotationErrorMissingAnnotations {
-		return "Pod does not have required annotation"
-	}
-	return string(err)
 }

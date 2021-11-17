@@ -260,8 +260,9 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 
 	var expectedConf string
 
-	if internal.GetImageType(pod) == internal.FDBImageTypeUnified {
-		config, err := internal.GetUnifiedMonitorConf(cluster, processClass, serversPerPod)
+	imageType := internal.GetImageType(pod)
+	if imageType == internal.FDBImageTypeUnified {
+		config, err := internal.GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, imageType)
 		if err != nil {
 			return false, err
 		}
@@ -271,7 +272,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		}
 		expectedConf = string(configData)
 	} else {
-		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
+		expectedConf, err = internal.GetMonitorConf(cluster, processClass, serversPerPod)
 		if err != nil {
 			return false, err
 		}
@@ -437,6 +438,10 @@ func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client podcl
 	substitutions, err := client.GetVariableSubstitutions()
 	if err != nil {
 		return localityInfo{}, err
+	}
+
+	if substitutions == nil {
+		return localityInfo{}, nil
 	}
 
 	// This locality information is only used during the initial cluster file generation.

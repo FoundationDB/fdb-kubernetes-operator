@@ -105,7 +105,9 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 		if !synced {
 			allSynced = false
 			hasUpdate = true
-			curLogger.Error(err, "Update Pod ConfigMap annotation")
+			if err != nil {
+				curLogger.Error(err, "Update Pod ConfigMap annotation")
+			}
 			if internal.IsNetworkError(err) {
 				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {

@@ -108,6 +108,12 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 				return &requeue{curError: err}
 			}
 
+			if substitutions == nil {
+				logger.Info("Skipping pod due to missing locality information",
+					"processGroupID", processGroup.ProcessGroupID)
+				continue
+			}
+
 			zone := substitutions["FDB_ZONE_ID"]
 			if r.InSimulation {
 				zone = "simulation"

@@ -215,6 +215,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	}
 
 	if useUnifiedImages {
+
 		mainContainer.Args = []string{
 			"--input-dir", "/var/dynamic-conf",
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -241,6 +242,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
 		}})
+
+		for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
+			if instanceID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+				mainContainer.Args = []string{"crash-loop"}
+			}
+		}
 	} else {
 		mainContainer.Command = []string{"sh", "-c"}
 

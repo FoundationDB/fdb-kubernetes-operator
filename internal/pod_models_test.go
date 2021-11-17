@@ -681,6 +681,20 @@ var _ = Describe("pod_models", func() {
 					}))
 				})
 			})
+
+			Context("with an instance that is crash looping", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+					spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should have a crash loop arg", func() {
+					mainContainer := spec.Containers[0]
+					Expect(mainContainer.Name).To(Equal("foundationdb"))
+					Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
+				})
+			})
 		})
 
 		Context("with a pod IP family defined", func() {

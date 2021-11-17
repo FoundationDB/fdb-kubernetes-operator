@@ -74,7 +74,7 @@ func (g generateInitialClusterFile) reconcile(r *FoundationDBClusterReconciler, 
 		}
 	}
 
-	processLocality := make([]localityInfo, len(pods))
+	processLocality := make([]localityInfo, 0, len(pods))
 	for indexOfProcess := range pods {
 		client, message := r.getPodClient(cluster, pods[indexOfProcess])
 		if client == nil {
@@ -84,7 +84,11 @@ func (g generateInitialClusterFile) reconcile(r *FoundationDBClusterReconciler, 
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		processLocality[indexOfProcess] = locality
+		if locality.ID == "" {
+			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "podName", pods[indexOfProcess].Name)
+			continue
+		}
+		processLocality = append(processLocality, locality)
 	}
 
 	coordinators, err := chooseDistributedProcesses(cluster, processLocality, count, processSelectionConstraint{})

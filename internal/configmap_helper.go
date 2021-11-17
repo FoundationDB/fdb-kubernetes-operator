@@ -81,7 +81,7 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
 			if processClass == v1beta1.ProcessClassStorage {
 				for _, serversPerPod := range storageServersPerDisk {
-					config, err := GetUnifiedMonitorConf(cluster, processClass, serversPerPod)
+					config, err := GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, FDBImageTypeUnified)
 					if err != nil {
 						return nil, err
 					}
@@ -93,7 +93,7 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 					data[filename] = string(jsonData)
 				}
 			} else {
-				config, err := GetUnifiedMonitorConf(cluster, processClass, 1)
+				config, err := GetMonitorProcessConfiguration(cluster, processClass, 1, FDBImageTypeUnified)
 				if err != nil {
 					return nil, err
 				}
@@ -209,7 +209,7 @@ func setMonitorConfForFilename(cluster *v1beta1.FoundationDBCluster, data map[st
 	if connectionString == "" {
 		data[filename] = ""
 	} else {
-		conf, err := GetMonitorConf(cluster, processClass, nil, serversPerPod)
+		conf, err := GetMonitorConf(cluster, processClass, serversPerPod)
 		if err != nil {
 			return err
 		}
