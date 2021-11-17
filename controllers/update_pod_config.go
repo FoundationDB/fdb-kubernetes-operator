@@ -88,7 +88,9 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 			continue
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, serverPerPod)
+		imageType := internal.GetImageType(pod)
+
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, imageType, serverPerPod)
 		if err != nil {
 			curLogger.Error(err, "Error when receiving dynamic ConfigMap hash")
 			errs = append(errs, err)

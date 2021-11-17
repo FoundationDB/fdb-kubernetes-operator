@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("pod_models", func() {
@@ -52,7 +53,7 @@ var _ = Describe("pod_models", func() {
 			It("generates conf with an no processes", func() {
 				Expect(cluster).NotTo(BeNil())
 				cluster.Status.ConnectionString = ""
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.ServerCount).To(Equal(0))
 				Expect(config.Version).To(Equal(fdbtypes.Versions.Default.String()))
@@ -61,7 +62,7 @@ var _ = Describe("pod_models", func() {
 
 		When("running a storage instance", func() {
 			It("generates the conf", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Version).To(Equal(fdbtypes.Versions.Default.String()))
 				Expect(config.BinaryPath).To(BeEmpty())
@@ -79,10 +80,7 @@ var _ = Describe("pod_models", func() {
 				Expect(config.Arguments[3]).To(Equal(KubernetesMonitorArgument{Value: "--class=storage"}))
 				Expect(config.Arguments[4]).To(Equal(KubernetesMonitorArgument{Value: "--logdir=/var/log/fdb-trace-logs"}))
 				Expect(config.Arguments[5]).To(Equal(KubernetesMonitorArgument{Value: "--loggroup=" + cluster.Name}))
-				Expect(config.Arguments[6]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-					{Value: "--datadir=/var/fdb/data/"},
-					{ArgumentType: ProcessNumberArgumentType},
-				}}))
+				Expect(config.Arguments[6]).To(Equal(KubernetesMonitorArgument{Value: "--datadir=/var/fdb/data"}))
 				Expect(config.Arguments[7]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
 					{Value: "--locality_instance_id="},
 					{ArgumentType: EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
@@ -98,14 +96,29 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		When("running multiple processes", func() {
+			It("includes the process number in the data directory", func() {
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 2)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
+				Expect(config.Arguments[6]).To(Equal(KubernetesMonitorArgument{
+					ArgumentType: ConcatenateArgumentType,
+					Values: []KubernetesMonitorArgument{
+						{Value: "--datadir=/var/fdb/data/"},
+						{ArgumentType: ProcessNumberArgumentType},
+					},
+				}))
+			})
+		})
+
 		When("the public IP comes from the pod", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
 			})
 
-			It("does not havce a listen address", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+			It("does not have a listen address", func() {
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
@@ -125,7 +138,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("adds a separate listen address", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
@@ -148,7 +161,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("does not havce a listen address", func() {
-					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 					Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
@@ -169,7 +182,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("includes the TLS flag in the address", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
@@ -190,7 +203,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("includes both addresses", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
@@ -215,7 +228,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("includes both addresses", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
@@ -241,7 +254,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("includes the custom parameters", func() {
-					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--knob_disable_posix_kernel_aio=1"}))
@@ -264,7 +277,7 @@ var _ = Describe("pod_models", func() {
 				})
 
 				It("includes the custom parameters for that class", func() {
-					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--knob_test=test1"}))
@@ -281,7 +294,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("uses the variable as the zone ID", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 
@@ -298,7 +311,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("includes the verification rules", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--tls_verify_peers=S.CN=foundationdb.org"}))
@@ -311,7 +324,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("includes the log group", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[5]).To(Equal(KubernetesMonitorArgument{Value: "--loggroup=test-fdb-cluster"}))
@@ -324,7 +337,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("adds an argument for the data center", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--locality_dcid=dc01"}))
@@ -337,7 +350,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			It("adds an argument for the data hall", func() {
-				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage)
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--locality_data_hall=dh01"}))
@@ -360,6 +373,84 @@ var _ = Describe("pod_models", func() {
 
 		Context("for a basic storage process", func() {
 			It("should substitute the variables in the start command", func() {
+				podClient, err := NewMockFdbPodClient(cluster, pod)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(command).To(Equal(strings.Join([]string{
+					"/usr/bin/fdbserver",
+					"--class=storage",
+					"--cluster_file=/var/fdb/data/fdb.cluster",
+					"--datadir=/var/fdb/data",
+					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					"--logdir=/var/log/fdb-trace-logs",
+					"--loggroup=" + cluster.Name,
+					fmt.Sprintf("--public_address=%s:4501", address),
+					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+				}, " ")))
+			})
+		})
+
+		When("using the unified image", func() {
+			BeforeEach(func() {
+				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
+			})
+
+			It("should generate the unsorted command-line", func() {
+				podClient, err := NewMockFdbPodClient(cluster, pod)
+				Expect(err).NotTo(HaveOccurred())
+				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(command).To(Equal(strings.Join([]string{
+					"/usr/bin/fdbserver",
+					"--cluster_file=/var/fdb/data/fdb.cluster",
+					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					fmt.Sprintf("--public_address=%s:4501", address),
+					"--class=storage",
+					"--logdir=/var/log/fdb-trace-logs",
+					"--loggroup=" + cluster.Name,
+					"--datadir=/var/fdb/data",
+					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+				}, " ")))
+			})
+
+			When("the pod has multiple processes", func() {
+				It("should fill ih the process number", func() {
+
+					podClient, err := NewMockFdbPodClient(cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommand(cluster, processClass, podClient, 2, 3)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+						fmt.Sprintf("--public_address=%s:4503", address),
+						"--class=storage",
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						"--datadir=/var/fdb/data/2",
+						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					}, " ")))
+				})
+			})
+		})
+
+		When("using the split image", func() {
+			BeforeEach(func() {
+				cluster.Spec.UseUnifiedImage = pointer.Bool(false)
+			})
+
+			It("should generate the sorted command-line", func() {
 				podClient, err := NewMockFdbPodClient(cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
 				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)

@@ -1,0 +1,10 @@
+- op: add
+  path: "/spec/useUnifiedImage"
+  value: true
+- op: add
+  path: "/spec/mainContainer"
+  value:
+    imageConfigs:
+      - tagSuffix: "-local"
+- op: remove
+  path: "/spec/processes/general/podTemplate/spec/initContainers/0"

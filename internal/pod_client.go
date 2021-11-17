@@ -40,6 +40,7 @@ import (
 	"github.com/docker/docker/daemon/logger"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 )
 
 type FDBImageType string
@@ -523,6 +524,15 @@ func GetImageType(pod *corev1.Pod) FDBImageType {
 				return FDBImageType(envVar.Value)
 			}
 		}
+	}
+	return FDBImageTypeSplit
+}
+
+// GetDesiredImageType determines whether a cluster is configured to use the
+// unified or the split image.
+func GetDesiredImageType(cluster *fdbtypes.FoundationDBCluster) FDBImageType {
+	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
+		return FDBImageTypeUnified
 	}
 	return FDBImageTypeSplit
 }

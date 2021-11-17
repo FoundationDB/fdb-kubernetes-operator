@@ -22,17 +22,40 @@ package internal
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
+	"k8s.io/utils/pointer"
 )
 
 // GetStartCommand builds the expected start command for a process group.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
-	lines, err := getStartCommandLines(cluster, processClass, podClient, processNumber, processCount)
+func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) (string, error) {
+	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
+		config, err := GetUnifiedMonitorConf(cluster, processClass, processCount)
+		if err != nil {
+			return "", err
+		}
+
+		substitutions, err := podClient.GetVariableSubstitutions()
+		if err != nil {
+			return "", err
+		}
+
+		config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions["BINARY_DIR"])
+
+		arguments, err := config.generateArguments(processNumber, substitutions)
+		if err != nil {
+			return "", err
+		}
+
+		return strings.Join(arguments, " "), nil
+	}
+	lines, err := getMonitorConfStartCommandLines(cluster, processClass, podClient, processNumber, processCount)
 	if err != nil {
 		return "", err
 	}
@@ -71,7 +94,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 	if !cluster.Spec.Buggify.EmptyMonitorConf {
 		for i := 1; i <= serversPerPod; i++ {
 			confLines = append(confLines, fmt.Sprintf("[fdbserver.%d]", i))
-			commands, err := getStartCommandLines(cluster, processClass, podClient, i, serversPerPod)
+			commands, err := getMonitorConfStartCommandLines(cluster, processClass, podClient, i, serversPerPod)
 			if err != nil {
 				return "", err
 			}
@@ -82,7 +105,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 	return strings.Join(confLines, "\n"), nil
 }
 
-func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) ([]string, error) {
+func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient FdbPodClient, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	var substitutions map[string]string
@@ -173,7 +196,7 @@ func getStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fd
 }
 
 // GetUnifiedMonitorConf builds the monitor conf template for the unifed image.
-func GetUnifiedMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (KubernetesMonitorProcessConfiguration, error) {
+func GetUnifiedMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processCount int) (KubernetesMonitorProcessConfiguration, error) {
 	configuration := KubernetesMonitorProcessConfiguration{
 		ServerCount: 1,
 		Version:     cluster.Spec.Version,
@@ -206,10 +229,20 @@ func GetUnifiedMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass f
 		KubernetesMonitorArgument{Value: fmt.Sprintf("--class=%s", processClass)},
 		KubernetesMonitorArgument{Value: "--logdir=/var/log/fdb-trace-logs"},
 		KubernetesMonitorArgument{Value: fmt.Sprintf("--loggroup=%s", logGroup)},
-		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
-			{Value: "--datadir=/var/fdb/data/"},
-			{ArgumentType: ProcessNumberArgumentType},
-		}},
+	)
+
+	if processCount > 1 {
+		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{
+			ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				{Value: "--datadir=/var/fdb/data/"},
+				{ArgumentType: ProcessNumberArgumentType},
+			},
+		})
+	} else {
+		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{Value: "--datadir=/var/fdb/data"})
+	}
+
+	configuration.Arguments = append(configuration.Arguments,
 		KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
 			{Value: "--locality_instance_id="},
 			{ArgumentType: EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
@@ -253,16 +286,6 @@ func GetUnifiedMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass f
 		configuration.Arguments = append(configuration.Arguments, KubernetesMonitorArgument{Value: fmt.Sprintf("--locality_data_hall=%s", cluster.Spec.DataHall)})
 	}
 
-	/*
-		confLines = append(confLines,
-
-		for index := range confLines {
-			for key, value := range substitutions {
-				confLines[index] = strings.Replace(confLines[index], "$"+key, value, -1)
-			}
-		}
-		return confLines, nil
-	*/
 	return configuration, nil
 }
 
@@ -324,6 +347,66 @@ const (
 	// the number of the process in the process list.
 	ProcessNumberArgumentType = "ProcessNumber"
 )
+
+// generateArguments intreprets the arguments in the process configuration and
+// generates a command invocation.
+func (configuration *KubernetesMonitorProcessConfiguration) generateArguments(processNumber int, env map[string]string) ([]string, error) {
+	results := make([]string, 0, len(configuration.Arguments)+1)
+	if configuration.BinaryPath != "" {
+		results = append(results, configuration.BinaryPath)
+	}
+	for _, argument := range configuration.Arguments {
+		result, err := argument.generateArgument(processNumber, env)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+// generateArgument processes an argument and generates its string
+// representation.
+func (argument KubernetesMonitorArgument) generateArgument(processNumber int, env map[string]string) (string, error) {
+	switch argument.ArgumentType {
+	case "":
+		fallthrough
+	case LiteralArgumentType:
+		return argument.Value, nil
+	case ConcatenateArgumentType:
+		concatenated := ""
+		for _, childArgument := range argument.Values {
+			childValue, err := childArgument.generateArgument(processNumber, env)
+			if err != nil {
+				return "", err
+			}
+			concatenated += childValue
+		}
+		return concatenated, nil
+	case ProcessNumberArgumentType:
+		number := processNumber
+		if argument.Multiplier != 0 {
+			number = number * argument.Multiplier
+		}
+		number = number + argument.Offset
+		return strconv.Itoa(number), nil
+	case EnvironmentArgumentType:
+		var value string
+		var present bool
+		if env != nil {
+			value, present = env[argument.Source]
+		}
+		if !present {
+			value, present = os.LookupEnv(argument.Source)
+		}
+		if !present {
+			return "", fmt.Errorf("Missing environment variable %s", argument.Source)
+		}
+		return value, nil
+	default:
+		return "", fmt.Errorf("Unsupported argument type %s", argument.ArgumentType)
+	}
+}
 
 // buildIPArgument builds an argument that takes an IP address from an environment variable
 func buildIPArgument(parameter string, environmentVariable string, sampleAddresses []fdbtypes.ProcessAddress) []KubernetesMonitorArgument {

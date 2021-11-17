@@ -328,13 +328,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
 	}
 
-	monitorConfKey := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
-	if useUnifiedImages {
-		monitorConfKey += "-json"
-	}
-	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-		monitorConfKey = fmt.Sprintf("%s-density-%d", monitorConfKey, cluster.GetStorageServersPerPod())
-	}
+	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetStorageServersPerPod())
 
 	var monitorConfFile string
 	if useUnifiedImages {

@@ -9061,6 +9061,10 @@ spec:
                     healthy:
                       type: boolean
                   type: object
+                imageTypes:
+                  items:
+                    type: string
+                  type: array
                 incorrectPods:
                   items:
                     type: string

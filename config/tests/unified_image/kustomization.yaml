@@ -1,0 +1,11 @@
+# This file provides a test cluster with the unified image for the main
+# container and the sidecar.
+bases:
+- "../base"
+patchesJson6902:
+- path: images.yaml
+  target:
+    group: apps.foundationdb.org
+    version: v1beta1
+    kind: FoundationDBCluster
+    name: test-cluster

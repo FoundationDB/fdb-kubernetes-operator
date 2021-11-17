@@ -775,6 +775,11 @@ func (in *FoundationDBClusterStatus) DeepCopyInto(out *FoundationDBClusterStatus
 		*out = make([]int, len(*in))
 		copy(*out, *in)
 	}
+	if in.ImageTypes != nil {
+		in, out := &in.ImageTypes, &out.ImageTypes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.ProcessGroups != nil {
 		in, out := &in.ProcessGroups, &out.ProcessGroups
 		*out = make([]*ProcessGroupStatus, len(*in))

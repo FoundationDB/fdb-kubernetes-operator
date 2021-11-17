@@ -2800,6 +2800,54 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
+	Describe("filter by condition", func() {
+		var status []*ProcessGroupStatus
+		BeforeEach(func() {
+			status = nil
+			status = append(status, &ProcessGroupStatus{
+				ProcessGroupID: "storage-1",
+			})
+			status = append(status, &ProcessGroupStatus{
+				ProcessGroupID:         "storage-2",
+				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectCommandLine)},
+			})
+			status = append(status, &ProcessGroupStatus{
+				ProcessGroupID:         "storage-3",
+				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectPodSpec)},
+			})
+			status = append(status, &ProcessGroupStatus{
+				ProcessGroupID:         "storage-4",
+				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectCommandLine), NewProcessGroupCondition(IncorrectPodSpec)},
+			})
+			status = append(status, &ProcessGroupStatus{
+				ProcessGroupID:         "storage-5",
+				ProcessGroupConditions: []*ProcessGroupCondition{NewProcessGroupCondition(IncorrectCommandLine)},
+				Remove:                 true,
+			})
+		})
+
+		Context("with a single condition", func() {
+			It("should return the process groups with that condition", func() {
+				groups := FilterByCondition(status, IncorrectCommandLine, false)
+				Expect(groups).To(Equal([]string{"storage-2", "storage-4", "storage-5"}))
+			})
+		})
+
+		When("ignoring removed processes", func() {
+			It("should return the process groups with that condition", func() {
+				groups := FilterByCondition(status, IncorrectCommandLine, true)
+				Expect(groups).To(Equal([]string{"storage-2", "storage-4"}))
+			})
+		})
+
+		Context("with a mix of required and forbidden conditions", func() {
+			It("should return the process groups that match all rules", func() {
+				groups := FilterByConditions(status, map[ProcessGroupConditionType]bool{IncorrectCommandLine: true, IncorrectPodSpec: false}, false)
+				Expect(groups).To(Equal([]string{"storage-2", "storage-5"}))
+			})
+		})
+	})
+
 	When("getting the process address and port", func() {
 		type testCase struct {
 			processNumber int

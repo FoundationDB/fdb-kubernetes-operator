@@ -450,6 +450,11 @@ type FoundationDBClusterStatus struct {
 	// If there are more than one value in the slice the reconcile phase is not finished.
 	StorageServersPerDisk []int `json:"storageServersPerDisk,omitempty"`
 
+	// ImageTypes defines the kinds of images that are in use in the cluster.
+	// If there is more than one value in the slice the reconcile phase is not
+	// finished.
+	ImageTypes []string `json:"imageTypes,omitempty"`
+
 	// ProcessGroups contain information about a process group.
 	// This information is used in multiple places to trigger the according action.
 	ProcessGroups []*ProcessGroupStatus `json:"processGroups,omitempty"`
@@ -709,6 +714,12 @@ func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGrou
 
 // FilterByCondition returns a string slice of all ProcessGroupIDs that contains a condition with the given type.
 func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool) []string {
+	return FilterByConditions(processGroupStatus, map[ProcessGroupConditionType]bool{conditionType: true}, ignoreRemoved)
+}
+
+// FilterByConditions returns a string slice of all ProcessGroupIDs whose
+// conditions match a set of rules.
+func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
 	result := make([]string, 0)
 
 	for _, groupStatus := range processGroupStatus {
@@ -716,13 +727,17 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 			continue
 		}
 
+		matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
+		for conditionRule := range conditionRules {
+			matchingConditions[conditionRule] = false
+		}
 		for _, condition := range groupStatus.ProcessGroupConditions {
-			if condition.ProcessGroupConditionType != conditionType {
-				continue
+			if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
+				matchingConditions[condition.ProcessGroupConditionType] = true
 			}
-
+		}
+		if reflect.DeepEqual(matchingConditions, conditionRules) {
 			result = append(result, groupStatus.ProcessGroupID)
-			break
 		}
 	}
 
