@@ -992,11 +992,12 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			JustBeforeEach(func() {
 				generations, err := reloadClusterGenerations(cluster)
 				Expect(err).NotTo(HaveOccurred())
+				// Since we delay the requeue we are able to choose new
+				// coordinators.
 				Expect(generations).To(Equal(fdbtypes.ClusterGenerationStatus{
-					Reconciled:             originalVersion,
-					NeedsCoordinatorChange: originalVersion + 1,
-					NeedsShrink:            originalVersion + 1,
-					HasUnhealthyProcess:    originalVersion + 1,
+					Reconciled:          originalVersion,
+					NeedsShrink:         originalVersion + 1,
+					HasUnhealthyProcess: originalVersion + 1,
 				}))
 			})
 
@@ -1687,16 +1688,21 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should replace the process group", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 
-					replacements := make(map[string]bool, len(originalPods.Items))
+					originalNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[pod.Status.PodIP] = true
+						originalNames = append(originalNames, pod.Name)
 					}
 
-					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
 				})
 			})
 
@@ -1780,16 +1786,21 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the old processes", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				replacements := make(map[string]bool, len(originalPods.Items))
+				originalNames := make([]string, 0, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[pod.Status.PodIP] = true
+					originalNames = append(originalNames, pod.Name)
 				}
 
-				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-				Expect(adminClient.ExcludedAddresses).To(BeNil())
+				currentNames := make([]string, 0, len(originalPods.Items))
+				for _, pod := range pods.Items {
+					currentNames = append(currentNames, pod.Name)
+				}
+
+				Expect(currentNames).NotTo(ContainElements(originalNames))
 			})
 		})
 
@@ -1916,16 +1927,21 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the old processes", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				replacements := make(map[string]bool, len(originalPods.Items))
+				originalNames := make([]string, 0, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[pod.Status.PodIP] = true
+					originalNames = append(originalNames, pod.Name)
 				}
 
-				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-				Expect(adminClient.ExcludedAddresses).To(BeNil())
+				currentNames := make([]string, 0, len(originalPods.Items))
+				for _, pod := range pods.Items {
+					currentNames = append(currentNames, pod.Name)
+				}
+
+				Expect(currentNames).NotTo(ContainElements(originalNames))
 			})
 		})
 
@@ -2165,13 +2181,21 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should replace the process group", func() {
-					replacements := make(map[string]bool, len(originalPods.Items))
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						replacements[pod.Status.PodIP] = true
+						originalNames = append(originalNames, pod.Name)
 					}
 
-					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
 				})
 			})
 
@@ -2279,19 +2303,29 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 				})
 
 				It("should replace the process groups", func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 
-					replacements := make(map[string]bool, len(originalPods.Items))
+					originalNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
-						if processClass.IsStateful() {
-							replacements[pod.Status.PodIP] = true
+						if !processClass.IsStateful() {
+							continue
 						}
+						originalNames = append(originalNames, pod.Name)
 					}
 
-					Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-					Expect(adminClient.ExcludedAddresses).To(BeNil())
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
+						if !processClass.IsStateful() {
+							continue
+						}
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
 				})
 
 				It("should set the new volume size on the PVCs", func() {
@@ -2315,16 +2349,21 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the process groups", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				replacements := make(map[string]bool, len(originalPods.Items))
+				originalNames := make([]string, 0, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[pod.Status.PodIP] = true
+					originalNames = append(originalNames, pod.Name)
 				}
 
-				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-				Expect(adminClient.ExcludedAddresses).To(BeNil())
+				currentNames := make([]string, 0, len(originalPods.Items))
+				for _, pod := range pods.Items {
+					currentNames = append(currentNames, pod.Name)
+				}
+
+				Expect(currentNames).NotTo(ContainElements(originalNames))
 			})
 
 			It("should generate process group IDs with the new prefix", func() {
@@ -2347,16 +2386,21 @@ var _ = Describe(string(fdbtypes.ProcessClassClusterController), func() {
 			})
 
 			It("should replace the process groups", func() {
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
 
-				replacements := make(map[string]bool, len(originalPods.Items))
+				originalNames := make([]string, 0, len(originalPods.Items))
 				for _, pod := range originalPods.Items {
-					replacements[pod.Status.PodIP] = true
+					originalNames = append(originalNames, pod.Name)
 				}
 
-				Expect(adminClient.ReincludedAddresses).To(Equal(replacements))
-				Expect(adminClient.ExcludedAddresses).To(BeNil())
+				currentNames := make([]string, 0, len(originalPods.Items))
+				for _, pod := range pods.Items {
+					currentNames = append(currentNames, pod.Name)
+				}
+
+				Expect(currentNames).NotTo(ContainElements(originalNames))
 			})
 
 			It("should generate process group IDs with the new prefix", func() {
