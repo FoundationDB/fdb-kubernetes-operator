@@ -65,3 +65,16 @@ To get this controller running in a local Kubernetes cluster:
 4. Run `make rebuild-operator` to install the operator.
 5. Run `kubectl apply -k ./config/tests/base`
    to create a new FoundationDB cluster with the operator.
+
+### Running locally with nerdctl
+
+Instead of Docker you can also use [nerdctl](https://github.com/containerd/nerdctl) to build and push your images.
+In order to use a different image builder than docker you can use the env variable `BUILDER`:
+
+```bash
+# This will use nerdctl for building the image in the k8s.io namespace
+export BUILDER='nerdctl -n k8s.io'
+```
+
+You can test your setup with `SKIP_TEST=1 make container-build` which will build the image locally.
+After the command successfully finished you can verify with `nerdctl -n k8s.io images fdb-kubernetes-operator:latest` that the image is available.
