@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2020-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("[api] FoundationDBBackup", func() {
@@ -253,5 +253,135 @@ var _ = Describe("[api] FoundationDBBackup", func() {
 			backup.Spec.SnapshotPeriodSeconds = &period
 			Expect(backup.SnapshotPeriodSeconds()).To(Equal(60))
 		})
+	})
+
+	When("getting the backup URL", func() {
+		DescribeTable("should generate the correct backup URL",
+			func(backup FoundationDBBackup, expected string) {
+				Expect(backup.BackupURL()).To(Equal(expected))
+			},
+			Entry("A Backup with only an account name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+					},
+				},
+				"blobstore://test@test/mybackup?bucket=fdb-backups"),
+			Entry("A Backup with custom bucket name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						Bucket:      "bucket",
+					},
+				},
+				"blobstore://test@test/mybackup?bucket=bucket"),
+			Entry("A Backup with custom backup name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BackupName:  "test",
+					},
+				},
+				"blobstore://test@test/test?bucket=fdb-backups"),
+			Entry("A Backup with a blobstore config",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "account@account",
+						},
+					},
+				},
+				"blobstore://account@account/mybackup?bucket=fdb-backups"),
+			Entry("A Backup with a blobstore config with backup name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "account@account",
+							BackupName:  "test",
+						},
+					},
+				},
+				"blobstore://account@account/test?bucket=fdb-backups"),
+			Entry("A Backup with a blobstore config with a bucket name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "account@account",
+							Bucket:      "my-bucket",
+						},
+					},
+				},
+				"blobstore://account@account/mybackup?bucket=my-bucket"),
+			Entry("A Backup with a blobstore config with a bucket and backup name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "account@account",
+							BackupName:  "test",
+							Bucket:      "my-bucket",
+						},
+					},
+				},
+				"blobstore://account@account/test?bucket=my-bucket"),
+			Entry("A Backup with a blobstore config with HTTP parameters and backup and bucket name",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "account@account",
+							BackupName:  "test",
+							Bucket:      "my-bucket",
+							URLParameters: map[string]string{
+								"secure_connection": "0",
+							},
+						},
+					},
+				},
+				"blobstore://account@account/test?bucket=my-bucket&secure_connection=0"),
+			Entry("A Backup with a blobstore config with HTTP parameters",
+				FoundationDBBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mybackup",
+					},
+					Spec: FoundationDBBackupSpec{
+						AccountName: "test@test",
+						BlobStoreConfiguration: &BlobStoreConfiguration{
+							AccountName: "account@account",
+							URLParameters: map[string]string{
+								"secure_connection": "0",
+							},
+						},
+					},
+				},
+				"blobstore://account@account/mybackup?bucket=fdb-backups&secure_connection=0"),
+		)
 	})
 })

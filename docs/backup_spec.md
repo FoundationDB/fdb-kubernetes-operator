@@ -5,6 +5,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 ## Table of Contents
 * [BackupGenerationStatus](#backupgenerationstatus)
+* [BlobStoreConfiguration](#blobstoreconfiguration)
 * [FoundationDBBackup](#foundationdbbackup)
 * [FoundationDBBackupList](#foundationdbbackuplist)
 * [FoundationDBBackupSpec](#foundationdbbackupspec)
@@ -25,6 +26,19 @@ BackupGenerationStatus stores information on which generations have reached diff
 | needsBackupStop | NeedsBackupStart provides the last generation that could not complete reconciliation because we need to stop a backup. | int64 | false |
 | needsBackupPauseToggle | NeedsBackupPauseToggle provides the last generation that needs to have a backup paused or resumed. | int64 | false |
 | needsBackupModification | NeedsBackupReconfiguration provides the last generation that could not complete reconciliation because we need to modify backup parameters. | int64 | false |
+
+[Back to TOC](#table-of-contents)
+
+## BlobStoreConfiguration
+
+BlobStoreConfiguration describes the blob store configuration.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| backupName | The name for the backup. If empty defaults to .metadata.name. | string | false |
+| accountName | The account name to use with the backup destination. | string | true |
+| bucket | The backup bucket to write to. The default is \"fdb-backups\". | string | false |
+| urlParameters | Additional URL parameters passed to the blobstore URL. | map[string]string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -60,15 +74,16 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
 | backupState | The desired state of the backup. The default is Running. | BackupState | false |
-| backupName | The name for the backup. If empty defaults to .metadata.name. | string | false |
-| accountName | The account name to use with the backup destination. | string | true |
-| bucket | The backup bucket to write to. The default is \"fdb-backups\". | string | false |
+| backupName | The name for the backup. If empty defaults to .metadata.name. Deprecated use BlobStoreConfiguration instead** | string | false |
+| accountName | The account name to use with the backup destination. Deprecated use BlobStoreConfiguration instead** | string | false |
+| bucket | The backup bucket to write to. The default is \"fdb-backups\". Deprecated use BlobStoreConfiguration instead** | string | false |
 | agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
 | snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |
 | backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | []string | false |
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. | *bool | false |
+| blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
 
 [Back to TOC](#table-of-contents)
 

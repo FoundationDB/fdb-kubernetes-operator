@@ -5,8 +5,9 @@ metadata:
 spec:
   version: 6.2.30
   clusterName: test-cluster
-  accountName: minio@minio-service:9000
   snapshotPeriodSeconds: 3600
+  blobStoreConfiguration:
+    accountName: minio@minio-service:9000
   podTemplateSpec:
     spec:
       containers:

@@ -113,7 +113,11 @@ func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Found
 			Namespace: cluster.Namespace,
 		},
 		Spec: fdbtypes.FoundationDBRestoreSpec{
-			BackupURL:              "blobstore://test@test-service/test-backup?bucket=fdb-backups",
+			BlobStoreConfiguration: &fdbtypes.BlobStoreConfiguration{
+				AccountName: "test@test-service",
+				BackupName:  "test-backup",
+				Bucket:      "fdb-backups",
+			},
 			DestinationClusterName: cluster.Name,
 		},
 		Status: fdbtypes.FoundationDBRestoreStatus{},

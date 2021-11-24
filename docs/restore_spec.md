@@ -51,8 +51,9 @@ FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | destinationClusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
-| backupURL | BackupURL provides the URL for the backup. | string | true |
+| backupURL | BackupURL provides the URL for the backup. Deprecated use BlobStoreConfiguration instead** | string | true |
 | keyRanges | The key ranges to restore. | [][FoundationDBKeyRange](#foundationdbkeyrange) | false |
+| blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *BlobStoreConfiguration | false |
 
 [Back to TOC](#table-of-contents)
 

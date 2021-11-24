@@ -34,6 +34,24 @@ spec:
               properties:
                 backupURL:
                   type: string
+                blobStoreConfiguration:
+                  properties:
+                    accountName:
+                      maxLength: 100
+                      type: string
+                    backupName:
+                      maxLength: 1024
+                      type: string
+                    bucket:
+                      maxLength: 63
+                      type: string
+                    urlParameters:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  required:
+                    - accountName
+                  type: object
                 destinationClusterName:
                   type: string
                 keyRanges:

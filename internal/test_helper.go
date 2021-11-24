@@ -81,12 +81,14 @@ func CreateDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.Founda
 			Namespace: cluster.Namespace,
 		},
 		Spec: fdbtypes.FoundationDBBackupSpec{
-			AccountName: "test@test-service",
-			BackupName:  "test-backup",
 			BackupState: fdbtypes.BackupStateRunning,
 			Version:     cluster.Spec.Version,
 			ClusterName: cluster.Name,
 			AgentCount:  &agentCount,
+			BlobStoreConfiguration: &fdbtypes.BlobStoreConfiguration{
+				AccountName: "test@test-service",
+				BackupName:  "test-backup",
+			},
 		},
 		Status: fdbtypes.FoundationDBBackupStatus{},
 	}

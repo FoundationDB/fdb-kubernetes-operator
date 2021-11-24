@@ -22,6 +22,9 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
+
+	"k8s.io/utils/pointer"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,14 +70,16 @@ type FoundationDBBackupSpec struct {
 
 	// The name for the backup.
 	// If empty defaults to .metadata.name.
+	// Deprecated use BlobStoreConfiguration instead
 	BackupName string `json:"backupName,omitempty"`
 
 	// The account name to use with the backup destination.
-	// +kubebuilder:validation:Required
-	AccountName string `json:"accountName"`
+	// Deprecated use BlobStoreConfiguration instead
+	AccountName string `json:"accountName,omitempty"`
 
 	// The backup bucket to write to.
 	// The default is "fdb-backups".
+	// Deprecated use BlobStoreConfiguration instead
 	Bucket string `json:"bucket,omitempty"`
 
 	// AgentCount defines the number of backup agents to run.
@@ -103,6 +108,9 @@ type FoundationDBBackupSpec struct {
 	// with the given version in your custom image.
 	// +kubebuilder:default:=false
 	AllowTagOverride *bool `json:"allowTagOverride,omitempty"`
+
+	// This is the configuration of the target blobstore for this backup.
+	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
@@ -173,6 +181,28 @@ const (
 	BackupStateStopped BackupState = "Stopped"
 )
 
+// BlobStoreConfiguration describes the blob store configuration.
+type BlobStoreConfiguration struct {
+	// The name for the backup.
+	// If empty defaults to .metadata.name.
+	// +kubebuilder:validation:MaxLength=1024
+	BackupName string `json:"backupName,omitempty"`
+
+	// The account name to use with the backup destination.
+	// +kubebuilder:validation:MaxLength=100
+	// +kubebuilder:validation:Required
+	AccountName string `json:"accountName"`
+
+	// The backup bucket to write to.
+	// The default is "fdb-backups".
+	// +kubebuilder:validation:MinLengt=3
+	// +kubebuilder:validation:MaxLength=63
+	Bucket string `json:"bucket,omitempty"`
+
+	// Additional URL parameters passed to the blobstore URL.
+	URLParameters map[string]string `json:"urlParameters,omitempty"`
+}
+
 // ShouldRun determines whether a backup should be running.
 func (backup *FoundationDBBackup) ShouldRun() bool {
 	return backup.Spec.BackupState == "" || backup.Spec.BackupState == BackupStateRunning || backup.Spec.BackupState == BackupStatePaused
@@ -186,32 +216,43 @@ func (backup *FoundationDBBackup) ShouldBePaused() bool {
 // Bucket gets the bucket this backup will use.
 // This will fill in a default value if the bucket in the spec is empty.
 func (backup *FoundationDBBackup) Bucket() string {
-	if backup.Spec.Bucket == "" {
+	if backup.Spec.Bucket == "" && (backup.Spec.BlobStoreConfiguration == nil || backup.Spec.BlobStoreConfiguration.Bucket == "") {
 		return "fdb-backups"
 	}
+
+	if backup.Spec.BlobStoreConfiguration != nil && backup.Spec.BlobStoreConfiguration.Bucket != "" {
+		return backup.Spec.BlobStoreConfiguration.Bucket
+	}
+
 	return backup.Spec.Bucket
 }
 
 // BackupName gets the name of the backup in the destination.
-// This will fill in a default value if the bucket name in the spec is empty.
+// This will fill in a default value if the backup name in the spec is empty.
 func (backup *FoundationDBBackup) BackupName() string {
-	if backup.Spec.BackupName == "" {
+	if backup.Spec.BackupName == "" && (backup.Spec.BlobStoreConfiguration == nil || backup.Spec.BlobStoreConfiguration.BackupName == "") {
 		return backup.ObjectMeta.Name
 	}
+
+	if backup.Spec.BlobStoreConfiguration != nil && backup.Spec.BlobStoreConfiguration.BackupName != "" {
+		return backup.Spec.BlobStoreConfiguration.BackupName
+	}
+
 	return backup.Spec.BackupName
 }
 
 // BackupURL gets the destination url of the backup.
 func (backup *FoundationDBBackup) BackupURL() string {
+	if backup.Spec.BlobStoreConfiguration != nil {
+		return backup.Spec.BlobStoreConfiguration.getURL(backup.BackupName(), backup.Bucket())
+	}
+
 	return fmt.Sprintf("blobstore://%s/%s?bucket=%s", backup.Spec.AccountName, backup.BackupName(), backup.Bucket())
 }
 
 // SnapshotPeriodSeconds gets the period between snapshots for a backup.
 func (backup *FoundationDBBackup) SnapshotPeriodSeconds() int {
-	if backup.Spec.SnapshotPeriodSeconds != nil {
-		return *backup.Spec.SnapshotPeriodSeconds
-	}
-	return 864000
+	return pointer.IntDeref(backup.Spec.SnapshotPeriodSeconds, 864000)
 }
 
 // FoundationDBLiveBackupStatus describes the live status of the backup for a
@@ -240,10 +281,7 @@ type FoundationDBLiveBackupStatusState struct {
 // GetDesiredAgentCount determines how many backup agents we should run
 // for a cluster.
 func (backup *FoundationDBBackup) GetDesiredAgentCount() int {
-	if backup.Spec.AgentCount == nil {
-		return 2
-	}
-	return *backup.Spec.AgentCount
+	return pointer.IntDeref(backup.Spec.AgentCount, 2)
 }
 
 // CheckReconciliation compares the spec and the status to determine if
@@ -291,9 +329,32 @@ func (backup *FoundationDBBackup) CheckReconciliation() (bool, error) {
 
 // GetAllowTagOverride returns the bool value for AllowTagOverride
 func (foundationDBBackupSpec *FoundationDBBackupSpec) GetAllowTagOverride() bool {
-	if foundationDBBackupSpec.AllowTagOverride == nil {
-		return false
+	return pointer.BoolDeref(foundationDBBackupSpec.AllowTagOverride, false)
+}
+
+// getURL returns the blobstore URL for the specific configuration
+func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string) string {
+	if configuration.AccountName == "" {
+		return ""
 	}
 
-	return *foundationDBBackupSpec.AllowTagOverride
+	var sb strings.Builder
+	for param, value := range configuration.URLParameters {
+		sb.WriteString("&")
+		sb.WriteString(param)
+		sb.WriteString("=")
+		sb.WriteString(value)
+	}
+
+	return fmt.Sprintf("blobstore://%s/%s?bucket=%s%s", configuration.AccountName, backup, bucket, sb.String())
+}
+
+// BucketName gets the bucket this backup will use.
+// This will fill in a default value if the bucket in the spec is empty.
+func (configuration *BlobStoreConfiguration) BucketName() string {
+	if configuration.Bucket != "" {
+		return configuration.Bucket
+	}
+
+	return "fdb-backups"
 }
