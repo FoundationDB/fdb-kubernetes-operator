@@ -69,7 +69,6 @@ spec:
                     type: object
                   type: array
               required:
-                - backupURL
                 - destinationClusterName
               type: object
             status:

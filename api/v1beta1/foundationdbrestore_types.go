@@ -55,7 +55,7 @@ type FoundationDBRestoreSpec struct {
 
 	// BackupURL provides the URL for the backup.
 	// Deprecated use BlobStoreConfiguration instead
-	BackupURL string `json:"backupURL"`
+	BackupURL string `json:"backupURL,omitempty"`
 
 	// The key ranges to restore.
 	KeyRanges []FoundationDBKeyRange `json:"keyRanges,omitempty"`
