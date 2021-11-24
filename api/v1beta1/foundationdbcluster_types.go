@@ -3030,3 +3030,58 @@ const (
 	// DeletionModeProcessGroup deletes one process group at a time
 	DeletionModeProcessGroup DeletionMode = "ProcessGroup"
 )
+
+// FailOver returns a new DatabaseConfiguration that switches the priority for the main and remote DC
+func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
+	if len(configuration.Regions) <= 1 {
+		return *configuration
+	}
+
+	newConfiguration := configuration.DeepCopy()
+	newRegions := make([]Region, 0, len(configuration.Regions))
+	priorityMap := map[string]int{}
+
+	// Get the priority of the DCs
+	for _, region := range newConfiguration.Regions {
+		for _, dc := range region.DataCenters {
+			// Don't change the Satellite config
+			if dc.Satellite == 1 {
+				continue
+			}
+
+			priorityMap[dc.ID] = dc.Priority
+		}
+	}
+
+	for _, region := range newConfiguration.Regions {
+		// In order to trigger a fail over we have to change the priority
+		// of the main and remote dc
+		newRegion := Region{}
+		for _, dc := range region.DataCenters {
+			// Don't change the Satellite config
+			if dc.Satellite == 1 {
+				newRegion.DataCenters = append(newRegion.DataCenters, dc)
+				continue
+			}
+
+			// This will only work as long as we have only two
+			// regions.
+			for key, val := range priorityMap {
+				if key == dc.ID {
+					continue
+				}
+
+				newRegion.DataCenters = append(newRegion.DataCenters, DataCenter{
+					ID:       dc.ID,
+					Priority: val,
+				})
+			}
+		}
+
+		newRegions = append(newRegions, newRegion)
+	}
+
+	newConfiguration.Regions = newRegions
+
+	return *newConfiguration
+}

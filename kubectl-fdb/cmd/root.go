@@ -81,6 +81,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		newAnalyzeCmd(streams),
 		newDeprecationCmd(streams),
 		newFixCoordinatorIPsCmd(streams),
+		newGetCmd(streams),
 	)
 
 	return cmd
