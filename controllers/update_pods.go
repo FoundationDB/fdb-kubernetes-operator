@@ -197,7 +197,7 @@ func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 	if !ready {
-		return &requeue{message: "Reconciliation requires deleting pods, but deletion is not currently safe", delay: podSchedulingDelayDuration}
+		return &requeue{message: "Reconciliation requires deleting pods, but deletion is currently not safe", delay: podSchedulingDelayDuration}
 	}
 
 	// Only lock the cluster if we are not running in the delete "All" mode.
@@ -217,5 +217,5 @@ func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 
-	return &requeue{message: "Pods need to be recreated"}
+	return &requeue{message: "Pods need to be recreated", delayedRequeue: true}
 }
