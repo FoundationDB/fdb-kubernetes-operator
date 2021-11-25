@@ -314,7 +314,7 @@ var _ = Describe("pod_models", func() {
 		When("the cluster has custom parameters", func() {
 			When("there are parameters in the general section", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
 				})
@@ -330,13 +330,13 @@ var _ = Describe("pod_models", func() {
 			When("there are parameters on different process classes", func() {
 				BeforeEach(func() {
 					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-						fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
+						fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 							"knob_disable_posix_kernel_aio = 1",
 						}},
-						fdbtypes.ProcessClassStorage: {CustomParameters: &[]string{
+						fdbtypes.ProcessClassStorage: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 							"knob_test = test1",
 						}},
-						fdbtypes.ProcessClassStateless: {CustomParameters: &[]string{
+						fdbtypes.ProcessClassStateless: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 							"knob_test = test2",
 						}},
 					}

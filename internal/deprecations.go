@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -198,7 +197,7 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		params := cluster.Spec.CustomParameters
 		ensureCustomParametersPresent(&cluster.Spec)
 		for processClass, settings := range cluster.Spec.Processes {
-			settings.CustomParameters = &params
+			settings.CustomParameters = params
 			cluster.Spec.Processes[processClass] = settings
 		}
 		cluster.Spec.CustomParameters = nil
@@ -244,7 +243,7 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 				continue
 			}
 
-			err := ValidateCustomParameters(*setting.CustomParameters)
+			err := setting.CustomParameters.ValidateCustomParameters()
 			if err != nil {
 				return err
 			}
@@ -539,7 +538,7 @@ func ensureCustomParametersPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 	if generalSettings.CustomParameters == nil {
 		params := make([]string, 0)
-		generalSettings.CustomParameters = &params
+		generalSettings.CustomParameters = params
 	}
 	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 }
@@ -569,34 +568,4 @@ func ensureContainerPresent(containers []corev1.Container, name string, insertIn
 	}
 
 	return newContainers, insertIndex
-}
-
-// ValidateCustomParameters ensures that no duplicate values are set and that no
-// protected/forbidden parameters are set. Theoretically we could also check if FDB
-// supports the given parameter.
-func ValidateCustomParameters(customParameters []string) error {
-	protectedParameters := map[string]bool{"datadir": true}
-	parameters := make(map[string]bool)
-	violations := make([]string, 0)
-
-	for _, parameter := range customParameters {
-		parameterName := strings.Split(parameter, "=")[0]
-		parameterName = strings.TrimSpace(parameterName)
-
-		if _, ok := parameters[parameterName]; !ok {
-			parameters[parameterName] = true
-		} else {
-			violations = append(violations, fmt.Sprintf("found duplicated customParameter: %v", parameterName))
-		}
-
-		if _, ok := protectedParameters[parameterName]; ok {
-			violations = append(violations, fmt.Sprintf("found protected customParameter: %v, please remove this parameter from the customParameters list", parameterName))
-		}
-	}
-
-	if len(violations) > 0 {
-		return fmt.Errorf("found the following customParameters violations:\n%s", strings.Join(violations, "\n"))
-	}
-
-	return nil
 }

@@ -1109,7 +1109,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				err = adminClient.FreezeStatus()
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
+				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
 			})
 
 			Context("with bounces enabled", func() {
@@ -1173,7 +1173,7 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with multiple storage servers per pod", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{}}}
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{}}}
 					cluster.Spec.StorageServersPerPod = 2
 					adminClient.UnfreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
@@ -1197,7 +1197,7 @@ var _ = Describe("cluster_controller", func() {
 					err = adminClient.FreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{"knob_disable_posix_kernel_aio=1"}}}
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -2870,7 +2870,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with custom parameters", func() {
 			Context("with general parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
 					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
@@ -2902,13 +2902,13 @@ var _ = Describe("cluster_controller", func() {
 			Context("with process-class parameters", func() {
 				BeforeEach(func() {
 					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-						fdbtypes.ProcessClassGeneral: {CustomParameters: &[]string{
+						fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 							"knob_disable_posix_kernel_aio = 1",
 						}},
-						fdbtypes.ProcessClassStorage: {CustomParameters: &[]string{
+						fdbtypes.ProcessClassStorage: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 							"knob_test = test1",
 						}},
-						fdbtypes.ProcessClassStateless: {CustomParameters: &[]string{
+						fdbtypes.ProcessClassStateless: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
 							"knob_test = test2",
 						}},
 					}

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package internal
+package v1beta1
 
 // None is a simple struct to create a set to indicate the value of the map
 // has no meaning.

@@ -68,6 +68,9 @@ type cliAdminClient struct {
 	// clusterFilePath is the path to the temp file containing the cluster file
 	// for this session.
 	clusterFilePath string
+
+	// custom parameters that should be set.
+	knobs []string
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -123,6 +126,7 @@ func (command cliCommand) getClusterFileFlag() string {
 	if command.binary == "fdbrestore" {
 		return "--dest_cluster_file"
 	}
+
 	return "-C"
 }
 
@@ -156,6 +160,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
+	args = append(args, client.knobs...)
 
 	if binaryName == "fdbcli" {
 		format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
@@ -595,4 +600,9 @@ func (client *cliAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 	}
 
 	return internal.GetCoordinatorsFromStatus(status), nil
+}
+
+// SetKnobs sets the knobs that should be used for the commandline call.
+func (client *cliAdminClient) SetKnobs(knobs []string) {
+	client.knobs = knobs
 }

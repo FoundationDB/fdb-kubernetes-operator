@@ -73,7 +73,7 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
 			generation, err := reloadCluster(cluster)
@@ -87,7 +87,7 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err = reconcileBackup(backup)
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
 			generation, err = reloadBackup(backup)
@@ -97,13 +97,12 @@ var _ = Describe("backup_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			originalVersion = backup.ObjectMeta.Generation
-
 			generationGap = 1
 		})
 
 		JustBeforeEach(func() {
 			result, err := reconcileBackup(backup)
-			Expect(err).NotTo((HaveOccurred()))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
 			generation, err := reloadBackup(backup)
@@ -293,6 +292,21 @@ var _ = Describe("backup_controller", func() {
 					"fdb-test-2":                         "test-value-2",
 					"foundationdb.org/last-applied-spec": "53bf93c896578af51723c0db12e884751be4ee702c7487a1a57108fa111a23d6",
 				}))
+			})
+		})
+
+		When("providing custom parameters", func() {
+			BeforeEach(func() {
+				backup.Spec.CustomParameters = fdbtypes.FoundationDBCustomParameters{
+					"knob_http_verbose_level=3",
+				}
+				err = k8sClient.Update(context.TODO(), backup)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should append the custom parameters to the command", func() {
+				Expect(len(adminClient.knobs)).To(BeNumerically("==", 1))
+				Expect(adminClient.knobs).To(ContainElements("--knob_http_verbose_level=3"))
 			})
 		})
 	})

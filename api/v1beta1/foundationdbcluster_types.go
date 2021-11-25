@@ -305,7 +305,7 @@ type FoundationDBClusterSpec struct {
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// processes.
 	// Deprecated: use the Processes field instead.
-	CustomParameters []string `json:"customParameters,omitempty"`
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the name of a pod to its IP address. If a value is left blank,
@@ -1229,7 +1229,7 @@ type ProcessSettings struct {
 
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// process.
-	CustomParameters *[]string `json:"customParameters,omitempty"`
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// This setting defines if a user provided image can have it's own tag
 	// rather than getting the provided version appended.

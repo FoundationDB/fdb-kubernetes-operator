@@ -53,6 +53,7 @@ type mockAdminClient struct {
 	incorrectCommandLines                    map[string]bool
 	maxZoneFailuresWithoutLosingData         *int
 	maxZoneFailuresWithoutLosingAvailability *int
+	knobs                                    []string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -71,22 +72,23 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	client := adminClientCache[cluster.Name]
+	cachedClient := adminClientCache[cluster.Name]
 
-	if client == nil {
-		client = &mockAdminClient{
+	if cachedClient == nil {
+		cachedClient = &mockAdminClient{
 			Cluster:              cluster.DeepCopy(),
 			KubeClient:           kubeClient,
 			ReincludedAddresses:  make(map[string]bool),
 			missingProcessGroups: make(map[string]bool),
 			localityInfo:         make(map[string]map[string]string),
 		}
-		adminClientCache[cluster.Name] = client
-		client.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
+		adminClientCache[cluster.Name] = cachedClient
+		cachedClient.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
 	} else {
-		client.Cluster = cluster.DeepCopy()
+		cachedClient.Cluster = cluster.DeepCopy()
 	}
-	return client, nil
+
+	return cachedClient, nil
 }
 
 // clearMockAdminClients clears the cache of mock Admin clients
@@ -375,7 +377,7 @@ func (client *mockAdminClient) IncludeProcesses(addresses []fdbtypes.ProcessAddr
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
 func (client *mockAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
-	skipExclude := map[string]internal.None{}
+	skipExclude := map[string]fdbtypes.None{}
 
 	// Check which process groups have the skip exclusion flag or are already
 	// excluded
@@ -385,13 +387,13 @@ func (client *mockAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddre
 		}
 
 		for _, addr := range pg.Addresses {
-			skipExclude[addr] = internal.None{}
+			skipExclude[addr] = fdbtypes.None{}
 		}
 	}
 
 	// Add all process groups that are excluded in the client
 	for _, addr := range client.ExcludedAddresses {
-		skipExclude[addr] = internal.None{}
+		skipExclude[addr] = fdbtypes.None{}
 	}
 
 	// Filter out all excluded process groups and also all process groups
@@ -669,4 +671,9 @@ func (client *mockAdminClient) GetCoordinatorSet() (map[string]struct{}, error) 
 	}
 
 	return internal.GetCoordinatorsFromStatus(status), nil
+}
+
+// SetKnobs sets the knobs that should be used for the commandline call.
+func (client *mockAdminClient) SetKnobs(knobs []string) {
+	client.knobs = knobs
 }

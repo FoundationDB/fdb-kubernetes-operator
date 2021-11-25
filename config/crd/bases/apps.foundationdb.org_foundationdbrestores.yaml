@@ -54,6 +54,10 @@ spec:
                   required:
                     - accountName
                   type: object
+                customParameters:
+                  items:
+                    type: string
+                  type: array
                 destinationClusterName:
                   type: string
                 keyRanges:

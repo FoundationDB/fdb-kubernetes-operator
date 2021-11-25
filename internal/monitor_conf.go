@@ -253,7 +253,7 @@ func GetMonitorProcessConfiguration(cluster *fdbtypes.FoundationDBCluster, proce
 		if err != nil {
 			return configuration, err
 		}
-		for _, argument := range *podSettings.CustomParameters {
+		for _, argument := range podSettings.CustomParameters {
 			sanitizedArgument := "--" + equalPattern.ReplaceAllString(argument, "=")
 			configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: sanitizedArgument})
 		}

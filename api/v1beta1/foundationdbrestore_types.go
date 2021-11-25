@@ -62,6 +62,10 @@ type FoundationDBRestoreSpec struct {
 
 	// This is the configuration of the target blobstore for this backup.
 	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
+
+	// CustomParameters defines additional parameters to pass to the backup
+	// agents.
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.

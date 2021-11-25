@@ -100,7 +100,7 @@ type FoundationDBBackupSpec struct {
 
 	// CustomParameters defines additional parameters to pass to the backup
 	// agents.
-	CustomParameters []string `json:"customParameters,omitempty"`
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// This setting defines if a user provided image can have it's own tag
 	// rather than getting the provided version appended.
