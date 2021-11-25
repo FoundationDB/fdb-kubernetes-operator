@@ -5,7 +5,7 @@ IMG ?= fdb-kubernetes-operator:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 
 ifneq "$(FDB_WEBSITE)" ""
-	docker_build_args := $(docker_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
+	img_build_args := $(img_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
 endif
 
 ifdef RUN_E2E
@@ -35,6 +35,7 @@ YQ=$(GOBIN)/yq
 GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 BUILD_DEPS?=
+BUILDER?="docker"
 
 define godep
 BUILD_DEPS+=$(1)
@@ -64,7 +65,7 @@ endif
 
 all: deps generate fmt vet manager plugin manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate docker-build docker-push rebuild-operator bounce lint
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push rebuild-operator bounce lint
 
 deps: $(BUILD_DEPS)
 
@@ -160,16 +161,16 @@ generate: ${GENERATED_GO}
 ${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
-# Build the docker image
-docker-build: test_if_changed
-	docker build --build-arg=TAG=${TAG} ${docker_build_args} . -t ${IMG}
+# Build the container image
+container-build: test_if_changed
+	$(BUILDER) build --build-arg=TAG=${TAG} ${img_build_args} -t ${IMG} .
 
-# Push the docker image
-docker-push:
-	docker push ${IMG}
+# Push the container image
+container-push:
+	$(BUILDER) push ${IMG}
 
 # Rebuilds, deploys, and bounces the operator
-rebuild-operator: docker-build deploy bounce
+rebuild-operator: container-build deploy bounce
 
 bounce:
 	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager

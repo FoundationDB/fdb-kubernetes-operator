@@ -102,7 +102,7 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
         # Generate secrets used by the operator
         ./config/test-certs/generate_secrets.bash
-        SKIP_TEST=1 IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all docker-build docker-push deploy
+        SKIP_TEST=1 IMG=localhost:5000/fdb-kubernetes-operator:latest make clean all container-build container-push deploy
         # Wait for the operator to start
         kubectl rollout status deploy fdb-kubernetes-operator-controller-manager --timeout=120s
         # Check if all resources can be applied
