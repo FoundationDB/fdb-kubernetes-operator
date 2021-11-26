@@ -218,8 +218,8 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		// Skip if the processGroup should be removed
 		// or should we check for how long they are marked as removed e.g. stuck in removal?
-		if processGroup.Remove {
-			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.Excluded)
+		if processGroup.IsRemoved() {
+			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
 			printStatement(cmd, statement, true)
 			continue
 		}

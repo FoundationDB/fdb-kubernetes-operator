@@ -79,7 +79,7 @@ var _ = Describe("add_process_groups", func() {
 		BeforeEach(func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessGroupID == "storage-4" {
-					processGroup.Remove = true
+					processGroup.SetRemove()
 				}
 			}
 		})
@@ -113,7 +113,7 @@ var _ = Describe("add_process_groups", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				if processGroup.ProcessGroupID == "storage-4" {
 					processGroup.ProcessGroupID = "old-prefix-storage-4"
-					processGroup.Remove = true
+					processGroup.SetRemove()
 				}
 			}
 		})

@@ -58,7 +58,7 @@ func (updatePodConfig) reconcile(ctx ctx.Context, r *FoundationDBClusterReconcil
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		curLogger := logger.WithValues("processGroupID", processGroup.ProcessGroupID)
 
-		if processGroup.Remove {
+		if processGroup.IsRemoved() {
 			curLogger.V(1).Info("Ignore process group marked for removal")
 			continue
 		}

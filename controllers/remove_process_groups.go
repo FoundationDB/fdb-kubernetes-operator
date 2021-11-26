@@ -206,7 +206,7 @@ func includeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, 
 
 	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove && removedProcessGroups[processGroup.ProcessGroupID] {
+		if processGroup.IsRemoved() && removedProcessGroups[processGroup.ProcessGroupID] {
 			for _, pAddr := range processGroup.Addresses {
 				addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 			}
@@ -253,7 +253,7 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 
 	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.Remove || processGroup.ExclusionSkipped {
+		if !processGroup.IsRemoved() || processGroup.ExclusionSkipped {
 			continue
 		}
 
@@ -297,7 +297,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.Remove {
+		if !processGroup.IsRemoved() {
 			continue
 		}
 
@@ -312,7 +312,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 			}
 		}
 
-		excluded, err := processGroup.IsExcluded(remainingMap)
+		excluded, err := processGroup.AllAddressesExcluded(remainingMap)
 		if !excluded || err != nil {
 			logger.Info("Incomplete exclusion still present in removeProcessGroups step", "processGroupID", processGroup.ProcessGroupID, "error", err)
 			allExcluded = false
@@ -326,7 +326,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 		}
 
 		logger.Info("Marking exclusion complete", "processGroupID", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
-		processGroup.Excluded = true
+		processGroup.SetExclude()
 		processGroupsToRemove = append(processGroupsToRemove, processGroup.ProcessGroupID)
 	}
 

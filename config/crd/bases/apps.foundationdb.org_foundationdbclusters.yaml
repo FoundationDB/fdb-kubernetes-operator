@@ -9195,6 +9195,9 @@ spec:
                         type: array
                       excluded:
                         type: boolean
+                      excludedTimestamp:
+                        format: date-time
+                        type: string
                       exclusionSkipped:
                         type: boolean
                       processClass:
@@ -9213,6 +9216,9 @@ spec:
                         type: string
                       remove:
                         type: boolean
+                      removeTimestamp:
+                        format: date-time
+                        type: string
                     type: object
                   type: array
                 requiredAddresses:

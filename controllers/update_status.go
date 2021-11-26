@@ -495,10 +495,10 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 
 		pod := pods[0]
 
-		processGroup.AddAddresses(podmanager.GetPublicIPs(pod), processGroup.Remove || !status.Health.Available)
+		processGroup.AddAddresses(podmanager.GetPublicIPs(pod), processGroup.IsRemoved() || !status.Health.Available)
 		processCount := 1
 
-		if processGroup.Remove && pod.ObjectMeta.DeletionTimestamp != nil {
+		if processGroup.IsRemoved() && pod.ObjectMeta.DeletionTimestamp != nil {
 			processGroup.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
 			continue
 		}
@@ -528,7 +528,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 		}
 
 		if isBeingRemoved {
-			processGroup.Remove = true
+			processGroup.SetRemove()
 			// Check if we should skip exclusion for the process group
 			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
 			processGroup.ExclusionSkipped = ok
