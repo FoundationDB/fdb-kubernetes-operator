@@ -3406,4 +3406,134 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 	})
+
+	When("using the database configuration  to fail over", func() {
+		When("using a single region cluster", func() {
+			var cluster *FoundationDBCluster
+
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						DatabaseConfiguration: DatabaseConfiguration{
+							Regions: []Region{
+								{
+									DataCenters: []DataCenter{
+										{
+											ID:       "test",
+											Priority: 1,
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+			})
+
+			It("should return the same configuration", func() {
+				config := cluster.Spec.DatabaseConfiguration.FailOver()
+				Expect(config).To(Equal(cluster.Spec.DatabaseConfiguration))
+			})
+		})
+
+		When("using a multi region cluster", func() {
+			var cluster *FoundationDBCluster
+
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						DatabaseConfiguration: DatabaseConfiguration{
+							Regions: []Region{
+								{
+									DataCenters: []DataCenter{
+										{
+											ID:       "primary",
+											Priority: 1,
+										},
+										{
+											ID:        "primary-sat",
+											Priority:  1,
+											Satellite: 1,
+										},
+										{
+											ID:        "remote-sat",
+											Priority:  0,
+											Satellite: 1,
+										},
+									},
+								},
+								{
+									DataCenters: []DataCenter{
+										{
+											ID:       "remote",
+											Priority: 0,
+										},
+										{
+											ID:        "remote-sat",
+											Priority:  1,
+											Satellite: 1,
+										},
+										{
+											ID:        "primary-sat",
+											Priority:  0,
+											Satellite: 1,
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+			})
+
+			It("should change the priority", func() {
+				expected := DatabaseConfiguration{
+					Regions: []Region{
+						{
+							DataCenters: []DataCenter{
+								{
+									ID:       "primary",
+									Priority: 0,
+								},
+								{
+									ID:        "primary-sat",
+									Priority:  1,
+									Satellite: 1,
+								},
+								{
+									ID:        "remote-sat",
+									Priority:  0,
+									Satellite: 1,
+								},
+							},
+						},
+						{
+							DataCenters: []DataCenter{
+								{
+									ID:       "remote",
+									Priority: 1,
+								},
+								{
+									ID:        "remote-sat",
+									Priority:  1,
+									Satellite: 1,
+								},
+								{
+									ID:        "primary-sat",
+									Priority:  0,
+									Satellite: 1,
+								},
+							},
+						},
+					},
+				}
+
+				config := cluster.Spec.DatabaseConfiguration.FailOver()
+				Expect(config).To(Equal(expected))
+				// The cluster config should not be changed
+				Expect(cluster.Spec.DatabaseConfiguration).NotTo(Equal(expected))
+			})
+		})
+	})
 })
