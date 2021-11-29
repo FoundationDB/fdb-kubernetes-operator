@@ -486,13 +486,13 @@ type ProcessGroupStatus struct {
 	// Remove defines if the process group is marked for removal.
 	Remove bool `json:"remove,omitempty"`
 	// RemoveTimestamp if not empty defines when the process group was marked for removal.
-	RemoveTimestamp metav1.Time `json:"removeTimestamp,omitempty"`
+	RemoveTimestamp *metav1.Time `json:"removeTimestamp,omitempty"`
 	// Excluded defines if the process group has been fully excluded.
 	// This is only used within the reconciliation process, and should not be considered authoritative.
 	Excluded bool `json:"excluded,omitempty"`
 	// ExcludedTimestamp defines when the process group has been fully excluded.
 	// This is only used within the reconciliation process, and should not be considered authoritative.
-	ExcludedTimestamp metav1.Time `json:"excludedTimestamp,omitempty"`
+	ExcludedTimestamp *metav1.Time `json:"excludedTimestamp,omitempty"`
 	// ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion.
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
@@ -501,24 +501,24 @@ type ProcessGroupStatus struct {
 
 // IsExcluded returns if a process group is excluded
 func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
-	return processGroupStatus.Excluded || !processGroupStatus.ExcludedTimestamp.IsZero() || processGroupStatus.ExclusionSkipped
+	return processGroupStatus.Excluded || (processGroupStatus.ExcludedTimestamp != nil && !processGroupStatus.ExcludedTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
 }
 
 // SetExclude marks a process group as excluded
 func (processGroupStatus *ProcessGroupStatus) SetExclude() {
 	processGroupStatus.Excluded = true
-	processGroupStatus.ExcludedTimestamp = metav1.Time{Time: time.Now()}
+	processGroupStatus.ExcludedTimestamp = &metav1.Time{Time: time.Now()}
 }
 
 // IsRemoved returns if a process group is marked for removal
 func (processGroupStatus *ProcessGroupStatus) IsRemoved() bool {
-	return processGroupStatus.Remove || !processGroupStatus.RemoveTimestamp.IsZero()
+	return processGroupStatus.Remove || (processGroupStatus.RemoveTimestamp != nil && !processGroupStatus.RemoveTimestamp.IsZero())
 }
 
 // SetRemove marks a process group for removal
 func (processGroupStatus *ProcessGroupStatus) SetRemove() {
 	processGroupStatus.Remove = true
-	processGroupStatus.RemoveTimestamp = metav1.Time{Time: time.Now()}
+	processGroupStatus.RemoveTimestamp = &metav1.Time{Time: time.Now()}
 }
 
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed

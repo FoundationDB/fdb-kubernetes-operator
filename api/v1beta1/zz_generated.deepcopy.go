@@ -1512,8 +1512,14 @@ func (in *ProcessGroupStatus) DeepCopyInto(out *ProcessGroupStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	in.RemoveTimestamp.DeepCopyInto(&out.RemoveTimestamp)
-	in.ExcludedTimestamp.DeepCopyInto(&out.ExcludedTimestamp)
+	if in.RemoveTimestamp != nil {
+		in, out := &in.RemoveTimestamp, &out.RemoveTimestamp
+		*out = (*in).DeepCopy()
+	}
+	if in.ExcludedTimestamp != nil {
+		in, out := &in.ExcludedTimestamp, &out.ExcludedTimestamp
+		*out = (*in).DeepCopy()
+	}
 	if in.ProcessGroupConditions != nil {
 		in, out := &in.ProcessGroupConditions, &out.ProcessGroupConditions
 		*out = make([]*ProcessGroupCondition, len(*in))
