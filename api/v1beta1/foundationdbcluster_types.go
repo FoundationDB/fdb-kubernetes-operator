@@ -453,6 +453,7 @@ type FoundationDBClusterStatus struct {
 	// ImageTypes defines the kinds of images that are in use in the cluster.
 	// If there is more than one value in the slice the reconcile phase is not
 	// finished.
+	// +kubebuilder:validation:MaxItems=10
 	ImageTypes []string `json:"imageTypes,omitempty"`
 
 	// ProcessGroups contain information about a process group.
@@ -719,6 +720,11 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 
 // FilterByConditions returns a string slice of all ProcessGroupIDs whose
 // conditions match a set of rules.
+//
+// If a condition is mapped to true in the conditionRules map, only process
+// groups with that condition will be returned. If a condition is mapped to
+// false in the conditionRules map, only process groups without that condition
+// will be returned.
 func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
 	result := make([]string, 0)
 

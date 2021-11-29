@@ -9064,6 +9064,7 @@ spec:
                 imageTypes:
                   items:
                     type: string
+                  maxItems: 10
                   type: array
                 incorrectPods:
                   items:

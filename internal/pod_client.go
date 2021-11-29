@@ -45,6 +45,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
+// FDBImageType describes a type of image a pod or cluster is using.
 type FDBImageType string
 
 const (

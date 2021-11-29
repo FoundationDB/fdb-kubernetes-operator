@@ -50,10 +50,7 @@ type DeprecationOptions struct {
 // future-proof form, by applying any implicit defaults and moving configuration
 // from deprecated fields into fully-supported fields.
 func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options DeprecationOptions) error {
-	useUnifiedImage := false
-	if cluster.Spec.UseUnifiedImage != nil {
-		useUnifiedImage = *cluster.Spec.UseUnifiedImage
-	}
+	useUnifiedImage := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
 
 	if cluster.Spec.PodTemplate != nil {
 		ensurePodTemplatePresent(&cluster.Spec)
@@ -282,11 +279,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 			cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds = pointer.Int(1800)
 		}
 
-		if cluster.Spec.UseUnifiedImage == nil {
-			cluster.Spec.UseUnifiedImage = pointer.Bool(useUnifiedImage)
-		}
+		cluster.Spec.UseUnifiedImage = pointer.Bool(useUnifiedImage)
 
-		if *cluster.Spec.UseUnifiedImage {
+		if useUnifiedImage {
 			cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes"})
 		} else {
 			cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})

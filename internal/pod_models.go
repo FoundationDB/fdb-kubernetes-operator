@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
@@ -148,7 +149,7 @@ func GetImage(image string, configs []fdbtypes.ImageConfig, versionString string
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
-	useUnifiedImages := cluster.Spec.UseUnifiedImage != nil && *cluster.Spec.UseUnifiedImage
+	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
 
 	var mainContainer *corev1.Container
 	var sidecarContainer *corev1.Container

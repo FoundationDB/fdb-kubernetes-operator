@@ -83,7 +83,7 @@ var _ = Describe("configmap_helper", func() {
 			})
 		})
 
-		When("the only unified image is enabled", func() {
+		When("only the unified image is enabled", func() {
 			BeforeEach(func() {
 				cluster.Status.ImageTypes = []string{"unified"}
 			})
@@ -105,7 +105,7 @@ var _ = Describe("configmap_helper", func() {
 			})
 		})
 
-		When("the only split image is enabled", func() {
+		When("only the split image is enabled", func() {
 			BeforeEach(func() {
 				cluster.Status.ImageTypes = []string{"split"}
 			})

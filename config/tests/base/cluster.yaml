@@ -3,7 +3,7 @@ kind: FoundationDBCluster
 metadata:
   name: test-cluster
 spec:
-  version: 6.3.13
+  version: 6.3.22
   faultDomain:
     # Use fake fault domains to support running in a single-node Kubernetes
     # cluster.
