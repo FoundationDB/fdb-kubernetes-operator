@@ -30,7 +30,7 @@ We will create a FoundationDBBackup resource with the following spec:
     * Backup path (optional, defaults to backup name)
     * Timestamp Format (optional, formatted as a Go time format description, defaults to "-2006-01-02T15:04:05Z-07:00")
 * Backup tag (optional)
-* Key range to restore (optional, defaults to the full keyspace)
+* Key range to back up (optional, defaults to the full keyspace)
 * Snapshot duration (optional, defaults to 7 days)
 * Backup agent template (optional)
 * Parameters for backup URL (optional)
@@ -91,7 +91,6 @@ The backup reconciler will run the following stages:
 * Configure backup agents
 * Toggle backup running
 * Modify backup
-* Toggle backup paused
 * Check backup status
 
 We will use the `fdbbackup` tool to modify the backup state. We will use the backup status that is found within the database status to determine the current state of the backup.
@@ -122,6 +121,8 @@ The version of FoundationDB that the backup agents run will be taken from the cl
 
 In the `Toggle Backup Running` stage, we will start or stop the backup, if necessary. If the desired state is `stopped`, and there is a backup running on the configured tag, this will run the `fdbbackup abort` command. If the desired state is `running` or `paused`, and there is no backup running on the configured tag, this will run the `fdbbackup start` command.
 
+This will also update the pause state in the backup. If the desired state is `paused` and the backup is not paused, this will run the `fdbbackup pause` command. If the desired state is `running` and the backup is paused, this will run the `fdbbackup resume` command.
+
 In order to support restarting backups when configuration changes, the operator will automatically include a timestamp when it starts a backup. The format of the timestamp will be configurable, and configuring it to an empty string will omit the timestamp. When a change is detected that requires restarting a backup, we will stop the backup and start a new one. We will continue to track both backups in the status of the resource until the old backup is fully deleted.
 
 Doing the initial snapshot for a backup will require more bandwidth than subsequent snapshots, because the initial snapshot tries to complete as fast as it can while subsequent snapshots complete more slowly based on the snapshot interval. If we update all backups at once, it would cause every backup to stop and then start a new backup. This creates a gap in restorability until the new backup completes its initial snapshot. If all of the backups are doing this at once, it could lead to rate limiting on the destination that causes all of the backups to slow down, creating a longer aggregate gap in restorability. To prevent this, we will have a cross-backup throttle to limit how many backups can be in the initial snapshot phase at a time. The default limit will be 1. If this limit has already been reached, then the operator will not start or restart any backups, but it will be able to stop a backup if the backup has a desired state of `stopped`. This limit will only apply within a single KC.
@@ -140,10 +141,6 @@ Changing the following fields will require running the modify command:
 
 * Backup URL parameters
 * Snapshot time
-
-#### Toggle Backup Paused
-
-In the `Toggle Backup Paused` stage, we will pause or resume the backup, if necessary. If the desired state is `paused` and the backup is not paused, this will run the `fdbbackup pause` command. If the desired state is `running` and the backup is paused, this will run the `fdbbackup resume` command.
 
 ### Reconciling Restores
 
