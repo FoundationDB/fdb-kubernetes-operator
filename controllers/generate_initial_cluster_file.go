@@ -85,7 +85,8 @@ func (g generateInitialClusterFile) reconcile(r *FoundationDBClusterReconciler, 
 			return &requeue{curError: err}
 		}
 		if locality.ID == "" {
-			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "podName", pods[indexOfProcess].Name)
+			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pods[indexOfProcess].ObjectMeta)
+			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "processGroupID", processGroupID)
 			continue
 		}
 		processLocality = append(processLocality, locality)

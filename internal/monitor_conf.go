@@ -294,16 +294,7 @@ func buildIPArgument(parameter string, environmentVariable string, imageType FDB
 			monitorapi.Argument{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: address.Port - 2, Multiplier: 2},
 		)
 
-		flags := make([]string, 0, len(address.Flags))
-		for flag, set := range address.Flags {
-			if set {
-				flags = append(flags, flag)
-			}
-		}
-
-		sort.Slice(flags, func(i int, j int) bool {
-			return flags[i] < flags[j]
-		})
+		flags := address.SortedFlags()
 
 		if len(flags) > 0 {
 			arguments = append(arguments, monitorapi.Argument{Value: fmt.Sprintf(":%s", strings.Join(flags, ":"))})

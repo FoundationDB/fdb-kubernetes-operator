@@ -1,6 +1,8 @@
 # This file provides a test cluster with the unified image for the main
 # container and the sidecar.
-bases:
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
 - "../base"
 patchesJson6902:
 - path: images.yaml

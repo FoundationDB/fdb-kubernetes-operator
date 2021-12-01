@@ -154,16 +154,6 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (po
 	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: logger}, nil
 }
 
-// GetCluster returns the cluster associated with a client
-func (client *realFdbPodSidecarClient) GetCluster() *fdbtypes.FoundationDBCluster {
-	return client.Cluster
-}
-
-// GetPod returns the pod associated with a client
-func (client *realFdbPodSidecarClient) GetPod() *corev1.Pod {
-	return client.Pod
-}
-
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodSidecarClient) getListenIP() string {
 	ips := GetPublicIPsForPod(client.Pod)
@@ -310,16 +300,6 @@ func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, conte
 	return true, nil
 }
 
-// GetCluster returns the cluster associated with a client
-func (client *realFdbPodAnnotationClient) GetCluster() *fdbtypes.FoundationDBCluster {
-	return client.Cluster
-}
-
-// GetPod returns the pod associated with a client
-func (client *realFdbPodAnnotationClient) GetPod() *corev1.Pod {
-	return client.Pod
-}
-
 // GetVariableSubstitutions gets the current keys and values that this
 // instance will substitute into its monitor conf.
 func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string]string, error) {
@@ -387,16 +367,6 @@ type mockFdbPodClient struct {
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
 func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
-}
-
-// GetCluster returns the cluster associated with a client
-func (client *mockFdbPodClient) GetCluster() *fdbtypes.FoundationDBCluster {
-	return client.Cluster
-}
-
-// GetPod returns the pod associated with a client
-func (client *mockFdbPodClient) GetPod() *corev1.Pod {
-	return client.Pod
 }
 
 // UpdateFile checks if a file is up-to-date and tries to update it.

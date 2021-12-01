@@ -1791,6 +1791,22 @@ func (address ProcessAddress) Equal(addressB ProcessAddress) bool {
 	return true
 }
 
+// SortedFlags returns a list of flags on an address, sorted lexographically.
+func (address ProcessAddress) SortedFlags() []string {
+	flags := make([]string, 0, len(address.Flags))
+	for flag, set := range address.Flags {
+		if set {
+			flags = append(flags, flag)
+		}
+	}
+
+	sort.Slice(flags, func(i int, j int) bool {
+		return flags[i] < flags[j]
+	})
+
+	return flags
+}
+
 // ProcessAddressesString converts a slice of ProcessAddress into a string joined by the separator
 func ProcessAddressesString(pAddrs []ProcessAddress, sep string) string {
 	sb := strings.Builder{}
@@ -1944,16 +1960,7 @@ func (address ProcessAddress) String() string {
 		sb.WriteString(net.JoinHostPort(address.Placeholder, strconv.Itoa(address.Port)))
 	}
 
-	flags := make([]string, 0, len(address.Flags))
-	for flag, set := range address.Flags {
-		if set {
-			flags = append(flags, flag)
-		}
-	}
-
-	sort.Slice(flags, func(i int, j int) bool {
-		return flags[i] < flags[j]
-	})
+	flags := address.SortedFlags()
 
 	if len(flags) > 0 {
 		sb.WriteString(":" + strings.Join(flags, ":"))
