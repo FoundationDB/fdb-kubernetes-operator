@@ -105,8 +105,8 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 							AccountName: "account@account",
 							BackupName:  "test",
 							Bucket:      "my-bucket",
-							URLParameters: map[string]string{
-								"secure_connection": "0",
+							URLParameters: []string{
+								"secure_connection=0",
 							},
 						},
 					},
@@ -120,8 +120,8 @@ var _ = Describe("[api] FoundationDBRestore", func() {
 					Spec: FoundationDBRestoreSpec{
 						BlobStoreConfiguration: &BlobStoreConfiguration{
 							AccountName: "account@account",
-							URLParameters: map[string]string{
-								"secure_connection": "0",
+							URLParameters: []string{
+								"secure_connection=0",
 							},
 						},
 					},

@@ -195,12 +195,13 @@ type BlobStoreConfiguration struct {
 
 	// The backup bucket to write to.
 	// The default is "fdb-backups".
-	// +kubebuilder:validation:MinLengt=3
+	// +kubebuilder:validation:MinLength=3
 	// +kubebuilder:validation:MaxLength=63
 	Bucket string `json:"bucket,omitempty"`
 
 	// Additional URL parameters passed to the blobstore URL.
-	URLParameters map[string]string `json:"urlParameters,omitempty"`
+	// +kubebuilder:validation:MaxItems=100
+	URLParameters []string `json:"urlParameters,omitempty"`
 }
 
 // ShouldRun determines whether a backup should be running.
@@ -339,11 +340,9 @@ func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string
 	}
 
 	var sb strings.Builder
-	for param, value := range configuration.URLParameters {
+	for _, param := range configuration.URLParameters {
 		sb.WriteString("&")
 		sb.WriteString(param)
-		sb.WriteString("=")
-		sb.WriteString(value)
 	}
 
 	return fmt.Sprintf("blobstore://%s/%s?bucket=%s%s", configuration.AccountName, backup, bucket, sb.String())

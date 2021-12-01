@@ -110,7 +110,7 @@ spec:
   blobStoreConfiguration:
     accountName: account@object-store.example:443
     urlParameters:
-      secure_connection: "0"
+    - "secure_connection=0"
 ```
 
 ## Configuring the Operator

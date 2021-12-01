@@ -84,11 +84,13 @@ spec:
                       type: string
                     bucket:
                       maxLength: 63
+                      minLength: 3
                       type: string
                     urlParameters:
-                      additionalProperties:
+                      items:
                         type: string
-                      type: object
+                      maxItems: 100
+                      type: array
                   required:
                     - accountName
                   type: object
