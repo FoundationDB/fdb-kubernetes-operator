@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -90,7 +91,7 @@ var _ = Describe("configmap_helper", func() {
 			It("includes the data for the unified monitor conf", func() {
 				jsonData, present := configMap.Data["fdbmonitor-conf-storage-json"]
 				Expect(present).To(BeTrue())
-				config := KubernetesMonitorProcessConfiguration{}
+				config := monitorapi.ProcessConfiguration{}
 				err = json.Unmarshal([]byte(jsonData), &config)
 				Expect(err).NotTo(HaveOccurred())
 				expectedConfig, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -158,10 +159,11 @@ var _ = Describe("configmap_helper", func() {
 				BeforeEach(func() {
 					cluster.Status.ImageTypes = []string{"unified"}
 				})
+
 				It("includes the data for both configurations", func() {
 					jsonData, present := configMap.Data["fdbmonitor-conf-storage-json"]
 					Expect(present).To(BeTrue())
-					config := KubernetesMonitorProcessConfiguration{}
+					config := monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
 					expectedConfig, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
@@ -170,7 +172,7 @@ var _ = Describe("configmap_helper", func() {
 
 					jsonData, present = configMap.Data["fdbmonitor-conf-storage-json-multiple"]
 					Expect(present).To(BeTrue())
-					config = KubernetesMonitorProcessConfiguration{}
+					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
 					expectedConfig, err = GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 2)

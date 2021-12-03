@@ -220,6 +220,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 		}
 
+		if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbtypes.ProcessClassStorage {
+			storageServers := fmt.Sprintf("%d", cluster.Spec.StorageServersPerPod)
+			mainContainer.Args = append(mainContainer.Args, "--process-count", storageServers)
+			mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
+		}
+
 		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
 			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
 			corev1.VolumeMount{Name: "config-map", MountPath: "/var/dynamic-conf"},

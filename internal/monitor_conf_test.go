@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -55,7 +56,8 @@ var _ = Describe("pod_models", func() {
 				cluster.Status.ConnectionString = ""
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(config.ServerCount).To(Equal(0))
+				Expect(config.RunServers).NotTo(BeNil())
+				Expect(*config.RunServers).To(BeFalse())
 				Expect(config.Version).To(Equal(fdbtypes.Versions.Default.String()))
 			})
 		})
@@ -66,46 +68,57 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Version).To(Equal(fdbtypes.Versions.Default.String()))
 				Expect(config.BinaryPath).To(BeEmpty())
-				Expect(config.ServerCount).To(Equal(1))
+				Expect(config.RunServers).To(BeNil())
 
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[0]).To(Equal(KubernetesMonitorArgument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"}))
-				Expect(config.Arguments[1]).To(Equal(KubernetesMonitorArgument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"}))
-				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[0]).To(Equal(monitorapi.Argument{Value: "--cluster_file=/var/fdb/data/fdb.cluster"}))
+				Expect(config.Arguments[1]).To(Equal(monitorapi.Argument{Value: "--seed_cluster_file=/var/dynamic-conf/fdb.cluster"}))
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
-				Expect(config.Arguments[3]).To(Equal(KubernetesMonitorArgument{Value: "--class=storage"}))
-				Expect(config.Arguments[4]).To(Equal(KubernetesMonitorArgument{Value: "--logdir=/var/log/fdb-trace-logs"}))
-				Expect(config.Arguments[5]).To(Equal(KubernetesMonitorArgument{Value: "--loggroup=" + cluster.Name}))
-				Expect(config.Arguments[6]).To(Equal(KubernetesMonitorArgument{Value: "--datadir=/var/fdb/data"}))
-				Expect(config.Arguments[7]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[3]).To(Equal(monitorapi.Argument{Value: "--class=storage"}))
+				Expect(config.Arguments[4]).To(Equal(monitorapi.Argument{Value: "--logdir=/var/log/fdb-trace-logs"}))
+				Expect(config.Arguments[5]).To(Equal(monitorapi.Argument{Value: "--loggroup=" + cluster.Name}))
+				Expect(config.Arguments[6]).To(Equal(monitorapi.Argument{Value: "--datadir=/var/fdb/data"}))
+				Expect(config.Arguments[7]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_instance_id="},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
 				}}))
-				Expect(config.Arguments[8]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[8]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_machineid="},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_MACHINE_ID"},
 				}}))
-				Expect(config.Arguments[9]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[9]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_zoneid="},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_ZONE_ID"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_ZONE_ID"},
 				}}))
 			})
 		})
 
 		When("running multiple processes", func() {
+			It("adds a process ID argument", func() {
+				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 2)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+					{Value: "--locality_process_id="},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_INSTANCE_ID"},
+					{Value: "-"},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType},
+				}}))
+			})
+
 			It("includes the process number in the data directory", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 2)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[6]).To(Equal(KubernetesMonitorArgument{
-					ArgumentType: ConcatenateArgumentType,
-					Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[6]).To(Equal(monitorapi.Argument{
+					ArgumentType: monitorapi.ConcatenateArgumentType,
+					Values: []monitorapi.Argument{
 						{Value: "--datadir=/var/fdb/data/"},
-						{ArgumentType: ProcessNumberArgumentType},
+						{ArgumentType: monitorapi.ProcessNumberArgumentType},
 					},
 				}))
 			})
@@ -121,11 +134,11 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
 		})
@@ -141,17 +154,17 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
-				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--listen_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_POD_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_POD_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
 
@@ -164,11 +177,11 @@ var _ = Describe("pod_models", func() {
 					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-					Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+					Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 						{Value: "--public_address=["},
-						{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 						{Value: "]:"},
-						{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+						{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 					}}))
 				})
 			})
@@ -185,11 +198,11 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
 				}}))
 			})
@@ -206,16 +219,16 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
 					{Value: ",["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
 		})
@@ -231,16 +244,16 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[2]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4498, Multiplier: 2},
 					{Value: ":tls"},
 					{Value: ",["},
-					{ArgumentType: EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
 					{Value: "]:"},
-					{ArgumentType: ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
 			})
 		})
@@ -257,7 +270,7 @@ var _ = Describe("pod_models", func() {
 					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-					Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--knob_disable_posix_kernel_aio=1"}))
+					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--knob_disable_posix_kernel_aio=1"}))
 				})
 			})
 
@@ -280,7 +293,7 @@ var _ = Describe("pod_models", func() {
 					config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-					Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--knob_test=test1"}))
+					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--knob_test=test1"}))
 				})
 			})
 		})
@@ -298,9 +311,9 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 
-				Expect(config.Arguments[9]).To(Equal(KubernetesMonitorArgument{ArgumentType: ConcatenateArgumentType, Values: []KubernetesMonitorArgument{
+				Expect(config.Arguments[9]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--locality_zoneid="},
-					{ArgumentType: EnvironmentArgumentType, Source: "RACK"},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "RACK"},
 				}}))
 			})
 		})
@@ -314,7 +327,7 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--tls_verify_peers=S.CN=foundationdb.org"}))
+				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--tls_verify_peers=S.CN=foundationdb.org"}))
 			})
 		})
 
@@ -327,7 +340,7 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
-				Expect(config.Arguments[5]).To(Equal(KubernetesMonitorArgument{Value: "--loggroup=test-fdb-cluster"}))
+				Expect(config.Arguments[5]).To(Equal(monitorapi.Argument{Value: "--loggroup=test-fdb-cluster"}))
 			})
 		})
 
@@ -340,7 +353,7 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--locality_dcid=dc01"}))
+				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--locality_dcid=dc01"}))
 			})
 		})
 
@@ -353,7 +366,7 @@ var _ = Describe("pod_models", func() {
 				config, err := GetUnifiedMonitorConf(cluster, fdbtypes.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
-				Expect(config.Arguments[10]).To(Equal(KubernetesMonitorArgument{Value: "--locality_data_hall=dh01"}))
+				Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--locality_data_hall=dh01"}))
 			})
 		})
 	})
@@ -421,8 +434,7 @@ var _ = Describe("pod_models", func() {
 			})
 
 			When("the pod has multiple processes", func() {
-				It("should fill ih the process number", func() {
-
+				It("should fill in the process number", func() {
 					podClient, err := NewMockFdbPodClient(cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
 					command, err = GetStartCommand(cluster, processClass, podClient, 2, 3)
@@ -440,6 +452,7 @@ var _ = Describe("pod_models", func() {
 						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
 						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
 						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_process_id=%s-2", processGroupID),
 					}, " ")))
 				})
 			})

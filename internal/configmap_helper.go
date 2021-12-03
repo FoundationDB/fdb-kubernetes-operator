@@ -222,13 +222,13 @@ func setMonitorConfForFilename(cluster *v1beta1.FoundationDBCluster, data map[st
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
 func GetConfigMapMonitorConfEntry(pClass v1beta1.ProcessClass, imageType FDBImageType, serversPerPod int) string {
 	if imageType == FDBImageTypeUnified {
-		if serversPerPod > 1 {
+		if serversPerPod > 1 && pClass == v1beta1.ProcessClassStorage {
 			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", pClass)
 		}
 
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
-	if serversPerPod > 1 {
+	if serversPerPod > 1 && pClass == v1beta1.ProcessClassStorage {
 		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
 	}
 

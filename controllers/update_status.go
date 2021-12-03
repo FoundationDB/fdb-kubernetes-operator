@@ -406,6 +406,8 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 		processID = fmt.Sprintf("%s-%d", processID, processNumber)
 	}
 
+	logger.Info("JPB in checkAndSetProcessStatus", "processID", processID, "processMap", processMap)
+
 	processStatus := processMap[processID]
 
 	processGroupStatus.UpdateCondition(fdbtypes.MissingProcesses, len(processStatus) == 0, cluster.Status.ProcessGroups, processID)

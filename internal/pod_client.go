@@ -37,6 +37,7 @@ import (
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
@@ -362,13 +363,13 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 		return true, nil
 	}
 	if name == "fdbmonitor.conf" {
-		desiredConfiguration := KubernetesMonitorProcessConfiguration{}
+		desiredConfiguration := monitorapi.ProcessConfiguration{}
 		err := json.Unmarshal([]byte(contents), &desiredConfiguration)
 		if err != nil {
 			log.Error(err, "Error parsing desired process configuration", "input", contents)
 			return false, err
 		}
-		currentConfiguration := KubernetesMonitorProcessConfiguration{}
+		currentConfiguration := monitorapi.ProcessConfiguration{}
 		currentData, present := client.Pod.Annotations[CurrentConfigurationAnnotation]
 		if !present {
 			log.Info("Waiting for Kubernetes monitor to update annotations",
