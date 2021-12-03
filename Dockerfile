@@ -53,6 +53,7 @@ COPY internal/ internal/
 COPY pkg/ pkg/
 
 # Build
+RUN go mod download && go mod tidy
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO111MODULE=on make manager
 
 # Create user and group here since we don't have the tools
