@@ -3,7 +3,7 @@ kind: FoundationDBCluster
 metadata:
   name: test-cluster
 spec:
-  version: 6.2.30
+  version: 6.3.22
   faultDomain:
     # Use fake fault domains to support running in a single-node Kubernetes
     # cluster.
@@ -16,7 +16,7 @@ spec:
     # Enable a dedicated cluster controller process to test for surprising
     # behavior with having a process class with an underscore.
     cluster_controller: 1
-  
+  minimumUptimeSecondsForBounce: 60
   # Enable behavior that we will apply by default in the future.
   sidecarContainer:
     enableReadinessProbe: false
@@ -33,7 +33,6 @@ spec:
   automationOptions:
     replacements:
       enabled: true
-
   processes:
     general:
       customParameters:
@@ -55,6 +54,9 @@ spec:
                 requests:
                   cpu: 100m
                   memory: 128Mi
+              # Use a root user to work around issues with local volume permissions.
+              securityContext:
+                runAsUser: 0
             - name: foundationdb-kubernetes-sidecar
               # Use reduced resources to pack more processes on a node.
               resources:
@@ -64,6 +66,9 @@ spec:
                 limits:
                   cpu: 100m
                   memory: 128Mi
+              # Use a root user to work around issues with local volume permissions.
+              securityContext:
+                runAsUser: 0
           initContainers:
             - name: foundationdb-kubernetes-init
               # Use reduced resources to pack more processes on a node.
@@ -74,3 +79,6 @@ spec:
                 limits:
                   cpu: 100m
                   memory: 128Mi
+              # Use a root user to work around issues with local volume permissions.
+              securityContext:
+                runAsUser: 0

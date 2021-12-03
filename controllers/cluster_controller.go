@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -257,15 +258,28 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 		}
 	}
 
-	conf, err := internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
-	if err != nil {
-		return false, err
+	var expectedConf string
+
+	imageType := internal.GetImageType(pod)
+	if imageType == internal.FDBImageTypeUnified {
+		config, err := internal.GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, imageType)
+		if err != nil {
+			return false, err
+		}
+		configData, err := json.Marshal(config)
+		if err != nil {
+			return false, err
+		}
+		expectedConf = string(configData)
+	} else {
+		expectedConf, err = internal.GetMonitorConf(cluster, processClass, podClient, serversPerPod)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
-
-	syncedFDBcluster, clusterErr := internal.UpdateDynamicFiles(podClient, "fdb.cluster", cluster.Status.ConnectionString, func(client podclient.FdbPodClient) error { return client.CopyFiles() }, logger)
-	syncedFDBMonitor, err := internal.UpdateDynamicFiles(podClient, "fdbmonitor.conf", conf, func(client podclient.FdbPodClient) error { return client.GenerateMonitorConf() }, logger)
+	syncedFDBcluster, clusterErr := podClient.UpdateFile("fdb.cluster", cluster.Status.ConnectionString)
+	syncedFDBMonitor, err := podClient.UpdateFile("fdbmonitor.conf", expectedConf)
 	if !syncedFDBcluster || !syncedFDBMonitor {
 		if clusterErr != nil {
 			return false, clusterErr
@@ -280,7 +294,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	}
 
 	if !version.SupportsUsingBinariesFromMainContainer() || cluster.IsBeingUpgraded() {
-		return internal.CheckDynamicFilePresent(podClient, fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version), logger)
+		return podClient.IsPresent(fmt.Sprintf("bin/%s/fdbserver", cluster.Spec.Version))
 	}
 
 	return true, nil
@@ -424,6 +438,10 @@ func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client podcl
 	substitutions, err := client.GetVariableSubstitutions()
 	if err != nil {
 		return localityInfo{}, err
+	}
+
+	if substitutions == nil {
+		return localityInfo{}, nil
 	}
 
 	// This locality information is only used during the initial cluster file generation.

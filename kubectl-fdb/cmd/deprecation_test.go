@@ -475,6 +475,7 @@ sidecarContainer:
   - baseImage: foundationdb/foundationdb-kubernetes-sidecar
     tagSuffix: "-1"
 useExplicitListenAddress: false
+useUnifiedImage: false
 version: ""`,
 					expectedError:   "1/1 cluster(s) with deprecations",
 					showClusterSpec: true,

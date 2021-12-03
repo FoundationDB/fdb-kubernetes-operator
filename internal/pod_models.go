@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
@@ -148,6 +149,7 @@ func GetImage(image string, configs []fdbtypes.ImageConfig, versionString string
 func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
+	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
 
 	var mainContainer *corev1.Container
 	var sidecarContainer *corev1.Container
@@ -161,12 +163,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		}
 	}
 
-	for index, container := range podSpec.InitContainers {
-		if container.Name == "foundationdb-kubernetes-init" {
-			initContainer = &podSpec.InitContainers[index]
-		}
-	}
-
 	if mainContainer == nil {
 		return nil, fmt.Errorf("could not create main container")
 	}
@@ -175,8 +171,18 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		return nil, fmt.Errorf("could not create sidecar container")
 	}
 
-	if initContainer == nil {
-		return nil, fmt.Errorf("could not create init container")
+	if useUnifiedImages {
+		initContainer = &corev1.Container{}
+	} else {
+		for index, container := range podSpec.InitContainers {
+			if container.Name == "foundationdb-kubernetes-init" {
+				initContainer = &podSpec.InitContainers[index]
+			}
+		}
+
+		if initContainer == nil {
+			return nil, fmt.Errorf("could not create init container")
+		}
 	}
 
 	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
@@ -209,25 +215,62 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		logGroup = cluster.Name
 	}
 
-	mainContainer.Command = []string{"sh", "-c"}
+	if useUnifiedImages {
 
-	args := "fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
-		" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
-		" --loggroup " + logGroup +
-		" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
-
-	for _, pID := range cluster.Spec.Buggify.CrashLoop {
-		if processGroupID == pID || pID == "*" {
-			args = "crash-loop"
+		mainContainer.Args = []string{
+			"--input-dir", "/var/dynamic-conf",
+			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 		}
-	}
-	mainContainer.Args = []string{args}
 
-	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
-		corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
-		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
-		corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
-	)
+		if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbtypes.ProcessClassStorage {
+			storageServers := fmt.Sprintf("%d", cluster.Spec.StorageServersPerPod)
+			mainContainer.Args = append(mainContainer.Args, "--process-count", storageServers)
+			mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
+		}
+
+		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+			corev1.VolumeMount{Name: "config-map", MountPath: "/var/dynamic-conf"},
+			corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
+			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		)
+
+		mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+		}})
+
+		for _, crashLoopInstanceID := range cluster.Spec.Buggify.CrashLoop {
+			if processGroupID == crashLoopInstanceID || crashLoopInstanceID == "*" {
+				mainContainer.Command = []string{"crash-loop"}
+				mainContainer.Args = []string{"crash-loop"}
+			}
+		}
+	} else {
+		mainContainer.Command = []string{"sh", "-c"}
+
+		args := "fdbmonitor --conffile /var/dynamic-conf/fdbmonitor.conf" +
+			" --lockfile /var/dynamic-conf/fdbmonitor.lockfile" +
+			" --loggroup " + logGroup +
+			" >> /var/log/fdb-trace-logs/fdbmonitor-$(date '+%Y-%m-%d').log 2>&1"
+
+		for _, crashLoopID := range cluster.Spec.Buggify.CrashLoop {
+			if processGroupID == crashLoopID || crashLoopID == "*" {
+				args = "crash-loop"
+			}
+		}
+		mainContainer.Args = []string{args}
+
+		mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+			corev1.VolumeMount{Name: "data", MountPath: "/var/fdb/data"},
+			corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/dynamic-conf"},
+			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		)
+	}
 
 	var readOnlyRootFilesystem = true
 	if mainContainer.SecurityContext == nil {
@@ -238,18 +281,52 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		mainContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 	}
 
-	err = configureSidecarContainerForCluster(cluster, initContainer, true, processGroupID, processSettings.GetAllowTagOverride())
-	if err != nil {
-		return nil, err
-	}
+	if useUnifiedImages {
+		sidecarVersionString := cluster.Status.RunningVersion
+		if sidecarVersionString == "" {
+			sidecarVersionString = cluster.Spec.Version
+		}
 
-	err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, processGroupID, processSettings.GetAllowTagOverride())
-	if err != nil {
-		return nil, err
-	}
+		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString, processSettings.GetAllowTagOverride())
+		if err != nil {
+			return nil, err
+		}
 
-	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-		sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
+		sidecarContainer.Image = sidecarImage
+		sidecarContainer.Args = []string{
+			"--mode", "sidecar",
+			"--output-dir", "/var/fdb/shared-binaries",
+			"--main-container-version", versionString,
+			"--copy-binary", "fdbserver",
+			"--copy-binary", "fdbcli",
+			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
+		}
+
+		sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
+			corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},
+			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
+		)
+
+		if sidecarContainer.SecurityContext == nil {
+			sidecarContainer.SecurityContext = &corev1.SecurityContext{}
+		}
+		if sidecarContainer.SecurityContext.ReadOnlyRootFilesystem == nil {
+			sidecarContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
+		}
+	} else {
+		err = configureSidecarContainerForCluster(cluster, initContainer, true, processGroupID, processSettings.GetAllowTagOverride())
+		if err != nil {
+			return nil, err
+		}
+
+		err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, processGroupID, processSettings.GetAllowTagOverride())
+		if err != nil {
+			return nil, err
+		}
+
+		if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
+		}
 	}
 
 	var mainVolumeSource corev1.VolumeSource
@@ -267,13 +344,17 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		mainVolumeSource.EmptyDir = &corev1.EmptyDirVolumeSource{}
 	}
 
-	monitorConf := fmt.Sprintf("fdbmonitor-conf-%s", processClass)
-	if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
-		monitorConf = fmt.Sprintf("fdbmonitor-conf-%s-density-%d", processClass, cluster.GetStorageServersPerPod())
+	monitorConfKey := GetConfigMapMonitorConfEntry(processClass, GetDesiredImageType(cluster), cluster.GetStorageServersPerPod())
+
+	var monitorConfFile string
+	if useUnifiedImages {
+		monitorConfFile = "config.json"
+	} else {
+		monitorConfFile = "fdbmonitor.conf"
 	}
 
 	configMapItems := []corev1.KeyToPath{
-		{Key: monitorConf, Path: "fdbmonitor.conf"},
+		{Key: monitorConfKey, Path: monitorConfFile},
 		{Key: ClusterFileKey, Path: "fdb.cluster"},
 	}
 
@@ -294,13 +375,19 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 	volumes := []corev1.Volume{
 		{Name: "data", VolumeSource: mainVolumeSource},
-		{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-		{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+	}
+	if useUnifiedImages {
+		volumes = append(volumes, corev1.Volume{Name: "shared-binaries", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+	} else {
+		volumes = append(volumes, corev1.Volume{Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+	}
+	volumes = append(volumes,
+		corev1.Volume{Name: "config-map", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 			LocalObjectReference: corev1.LocalObjectReference{Name: configMapRefName},
 			Items:                configMapItems,
 		}}},
-		{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-	}
+		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+	)
 
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
@@ -360,7 +447,9 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		}
 	}
 
-	replaceContainers(podSpec.InitContainers, initContainer)
+	if !useUnifiedImages {
+		replaceContainers(podSpec.InitContainers, initContainer)
+	}
 	replaceContainers(podSpec.Containers, mainContainer, sidecarContainer)
 
 	podSpec.Volumes = append(podSpec.Volumes, volumes...)
@@ -443,38 +532,12 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	if optionalCluster != nil {
 		cluster := optionalCluster
 
-		publicIPSource := cluster.Spec.Routing.PublicIPSource
-		usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
-
-		var publicIPKey string
-		if usePublicIPFromService {
-			publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
-		} else {
-			family := cluster.Spec.Routing.PodIPFamily
-			if family == nil {
-				publicIPKey = "status.podIP"
-			} else {
-				publicIPKey = "status.podIPs"
-				sidecarArgs = append(sidecarArgs, "--public-ip-family")
-				sidecarArgs = append(sidecarArgs, fmt.Sprint(*family))
-			}
+		if cluster.Spec.Routing.PodIPFamily != nil {
+			sidecarArgs = append(sidecarArgs, "--public-ip-family")
+			sidecarArgs = append(sidecarArgs, fmt.Sprint(*cluster.Spec.Routing.PodIPFamily))
 		}
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
-		}})
 
 		if cluster.NeedsExplicitListenAddress() {
-			podIPKey := ""
-			family := cluster.Spec.Routing.PodIPFamily
-			if family == nil {
-				podIPKey = "status.podIP"
-			} else {
-				podIPKey = "status.podIPs"
-			}
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: podIPKey},
-			}})
-
 			if version.PrefersCommandLineArgumentsInSidecar() {
 				sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_POD_IP")
 			}
@@ -489,40 +552,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			}
 		}
 
-		faultDomainKey := cluster.Spec.FaultDomain.Key
-		if faultDomainKey == "" {
-			faultDomainKey = "kubernetes.io/hostname"
-		}
-
-		faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
-		if faultDomainSource == "" {
-			faultDomainSource = "spec.nodeName"
-		}
-
-		if faultDomainKey == "foundationdb.org/none" {
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-			}})
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-			}})
-		} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-			}})
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
-		} else {
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
-			}})
-			if !strings.HasPrefix(faultDomainSource, "$") {
-				sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
-				}})
-			}
-		}
-
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: processGroupID})
+		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
 
 		if !initMode && *cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
 			// We can't use a HTTP handler here since the server
@@ -600,6 +630,80 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	}
 
 	return nil
+}
+
+// getEnvForMonitorConfigSubstitution provides the environment variables that
+// are used for substituting variables into the monitor config.
+func getEnvForMonitorConfigSubstitution(cluster *fdbtypes.FoundationDBCluster, instanceID string) []corev1.EnvVar {
+	env := make([]corev1.EnvVar, 0)
+
+	publicIPSource := cluster.Spec.Routing.PublicIPSource
+	usePublicIPFromService := publicIPSource != nil && *publicIPSource == fdbtypes.PublicIPSourceService
+
+	var publicIPKey string
+	if usePublicIPFromService {
+		publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
+	} else {
+		family := cluster.Spec.Routing.PodIPFamily
+		if family == nil {
+			publicIPKey = "status.podIP"
+		} else {
+			publicIPKey = "status.podIPs"
+		}
+	}
+	env = append(env, corev1.EnvVar{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+		FieldRef: &corev1.ObjectFieldSelector{FieldPath: publicIPKey},
+	}})
+
+	if cluster.NeedsExplicitListenAddress() {
+		podIPKey := ""
+		family := cluster.Spec.Routing.PodIPFamily
+		if family == nil {
+			podIPKey = "status.podIP"
+		} else {
+			podIPKey = "status.podIPs"
+		}
+		env = append(env, corev1.EnvVar{Name: "FDB_POD_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: podIPKey},
+		}})
+	}
+
+	faultDomainKey := cluster.Spec.FaultDomain.Key
+	if faultDomainKey == "" {
+		faultDomainKey = "kubernetes.io/hostname"
+	}
+
+	faultDomainSource := cluster.Spec.FaultDomain.ValueFrom
+	if faultDomainSource == "" {
+		faultDomainSource = "spec.nodeName"
+	}
+
+	if faultDomainKey == "foundationdb.org/none" {
+		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}})
+	} else if faultDomainKey == "foundationdb.org/kubernetes-cluster" {
+		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}})
+		env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", Value: cluster.Spec.FaultDomain.Value})
+	} else {
+		env = append(env, corev1.EnvVar{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"},
+		}})
+		if !strings.HasPrefix(faultDomainSource, "$") {
+			env = append(env, corev1.EnvVar{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: faultDomainSource},
+			}})
+		}
+	}
+
+	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+
+	return env
 }
 
 // usePvc determines whether we should attach a PVC to a pod.

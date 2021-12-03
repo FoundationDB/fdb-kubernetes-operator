@@ -22,6 +22,8 @@ When we use the term "cluster" in this document with no other qualifiers, we are
 
 When we use the term "cluster status" in this document, it refers to the status of the `FoundationDBCluster` resource in Kubernetes. When we use the term "database status" in this document, it refers to the output of the `status json` command in `fdbcli`.
 
+When we reference something that contains the name of the cluster, we will assume the cluster is named `sample-cluster`.
+
 This document also assumes that you are familiar with the earlier content in the user manual. We especially recommend reading through the section on [Resources Managed by the Operator](resources.md), which describes terminology and concepts that are used heavily in this document.
 
 ## Reconciliation Loops
@@ -330,6 +332,58 @@ The restore reconciler runs the following subreconcilers:
 ### StartRestore
 
 The `StartRestore` subreconciler starts a restore. If there is no active restore, this will run a `start` command in `fdbrestore`.
+
+## Interaction Between the Operator and the Pods
+
+The operator communicates with processes running inside of the FoundationDB pods at multiple stages in the reconciliation flow. The exact flow will depend on whether you are using split images (which is the current default) or unified images.
+
+### Split Image
+
+When using split images, the `foundationdb` container runs an `fdbmonitor` process, which is responsible for starting `fdbserver` processes. `fdbmonitor` receives its configuration in the form of a monitor conf file, which contains the start command and arguments for the fdbserver process. This configuration can vary based on dynamic information like the node where the pod is running, so the operator provides a templated configuration file, which contains placeholders that are filled in based on the environment variables. That templating process is handled by the sidecar process in the `foundationdb-kubernetes-sidecar` container. The sidecar also provides an HTTP API for getting information about the state of the configuration in the pod. The sidecar mounts the config map containing dynamic conf as its input directory, and shares an `emptyDir` volume with the `foundationdb` container where it can put its output.
+
+The flow for updating the fdbserver processes has the following steps:
+
+1. The operator updates the monitor conf template in the `sample-cluster-config` config map. There is one monitor conf template for every process class the cluster uses.
+2. The operator calls the sidecar API to check the hash of the output monitor conf and compare the hash to the desired contents.
+3. The operator sees that the config is out of date, and sets an annotation on the pod to indicate that it needs an update.
+4. Kubernetes fetches the contents of the config map from the API server and updates the template in the sidecar container.
+5. The operator tells the sidecar to regenerate the monitor conf based on the new template. The sidecar places the generated monitor conf in its output directory.
+6. The operator checks the latest output monitor conf to see if it is now correct.
+7. Once the monitor conf is correct, the operator uses the CLI to shut down the fdbserver processes.
+8. fdbmonitor sees that that processes have exited and starts new processes with the latest configuration.
+
+The operator follows a similar process when the `fdb.cluster` file needs to be updated. However, because this file is not templated, the sidecar simply copies the file from the input directory to the output directory. Cluster file updates do not require restarting processes.
+
+When the operator checks the status of the cluster, it needs to check if the process start commands are an exact match for the expected values based on the cluster spec. In order to make this comparison, it needs to fill in pod-specific information like the address and node name. The sidecar also provides an API for reading the environment variables that are being referenced in the monitor conf, and what their current values are. The operator uses this API when performing this check on the start command.
+
+The sidecar has an important role to play in the upgrade flow. The monitor conf template uses a template variable `$BINARY_DIR` for the directory where the `foundationdb` container should look for the `fdbserver` binary. The sidecar process sets this template variable based on its understanding of the versions of the main container and the sidecar container. When they are running the same version of FDB, the `$BINARY_DIR` is set to the directory with the binaries that are provided by the `foundationdb` image. When they are running a different version, the sidecar copies the FDB binaries from its own image into the output directory, and sets the `$BINARY_DIR` to the path to these binaries in that directory.
+
+### Unified Image
+
+**NOTE**: The unified image is still experimental, and is not recommended outside of development environments.
+
+When using the unified image, the `foundationdb` container runs a `fdb-kubernetes-monitor` process, which is responsible for starting `fdbserver` processes. `fdb-kubernetes-monitor` receives its configuration in the form of a JSON file, which provides the command-line arguments in a structured form. These arguments can reference environment variables, which will be filled in by `fdb-kubernetes-monitor`. They can also reference the process number, which allows `fdb-kubernetes-monitor` to start multiple `fdbserver` processes that use different ports and different data directories.
+
+The flow for updating the monitor conf file has the following steps:
+
+1. The operator updates the monitor conf template in the `sample-cluster-config` config map. There is one monitor conf file for every process class the cluster uses.
+2. The operator checks the annotations on the pod to see the monitor conf that the pod is currently using.
+3. The operator sees that the config is out of date, and sets an annotation on the pod to indicate that it needs an update.
+4. Kubernetes fetches the contents of the config map from the API server and updates the template in the sidecar container.
+5. fdb-kubernetes-monitor receives an event about the updated configuration file and loads it. It runs basic validations on the new conf.
+6. If the new config is usable, fdb-kubernetes-monitor will store the new configuration as its active configuration and updates the annotations on the pod with the new configuration.
+7. Once the operator sees that the active configuration matches the desired configuration, it uses the CLI to shut down the fdbserver processes.
+8. fdb-kubernetes-monitor sees that that processes have exited and starts new processes with the latest configuration.
+
+The active configuration is stored on the pod under the annotation `foundationdb.org/launcher-current-configuration`.
+
+**NOTE**: Because the pod annotations are used to communicate the state in this flow, the pods must have a service account token that has permissions to read and write pods.
+
+fdb-kubernetes-monitor does not watch the `fdb.cluster` for updates. Changes to the connection string will be sent directly to the fdbserver processes through the `coordinators` command in the CLI.
+
+When the operator checks the status of the cluster, it needs to check if the process start commands are an exact match for the expected values based on the cluster spec. In order to make this comparison, it needs to fill in pod-specific information like the address and node name. fdb-kubernetes-monitor provides this information through the `foundationdb.org/launcher-environment` annotation on the pod, which contains a map of environment variables to their values. The operator uses this annotation when performing this check on the start command.
+
+All of the flows above go through the `foundationdb` container. The `foundationdb-kubernetes-sidecar` container is only used in the upgrade flow. The sidecar container runs the same image as the main container, but with a different set of arguments to tell it to run in sidecar mode. During the upgrade, the operator upgrades the sidecar to the new version of FDB while leaving the main container at the old version. The sidecar compares the version of FoundationDB that it is running against the main container version, which is provided in its start command. If these versions are the same, the sidecar will do nothing. If they are different, it will copy the FDB binaries from its own image into a volume that it shares with the main container. The main container will receive the desired version of FDB as part of its configuration file. When the main container sees a version of FDB that is different from the one it is running, it will look for the FDB binaries in the directory it shares with the sidecar. If it finds those new binaries, it will load the new configuration and run the binaries from that directory. If these binaries are missing, fdb-kubernetes-monitor will reject the new configuration. Once the new configuration is accepted by all of the pods, the operator will restart the processes so they start running with the new binaries. Once the new version is running, the operator will perform a rolling bounce to update the main container to the new FDB version.
 
 ## Next
 

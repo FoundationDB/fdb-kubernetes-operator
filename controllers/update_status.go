@@ -54,6 +54,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	// Initialize with the current desired storage servers per Pod
 	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
+	status.ImageTypes = []string{string(internal.GetDesiredImageType(cluster))}
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
@@ -291,8 +292,12 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		status.Locks.DenyList = denyList
 	}
 
-	// Sort the storage servers per disk to prevent a reordering to issue a new reconcile loop.
+	// Sort slices that are assembled based on pods to prevent a reordering from
+	// issuing a new reconcile loop.
 	sort.Ints(status.StorageServersPerDisk)
+	sort.Strings(status.ImageTypes)
+
+	//
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
 	sort.SliceStable(status.ProcessGroups, func(i, j int) bool {
@@ -506,6 +511,19 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 			status.AddStorageServerPerDisk(processCount)
 		}
 
+		imageType := internal.GetImageType(pod)
+		imageTypeString := string(imageType)
+		imageTypeFound := false
+		for _, currentImageType := range status.ImageTypes {
+			if imageTypeString == currentImageType {
+				imageTypeFound = true
+				break
+			}
+		}
+		if !imageTypeFound {
+			status.ImageTypes = append(status.ImageTypes, imageTypeString)
+		}
+
 		if isBeingRemoved {
 			processGroup.Remove = true
 			// Check if we should skip exclusion for the process group
@@ -517,7 +535,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 		if pod.ObjectMeta.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "foundationdb-kubernetes-sidecar" {
+				if container.Name == "foundationdb-kubernetes-sidecar" || container.Name == "foundationdb" {
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {
 							hasPodIP = true
@@ -538,7 +556,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 			}
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, processCount)
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, processCount)
 		if err != nil {
 			return processGroups, err
 		}

@@ -61,18 +61,54 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	for processClass, count := range desiredCounts {
-		if count > 0 {
-			if processClass == v1beta1.ProcessClassStorage {
-				storageServersPerDisk := cluster.Status.StorageServersPerDisk
-				// If the status field is not initialized we fallback to only the specified count
-				// in the cluster spec. This should only happen in the initial phase of a new cluster.
-				if len(cluster.Status.StorageServersPerDisk) == 0 {
-					storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-				}
+	imageTypes := make(map[FDBImageType]None, len(cluster.Status.ImageTypes))
+	for _, imageType := range cluster.Status.ImageTypes {
+		imageTypes[FDBImageType(imageType)] = None{}
+	}
 
+	storageServersPerDisk := cluster.Status.StorageServersPerDisk
+	// If the status field is not initialized we fallback to only the specified count
+	// in the cluster spec. This should only happen in the initial phase of a new cluster.
+	if len(cluster.Status.StorageServersPerDisk) == 0 {
+		storageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
+	}
+
+	for processClass, count := range desiredCounts {
+		if count == 0 {
+			continue
+		}
+
+		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
+			if processClass == v1beta1.ProcessClassStorage {
 				for _, serversPerPod := range storageServersPerDisk {
-					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, serversPerPod), connectionString, processClass, serversPerPod)
+					config, err := GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, FDBImageTypeUnified)
+					if err != nil {
+						return nil, err
+					}
+					jsonData, err := json.Marshal(config)
+					if err != nil {
+						return nil, err
+					}
+					filename := GetConfigMapMonitorConfEntry(processClass, FDBImageTypeUnified, serversPerPod)
+					data[filename] = string(jsonData)
+				}
+			} else {
+				config, err := GetMonitorProcessConfiguration(cluster, processClass, 1, FDBImageTypeUnified)
+				if err != nil {
+					return nil, err
+				}
+				jsonData, err := json.Marshal(config)
+				if err != nil {
+					return nil, err
+				}
+				data[fmt.Sprintf("fdbmonitor-conf-%s-json", processClass)] = string(jsonData)
+			}
+		}
+
+		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
+			if processClass == v1beta1.ProcessClassStorage {
+				for _, serversPerPod := range storageServersPerDisk {
+					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 					if err != nil {
 						return nil, err
 					}
@@ -80,7 +116,7 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 				continue
 			}
 
-			err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, 1), connectionString, processClass, 1)
+			err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, 1), connectionString, processClass, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -184,8 +220,15 @@ func setMonitorConfForFilename(cluster *v1beta1.FoundationDBCluster, data map[st
 }
 
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
-func GetConfigMapMonitorConfEntry(pClass v1beta1.ProcessClass, serversPerPod int) string {
-	if serversPerPod > 1 {
+func GetConfigMapMonitorConfEntry(pClass v1beta1.ProcessClass, imageType FDBImageType, serversPerPod int) string {
+	if imageType == FDBImageTypeUnified {
+		if serversPerPod > 1 && pClass == v1beta1.ProcessClassStorage {
+			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", pClass)
+		}
+
+		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
+	}
+	if serversPerPod > 1 && pClass == v1beta1.ProcessClassStorage {
 		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
 	}
 
@@ -196,10 +239,10 @@ func GetConfigMapMonitorConfEntry(pClass v1beta1.ProcessClass, serversPerPod int
 // cluster's dynamic conf.
 //
 // This will omit keys that we do not expect the Pods to reference e.g. for storage Pods only include the storage config.
-func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass v1beta1.ProcessClass, serversPerPod int) (string, error) {
+func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass v1beta1.ProcessClass, imageType FDBImageType, serversPerPod int) (string, error) {
 	fields := []string{
 		ClusterFileKey,
-		GetConfigMapMonitorConfEntry(pClass, serversPerPod),
+		GetConfigMapMonitorConfEntry(pClass, imageType, serversPerPod),
 		"running-version",
 		"ca-file",
 		"sidecar-conf",

@@ -22,6 +22,7 @@ package controllers
 
 import (
 	ctx "context"
+	"fmt"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -87,7 +88,9 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 			continue
 		}
 
-		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, serverPerPod)
+		imageType := internal.GetImageType(pod)
+
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processClass, imageType, serverPerPod)
 		if err != nil {
 			curLogger.Error(err, "Error when receiving dynamic ConfigMap hash")
 			errs = append(errs, err)
@@ -102,14 +105,16 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 		if !synced {
 			allSynced = false
 			hasUpdate = true
-			curLogger.Error(err, "Update Pod ConfigMap annotation")
+			if err != nil {
+				curLogger.Error(err, "Update Pod ConfigMap annotation")
+			}
 			if internal.IsNetworkError(err) {
 				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
 				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 
-			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = time.Now().Format(time.RFC3339)
+			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
 			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
 			if err != nil {
 				allSynced = false

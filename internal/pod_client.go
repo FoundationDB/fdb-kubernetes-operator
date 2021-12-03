@@ -32,24 +32,47 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
+	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-retryablehttp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 )
+
+// FDBImageType describes a type of image a pod or cluster is using.
+type FDBImageType string
 
 const (
 	// MockUnreachableAnnotation defines if a Pod should be unreachable. This annotation
 	// is currently only used for testing cases.
 	MockUnreachableAnnotation = "foundationdb.org/mock-unreachable"
+
+	// FDBImageTypeUnified indicates that a pod is using a unified image for the
+	// main container and sidecar container.
+	FDBImageTypeUnified FDBImageType = "unified"
+
+	// FDBImageTypeSplit indicates that a pod is using a different image for the
+	// main container and sidecar container.
+	FDBImageTypeSplit FDBImageType = "split"
+
+	// CurrentConfigurationAnnotation is the annotation we use to store the
+	// latest configuration.
+	CurrentConfigurationAnnotation = "foundationdb.org/launcher-current-configuration"
+
+	// EnvironmentAnnotation is the annotation we use to store the environment
+	// variables.
+	EnvironmentAnnotation = "foundationdb.org/launcher-environment"
 )
 
-// realPodClient provides a client for use in real environments.
-type realFdbPodClient struct {
+// realPodSidecarClient provides a client for use in real environments, using
+// the Kubernetes sidecar.
+type realFdbPodSidecarClient struct {
 	// Cluster is the cluster we are connecting to.
 	Cluster *fdbtypes.FoundationDBCluster
 
@@ -62,10 +85,31 @@ type realFdbPodClient struct {
 	// tlsConfig contains the TLS configuration for the connection to the
 	// sidecar.
 	tlsConfig *tls.Config
+
+	// logger is used to add common fields to log messages.
+	logger logr.Logger
+}
+
+// realPodSidecarClient provides a client for use in real environments, using
+// the annotations from the unified Kubernetes image.
+type realFdbPodAnnotationClient struct {
+	// Cluster is the cluster we are connecting to.
+	Cluster *fdbtypes.FoundationDBCluster
+
+	// Pod is the pod we are connecting to.
+	Pod *corev1.Pod
+
+	// logger is used to add common fields to log messages.
+	logger logr.Logger
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
 func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
+	if GetImageType(pod) == FDBImageTypeUnified {
+		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: logger}, nil
+	}
+
 	if pod.Status.PodIP == "" {
 		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	}
@@ -107,11 +151,11 @@ func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (po
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig}, nil
+	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: logger}, nil
 }
 
 // getListenIP gets the IP address that a pod listens on.
-func (client *realFdbPodClient) getListenIP() string {
+func (client *realFdbPodSidecarClient) getListenIP() string {
 	ips := GetPublicIPsForPod(client.Pod)
 	if len(ips) > 0 {
 		return ips[0]
@@ -121,7 +165,7 @@ func (client *realFdbPodClient) getListenIP() string {
 }
 
 // makeRequest submits a request to the sidecar.
-func (client *realFdbPodClient) makeRequest(method string, path string) (string, error) {
+func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (string, error) {
 	var resp *http.Response
 	var err error
 
@@ -169,9 +213,10 @@ func (client *realFdbPodClient) makeRequest(method string, path string) (string,
 }
 
 // IsPresent checks whether a file in the sidecar is present.
-func (client *realFdbPodClient) IsPresent(filename string) (bool, error) {
+func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) {
 	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
+		client.logger.Info("Waiting for file", "file", filename)
 		return false, err
 	}
 
@@ -179,7 +224,7 @@ func (client *realFdbPodClient) IsPresent(filename string) (bool, error) {
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
-func (client *realFdbPodClient) CheckHash(filename string, contents string) (bool, error) {
+func (client *realFdbPodSidecarClient) checkHash(filename string, contents string) (bool, error) {
 	response, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
 		return false, err
@@ -191,21 +236,21 @@ func (client *realFdbPodClient) CheckHash(filename string, contents string) (boo
 }
 
 // GenerateMonitorConf updates the monitor conf file for a pod
-func (client *realFdbPodClient) GenerateMonitorConf() error {
+func (client *realFdbPodSidecarClient) generateMonitorConf() error {
 	_, err := client.makeRequest("POST", "copy_monitor_conf")
 	return err
 }
 
-// CopyFiles copies the files from the config map to the shared dynamic conf
+// copyFiles copies the files from the config map to the shared dynamic conf
 // volume
-func (client *realFdbPodClient) CopyFiles() error {
+func (client *realFdbPodSidecarClient) copyFiles() error {
 	_, err := client.makeRequest("POST", "copy_files")
 	return err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
 // process group will substitute into its monitor conf.
-func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, error) {
+func (client *realFdbPodSidecarClient) GetVariableSubstitutions() (map[string]string, error) {
 	contents, err := client.makeRequest("GET", "substitutions")
 	if err != nil {
 		return nil, err
@@ -213,9 +258,104 @@ func (client *realFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	substitutions := map[string]string{}
 	err = json.Unmarshal([]byte(contents), &substitutions)
 	if err != nil {
-		log.Error(err, "Error deserializing pod substitutions", "responseBody", contents)
+		client.logger.Error(err, "Error deserializing pod substitutions", "responseBody", contents)
 	}
 	return substitutions, err
+}
+
+// UpdateFile checks if a file is up-to-date and tries to update it.
+func (client *realFdbPodSidecarClient) UpdateFile(name string, contents string) (bool, error) {
+	if name == "fdbmonitor.conf" {
+		return client.updateDynamicFiles(name, contents, func(client *realFdbPodSidecarClient) error { return client.generateMonitorConf() })
+	}
+	return client.updateDynamicFiles(name, contents, func(client *realFdbPodSidecarClient) error { return client.copyFiles() })
+}
+
+// updateDynamicFiles checks if the files in the dynamic conf volume match the
+// expected contents, and tries to copy the latest files from the input volume
+// if they do not.
+func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, contents string, updateFunc func(client *realFdbPodSidecarClient) error) (bool, error) {
+	match := false
+	var err error
+
+	match, err = client.checkHash(filename, contents)
+	if err != nil {
+		return false, err
+	}
+
+	if !match {
+		err = updateFunc(client)
+		if err != nil {
+			return false, err
+		}
+		// We check this more or less instantly, maybe we should add some delay?
+		match, err = client.checkHash(filename, contents)
+		if !match {
+			client.logger.Info("Waiting for config update", "file", filename)
+		}
+
+		return match, err
+	}
+
+	return true, nil
+}
+
+// GetVariableSubstitutions gets the current keys and values that this
+// instance will substitute into its monitor conf.
+func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string]string, error) {
+	environmentData, present := client.Pod.Annotations[EnvironmentAnnotation]
+	if !present {
+		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", EnvironmentAnnotation)
+		return nil, nil
+	}
+	environment := make(map[string]string)
+	err := json.Unmarshal([]byte(environmentData), &environment)
+	if err != nil {
+		return nil, err
+	}
+
+	return environment, nil
+}
+
+// UpdateFile checks if a file is up-to-date and tries to update it.
+func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents string) (bool, error) {
+	if name == "fdb.cluster" {
+		// We can ignore cluster file updates in the unified image.
+		return true, nil
+	}
+	if name == "fdbmonitor.conf" {
+		desiredConfiguration := monitorapi.ProcessConfiguration{}
+		err := json.Unmarshal([]byte(contents), &desiredConfiguration)
+		if err != nil {
+			client.logger.Error(err, "Error parsing desired process configuration", "input", contents)
+			return false, err
+		}
+		currentConfiguration := monitorapi.ProcessConfiguration{}
+		currentData, present := client.Pod.Annotations[CurrentConfigurationAnnotation]
+		if !present {
+			client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", currentConfiguration)
+			return false, nil
+		}
+		err = json.Unmarshal([]byte(currentData), &currentConfiguration)
+		if err != nil {
+			client.logger.Error(err, "Error parsing current process configuration", "input", currentData)
+			return false, err
+		}
+		match := reflect.DeepEqual(currentConfiguration, desiredConfiguration)
+		if !match {
+			client.logger.Info("Waiting for Kubernetes monitor config update",
+				"desired", desiredConfiguration, "current", currentConfiguration)
+		}
+		return match, nil
+	}
+	return false, fmt.Errorf("Unknown file %s", name)
+}
+
+// IsPresent checks whether a file in the sidecar is present.
+// This implementation always returns true, because the unified image handles
+// these checks internally.
+func (client *realFdbPodAnnotationClient) IsPresent(filename string) (bool, error) {
+	return true, nil
 }
 
 // MockFdbPodClient provides a mock connection to a pod
@@ -229,65 +369,14 @@ func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod)
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
-// IsPresent checks whether a file in the sidecar is prsent.
+// UpdateFile checks if a file is up-to-date and tries to update it.
+func (client *mockFdbPodClient) UpdateFile(name string, contents string) (bool, error) {
+	return true, nil
+}
+
+// IsPresent checks whether a file in the sidecar is present.
 func (client *mockFdbPodClient) IsPresent(filename string) (bool, error) {
 	return true, nil
-}
-
-// CheckHash checks whether a file in the sidecar has the expected contents.
-func (client *mockFdbPodClient) CheckHash(filename string, contents string) (bool, error) {
-	return true, nil
-}
-
-// GenerateMonitorConf updates the monitor conf file for a pod
-func (client *mockFdbPodClient) GenerateMonitorConf() error {
-	return nil
-}
-
-// CopyFiles copies the files from the config map to the shared dynamic conf
-// volume
-func (client *mockFdbPodClient) CopyFiles() error {
-	return nil
-}
-
-// UpdateDynamicFiles checks if the files in the dynamic conf volume match the
-// expected contents, and tries to copy the latest files from the input volume
-// if they do not.
-func UpdateDynamicFiles(client podclient.FdbPodClient, filename string, contents string, updateFunc func(client podclient.FdbPodClient) error, logger logr.Logger) (bool, error) {
-	match := false
-	var err error
-
-	match, err = client.CheckHash(filename, contents)
-	if err != nil {
-		return false, err
-	}
-
-	if !match {
-		err = updateFunc(client)
-		if err != nil {
-			return false, err
-		}
-		// We check this more or less instantly, maybe we should add some delay?
-		match, err = client.CheckHash(filename, contents)
-		if !match {
-			logger.Info("Waiting for config update", "file", filename)
-		}
-
-		return match, err
-	}
-
-	return true, nil
-}
-
-// CheckDynamicFilePresent waits for a file to be present in the dynamic conf
-func CheckDynamicFilePresent(client podclient.FdbPodClient, filename string, logger logr.Logger) (bool, error) {
-	present, err := client.IsPresent(filename)
-
-	if !present {
-		logger.Info("Waiting for config update", "file", filename)
-	}
-
-	return present, err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
@@ -313,6 +402,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 			substitutions["FDB_PUBLIC_IP"] = fmt.Sprintf("[%s]", ipString)
 		}
 	}
+	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
 
 	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
@@ -366,4 +456,29 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 	}
 
 	return false
+}
+
+// GetImageType determines whether a pod is using the unified or the split
+// image.
+func GetImageType(pod *corev1.Pod) FDBImageType {
+	for _, container := range pod.Spec.Containers {
+		if container.Name != "foundationdb" {
+			continue
+		}
+		for _, envVar := range container.Env {
+			if envVar.Name == "FDB_IMAGE_TYPE" {
+				return FDBImageType(envVar.Value)
+			}
+		}
+	}
+	return FDBImageTypeSplit
+}
+
+// GetDesiredImageType determines whether a cluster is configured to use the
+// unified or the split image.
+func GetDesiredImageType(cluster *fdbtypes.FoundationDBCluster) FDBImageType {
+	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
+		return FDBImageTypeUnified
+	}
+	return FDBImageTypeSplit
 }

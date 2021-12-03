@@ -355,6 +355,10 @@ type FoundationDBClusterSpec struct {
 	// UseExplicitListenAddress determines if we should add a listen address
 	// that is separate from the public address.
 	UseExplicitListenAddress *bool `json:"useExplicitListenAddress,omitempty"`
+
+	// UseUnifiedImage determines if we should use the unified image rather than
+	// separate images for the main container and the sidecar container.
+	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 }
 
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
@@ -445,6 +449,12 @@ type FoundationDBClusterStatus struct {
 	// StorageServersPerDisk defines the storageServersPerPod observed in the cluster.
 	// If there are more than one value in the slice the reconcile phase is not finished.
 	StorageServersPerDisk []int `json:"storageServersPerDisk,omitempty"`
+
+	// ImageTypes defines the kinds of images that are in use in the cluster.
+	// If there is more than one value in the slice the reconcile phase is not
+	// finished.
+	// +kubebuilder:validation:MaxItems=10
+	ImageTypes []string `json:"imageTypes,omitempty"`
 
 	// ProcessGroups contain information about a process group.
 	// This information is used in multiple places to trigger the according action.
@@ -705,6 +715,17 @@ func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGrou
 
 // FilterByCondition returns a string slice of all ProcessGroupIDs that contains a condition with the given type.
 func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType ProcessGroupConditionType, ignoreRemoved bool) []string {
+	return FilterByConditions(processGroupStatus, map[ProcessGroupConditionType]bool{conditionType: true}, ignoreRemoved)
+}
+
+// FilterByConditions returns a string slice of all ProcessGroupIDs whose
+// conditions match a set of rules.
+//
+// If a condition is mapped to true in the conditionRules map, only process
+// groups with that condition will be returned. If a condition is mapped to
+// false in the conditionRules map, only process groups without that condition
+// will be returned.
+func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
 	result := make([]string, 0)
 
 	for _, groupStatus := range processGroupStatus {
@@ -712,13 +733,17 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 			continue
 		}
 
+		matchingConditions := make(map[ProcessGroupConditionType]bool, len(conditionRules))
+		for conditionRule := range conditionRules {
+			matchingConditions[conditionRule] = false
+		}
 		for _, condition := range groupStatus.ProcessGroupConditions {
-			if condition.ProcessGroupConditionType != conditionType {
-				continue
+			if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
+				matchingConditions[condition.ProcessGroupConditionType] = true
 			}
-
+		}
+		if reflect.DeepEqual(matchingConditions, conditionRules) {
 			result = append(result, groupStatus.ProcessGroupID)
-			break
 		}
 	}
 
@@ -1766,6 +1791,22 @@ func (address ProcessAddress) Equal(addressB ProcessAddress) bool {
 	return true
 }
 
+// SortedFlags returns a list of flags on an address, sorted lexographically.
+func (address ProcessAddress) SortedFlags() []string {
+	flags := make([]string, 0, len(address.Flags))
+	for flag, set := range address.Flags {
+		if set {
+			flags = append(flags, flag)
+		}
+	}
+
+	sort.Slice(flags, func(i int, j int) bool {
+		return flags[i] < flags[j]
+	})
+
+	return flags
+}
+
 // ProcessAddressesString converts a slice of ProcessAddress into a string joined by the separator
 func ProcessAddressesString(pAddrs []ProcessAddress, sep string) string {
 	sb := strings.Builder{}
@@ -1919,16 +1960,7 @@ func (address ProcessAddress) String() string {
 		sb.WriteString(net.JoinHostPort(address.Placeholder, strconv.Itoa(address.Port)))
 	}
 
-	flags := make([]string, 0, len(address.Flags))
-	for flag, set := range address.Flags {
-		if set {
-			flags = append(flags, flag)
-		}
-	}
-
-	sort.Slice(flags, func(i int, j int) bool {
-		return flags[i] < flags[j]
-	})
+	flags := address.SortedFlags()
 
 	if len(flags) > 0 {
 		sb.WriteString(":" + strings.Join(flags, ":"))

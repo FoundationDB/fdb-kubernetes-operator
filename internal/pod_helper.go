@@ -214,7 +214,14 @@ func GetSidecarImage(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.Proc
 		}
 	}
 
-	return GetImage(image, cluster.Spec.SidecarContainer.ImageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
+	var imageConfigs []fdbtypes.ImageConfig
+	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
+		imageConfigs = cluster.Spec.MainContainer.ImageConfigs
+	} else {
+		imageConfigs = cluster.Spec.SidecarContainer.ImageConfigs
+	}
+
+	return GetImage(image, imageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
 }
 
 // CreatePodMap creates a map with the process group ID as a key and the according Pod as a value

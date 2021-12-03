@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("[internal] deprecations", func() {
@@ -816,6 +817,31 @@ var _ = Describe("[internal] deprecations", func() {
 						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
 					}))
 				})
+
+				It("should have the unified images disabled", func() {
+					Expect(spec.UseUnifiedImage).NotTo(BeNil())
+					Expect(*spec.UseUnifiedImage).To(BeFalse())
+				})
+
+				Context("with unified images enabled", func() {
+					BeforeEach(func() {
+						spec.UseUnifiedImage = pointer.Bool(true)
+					})
+
+					It("should use the default image config for the unified image", func() {
+						Expect(spec.MainContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+							{BaseImage: "foundationdb/foundationdb-test"},
+							{BaseImage: "foundationdb/foundationdb-kubernetes"},
+						}))
+						Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
+							{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
+						}))
+					})
+
+					It("should not have any init containers in the process settings", func() {
+						Expect(spec.Processes["general"].PodTemplate.Spec.InitContainers).To(HaveLen(0))
+					})
+				})
 			})
 
 			Context("with the current defaults, changes only", func() {
@@ -894,6 +920,10 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
 						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
 					}))
+				})
+
+				It("should have the unified images unset", func() {
+					Expect(spec.UseUnifiedImage).To(BeNil())
 				})
 			})
 
@@ -1056,6 +1086,11 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
 					Expect(*spec.UseExplicitListenAddress).To(BeTrue())
 				})
+
+				It("should have the unified images disabled", func() {
+					Expect(spec.UseUnifiedImage).NotTo(BeNil())
+					Expect(*spec.UseUnifiedImage).To(BeFalse())
+				})
 			})
 
 			Context("with the future defaults, changes only", func() {
@@ -1114,6 +1149,10 @@ var _ = Describe("[internal] deprecations", func() {
 				It("should have explicit listen addresses enabled", func() {
 					Expect(spec.UseExplicitListenAddress).NotTo(BeNil())
 					Expect(*spec.UseExplicitListenAddress).To(BeTrue())
+				})
+
+				It("should have the unified images unset", func() {
+					Expect(spec.UseUnifiedImage).To(BeNil())
 				})
 			})
 
