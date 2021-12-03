@@ -74,6 +74,26 @@ spec:
                     - Stopped
                     - Paused
                   type: string
+                blobStoreConfiguration:
+                  properties:
+                    accountName:
+                      maxLength: 100
+                      type: string
+                    backupName:
+                      maxLength: 1024
+                      type: string
+                    bucket:
+                      maxLength: 63
+                      minLength: 3
+                      type: string
+                    urlParameters:
+                      items:
+                        type: string
+                      maxItems: 100
+                      type: array
+                  required:
+                    - accountName
+                  type: object
                 bucket:
                   type: string
                 clusterName:
@@ -3041,7 +3061,6 @@ spec:
                 version:
                   type: string
               required:
-                - accountName
                 - clusterName
                 - version
               type: object

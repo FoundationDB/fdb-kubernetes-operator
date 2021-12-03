@@ -1,5 +1,5 @@
 /*
- * foundationdbbackup_types.go
+ * foundationdbbrestore_types.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -54,10 +54,14 @@ type FoundationDBRestoreSpec struct {
 	DestinationClusterName string `json:"destinationClusterName"`
 
 	// BackupURL provides the URL for the backup.
-	BackupURL string `json:"backupURL"`
+	// Deprecated use BlobStoreConfiguration instead
+	BackupURL string `json:"backupURL,omitempty"`
 
 	// The key ranges to restore.
 	KeyRanges []FoundationDBKeyRange `json:"keyRanges,omitempty"`
+
+	// This is the configuration of the target blobstore for this backup.
+	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.
@@ -79,4 +83,23 @@ type FoundationDBKeyRange struct {
 	// End provides the end of the key range.
 	// +kubebuilder:validation:Pattern:=^[A-Za-z0-9\/\\-]+$
 	End string `json:"end"`
+}
+
+// BackupName gets the name of the backup for the source backup.
+// This will fill in a default value if the backup name in the spec is empty.
+func (restore *FoundationDBRestore) BackupName() string {
+	if restore.Spec.BlobStoreConfiguration == nil || restore.Spec.BlobStoreConfiguration.BackupName == "" {
+		return restore.ObjectMeta.Name
+	}
+
+	return restore.Spec.BlobStoreConfiguration.BackupName
+}
+
+// BackupURL gets the destination url of the backup.
+func (restore *FoundationDBRestore) BackupURL() string {
+	if restore.Spec.BlobStoreConfiguration != nil {
+		return restore.Spec.BlobStoreConfiguration.getURL(restore.BackupName(), restore.Spec.BlobStoreConfiguration.BucketName())
+	}
+
+	return restore.Spec.BackupURL
 }

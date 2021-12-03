@@ -20,7 +20,8 @@ metadata:
 spec:
   version: 6.2.30
   clusterName: sample-cluster
-  accountName: account@object-store.example:443
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
   podTemplateSpec:
     spec:
       volumes:
@@ -92,6 +93,26 @@ Before you start a backup, you will need to configure an account in your object 
 
 You will need to expose the password or account key for the object store account through a credentials file. The format of the credentials file is defined in the FoundationDB backup documentation. You need to expose this credentials file to the backup agents, as shown in the example above. You can configure the path to the credentials file through the `FDB_BLOB_CREDENTIALS` environment variable.
 
+## Configuring additional URL parameters
+
+FoundationDB supports [URL parameters](https://apple.github.io/foundationdb/backups.html#backup-urls) those can be specified as a `map[string]string` in the `blobStoreConfiguration`.
+
+If you want to disable the secure connection e.g. for testing you can set the `secure_connection` to `0`:
+
+```yaml
+apiVersion: apps.foundationdb.org/v1beta1
+kind: FoundationDBBackup
+metadata:
+  name: sample-cluster
+spec:
+  version: 6.2.30
+  clusterName: sample-cluster
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
+    urlParameters:
+    - "secure_connection=0"
+```
+
 ## Configuring the Operator
 
 The operator will run `fdbbackup` commands to manage the backup, so the operator needs to have access to the object store as well. You can configure that access the same way as you do for the backup agents, by defining the environment variables `FDB_BLOB_CREDENTIALS`, `FDB_TLS_CERTIFICATE_FILE`, `FDB_TLS_KEY_FILE`, and `FDB_TLS_CA_FILE`.
@@ -107,7 +128,10 @@ metadata:
   name: sample-cluster
 spec:
   destinationClusterName: sample-cluster
-  backupURL: "blobstore://account@object-store.example:443/sample-cluster?bucket=fdb-backups"
+  blobStoreConfiguration:
+    accountName: account@object-store.example:443
+    backupName: sample-cluster
+    bucketName: bucket=fdb-backups
 ```
 
 This will tell the operator to run an `fdbrestore` command targeting the cluster `sample-cluster`. The cluster must be empty before this command can be run. This will restore to the last restorable point in the backup you are using, and will restore the entire keyspace.

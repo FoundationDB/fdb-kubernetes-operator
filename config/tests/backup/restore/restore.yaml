@@ -4,4 +4,5 @@ metadata:
  name: test-cluster
 spec:
  destinationClusterName: test-cluster
- backupURL: "blobstore://minio@minio-service:9000/test-cluster?bucket=fdb-backups"
+ blobStoreConfiguration:
+  accountName: minio@minio-service:9000

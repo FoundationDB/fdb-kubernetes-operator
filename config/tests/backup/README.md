@@ -1,3 +1,5 @@
+# Backups tests
+
 This directory contains configuration for testing clusters with backups in a
 local development environment.
 
@@ -18,9 +20,15 @@ your real environment and endpoints, as well as the appropriate backup
 solution to use. We use MinIO in our local tests due to its lightweight setup,
 but you can backup to any S3-compatible object storage service.
 
-If you are testing this in Docker Desktop, you can browse the local MinIO
-instance at https://localhost:9000. Note: This will use a certificate that
-is not in your browser's trust store, so you will get a security warning.
+You can browse the local MinIO instance at https://localhost:9000 by using `kubectl port-forward pod/minio-0 9000:9000`.
+Note: This will use a certificate that is not in your browser's trust store,
+so you will get a security warning. The credentials for MinIO can be fetched
+with:
+
+```bash
+$ kubectl get secret minio-creds-secret -o jsonpath='{.data.accesskey}' | base64 -D - | pbcopy
+$ kubectl get secret minio-creds-secret -o jsonpath='{.data.secretkey}' | base64 -D - | pbcopy
+```
 
 If you want to test a restore, you can take the following steps:
 
