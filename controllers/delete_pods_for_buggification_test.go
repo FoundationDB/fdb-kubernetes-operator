@@ -61,7 +61,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = deletePodsForBuggification{}.reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = deletePodsForBuggification{}.reconcile(context.TODO(), clusterReconciler, cluster)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}

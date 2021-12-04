@@ -36,16 +36,16 @@ import (
 type replaceMisconfiguredProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (c replaceMisconfiguredProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c replaceMisconfiguredProcessGroups) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err := r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
+	err := r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -56,7 +56,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(r *FoundationDBClusterRecon
 	}
 
 	if hasReplacements {
-		err = r.Status().Update(context, cluster)
+		err = r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

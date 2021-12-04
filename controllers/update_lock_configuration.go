@@ -31,7 +31,7 @@ import (
 type updateLockConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLockConfiguration) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateLockConfiguration) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() || !cluster.Status.Configured {
 		return nil
 	}

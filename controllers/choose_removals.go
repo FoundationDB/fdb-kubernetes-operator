@@ -33,7 +33,7 @@ import (
 type chooseRemovals struct{}
 
 // reconcile runs the reconciler's work.
-func (c chooseRemovals) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c chooseRemovals) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "chooseRemovals")
 	hasNewRemovals := false
 
@@ -114,7 +114,7 @@ func (c chooseRemovals) reconcile(r *FoundationDBClusterReconciler, context ctx.
 				processGroup.Remove = true
 			}
 		}
-		err := r.Status().Update(context, cluster)
+		err := r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

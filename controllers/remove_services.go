@@ -36,13 +36,13 @@ import (
 type removeServices struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u removeServices) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	if internal.GetHeadlessService(cluster) != nil {
 		return nil
 	}
 
 	existingService := &corev1.Service{}
-	err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
+	err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -50,7 +50,7 @@ func (u removeServices) reconcile(r *FoundationDBClusterReconciler, context ctx.
 		return &requeue{curError: err}
 	}
 
-	err = r.Delete(context, existingService)
+	err = r.Delete(ctx, existingService)
 	if err != nil {
 		return &requeue{curError: err}
 	}

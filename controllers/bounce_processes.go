@@ -42,7 +42,7 @@ import (
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (bounceProcesses) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
@@ -87,7 +87,7 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 		addresses = append(addresses, addressMap[process]...)
 
 		processGroupID := podmanager.GetProcessGroupIDFromProcessID(process)
-		pod, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetSinglePodListOptions(cluster, processGroupID)...)
+		pod, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetSinglePodListOptions(cluster, processGroupID)...)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -117,7 +117,7 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				"Spec require a bounce of some processes, but killing processes is disabled")
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-			err = r.Status().Update(context, cluster)
+			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -129,7 +129,7 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-			err = r.Status().Update(context, cluster)
+			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -191,7 +191,7 @@ func (bounceProcesses) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 
 	if upgrading {
 		cluster.Status.RunningVersion = cluster.Spec.Version
-		err = r.Status().Update(context, cluster)
+		err = r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

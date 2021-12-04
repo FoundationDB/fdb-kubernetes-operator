@@ -46,7 +46,7 @@ import (
 type updateStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateStatus) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	originalStatus := cluster.Status.DeepCopy()
 	status := fdbtypes.FoundationDBClusterStatus{}
@@ -145,7 +145,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 	}
 
-	status.ProcessGroups, err = validateProcessGroups(r, context, cluster, &status, processMap, configMap)
+	status.ProcessGroups, err = validateProcessGroups(r, ctx, cluster, &status, processMap, configMap)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -153,7 +153,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	// Track all PVCs
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
+	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -169,7 +169,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	// Track all Services
 	services := &corev1.ServiceList{}
-	err = r.List(context, services, internal.GetPodListOptions(cluster, "", "")...)
+	err = r.List(ctx, services, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -184,7 +184,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	}
 
 	existingConfigMap := &corev1.ConfigMap{}
-	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
+	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
 		status.HasIncorrectConfigMap = true
 	} else if err != nil {
@@ -216,7 +216,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	if cluster.Spec.PendingRemovals != nil {
 		for podName, address := range cluster.Spec.PendingRemovals {
 			pods := &corev1.PodList{}
-			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": podName})
+			err = r.List(ctx, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": podName})
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -234,7 +234,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	if cluster.Status.PendingRemovals != nil {
 		for processGroupID, state := range cluster.Status.PendingRemovals {
 			pods := &corev1.PodList{}
-			err = r.List(context, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": state.PodName})
+			err = r.List(ctx, pods, client.InNamespace(cluster.Namespace), client.MatchingFields{"metadata.name": state.PodName})
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -254,7 +254,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
-	err = r.Get(context, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
+	err = r.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 	if err != nil && k8serrors.IsNotFound(err) {
 		existingService = nil
 	} else if err != nil {
@@ -315,7 +315,7 @@ func (updateStatus) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 	// If we use the default reflect.DeepEqual method it will be recreating the
 	// status multiple times because the pointers are different.
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
-		err = r.Status().Update(context, cluster)
+		err = r.Status().Update(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "Error updating cluster status")
 			return &requeue{curError: err}

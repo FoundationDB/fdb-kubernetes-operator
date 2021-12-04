@@ -39,17 +39,17 @@ import (
 type updateConfigMap struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateConfigMap) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u updateConfigMap) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	logger := log.WithValues("namespace", configMap.Namespace, "cluster", cluster.Name, "name", configMap.Name, "reconciler", "UpdateConfigMap")
 	existing := &corev1.ConfigMap{}
-	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
+	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("Creating config map")
-		err = r.Create(context, configMap)
+		err = r.Create(ctx, configMap)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -72,7 +72,7 @@ func (u updateConfigMap) reconcile(r *FoundationDBClusterReconciler, context ctx
 		logger.Info("Updating config map")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConfigMap", "")
 		existing.Data = configMap.Data
-		err = r.Update(context, existing)
+		err = r.Update(ctx, existing)
 		if err != nil {
 			return &requeue{curError: err}
 		}

@@ -37,7 +37,7 @@ import (
 type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (a addProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addProcessGroups) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}
@@ -101,7 +101,7 @@ func (a addProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	if hasNewProcessGroups {
-		err = r.Status().Update(context, cluster)
+		err = r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

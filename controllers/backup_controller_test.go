@@ -28,8 +28,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"context"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

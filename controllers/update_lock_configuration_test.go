@@ -59,7 +59,7 @@ var _ = Describe("update_lock_configuration", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = updateLockConfiguration{}.reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = updateLockConfiguration{}.reconcile(context.TODO(), clusterReconciler, cluster)
 		if requeue != nil {
 			Expect(requeue.curError).NotTo(HaveOccurred())
 		}

@@ -37,7 +37,7 @@ import (
 type removeProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeProcessGroups) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u removeProcessGroups) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	remainingMap, err := r.getRemainingMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
@@ -77,8 +77,8 @@ func (u removeProcessGroups) reconcile(r *FoundationDBClusterReconciler, context
 		}
 	}
 
-	removedProcessGroups := r.removeProcessGroups(context, cluster, processGroupsToRemove)
-	err = includeProcessGroup(r, context, cluster, removedProcessGroups)
+	removedProcessGroups := r.removeProcessGroups(ctx, cluster, processGroupsToRemove)
+	err = includeProcessGroup(r, ctx, cluster, removedProcessGroups)
 	if err != nil {
 		return &requeue{curError: err}
 	}

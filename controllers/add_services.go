@@ -39,14 +39,14 @@ import (
 type addServices struct{}
 
 // reconcile runs the reconciler's work.
-func (a addServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addServices) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
-		err := r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
+		err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err == nil {
 			// Update the existing service
-			err = updateService(r, context, cluster, existingService, service)
+			err = updateService(r, ctx, cluster, existingService, service)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -56,7 +56,7 @@ func (a addServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 			}
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			service.ObjectMeta.OwnerReferences = owner
-			err = r.Create(context, service)
+			err = r.Create(ctx, service)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -81,16 +81,16 @@ func (a addServices) reconcile(r *FoundationDBClusterReconciler, context ctx.Con
 			}
 
 			existingService := &corev1.Service{}
-			err = r.Get(context, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
+			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
 			if err == nil {
 				// Update the existing service
-				err = updateService(r, context, cluster, existingService, service)
+				err = updateService(r, ctx, cluster, existingService, service)
 				if err != nil {
 					return &requeue{curError: err}
 				}
 			} else if k8serrors.IsNotFound(err) {
 				// Create a new service
-				err = r.Create(context, service)
+				err = r.Create(ctx, service)
 
 				if err != nil {
 					return &requeue{curError: err}

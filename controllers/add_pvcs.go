@@ -37,7 +37,7 @@ import (
 type addPVCs struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPVCs) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addPVCs) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
 			continue
@@ -58,7 +58,7 @@ func (a addPVCs) reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		}
 		existingPVC := &corev1.PersistentVolumeClaim{}
 
-		err = r.Get(context, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
+		err = r.Get(ctx, client.ObjectKey{Namespace: pvc.Namespace, Name: pvc.Name}, existingPVC)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return &requeue{curError: err}
@@ -66,7 +66,7 @@ func (a addPVCs) reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			pvc.ObjectMeta.OwnerReferences = owner
-			err = r.Create(context, pvc)
+			err = r.Create(ctx, pvc)
 
 			if err != nil {
 				return &requeue{curError: err}

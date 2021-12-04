@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"context"
 	ctx "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +30,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/go-logr/logr"
@@ -146,5 +145,5 @@ type restoreSubReconciler interface {
 	If reconciliation cannot proceed, this should return a `requeue` object with
 	a `Message` field.
 	*/
-	reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *requeue
+	reconcile(r *FoundationDBRestoreReconciler, context context.Context, restore *fdbtypes.FoundationDBRestore) *requeue
 }

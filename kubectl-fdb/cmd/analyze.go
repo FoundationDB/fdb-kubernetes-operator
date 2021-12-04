@@ -25,10 +25,11 @@ import (
 	"strings"
 	"time"
 
+	"context"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -54,7 +54,7 @@ var _ = Describe("bounceProcesses", func() {
 	})
 
 	JustBeforeEach(func() {
-		requeue = bounceProcesses{}.reconcile(clusterReconciler, context.TODO(), cluster)
+		requeue = bounceProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

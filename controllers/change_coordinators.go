@@ -34,7 +34,7 @@ import (
 type changeCoordinators struct{}
 
 // reconcile runs the reconciler's work.
-func (c changeCoordinators) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c changeCoordinators) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
 	if !cluster.Status.Configured {
 		return nil
@@ -55,7 +55,7 @@ func (c changeCoordinators) reconcile(r *FoundationDBClusterReconciler, context 
 		logger.Info("Updating out-of-date connection string")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingConnectionString", fmt.Sprintf("Setting connection string to %s", connectionString))
 		cluster.Status.ConnectionString = connectionString
-		err = r.Status().Update(context, cluster)
+		err = r.Status().Update(ctx, cluster)
 
 		if err != nil {
 			return &requeue{curError: err}
@@ -111,7 +111,7 @@ func (c changeCoordinators) reconcile(r *FoundationDBClusterReconciler, context 
 		return &requeue{curError: err}
 	}
 	cluster.Status.ConnectionString = connectionString
-	err = r.Status().Update(context, cluster)
+	err = r.Status().Update(ctx, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
