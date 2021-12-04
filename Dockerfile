@@ -42,7 +42,7 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 # https://github.com/golang/go/issues/44129#issuecomment-865249631 time to move to 1.17
 RUN go env -w GOFLAGS=-mod=mod
-RUN go mod tidy -x
+RUN go mod tidy
 
 # Copy the go source
 COPY main.go main.go
