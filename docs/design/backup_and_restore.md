@@ -70,7 +70,7 @@ Wherever we have timestamp formats in the resource specs, they will be interpret
 
 We will create a FoundationDBRestore resource with the following spec:
 
-* Backup URL
+* Backup destination (using the same structure as the destination for the backup resource)
 * Destination cluster name
 * Desired state (running, stopped) (optional, defaults to running)
 * Key range to restore (optional, defaults to the full keyspace)
@@ -155,6 +155,8 @@ We will use the `fdbrestore` tool to modify the restore state. We will use the r
 
 In the `Toggle Restore Running` stage, we will start or stop the restore, if necessary. If the desired state is `stopped`, and there is a restore running on the configured tag, this will run the `fdbrestore abort` command. If the desired state is `running`, and there is no restore running on the configured tag, this will run the `fdbrestore start` command.
 
+This will submit the new state to the database, but will not perform the restore work. The restore work will be handled asynchronously by the backup agents.
+
 #### Check Restore Status
 
 In the `Check Restore Status` stage, we will compare the running state and validate the following things:
@@ -168,7 +170,7 @@ If any of these checks fail, the restore will be marked as unreconciled.
 
 In order to prevent backups from growing without bound, we have configuration options to expire backup data older than a certain age. This will be done through the `fdbbackup expire` command. Because this command blocks, and requires non-trivial resources to run, this will be run in a separate pod from the main controller. The operator will maintain an in-memory queue of backup expiration jobs, with one job for each backup. On start-up, it will populate the queue, and on reconciliation it will ensure that the backup has an entry in the expiration queue.  The operator will have a limit for the concurrency of backup expiration pods, with a default of 1. The operator will have a dedicated goroutine for monitoring this queue and creating pods. If the number of active backup expiration pods is less than the concurrency limit, the queueing goroutine will pop the first job off the queue, create a pod for running that backup expiration, and put a new entry on the end of the queue. If the number of active backup expiration pods is greater than or equal to the concurrency limit, this goroutine will sleep for 10 minutes and try again. It will also check to make sure that there is only one backup expiration running for a given backup at once. Pods that have started termination will not count against this concurrency limit.
 
-We will have a special case of backup expiration for deleting an entire backup. The operator will add finalizers to the backup resource to indicate that when the backup resource is deleted, we must run an `fdbbackup delete` command. There will be an option for turning off this finalizer in the backup spec. When the backup expiration job identifies that a backup needs to be deleted, it will run an `fdbbackup delete` command rather than an `fdbbackup expire` command, and when that completes it will clear the deletion finalizer. At this point the backup resource will get cleaned up.
+We will have a special case of backup expiration for deleting an entire backup. The operator will add finalizers to the backup resource to indicate that when the backup resource is deleted, we must run an `fdbbackup delete` command. There will be an option for turning off this finalizer in the backup spec. When the backup expiration job identifies that a backup needs to be deleted, it will run an `fdbbackup delete` command rather than an `fdbbackup expire` command, and when that completes it will clear the deletion finalizer. At this point the backup resource will get cleaned up. These deletion jobs will be managed through the same queue as the expiration jobs.
 
 The backup expiration job will have a maximum execution time of 1 hour. If the operator detects a pod that has been running for longer than this limit, it will delete the pod and start another one for the next backup in the queue.
 
