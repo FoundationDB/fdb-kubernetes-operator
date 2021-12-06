@@ -865,7 +865,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 	args := []string{"--log", "--logdir", "/var/log/fdb-trace-logs"}
 
 	if len(backup.Spec.CustomParameters) > 0 {
-		err := ValidateCustomParameters(backup.Spec.CustomParameters)
+		err := backup.Spec.CustomParameters.ValidateCustomParameters()
 		if err != nil {
 			return nil, err
 		}

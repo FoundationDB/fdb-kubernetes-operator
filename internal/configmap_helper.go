@@ -61,9 +61,9 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	imageTypes := make(map[FDBImageType]None, len(cluster.Status.ImageTypes))
+	imageTypes := make(map[FDBImageType]v1beta1.None, len(cluster.Status.ImageTypes))
 	for _, imageType := range cluster.Status.ImageTypes {
-		imageTypes[FDBImageType(imageType)] = None{}
+		imageTypes[FDBImageType(imageType)] = v1beta1.None{}
 	}
 
 	storageServersPerDisk := cluster.Status.StorageServersPerDisk

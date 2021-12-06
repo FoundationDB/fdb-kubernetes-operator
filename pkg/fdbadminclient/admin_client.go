@@ -99,4 +99,7 @@ type AdminClient interface {
 
 	// GetCoordinatorSet returns a set of the current coordinators.
 	GetCoordinatorSet() (map[string]struct{}, error)
+
+	// SetKnobs sets the knobs that should be used for the commandline call.
+	SetKnobs([]string)
 }

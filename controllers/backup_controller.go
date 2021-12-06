@@ -120,7 +120,14 @@ func (r *FoundationDBBackupReconciler) adminClientForBackup(context ctx.Context,
 		return nil, err
 	}
 
-	return r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	if err != nil {
+		return nil, err
+	}
+
+	adminClient.SetKnobs(backup.Spec.CustomParameters.GetKnobsForCLI())
+
+	return adminClient, nil
 }
 
 // SetupWithManager prepares a reconciler for use.

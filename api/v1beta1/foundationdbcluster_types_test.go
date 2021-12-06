@@ -2725,7 +2725,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 									Labels: map[string]string{"test-label": "label1"},
 								},
 							},
-							CustomParameters: &[]string{"test_knob=value1"},
+							CustomParameters: FoundationDBCustomParameters{"test_knob=value1"},
 						},
 						ProcessClassStorage: {
 							PodTemplate: &corev1.PodTemplateSpec{
@@ -2746,7 +2746,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			settings := cluster.GetProcessSettings(ProcessClassStorage)
 			Expect(settings.PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{"test-label": "label2"}))
-			Expect(settings.CustomParameters).To(Equal(&[]string{"test_knob=value1"}))
+			Expect(settings.CustomParameters).To(Equal(FoundationDBCustomParameters{"test_knob=value1"}))
 		})
 	})
 

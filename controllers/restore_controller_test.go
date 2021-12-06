@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func reloadRestore(backup *fdbtypes.FoundationDBRestore) error {
-	return k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, backup)
+func reloadRestore(restore *fdbtypes.FoundationDBRestore) error {
+	return k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, restore)
 }
 
 var _ = Describe("restore_controller", func() {
@@ -58,7 +58,7 @@ var _ = Describe("restore_controller", func() {
 
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(generation).NotTo(Equal(int64(0)))
+			Expect(generation).NotTo(Equal(0))
 			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -77,11 +77,37 @@ var _ = Describe("restore_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		JustBeforeEach(func() {
+			result, err := reconcileRestore(restore)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			err = reloadRestore(restore)
+			Expect(err).NotTo(HaveOccurred())
+			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, cluster)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		Context("when reconciling a new restore", func() {
 			It("should start a restore", func() {
 				status, err := adminClient.GetRestoreStatus()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(status).To(Equal("blobstore://test@test-service/test-backup?bucket=fdb-backups\n"))
+			})
+		})
+
+		When("providing custom parameters", func() {
+			BeforeEach(func() {
+				restore.Spec.CustomParameters = fdbtypes.FoundationDBCustomParameters{
+					"knob_http_verbose_level=3",
+				}
+				err = k8sClient.Update(context.TODO(), restore)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should append the custom parameters to the command", func() {
+				Expect(len(adminClient.knobs)).To(BeNumerically("==", 1))
+				Expect(adminClient.knobs).To(ContainElements("--knob_http_verbose_level=3"))
 			})
 		})
 	})

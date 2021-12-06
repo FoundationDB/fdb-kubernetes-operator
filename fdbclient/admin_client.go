@@ -40,6 +40,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	fdbcliStr = "fdbcli"
+)
+
 var adminClientMutex sync.Mutex
 
 var maxCommandOutput = parseMaxCommandOutput()
@@ -68,6 +72,9 @@ type cliAdminClient struct {
 	// clusterFilePath is the path to the temp file containing the cluster file
 	// for this session.
 	clusterFilePath string
+
+	// custom parameters that should be set.
+	knobs []string
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -108,13 +115,13 @@ type cliCommand struct {
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
 func (command cliCommand) hasTimeoutArg() bool {
-	return command.binary == "" || command.binary == "fdbcli"
+	return command.binary == "" || command.binary == fdbcliStr
 }
 
 // hasDashInLogDir determines whether a command has a log-dir argument or a
 // logdir argument.
 func (command cliCommand) hasDashInLogDir() bool {
-	return command.binary == "" || command.binary == "fdbcli"
+	return command.binary == "" || command.binary == fdbcliStr
 }
 
 // getClusterFileFlag gets the flag this command uses for its cluster file
@@ -123,6 +130,7 @@ func (command cliCommand) getClusterFileFlag() string {
 	if command.binary == "fdbrestore" {
 		return "--dest_cluster_file"
 	}
+
 	return "-C"
 }
 
@@ -144,7 +152,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	binaryName := command.binary
 	if binaryName == "" {
-		binaryName = "fdbcli"
+		binaryName = fdbcliStr
 	}
 
 	binary := getBinaryPath(binaryName, version)
@@ -156,8 +164,12 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
+	// We only want to pass the knobs to fdbbackup and fdbrestore
+	if binaryName != fdbcliStr {
+		args = append(args, client.knobs...)
+	}
 
-	if binaryName == "fdbcli" {
+	if binaryName == fdbcliStr {
 		format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
 		if format == "" {
 			format = "xml"
@@ -595,4 +607,9 @@ func (client *cliAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 	}
 
 	return internal.GetCoordinatorsFromStatus(status), nil
+}
+
+// SetKnobs sets the knobs that should be used for the commandline call.
+func (client *cliAdminClient) SetKnobs(knobs []string) {
+	client.knobs = knobs
 }

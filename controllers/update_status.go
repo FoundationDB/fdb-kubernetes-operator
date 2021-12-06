@@ -455,14 +455,14 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 
 func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
-	processGroupsWithoutExclusion := make(map[string]internal.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
+	processGroupsWithoutExclusion := make(map[string]fdbtypes.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.InstancesToRemoveWithoutExclusion {
-		processGroupsWithoutExclusion[processGroupID] = internal.None{}
+		processGroupsWithoutExclusion[processGroupID] = fdbtypes.None{}
 	}
 
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
-		processGroupsWithoutExclusion[processGroupID] = internal.None{}
+		processGroupsWithoutExclusion[processGroupID] = fdbtypes.None{}
 	}
 
 	// Clear the IncorrectCommandLine condition to prevent it being held over

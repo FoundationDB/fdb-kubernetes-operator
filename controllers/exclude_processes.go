@@ -56,7 +56,7 @@ func (e excludeProcesses) reconcile(r *FoundationDBClusterReconciler, context ct
 	}
 
 	addresses := make([]fdbtypes.ProcessAddress, 0, removalCount)
-	processClassesToExclude := make(map[fdbtypes.ProcessClass]internal.None)
+	processClassesToExclude := make(map[fdbtypes.ProcessClass]fdbtypes.None)
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
@@ -72,7 +72,7 @@ func (e excludeProcesses) reconcile(r *FoundationDBClusterReconciler, context ct
 			for _, address := range processGroup.Addresses {
 				if processGroup.Remove && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
 					addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(address)})
-					processClassesToExclude[processGroup.ProcessClass] = internal.None{}
+					processClassesToExclude[processGroup.ProcessClass] = fdbtypes.None{}
 				}
 			}
 		}

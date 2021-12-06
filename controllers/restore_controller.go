@@ -104,7 +104,14 @@ func (r *FoundationDBRestoreReconciler) adminClientForRestore(context ctx.Contex
 		return nil, err
 	}
 
-	return r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	if err != nil {
+		return nil, err
+	}
+
+	adminClient.SetKnobs(restore.Spec.CustomParameters.GetKnobsForCLI())
+
+	return adminClient, nil
 }
 
 // SetupWithManager prepares a reconciler for use.

@@ -21,12 +21,8 @@
 package internal
 
 import (
-	"fmt"
-	"strings"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -36,49 +32,6 @@ import (
 )
 
 var _ = Describe("[internal] deprecations", func() {
-	When("Providing a custom parameter", func() {
-		type testCase struct {
-			Input              []string
-			ExpectedViolations []string
-		}
-
-		DescribeTable("should set the expected parameter or print the violation",
-			func(tc testCase) {
-				err := ValidateCustomParameters(tc.Input)
-				var errMsg error
-				if len(tc.ExpectedViolations) > 0 {
-					errMsg = fmt.Errorf("found the following customParameters violations:\n%s", strings.Join(tc.ExpectedViolations, "\n"))
-				}
-
-				if err == nil {
-					Expect(len(tc.ExpectedViolations)).To(BeNumerically("==", 0))
-				} else {
-					Expect(err).To(Equal(errMsg))
-				}
-			},
-			Entry("Valid parameter without duplicate",
-				testCase{
-					Input:              []string{"blahblah=1"},
-					ExpectedViolations: []string{},
-				}),
-			Entry("Valid parameter with duplicate",
-				testCase{
-					Input:              []string{"blahblah=1", "blahblah=1"},
-					ExpectedViolations: []string{"found duplicated customParameter: blahblah"},
-				}),
-			Entry("Protected parameter without duplicate",
-				testCase{
-					Input:              []string{"datadir=1"},
-					ExpectedViolations: []string{"found protected customParameter: datadir, please remove this parameter from the customParameters list"},
-				}),
-			Entry("Valid parameter with duplicate and protected parameter",
-				testCase{
-					Input:              []string{"blahblah=1", "blahblah=1", "datadir=1"},
-					ExpectedViolations: []string{"found duplicated customParameter: blahblah", "found protected customParameter: datadir, please remove this parameter from the customParameters list"},
-				}),
-		)
-	})
-
 	Describe("NormalizeClusterSpec", func() {
 		var spec *fdbtypes.FoundationDBClusterSpec
 		var err error
@@ -419,13 +372,13 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with custom parameters in the spec", func() {
 				BeforeEach(func() {
-					spec.CustomParameters = []string{
+					spec.CustomParameters = fdbtypes.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}
 				})
 
 				It("sets the custom parameters in the process settings", func() {
-					Expect(*spec.Processes[fdbtypes.ProcessClassGeneral].CustomParameters).To(Equal([]string{
+					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].CustomParameters).To(Equal(fdbtypes.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}))
 					Expect(spec.CustomParameters).To(BeNil())
@@ -609,7 +562,7 @@ var _ = Describe("[internal] deprecations", func() {
 				It("an error should be returned", func() {
 					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {
-							CustomParameters: &[]string{
+							CustomParameters: fdbtypes.FoundationDBCustomParameters{
 								"knob_disable_posix_kernel_aio = 1",
 								"knob_disable_posix_kernel_aio = 1",
 							},
@@ -624,7 +577,7 @@ var _ = Describe("[internal] deprecations", func() {
 				It("an error should be returned", func() {
 					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
 						fdbtypes.ProcessClassGeneral: {
-							CustomParameters: &[]string{
+							CustomParameters: fdbtypes.FoundationDBCustomParameters{
 								"datadir=1",
 							},
 						},
