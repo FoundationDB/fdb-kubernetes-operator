@@ -23,16 +23,24 @@ A better way would be to allow the operator to bin pack Pods in the same fault d
 
 The current implementation adds a `preferredDuringSchedulingIgnoredDuringExecution` `PodAntiAffinity` to every Pod [code](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/internal/pod_models.go#L308-L334).
 The label selector will contain the process class and the cluster name, to ensure processes with the same class are distributed across different fault domains is possible.
-A user can define additional `PodAntiAffinity` but can't prevent the operator from createn the default `PodAntiAffinity`.
-The only expection is the specival fault domain `foundationdb.org/none` and `foundationdb.org/kubernetes-cluster`.
+A user can define additional `PodAntiAffinity`s but can't prevent the operator from creating the default `PodAntiAffinity`.
+The only exception is the special fault domain `foundationdb.org/none` and `foundationdb.org/kubernetes-cluster`.
+
+In the design we will use the following terms:
+
+- `physical fault domain`: This refers to a fault domain that is available in Kubernetes e.g. a machine running the Kubernetes worker or a higher level fault domain like a rack, data hall etc.
+  This will reflect an underlying physical fault domain.
+- `logical fault domain`: The logical fault domain is not something that refers directly to a physical fault domain and can also be spread across multiple physical fault domains.
+  The idea is to have a way to group some processes of a FoundationDB cluster together with the same zone ID, this zone ID will be a logical value like "zone-1".
 
 ## Proposed Design
 
 The idea would be to use a custom label like `foundationdb.org/distribution-key`.
-As value we would use the process number modulo the `DesiredFaultDomains` and a prefix for the `BinPack` mode.
-In addition to that we have to change the `PodAntiAffinity` rule.
+As value we will use a prefix for the `BinPack` mode and a value defining in which zone the process should be running.
+We will also set the `FDB_ZONE_ID` environment variable on the Pod level, the default value of this field is currently the hostname.
+In addition to that we change the `PodAntiAffinity` rule.
 The following would be an example of the `affinity` term for a Pod.
-The example assumes that process number modulo `DesiredFaultDomains` is `0` and we have set `BinPackAll`:
+The example assumes that process should be running in zone `0` and we have set `BinPackAll`:
 
 ```yaml
   affinity:
@@ -43,35 +51,43 @@ The example assumes that process number modulo `DesiredFaultDomains` is `0` and 
           labelSelector:
             matchLabels:
               foundationdb.org/distribution-key: "all-0"
+              foundationdb.org/fdb-cluster-name: example-cluster
           topologyKey: fault_domain
         weight: 1
     # AntiAffinity to not schedule the Pod on the same fault domain where other Pods with a different distribution key are running
     podAntiAffinity:
+      # The required statement is per default only allowed on the hostname:
+      # https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#an-example-of-a-pod-that-uses-pod-affinity
       preferredDuringSchedulingIgnoredDuringExecution:
       - podAffinityTerm:
           labelSelector:
             matchExpressions:
-              key: "foundationdb.org/distribution-key"
+            - key: "foundationdb.org/distribution-key"
               operator: NotIn
               values:
               - "all-0"
+            - key: "foundationdb.org/fdb-cluster-name"
+              operator: In
+              values:
+              - "example-cluster"
           topologyKey: fault_domain
         weight: 1
 ```
 
-The additional label and the `affinity` term enable the operator to spread Pods across fault domains.
-If `Required` is set to false this will be on a best effort base and can be useful if a fault domain is full but the Pod should be scheduled anyway.
+The additional label and the `affinity` term enable the operator to spread Pods across physical fault domains.
 The following code snippet shows a possible implementation of the required structs:
 
 ```golang
 type BinPack string
 
 const (
-    // BinPackAll defines that processes independent of their class should be bin packed
+    // BinPackAll defines that processes independent of their class should be bin packed.
     BinPackAll BinPack = "All"
-    // BinPackStateful defines that stateful processes should be bin packed and additionally stateless processes
+    // BinPackStateful defines that stateful processes should be bin packed and additionally stateless processes.
+    // The prefix will be either "stateful" or "stateless".
     BinPackStateful BinPack = "Stateful"
-    // BinPackClass only processes of the same class will be bin packed
+    // BinPackClass only processes of the same class will be bin packed.
+    // As prefix we will use the according process class.
     BinPackClass BinPack = "Class"
 )
 
@@ -81,8 +97,8 @@ type DistributionConfig struct {
     // Default: false
     Enabled *bool
     // DesiredFaultDomains desfines the number of desired fault domain.
-    // Should be greater than 0 is fault domain distribution is enabled.
-    // Default: 0
+    // Must be greater than 0 if fault domain distribution is enabled.
+    // Default: 1
     DesiredFaultDomains *int
     // BinPack defines what processes should be bin packed to the fault domains.
     // Default: "Class"
@@ -93,34 +109,89 @@ type DistributionConfig struct {
 }
 ```
 
-The operator won't guarantee that the fault domains are equally used.
-Depending on the replacements for unreachable Pods we could use one fault domain more than another (or depending on the capacity),
-We also don't guarantee that we use exactly the number of `DesiredFaultDomains` e.g. when we spawn less processes than `DesiredFaultDomains` or when a fault domain is out of capacity and we are not using the `Required` with `true`.
-We also don't guarantee that the operator replaces any Pods that violate any constraint and we are not using the distribution with `Required` with `true` (`Required` with `true` would only ensure that we are not hurting the constraint).
+The operator will try to spread the Pods equally across the logical fault domains.
+Depending on the replacements for unreachable Pods we could use one logical fault domain more than another.
+We also don't guarantee that we use exactly the number of `DesiredFaultDomains` e.g. when we spawn less processes than `DesiredFaultDomains`.
 
-A change to `DesiredFaultDomains` will lead to a migration of all existing Pods in order to honor the new affinity term.
+A change to `DesiredFaultDomains` will lead to a migration of a subset of Pods in order to honor the new affinity term.
+The operator only tries to replace as many Pods as required to have all pods equally distributed across the logical fault domains.
+
+## Scheduling and Eviction Policy
+
+For the implementation we need two additional steps:
+
+- The `AddProcessGroups` reconcile loop must be aware of the fault domains.
+- The `ReplaceMisconfiguredProcessGroups` reconcile loop must be aware of the fault domains.
+
+We will only count process groups that are not marked for removal.
+We can calculate the minimum and maximum number of Pods per fault domain with the following logic:
+
+```
+min := floor(desired process groups / desired fault domains)
+max := ceil(desired process groups / desired fault domains)
+```
+
+The `AddProcessGroups` reconcile loop will add new process groups into the least full fault domains until they have at least `min` process groups.
+
+The `ReplaceMisconfiguredProcessGroups` reconcile loop will replace Pods from the most full fault domains.
+If a fault domain has more than `max` number of process groups running in a fault domain we have to replace `number of process groups - max`.
+
+As an example:
+
+- `desired process groups` is 10 and `desired fault domains` is 4, this means `max` is 3.
+- If fault domain `Zone 1` has currently 4 process groups the operator will replace 1 process group.
+
+For an easy way to query the process groups we will extend the current `ProcessGroupStatus` struct by a `FaultDomain` field.
+Once a process group was bound to a logical fault domain it can't be moved to another one.
+
+## Examples
+
+In the following part we will have some different examples to demonstrate how the fault domain setup is working.
+
+### Logical fault domain across physical fault domain
+
+This example shows how two Pods of the same logical fault domain `Zone 3` are spread across two hosts e.g. physical fault domains.
+
+<img src="./imgs/fault_domain_multi_host.svg">
 
 ### Reducing the number of DesiredFaultDomains
 
-If we currently use `DesiredFaultDomains` and we have `4` fault domains `f0`, `f1`, `f2` and `f3` with a Pod in each fault domain and we reduce `DesiredFaultDomains` to `2` this will result in the following steps:
+If we currently use `DesiredFaultDomains: 3`, with 6 Pods in total, and we reduce `DesiredFaultDomains: 2`, this will result in the following steps:
 
-1. Initial state `P4` in `f0`, `P1` in `f1`, `P2` in `f2` and `P3` in `f3`.
-1. We schedule 4 new Pods as migration.
-1. Pod `P5` and `P7` will be scheduled in `f1` and `P6` and `P8`will be scheduled in `f0`.
-1. Once the old Pods are excluded they will be removed.
-1. We only use `f0` and `f1`.
+1. The operator will notice that all Pods from `Zone 3` must be Replaced.
+1. Pod `Pod 7` will be scheduled for `Zone 1` and `Pod 8` will be scheduled of `Zone 2`
+1. Once the old Pods `Pod 3` and `Pod 6` are excluded they will be removed.
+1. We only use two logical fault domains `Zone 1` and `Zone 2`
+
+Initial state:
+
+<img src="./imgs/fault_domain_multi_host.svg">
+
+End state:
+
+<img src="./imgs/reduce_fault_domains.svg">
 
 ### Increasing the number of DesiredFaultDomains
 
-If we currently use `DesiredFaultDomains` and we have `2` fault domains `f0` and `f1` with two Pods in each fault domain and we increase `DesiredFaultDomains` to `4` this will result in the following steps:
+If we currently use `DesiredFaultDomains: 3`, with 6 Pods in total, and we increase `DesiredFaultDomains: 4`, this will result in the following steps:
 
-1. Initial state `P4` and `P2` in `f0`, `P1` and `P3` in `f1`
-1. We schedule 4 new Pods as migration.
-1. `P5` in `f1`, `P6` in (new) `f2`, `P7` in (new) `f3` and `P8` in `f0`.
-1. Once the old Pods are excluded they will be removed.
-1. We will use `f0`, `f1`, `f2` and `f3` now.
+1. The operator will notice that it should be using 4 fault domains instead of 3.
+1. The operator will calculate based on the current number of process groups how many Pods we expect per Zone.
+1. In this case we must have at least 1 Pod per zone and at most 2 Pods.
+1. The operator will find a "victim" and replace that Pod.
+1. The new Pod will be spawned in the new logical fault domain `Zone 4`
+
+Initial state:
+
+<img src="./imgs/increase_fault_domain_initial.svg">
+
+End state:
+
+<img src="./imgs/increase_fault_domain_end.svg">
+
 
 ## Related Links
 
 * [Inter-pod affinity and anti-affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity)
 * [Automatic replacements if fault-domain is violated](https://github.com/FoundationDB/fdb-kubernetes-operator/issues/499)
+* [Sidecar default FDB_ZONE_ID](https://github.com/apple/foundationdb/blob/6.3.22/packaging/docker/sidecar/sidecar.py#L230-L234)
