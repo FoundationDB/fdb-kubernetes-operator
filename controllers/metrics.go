@@ -181,7 +181,7 @@ func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) (map[fdbtypes
 			exclusions[processGroup.ProcessClass] = 0
 		}
 
-		if processGroup.IsRemoved() {
+		if processGroup.IsMarkedForRemoval() {
 			removals[processGroup.ProcessClass]++
 		}
 

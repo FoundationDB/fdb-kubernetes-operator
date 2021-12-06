@@ -484,15 +484,17 @@ type ProcessGroupStatus struct {
 	// Addresses represents the list of addresses the process group has been known to have.
 	Addresses []string `json:"addresses,omitempty"`
 	// Remove defines if the process group is marked for removal.
+	// Deprecated: Use RemovalTimestamp instead.
 	Remove bool `json:"remove,omitempty"`
 	// RemoveTimestamp if not empty defines when the process group was marked for removal.
-	RemoveTimestamp *metav1.Time `json:"removeTimestamp,omitempty"`
+	RemovalTimestamp *metav1.Time `json:"removalTimestamp,omitempty"`
 	// Excluded defines if the process group has been fully excluded.
 	// This is only used within the reconciliation process, and should not be considered authoritative.
+	// Deprecated: Use ExclusionTimestamp instead.
 	Excluded bool `json:"excluded,omitempty"`
 	// ExcludedTimestamp defines when the process group has been fully excluded.
 	// This is only used within the reconciliation process, and should not be considered authoritative.
-	ExcludedTimestamp *metav1.Time `json:"excludedTimestamp,omitempty"`
+	ExclusionTimestamp *metav1.Time `json:"exclusionTimestamp,omitempty"`
 	// ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion.
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
@@ -501,24 +503,24 @@ type ProcessGroupStatus struct {
 
 // IsExcluded returns if a process group is excluded
 func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
-	return processGroupStatus.Excluded || (processGroupStatus.ExcludedTimestamp != nil && !processGroupStatus.ExcludedTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
+	return processGroupStatus.Excluded || (processGroupStatus.ExclusionTimestamp != nil && !processGroupStatus.ExclusionTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
 }
 
 // SetExclude marks a process group as excluded
 func (processGroupStatus *ProcessGroupStatus) SetExclude() {
 	processGroupStatus.Excluded = true
-	processGroupStatus.ExcludedTimestamp = &metav1.Time{Time: time.Now()}
+	processGroupStatus.ExclusionTimestamp = &metav1.Time{Time: time.Now()}
 }
 
-// IsRemoved returns if a process group is marked for removal
-func (processGroupStatus *ProcessGroupStatus) IsRemoved() bool {
-	return processGroupStatus.Remove || (processGroupStatus.RemoveTimestamp != nil && !processGroupStatus.RemoveTimestamp.IsZero())
+// IsMarkedForRemoval returns if a process group is marked for removal
+func (processGroupStatus *ProcessGroupStatus) IsMarkedForRemoval() bool {
+	return processGroupStatus.Remove || (processGroupStatus.RemovalTimestamp != nil && !processGroupStatus.RemovalTimestamp.IsZero())
 }
 
 // SetRemove marks a process group for removal
 func (processGroupStatus *ProcessGroupStatus) SetRemove() {
 	processGroupStatus.Remove = true
-	processGroupStatus.RemoveTimestamp = &metav1.Time{Time: time.Now()}
+	processGroupStatus.RemovalTimestamp = &metav1.Time{Time: time.Now()}
 }
 
 // NeedsReplacement checks if the ProcessGroupStatus has conditions so that it should be removed
@@ -532,7 +534,7 @@ func (processGroupStatus *ProcessGroupStatus) NeedsReplacement(failureTime int) 
 	}
 
 	failureWindowStart := time.Now().Add(-1 * time.Duration(failureTime) * time.Second).Unix()
-	if missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.IsRemoved() {
+	if missingTime != nil && *missingTime < failureWindowStart && !processGroupStatus.IsMarkedForRemoval() {
 		return true, *missingTime
 	}
 
@@ -736,7 +738,7 @@ func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGrou
 	processCounts := ProcessCounts{}
 
 	for _, groupStatus := range processGroupStatus {
-		if !groupStatus.IsRemoved() || includeRemovals {
+		if !groupStatus.IsMarkedForRemoval() || includeRemovals {
 			processCounts.IncreaseCount(groupStatus.ProcessClass, 1)
 		}
 	}
@@ -760,7 +762,7 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 	result := make([]string, 0)
 
 	for _, groupStatus := range processGroupStatus {
-		if ignoreRemoved && groupStatus.IsRemoved() {
+		if ignoreRemoved && groupStatus.IsMarkedForRemoval() {
 			continue
 		}
 
@@ -1547,7 +1549,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsRemoved() {
+		if !processGroup.IsMarkedForRemoval() {
 			continue
 		}
 
@@ -1581,7 +1583,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.IsRemoved() {
+		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.IsMarkedForRemoval() {
 			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
@@ -2409,7 +2411,7 @@ func (cluster *FoundationDBCluster) ProcessGroupIsBeingRemoved(processGroupID st
 	}
 
 	for _, status := range cluster.Status.ProcessGroups {
-		if status.ProcessGroupID == processGroupID && status.IsRemoved() {
+		if status.ProcessGroupID == processGroupID && status.IsMarkedForRemoval() {
 			return true
 		}
 	}

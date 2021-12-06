@@ -50,7 +50,7 @@ func (e excludeProcesses) reconcile(ctx ctx.Context, r *FoundationDBClusterRecon
 
 	removalCount := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsRemoved() {
+		if processGroup.IsMarkedForRemoval() {
 			removalCount++
 		}
 	}
@@ -70,7 +70,7 @@ func (e excludeProcesses) reconcile(ctx ctx.Context, r *FoundationDBClusterRecon
 
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			for _, address := range processGroup.Addresses {
-				if processGroup.IsRemoved() && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
+				if processGroup.IsMarkedForRemoval() && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
 					addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(address)})
 					processClassesToExclude[processGroup.ProcessClass] = fdbtypes.None{}
 				}
@@ -126,7 +126,7 @@ func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass 
 	validProcesses := make([]string, 0)
 
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.IsRemoved() || processGroupStatus.ProcessClass != processClass {
+		if processGroupStatus.IsMarkedForRemoval() || processGroupStatus.ProcessClass != processClass {
 			continue
 		}
 

@@ -9195,11 +9195,11 @@ spec:
                         type: array
                       excluded:
                         type: boolean
-                      excludedTimestamp:
-                        format: date-time
-                        type: string
                       exclusionSkipped:
                         type: boolean
+                      exclusionTimestamp:
+                        format: date-time
+                        type: string
                       processClass:
                         type: string
                       processGroupConditions:
@@ -9214,11 +9214,11 @@ spec:
                         type: array
                       processGroupID:
                         type: string
-                      remove:
-                        type: boolean
-                      removeTimestamp:
+                      removalTimestamp:
                         format: date-time
                         type: string
+                      remove:
+                        type: boolean
                     type: object
                   type: array
                 requiredAddresses:

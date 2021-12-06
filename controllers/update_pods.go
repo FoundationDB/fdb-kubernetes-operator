@@ -54,7 +54,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsRemoved() {
+		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore removed Pod",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

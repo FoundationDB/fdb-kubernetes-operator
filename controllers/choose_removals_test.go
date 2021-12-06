@@ -62,7 +62,7 @@ var _ = Describe("choose_removals", func() {
 
 		removals = nil
 		for _, processGroup := range cluster.Status.ProcessGroups {
-			if processGroup.IsRemoved() {
+			if processGroup.IsMarkedForRemoval() {
 				removals = append(removals, processGroup.ProcessGroupID)
 			}
 		}

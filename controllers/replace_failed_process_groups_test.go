@@ -301,7 +301,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 func getRemovedProcessGroupIDs(cluster *fdbtypes.FoundationDBCluster) []string {
 	results := make([]string, 0)
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.IsRemoved() {
+		if processGroupStatus.IsMarkedForRemoval() {
 			results = append(results, processGroupStatus.ProcessGroupID)
 		}
 	}

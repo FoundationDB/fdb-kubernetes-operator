@@ -206,7 +206,7 @@ func includeProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, 
 
 	processGroups := make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.IsRemoved() && removedProcessGroups[processGroup.ProcessGroupID] {
+		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			for _, pAddr := range processGroup.Addresses {
 				addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 			}
@@ -253,7 +253,7 @@ func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.Founda
 
 	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsRemoved() || processGroup.ExclusionSkipped {
+		if !processGroup.IsMarkedForRemoval() || processGroup.ExclusionSkipped {
 			continue
 		}
 
@@ -297,7 +297,7 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtyp
 	processGroupsToRemove := make([]string, 0, len(cluster.Status.ProcessGroups))
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsRemoved() {
+		if !processGroup.IsMarkedForRemoval() {
 			continue
 		}
 

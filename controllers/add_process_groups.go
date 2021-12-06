@@ -60,7 +60,7 @@ func (a addProcessGroups) reconcile(ctx ctx.Context, r *FoundationDBClusterRecon
 
 		processGroupIDs[class][num] = true
 
-		if !processGroup.IsRemoved() {
+		if !processGroup.IsMarkedForRemoval() {
 			processCounts[class]++
 		}
 	}

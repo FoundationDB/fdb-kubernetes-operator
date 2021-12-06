@@ -36,7 +36,7 @@ func getMaxReplacements(cluster *fdbtypes.FoundationDBCluster, maxReplacements i
 	// not fully excluded.
 	removalCount := 0
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.IsRemoved() && !processGroupStatus.IsExcluded() {
+		if processGroupStatus.IsMarkedForRemoval() && !processGroupStatus.IsExcluded() {
 			// If we already have a removal in-flight, we should not try
 			// replacing more failed process groups.
 			removalCount++
