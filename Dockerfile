@@ -3,7 +3,7 @@ FROM docker.io/foundationdb/foundationdb:6.1.13 as fdb61
 FROM docker.io/foundationdb/foundationdb:6.3.22 as fdb63
 
 # Build the manager binary
-FROM docker.io/library/golang:1.16.8 as builder
+FROM docker.io/library/golang:1.16.11 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.30
@@ -40,7 +40,9 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
-RUN go mod download
+# https://github.com/golang/go/issues/44129#issuecomment-865249631 time to move to 1.17
+RUN go env -w GOFLAGS=-mod=mod
+RUN go mod download -x
 
 # Copy the go source
 COPY main.go main.go
