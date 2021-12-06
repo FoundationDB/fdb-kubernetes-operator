@@ -31,13 +31,13 @@ The locality is currently a mix of some constants, a configurable zone and two s
 
 ## Proposed Design
 
-The design is split into the two main parts of the deployment: configure the locality and how to deploy the Pods across the cluster.
+The design is split into two main parts of the deployment: configure the locality and how to deploy the Pods across the cluster.
 
 ### Configure locality
 
 The `three_data_hall` deployment requires the `locality_data_hall` locality to be set and the `three_datacenter` requires the `locality_dcid` to be set.
 There must be at least and at most 3 different values for these localities.
-Additionally to these localities at least two different `locality_zone` per `data_hall`/`datacenter` is required to fullfill the requirements.
+To full fill the requirements there must be at least two different `locality_zone`s per `data_hall`/`datacenter`.
 The `locality_zone` can be configured with [FoundationDBClusterFaultDomain](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#foundationdbclusterfaultdomain).
 In addition to that the user can configure additional variables that the sidecar will use for substitution in the [FoundationDBClusterSpec](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#foundationdbclusterspec) with the `sidecarVariables` list.
 The current implementation would allow to set `dataHall: $AZ` and in `sidecarVariables` we would list `AZ` to define the `locality_data_hall` based on an environment variable that will be replaced by the sidecar with the actual value.
@@ -58,19 +58,19 @@ localities:
   topologyKey: "kubernetes.io/hostname"
 ```
 
-If multiple fields of the `value`, `valueFromEnv` or `valueFromNode` are set the following ordering will be used:
+If multiple fields of the `value`, `valueFromEnv` or `valueFromNode` are set the following order will be used:
 
 1. `value`
 1. `valueFromEnv`
 1. `valueFromNode`
 
 The `topologyKey` will be used for `topologySpreadConstraints` and for `PodAntiAffinity` and only has to be set if `valueFromNode` is empty, otherwise it will default to that value.
-The `FoundationDBClusterFaultDomain` would then be reduced to only have `key`, `zoneCount` and `zoneIndex` since the locality will be configured in `localities`.
+The `FoundationDBClusterFaultDomain` will be deprecated, the `zoneCount` and `zoneIndex` will be read from the new [multi-cluster field](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/design/plugin_multi_fdb_support.md#proposed-design).
 For all `localities` that define a `valueFromEnv` we would add the key to the `--substitute-variable` flag.
 For `valueFromNode` we have to modify the sidecar to allow it to read labels from Kubernetes nodes (see [Related Links](#related-links)) and pass that information to the according new flag.
 This change should provide the most flexibility to the user to define the required/wanted localities.
 We would set `locality_instance_id` and `locality_machineid` to the current defaults but also allow the user to define custom localities.
-After that change we should deprecate `cluster.Spec.DataCenter` and `cluster.Spec.DataHall`.
+After that change we should deprecate `cluster.Spec.DataCenter` and `cluster.Spec.DataHall`, those values never had an affect.
 
 ### Deployment model
 
@@ -92,7 +92,7 @@ To ensure that all Pods are spread evenly across the AZs the operator should use
 ```
 
 The `topologySpreadConstraints` above ensures that all Pods are evenly spread across the different `topology.kubernetes.io/zone` and must be set by the operator.
-If a regional cluster contains more than 3 AZ and a user only want to use 3 specific AZs the user has to define a `NodeAffinity`:
+If a regional cluster contains more than 3 AZ and a user only want to use 3 specific AZs the user has to define an additional `NodeAffinity`:
 
 ```yaml
   affinity:
@@ -116,10 +116,11 @@ The user would only require to create one `FoundationDBCluster` and set the `red
 In this deployment scenario a user would have 3 different Kubernetes clusters where each cluster spans across a different AZ.
 One requirement is that all Pods in the different AZs are able to communicate.
 The deployment pattern is similar to the [multi Kubernetes deployment](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/manual/fault_domains.md#option-2-multi-kubernetes-replication) but we can't use the special key here since that would mean that the `locality_zone` field would be set to the Kubernetes clusters zone ID and for `three_data_hall` or `three_datacenter` we need at least 2 zones per `data_hall`/`data_center`.
-The initial deployment would be splitt into two phases:
+The initial deployment would be split into three phases:
 
-1. Deploy the seed cluster into one of the Kubernetes clusters and wait until it's fully reconciled.
-1. Copy the connection string and use it as `seedConnectionString` for the other two clusters and set `redundancy_mode: "three_data_hall"`.
+1. Deploy the seed cluster into one of the Kubernetes clusters and wait until it's fully reconciled (with another redundancy_mode than `three_data_hall` or `three_data_center`).
+1. Copy the connection string and use it as `seedConnectionString` for the other two clusters.
+1. Once the cluster is reconciled set `redundancy_mode: "three_data_hall"` in all cluster specs.
 
 The initial cluster spec could look like this:
 
@@ -137,7 +138,7 @@ spec:
     redundancy_mode: triple
   localities:
   - key: data_hall
-    valueFromNode: az1
+    value: az1
 ```
 
 With this configuration we will use the default fault domain the Kubernetes nodes as `locality_zone`.
@@ -162,13 +163,14 @@ spec:
 ```
 
 The processes in the other Kubernetes clusters will join the current `FoundationDBCluster`.
-Once enough processes joined the cluster one of the operator will select 5 Coordinators span across 3 `data_halls`.
+Once enough processes joined the cluster one of the operator will select 9 Coordinators span across 3 `data_halls`.
 
 ### Coordinator selection
 
-The coordinator selection must be adjusted to select at most 4 coordinators in the same `data_hall` or `datacenter` depending on the redundancy mode.
+The coordinator selection must be adjusted to select 3 coordinators in the same `data_hall` or `datacenter` depending on the redundancy mode.
 For the `three_data_hall` mode we will select 9 coordinators which should be equally distributed across these 3 data halls.
-Currently the selection happens in the [cluster_controller](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/controllers/cluster_controller.go#L1283-L1292) with a small extension we can support the coordinator selection:
+We will select 9 coordinators to survive a `data_hall` or `datacenter` failure and an additional zone failure.
+The selection happens in the [cluster_controller](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/controllers/cluster_controller.go#L1283-L1292) with a small extension we can support the coordinator selection:
 
 ```go
 func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
@@ -180,11 +182,11 @@ func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
     }
 
     if cluster.Spec.RedundancyMode == fdbtypes.RedundancyModeThreeDataHall {
-        req[fdbtypes.FDBLocalityDataHallKey] = 4
+        req[fdbtypes.FDBLocalityDataHallKey] = 3
     }
 
     if cluster.Spec.RedundancyMode == fdbtypes.RedundancyModeThreeDatacenter {
-        req[fdbtypes.FDBLocalityDatacenterKey] = 4
+        req[fdbtypes.FDBLocalityDatacenterKey] = 3
     }
 
     return req
