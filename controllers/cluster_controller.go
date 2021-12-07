@@ -159,7 +159,8 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		if requeue.delayedRequeue {
 			clusterLog.Info("Delaying requeue for sub-reconciler",
 				"subReconciler", fmt.Sprintf("%T", subReconciler),
-				"message", requeue.message)
+				"message", requeue.message,
+				"error", requeue.curError)
 			delayedRequeue = true
 			continue
 		}
