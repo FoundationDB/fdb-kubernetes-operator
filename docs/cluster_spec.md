@@ -194,6 +194,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements defines how many process groups can be concurrently replaced if they are misconfigured. If the value will be set to 0 this will block replacements and these misconfigured Pods must be replaced manually or by another process. For each reconcile loop the operator calculates the maximum number of possible replacements by taken this value as the upper limit and removes all ongoing replacements that have not finished. Which means if the value is set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the operator is allowed to replace on further process group. | *int | false |
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be DeletionModeAll, DeletionModeZone or DeletionModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | DeletionMode | false |
+| removalMode | RemovalMode defines the removal mode for this cluster. This can be DeletionModeAll, DeletionModeZone or DeletionModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | DeletionMode | false |
 
 [Back to TOC](#table-of-contents)
 

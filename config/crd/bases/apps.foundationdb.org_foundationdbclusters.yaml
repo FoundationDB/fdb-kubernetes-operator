@@ -75,6 +75,13 @@ spec:
                     maxConcurrentReplacements:
                       minimum: 0
                       type: integer
+                    removalMode:
+                      default: Zone
+                      enum:
+                        - All
+                        - Zone
+                        - ProcessGroup
+                      type: string
                     replacements:
                       properties:
                         enabled:
