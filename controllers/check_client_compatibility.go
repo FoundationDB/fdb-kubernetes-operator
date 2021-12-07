@@ -36,7 +36,7 @@ import (
 type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
-func (c checkClientCompatibility) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c checkClientCompatibility) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "checkClientCompatibility")
 	if !cluster.Status.Configured {
 		return nil

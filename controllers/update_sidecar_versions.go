@@ -38,9 +38,9 @@ import (
 type updateSidecarVersions struct{}
 
 // reconcile runs the reconciler's work.
-func (updateSidecarVersions) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateSidecarVersions) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateSidecarVersions")
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -80,7 +80,7 @@ func (updateSidecarVersions) reconcile(r *FoundationDBClusterReconciler, context
 		for containerIndex, container := range pod.Spec.Containers {
 			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
 				logger.Info("Upgrading sidecar", "processGroupID", podmanager.GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
-				err = r.PodLifecycleManager.UpdateImageVersion(r, context, cluster, pod, containerIndex, image)
+				err = r.PodLifecycleManager.UpdateImageVersion(r, ctx, cluster, pod, containerIndex, image)
 				if err != nil {
 					return &requeue{curError: err}
 				}

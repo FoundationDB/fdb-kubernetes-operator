@@ -35,7 +35,7 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u updateDatabaseConfiguration) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateDatabaseConfiguration")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
@@ -90,7 +90,7 @@ func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler,
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
-			err = r.Status().Update(context, cluster)
+			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -115,7 +115,7 @@ func (u updateDatabaseConfiguration) reconcile(r *FoundationDBClusterReconciler,
 		}
 		if initialConfig {
 			cluster.Status.Configured = true
-			err = r.Status().Update(context, cluster)
+			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				return &requeue{curError: err}
 			}

@@ -21,15 +21,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

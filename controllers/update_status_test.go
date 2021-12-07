@@ -448,7 +448,7 @@ var _ = Describe("update_status", func() {
 		JustBeforeEach(func() {
 			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			requeue = updateStatus{}.reconcile(clusterReconciler, context.TODO(), cluster)
+			requeue = updateStatus{}.reconcile(context.TODO(), clusterReconciler, cluster)
 			if requeue != nil {
 				Expect(requeue.curError).NotTo(HaveOccurred())
 			}

@@ -37,14 +37,14 @@ import (
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updatePodConfig) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePodConfig")
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -115,7 +115,7 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 			}
 
 			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
-			err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
+			err = r.PodLifecycleManager.UpdateMetadata(r, ctx, cluster, pod)
 			if err != nil {
 				allSynced = false
 				curLogger.Error(err, "Update Pod ConfigMap annotation")
@@ -126,7 +126,7 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 
 		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
 		delete(pod.ObjectMeta.Annotations, fdbtypes.OutdatedConfigMapKey)
-		err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
+		err = r.PodLifecycleManager.UpdateMetadata(r, ctx, cluster, pod)
 		if err != nil {
 			allSynced = false
 			curLogger.Error(err, "Update Pod metadata")
@@ -138,7 +138,7 @@ func (updatePodConfig) reconcile(r *FoundationDBClusterReconciler, context ctx.C
 	}
 
 	if hasUpdate {
-		err = r.Status().Update(context, cluster)
+		err = r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}

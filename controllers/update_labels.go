@@ -34,16 +34,16 @@ import (
 type updateLabels struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLabels) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateLabels) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateLabels")
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, "", "")...)
+	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -64,7 +64,7 @@ func (updateLabels) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 			}
 
 			if !metadataCorrect(metadata, &pod.ObjectMeta) {
-				err = r.PodLifecycleManager.UpdateMetadata(r, context, cluster, pod)
+				err = r.PodLifecycleManager.UpdateMetadata(r, ctx, cluster, pod)
 				if err != nil {
 					return &requeue{curError: err}
 				}
@@ -87,7 +87,7 @@ func (updateLabels) reconcile(r *FoundationDBClusterReconciler, context ctx.Cont
 		}
 
 		if !metadataCorrect(metadata, &pvc.ObjectMeta) {
-			err = r.Update(context, &pvc)
+			err = r.Update(ctx, &pvc)
 			if err != nil {
 				return &requeue{curError: err}
 			}

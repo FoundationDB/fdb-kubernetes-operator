@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,8 +38,6 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	"golang.org/x/net/context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
@@ -153,7 +151,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		cluster.Spec = *(normalizedSpec.DeepCopy())
 		clusterLog.Info("Attempting to run sub-reconciler", "subReconciler", fmt.Sprintf("%T", subReconciler))
 
-		requeue := subReconciler.reconcile(r, ctx, cluster)
+		requeue := subReconciler.reconcile(ctx, r, cluster)
 		if requeue == nil {
 			continue
 		}
@@ -183,21 +181,21 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 
 // SetupWithManager prepares a reconciler for use.
 func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrentReconciles int, selector metav1.LabelSelector, watchedObjects ...client.Object) error {
-	err := mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Pod).Name}
 	})
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Service{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.Service).Name}
 	})
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(ctx.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, "metadata.name", func(o client.Object) []string {
 		return []string{o.(*corev1.PersistentVolumeClaim).Name}
 	})
 	if err != nil {
@@ -346,7 +344,7 @@ func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBC
 }
 
 // clearPendingRemovalsFromSpec removes the pending removals from the cluster spec.
-func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context ctx.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context context.Context, cluster *fdbtypes.FoundationDBCluster) error {
 	modifiedCluster := cluster.DeepCopy()
 	modifiedCluster.Spec.PendingRemovals = nil
 	return r.Update(context, modifiedCluster)
@@ -368,7 +366,7 @@ type clusterSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with
 	a `Message` field.
 	*/
-	reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue
+	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue
 }
 
 // localityInfo captures information about a process for the purposes of

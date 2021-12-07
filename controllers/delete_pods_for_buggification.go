@@ -35,9 +35,9 @@ import (
 type deletePodsForBuggification struct{}
 
 // reconcile runs the reconciler's work.
-func (d deletePodsForBuggification) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (d deletePodsForBuggification) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "deletePodsForBuggification")
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -91,7 +91,7 @@ func (d deletePodsForBuggification) reconcile(r *FoundationDBClusterReconciler, 
 		logger.Info("Deleting pods", "count", len(updates))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", "Recreating pods for buggification")
 
-		err = r.PodLifecycleManager.UpdatePods(r, context, cluster, updates, true)
+		err = r.PodLifecycleManager.UpdatePods(r, ctx, cluster, updates, true)
 		if err != nil {
 			return &requeue{curError: err}
 		}

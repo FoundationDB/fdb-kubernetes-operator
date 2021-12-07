@@ -38,17 +38,17 @@ import (
 type addPods struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addPods) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPods")
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	existingConfigMap := &corev1.ConfigMap{}
-	err = r.Get(context, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
+	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("Creating config map", "name", configMap.Name)
-		err = r.Create(context, configMap)
+		err = r.Create(ctx, configMap)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -56,7 +56,7 @@ func (a addPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -93,7 +93,7 @@ func (a addPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 
 			if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
 				service := &corev1.Service{}
-				err = r.Get(context, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
+				err = r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 				if err != nil {
 					return &requeue{curError: err}
 				}
@@ -105,7 +105,7 @@ func (a addPods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context
 				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
 			}
 
-			err = r.PodLifecycleManager.CreatePod(r, context, pod)
+			err = r.PodLifecycleManager.CreatePod(r, ctx, pod)
 			if err != nil {
 				return &requeue{curError: err}
 			}

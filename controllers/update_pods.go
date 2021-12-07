@@ -21,12 +21,11 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
-	"golang.org/x/net/context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -43,10 +42,10 @@ import (
 type updatePods struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -136,7 +135,7 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
-			err = r.Status().Update(context, cluster)
+			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -154,7 +153,7 @@ func (updatePods) reconcile(r *FoundationDBClusterReconciler, context ctx.Contex
 		return nil
 	}
 
-	return deletePodsForUpdates(context, r, cluster, adminClient, updates, logger)
+	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
 func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
