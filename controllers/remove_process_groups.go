@@ -26,6 +26,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -38,7 +40,15 @@ type removeProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
 func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
-	remainingMap, err := r.getRemainingMap(cluster)
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	defer adminClient.Close()
+
+	remainingMap, err := removals.GetRemainingMap(logger, adminClient, cluster)
+
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -58,12 +68,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
 	if cluster.GetEnforceFullReplicationForDeletion() {
-		adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
-		if err != nil {
-			return &requeue{curError: err}
-		}
-		defer adminClient.Close()
-
 		hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
 		if err != nil {
 			return &requeue{curError: err}
@@ -77,7 +81,26 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		}
 	}
 
-	removedProcessGroups := r.removeProcessGroups(ctx, cluster, processGroupsToRemove)
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
+	// In addition to that we should add the same logic as in the exclude step
+	// to ensure we never exclude/remove more process groups than desired.
+	zonedRemovals, err := removals.GetZonedRemovals(status, processGroupsToRemove)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
+	zone, zoneRemovals, err := removals.GetProcessGroupsToRemove(cluster.GetRemovalMode(), zonedRemovals)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
+	logger.Info("Removing process groups", "zone", zone, "count", len(zoneRemovals), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
+
+	removedProcessGroups := r.removeProcessGroups(ctx, cluster, zoneRemovals)
 	err = includeProcessGroup(ctx, r, cluster, removedProcessGroups)
 	if err != nil {
 		return &requeue{curError: err}
@@ -241,53 +264,6 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	}
 
 	return nil
-}
-
-func (r *FoundationDBClusterReconciler) getRemainingMap(cluster *fdbtypes.FoundationDBCluster) (map[string]bool, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-	if err != nil {
-		return map[string]bool{}, err
-	}
-	defer adminClient.Close()
-
-	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.IsMarkedForRemoval() || processGroup.ExclusionSkipped {
-			continue
-		}
-
-		if len(processGroup.Addresses) == 0 {
-			logger.Info("Getting remaining removals to check for exclusion", "processGroupID", processGroup.ProcessGroupID, "reason", "missing address")
-			continue
-		}
-
-		for _, pAddr := range processGroup.Addresses {
-			addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
-		}
-	}
-
-	var remaining []fdbtypes.ProcessAddress
-	if len(addresses) > 0 {
-		remaining, err = adminClient.CanSafelyRemove(addresses)
-		if err != nil {
-			return map[string]bool{}, err
-		}
-	}
-
-	if len(remaining) > 0 {
-		logger.Info("Exclusions to complete", "remainingServers", remaining)
-	}
-
-	remainingMap := make(map[string]bool, len(remaining))
-	for _, address := range addresses {
-		remainingMap[address.String()] = false
-	}
-	for _, address := range remaining {
-		remainingMap[address.String()] = true
-	}
-
-	return remainingMap, nil
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbtypes.FoundationDBCluster, remainingMap map[string]bool) (bool, []string) {

@@ -1220,6 +1220,15 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup
 	// +kubebuilder:default:=Zone
 	DeletionMode DeletionMode `json:"deletionMode,omitempty"`
+
+	// RemovalMode defines the removal mode for this cluster. This can be
+	// DeletionModeAll, DeletionModeZone or DeletionModeProcessGroup. The
+	// RemovalMode defines how process groups are deleted in order when they
+	// are marked for removal.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup
+	// +kubebuilder:default:=Zone
+	RemovalMode DeletionMode `json:"removalMode,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -3210,4 +3219,13 @@ func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 // service.
 func (cluster *FoundationDBCluster) GetDNSDomain() string {
 	return pointer.StringDeref(cluster.Spec.Routing.DNSDomain, "cluster.local")
+}
+
+// GetRemovalMode returns the removal mode of the cluster or default to DeletionModeZone if unset.
+func (cluster *FoundationDBCluster) GetRemovalMode() DeletionMode {
+	if cluster.Spec.AutomationOptions.DeletionMode == "" {
+		return DeletionModeZone
+	}
+
+	return cluster.Spec.AutomationOptions.DeletionMode
 }

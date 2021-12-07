@@ -67,9 +67,8 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			pvc.ObjectMeta.OwnerReferences = owner
 			err = r.Create(ctx, pvc)
-
 			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 	}

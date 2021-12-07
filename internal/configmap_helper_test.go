@@ -386,5 +386,4 @@ var _ = Describe("configmap_helper", func() {
 			})
 		})
 	})
-
 })
