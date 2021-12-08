@@ -1,5 +1,7 @@
 FROM docker.io/foundationdb/foundationdb:6.2.30 as fdb62
+
 FROM docker.io/foundationdb/foundationdb:6.1.13 as fdb61
+
 FROM docker.io/foundationdb/foundationdb:6.3.22 as fdb63
 
 # Build the manager binary
