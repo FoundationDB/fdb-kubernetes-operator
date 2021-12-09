@@ -58,7 +58,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			service.ObjectMeta.OwnerReferences = owner
 			err = r.Create(ctx, service)
 			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 	}
@@ -91,7 +91,6 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			} else if k8serrors.IsNotFound(err) {
 				// Create a new service
 				err = r.Create(ctx, service)
-
 				if err != nil {
 					return &requeue{curError: err}
 				}

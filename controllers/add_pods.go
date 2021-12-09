@@ -107,7 +107,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 
 			err = r.PodLifecycleManager.CreatePod(ctx, r, pod)
 			if err != nil {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 		}
 	}
