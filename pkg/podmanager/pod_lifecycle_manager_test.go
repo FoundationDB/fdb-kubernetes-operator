@@ -31,42 +31,42 @@ var _ = Describe("pod_lifecycle_manager", func() {
 	var manager StandardPodLifecycleManager
 
 	DescribeTable("getting the deletion mode of the cluster",
-		func(cluster *fdbtypes.FoundationDBCluster, expected fdbtypes.DeletionMode) {
+		func(cluster *fdbtypes.FoundationDBCluster, expected fdbtypes.PodUpdateMode) {
 			Expect(manager.GetDeletionMode(cluster)).To(Equal(expected))
 		},
 		Entry("Without a deletion mode defined",
 			&fdbtypes.FoundationDBCluster{},
-			fdbtypes.DeletionModeZone,
+			fdbtypes.PodUpdateModeZone,
 		),
 		Entry("With deletion mode Zone",
 			&fdbtypes.FoundationDBCluster{
 				Spec: fdbtypes.FoundationDBClusterSpec{
 					AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-						DeletionMode: fdbtypes.DeletionModeZone,
+						DeletionMode: fdbtypes.PodUpdateModeZone,
 					},
 				},
 			},
-			fdbtypes.DeletionModeZone,
+			fdbtypes.PodUpdateModeZone,
 		),
 		Entry("With deletion mode All",
 			&fdbtypes.FoundationDBCluster{
 				Spec: fdbtypes.FoundationDBClusterSpec{
 					AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-						DeletionMode: fdbtypes.DeletionModeAll,
+						DeletionMode: fdbtypes.PodUpdateModeAll,
 					},
 				},
 			},
-			fdbtypes.DeletionModeAll,
+			fdbtypes.PodUpdateModeAll,
 		),
 		Entry("With deletion mode Process Group",
 			&fdbtypes.FoundationDBCluster{
 				Spec: fdbtypes.FoundationDBClusterSpec{
 					AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-						DeletionMode: fdbtypes.DeletionModeProcessGroup,
+						DeletionMode: fdbtypes.PodUpdateModeProcessGroup,
 					},
 				},
 			},
-			fdbtypes.DeletionModeProcessGroup,
+			fdbtypes.PodUpdateModeProcessGroup,
 		),
 	)
 })

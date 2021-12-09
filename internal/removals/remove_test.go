@@ -22,6 +22,7 @@ package removals
 
 import (
 	"fmt"
+	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -61,9 +62,41 @@ var _ = Describe("remove", func() {
 		})
 
 		It("should return the correct mapping", func() {
-			zones, err := GetZonedRemovals(status, []string{"1", "2", "3", "4"})
+			zones, timestamp, err := GetZonedRemovals(status, []*fdbtypes.ProcessGroupStatus{
+				{
+					ProcessGroupID: "1",
+				},
+				{
+					ProcessGroupID: "2",
+				},
+				{
+					ProcessGroupID: "3",
+				},
+				{
+					ProcessGroupID: "4",
+				},
+				{
+					ProcessGroupID: "5",
+					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+						{
+							ProcessGroupConditionType: fdbtypes.ResourcesTerminating,
+							Timestamp:                 1,
+						},
+					},
+				},
+				{
+					ProcessGroupID: "6",
+					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+						{
+							ProcessGroupConditionType: fdbtypes.ResourcesTerminating,
+							Timestamp:                 42,
+						},
+					},
+				},
+			})
+
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(zones)).To(BeNumerically("==", 3))
+			Expect(len(zones)).To(BeNumerically("==", 4))
 
 			Expect(len(zones["zone1"])).To(BeNumerically("==", 2))
 			Expect(zones["zone1"]).To(ConsistOf("1", "2"))
@@ -71,8 +104,13 @@ var _ = Describe("remove", func() {
 			Expect(len(zones["zone3"])).To(BeNumerically("==", 1))
 			Expect(zones["zone3"]).To(ConsistOf("3"))
 
-			Expect(len(zones["UNKNOWN"])).To(BeNumerically("==", 1))
-			Expect(zones["UNKNOWN"]).To(ConsistOf("4"))
+			Expect(len(zones[UnknownZone])).To(BeNumerically("==", 1))
+			Expect(zones[UnknownZone]).To(ConsistOf("4"))
+
+			Expect(len(zones[TerminatingZone])).To(BeNumerically("==", 2))
+			Expect(zones[TerminatingZone]).To(ConsistOf("5", "6"))
+
+			Expect(timestamp).To(BeNumerically("==", 42))
 		})
 
 	})
@@ -85,7 +123,7 @@ var _ = Describe("remove", func() {
 		}
 
 		DescribeTable("should delete the Pods based on the deletion mode",
-			func(removalMode fdbtypes.DeletionMode, zones map[string][]string, expected int, expectedErr error) {
+			func(removalMode fdbtypes.PodUpdateMode, zones map[string][]string, expected int, expectedErr error) {
 				_, removals, err := GetProcessGroupsToRemove(removalMode, zones)
 				if expectedErr != nil {
 					Expect(err).To(Equal(expectedErr))
@@ -94,25 +132,76 @@ var _ = Describe("remove", func() {
 				Expect(len(removals)).To(Equal(expected))
 			},
 			Entry("With the deletion mode Zone",
-				fdbtypes.DeletionModeZone,
+				fdbtypes.PodUpdateModeZone,
 				zones,
 				2,
 				nil),
 			Entry("With the deletion mode Process Group",
-				fdbtypes.DeletionModeProcessGroup,
+				fdbtypes.PodUpdateModeProcessGroup,
 				zones,
 				1,
 				nil),
 			Entry("With the deletion mode All",
-				fdbtypes.DeletionModeAll,
+				fdbtypes.PodUpdateModeAll,
 				zones,
 				6,
 				nil),
+			Entry("With the deletion mode None",
+				fdbtypes.PodUpdateModeNone,
+				zones,
+				0,
+				nil),
 			Entry("With the deletion mode All",
-				fdbtypes.DeletionMode("banana"),
+				fdbtypes.PodUpdateMode("banana"),
 				zones,
 				0,
 				fmt.Errorf("unknown deletion mode: \"banana\"")),
+		)
+	})
+
+	When("checking if a removal is allowed", func() {
+		DescribeTable("should return if a removal is allowed and the wait time",
+			func(lastDeletion int64, currentTimestamp int64, waitBetween time.Duration, expectedRes bool, expectedWaitTime int64) {
+				waitTime, ok := RemovalAllowed(lastDeletion, currentTimestamp, waitBetween)
+				Expect(ok).To(Equal(expectedRes))
+				Expect(waitTime).To(Equal(expectedWaitTime))
+			},
+			Entry("No last deletion",
+				int64(0),
+				int64(120),
+				1*time.Minute,
+				true,
+				int64(0)),
+			Entry("With a recent deletion",
+				int64(120),
+				int64(121),
+				1*time.Minute,
+				false,
+				int64(59)),
+			Entry("With a recent deletion",
+				int64(120),
+				int64(179),
+				1*time.Minute,
+				false,
+				int64(1)),
+			Entry("With a recent deletion but enough wait time",
+				int64(120),
+				int64(181),
+				1*time.Minute,
+				true,
+				int64(0)),
+			Entry("With a recent deletion but a short wait time",
+				int64(120),
+				int64(121),
+				1*time.Nanosecond,
+				true,
+				int64(0)),
+			Entry("With a recent deletion and a long wait time",
+				int64(120),
+				int64(181),
+				2*time.Minute,
+				false,
+				int64(59)),
 		)
 	})
 })

@@ -64,6 +64,7 @@ spec:
                         - All
                         - Zone
                         - ProcessGroup
+                        - None
                       type: string
                     enforceFullReplicationForDeletion:
                       type: boolean
@@ -81,6 +82,7 @@ spec:
                         - All
                         - Zone
                         - ProcessGroup
+                        - None
                       type: string
                     replacements:
                       properties:
@@ -95,6 +97,9 @@ spec:
                       type: object
                     useNonBlockingExcludes:
                       type: boolean
+                    waitTimeBetweenRemovals:
+                      format: int64
+                      type: integer
                   type: object
                 automountServiceAccountToken:
                   type: boolean
