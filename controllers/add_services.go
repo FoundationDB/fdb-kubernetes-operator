@@ -92,6 +92,10 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 				// Create a new service
 				err = r.Create(ctx, service)
 				if err != nil {
+					if internal.IsQuotaExceeded(err) {
+						return &requeue{curError: err, delayedRequeue: true}
+					}
+
 					return &requeue{curError: err}
 				}
 			} else {

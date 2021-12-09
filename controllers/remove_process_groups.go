@@ -100,7 +100,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		// last minute).
 		waitTime, allowed := removals.RemovalAllowed(lastDeletion, time.Now().Unix(), cluster.GetWaitTimeBetweenRemovals())
 		if !allowed {
-			return &requeue{message: fmt.Sprintf("not allowed to remove process groups, waiting: %d", waitTime), delay: time.Duration(waitTime) * time.Second}
+			return &requeue{message: fmt.Sprintf("not allowed to remove process groups, waiting: %v", waitTime), delay: time.Duration(waitTime) * time.Second}
 		}
 	}
 

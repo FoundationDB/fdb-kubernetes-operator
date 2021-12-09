@@ -68,7 +68,11 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			pvc.ObjectMeta.OwnerReferences = owner
 			err = r.Create(ctx, pvc)
 			if err != nil {
-				return &requeue{curError: err, delayedRequeue: true}
+				if internal.IsQuotaExceeded(err) {
+					return &requeue{curError: err, delayedRequeue: true}
+				}
+
+				return &requeue{curError: err}
 			}
 		}
 	}
