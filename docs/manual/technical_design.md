@@ -163,7 +163,7 @@ The `AddProcessGroups` subreconciler compares the desired process counts, calcul
 
 ### AddServices
 
-The `AddServices` subreconciler creates any services that are required for the cluster. By default, the operator does not create any services. If the `services.headless` flag in the spec is set, we will create a headless service with the same name as the cluster. If the `services.publicIPSource` field is set to `service`, we will create a service for every process group, with the same name as the pod.
+The `AddServices` subreconciler creates any services that are required for the cluster. By default, the operator does not create any services. If the `routing.headless` flag in the spec is set, we will create a headless service with the same name as the cluster. If the `routing.publicIPSource` field is set to `service`, we will create a service for every process group, with the same name as the pod.
 
 ### AddPVCs
 

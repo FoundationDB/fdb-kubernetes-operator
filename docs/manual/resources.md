@@ -62,7 +62,7 @@ It also sets the labels `fdb-cluster-name`, `fdb-process-class`, and `fdb-instan
 The operator sets the following annotations on pods:
 
 * `foundationdb.org/last-applied-spec`: A hash of the spec that was used to create the resource.
-* `foundationdb.org/public-ip`: The value for the `services.publicIPSource` field in the cluster spec when the pod was created.
+* `foundationdb.org/public-ip`: The value for the `routing.publicIPSource` field in the cluster spec when the pod was created.
 
 See the [Customization guide](customization.md#resource-labeling) to learn how to customize the labels that the operator uses.
 
