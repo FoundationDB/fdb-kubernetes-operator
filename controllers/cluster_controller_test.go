@@ -1138,6 +1138,27 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
+			Context("with a substitution variable", func() {
+				BeforeEach(func() {
+					settings := cluster.Spec.Processes["general"]
+					settings.CustomParameters = []string{"locality_disk_id=$FDB_INSTANCE_ID"}
+					cluster.Spec.Processes["general"] = settings
+
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
+					}
+
+					Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", len(addresses)))
+					Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+				})
+			})
+
 			Context("with bounces disabled", func() {
 				BeforeEach(func() {
 					shouldCompleteReconciliation = false

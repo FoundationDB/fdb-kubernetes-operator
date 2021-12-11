@@ -34,12 +34,6 @@ import (
 
 // GetStartCommand builds the expected start command for a process group.
 func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
-	imageType := GetDesiredImageType(cluster)
-	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType)
-	if err != nil {
-		return "", err
-	}
-
 	substitutions, err := podClient.GetVariableSubstitutions()
 	if err != nil {
 		return "", err
@@ -47,6 +41,12 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtype
 
 	if substitutions == nil {
 		return "", nil
+	}
+
+	imageType := GetDesiredImageType(cluster)
+	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, imageType, substitutions)
+	if err != nil {
+		return "", err
 	}
 
 	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
@@ -131,7 +131,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
-	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit)
+	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit, substitutions)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, proc
 }
 
 // GetMonitorProcessConfiguration builds the monitor conf template for the unifed image.
-func GetMonitorProcessConfiguration(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processCount int, imageType FDBImageType) (monitorapi.ProcessConfiguration, error) {
+func GetMonitorProcessConfiguration(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processCount int, imageType FDBImageType, customParameterSubstitutions map[string]string) (monitorapi.ProcessConfiguration, error) {
 	configuration := monitorapi.ProcessConfiguration{
 		Version: cluster.Spec.Version,
 	}
@@ -255,6 +255,9 @@ func GetMonitorProcessConfiguration(cluster *fdbtypes.FoundationDBCluster, proce
 		}
 		for _, argument := range podSettings.CustomParameters {
 			sanitizedArgument := "--" + equalPattern.ReplaceAllString(argument, "=")
+			for key, value := range customParameterSubstitutions {
+				sanitizedArgument = strings.Replace(sanitizedArgument, "$"+key, value, -1)
+			}
 			configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: sanitizedArgument})
 		}
 	}
