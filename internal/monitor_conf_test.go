@@ -349,6 +349,24 @@ var _ = Describe("pod_models", func() {
 					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{Value: "--knob_test=test1"}))
 				})
 			})
+
+			When("the custom parameter uses a placeholder", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+						"locality_disk_id=$FDB_PUBLIC_IP",
+					}}}
+				})
+
+				It("includes the custom parameters for that class", func() {
+					config, err := GetMonitorProcessConfiguration(cluster, fdbtypes.ProcessClassStorage, 1, FDBImageTypeUnified)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+					Expect(config.Arguments[10]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+						{Value: "--locality_disk_id="},
+						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP"},
+					}}))
+				})
+			})
 		})
 
 		When("the cluster has an alternative fault domain variable", func() {
@@ -434,6 +452,7 @@ var _ = Describe("pod_models", func() {
 		BeforeEach(func() {
 			pod, err = GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
+			pod.Status.PodIP = "1.2.3.4"
 			address = pod.Status.PodIP
 		})
 
@@ -509,6 +528,37 @@ var _ = Describe("pod_models", func() {
 					}, " ")))
 				})
 			})
+
+			When("using a custom parameter with a place holder", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+						"locality_disk_id=$FDB_PUBLIC_IP",
+					}}}
+				})
+
+				It("should fill in the process number", func() {
+					podClient, err := NewMockFdbPodClient(cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommand(cluster, processClass, podClient, 2, 3)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+						fmt.Sprintf("--public_address=[%s]:4503", address),
+						"--class=storage",
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						"--datadir=/var/fdb/data/2",
+						fmt.Sprintf("--locality_process_id=%s-2", processGroupID),
+						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_disk_id=%s", address),
+					}, " ")))
+				})
+			})
 		})
 
 		When("using the split image", func() {
@@ -535,6 +585,36 @@ var _ = Describe("pod_models", func() {
 					fmt.Sprintf("--public_address=%s:4501", address),
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
+			})
+
+			When("using a custom parameter with a place holder", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+						"locality_disk_id=$FDB_PUBLIC_IP",
+					}}}
+				})
+
+				It("should fill in the process number", func() {
+					podClient, err := NewMockFdbPodClient(cluster, pod)
+					Expect(err).NotTo(HaveOccurred())
+					command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(command).To(Equal(strings.Join([]string{
+						"/usr/bin/fdbserver",
+						"--class=storage",
+						"--cluster_file=/var/fdb/data/fdb.cluster",
+						"--datadir=/var/fdb/data",
+						fmt.Sprintf("--locality_disk_id=%s", address),
+						fmt.Sprintf("--locality_instance_id=%s", processGroupID),
+						fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
+						fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+						"--logdir=/var/log/fdb-trace-logs",
+						"--loggroup=" + cluster.Name,
+						fmt.Sprintf("--public_address=%s:4501", address),
+						"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
+					}, " ")))
+				})
 			})
 		})
 
@@ -690,5 +770,4 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 	})
-
 })

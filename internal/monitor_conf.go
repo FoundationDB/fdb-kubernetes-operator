@@ -255,6 +255,18 @@ func GetMonitorProcessConfiguration(cluster *fdbtypes.FoundationDBCluster, proce
 		}
 		for _, argument := range podSettings.CustomParameters {
 			sanitizedArgument := "--" + equalPattern.ReplaceAllString(argument, "=")
+			parts := strings.Split(sanitizedArgument, "=")
+			if len(parts) == 2 {
+				// We found a env variable here, we will replace that variable with the according value
+				if strings.HasPrefix(parts[1], "$") {
+					configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+						{Value: fmt.Sprintf("%s=", parts[0])},
+						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: parts[1][1:]},
+					}})
+					continue
+				}
+			}
+
 			configuration.Arguments = append(configuration.Arguments, monitorapi.Argument{Value: sanitizedArgument})
 		}
 	}
