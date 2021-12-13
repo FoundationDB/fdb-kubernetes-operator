@@ -64,9 +64,13 @@ func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[s
 
 	if removalMode == fdbtypes.PodUpdateModeZone {
 		for zoneName, zoneProcesses := range removals {
+			if zoneName == TerminatingZone {
+				continue
+			}
 			// Fetch the first zone and stop
 			return zoneName, zoneProcesses, nil
 		}
+		return "", nil, nil
 	}
 
 	if removalMode == fdbtypes.PodUpdateModeNone {

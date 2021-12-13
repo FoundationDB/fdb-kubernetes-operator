@@ -117,9 +117,9 @@ var _ = Describe("remove", func() {
 
 	When("getting the process groups to remove", func() {
 		zones := map[string][]string{
-			"zone1":   {"1", "2"},
-			"zone3":   {"3", "4"},
-			"UNKNOWN": {"4", "5"},
+			"zone1":     {"1", "2"},
+			"zone3":     {"3", "4"},
+			UnknownZone: {"4", "5"},
 		}
 
 		DescribeTable("should delete the Pods based on the deletion mode",
@@ -135,6 +135,13 @@ var _ = Describe("remove", func() {
 				fdbtypes.PodUpdateModeZone,
 				zones,
 				2,
+				nil),
+			Entry("With the deletion mode Zone and only terminating process groupse",
+				fdbtypes.PodUpdateModeZone,
+				map[string][]string{
+					TerminatingZone: {"1", "2"},
+				},
+				0,
 				nil),
 			Entry("With the deletion mode Process Group",
 				fdbtypes.PodUpdateModeProcessGroup,
