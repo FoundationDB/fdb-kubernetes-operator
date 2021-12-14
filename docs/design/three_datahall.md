@@ -48,50 +48,37 @@ The key will always be prefixed with `locality_`:
 localities:
 - key: "data_hall"
   value: ""
-  valueFromEnv: ""
-  valueFromNode: "topology.kubernetes.io/zone"
-  topologyKey: ""
+  envValue: ""
+  topologyKey: "topology.kubernetes.io/zone"
 - key: "zone"
   value: ""
-  valueFromEnv: "MyFancyZone"
-  valueFromNode: ""
+  envValue: "MyFancyZone"
   topologyKey: "kubernetes.io/hostname"
 ```
 
-If multiple fields of the `value`, `valueFromEnv` or `valueFromNode` are set the following order will be used:
+If multiple fields of the `value`, `envValue` or `topologyKey` are set the following order will be used:
 
 1. `value`
-1. `valueFromEnv`
-1. `valueFromNode`
+1. `envValue`
+1. `topologyKey`
 
-The `topologyKey` will be used for `topologySpreadConstraints` and for `PodAntiAffinity` and only has to be set if `valueFromNode` is empty, otherwise it will default to that value.
+The `topologyKey` will be used for the `PodAntiAffinity`.
 The `FoundationDBClusterFaultDomain` will be deprecated, the `zoneCount` and `zoneIndex` will be read from the new [multi-cluster field](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/design/plugin_multi_fdb_support.md#proposed-design).
-For all `localities` that define a `valueFromEnv` we would add the key to the `--substitute-variable` flag.
-For `valueFromNode` we have to modify the sidecar to allow it to read labels from Kubernetes nodes (see [Related Links](#related-links)) and pass that information to the according new flag.
+The current assumption is that we will implement the multi-DC support before we implement this design, if not we can implement only the required CRD change.
+For all `localities` that define a `envValue` we would add the key to the `--substitute-variable` flag.
+For `topologyKey` we have to modify the sidecar to allow it to read labels from Kubernetes nodes (see [Related Links](#related-links)) and pass that information to the according new flag.
 This change should provide the most flexibility to the user to define the required/wanted localities.
 We would set `locality_instance_id` and `locality_machineid` to the current defaults but also allow the user to define custom localities.
-After that change we should deprecate `cluster.Spec.DataCenter` and `cluster.Spec.DataHall`, those values never had an affect.
+After that change we should deprecate `cluster.Spec.DataCenter` and `cluster.Spec.DataHall`, those values only set the according localities but otherwise don't have an affect.
 
 ### Deployment model
 
 #### Single regional Kubernetes cluster
 
 The assumption here is that the user has a regional Kubernetes cluster that spreads across at least 3 different AZs.
-To ensure that all Pods are spread evenly across the AZs the operator should use [Pod Topology Spread Constraints](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints).
+To ensure that all Pods are spread across the AZs the operator should use [PodAntiAffinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node).
 
-```yaml
-  topologySpreadConstraints:
-  - maxSkew: 1
-    # the topologyKey will be read from the locality
-    topologyKey: topology.kubernetes.io/zone 
-    whenUnsatisfiable: DoNotSchedule
-    labelSelector:
-      matchLabels:
-        foundationdb.org/fdb-cluster-name: test-cluster
-        fdb-process-class: <process-class>
-```
 
-The `topologySpreadConstraints` above ensures that all Pods are evenly spread across the different `topology.kubernetes.io/zone` and must be set by the operator.
 If a regional cluster contains more than 3 AZ and a user only want to use 3 specific AZs the user has to define an additional `NodeAffinity`:
 
 ```yaml
@@ -110,6 +97,7 @@ If a regional cluster contains more than 3 AZ and a user only want to use 3 spec
 
 The `NodeAffinity` must be set by the user and the operator doesn't take any action to automatically set the value.
 The user would only require to create one `FoundationDBCluster` and set the `redundancy_mode` to `three_data_hall` or `three_datacenter`.
+If a user doesn't provide the required localities the operator will emit an event or block the upgrade if we have a `ValidationWebHook`.
 
 #### Multiple Kubernetes clusters
 
@@ -133,7 +121,7 @@ metadata:
   name: test-cluster
 spec:
   version: 6.2.30
-  instanceIDPrefix: az1
+  processGroupIDPrefix: az1
   databaseConfiguration:
     redundancy_mode: triple
   localities:
@@ -153,7 +141,7 @@ metadata:
   name: test-cluster
 spec:
   version: 6.2.30
-  instanceIDPrefix: $az
+  processGroupIDPrefix: $az
   seedConnectionString: $connectionString
   databaseConfiguration:
     redundancy_mode: three_data_hall
@@ -200,5 +188,4 @@ Links to other pages that inform or relate to this design.
 * [Allow the sidecar to read labels from nodes](https://github.com/FoundationDB/fdb-kubernetes-operator/issues/817)
 * [Support three_data_hall redundancy](https://github.com/FoundationDB/fdb-kubernetes-operator/issues/348)
 * [Supporting topologySpreadConstraints in the operator](https://github.com/FoundationDB/fdb-kubernetes-operator/issues/361)
-* [Pod Topology Spread Constraints](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints)
 * [Multi Kubernetes deployment](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/manual/fault_domains.md#option-2-multi-kubernetes-replication)
