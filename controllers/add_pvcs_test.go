@@ -104,7 +104,7 @@ var _ = Describe("add_pvcs", func() {
 
 		Context("when the process group is being removed", func() {
 			BeforeEach(func() {
-				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].SetRemove()
+				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
 			})
 
 			It("should not requeue", func() {

@@ -111,7 +111,7 @@ func (c chooseRemovals) reconcile(ctx ctx.Context, r *FoundationDBClusterReconci
 	if hasNewRemovals {
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			if !remainingProcessMap[processGroup.ProcessGroupID] {
-				processGroup.SetRemove()
+				processGroup.MarkForRemoval()
 			}
 		}
 		err := r.Status().Update(ctx, cluster)

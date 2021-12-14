@@ -94,7 +94,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBC
 				"processGroupID", processGroupStatus.ProcessGroupID,
 				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
 
-			processGroupStatus.SetRemove()
+			processGroupStatus.MarkForRemoval()
 			hasReplacement = true
 			maxReplacements--
 		}

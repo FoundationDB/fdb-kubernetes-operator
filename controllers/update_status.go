@@ -528,7 +528,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 		}
 
 		if isBeingRemoved {
-			processGroup.SetRemove()
+			processGroup.MarkForRemoval()
 			// Check if we should skip exclusion for the process group
 			_, ok := processGroupsWithoutExclusion[processGroup.ProcessGroupID]
 			processGroup.ExclusionSkipped = ok

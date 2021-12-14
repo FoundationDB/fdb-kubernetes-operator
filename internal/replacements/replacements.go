@@ -57,7 +57,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 			}
 
 			if needsPVCRemoval && hasPod {
-				processGroup.SetRemove()
+				processGroup.MarkForRemoval()
 				hasReplacements = true
 				maxReplacements--
 				continue
@@ -79,7 +79,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 		}
 
 		if needsRemoval {
-			processGroup.SetRemove()
+			processGroup.MarkForRemoval()
 			hasReplacements = true
 			maxReplacements--
 		}

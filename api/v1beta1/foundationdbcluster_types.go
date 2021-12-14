@@ -517,8 +517,8 @@ func (processGroupStatus *ProcessGroupStatus) IsMarkedForRemoval() bool {
 	return processGroupStatus.Remove || (processGroupStatus.RemovalTimestamp != nil && !processGroupStatus.RemovalTimestamp.IsZero())
 }
 
-// SetRemove marks a process group for removal
-func (processGroupStatus *ProcessGroupStatus) SetRemove() {
+// MarkForRemoval marks a process group for removal
+func (processGroupStatus *ProcessGroupStatus) MarkForRemoval() {
 	processGroupStatus.Remove = true
 	processGroupStatus.RemovalTimestamp = &metav1.Time{Time: time.Now()}
 }
@@ -656,7 +656,7 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 			processGroup.Addresses = append(processGroup.Addresses, address)
 		}
 
-		processGroup.SetRemove()
+		processGroup.MarkForRemoval()
 		return true, nil
 	}
 
@@ -668,7 +668,7 @@ func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGrou
 	}
 
 	processGroup := NewProcessGroupStatus(processGroupID, processClass, addresses)
-	processGroup.SetRemove()
+	processGroup.MarkForRemoval()
 
 	return false, processGroup
 }
