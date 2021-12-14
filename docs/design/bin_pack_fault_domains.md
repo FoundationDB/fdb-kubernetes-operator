@@ -36,11 +36,11 @@ In the design we will use the following terms:
 ## Proposed Design
 
 The idea would be to use a custom label like `foundationdb.org/distribution-key`.
-As value we will use a prefix for the `BinPack` mode and a value defining in which zone the process should be running.
-We will also set the `FDB_ZONE_ID` environment variable on the Pod level, the default value of this field is currently the hostname.
+As value we will use a prefix for the `class` and a value defining in which zone the process should be running.
+We will set the `FDB_ZONE_ID` environment variable on the Pod level to the value of the `foundationdb.org/distribution-key`, e.g. `storage-0`.
+The current default value of `FDB_ZONE_ID` is the hostname.
 In addition to that we change the `PodAntiAffinity` rule.
 The following would be an example of the `affinity` term for a Pod.
-The example assumes that process should be running in zone `0` and we have set `BinPackAll`:
 
 ```yaml
   affinity:
@@ -50,7 +50,7 @@ The example assumes that process should be running in zone `0` and we have set `
       - podAffinityTerm:
           labelSelector:
             matchLabels:
-              foundationdb.org/distribution-key: "all-0"
+              foundationdb.org/distribution-key: "storage-0"
               foundationdb.org/fdb-cluster-name: example-cluster
           topologyKey: fault_domain
         weight: 1
@@ -58,14 +58,14 @@ The example assumes that process should be running in zone `0` and we have set `
     podAntiAffinity:
       # The required statement is per default only allowed on the hostname:
       # https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#an-example-of-a-pod-that-uses-pod-affinity
-      preferredDuringSchedulingIgnoredDuringExecution:
+      requiredDuringSchedulingIgnoredDuringExecution:
       - podAffinityTerm:
           labelSelector:
             matchExpressions:
             - key: "foundationdb.org/distribution-key"
               operator: NotIn
               values:
-              - "all-0"
+              - "storage-0"
             - key: "foundationdb.org/fdb-cluster-name"
               operator: In
               values:
@@ -78,19 +78,6 @@ The additional label and the `affinity` term enable the operator to spread Pods 
 The following code snippet shows a possible implementation of the required structs:
 
 ```golang
-type BinPack string
-
-const (
-    // BinPackAll defines that processes independent of their class should be bin packed.
-    BinPackAll BinPack = "All"
-    // BinPackStateful defines that stateful processes should be bin packed and additionally stateless processes.
-    // The prefix will be either "stateful" or "stateless".
-    BinPackStateful BinPack = "Stateful"
-    // BinPackClass only processes of the same class will be bin packed.
-    // As prefix we will use the according process class.
-    BinPackClass BinPack = "Class"
-)
-
 // DistributionConfig
 type DistributionConfig struct {
     // Enabled defines if the binpacking is enabled or not.
@@ -98,20 +85,14 @@ type DistributionConfig struct {
     Enabled *bool
     // DesiredFaultDomains desfines the number of desired fault domain.
     // Must be greater than 0 if fault domain distribution is enabled.
-    // Default: 1
+    // Default: Minimum number of fault domains.
     DesiredFaultDomains *int
-    // BinPack defines what processes should be bin packed to the fault domains.
-    // Default: "Class"
-    BinPack *BinPack
-    // Required defines if the affinity terms are required or preffered.
-    // Default: false
-    Required *bool
 }
 ```
 
 The operator will try to spread the Pods equally across the logical fault domains.
 Depending on the replacements for unreachable Pods we could use one logical fault domain more than another.
-We also don't guarantee that we use exactly the number of `DesiredFaultDomains` e.g. when we spawn less processes than `DesiredFaultDomains`.
+We also don't guarantee that we use exactly the number of `DesiredFaultDomains` e.g. when we spawn fewer processes than `DesiredFaultDomains`.
 
 A change to `DesiredFaultDomains` will lead to a migration of a subset of Pods in order to honor the new affinity term.
 The operator only tries to replace as many Pods as required to have all pods equally distributed across the logical fault domains.
@@ -124,6 +105,7 @@ For the implementation we need two additional steps:
 - The `ReplaceMisconfiguredProcessGroups` reconcile loop must be aware of the fault domains.
 
 We will only count process groups that are not marked for removal.
+The following calculation has to be done for every process class.
 We can calculate the minimum and maximum number of Pods per fault domain with the following logic:
 
 ```
