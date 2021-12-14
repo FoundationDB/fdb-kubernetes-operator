@@ -536,7 +536,7 @@ var _ = Describe("pod_models", func() {
 					}}}
 				})
 
-				It("should fill in the process number", func() {
+				It("should fill in the placeholder", func() {
 					podClient, err := NewMockFdbPodClient(cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
 					command, err = GetStartCommand(cluster, processClass, podClient, 2, 3)
@@ -594,7 +594,7 @@ var _ = Describe("pod_models", func() {
 					}}}
 				})
 
-				It("should fill in the process number", func() {
+				It("should fill in the placeholder", func() {
 					podClient, err := NewMockFdbPodClient(cluster, pod)
 					Expect(err).NotTo(HaveOccurred())
 					command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
