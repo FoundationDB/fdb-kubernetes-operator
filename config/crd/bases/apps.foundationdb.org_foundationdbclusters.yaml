@@ -712,6 +712,7 @@ spec:
                 customParameters:
                   items:
                     type: string
+                  maxItems: 100
                   type: array
                 dataCenter:
                   type: string
@@ -4656,6 +4657,7 @@ spec:
                       customParameters:
                         items:
                           type: string
+                        maxItems: 100
                         type: array
                       podTemplate:
                         properties:

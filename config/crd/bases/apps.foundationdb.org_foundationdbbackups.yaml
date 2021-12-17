@@ -101,6 +101,7 @@ spec:
                 customParameters:
                   items:
                     type: string
+                  maxItems: 100
                   type: array
                 podTemplateSpec:
                   properties:

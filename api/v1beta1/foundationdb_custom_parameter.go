@@ -26,6 +26,7 @@ import (
 )
 
 // FoundationDBCustomParameters defines a slice of custom knobs
+// +kubebuilder:validation:MaxItems=100
 type FoundationDBCustomParameters []string
 
 // GetKnobsForCLI returns the list of knobs that should be provided to the commandline when running

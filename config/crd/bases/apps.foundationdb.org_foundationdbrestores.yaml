@@ -57,6 +57,7 @@ spec:
                 customParameters:
                   items:
                     type: string
+                  maxItems: 100
                   type: array
                 destinationClusterName:
                   type: string
