@@ -462,7 +462,7 @@ var _ = Describe("pod_models", func() {
 			Context("with custom parameters with substitutions", func() {
 				It("should substitute the variables in the custom parameters", func() {
 					settings := cluster.Spec.Processes["general"]
-					settings.CustomParameters = []string{"locality_disk_id=$FDB_INSTANCE_ID"}
+					settings.CustomParameters = []fdbtypes.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
 					cluster.Spec.Processes["general"] = settings
 
 					podClient, err := NewMockFdbPodClient(cluster, pod)

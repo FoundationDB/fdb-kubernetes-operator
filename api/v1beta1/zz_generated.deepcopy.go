@@ -77,7 +77,7 @@ func (in *BlobStoreConfiguration) DeepCopyInto(out *BlobStoreConfiguration) {
 	*out = *in
 	if in.URLParameters != nil {
 		in, out := &in.URLParameters, &out.URLParameters
-		*out = make([]string, len(*in))
+		*out = make([]URLParamater, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -777,7 +777,7 @@ func (in *FoundationDBClusterStatus) DeepCopyInto(out *FoundationDBClusterStatus
 	}
 	if in.ImageTypes != nil {
 		in, out := &in.ImageTypes, &out.ImageTypes
-		*out = make([]string, len(*in))
+		*out = make([]ImageType, len(*in))
 		copy(*out, *in)
 	}
 	if in.ProcessGroups != nil {

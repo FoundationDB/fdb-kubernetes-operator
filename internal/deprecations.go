@@ -537,7 +537,7 @@ func ensureCustomParametersPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	}
 	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 	if generalSettings.CustomParameters == nil {
-		params := make([]string, 0)
+		params := make([]fdbtypes.FoundationDBCustomParameter, 0)
 		generalSettings.CustomParameters = params
 	}
 	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings

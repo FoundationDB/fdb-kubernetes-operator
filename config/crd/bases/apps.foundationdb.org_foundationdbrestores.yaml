@@ -48,6 +48,7 @@ spec:
                       type: string
                     urlParameters:
                       items:
+                        maxLength: 1024
                         type: string
                       maxItems: 100
                       type: array
@@ -56,7 +57,9 @@ spec:
                   type: object
                 customParameters:
                   items:
+                    maxLength: 100
                     type: string
+                  maxItems: 100
                   type: array
                 destinationClusterName:
                   type: string

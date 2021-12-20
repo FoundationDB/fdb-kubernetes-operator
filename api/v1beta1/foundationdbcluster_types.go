@@ -361,6 +361,10 @@ type FoundationDBClusterSpec struct {
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 }
 
+// ImageType defines a single kind of images used in the cluster.
+// +kubebuilder:validation:MaxLength=1024
+type ImageType string
+
 // FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 type FoundationDBClusterStatus struct {
 	// ProcessCounts defines the number of processes that are currently running
@@ -454,7 +458,7 @@ type FoundationDBClusterStatus struct {
 	// If there is more than one value in the slice the reconcile phase is not
 	// finished.
 	// +kubebuilder:validation:MaxItems=10
-	ImageTypes []string `json:"imageTypes,omitempty"`
+	ImageTypes []ImageType `json:"imageTypes,omitempty"`
 
 	// ProcessGroups contain information about a process group.
 	// This information is used in multiple places to trigger the according action.

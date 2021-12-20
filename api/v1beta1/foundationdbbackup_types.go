@@ -181,6 +181,10 @@ const (
 	BackupStateStopped BackupState = "Stopped"
 )
 
+// URLParamater defines a single URL parameter to pass to the blobstore.
+// +kubebuilder:validation:MaxLength=1024
+type URLParamater string
+
 // BlobStoreConfiguration describes the blob store configuration.
 type BlobStoreConfiguration struct {
 	// The name for the backup.
@@ -201,7 +205,7 @@ type BlobStoreConfiguration struct {
 
 	// Additional URL parameters passed to the blobstore URL.
 	// +kubebuilder:validation:MaxItems=100
-	URLParameters []string `json:"urlParameters,omitempty"`
+	URLParameters []URLParamater `json:"urlParameters,omitempty"`
 }
 
 // ShouldRun determines whether a backup should be running.
@@ -342,7 +346,7 @@ func (configuration *BlobStoreConfiguration) getURL(backup string, bucket string
 	var sb strings.Builder
 	for _, param := range configuration.URLParameters {
 		sb.WriteString("&")
-		sb.WriteString(param)
+		sb.WriteString(string(param))
 	}
 
 	return fmt.Sprintf("blobstore://%s/%s?bucket=%s%s", configuration.AccountName, backup, bucket, sb.String())

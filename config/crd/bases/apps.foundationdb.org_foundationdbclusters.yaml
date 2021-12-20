@@ -711,7 +711,9 @@ spec:
                   type: array
                 customParameters:
                   items:
+                    maxLength: 100
                     type: string
+                  maxItems: 100
                   type: array
                 dataCenter:
                   type: string
@@ -4655,7 +4657,9 @@ spec:
                         type: boolean
                       customParameters:
                         items:
+                          maxLength: 100
                           type: string
+                        maxItems: 100
                         type: array
                       podTemplate:
                         properties:
@@ -9063,6 +9067,7 @@ spec:
                   type: object
                 imageTypes:
                   items:
+                    maxLength: 1024
                     type: string
                   maxItems: 10
                   type: array

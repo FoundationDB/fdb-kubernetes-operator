@@ -3122,7 +3122,7 @@ var _ = Describe("pod_models", func() {
 
 		Context("with customParameters", func() {
 			BeforeEach(func() {
-				backup.Spec.CustomParameters = []string{"customParameter=1337"}
+				backup.Spec.CustomParameters = []fdbtypes.FoundationDBCustomParameter{"customParameter=1337"}
 				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
