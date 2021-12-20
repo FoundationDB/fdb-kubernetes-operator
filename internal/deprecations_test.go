@@ -539,7 +539,7 @@ var _ = Describe("[internal] deprecations", func() {
 		Describe("Validations", func() {
 			Context("with duplicated custom parameters in the spec", func() {
 				It("an error should be returned", func() {
-					spec.CustomParameters = []string{
+					spec.CustomParameters = []fdbtypes.FoundationDBCustomParameter{
 						"knob_disable_posix_kernel_aio = 1",
 						"knob_disable_posix_kernel_aio = 1",
 					}
@@ -550,7 +550,7 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with a protected custom parameter in the spec", func() {
 				It("an error should be returned", func() {
-					spec.CustomParameters = []string{
+					spec.CustomParameters = []fdbtypes.FoundationDBCustomParameter{
 						"datadir=1",
 					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})

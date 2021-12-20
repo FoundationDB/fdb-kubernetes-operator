@@ -40,7 +40,7 @@ var _ = Describe("configmap_helper", func() {
 	BeforeEach(func() {
 		cluster = CreateDefaultCluster()
 		err = NormalizeClusterSpec(cluster, DeprecationOptions{})
-		cluster.Status.ImageTypes = []string{"split"}
+		cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
 		Expect(err).NotTo(HaveOccurred())
 		fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 	})
@@ -85,7 +85,7 @@ var _ = Describe("configmap_helper", func() {
 
 		When("only the unified image is enabled", func() {
 			BeforeEach(func() {
-				cluster.Status.ImageTypes = []string{"unified"}
+				cluster.Status.ImageTypes = []fdbtypes.ImageType{"unified"}
 			})
 
 			It("includes the data for the unified monitor conf", func() {
@@ -107,7 +107,7 @@ var _ = Describe("configmap_helper", func() {
 
 		When("only the split image is enabled", func() {
 			BeforeEach(func() {
-				cluster.Status.ImageTypes = []string{"split"}
+				cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
 			})
 
 			It("includes the data for the split monitor conf", func() {
@@ -124,7 +124,7 @@ var _ = Describe("configmap_helper", func() {
 
 		When("both image types are enabled", func() {
 			BeforeEach(func() {
-				cluster.Status.ImageTypes = []string{"split", "unified"}
+				cluster.Status.ImageTypes = []fdbtypes.ImageType{"split", "unified"}
 			})
 
 			It("includes the data for the both images", func() {
@@ -142,7 +142,7 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the split image", func() {
 				BeforeEach(func() {
-					cluster.Status.ImageTypes = []string{"split"}
+					cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
 				})
 				It("includes the data for both configurations", func() {
 					expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
@@ -157,7 +157,7 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the unified image", func() {
 				BeforeEach(func() {
-					cluster.Status.ImageTypes = []string{"unified"}
+					cluster.Status.ImageTypes = []fdbtypes.ImageType{"unified"}
 				})
 
 				It("includes the data for both configurations", func() {

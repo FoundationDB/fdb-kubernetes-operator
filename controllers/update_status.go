@@ -54,7 +54,7 @@ func (updateStatus) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler,
 
 	// Initialize with the current desired storage servers per Pod
 	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
-	status.ImageTypes = []string{string(internal.GetDesiredImageType(cluster))}
+	status.ImageTypes = []fdbtypes.ImageType{fdbtypes.ImageType(internal.GetDesiredImageType(cluster))}
 
 	var databaseStatus *fdbtypes.FoundationDBStatus
 	processMap := make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
@@ -295,7 +295,9 @@ func (updateStatus) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler,
 	// Sort slices that are assembled based on pods to prevent a reordering from
 	// issuing a new reconcile loop.
 	sort.Ints(status.StorageServersPerDisk)
-	sort.Strings(status.ImageTypes)
+	sort.Slice(status.ImageTypes, func(i int, j int) bool {
+		return string(status.ImageTypes[i]) < string(status.ImageTypes[j])
+	})
 
 	//
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
@@ -512,7 +514,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 		}
 
 		imageType := internal.GetImageType(pod)
-		imageTypeString := string(imageType)
+		imageTypeString := fdbtypes.ImageType(imageType)
 		imageTypeFound := false
 		for _, currentImageType := range status.ImageTypes {
 			if imageTypeString == currentImageType {

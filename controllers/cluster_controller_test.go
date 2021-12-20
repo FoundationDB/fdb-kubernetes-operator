@@ -269,7 +269,7 @@ var _ = Describe("cluster_controller", func() {
 				}))
 
 				Expect(cluster.Status.StorageServersPerDisk).To(Equal([]int{1}))
-				Expect(cluster.Status.ImageTypes).To(Equal([]string{"split"}))
+				Expect(cluster.Status.ImageTypes).To(Equal([]fdbtypes.ImageType{"split"}))
 			})
 		})
 
@@ -294,7 +294,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should update the status", func() {
-				Expect(cluster.Status.ImageTypes).To(Equal([]string{"unified"}))
+				Expect(cluster.Status.ImageTypes).To(Equal([]fdbtypes.ImageType{"unified"}))
 			})
 		})
 
@@ -1141,7 +1141,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with a substitution variable", func() {
 				BeforeEach(func() {
 					settings := cluster.Spec.Processes["general"]
-					settings.CustomParameters = []string{"locality_disk_id=$FDB_INSTANCE_ID"}
+					settings.CustomParameters = []fdbtypes.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
 					cluster.Spec.Processes["general"] = settings
 
 					err = k8sClient.Update(context.TODO(), cluster)

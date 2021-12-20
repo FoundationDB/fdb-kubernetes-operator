@@ -32,7 +32,7 @@ var _ = Describe("FoundationDBCustomParameters", func() {
 	When("getting the custom parameters for the CLI", func() {
 		var customParameters FoundationDBCustomParameters
 		BeforeEach(func() {
-			customParameters = []string{
+			customParameters = []FoundationDBCustomParameter{
 				"knob_http_verbose_level=3",
 			}
 		})

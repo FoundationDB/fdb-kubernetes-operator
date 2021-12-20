@@ -25,9 +25,13 @@ import (
 	"strings"
 )
 
+// FoundationDBCustomParameter defines a single custom knob
+// +kubebuilder:validation:MaxLength=100
+type FoundationDBCustomParameter string
+
 // FoundationDBCustomParameters defines a slice of custom knobs
 // +kubebuilder:validation:MaxItems=100
-type FoundationDBCustomParameters []string
+type FoundationDBCustomParameters []FoundationDBCustomParameter
 
 // GetKnobsForCLI returns the list of knobs that should be provided to the commandline when running
 // an command over the admin client.
@@ -50,7 +54,7 @@ func (customParameters FoundationDBCustomParameters) ValidateCustomParameters() 
 	violations := make([]string, 0)
 
 	for _, parameter := range customParameters {
-		parameterName := strings.Split(parameter, "=")[0]
+		parameterName := strings.Split(string(parameter), "=")[0]
 		parameterName = strings.TrimSpace(parameterName)
 
 		if _, ok := parameters[parameterName]; !ok {
