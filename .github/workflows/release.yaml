@@ -55,12 +55,12 @@ jobs:
         run: |
           go get -v -t -d ./...
           if [[ "${RUNNER_OS}" == "macOS" ]];then
-              curl --fail "https://github.com/apple/foundationdb/releases/download/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
+              curl --fail -L "https://github.com/apple/foundationdb/releases/download/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
               sudo installer -allowUntrusted -verbose -pkg ./fdb.pkg -target /
               # required later for calculating the sha256
               brew install coreutils
           else
-              curl --fail "hhttps://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+              curl --fail -L "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
               sudo dpkg -i fdb.deb
           fi
       # - name: Get FDB client (windows-only)
