@@ -23,7 +23,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go
       - name: Get dependencies
-        run: curl --fail "https://www.foundationdb.org/downloads/${{ matrix.fdbver }}/ubuntu/installers/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
+        run: curl -L --fail "https://github.com/apple/foundationdb/releases/download/${{ matrix.fdbver }}/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
@@ -67,7 +67,7 @@ jobs:
         os=$(go env GOOS)
         arch=$(go env GOARCH)
         curl --fail -L "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VER}/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}.tar.gz" -o kubebuilder.tar.gz
-        curl --fail "https://www.foundationdb.org/downloads/${{ matrix.fdbver }}/ubuntu/installers/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
+        curl --fail -L "https://github.com/apple/foundationdb/releases/download/${{ matrix.fdbver }}/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
         curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz
     - name: Install dependencies

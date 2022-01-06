@@ -7,18 +7,18 @@ FROM docker.io/library/golang:1.16.11 as builder
 
 # Install FDB
 ARG FDB_VERSION=6.2.30
-ARG FDB_WEBSITE=https://www.foundationdb.org
+ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 ARG TAG="latest"
 
 RUN set -eux && \
-	curl --fail ${FDB_WEBSITE}/downloads/${FDB_VERSION}/ubuntu/installers/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
+	curl --fail -L ${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
 	dpkg -i fdb.deb && rm fdb.deb && \
-	curl --fail $FDB_WEBSITE/downloads/$FDB_VERSION/linux/fdb_$FDB_VERSION.tar.gz -o fdb_$FDB_VERSION.tar.gz && \
-	tar -xzf fdb_$FDB_VERSION.tar.gz --strip-components=1 && \
-	rm fdb_$FDB_VERSION.tar.gz && \
-	chmod u+x fdbbackup fdbcli fdbdr fdbmonitor fdbrestore fdbserver backup_agent dr_agent && \
 	mkdir -p /usr/bin/fdb/${FDB_VERSION%.*} && \
-	mv fdbbackup fdbcli fdbdr fdbmonitor fdbrestore fdbserver backup_agent dr_agent /usr/bin/fdb/${FDB_VERSION%.*} && \
+	for binary in fdbbackup fdbcli; do \
+		download_path=/usr/bin/fdb/${FDB_VERSION%.*}/$binary && \
+		curl --fail -L ${FDB_WEBSITE}/${FDB_VERSION}/$binary.x86_64 -o $download_path && \
+		chmod u+x $download_path; \
+	done && \
 	mkdir -p /usr/lib/fdb
 
 # TODO: Remove the behavior of copying binaries from the FDB images as part of the 1.0 release of the operator.

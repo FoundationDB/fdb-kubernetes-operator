@@ -55,19 +55,19 @@ jobs:
         run: |
           go get -v -t -d ./...
           if [[ "${RUNNER_OS}" == "macOS" ]];then
-              curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/macOS/installers/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
+              curl --fail -L "https://github.com/apple/foundationdb/releases/download/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
               sudo installer -allowUntrusted -verbose -pkg ./fdb.pkg -target /
               # required later for calculating the sha256
               brew install coreutils
           else
-              curl --fail "https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+              curl --fail -L "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
               sudo dpkg -i fdb.deb
           fi
       # - name: Get FDB client (windows-only)
       #   if: runner.os == 'Windows'
       #   shell: powershell
       #   run: |
-      #     Invoke-WebRequest -OutFile fdb.msi -Uri https://www.foundationdb.org/downloads/6.2.28/windows/installers/foundationdb-6.2.28-x64.msi
+      #     Invoke-WebRequest -OutFile fdb.msi -Uri hhttps://github.com/apple/foundationdb/releases/download/6.2.28/foundationdb-6.2.28-x64.msi
       #     msiexec /i "fdb.msi"
       #     go get -v -t -d ./...
       - name: Build

@@ -38,7 +38,7 @@ BlobStoreConfiguration describes the blob store configuration.
 | backupName | The name for the backup. If empty defaults to .metadata.name. | string | false |
 | accountName | The account name to use with the backup destination. | string | true |
 | bucket | The backup bucket to write to. The default is \"fdb-backups\". | string | false |
-| urlParameters | Additional URL parameters passed to the blobstore URL. | []string | false |
+| urlParameters | Additional URL parameters passed to the blobstore URL. | []URLParamater | false |
 
 [Back to TOC](#table-of-contents)
 
