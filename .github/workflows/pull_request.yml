@@ -57,7 +57,6 @@ jobs:
       env:
         KUBEBUILDER_VER: "2.3.2"
         KUSTOMIZE_VER: "v3.9.4"
-        TEST_RACE_CONDITIONS: "1"
         KIND_VER: "v0.11.1"
         YQ_VERSION: "v4.6.1"
       run: |
@@ -93,6 +92,7 @@ jobs:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
       env:
         GOMAXPROCS: "2"
+        TEST_RACE_CONDITIONS: "1"
       run: |
         # Install the current manifests to ensure we can apply the manifests without any issue
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
