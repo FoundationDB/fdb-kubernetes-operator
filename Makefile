@@ -59,7 +59,7 @@ GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
-	go_test_flags := $(go_test_flags) -race
+	go_test_flags := $(go_test_flags) -race -timeout=30m
 endif
 
 
