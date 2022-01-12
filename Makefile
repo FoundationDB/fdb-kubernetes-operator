@@ -8,10 +8,6 @@ ifneq "$(FDB_WEBSITE)" ""
 	img_build_args := $(img_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
 endif
 
-ifdef RUN_E2E
-	 E2E_TAG := --tags=e2e
-endif
-
 # TAG is used to define the version in the kubectl-fdb plugin.
 # If not defined we use the current git hash.
 ifndef TAG
@@ -83,14 +79,14 @@ clean-deps:
 # Run tests
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out $(E2E_TAG)
+	go test ${go_test_flags} ./... -coverprofile cover.out
 endif
 
 test_if_changed: cover.out
 
 cover.out: ${GO_ALL} ${MANIFESTS}
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -tags test $(E2E_TAG)
+	go test ${go_test_flags} ./... -coverprofile cover.out -tags test
 endif
 
 # Build manager binary
