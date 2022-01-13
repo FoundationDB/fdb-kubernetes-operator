@@ -2094,6 +2094,7 @@ type FoundationDBClusterFaultDomain struct {
 }
 
 // RedundancyMode defines the core replication factor for the database
+// +kubebuilder:validation:MaxLength=100
 type RedundancyMode string
 
 const (
@@ -2107,13 +2108,34 @@ const (
 	RedundancyModeUnset RedundancyMode = ""
 )
 
+// StorageEngine defines the storage engine for the database
+// +kubebuilder:validation:MaxLength=100
+type StorageEngine string
+
+const (
+	// StorageEngineSSD defines the storage engine ssd.
+	StorageEngineSSD StorageEngine = "ssd"
+	// StorageEngineSSD2 defines the storage engine ssd-2.
+	StorageEngineSSD2 StorageEngine = "ssd-2"
+	// StorageEngineMemory defines the storage engine memory.
+	StorageEngineMemory StorageEngine = "memory"
+	// StorageEngineMemory2 defines the storage engine memory-2.
+	StorageEngineMemory2 StorageEngine = "memory-2"
+)
+
 // DatabaseConfiguration represents the configuration of the database
 type DatabaseConfiguration struct {
 	// RedundancyMode defines the core replication factor for the database.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=single;double;triple
+	// +kubebuilder:default:double
 	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
 
 	// StorageEngine defines the storage engine the database uses.
-	StorageEngine string `json:"storage_engine,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-rocksdb-experimental;memory-radixtree-beta;custom
+	// +kubebuilder:default:=ssd-2
+	StorageEngine StorageEngine `json:"storage_engine,omitempty"`
 
 	// UsableRegions defines how many regions the database should store data in.
 	UsableRegions int `json:"usable_regions,omitempty"`
@@ -2298,11 +2320,11 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
-	if configuration.StorageEngine == "ssd" {
-		configuration.StorageEngine = "ssd-2"
+	if configuration.StorageEngine == StorageEngineSSD {
+		configuration.StorageEngine = StorageEngineSSD2
 	}
-	if configuration.StorageEngine == "memory" {
-		configuration.StorageEngine = "memory-2"
+	if configuration.StorageEngine == StorageEngineMemory {
+		configuration.StorageEngine = StorageEngineMemory2
 	}
 	return configuration
 }
@@ -2498,7 +2520,7 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 	}
 
 	if result.StorageEngine == "" {
-		result.StorageEngine = "ssd-2"
+		result.StorageEngine = StorageEngineSSD2
 	}
 
 	for _, region := range result.Regions {
