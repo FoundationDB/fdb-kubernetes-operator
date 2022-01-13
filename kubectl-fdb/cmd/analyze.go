@@ -209,9 +209,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
 	var failedProcessGroups []string
+	processGroupMap := map[string]fdbtypes.None{}
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
 	for _, processGroup := range cluster.Status.ProcessGroups {
+		processGroupMap[processGroup.ProcessGroupID] = fdbtypes.None{}
+
 		if len(processGroup.ProcessGroupConditions) == 0 {
 			continue
 		}
@@ -255,6 +258,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		printStatement(cmd, "Found no Pods for this cluster", true)
 	}
 
+	processGroupIDLabel := cluster.GetProcessGroupIDLabel()
 	for _, pod := range pods.Items {
 		if pod.Status.Phase != corev1.PodRunning {
 			podIssue = true
@@ -291,6 +295,13 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 			if autoFix {
 				failedProcessGroups = append(failedProcessGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
 			}
+		}
+
+		id := pod.Labels[processGroupIDLabel]
+		if _, ok := processGroupMap[id]; !ok {
+			podIssue = true
+			statement := fmt.Sprintf("Pod %s/%s with the ID %s is not part of the cluster spec status", namespace, pod.Name, id)
+			printStatement(cmd, statement, true)
 		}
 	}
 
