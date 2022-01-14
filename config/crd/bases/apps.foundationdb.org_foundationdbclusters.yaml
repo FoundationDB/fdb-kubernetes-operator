@@ -732,6 +732,11 @@ spec:
                     proxies:
                       type: integer
                     redundancy_mode:
+                      enum:
+                        - single
+                        - double
+                        - triple
+                      maxLength: 100
                       type: string
                     regions:
                       items:
@@ -762,6 +767,19 @@ spec:
                     storage:
                       type: integer
                     storage_engine:
+                      default: ssd-2
+                      enum:
+                        - ssd
+                        - ssd-1
+                        - ssd-2
+                        - memory
+                        - memory-1
+                        - memory-2
+                        - ssd-redwood-1-experimental
+                        - ssd-rocksdb-experimental
+                        - memory-radixtree-beta
+                        - custom
+                      maxLength: 100
                       type: string
                     usable_regions:
                       type: integer
@@ -8959,6 +8977,11 @@ spec:
                     proxies:
                       type: integer
                     redundancy_mode:
+                      enum:
+                        - single
+                        - double
+                        - triple
+                      maxLength: 100
                       type: string
                     regions:
                       items:
@@ -8989,6 +9012,19 @@ spec:
                     storage:
                       type: integer
                     storage_engine:
+                      default: ssd-2
+                      enum:
+                        - ssd
+                        - ssd-1
+                        - ssd-2
+                        - memory
+                        - memory-1
+                        - memory-2
+                        - ssd-redwood-1-experimental
+                        - ssd-rocksdb-experimental
+                        - memory-radixtree-beta
+                        - custom
+                      maxLength: 100
                       type: string
                     usable_regions:
                       type: integer

@@ -206,7 +206,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should fill in the required fields in the configuration", func() {
 				Expect(cluster.Status.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
-				Expect(cluster.Status.DatabaseConfiguration.StorageEngine).To(Equal("ssd-2"))
+				Expect(cluster.Status.DatabaseConfiguration.StorageEngine).To(Equal(fdbtypes.StorageEngineSSD2))
 				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
 			})
 
@@ -224,7 +224,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
 				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
-				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal("ssd-2"))
+				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal(fdbtypes.StorageEngineSSD2))
 				Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdbtypes.RoleCounts{
 					Logs:       3,
 					Proxies:    3,
