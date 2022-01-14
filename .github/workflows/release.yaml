@@ -43,10 +43,10 @@ jobs:
       - name: Set package name
         id: set_package_name
         run: echo ::set-output name=package_name::kubectl-fdb-${{ needs.create-release.outputs.tag }}-$(echo ${RUNNER_OS} | tr [:upper:] [:lower:])
-      - name: Set up Go 1.16.8
+      - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.16.8
+          go-version: 1.17.6
       - name: Get FDB client
         if: runner.os != 'Windows'
         env:
