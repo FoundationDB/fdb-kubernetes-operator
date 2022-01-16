@@ -74,6 +74,11 @@ func (updateLabels) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler,
 				"processGroupID", processGroup.ProcessGroupID)
 		}
 
+		// We can skip all stateless processes because they won't have a PVC attached.
+		if !processGroup.ProcessClass.IsStateful() {
+			continue
+		}
+
 		pvc, ok := pvcMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
 			logger.V(1).Info("Could not find PVC for process group ID",
