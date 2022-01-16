@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,9 +34,9 @@ import (
 type updateLabels struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLabels) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateLabels")
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -64,7 +64,7 @@ func (updateLabels) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler,
 			}
 
 			if !metadataCorrect(metadata, &pod.ObjectMeta) {
-				err = r.PodLifecycleManager.UpdateMetadata(r, ctx, cluster, pod)
+				err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 				if err != nil {
 					return &requeue{curError: err}
 				}

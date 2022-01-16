@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -32,14 +32,14 @@ type modifyBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s modifyBackup) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s modifyBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
 	if backup.Status.BackupDetails == nil || !backup.ShouldRun() {
 		return nil
 	}
 
 	snapshotPeriod := backup.SnapshotPeriodSeconds()
 	if backup.Status.BackupDetails.SnapshotPeriodSeconds != snapshotPeriod {
-		adminClient, err := r.adminClientForBackup(context, backup)
+		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
 			return &requeue{curError: err}
 		}

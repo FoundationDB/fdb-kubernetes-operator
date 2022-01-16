@@ -344,10 +344,10 @@ func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBC
 }
 
 // clearPendingRemovalsFromSpec removes the pending removals from the cluster spec.
-func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(context context.Context, cluster *fdbtypes.FoundationDBCluster) error {
+func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(ctx context.Context, cluster *fdbtypes.FoundationDBCluster) error {
 	modifiedCluster := cluster.DeepCopy()
 	modifiedCluster.Spec.PendingRemovals = nil
-	return r.Update(context, modifiedCluster)
+	return r.Update(ctx, modifiedCluster)
 }
 
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")

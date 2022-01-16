@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"strings"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -32,8 +32,8 @@ type startRestore struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s startRestore) reconcile(r *FoundationDBRestoreReconciler, context ctx.Context, restore *fdbtypes.FoundationDBRestore) *requeue {
-	adminClient, err := r.adminClientForRestore(context, restore)
+func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbtypes.FoundationDBRestore) *requeue {
+	adminClient, err := r.adminClientForRestore(ctx, restore)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -51,7 +51,7 @@ func (s startRestore) reconcile(r *FoundationDBRestoreReconciler, context ctx.Co
 		}
 
 		restore.Status.Running = true
-		err = r.Status().Update(context, restore)
+		err = r.Status().Update(ctx, restore)
 		if err != nil {
 			return &requeue{curError: err}
 		}

@@ -84,7 +84,7 @@ func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ct
 	}
 
 	for _, subReconciler := range subReconcilers {
-		requeue := subReconciler.reconcile(r, ctx, backup)
+		requeue := subReconciler.reconcile(ctx, r, backup)
 		if requeue == nil {
 			continue
 		}
@@ -111,9 +111,9 @@ func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() DatabaseClien
 }
 
 // adminClientForBackup provides an admin client for a backup reconciler.
-func (r *FoundationDBBackupReconciler) adminClientForBackup(context context.Context, backup *fdbtypes.FoundationDBBackup) (fdbadminclient.AdminClient, error) {
+func (r *FoundationDBBackupReconciler) adminClientForBackup(ctx context.Context, backup *fdbtypes.FoundationDBBackup) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
-	err := r.Get(context, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
+	err := r.Get(ctx, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -174,5 +174,5 @@ type backupSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with a
 	`Message` field.
 	*/
-	reconcile(r *FoundationDBBackupReconciler, context context.Context, backup *fdbtypes.FoundationDBBackup) *requeue
+	reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue
 }

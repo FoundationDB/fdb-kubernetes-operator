@@ -22,7 +22,6 @@ package client
 
 import (
 	"context"
-	ctx "context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -133,7 +132,7 @@ func lookupJSONValue(genericData map[string]interface{}, path []string, defaultV
 	currentData := genericData
 
 	if len(path) == 0 {
-		return "", fmt.Errorf("Cannot look up empty path")
+		return "", fmt.Errorf("cannot look up empty path")
 	}
 	var result interface{}
 	for index, key := range path {
@@ -147,7 +146,7 @@ func lookupJSONValue(genericData map[string]interface{}, path []string, defaultV
 		} else {
 			currentData, ok = genericValue.(map[string]interface{})
 			if !ok {
-				return nil, fmt.Errorf("Type error for key %v", path[0:index+1])
+				return nil, fmt.Errorf("type error for key %v", path[0:index+1])
 			}
 		}
 	}
@@ -172,7 +171,7 @@ func lookupJSONStringMap(genericData map[string]interface{}, path ...string) (ma
 	currentData := genericData
 
 	if len(path) == 0 {
-		return nil, fmt.Errorf("Cannot look up empty path")
+		return nil, fmt.Errorf("cannot look up empty path")
 	}
 	var result = make(map[string]string)
 	for index, key := range path {
@@ -185,24 +184,24 @@ func lookupJSONStringMap(genericData map[string]interface{}, path ...string) (ma
 
 			mapValue, isMap := genericValue.(map[string]interface{})
 			if !isMap {
-				return nil, fmt.Errorf("Type error for %v", path)
+				return nil, fmt.Errorf("type error for %v", path)
 			}
 			for key, value := range mapValue {
 				stringValue, isString := value.(string)
 				if !isString {
-					return nil, fmt.Errorf("Type error for key %s of %v", key, path)
+					return nil, fmt.Errorf("type error for key %s of %v", key, path)
 				}
 				result[key] = stringValue
 			}
 		} else {
 			genericValue, present := currentData[key]
 			if !present {
-				return nil, fmt.Errorf("Missing key %v", path[0:index+1])
+				return nil, fmt.Errorf("missing key %v", path[0:index+1])
 			}
 
 			currentData, ok = genericValue.(map[string]interface{})
 			if !ok {
-				return nil, fmt.Errorf("Type error for key %v", path[0:index+1])
+				return nil, fmt.Errorf("type error for key %v", path[0:index+1])
 			}
 		}
 	}
@@ -240,7 +239,7 @@ func setJSONValue(genericData map[string]interface{}, path []string, value inter
 			var isMap bool
 			currentData, isMap = currentData[key].(map[string]interface{})
 			if !isMap {
-				return fmt.Errorf("Invalid type for %v", path[0:index+1])
+				return fmt.Errorf("invalid type for %v", path[0:index+1])
 			}
 		}
 	}
@@ -255,7 +254,7 @@ func incrementGeneration(genericData map[string]interface{}) (float64, error) {
 	}
 	generationNumber, isNumber := generationValue.(float64)
 	if !isNumber {
-		return 0, fmt.Errorf("Invalid metadata generation type")
+		return 0, fmt.Errorf("invalid metadata generation type")
 	}
 	generationNumber++
 	err = setJSONValue(genericData, []string{"metadata", "generation"}, generationNumber)
@@ -296,7 +295,7 @@ func (client *MockClient) checkPresence(kindKey string, objectKey string) error 
 }
 
 // Create creates a new object
-func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.CreateOption) error {
+func (client *MockClient) Create(_ context.Context, object ctrlClient.Object, _ ...ctrlClient.CreateOption) error {
 	object.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 
 	jsonData, err := json.Marshal(object)
@@ -379,7 +378,7 @@ func (client *MockClient) Create(context ctx.Context, object ctrlClient.Object, 
 }
 
 // Get retrieves an object.
-func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, object ctrlClient.Object) error {
+func (client *MockClient) Get(_ context.Context, key ctrlClient.ObjectKey, object ctrlClient.Object) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -403,7 +402,7 @@ func (client *MockClient) Get(context ctx.Context, key ctrlClient.ObjectKey, obj
 }
 
 // List lists objects.
-func (client *MockClient) List(context ctx.Context, list ctrlClient.ObjectList, options ...ctrlClient.ListOption) error {
+func (client *MockClient) List(_ context.Context, list ctrlClient.ObjectList, options ...ctrlClient.ListOption) error {
 	kindKey, err := buildKindKey(list)
 	if err != nil {
 		return err
@@ -467,7 +466,7 @@ func (client *MockClient) List(context ctx.Context, list ctrlClient.ObjectList, 
 
 // Delete deletes an object.
 // This does not support the options argument yet.
-func (client *MockClient) Delete(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.DeleteOption) error {
+func (client *MockClient) Delete(_ context.Context, object ctrlClient.Object, _ ...ctrlClient.DeleteOption) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -495,7 +494,7 @@ func (client *MockClient) Delete(context ctx.Context, object ctrlClient.Object, 
 
 // Update updates an object.
 // This does not support the options argument yet.
-func (client *MockClient) Update(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.UpdateOption) error {
+func (client *MockClient) Update(_ context.Context, object ctrlClient.Object, _ ...ctrlClient.UpdateOption) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -554,14 +553,14 @@ func (client *MockClient) Update(context ctx.Context, object ctrlClient.Object, 
 
 // Patch patches an object.
 // This is not yet implemented.
-func (client *MockClient) Patch(context ctx.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
-	return fmt.Errorf("Not implemented")
+func (client *MockClient) Patch(_ context.Context, _ ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
+	return fmt.Errorf("not implemented")
 }
 
 // DeleteAllOf deletes all objects of the given type matching the given options.
 // This is not yet implemented.
-func (client *MockClient) DeleteAllOf(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.DeleteAllOfOption) error {
-	return fmt.Errorf("Not implemented")
+func (client *MockClient) DeleteAllOf(_ context.Context, _ ctrlClient.Object, _ ...ctrlClient.DeleteAllOfOption) error {
+	return fmt.Errorf("not implemented")
 }
 
 // MockStuckTermination sets a flag determining whether an object should get stuck in terminating when it is deleted.
@@ -608,7 +607,7 @@ type MockStatusClient struct {
 
 // Update updates an object.
 // This does not support the options argument yet.
-func (client MockStatusClient) Update(context ctx.Context, object ctrlClient.Object, options ...ctrlClient.UpdateOption) error {
+func (client MockStatusClient) Update(_ context.Context, object ctrlClient.Object, _ ...ctrlClient.UpdateOption) error {
 	kindKey, err := buildKindKey(object)
 	if err != nil {
 		return err
@@ -647,7 +646,7 @@ func (client MockStatusClient) Update(context ctx.Context, object ctrlClient.Obj
 
 // Patch patches an object's status.
 // This is not yet implemented.
-func (client MockStatusClient) Patch(context ctx.Context, object ctrlClient.Object, patch ctrlClient.Patch, options ...ctrlClient.PatchOption) error {
+func (client MockStatusClient) Patch(_ context.Context, _ ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -730,7 +729,7 @@ func (client *MockClient) AnnotatedEventf(object runtime.Object, annotations map
 }
 
 // SetPodIntoFailed sets a Pod into a failed status with the given reason
-func (client *MockClient) SetPodIntoFailed(context ctx.Context, object ctrlClient.Object, reason string) error {
+func (client *MockClient) SetPodIntoFailed(ctx context.Context, object ctrlClient.Object, reason string) error {
 	data, err := json.Marshal(object)
 	if err != nil {
 		return err
@@ -746,7 +745,7 @@ func (client *MockClient) SetPodIntoFailed(context ctx.Context, object ctrlClien
 	pod.Status.Reason = reason
 	pod.CreationTimestamp = metav1.Time{Time: time.Now().Add(-30 * time.Minute)}
 
-	return client.Update(context, pod)
+	return client.Update(ctx, pod)
 }
 
 // RemovePodIP sets the IP address of the Pod to an empty string
@@ -754,7 +753,7 @@ func (client *MockClient) RemovePodIP(pod *corev1.Pod) error {
 	pod.Status.PodIP = ""
 	pod.Status.PodIPs = nil
 
-	return client.Update(ctx.TODO(), pod)
+	return client.Update(context.TODO(), pod)
 }
 
 // generatePodIPv4 generates a mock IPv4 address for Pods

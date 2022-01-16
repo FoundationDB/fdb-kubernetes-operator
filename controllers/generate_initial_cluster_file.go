@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -36,7 +36,7 @@ import (
 type generateInitialClusterFile struct{}
 
 // reconcile runs the reconciler's work.
-func (g generateInitialClusterFile) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (g generateInitialClusterFile) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "generateInitialClusterFile")
 	if cluster.Status.ConnectionString != "" {
 		return nil
@@ -44,7 +44,7 @@ func (g generateInitialClusterFile) reconcile(ctx ctx.Context, r *FoundationDBCl
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}

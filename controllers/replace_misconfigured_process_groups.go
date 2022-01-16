@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 
@@ -36,7 +36,7 @@ import (
 type replaceMisconfiguredProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (c replaceMisconfiguredProcessGroups) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c replaceMisconfiguredProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceMisconfiguredProcessGroups")
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
@@ -45,7 +45,7 @@ func (c replaceMisconfiguredProcessGroups) reconcile(ctx ctx.Context, r *Foundat
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}

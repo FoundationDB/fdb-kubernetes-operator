@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"reflect"
 
@@ -41,12 +41,12 @@ import (
 type updateBackupAgents struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateBackupAgents) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false
 
-	err := r.Get(context, client.ObjectKey{Name: deploymentName, Namespace: backup.Namespace}, existingDeployment)
+	err := r.Get(ctx, client.ObjectKey{Name: deploymentName, Namespace: backup.Namespace}, existingDeployment)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			needCreation = true
@@ -66,7 +66,7 @@ func (u updateBackupAgents) reconcile(r *FoundationDBBackupReconciler, context c
 	}
 
 	if needCreation && deployment != nil {
-		err = r.Create(context, deployment)
+		err = r.Create(ctx, deployment)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -76,7 +76,7 @@ func (u updateBackupAgents) reconcile(r *FoundationDBBackupReconciler, context c
 		deployment.ObjectMeta.Annotations = existingDeployment.ObjectMeta.Annotations
 
 		if annotationChange || !reflect.DeepEqual(existingDeployment.ObjectMeta.Labels, deployment.ObjectMeta.Labels) {
-			err = r.Update(context, deployment)
+			err = r.Update(ctx, deployment)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -84,7 +84,7 @@ func (u updateBackupAgents) reconcile(r *FoundationDBBackupReconciler, context c
 	}
 
 	if !needCreation && deployment == nil {
-		err = r.Delete(context, existingDeployment)
+		err = r.Delete(ctx, existingDeployment)
 		if err != nil {
 			return &requeue{curError: err}
 		}

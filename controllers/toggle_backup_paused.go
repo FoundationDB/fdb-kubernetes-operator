@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -31,7 +31,7 @@ import (
 type toggleBackupPaused struct{}
 
 // reconcile runs the reconciler's work.
-func (s toggleBackupPaused) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
 	if backup.Status.BackupDetails == nil {
 		if backup.ShouldRun() {
 			return &requeue{message: "Cannot toggle backup state because backup is not running"}
@@ -40,7 +40,7 @@ func (s toggleBackupPaused) reconcile(r *FoundationDBBackupReconciler, context c
 	}
 
 	if backup.ShouldBePaused() && !backup.Status.BackupDetails.Paused {
-		adminClient, err := r.adminClientForBackup(context, backup)
+		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -52,7 +52,7 @@ func (s toggleBackupPaused) reconcile(r *FoundationDBBackupReconciler, context c
 		}
 		return nil
 	} else if !backup.ShouldBePaused() && backup.Status.BackupDetails.Paused {
-		adminClient, err := r.adminClientForBackup(context, backup)
+		adminClient, err := r.adminClientForBackup(ctx, backup)
 		if err != nil {
 			return &requeue{curError: err}
 		}

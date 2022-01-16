@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -37,7 +37,7 @@ import (
 type addPVCs struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPVCs) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.Remove {
 			continue

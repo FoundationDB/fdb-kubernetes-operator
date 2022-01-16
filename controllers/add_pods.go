@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -38,7 +38,7 @@ import (
 type addPods struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPods) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPods")
 	if err != nil {
@@ -56,7 +56,7 @@ func (a addPods) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cl
 		return &requeue{curError: err}
 	}
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -105,7 +105,7 @@ func (a addPods) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cl
 				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
 			}
 
-			err = r.PodLifecycleManager.CreatePod(r, ctx, pod)
+			err = r.PodLifecycleManager.CreatePod(ctx, r, pod)
 			if err != nil {
 				return &requeue{curError: err}
 			}

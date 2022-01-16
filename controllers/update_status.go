@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -46,7 +46,7 @@ import (
 type updateStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (updateStatus) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	originalStatus := cluster.Status.DeepCopy()
 	status := fdbtypes.FoundationDBClusterStatus{}
@@ -145,7 +145,7 @@ func (updateStatus) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	status.ProcessGroups, err = validateProcessGroups(r, ctx, cluster, &status, processMap, configMap)
+	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -455,7 +455,7 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbtype
 	return nil
 }
 
-func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus, processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbtypes.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[string]fdbtypes.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
@@ -474,7 +474,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 	}
 
 	for _, processGroup := range processGroups {
-		pods, err := r.PodLifecycleManager.GetPods(r, cluster, context, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)
+		pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, processGroup.ProcessClass, processGroup.ProcessGroupID)...)
 		if err != nil {
 			return processGroups, err
 		}
@@ -563,7 +563,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 			return processGroups, err
 		}
 
-		needsSidecarConfInConfigMap, err := validateProcessGroup(r, context, cluster, pod, configMapHash, processGroup)
+		needsSidecarConfInConfigMap, err := validateProcessGroup(ctx, r, cluster, pod, configMapHash, processGroup)
 
 		if err != nil {
 			return processGroups, err
@@ -579,7 +579,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 
 // validateProcessGroup runs specific checks for the status of an process group.
 // returns failing, incorrect, error
-func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processGroupStatus.UpdateCondition(fdbtypes.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	if pod == nil {
@@ -598,7 +598,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 
 	incorrectPod := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
 	if !incorrectPod {
-		updated, err := r.PodLifecycleManager.PodIsUpdated(r, context, cluster, pod)
+		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
 			return false, err
 		}
@@ -611,7 +611,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 	processGroupStatus.UpdateCondition(fdbtypes.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(context, pvcs, internal.GetPodListOptions(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID)...)
+	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID)...)
 	if err != nil {
 		return false, err
 	}
@@ -665,7 +665,7 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeletePod(r, context, pod)
+			err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
 			if err != nil {
 				return needsSidecarConfInConfigMap, err
 			}

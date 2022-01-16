@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 )
@@ -31,12 +31,12 @@ type stopBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s stopBackup) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s stopBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
 	if backup.ShouldRun() || backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
 		return nil
 	}
 
-	adminClient, err := r.adminClientForBackup(context, backup)
+	adminClient, err := r.adminClientForBackup(ctx, backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
