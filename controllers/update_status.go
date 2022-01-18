@@ -500,6 +500,7 @@ func validateProcessGroups(r *FoundationDBClusterReconciler, context ctx.Context
 
 		if processGroup.Remove && pod.ObjectMeta.DeletionTimestamp != nil {
 			processGroup.UpdateCondition(fdbtypes.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+			continue
 		}
 
 		// Even the process group will be removed we need to keep the config around.
@@ -678,23 +679,37 @@ func validateProcessGroup(r *FoundationDBClusterReconciler, context ctx.Context,
 	return needsSidecarConfInConfigMap, nil
 }
 
+// removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating
+// condition it will remove all other conditions on that process group.
 func removeDuplicateConditions(status fdbtypes.FoundationDBClusterStatus) {
 	for _, processGroupStatus := range status.ProcessGroups {
 		conditionTimes := make(map[fdbtypes.ProcessGroupConditionType]int64, len(processGroupStatus.ProcessGroupConditions))
 		copiedConditions := make(map[fdbtypes.ProcessGroupConditionType]bool, len(processGroupStatus.ProcessGroupConditions))
 		conditions := make([]*fdbtypes.ProcessGroupCondition, 0, len(processGroupStatus.ProcessGroupConditions))
+		isTerminating := false
+
 		for _, condition := range processGroupStatus.ProcessGroupConditions {
 			existingTime, present := conditionTimes[condition.ProcessGroupConditionType]
 			if !present || existingTime > condition.Timestamp {
 				conditionTimes[condition.ProcessGroupConditionType] = condition.Timestamp
 			}
+
+			if condition.ProcessGroupConditionType == fdbtypes.ResourcesTerminating {
+				isTerminating = true
+			}
 		}
+
 		for _, condition := range processGroupStatus.ProcessGroupConditions {
 			if condition.Timestamp == conditionTimes[condition.ProcessGroupConditionType] && !copiedConditions[condition.ProcessGroupConditionType] {
+				if isTerminating && condition.ProcessGroupConditionType != fdbtypes.ResourcesTerminating {
+					continue
+				}
+
 				conditions = append(conditions, condition)
 				copiedConditions[condition.ProcessGroupConditionType] = true
 			}
 		}
+
 		processGroupStatus.ProcessGroupConditions = conditions
 	}
 }
