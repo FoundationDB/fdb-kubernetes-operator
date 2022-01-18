@@ -68,6 +68,7 @@ type Options struct {
 	CompressOldFiles        bool
 	PrintVersion            bool
 	LabelSelector           string
+	WatchNamespace          string
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -91,6 +92,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
 	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
+	fs.StringVar(&o.WatchNamespace, "watch-namespace", "", "Defines which namespace the operator should watch")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -146,7 +148,10 @@ func StartManager(
 
 	namespace := os.Getenv("WATCH_NAMESPACE")
 	if namespace != "" {
+		setupLog.Info("WATCH_NAMESPACE env variable will be deprecated.\nPlease use the command line option -watch-namespace instead")
 		options.Namespace = namespace
+	} else if operatorOpts.WatchNamespace != "" {
+		options.Namespace = operatorOpts.WatchNamespace
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)

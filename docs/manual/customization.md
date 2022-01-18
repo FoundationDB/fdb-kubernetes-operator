@@ -247,7 +247,7 @@ Our [sample deployment](https://raw.githubusercontent.com/foundationdb/fdb-kuber
 
 ### Single-Namespace Mode
 
-To use single-namespace mode, set the `WATCH_NAMESPACE` environment variable for the controller to be the namespace where your FDB clusters will run. It does not have to be the same namespace where the operator is running, though this is generally the simplest way to configure it. When you are running in single-namespace mode, the controller will ignore any clusters you try to create in namespaces other than the one you give it.
+To use single-namespace mode, set the `WATCH_NAMESPACE` environment variable or the command-line option `-watch-namespace` for the controller to be the namespace where your FDB clusters will run. It does not have to be the same namespace where the operator is running, though this is generally the simplest way to configure it. When you are running in single-namespace mode, the controller will ignore any clusters you try to create in namespaces other than the one you give it. If both options are defined, the environment variable will take precedence.
 
 The advantage of single-namespace mode is that it allows owners of different namespaces to run the operator themselves without needing access to other namespaces that may be managed by other tenants. The only cluster-level configuration it requires is the installation of the CRD. The disadvantage of single-namespace mode is that if you are running multiple namespaces for a single team, each namespace will need its own installation of the controller, which can make it more operationally challenging.
 
@@ -255,7 +255,7 @@ To run the controller in single-namespace mode, you will need to configure the f
 
 * A service account for the controller
 * The serviceAccountName field in the controller's pod spec
-* A `WATCH_NAMESPACE` environment variable defined in the controller's pod spec
+* A `WATCH_NAMESPACE` environment variable defined in the controller's pod spec or in the arguments of the st
 * A Role that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/samples/deployment/rbac_role.yaml) for the list of those permissions.
 * A RoleBinding that binds that role to the service account for the controller
 
@@ -263,7 +263,7 @@ The sample deployment provides all of this configuration.
 
 ### Global Mode
 
-To use global mode, omit the `WATCH_NAMESPACE` environment variable for the controller. When you are running in global mode, the controller will watch for changes to FDB clusters in all namespaces, and will manage them all through a single instance of the controller.
+To use global mode, omit the `WATCH_NAMESPACE` environment variable or the `-watch-namespace` command line flag for the controller. When you are running in global mode, the controller will watch for changes to FDB clusters in all namespaces, and will manage them all through a single instance of the controller.
 
 The advantage of global mode is that you can easily add new namespaces without needing to run a new instance of the controller, which limits the per-namespace operational load. The disadvantage of global mode is that it requires the controller to have extensive access to all namespaces in the Kubernetes cluster. In a multi-tenant environment, this means the controller would have to be managed by the team that is adminstering your Kubernetes environment, which may create its own operational concerns.
 
@@ -276,7 +276,7 @@ To run the controller in global mode, you will need to configure the following t
 
 You can build this kind of configuration easily from the sample deployment by changing the following things:
 
-* Delete the configuration for the `WATCH_NAMESPACE` variable
+* Delete the configuration for the `WATCH_NAMESPACE` variable or remove the command line option `-watch-namespace`.
 * Change the Roles to ClusterRoles
 * Change the RoleBindings to ClusterRoleBindings
 
