@@ -192,7 +192,37 @@ there are not enough storage pods, or the storage pods are not spread across
 enough fault domains it also considers log pods, and finally transaction pods as
 well.
 
-## Coordinator selection
+## Coordinators
+
+Per default the FDB operator will try to select the best fitting processes to be coordinators.
+Depending on the requirements the operator can be configured to either prefer or exclude specific processes.
+The number of coordinators is currently a hardcoded mechanism based on the [following algorithm](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/v0.49.2/api/v1beta1/foundationdbcluster_types.go#L1500-L1508):
+
+```go
+func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
+		return 9
+	}
+
+	return cluster.MinimumFaultDomains() + cluster.DesiredFaultTolerance()
+}
+```
+
+For all clusters that use more than one region the operator will recruit 9 coordinators.
+If the number of regions is `1` the number of recruited coordinators depends on the redundancy mode:
+
+|  Redundancy mode  | # Coordinators |
+|---|----------------|
+| Single  | 1              |
+| Double (default)  | 3              |
+| Triple  | 5              |
+
+Every coordinator must be in a different zone.
+That means for `Triple` replication you need at least 5 different Kubernetes nodes with the default fault domain.
+Losing one Kubernetes in that case will lead to have only 4 coordinators since the operator can't recruit 5 coordinator
+across different zones.
+
+### Coordinator selection
 
 The operator offers a flexible way to select different process classes to be eligible for coordinator selection.
 Per default the operator will choose all `stateful` processes classes e.g. `storage`, `log` and `transaction`.
