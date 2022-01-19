@@ -255,7 +255,7 @@ To run the controller in single-namespace mode, you will need to configure the f
 
 * A service account for the controller
 * The serviceAccountName field in the controller's pod spec
-* A `WATCH_NAMESPACE` environment variable defined in the controller's pod spec or in the arguments of the st
+* A `WATCH_NAMESPACE` environment variable defined in the controller's pod spec or in the arguments of the container command
 * A Role that grants access to the necessary permissions to all of the resources that the controller manages. See the [sample role](https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/samples/deployment/rbac_role.yaml) for the list of those permissions.
 * A RoleBinding that binds that role to the service account for the controller
 
