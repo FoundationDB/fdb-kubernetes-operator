@@ -335,8 +335,8 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	}
 
 	removedProcessGroups := make(map[string]bool)
-	// We have to check for the currently removed process group if they are completely removed
-	// and we have to check if one of the terminating process groups has been cleaned up.
+	// We have to check if the currently removed process groups are completely removed.
+	// In addition, we have to check if one of the terminating process groups has been cleaned up.
 	for _, id := range append(processGroupsToRemove, terminatingProcessGroups...) {
 		removed, include, err := confirmRemoval(ctx, r, cluster, id)
 		if err != nil {
@@ -345,7 +345,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 		}
 
 		if removed {
-			// Pods that are stuck in terminating shouldn't block reconciliation but we also
+			// Pods that are stuck in terminating shouldn't block reconciliation, but we also
 			// don't want to include them since they have an unknown state.
 			removedProcessGroups[id] = include
 			continue

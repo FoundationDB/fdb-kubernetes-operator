@@ -84,7 +84,7 @@ func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[s
 // If the process group has not an associated process in the cluster status the zone will be UnknownZone.
 // if the process group has the ResourcesTerminating condition the zone will be TerminatingZone.
 func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove []*fdbtypes.ProcessGroupStatus) (map[string][]string, int64, error) {
-	var lastRemovalTimestamp int64
+	var lastestRemovalTimestamp int64
 	// Convert the process list into a map with the process group ID as key.
 	processInfo := map[string]fdbtypes.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
@@ -94,12 +94,12 @@ func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove
 	zoneMap := map[string][]string{}
 	for _, pg := range processGroupsToRemove {
 		// Using the ResourcesTerminating is not a complete precise measurement of the time when we
-		// actually removed the process group but it should be a good indicator to how long the process group is in
+		// actually removed the process group, but it should be a good indicator to how long the process group is in
 		// that state.
 		removalTimestamp := pointer.Int64Deref(pg.GetConditionTime(fdbtypes.ResourcesTerminating), 0)
 		if removalTimestamp > 0 {
-			if removalTimestamp > lastRemovalTimestamp {
-				lastRemovalTimestamp = removalTimestamp
+			if removalTimestamp > lastestRemovalTimestamp {
+				lastestRemovalTimestamp = removalTimestamp
 			}
 			zoneMap[TerminatingZone] = append(zoneMap[TerminatingZone], pg.ProcessGroupID)
 			continue
@@ -115,8 +115,7 @@ func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove
 		zoneMap[zone] = append(zoneMap[zone], pg.ProcessGroupID)
 	}
 
-	// TODO return last time since removal
-	return zoneMap, lastRemovalTimestamp, nil
+	return zoneMap, lastestRemovalTimestamp, nil
 }
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
@@ -162,7 +161,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 	return remainingMap, nil
 }
 
-// RemovalAllowed returns if we are allowed to remove the process group of if we have to wait to ensure a safer deletion.
+// RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.
 func RemovalAllowed(lastDeletion int64, currentTimestamp int64, waitTime time.Duration) (int64, bool) {
 	ts := currentTimestamp - int64(waitTime.Seconds())
 	if lastDeletion > ts {

@@ -54,7 +54,7 @@ func IsTimeoutError(err error) bool {
 	return false
 }
 
-// IsQuotaExceeded returns tru if the error returned by the Kubernetes API is a forbidden error with the error message
+// IsQuotaExceeded returns true if the error returned by the Kubernetes API is a forbidden error with the error message
 // that the quota was exceeded
 func IsQuotaExceeded(err error) bool {
 	if k8serrors.IsForbidden(err) {

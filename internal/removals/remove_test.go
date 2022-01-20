@@ -1,5 +1,5 @@
 /*
- * remove.go
+ * remove_test.go
  *
  * This source file is part of the FoundationDB open source project
  *
