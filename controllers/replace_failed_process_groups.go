@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
@@ -32,7 +32,7 @@ import (
 type replaceFailedProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (c replaceFailedProcessGroups) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}

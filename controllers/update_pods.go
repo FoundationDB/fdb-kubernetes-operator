@@ -45,7 +45,7 @@ type updatePods struct{}
 func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -190,14 +190,14 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
 	zone, deletions, err := getPodsToDelete(deletionMode, updates)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	ready, err := r.PodLifecycleManager.CanDeletePods(adminClient, context, cluster)
+	ready, err := r.PodLifecycleManager.CanDeletePods(ctx, adminClient, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -217,7 +217,7 @@ func deletePodsForUpdates(context context.Context, r *FoundationDBClusterReconci
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
-	err = r.PodLifecycleManager.UpdatePods(r, context, cluster, deletions, false)
+	err = r.PodLifecycleManager.UpdatePods(ctx, r, cluster, deletions, false)
 	if err != nil {
 		return &requeue{curError: err}
 	}

@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"reflect"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -36,12 +36,12 @@ import (
 type updateBackupStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (s updateBackupStatus) reconcile(r *FoundationDBBackupReconciler, context ctx.Context, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
 	status := fdbtypes.FoundationDBBackupStatus{}
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
 	backupDeployments := &appsv1.DeploymentList{}
-	err := r.List(context, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbtypes.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
+	err := r.List(ctx, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbtypes.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -76,7 +76,7 @@ func (s updateBackupStatus) reconcile(r *FoundationDBBackupReconciler, context c
 		status.DeploymentConfigured = false
 	}
 
-	adminClient, err := r.adminClientForBackup(context, backup)
+	adminClient, err := r.adminClientForBackup(ctx, backup)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -104,7 +104,7 @@ func (s updateBackupStatus) reconcile(r *FoundationDBBackupReconciler, context c
 	}
 
 	if !reflect.DeepEqual(backup.Status, *originalStatus) {
-		err = r.Status().Update(context, backup)
+		err = r.Status().Update(ctx, backup)
 		if err != nil {
 			log.Error(err, "Error updating backup status", "namespace", backup.Namespace, "backup", backup.Name)
 			return &requeue{curError: err}

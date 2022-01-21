@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -42,7 +42,7 @@ import (
 type bounceProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (bounceProcesses) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
@@ -87,7 +87,7 @@ func (bounceProcesses) reconcile(ctx ctx.Context, r *FoundationDBClusterReconcil
 		addresses = append(addresses, addressMap[process]...)
 
 		processGroupID := podmanager.GetProcessGroupIDFromProcessID(process)
-		pod, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetSinglePodListOptions(cluster, processGroupID)...)
+		pod, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetSinglePodListOptions(cluster, processGroupID)...)
 		if err != nil {
 			return &requeue{curError: err}
 		}

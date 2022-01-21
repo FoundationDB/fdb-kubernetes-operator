@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 	"fmt"
 	"reflect"
 
@@ -35,7 +35,7 @@ import (
 type updateDatabaseConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateDatabaseConfiguration) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateDatabaseConfiguration")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 

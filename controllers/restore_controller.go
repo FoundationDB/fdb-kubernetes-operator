@@ -22,7 +22,6 @@ package controllers
 
 import (
 	"context"
-	ctx "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -74,7 +73,7 @@ func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request c
 	}
 
 	for _, subReconciler := range subReconcilers {
-		requeue := subReconciler.reconcile(r, ctx, restore)
+		requeue := subReconciler.reconcile(ctx, r, restore)
 		if requeue == nil {
 			continue
 		}
@@ -96,9 +95,9 @@ func (r *FoundationDBRestoreReconciler) getDatabaseClientProvider() DatabaseClie
 }
 
 // adminClientForRestore provides an admin client for a restore reconciler.
-func (r *FoundationDBRestoreReconciler) adminClientForRestore(context ctx.Context, restore *fdbtypes.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
+func (r *FoundationDBRestoreReconciler) adminClientForRestore(ctx context.Context, restore *fdbtypes.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
 	cluster := &fdbtypes.FoundationDBCluster{}
-	err := r.Get(context, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
+	err := r.Get(ctx, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -152,5 +151,5 @@ type restoreSubReconciler interface {
 	If reconciliation cannot proceed, this should return a `requeue` object with
 	a `Message` field.
 	*/
-	reconcile(r *FoundationDBRestoreReconciler, context context.Context, restore *fdbtypes.FoundationDBRestore) *requeue
+	reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbtypes.FoundationDBRestore) *requeue
 }

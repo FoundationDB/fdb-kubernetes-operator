@@ -48,7 +48,7 @@ var _ = Describe("update_status", func() {
 			err = setupClusterForTest(cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			pods, err = clusterReconciler.PodLifecycleManager.GetPods(clusterReconciler, cluster, context.TODO(), internal.GetSinglePodListOptions(cluster, "storage-1")...)
+			pods, err = clusterReconciler.PodLifecycleManager.GetPods(context.TODO(), clusterReconciler, cluster, internal.GetSinglePodListOptions(cluster, "storage-1")...)
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, container := range pods[0].Spec.Containers {
@@ -82,7 +82,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus := fdbtypes.NewProcessGroupStatus("storage-1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
-				_, err := validateProcessGroup(clusterReconciler, context.TODO(), cluster, nil, "", processGroupStatus)
+				_, err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, "", processGroupStatus)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
 				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
@@ -91,7 +91,7 @@ var _ = Describe("update_status", func() {
 
 		When("a process group is fine", func() {
 			It("should not get any condition assigned", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
@@ -105,7 +105,7 @@ var _ = Describe("update_status", func() {
 				err = k8sClient.Delete(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingPod, false)
@@ -124,7 +124,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				incorrectProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectCommandLine, false)
@@ -143,7 +143,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingProcesses, false)
@@ -164,7 +164,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				incorrectPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectPodSpec, false)
@@ -185,7 +185,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
@@ -206,7 +206,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should get a condition assigned", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
@@ -231,7 +231,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should mark the process group for removal", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -262,7 +262,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should mark the process group for removal", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -293,7 +293,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should be mark the process group for removal without exclusion", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -324,7 +324,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should be mark the process group for removal without exclusion", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				removalCount := 0
@@ -355,7 +355,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should mark the process group as unreachable", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				unreachableCount := 0
@@ -379,7 +379,7 @@ var _ = Describe("update_status", func() {
 				})
 
 				It("should remove the condition", func() {
-					processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+					processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 					Expect(err).NotTo(HaveOccurred())
 
 					unreachableCount := 0
@@ -407,7 +407,7 @@ var _ = Describe("update_status", func() {
 			})
 
 			It("should mark the process group as Pod pending", func() {
-				processGroupStatus, err := validateProcessGroups(clusterReconciler, context.TODO(), cluster, &cluster.Status, processMap, configMap)
+				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
 				pendingCount := 0

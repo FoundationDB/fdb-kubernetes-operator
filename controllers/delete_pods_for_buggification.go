@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -35,9 +35,9 @@ import (
 type deletePodsForBuggification struct{}
 
 // reconcile runs the reconciler's work.
-func (d deletePodsForBuggification) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (d deletePodsForBuggification) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "deletePodsForBuggification")
-	pods, err := r.PodLifecycleManager.GetPods(r, cluster, ctx, internal.GetPodListOptions(cluster, "", "")...)
+	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -91,7 +91,7 @@ func (d deletePodsForBuggification) reconcile(ctx ctx.Context, r *FoundationDBCl
 		logger.Info("Deleting pods", "count", len(updates))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", "Recreating pods for buggification")
 
-		err = r.PodLifecycleManager.UpdatePods(r, ctx, cluster, updates, true)
+		err = r.PodLifecycleManager.UpdatePods(ctx, r, cluster, updates, true)
 		if err != nil {
 			return &requeue{curError: err}
 		}

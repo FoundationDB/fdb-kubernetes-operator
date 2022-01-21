@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -36,7 +36,7 @@ import (
 type removeServices struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeServices) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	if internal.GetHeadlessService(cluster) != nil {
 		return nil
 	}

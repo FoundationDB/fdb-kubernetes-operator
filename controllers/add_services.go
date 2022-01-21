@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	ctx "context"
+	"context"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -39,14 +39,14 @@ import (
 type addServices struct{}
 
 // reconcile runs the reconciler's work.
-func (a addServices) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
 		err := r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, existingService)
 		if err == nil {
 			// Update the existing service
-			err = updateService(r, ctx, cluster, existingService, service)
+			err = updateService(ctx, r, cluster, existingService, service)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -84,7 +84,7 @@ func (a addServices) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler
 			err = r.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: serviceName}, existingService)
 			if err == nil {
 				// Update the existing service
-				err = updateService(r, ctx, cluster, existingService, service)
+				err = updateService(ctx, r, cluster, existingService, service)
 				if err != nil {
 					return &requeue{curError: err}
 				}
@@ -106,7 +106,7 @@ func (a addServices) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler
 
 // updateServices updates selected safe fields on a service based on a new
 // service definition.
-func updateService(r *FoundationDBClusterReconciler, context ctx.Context, cluster *fdbtypes.FoundationDBCluster, currentService *corev1.Service, newService *corev1.Service) error {
+func updateService(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, currentService *corev1.Service, newService *corev1.Service) error {
 	serviceLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "service", currentService.Name)
 	originalSpec := currentService.Spec.DeepCopy()
 
@@ -123,7 +123,7 @@ func updateService(r *FoundationDBClusterReconciler, context ctx.Context, cluste
 	if needsUpdate {
 		currentService.ObjectMeta = metadata
 		serviceLog.Info("Updating service")
-		return r.Update(context, currentService)
+		return r.Update(ctx, currentService)
 	}
 	return nil
 }
