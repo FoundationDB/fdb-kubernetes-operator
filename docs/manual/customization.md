@@ -247,7 +247,7 @@ Our [sample deployment](https://raw.githubusercontent.com/foundationdb/fdb-kuber
 
 ### Single-Namespace Mode
 
-To use single-namespace mode, set the `WATCH_NAMESPACE` environment variable or the command-line option `-watch-namespace` for the controller to be the namespace where your FDB clusters will run. It does not have to be the same namespace where the operator is running, though this is generally the simplest way to configure it. When you are running in single-namespace mode, the controller will ignore any clusters you try to create in namespaces other than the one you give it. If both options are defined, the environment variable will take precedence.
+To use single-namespace mode, set the `WATCH_NAMESPACE` environment variable or the command-line option `-watch-namespace` for the controller to be the namespace where your FDB clusters will run. It does not have to be the same namespace where the operator is running, though this is generally the simplest way to configure it. When you are running in single-namespace mode, the controller will ignore any clusters you try to create in namespaces other than the one you give it. If both options are defined, the command line argument will be used.
 
 The advantage of single-namespace mode is that it allows owners of different namespaces to run the operator themselves without needing access to other namespaces that may be managed by other tenants. The only cluster-level configuration it requires is the installation of the CRD. The disadvantage of single-namespace mode is that if you are running multiple namespaces for a single team, each namespace will need its own installation of the controller, which can make it more operationally challenging.
 
@@ -276,7 +276,7 @@ To run the controller in global mode, you will need to configure the following t
 
 You can build this kind of configuration easily from the sample deployment by changing the following things:
 
-* Delete the configuration for the `WATCH_NAMESPACE` variable or remove the command line option `-watch-namespace`.
+* Delete the configuration for the `WATCH_NAMESPACE` variable and remove the `-watch-namespace` option from the manager's container start command
 * Change the Roles to ClusterRoles
 * Change the RoleBindings to ClusterRoleBindings
 
