@@ -36,6 +36,7 @@ type changeCoordinators struct{}
 // reconcile runs the reconciler's work.
 func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
+
 	if !cluster.Status.Configured {
 		return nil
 	}
@@ -102,7 +103,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	coordinatorAddresses := make([]fdbtypes.ProcessAddress, len(coordinators))
 	for index, process := range coordinators {
-		coordinatorAddresses[index] = process.Address
+		coordinatorAddresses[index] = getCoordinatorAddress(cluster, process)
 	}
 
 	logger.Info("Final coordinators candidates", "coordinators", coordinatorAddresses)
@@ -167,7 +168,7 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 
 	coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 	for _, coordinator := range coordinators {
-		coordinatorStatus[coordinator.Address.String()] = false
+		coordinatorStatus[getCoordinatorAddress(cluster, coordinator).String()] = false
 	}
 
 	hasValidCoordinators, allAddressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
@@ -184,4 +185,19 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 	}
 
 	return coordinators, nil
+}
+
+func getCoordinatorAddress(cluster *fdbtypes.FoundationDBCluster, info localityInfo) fdbtypes.ProcessAddress {
+	dnsName := info.LocalityData[fdbtypes.FDBLocalityDNSNameKey]
+
+	address := info.Address
+
+	if cluster.UseDNSInClusterFile() && dnsName != "" {
+		return fdbtypes.ProcessAddress{
+			StringAddress: dnsName,
+			Port:          address.Port,
+			Flags:         address.Flags,
+		}
+	}
+	return address
 }

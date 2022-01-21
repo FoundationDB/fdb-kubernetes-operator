@@ -1769,28 +1769,29 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 
 // ProcessAddress provides a structured address for a process.
 type ProcessAddress struct {
-	IPAddress   net.IP          `json:"address,omitempty"`
-	Placeholder string          `json:"-"`
-	Port        int             `json:"port,omitempty"`
-	Flags       map[string]bool `json:"flags,omitempty"`
+	IPAddress     net.IP          `json:"address,omitempty"`
+	StringAddress string          `json:"stringAddress,omitempty"`
+	Port          int             `json:"port,omitempty"`
+	Flags         map[string]bool `json:"flags,omitempty"`
+	FromHostname  bool            `json:"fromHostname,omitempty"`
 }
 
-// NewProcessAddress creates a new ProcessAddress if the provided placeholder is a valid IP address it will be set as
+// NewProcessAddress creates a new ProcessAddress if the provided string address is a valid IP address it will be set as
 // IPAddress.
-func NewProcessAddress(address net.IP, placeholder string, port int, flags map[string]bool) ProcessAddress {
+func NewProcessAddress(address net.IP, stringAddress string, port int, flags map[string]bool) ProcessAddress {
 	pAddr := ProcessAddress{
-		IPAddress:   address,
-		Placeholder: placeholder,
-		Port:        port,
-		Flags:       flags,
+		IPAddress:     address,
+		StringAddress: stringAddress,
+		Port:          port,
+		Flags:         flags,
 	}
 
 	// If we have a valid IP address in the Placeholder we can set the
 	// IPAddress accordingly.
-	ip := net.ParseIP(pAddr.Placeholder)
+	ip := net.ParseIP(pAddr.StringAddress)
 	if ip != nil {
 		pAddr.IPAddress = ip
-		pAddr.Placeholder = ""
+		pAddr.StringAddress = ""
 	}
 
 	return pAddr
@@ -1893,6 +1894,10 @@ func (address ProcessAddress) MarshalJSON() ([]byte, error) {
 // representation.
 func ParseProcessAddress(address string) (ProcessAddress, error) {
 	result := ProcessAddress{}
+	if strings.HasSuffix(address, "(fromHostname)") {
+		address = strings.TrimSuffix(address, "(fromHostname)")
+		result.FromHostname = true
+	}
 
 	// For all Pod based actions we only provide an IP address without the port to actually
 	// like exclusions and includes. If the address is a valid IP address we can directly skip
@@ -1916,6 +1921,9 @@ func ParseProcessAddress(address string) (ProcessAddress, error) {
 		// part of the ProcessAddress.
 		if err == nil {
 			result.IPAddress = net.ParseIP(addr)
+			if result.IPAddress == nil {
+				result.StringAddress = addr
+			}
 			iPort, err := strconv.Atoi(port)
 			if err != nil {
 				return result, err
@@ -1938,10 +1946,6 @@ func ParseProcessAddress(address string) (ProcessAddress, error) {
 
 		result.Flags[tmpStr[idx+1:]] = true
 		tmpStr = tmpStr[:idx]
-	}
-
-	if result.IPAddress == nil {
-		return result, fmt.Errorf("invalid address: %s", address)
 	}
 
 	return result, nil
@@ -1987,16 +1991,20 @@ func (address ProcessAddress) String() string {
 	var sb strings.Builder
 	// We have to do this since we are creating a template file for the processes.
 	// The template file will contain variables like POD_IP which is not a valid net.IP :)
-	if address.Placeholder == "" {
+	if address.StringAddress == "" {
 		sb.WriteString(net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port)))
 	} else {
-		sb.WriteString(net.JoinHostPort(address.Placeholder, strconv.Itoa(address.Port)))
+		sb.WriteString(net.JoinHostPort(address.StringAddress, strconv.Itoa(address.Port)))
 	}
 
 	flags := address.SortedFlags()
 
 	if len(flags) > 0 {
 		sb.WriteString(":" + strings.Join(flags, ":"))
+	}
+
+	if address.FromHostname {
+		sb.WriteString("(fromHostname)")
 	}
 
 	return sb.String()
@@ -2893,6 +2901,17 @@ type RoutingConfig struct {
 	// This feature is only supported in FDB 7.0 or later, and requires
 	// dual-stack support in your Kubernetes environment.
 	PodIPFamily *int `json:"podIPFamily,omitempty"`
+
+	// UseDNSInClusterFile determines whether to use DNS names rather than IP
+	// addresses to identify coordinators in the cluster file.
+	// NOTE: This is an experimental feature, and is not supported in the
+	// latest stable version of FoundationDB.
+	UseDNSInClusterFile *bool `json:"useDNSInClusterFile,omitempty"`
+
+	// DNSSuffix defines the cluster domain used in a DNS name generated for a
+	// service.
+	// The default is `cluster.local`.
+	DNSDomain *string `json:"dnsSuffix,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen
@@ -3171,4 +3190,22 @@ func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
 	newConfiguration.Regions = newRegions
 
 	return *newConfiguration
+}
+
+// NeedsHeadlessService determines whether we need to create a headless service
+// for this cluster.
+func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
+	return cluster.UseDNSInClusterFile() || pointer.BoolDeref(cluster.Spec.Routing.HeadlessService, false)
+}
+
+// UseDNSInClusterFile determines whether we need to use DNS entries in the
+// clsuter file for this cluster.
+func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
+	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
+}
+
+// GetDNSDomain gets the suffix used when forming DNS names generated for a
+// service.
+func (cluster *FoundationDBCluster) GetDNSDomain() string {
+	return pointer.StringDeref(cluster.Spec.Routing.DNSDomain, "cluster.local")
 }

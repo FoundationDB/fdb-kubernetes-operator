@@ -2329,15 +2329,28 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					input: "127.0.0.1:bad",
 					err:   fmt.Errorf("strconv.Atoi: parsing \"bad\": invalid syntax"),
 				}),
-			Entry("IPv6 with invalid address",
+			Entry("host name",
 				testCase{
-					input: "[::1:]:4500",
-					err:   fmt.Errorf("invalid address: [::1:]:4500"),
+					input: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local:4500",
+					expectedAddr: ProcessAddress{
+						StringAddress: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
+						Port:          4500,
+						Flags:         nil,
+					},
+					expectedStr: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local:4500",
+					err:         nil,
 				}),
-			Entry("IPv4 with invalid address",
+			Entry("IP from host name",
 				testCase{
-					input: "127.0.0.A:4500",
-					err:   fmt.Errorf("invalid address: 127.0.0.A:4500"),
+					input: "127.0.0.1:4501(fromHostname)",
+					expectedAddr: ProcessAddress{
+						IPAddress:    net.ParseIP("127.0.0.1"),
+						Port:         4501,
+						Flags:        nil,
+						FromHostname: true,
+					},
+					expectedStr: "127.0.0.1:4501(fromHostname)",
+					err:         nil,
 				}),
 		)
 	})
@@ -2410,9 +2423,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("With a placeholder",
 				testCase{
 					processAddr: ProcessAddress{
-						Placeholder: "$POD_IP",
-						Port:        4500,
-						Flags:       map[string]bool{},
+						StringAddress: "$POD_IP",
+						Port:          4500,
+						Flags:         map[string]bool{},
 					},
 					expected: "$POD_IP:4500",
 				}),
@@ -3581,6 +3594,50 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(config).To(Equal(expected))
 				// The cluster config should not be changed
 				Expect(cluster.Spec.DatabaseConfiguration).NotTo(Equal(expected))
+			})
+		})
+	})
+
+	Describe("routing configuration", func() {
+		var cluster *FoundationDBCluster
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		When("checking whether we need a headless service", func() {
+			It("respects the value in the flag", func() {
+				Expect(cluster.NeedsHeadlessService()).To(BeFalse())
+
+				var enable = true
+				cluster.Spec.Routing.HeadlessService = &enable
+				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+			})
+
+			It("can be overridden by the DNS setting", func() {
+				enableHeadless := false
+				enableDNS := true
+				cluster.Spec.Routing.HeadlessService = &enableHeadless
+				cluster.Spec.Routing.UseDNSInClusterFile = &enableDNS
+				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
+			})
+		})
+
+		When("checking whether we use DNS in the cluster file", func() {
+			It("respects the value in the flag", func() {
+				Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
+
+				enable := true
+				cluster.Spec.Routing.UseDNSInClusterFile = &enable
+				Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
+			})
+		})
+
+		When("getting the DNS domain", func() {
+			It("allows overrides in the spec", func() {
+				Expect(cluster.GetDNSDomain()).To(Equal("cluster.local"))
+				suffix := "cluster.example"
+				cluster.Spec.Routing.DNSDomain = &suffix
+				Expect(cluster.GetDNSDomain()).To(Equal("cluster.example"))
 			})
 		})
 	})

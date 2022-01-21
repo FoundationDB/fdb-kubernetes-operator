@@ -27,8 +27,7 @@ import (
 
 // GetHeadlessService builds a headless service for a FoundationDB cluster.
 func GetHeadlessService(cluster *v1beta1.FoundationDBCluster) *v1.Service {
-	headless := cluster.Spec.Routing.HeadlessService
-	if headless == nil || !*headless {
+	if !cluster.NeedsHeadlessService() {
 		return nil
 	}
 

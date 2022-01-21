@@ -450,7 +450,8 @@ func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client podcl
 		ID:      substitutions["FDB_INSTANCE_ID"],
 		Address: address,
 		LocalityData: map[string]string{
-			fdbtypes.FDBLocalityZoneIDKey: substitutions["FDB_ZONE_ID"],
+			fdbtypes.FDBLocalityZoneIDKey:  substitutions["FDB_ZONE_ID"],
+			fdbtypes.FDBLocalityDNSNameKey: substitutions["FDB_DNS_NAME"],
 		},
 	}, nil
 }
@@ -599,6 +600,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 	allAddressesValid := true
 	allEligible := true
+	allUsingCorrectAddress := true
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
@@ -640,31 +642,60 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			continue
 		}
 
-		var address string
+		var ipAddress fdbtypes.ProcessAddress
 		for _, addr := range addresses {
 			if addr.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
-				address = addr.String()
+				ipAddress = addr
 				break
 			}
 		}
 
-		_, isCoordinator := coordinatorStatus[address]
-		if isCoordinator && !process.Excluded && !pendingRemoval {
-			coordinatorStatus[address] = true
+		coordinatorAddress := ""
+		_, isCoordinatorWithIP := coordinatorStatus[ipAddress.String()]
+		if isCoordinatorWithIP {
+			coordinatorAddress = ipAddress.String()
 		}
 
-		if isCoordinator {
+		dnsName := process.Locality["dns_name"]
+		dnsAddress := fdbtypes.ProcessAddress{
+			StringAddress: dnsName,
+			Port:          ipAddress.Port,
+			Flags:         ipAddress.Flags,
+		}
+		_, isCoordinatorWithDNS := coordinatorStatus[dnsAddress.String()]
+
+		if !isCoordinatorWithDNS {
+			dnsAddress = ipAddress
+			dnsAddress.FromHostname = true
+			_, isCoordinatorWithDNS = coordinatorStatus[dnsAddress.String()]
+		}
+
+		if isCoordinatorWithDNS {
+			coordinatorAddress = dnsAddress.String()
+		}
+
+		if coordinatorAddress != "" && !process.Excluded && !pendingRemoval {
+			coordinatorStatus[coordinatorAddress] = true
+		}
+
+		if coordinatorAddress != "" {
 			coordinatorZones[process.Locality[fdbtypes.FDBLocalityZoneIDKey]]++
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
-				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", address)
+				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", ipAddress)
 				allEligible = false
+			}
+
+			useDNS := cluster.UseDNSInClusterFile() && dnsName != ""
+			if (isCoordinatorWithIP && useDNS) || (isCoordinatorWithDNS && !useDNS) {
+				pLogger.Info("Coordinator is not using the correct address", "coordinatorList", coordinatorStatus)
+				allUsingCorrectAddress = false
 			}
 		}
 
-		if address == "" {
-			pLogger.Info("Process has invalid address", "address", address)
+		if ipAddress.IPAddress == nil {
+			pLogger.Info("Process has invalid IP address", "addresses", addresses)
 			allAddressesValid = false
 		}
 	}
@@ -697,7 +728,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 	}
 
-	return hasEnoughDCs && hasEnoughZones && allHealthy && allEligible, allAddressesValid, nil
+	return hasEnoughDCs && hasEnoughZones && allHealthy && allUsingCorrectAddress && allEligible, allAddressesValid, nil
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod

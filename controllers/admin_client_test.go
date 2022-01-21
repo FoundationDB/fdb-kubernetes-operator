@@ -26,6 +26,7 @@ import (
 	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -104,6 +105,34 @@ var _ = Describe("admin_client_test", func() {
 						},
 					},
 				}))
+			})
+		})
+
+		Context("with the DNS names enabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("the cluster has not been reconciled", func() {
+				It("should not have DNS names in the locality", func() {
+					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
+					Expect(locality[fdbtypes.FDBLocalityDNSNameKey]).To(BeEmpty())
+				})
+			})
+
+			When("the cluster has been reconciled", func() {
+				BeforeEach(func() {
+					result, err := reconcileCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Requeue).To(BeFalse())
+				})
+
+				It("should have DNS names in the locality", func() {
+					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
+					Expect(locality[fdbtypes.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, "operator-test-1-storage-1")))
+				})
 			})
 		})
 

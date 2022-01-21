@@ -118,7 +118,12 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	if databaseStatus != nil {
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
-			if coordinator.Address.Flags["tls"] {
+			address, err := fdbtypes.ParseProcessAddress(coordinator.Address.String())
+			if err != nil {
+				return &requeue{curError: err}
+			}
+
+			if address.Flags["tls"] {
 				status.RequiredAddresses.TLS = true
 			} else {
 				status.RequiredAddresses.NonTLS = true

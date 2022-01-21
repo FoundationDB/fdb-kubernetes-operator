@@ -298,6 +298,26 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		When("enabling the DNS names in the cluster file", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				err = k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should update the pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				for _, pod := range pods.Items {
+					env := make(map[string]string)
+					for _, envVar := range pod.Spec.InitContainers[0].Env {
+						env[envVar.Name] = envVar.Value
+					}
+					Expect(env["FDB_DNS_NAME"]).To(Equal(internal.GetPodDNSName(cluster, pod.Name)))
+				}
+			})
+		})
 		Context("when buggifying a pod to make it crash loop", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
@@ -3674,6 +3694,58 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(info.Address).To(HaveSuffix("tls"))
 				})
+			})
+		})
+
+		When("enabling DNS names in the cluster file", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+			})
+
+			Context("when the pods do not have DNS names assigned", func() {
+				It("should report valid coordinators", func() {
+					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinatorStatus[coordinator.Address.String()] = false
+					}
+
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(coordinatorsValid).To(BeTrue())
+					Expect(addressesValid).To(BeTrue())
+				})
+			})
+
+			Context("when the pods have DNS named assigned", func() {
+				BeforeEach(func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						container := pod.Spec.Containers[1]
+						container.Env = append(container.Env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: internal.GetPodDNSName(cluster, pod.Name)})
+						pod.Spec.Containers[1] = container
+						err = k8sClient.Update(context.TODO(), &pod)
+						Expect(err).NotTo(HaveOccurred())
+					}
+
+					status, err = adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should reject coordinators based on IP addresses", func() {
+					coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
+					for _, coordinator := range status.Client.Coordinators.Coordinators {
+						coordinatorStatus[coordinator.Address.String()] = false
+					}
+
+					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(coordinatorsValid).To(BeFalse())
+					Expect(addressesValid).To(BeTrue())
+				})
+
 			})
 		})
 	})

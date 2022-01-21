@@ -68,4 +68,8 @@ const (
 	// FDBLocalityDCIDKey represents the key in the locality map that holds
 	// the DC ID.
 	FDBLocalityDCIDKey = "dcid"
+
+	// FDBLocalityDNSNameKey represents the key in the locality map that holds
+	// the DNS name for the pod.
+	FDBLocalityDNSNameKey = "dns_name"
 )

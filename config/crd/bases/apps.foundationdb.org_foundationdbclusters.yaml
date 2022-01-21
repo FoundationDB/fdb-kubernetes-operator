@@ -7923,12 +7923,16 @@ spec:
                   type: object
                 routing:
                   properties:
+                    dnsSuffix:
+                      type: string
                     headlessService:
                       type: boolean
                     podIPFamily:
                       type: integer
                     publicIPSource:
                       type: string
+                    useDNSInClusterFile:
+                      type: boolean
                   type: object
                 runningVersion:
                   type: string
