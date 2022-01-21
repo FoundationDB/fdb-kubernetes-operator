@@ -145,43 +145,16 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 	}
 
+	err = refreshProcessGroupStatus(ctx, r, cluster, &status)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
 	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	removeDuplicateConditions(status)
-
-	// Track all PVCs
-	pvcs := &corev1.PersistentVolumeClaimList{}
-	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	for _, pvc := range pvcs.Items {
-		processGroupID := pvc.Labels[cluster.GetProcessGroupIDLabel()]
-		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
-			continue
-		}
-
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pvc.Labels), nil))
-	}
-
-	// Track all Services
-	services := &corev1.ServiceList{}
-	err = r.List(ctx, services, internal.GetPodListOptions(cluster, "", "")...)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-
-	for _, service := range services.Items {
-		processGroupID := service.Labels[cluster.GetProcessGroupIDLabel()]
-		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
-			continue
-		}
-
-		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
-	}
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
@@ -712,4 +685,62 @@ func removeDuplicateConditions(status fdbtypes.FoundationDBClusterStatus) {
 
 		processGroupStatus.ProcessGroupConditions = conditions
 	}
+}
+
+func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBClusterStatus) error {
+	status.ProcessGroups = make([]*fdbtypes.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup != nil && processGroup.ProcessGroupID != "" {
+			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+		}
+	}
+
+	// Track all created resources this will ensure that we catch all resources that are created by the operator
+	// even if the process group is currently missing for some reasons.
+	pods := &corev1.PodList{}
+	err := r.List(ctx, pods, internal.GetPodListOptions(cluster, "", "")...)
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range pods.Items {
+		processGroupID := pod.Labels[cluster.GetProcessGroupIDLabel()]
+		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+			continue
+		}
+
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pod.Labels), nil))
+	}
+
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
+	if err != nil {
+		return err
+	}
+
+	for _, pvc := range pvcs.Items {
+		processGroupID := pvc.Labels[cluster.GetProcessGroupIDLabel()]
+		if fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+			continue
+		}
+
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pvc.Labels), nil))
+	}
+
+	services := &corev1.ServiceList{}
+	err = r.List(ctx, services, internal.GetPodListOptions(cluster, "", "")...)
+	if err != nil {
+		return err
+	}
+
+	for _, service := range services.Items {
+		processGroupID := service.Labels[cluster.GetProcessGroupIDLabel()]
+		if processGroupID == "" || fdbtypes.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
+			continue
+		}
+
+		status.ProcessGroups = append(status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
+	}
+
+	return nil
 }
