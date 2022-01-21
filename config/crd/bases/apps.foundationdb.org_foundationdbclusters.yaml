@@ -9197,6 +9197,9 @@ spec:
                         type: boolean
                       exclusionSkipped:
                         type: boolean
+                      exclusionTimestamp:
+                        format: date-time
+                        type: string
                       processClass:
                         type: string
                       processGroupConditions:
@@ -9210,6 +9213,9 @@ spec:
                           type: object
                         type: array
                       processGroupID:
+                        type: string
+                      removalTimestamp:
+                        format: date-time
                         type: string
                       remove:
                         type: boolean

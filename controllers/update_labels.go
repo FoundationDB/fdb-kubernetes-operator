@@ -50,7 +50,7 @@ func (updateLabels) reconcile(ctx ctx.Context, r *FoundationDBClusterReconciler,
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup.Remove {
+		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore process group marked for removal",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue

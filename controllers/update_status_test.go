@@ -237,13 +237,13 @@ var _ = Describe("update_status", func() {
 				removalCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == removedProcessGroup {
-						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeFalse())
 						removalCount++
 						continue
 					}
 
-					Expect(processGroup.Remove).To(BeFalse())
+					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
 				}
 
 				Expect(removalCount).To(BeNumerically("==", 1))
@@ -268,13 +268,13 @@ var _ = Describe("update_status", func() {
 				removalCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == removedProcessGroup {
-						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeFalse())
 						removalCount++
 						continue
 					}
 
-					Expect(processGroup.Remove).To(BeFalse())
+					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
 				}
 
 				Expect(removalCount).To(BeNumerically("==", 1))
@@ -299,13 +299,13 @@ var _ = Describe("update_status", func() {
 				removalCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == removedProcessGroup {
-						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeTrue())
 						removalCount++
 						continue
 					}
 
-					Expect(processGroup.Remove).To(BeFalse())
+					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
 				}
 
 				Expect(removalCount).To(BeNumerically("==", 1))
@@ -330,13 +330,13 @@ var _ = Describe("update_status", func() {
 				removalCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == removedProcessGroup {
-						Expect(processGroup.Remove).To(BeTrue())
+						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeTrue())
 						removalCount++
 						continue
 					}
 
-					Expect(processGroup.Remove).To(BeFalse())
+					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
 				}
 
 				Expect(removalCount).To(BeNumerically("==", 1))
@@ -418,7 +418,7 @@ var _ = Describe("update_status", func() {
 						continue
 					}
 
-					Expect(processGroup.Remove).To(BeFalse())
+					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
 				}
 
 				Expect(pendingCount).To(BeNumerically("==", 1))

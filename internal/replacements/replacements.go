@@ -43,7 +43,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 			break
 		}
 
-		if processGroup.Remove {
+		if processGroup.IsMarkedForRemoval() {
 			continue
 		}
 
@@ -57,7 +57,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 			}
 
 			if needsPVCRemoval && hasPod {
-				processGroup.Remove = true
+				processGroup.MarkForRemoval()
 				hasReplacements = true
 				maxReplacements--
 				continue
@@ -79,7 +79,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 		}
 
 		if needsRemoval {
-			processGroup.Remove = true
+			processGroup.MarkForRemoval()
 			hasReplacements = true
 			maxReplacements--
 		}
@@ -147,7 +147,7 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 		return false, fmt.Errorf("unknown process group %s in replace_misconfigured_pods", processGroupID)
 	}
 
-	if processGroupStatus.Remove {
+	if processGroupStatus.IsMarkedForRemoval() {
 		return false, nil
 	}
 

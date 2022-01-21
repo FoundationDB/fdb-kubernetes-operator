@@ -131,7 +131,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 		Context("with another in-flight exclusion", func() {
 			BeforeEach(func() {
 				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
-				processGroup.Remove = true
+				processGroup.MarkForRemoval()
 			})
 
 			It("should return false", func() {
@@ -176,8 +176,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 		Context("with another complete exclusion", func() {
 			BeforeEach(func() {
 				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
-				processGroup.Remove = true
-				processGroup.Excluded = true
+				processGroup.MarkForRemoval()
+				processGroup.SetExclude()
 			})
 
 			It("should return true", func() {
@@ -301,7 +301,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 func getRemovedProcessGroupIDs(cluster *fdbtypes.FoundationDBCluster) []string {
 	results := make([]string, 0)
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.Remove {
+		if processGroupStatus.IsMarkedForRemoval() {
 			results = append(results, processGroupStatus.ProcessGroupID)
 		}
 	}

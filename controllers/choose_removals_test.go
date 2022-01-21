@@ -62,7 +62,7 @@ var _ = Describe("choose_removals", func() {
 
 		removals = nil
 		for _, processGroup := range cluster.Status.ProcessGroups {
-			if processGroup.Remove {
+			if processGroup.IsMarkedForRemoval() {
 				removals = append(removals, processGroup.ProcessGroupID)
 			}
 		}
@@ -96,7 +96,7 @@ var _ = Describe("choose_removals", func() {
 			BeforeEach(func() {
 				processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 				Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
-				processGroup.Remove = true
+				processGroup.MarkForRemoval()
 				err = clusterReconciler.Status().Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})

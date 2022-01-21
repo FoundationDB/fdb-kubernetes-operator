@@ -154,14 +154,14 @@ var _ = Describe("add_services", func() {
 
 		Context("when the process group is being removed", func() {
 			BeforeEach(func() {
-				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].Remove = true
+				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
 			})
 
 			It("should not requeue", func() {
 				Expect(requeue).To(BeNil())
 			})
 
-			It("should not create any pods", func() {
+			It("should not create any services", func() {
 				Expect(newServices.Items).To(HaveLen(len(initialServices.Items)))
 			})
 		})

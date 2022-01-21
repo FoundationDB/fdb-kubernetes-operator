@@ -582,7 +582,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 				cntReplacements := 0
 				for _, pGroup := range cluster.Status.ProcessGroups {
-					if !pGroup.Remove {
+					if !pGroup.IsMarkedForRemoval() {
 						continue
 					}
 
@@ -605,7 +605,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 				cntReplacements := 0
 				for _, pGroup := range cluster.Status.ProcessGroups {
-					if !pGroup.Remove {
+					if !pGroup.IsMarkedForRemoval() {
 						continue
 					}
 
@@ -624,7 +624,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 				cntReplacements := 0
 				for _, pGroup := range cluster.Status.ProcessGroups {
-					if !pGroup.Remove {
+					if !pGroup.IsMarkedForRemoval() {
 						continue
 					}
 
