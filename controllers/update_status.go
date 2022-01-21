@@ -150,7 +150,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 
-	status.ProcessGroups, err = validateProcessGroups(r, ctx, cluster, &status, processMap, configMap)
+	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap)
 	if err != nil {
 		return &requeue{curError: err}
 	}
