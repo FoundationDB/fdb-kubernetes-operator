@@ -99,12 +99,7 @@ func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (
 		return nil, err
 	}
 
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: !version.IsAtLeast(fdbtypes.FdbVersion{Major: 7, Minor: 2})}, nil
+	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
