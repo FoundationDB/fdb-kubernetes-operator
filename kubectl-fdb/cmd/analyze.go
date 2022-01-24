@@ -70,6 +70,11 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
+			ignoreConditions, err := cmd.Flags().GetStringArray("ignore-condition")
+			if err != nil {
+				return err
+			}
+
 			if flagNoColor {
 				color.NoColor = true
 			}
@@ -114,7 +119,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, useInstanceList)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, useInstanceList, ignoreConditions)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -142,6 +147,9 @@ kubectl fdb -n test-namespace analyze sample-cluster-1
 
 # Analyze the cluster "sample-cluster-1" in the current namespace and fixes issues
 kubectl fdb analyze --auto-fix sample-cluster-1
+
+# Analyze the cluster "sample-cluster-1" in the current namespace and ignore the IncorrectCommandLine and IncorrectPodSpec condition
+kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-condition=IncorrectPodSpec sample-cluster-1
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -152,6 +160,7 @@ kubectl fdb analyze --auto-fix sample-cluster-1
 	cmd.Flags().Bool("all-clusters", false, "defines all clusters in the given namespace should be analyzed.")
 	// We might want to move this into the root cmd if we need this in multiple places
 	cmd.Flags().Bool("no-color", false, "Disable color output.")
+	cmd.Flags().StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -171,7 +180,7 @@ func printStatement(cmd *cobra.Command, line string, err bool) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, useInstanceList bool) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, useInstanceList bool, ignoreConditions []string) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -229,6 +238,18 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		processGroupIssue = true
 		for _, condition := range processGroup.ProcessGroupConditions {
+			skip := false
+			for _, ignoreCondition := range ignoreConditions {
+				if condition.ProcessGroupConditionType == fdbtypes.ProcessGroupConditionType(ignoreCondition) {
+					skip = true
+					break
+				}
+			}
+
+			if skip {
+				continue
+			}
+
 			statement := fmt.Sprintf("ProcessGroup: %s has the following condition: %s since %s", processGroup.ProcessGroupID, condition.ProcessGroupConditionType, time.Unix(condition.Timestamp, 0).String())
 			printStatement(cmd, statement, true)
 		}
