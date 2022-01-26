@@ -2908,10 +2908,13 @@ type RoutingConfig struct {
 	// latest stable version of FoundationDB.
 	UseDNSInClusterFile *bool `json:"useDNSInClusterFile,omitempty"`
 
-	// DNSSuffix defines the cluster domain used in a DNS name generated for a
+	// DNSDomain defines the cluster domain used in a DNS name generated for a
 	// service.
 	// The default is `cluster.local`.
-	DNSDomain *string `json:"dnsSuffix,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern="..."
+	DNSDomain *string `json:"dnsDomain,omitempty"`
 }
 
 // RequiredAddressSet provides settings for which addresses we need to listen
@@ -3199,12 +3202,12 @@ func (cluster *FoundationDBCluster) NeedsHeadlessService() bool {
 }
 
 // UseDNSInClusterFile determines whether we need to use DNS entries in the
-// clsuter file for this cluster.
+// cluster file for this cluster.
 func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 	return pointer.BoolDeref(cluster.Spec.Routing.UseDNSInClusterFile, false)
 }
 
-// GetDNSDomain gets the suffix used when forming DNS names generated for a
+// GetDNSDomain gets the domain used when forming DNS names generated for a
 // service.
 func (cluster *FoundationDBCluster) GetDNSDomain() string {
 	return pointer.StringDeref(cluster.Spec.Routing.DNSDomain, "cluster.local")

@@ -7923,7 +7923,7 @@ spec:
                   type: object
                 routing:
                   properties:
-                    dnsSuffix:
+                    dnsDomain:
                       type: string
                     headlessService:
                       type: boolean
