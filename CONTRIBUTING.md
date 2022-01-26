@@ -34,7 +34,7 @@ At project launch, FoundationDB has a light governance structure. The intention 
 
 We draw inspiration from the Apache Software Foundation's informal motto: ["community over code"](https://blogs.apache.org/foundation/entry/asf_15_community_over_code), and their emphasis on meritocratic rules. You'll also observe that some initial community structure is [inspired by the Swift community](https://swift.org/community/#community-structure).
 
-The project technical lead is TODO (todo@apple.com).
+The project technical lead is Jingyu Zhou (jingyu_zhou@apple.com).
 
 Members of the Apple FoundationDB team are part of the initial core committers helping review individual contributions; you'll see them commenting on your pull requests. Future committers to the open source project, and the process for adding individuals in this role will be formalized in the future.
 
