@@ -74,9 +74,11 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						fdbtypes.FDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-						fdbtypes.FDBClusterLabel:      clusterName,
-						internal.OldFDBClusterLabel:   clusterName,
+						fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
+						fdbtypes.FDBClusterLabel:           clusterName,
+						internal.OldFDBClusterLabel:        clusterName,
+						fdbtypes.FDBProcessGroupIDLabel:    "instance-1",
+						internal.OldFDBProcessGroupIDLabel: "instance-1",
 					},
 					DeletionTimestamp: deletionTimestamp,
 				},
@@ -144,7 +146,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unavailable",
 				testCase{
-					cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -159,7 +163,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unhealthy",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -175,7 +181,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not fully replicated",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -190,7 +198,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not reconciled",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -251,7 +261,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is in Pending phase",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodPending,
 					}, nil),
@@ -266,7 +278,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in terminated state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -293,7 +307,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in ready state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
@@ -315,7 +331,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase:             corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{},
@@ -331,7 +349,9 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing Pods",
 				testCase{
-					cluster:        getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{ProcessGroupID: "instance-1"},
+					}),
 					podList:        &corev1.PodList{},
 					ExpectedErrMsg: "✖ Found no Pods for this cluster",
 					ExpectedStdouMsg: `Checking cluster: test/test
@@ -340,6 +360,21 @@ var _ = Describe("[plugin] analyze cluster", func() {
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
+			Entry("Missing entry in status",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: "✖ Pod test/instance-1 with the ID instance-1 is not part of the cluster spec status",
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition`,
 					AutoFix:   false,
 					HasErrors: true,
 				}),
