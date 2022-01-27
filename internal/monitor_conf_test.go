@@ -550,10 +550,6 @@ var _ = Describe("monitor_conf", func() {
 				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommand(cluster, "storage", podClient, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
@@ -574,7 +570,7 @@ var _ = Describe("monitor_conf", func() {
 			It("should substitute the variables in the start command", func() {
 				podClient, err := NewMockFdbPodClient(cluster, pod)
 				Expect(err).NotTo(HaveOccurred())
-				command, err = GetStartCommand(cluster, "storage", podClient, 1, 2)
+				command, err = GetStartCommand(cluster, processClass, podClient, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
 
 				id := "storage-1"

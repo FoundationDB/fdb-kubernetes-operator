@@ -1,4 +1,9 @@
-# This file provides a test cluster with TLS enabled.
+# This file provides a test cluster using DNS names instead of IP addresses in
+# its cluster file.
+#
+# This test requires FDB 7.0, which has not been released yet, so in order to
+# run this test case you must update the image configs to specify a prerelease
+# image tag.
 bases:
 - "../base"
 patchesJson6902:

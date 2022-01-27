@@ -30,6 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -3235,14 +3236,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		It("is required with the flag set to true", func() {
-			enabled := true
-			cluster.Spec.UseExplicitListenAddress = &enabled
+			cluster.Spec.UseExplicitListenAddress = pointer.Bool(true)
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeTrue())
 		})
 
 		It("is not required with the flag set to false", func() {
-			enabled := false
-			cluster.Spec.UseExplicitListenAddress = &enabled
+			cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
 			Expect(cluster.NeedsExplicitListenAddress()).To(BeFalse())
 		})
 	})
@@ -3605,19 +3604,16 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		When("checking whether we need a headless service", func() {
-			It("respects the value in the flag", func() {
+			It("respects the headless service setting", func() {
 				Expect(cluster.NeedsHeadlessService()).To(BeFalse())
 
-				var enable = true
-				cluster.Spec.Routing.HeadlessService = &enable
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
 				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 			})
 
 			It("can be overridden by the DNS setting", func() {
-				enableHeadless := false
-				enableDNS := true
-				cluster.Spec.Routing.HeadlessService = &enableHeadless
-				cluster.Spec.Routing.UseDNSInClusterFile = &enableDNS
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(false)
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
 				Expect(cluster.NeedsHeadlessService()).To(BeTrue())
 			})
 		})
@@ -3626,8 +3622,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			It("respects the value in the flag", func() {
 				Expect(cluster.UseDNSInClusterFile()).To(BeFalse())
 
-				enable := true
-				cluster.Spec.Routing.UseDNSInClusterFile = &enable
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
 				Expect(cluster.UseDNSInClusterFile()).To(BeTrue())
 			})
 		})
@@ -3637,7 +3632,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(cluster.GetDNSDomain()).To(Equal("cluster.local"))
 				suffix := "cluster.example"
 				cluster.Spec.Routing.DNSDomain = &suffix
-				Expect(cluster.GetDNSDomain()).To(Equal("cluster.example"))
+				Expect(cluster.GetDNSDomain()).To(Equal(suffix))
 			})
 		})
 	})

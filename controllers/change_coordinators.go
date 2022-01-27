@@ -187,10 +187,10 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 	return coordinators, nil
 }
 
-func getCoordinatorAddress(cluster *fdbtypes.FoundationDBCluster, info localityInfo) fdbtypes.ProcessAddress {
-	dnsName := info.LocalityData[fdbtypes.FDBLocalityDNSNameKey]
+func getCoordinatorAddress(cluster *fdbtypes.FoundationDBCluster, locality localityInfo) fdbtypes.ProcessAddress {
+	dnsName := locality.LocalityData[fdbtypes.FDBLocalityDNSNameKey]
 
-	address := info.Address
+	address := locality.Address
 
 	if cluster.UseDNSInClusterFile() && dnsName != "" {
 		return fdbtypes.ProcessAddress{

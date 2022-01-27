@@ -2913,7 +2913,6 @@ type RoutingConfig struct {
 	// The default is `cluster.local`.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern="..."
 	DNSDomain *string `json:"dnsDomain,omitempty"`
 }
 

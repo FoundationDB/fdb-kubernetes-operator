@@ -656,7 +656,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			coordinatorAddress = ipAddress.String()
 		}
 
-		dnsName := process.Locality["dns_name"]
+		dnsName := process.Locality[fdbtypes.FDBLocalityDNSNameKey]
 		dnsAddress := fdbtypes.ProcessAddress{
 			StringAddress: dnsName,
 			Port:          ipAddress.Port,
@@ -683,13 +683,13 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 			coordinatorDCs[process.Locality[fdbtypes.FDBLocalityDCIDKey]]++
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
-				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", ipAddress)
+				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", coordinatorAddress)
 				allEligible = false
 			}
 
 			useDNS := cluster.UseDNSInClusterFile() && dnsName != ""
 			if (isCoordinatorWithIP && useDNS) || (isCoordinatorWithDNS && !useDNS) {
-				pLogger.Info("Coordinator is not using the correct address", "coordinatorList", coordinatorStatus)
+				pLogger.Info("Coordinator is not using the correct address type", "coordinatorList", coordinatorStatus, "address", coordinatorAddress, "expectingDNS", useDNS, "usingDNS", isCoordinatorWithDNS)
 				allUsingCorrectAddress = false
 			}
 		}

@@ -3716,7 +3716,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
-			Context("when the pods have DNS named assigned", func() {
+			Context("when the pods have DNS names assigned", func() {
 				BeforeEach(func() {
 					pods := &corev1.PodList{}
 					err = k8sClient.List(context.TODO(), pods)

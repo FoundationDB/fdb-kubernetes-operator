@@ -238,12 +238,12 @@ func (client *cliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 		return nil, err
 	}
 	log.V(1).Info("Fetched status JSON", "contents", contents)
-	startIndex := strings.Index(contents, "{")
-	if startIndex == -1 {
-		return nil, fmt.Errorf("Could not parse status JSON output")
+	contents, err = removeWarningsInJSON(contents)
+	if err != nil {
+		return nil, err
 	}
 	status := &fdbtypes.FoundationDBStatus{}
-	err = json.Unmarshal([]byte(contents[startIndex:]), status)
+	err = json.Unmarshal([]byte(contents), status)
 	if err != nil {
 		return nil, err
 	}

@@ -7924,6 +7924,9 @@ spec:
                 routing:
                   properties:
                     dnsDomain:
+                      maxLength: 253
+                      minLength: 1
+                      pattern: '...'
                       type: string
                     headlessService:
                       type: boolean
