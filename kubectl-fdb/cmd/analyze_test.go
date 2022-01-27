@@ -398,6 +398,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
+⚠ ignored 1 conditions
 ✔ Pods are all running and available`,
 					AutoFix:           false,
 					HasErrors:         true,
@@ -419,5 +420,38 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			err := rootCmd.Execute()
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
+
+	When("testing if all conditions are valid", func() {
+		DescribeTable("return all successful and failed checks",
+			func(input []string, expected string) {
+				err := allConditionsValid(input)
+				var errString string
+				if err != nil {
+					errString = err.Error()
+				}
+				Expect(expected).To(Equal(errString))
+			},
+			Entry("empty condition list",
+				[]string{},
+				"",
+			),
+			Entry("valid condition",
+				[]string{string(fdbtypes.PodPending)},
+				"",
+			),
+			Entry("valid and invalid condition",
+				[]string{string(fdbtypes.PodPending), "apple pie"},
+				"unknown condition: apple pie\n",
+			),
+			Entry("invalid condition",
+				[]string{"apple pie"},
+				"unknown condition: apple pie\n",
+			),
+			Entry("multiple invalid conditions",
+				[]string{"apple pie", "banana pie"},
+				"unknown condition: apple pie\nunknown condition: banana pie\n",
+			),
+		)
 	})
 })
