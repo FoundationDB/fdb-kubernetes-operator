@@ -403,6 +403,10 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		cluster.Spec.ProcessGroupIDPrefix = cluster.Spec.InstanceIDPrefix
 	}
 
+	if cluster.Spec.AutomationOptions.DeletionMode == "" && !pointer.BoolDeref(cluster.Spec.AutomationOptions.DeletePods, true) {
+		cluster.Spec.AutomationOptions.DeletionMode = fdbtypes.PodUpdateModeNone
+	}
+
 	return nil
 }
 

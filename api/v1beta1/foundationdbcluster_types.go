@@ -1231,13 +1231,13 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:default:=Zone
 	RemovalMode PodUpdateMode `json:"removalMode,omitempty"`
 
-	// WaitTimeBetweenRemovals defines how long to wait between the last removal and the next removal. This is only an
-	// upper limit if the process group and the according resources are deleted faster then the provided duration the
+	// WaitDurationBetweenRemovals defines how long to wait between the last removal and the next removal. This is only an
+	// upper limit if the process group and the according resources are deleted faster than the provided duration the
 	// operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes
 	// a resource but the Kubernetes API is slower to trigger the actual deletion and we are running into a situation
 	// where the fault tolerance check still includes the already deleted processes.
 	// Defaults to 60s.
-	WaitTimeBetweenRemovals time.Duration `json:"waitTimeBetweenRemovals,omitempty"`
+	WaitDurationBetweenRemovals time.Duration `json:"waitDurationBetweenRemovals,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -3241,11 +3241,11 @@ func (cluster *FoundationDBCluster) GetRemovalMode() PodUpdateMode {
 	return cluster.Spec.AutomationOptions.DeletionMode
 }
 
-// GetWaitTimeBetweenRemovals returns the WaitTimeBetweenRemovals if set or defaults to 60s.
+// GetWaitTimeBetweenRemovals returns the WaitDurationBetweenRemovals if set or defaults to 60s.
 func (cluster *FoundationDBCluster) GetWaitTimeBetweenRemovals() time.Duration {
-	if cluster.Spec.AutomationOptions.WaitTimeBetweenRemovals <= 0 {
+	if cluster.Spec.AutomationOptions.WaitDurationBetweenRemovals <= 0 {
 		return 1 * time.Minute
 	}
 
-	return cluster.Spec.AutomationOptions.WaitTimeBetweenRemovals
+	return cluster.Spec.AutomationOptions.WaitDurationBetweenRemovals
 }

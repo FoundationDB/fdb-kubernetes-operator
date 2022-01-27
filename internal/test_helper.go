@@ -52,7 +52,7 @@ func CreateDefaultCluster() *fdbtypes.FoundationDBCluster {
 					Enabled:                     &trueValue,
 					FailureDetectionTimeSeconds: &failureDetectionWindow,
 				},
-				WaitTimeBetweenRemovals: 1 * time.Nanosecond,
+				WaitDurationBetweenRemovals: 1 * time.Nanosecond,
 			},
 			MinimumUptimeSecondsForBounce: 1,
 		},

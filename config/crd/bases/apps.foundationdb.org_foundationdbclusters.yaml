@@ -97,7 +97,7 @@ spec:
                       type: object
                     useNonBlockingExcludes:
                       type: boolean
-                    waitTimeBetweenRemovals:
+                    waitDurationBetweenRemovals:
                       format: int64
                       type: integer
                   type: object
