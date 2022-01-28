@@ -856,6 +856,80 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
+		When("enabling DNS in the cluster file", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
+			})
+
+			It("should set an additional environment variable on the init container", func() {
+				Expect(len(spec.InitContainers)).To(Equal(1))
+				initContainer := spec.InitContainers[0]
+				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+				Expect(initContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--substitute-variable",
+					"FDB_DNS_NAME",
+					"--init-mode",
+				}))
+				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+				}))
+			})
+
+			It("should set an additional environment variable on the sidecar container", func() {
+				sidecarContainer := spec.Containers[1]
+				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Args).To(Equal([]string{
+					"--copy-file",
+					"fdb.cluster",
+					"--input-monitor-conf",
+					"fdbmonitor.conf",
+					"--copy-binary",
+					"fdbserver",
+					"--copy-binary",
+					"fdbcli",
+					"--main-container-version",
+					"6.2.20",
+					"--substitute-variable",
+					"FDB_DNS_NAME",
+				}))
+				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
+					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+					}},
+					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					}},
+					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
+					{Name: "FDB_DNS_NAME", Value: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local"},
+					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
+				}))
+			})
+		})
+
 		When("having a predefined node affinity rules", func() {
 			BeforeEach(func() {
 				affinity := &corev1.Affinity{
@@ -3210,7 +3284,7 @@ var _ = Describe("pod_models", func() {
 
 			DescribeTable("should return the correct image",
 				func(input testCase, expected string) {
-					err = configureSidecarContainerForCluster(cluster, input.container, input.initMode, input.processGroupID, input.allowOverride)
+					err = configureSidecarContainerForCluster(cluster, "operator-test-storage-1", input.container, input.initMode, input.processGroupID, input.allowOverride)
 					if input.hasError {
 						Expect(err).To(HaveOccurred())
 					} else {
@@ -3338,6 +3412,13 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(storageServersPerPod).To(Equal(1))
 			})
+		})
+	})
+
+	Describe("GetPodDNSName", func() {
+		It("builds the DNS name based on the cluster spec", func() {
+			cluster.Spec.Routing.DNSDomain = pointer.String("cluster.example")
+			Expect(GetPodDNSName(cluster, "operator-test-storage-1")).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
 		})
 	})
 })

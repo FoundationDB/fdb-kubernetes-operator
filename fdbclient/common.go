@@ -117,6 +117,7 @@ func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.Foundatio
 	status := &fdbtypes.FoundationDBStatus{}
 	err = json.Unmarshal(statusBytes, &status)
 	if err == nil {
+		log.V(0).Info("Retrieved JSON status", "raw", string(statusBytes), "parsed", status)
 		log.Info("Successfully fetched status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	}
 

@@ -71,6 +71,8 @@ spec:
       containers:
       - command:
         - /manager
+        args:
+          - -zap-devel
         image: controller:latest
         imagePullPolicy: IfNotPresent
         name: manager

@@ -32,7 +32,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-var _ = Describe("pod_models", func() {
+var _ = Describe("monitor_conf", func() {
 	var cluster *fdbtypes.FoundationDBCluster
 	var fakeConnectionString string
 	var err error
@@ -573,15 +573,16 @@ var _ = Describe("pod_models", func() {
 				command, err = GetStartCommand(cluster, processClass, podClient, 1, 2)
 				Expect(err).NotTo(HaveOccurred())
 
+				id := "storage-1"
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data/1",
-					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
-					fmt.Sprintf("--locality_process_id=%s-1", processGroupID),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_instance_id=%s", id),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s-1", id),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
 					fmt.Sprintf("--public_address=%s:4501", address),
@@ -595,10 +596,10 @@ var _ = Describe("pod_models", func() {
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data/2",
-					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
-					fmt.Sprintf("--locality_process_id=%s-2", processGroupID),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_instance_id=%s", id),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_process_id=%s-2", id),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
 					fmt.Sprintf("--public_address=%s:4503", address),
@@ -613,7 +614,7 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
 
 				podClient, _ := NewMockFdbPodClient(cluster, pod)
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = GetStartCommand(cluster, fdbtypes.ProcessClassStorage, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -644,7 +645,7 @@ var _ = Describe("pod_models", func() {
 				}
 
 				podClient, _ := NewMockFdbPodClient(cluster, pod)
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = GetStartCommand(cluster, fdbtypes.ProcessClassStorage, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -671,19 +672,20 @@ var _ = Describe("pod_models", func() {
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
 				podClient, _ := NewMockFdbPodClient(cluster, pod)
 
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = GetStartCommand(cluster, fdbtypes.ProcessClassStorage, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("includes the binary path in the start command", func() {
+				id := pod.Labels[fdbtypes.FDBProcessGroupIDLabel]
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data",
-					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_instance_id=%s", id),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
 					fmt.Sprintf("--public_address=%s:4501", address),
@@ -697,24 +699,560 @@ var _ = Describe("pod_models", func() {
 				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
 				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
 				podClient, _ := NewMockFdbPodClient(cluster, pod)
-				command, err = GetStartCommand(cluster, processClass, podClient, 1, 1)
+				command, err = GetStartCommand(cluster, fdbtypes.ProcessClassStorage, podClient, 1, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("includes the binary path in the start command", func() {
+				id := pod.Labels[fdbtypes.FDBProcessGroupIDLabel]
 				Expect(command).To(Equal(strings.Join([]string{
 					"/var/dynamic-conf/bin/6.2.11/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data",
-					fmt.Sprintf("--locality_instance_id=%s", processGroupID),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, processGroupID),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, processGroupID),
+					fmt.Sprintf("--locality_instance_id=%s", id),
+					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
+					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
 					"--logdir=/var/log/fdb-trace-logs",
 					"--loggroup=" + cluster.Name,
 					fmt.Sprintf("--public_address=%s:4501", address),
 					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
 				}, " ")))
+			})
+		})
+	})
+
+	Describe("GetMonitorConf", func() {
+		var conf string
+		var err error
+
+		BeforeEach(func() {
+			cluster.Status.ConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
+		})
+
+		Context("with a basic storage instance", func() {
+			BeforeEach(func() {
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the storage conf", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with DNS names enabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the storage conf", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dns_name = $FDB_DNS_NAME",
+				}, "\n")))
+			})
+		})
+
+		Context("with a basic storage instance with multiple storage servers per Pod", func() {
+			BeforeEach(func() {
+				cluster.Spec.StorageServersPerPod = 2
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the storage conf with two processes", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data/1",
+					"locality_process_id = $FDB_INSTANCE_ID-1",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"[fdbserver.2]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4503",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data/2",
+					"locality_process_id = $FDB_INSTANCE_ID-2",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with the public IP from the pod", func() {
+			BeforeEach(func() {
+				source := fdbtypes.PublicIPSourcePod
+				cluster.Spec.Routing.PublicIPSource = &source
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the storage conf", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with the public IP from the service", func() {
+			BeforeEach(func() {
+				source := fdbtypes.PublicIPSourceService
+				cluster.Spec.Routing.PublicIPSource = &source
+				cluster.Status.HasListenIPsForAllPods = true
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should generate the storage conf", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"listen_address = $FDB_POD_IP:4501",
+				}, "\n")))
+			})
+
+			Context("with pods without the listen IP environment variable", func() {
+				BeforeEach(func() {
+					cluster.Status.HasListenIPsForAllPods = false
+					conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should generate the storage conf", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"datadir = /var/fdb/data",
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+					}, "\n")))
+				})
+			})
+		})
+
+		Context("with TLS enabled", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.EnableTLS = true
+				cluster.Status.RequiredAddresses.NonTLS = false
+				cluster.Status.RequiredAddresses.TLS = true
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the TLS flag in the address", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4500:tls",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with a transition to TLS", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.EnableTLS = true
+				cluster.Status.RequiredAddresses.NonTLS = true
+				cluster.Status.RequiredAddresses.TLS = true
+
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include both addresses", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with a transition to non-TLS", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.EnableTLS = false
+				cluster.Status.RequiredAddresses.NonTLS = true
+				cluster.Status.RequiredAddresses.TLS = true
+
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include both addresses", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4500:tls,$FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with custom parameters", func() {
+			Context("with general parameters", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+						"knob_disable_posix_kernel_aio = 1",
+					}}}
+					conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should include the custom parameters", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"datadir = /var/fdb/data",
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+						"knob_disable_posix_kernel_aio = 1",
+					}, "\n")))
+				})
+			})
+
+			Context("with process-class parameters", func() {
+				BeforeEach(func() {
+					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+						fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+							"knob_disable_posix_kernel_aio = 1",
+						}},
+						fdbtypes.ProcessClassStorage: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+							"knob_test = test1",
+						}},
+						fdbtypes.ProcessClassStateless: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+							"knob_test = test2",
+						}},
+					}
+					conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should include the custom parameters", func() {
+					Expect(conf).To(Equal(strings.Join([]string{
+						"[general]",
+						"kill_on_configuration_change = false",
+						"restart_delay = 60",
+						"[fdbserver.1]",
+						"command = $BINARY_DIR/fdbserver",
+						"cluster_file = /var/fdb/data/fdb.cluster",
+						"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+						"public_address = $FDB_PUBLIC_IP:4501",
+						"class = storage",
+						"logdir = /var/log/fdb-trace-logs",
+						"loggroup = " + cluster.Name,
+						"datadir = /var/fdb/data",
+						"locality_instance_id = $FDB_INSTANCE_ID",
+						"locality_machineid = $FDB_MACHINE_ID",
+						"locality_zoneid = $FDB_ZONE_ID",
+						"knob_test = test1",
+					}, "\n")))
+				})
+			})
+		})
+
+		Context("with an alternative fault domain variable", func() {
+			BeforeEach(func() {
+				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+					Key:       "rack",
+					ValueFrom: "$RACK",
+				}
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the variable as the zone ID", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $RACK",
+				}, "\n")))
+			})
+		})
+
+		Context("with a version that can use binaries from the main container", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+
+			})
+
+			It("should use the binaries from the BINARY_DIR", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with a version with binaries from the sidecar container", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should use the binaries from the dynamic conf", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = /var/dynamic-conf/bin/6.2.11/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with peer verification rules", func() {
+			BeforeEach(func() {
+				cluster.Spec.MainContainer.PeerVerificationRules = "S.CN=foundationdb.org"
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the verification rules", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"tls_verify_peers = S.CN=foundationdb.org",
+				}, "\n")))
+			})
+		})
+
+		Context("with a custom log group", func() {
+			BeforeEach(func() {
+				cluster.Spec.LogGroup = "test-fdb-cluster"
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the log group", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = test-fdb-cluster",
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+				}, "\n")))
+			})
+		})
+
+		Context("with a data center", func() {
+			BeforeEach(func() {
+				cluster.Spec.DataCenter = "dc01"
+				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should include the log group", func() {
+				Expect(conf).To(Equal(strings.Join([]string{
+					"[general]",
+					"kill_on_configuration_change = false",
+					"restart_delay = 60",
+					"[fdbserver.1]",
+					"command = $BINARY_DIR/fdbserver",
+					"cluster_file = /var/fdb/data/fdb.cluster",
+					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
+					"public_address = $FDB_PUBLIC_IP:4501",
+					"class = storage",
+					"logdir = /var/log/fdb-trace-logs",
+					"loggroup = " + cluster.Name,
+					"datadir = /var/fdb/data",
+					"locality_instance_id = $FDB_INSTANCE_ID",
+					"locality_machineid = $FDB_MACHINE_ID",
+					"locality_zoneid = $FDB_ZONE_ID",
+					"locality_dcid = dc01",
+				}, "\n")))
 			})
 		})
 	})

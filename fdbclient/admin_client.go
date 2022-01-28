@@ -75,6 +75,10 @@ type cliAdminClient struct {
 
 	// custom parameters that should be set.
 	knobs []string
+
+	// Whether the admin client should be able to run operations through the
+	// client library rather than the CLI.
+	useClientLibrary bool
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -95,7 +99,7 @@ func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath}, nil
+	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -169,22 +173,28 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		args = append(args, client.knobs...)
 	}
 
-	if binaryName == fdbcliStr {
-		format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
-		if format == "" {
-			format = "xml"
-		}
+	traceDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
+	if traceDir != "" {
+		args = append(args, "--log")
 
-		args = append(args, "--trace_format", format)
+		if binaryName == fdbcliStr {
+			format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
+			if format == "" {
+				format = "xml"
+			}
+
+			args = append(args, "--trace_format", format)
+		}
+		if command.hasDashInLogDir() {
+			args = append(args, "--log-dir", traceDir)
+		} else {
+			args = append(args, "--logdir", traceDir)
+		}
 	}
+
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
 		hardTimeout += DefaultCLITimeout
-	}
-	if command.hasDashInLogDir() {
-		args = append(args, "--log-dir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
-	} else {
-		args = append(args, "--logdir", os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE"))
 	}
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Second*time.Duration(hardTimeout))
 	defer cancelFunction()
@@ -217,9 +227,27 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 func (client *cliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
-	// This will call directly the database and fetch the status information
-	// from the system key space.
-	return getStatusFromDB(client.Cluster)
+
+	if client.useClientLibrary {
+		// This will call directly the database and fetch the status information
+		// from the system key space.
+		return getStatusFromDB(client.Cluster)
+	}
+	contents, err := client.runCommand(cliCommand{command: "status json"})
+	if err != nil {
+		return nil, err
+	}
+	log.V(1).Info("Fetched status JSON", "contents", contents)
+	contents, err = removeWarningsInJSON(contents)
+	if err != nil {
+		return nil, err
+	}
+	status := &fdbtypes.FoundationDBStatus{}
+	err = json.Unmarshal([]byte(contents), status)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
 }
 
 // ConfigureDatabase sets the database configuration
@@ -601,7 +629,7 @@ func removeWarningsInJSON(jsonString string) (string, error) {
 
 // GetCoordinatorSet gets the current coordinators from the status
 func (client *cliAdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
-	status, err := getStatusFromDB(client.Cluster)
+	status, err := client.GetStatus()
 	if err != nil {
 		return nil, err
 	}

@@ -314,12 +314,12 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			sidecarContainer.SecurityContext.ReadOnlyRootFilesystem = &readOnlyRootFilesystem
 		}
 	} else {
-		err = configureSidecarContainerForCluster(cluster, initContainer, true, processGroupID, processSettings.GetAllowTagOverride())
+		err = configureSidecarContainerForCluster(cluster, podName, initContainer, true, processGroupID, processSettings.GetAllowTagOverride())
 		if err != nil {
 			return nil, err
 		}
 
-		err = configureSidecarContainerForCluster(cluster, sidecarContainer, false, processGroupID, processSettings.GetAllowTagOverride())
+		err = configureSidecarContainerForCluster(cluster, podName, sidecarContainer, false, processGroupID, processSettings.GetAllowTagOverride())
 		if err != nil {
 			return nil, err
 		}
@@ -466,24 +466,24 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
-func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, container *corev1.Container, initMode bool, processGroupID string, allowOverride bool) error {
+func configureSidecarContainerForCluster(cluster *fdbtypes.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string, allowOverride bool) error {
 	versionString := cluster.Status.RunningVersion
 	if versionString == "" {
 		versionString = cluster.Spec.Version
 	}
 
-	return configureSidecarContainer(container, initMode, processGroupID, versionString, cluster, allowOverride)
+	return configureSidecarContainer(container, initMode, processGroupID, podName, versionString, cluster, allowOverride)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", backup.Spec.Version, nil, backup.Spec.GetAllowTagOverride())
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.GetAllowTagOverride())
 }
 
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster, allowOverride bool) error {
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster, allowOverride bool) error {
 	version, err := fdbtypes.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
@@ -553,6 +553,11 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		}
 
 		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+
+		if cluster.UseDNSInClusterFile() {
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_DNS_NAME")
+			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)})
+		}
 
 		if !initMode && *cluster.Spec.SidecarContainer.EnableLivenessProbe && container.LivenessProbe == nil {
 			// We can't use a HTTP handler here since the server
@@ -1006,4 +1011,9 @@ func GetObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.Objec
 	}
 
 	return *metadata
+}
+
+// GetPodDNSName determines the fully qualified DNS name for a pod.
+func GetPodDNSName(cluster *fdbtypes.FoundationDBCluster, podName string) string {
+	return fmt.Sprintf("%s.%s.%s.svc.%s", podName, cluster.Name, cluster.Namespace, cluster.GetDNSDomain())
 }

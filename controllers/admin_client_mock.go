@@ -192,6 +192,14 @@ func (client *mockAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error)
 				locality[key] = value
 			}
 
+			for _, container := range pod.Spec.Containers {
+				for _, envVar := range container.Env {
+					if envVar.Name == "FDB_DNS_NAME" {
+						locality[fdbtypes.FDBLocalityDNSNameKey] = envVar.Value
+					}
+				}
+			}
+
 			if processCount > 1 {
 				locality["process_id"] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
 			}
@@ -421,10 +429,9 @@ func (client *mockAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error
 	pAddrs := make([]fdbtypes.ProcessAddress, len(client.ExcludedAddresses))
 	for _, addr := range client.ExcludedAddresses {
 		pAddrs = append(pAddrs, fdbtypes.ProcessAddress{
-			IPAddress:   net.ParseIP(addr),
-			Placeholder: "",
-			Port:        0,
-			Flags:       nil,
+			IPAddress: net.ParseIP(addr),
+			Port:      0,
+			Flags:     nil,
 		})
 	}
 

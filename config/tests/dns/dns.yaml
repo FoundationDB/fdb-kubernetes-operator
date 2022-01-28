@@ -1,0 +1,8 @@
+- op: add
+  path: "/spec/version"
+  value: 7.1.0
+- op: add
+  path: "/spec/routing/useDNSInClusterFile"
+  value: true
+- op: remove
+  path: "/spec/routing/headlessService"

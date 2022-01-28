@@ -1,0 +1,90 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-cluster-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-cluster-client
+  template:
+    metadata:
+      labels:
+        app: test-cluster-client
+      name: test-cluster-client
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: foundationdb-kubernetes-init-6-3
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.10-1
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--copy-file"
+            - "fdb.cluster"
+            - "--copy-library"
+            - "6.3"
+            - "--copy-library"
+            - "6.2"
+            - "--copy-library"
+            - "6.1"
+            - "--init-mode"
+            - "--require-not-empty"
+            - "fdb.cluster"
+          volumeMounts:
+            - name: config-map
+              mountPath: /var/input-files
+            - name: dynamic-conf
+              mountPath: /var/output-files
+      containers:
+        - name: client
+          image: foundationdb/foundationdb-sample-go-app:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /go/bin/fdb-demo-golang
+          env:
+            - name: FDB_CLUSTER_FILE
+              value: /var/dynamic-conf/fdb.cluster
+            - name: FDB_API_VERSION
+              value: "610"
+            - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
+              value: test-cluster-client
+            - name: FDB_NETWORK_OPTION_TRACE_ENABLE
+              value: /var/log/fdb
+            - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
+              value: /var/dynamic-conf/lib/multiversion
+            - name: LD_LIBRARY_PATH
+              value: /var/dynamic-conf/lib
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 250m
+              memory: 128Mi
+          volumeMounts:
+            - name: dynamic-conf
+              mountPath: /var/dynamic-conf
+      volumes:
+        - name: config-map
+          configMap:
+            name: test-cluster-config
+            items:
+              - key: cluster-file
+                path: fdb.cluster
+        - name: dynamic-conf
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-cluster-client
+  labels:
+    app: test-cluster-client
+spec:
+  selector:
+    app: test-cluster-client
+  type: LoadBalancer
+  ports:
+    - port: 9562
+      targetPort: 8080

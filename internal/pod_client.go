@@ -439,6 +439,10 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		}
 	}
 
+	if client.Cluster.UseDNSInClusterFile() {
+		substitutions["FDB_DNS_NAME"] = GetPodDNSName(client.Cluster, client.Pod.Name)
+	}
+
 	return substitutions, nil
 }
 

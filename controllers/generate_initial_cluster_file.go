@@ -98,7 +98,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	}
 
 	for _, locality := range coordinators {
-		connectionString.Coordinators = append(connectionString.Coordinators, locality.Address.String())
+		connectionString.Coordinators = append(connectionString.Coordinators, getCoordinatorAddress(cluster, locality).String())
 	}
 
 	cluster.Status.ConnectionString = connectionString.String()

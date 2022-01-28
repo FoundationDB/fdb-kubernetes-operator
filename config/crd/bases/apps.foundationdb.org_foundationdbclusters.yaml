@@ -7923,12 +7923,18 @@ spec:
                   type: object
                 routing:
                   properties:
+                    dnsDomain:
+                      maxLength: 253
+                      minLength: 1
+                      type: string
                     headlessService:
                       type: boolean
                     podIPFamily:
                       type: integer
                     publicIPSource:
                       type: string
+                    useDNSInClusterFile:
+                      type: boolean
                   type: object
                 runningVersion:
                   type: string
