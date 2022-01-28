@@ -70,6 +70,16 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
+			ignoreConditions, err := cmd.Flags().GetStringArray("ignore-condition")
+			if err != nil {
+				return err
+			}
+
+			err = allConditionsValid(ignoreConditions)
+			if err != nil {
+				return err
+			}
+
 			if flagNoColor {
 				color.NoColor = true
 			}
@@ -114,7 +124,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, useInstanceList)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, useInstanceList, ignoreConditions)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -142,6 +152,9 @@ kubectl fdb -n test-namespace analyze sample-cluster-1
 
 # Analyze the cluster "sample-cluster-1" in the current namespace and fixes issues
 kubectl fdb analyze --auto-fix sample-cluster-1
+
+# Analyze the cluster "sample-cluster-1" in the current namespace and ignore the IncorrectCommandLine and IncorrectPodSpec condition
+kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-condition=IncorrectPodSpec sample-cluster-1
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -152,16 +165,56 @@ kubectl fdb analyze --auto-fix sample-cluster-1
 	cmd.Flags().Bool("all-clusters", false, "defines all clusters in the given namespace should be analyzed.")
 	// We might want to move this into the root cmd if we need this in multiple places
 	cmd.Flags().Bool("no-color", false, "Disable color output.")
+	cmd.Flags().StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-func printStatement(cmd *cobra.Command, line string, err bool) {
-	if err {
+func allConditionsValid(conditions []string) error {
+	conditionMap := map[string]fdbtypes.None{}
+
+	for _, condition := range fdbtypes.AllProcessGroupConditionTypes() {
+		conditionMap[string(condition)] = fdbtypes.None{}
+	}
+
+	var errString strings.Builder
+
+	for _, condition := range conditions {
+		if _, ok := conditionMap[condition]; !ok {
+			errString.WriteString("unknown condition: ")
+			errString.WriteString(condition)
+			errString.WriteString("\n")
+		}
+	}
+
+	if errString.Len() == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(errString.String())
+}
+
+type messageType string
+
+const (
+	errorMessage messageType = "error"
+	warnMessage  messageType = "warn"
+	goodMessage  messageType = "good"
+)
+
+func printStatement(cmd *cobra.Command, line string, mesType messageType) {
+	if mesType == errorMessage {
 		color.Set(color.FgRed)
 		cmd.PrintErrf("✖ %s\n", line)
+		color.Unset()
+		return
+	}
+
+	if mesType == warnMessage {
+		color.Set(color.FgYellow)
+		cmd.Printf("⚠ %s\n", line)
 		color.Unset()
 		return
 	}
@@ -171,7 +224,7 @@ func printStatement(cmd *cobra.Command, line string, err bool) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, useInstanceList bool) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, useInstanceList bool, ignoreConditions []string) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -186,25 +239,25 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 	// 1. Check if the cluster is available
 	if cluster.Status.Health.Available {
-		printStatement(cmd, "Cluster is available", false)
+		printStatement(cmd, "Cluster is available", goodMessage)
 	} else {
 		foundIssues = true
-		printStatement(cmd, "Cluster is not available", true)
+		printStatement(cmd, "Cluster is not available", errorMessage)
 	}
 
 	if cluster.Status.Health.FullReplication {
-		printStatement(cmd, "Cluster is fully replicated", false)
+		printStatement(cmd, "Cluster is fully replicated", goodMessage)
 	} else {
 		foundIssues = true
-		printStatement(cmd, "Cluster is not fully replicated", true)
+		printStatement(cmd, "Cluster is not fully replicated", errorMessage)
 	}
 
 	// 2. Check if reconciled
 	if cluster.Status.Generations.Reconciled == cluster.ObjectMeta.Generation {
-		printStatement(cmd, "Cluster is reconciled", false)
+		printStatement(cmd, "Cluster is reconciled", goodMessage)
 	} else {
 		foundIssues = true
-		printStatement(cmd, "Cluster is not reconciled", true)
+		printStatement(cmd, "Cluster is not reconciled", errorMessage)
 	}
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
@@ -212,6 +265,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	processGroupMap := map[string]fdbtypes.None{}
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
+	var ignoredConditions int
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroupMap[processGroup.ProcessGroupID] = fdbtypes.None{}
 
@@ -223,14 +277,27 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		// or should we check for how long they are marked as removed e.g. stuck in removal?
 		if processGroup.IsMarkedForRemoval() {
 			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
-			printStatement(cmd, statement, true)
+			printStatement(cmd, statement, errorMessage)
 			continue
 		}
 
 		processGroupIssue = true
 		for _, condition := range processGroup.ProcessGroupConditions {
+			skip := false
+			for _, ignoreCondition := range ignoreConditions {
+				if condition.ProcessGroupConditionType == fdbtypes.ProcessGroupConditionType(ignoreCondition) {
+					skip = true
+					ignoredConditions++
+					break
+				}
+			}
+
+			if skip {
+				continue
+			}
+
 			statement := fmt.Sprintf("ProcessGroup: %s has the following condition: %s since %s", processGroup.ProcessGroupID, condition.ProcessGroupConditionType, time.Unix(condition.Timestamp, 0).String())
-			printStatement(cmd, statement, true)
+			printStatement(cmd, statement, errorMessage)
 		}
 
 		needsReplacement, _ := processGroup.NeedsReplacement(0)
@@ -239,8 +306,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		}
 	}
 
+	if ignoredConditions > 0 {
+		printStatement(cmd, fmt.Sprintf("ignored %d conditions", ignoredConditions), warnMessage)
+	}
+
 	if !processGroupIssue {
-		printStatement(cmd, "ProcessGroups are all in ready condition", false)
+		printStatement(cmd, "ProcessGroups are all in ready condition", goodMessage)
 	} else {
 		foundIssues = true
 	}
@@ -255,7 +326,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	var killPods []corev1.Pod
 	if len(pods.Items) == 0 {
 		foundIssues = true
-		printStatement(cmd, "Found no Pods for this cluster", true)
+		printStatement(cmd, "Found no Pods for this cluster", errorMessage)
 	}
 
 	processGroupIDLabel := cluster.GetProcessGroupIDLabel()
@@ -263,7 +334,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		if pod.Status.Phase != corev1.PodRunning {
 			podIssue = true
 			statement := fmt.Sprintf("Pod %s/%s has unexpected Phase %s with Reason: %s", namespace, pod.Name, pod.Status.Phase, pod.Status.Reason)
-			printStatement(cmd, statement, true)
+			printStatement(cmd, statement, errorMessage)
 		}
 
 		deletePod := false
@@ -274,7 +345,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 			podIssue = true
 			statement := fmt.Sprintf("Pod %s/%s has an unready container: %s", namespace, pod.Name, container.Name)
-			printStatement(cmd, statement, true)
+			printStatement(cmd, statement, errorMessage)
 
 			// Replace the Pod if the container is unready for more then 30 minutes
 			if container.State.Terminated != nil && container.State.Terminated.ExitCode != 0 && container.State.Terminated.FinishedAt.Add(30*time.Minute).Before(time.Now()) {
@@ -289,9 +360,9 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
 			podIssue = true
 			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", namespace, pod.Name, pod.DeletionTimestamp)
-			printStatement(cmd, statement, true)
+			printStatement(cmd, statement, errorMessage)
 
-			// The process groups that should be delete so we can safely replace it
+			// The process groups that should be deleted, so we can safely replace it
 			if autoFix {
 				failedProcessGroups = append(failedProcessGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
 			}
@@ -301,12 +372,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		if _, ok := processGroupMap[id]; !ok {
 			podIssue = true
 			statement := fmt.Sprintf("Pod %s/%s with the ID %s is not part of the cluster spec status", namespace, pod.Name, id)
-			printStatement(cmd, statement, true)
+			printStatement(cmd, statement, errorMessage)
 		}
 	}
 
 	if !podIssue {
-		printStatement(cmd, "Pods are all running and available", false)
+		printStatement(cmd, "Pods are all running and available", goodMessage)
 	} else {
 		foundIssues = true
 	}

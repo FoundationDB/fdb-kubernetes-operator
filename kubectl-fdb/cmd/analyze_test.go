@@ -95,13 +95,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 
 	When("analyzing the cluster", func() {
 		type testCase struct {
-			cluster          *fdbtypes.FoundationDBCluster
-			podList          *corev1.PodList
-			ExpectedErrMsg   string
-			ExpectedStdouMsg string
-			AutoFix          bool
-			Force            bool
-			HasErrors        bool
+			cluster           *fdbtypes.FoundationDBCluster
+			podList           *corev1.PodList
+			ExpectedErrMsg    string
+			ExpectedStdouMsg  string
+			AutoFix           bool
+			Force             bool
+			HasErrors         bool
+			IgnoredConditions []string
 		}
 
 		DescribeTable("return all successful and failed checks",
@@ -117,7 +118,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force, true)
+				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force, true, tc.IgnoredConditions)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())
@@ -378,6 +379,31 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					AutoFix:   false,
 					HasErrors: true,
 				}),
+			Entry("ProcessGroup has a two conditions and we ignore one.",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+						{
+							ProcessGroupID: "instance-1",
+							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+								fdbtypes.NewProcessGroupCondition(fdbtypes.IncorrectPodSpec),
+							},
+						},
+					}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					}, nil),
+					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+⚠ ignored 1 conditions
+✔ Pods are all running and available`,
+					AutoFix:           false,
+					HasErrors:         true,
+					IgnoredConditions: []string{string(fdbtypes.IncorrectPodSpec)},
+				}),
 			// TODO: test cases for auto-fix
 		)
 	})
@@ -394,5 +420,38 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			err := rootCmd.Execute()
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
+
+	When("testing if all conditions are valid", func() {
+		DescribeTable("return all successful and failed checks",
+			func(input []string, expected string) {
+				err := allConditionsValid(input)
+				var errString string
+				if err != nil {
+					errString = err.Error()
+				}
+				Expect(expected).To(Equal(errString))
+			},
+			Entry("empty condition list",
+				[]string{},
+				"",
+			),
+			Entry("valid condition",
+				[]string{string(fdbtypes.PodPending)},
+				"",
+			),
+			Entry("valid and invalid condition",
+				[]string{string(fdbtypes.PodPending), "apple pie"},
+				"unknown condition: apple pie\n",
+			),
+			Entry("invalid condition",
+				[]string{"apple pie"},
+				"unknown condition: apple pie\n",
+			),
+			Entry("multiple invalid conditions",
+				[]string{"apple pie", "banana pie"},
+				"unknown condition: apple pie\nunknown condition: banana pie\n",
+			),
+		)
 	})
 })
