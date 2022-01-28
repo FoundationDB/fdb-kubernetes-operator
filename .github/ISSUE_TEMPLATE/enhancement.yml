@@ -1,0 +1,14 @@
+name: Enhancement Tracking Issue
+description: Provide supporting details for a feature in development
+labels: enhancement
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: What would you like to be added/changed?
+      description: |
+        Check if the requested feature has already a design document in https://github.com/FoundationDB/fdb-kubernetes-operator/tree/main/docs/design.
+        For larger changes consider to create and file a PR with design document and the details about the changes.
+        Please also add some additional context and let us know why this feature is required and should be implemented.
+    validations:
+      required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support Request
+    url: https://forums.foundationdb.org/c/using-foundationdb/kubernetes-operator
+    about: Support request or question relating to FDB Kubernetes operator
+  - name: Security Report
+    url: https://github.com/FoundationDB/fdb-kubernetes-operator/blob/main/CONTRIBUTING.md#security-issues
+    about: Reports about security issues for the FDB Kubernetes operator.
