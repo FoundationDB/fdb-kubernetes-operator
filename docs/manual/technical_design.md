@@ -179,7 +179,10 @@ The `GenerateInitialClusterFile` creates the cluster file for the cluster. If th
 
 ### UpdateSidecarVersions
 
-The `UpdateSidecarVersions` subreconciler updates the image for the `foundationdb-kubernetes-sidecar` container in each pod to match the `version` in the cluster spec. Once the sidecar container is upgraded to a version that is different from the main container version, it will copy the `fdbserver` binary from its own image the volume it shares with the main container, and will rewrite the monitor conf file to direct `fdbmonitor` to start an `fdbserver` process using the binary in that shared volume rather than the binary from the image used to start the main container. This is done temporarily in order to enable a simultaneous cluster-wide upgrade of the `fdbserver` processes. Once that upgrade is complete, we will update the image of the main container through a rolling bounce, and the newly updated main container will use the binary that is provided by its own image.
+The `UpdateSidecarVersions` subreconciler updates the image for the `foundationdb-kubernetes-sidecar` container in each pod to match the `version` in the cluster spec.
+Once the sidecar container is upgraded to a version that is different from the main container version, it will copy the `fdbserver` binary from its own image to the volume it shares with the main container, and will rewrite the monitor conf file to direct `fdbmonitor` to start an `fdbserver` process using the binary in that shared volume rather than the binary from the image used to start the main container.
+This is done temporarily in order to enable a simultaneous cluster-wide upgrade of the `fdbserver` processes.
+Once that upgrade is complete, we will update the image of the main container through a rolling bounce, and the newly updated main container will use the binary that is provided by its own image.
 
 ### UpdatePodConfig
 

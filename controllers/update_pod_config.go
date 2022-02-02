@@ -33,7 +33,7 @@ import (
 )
 
 // updatePodConfig provides a reconciliation step for updating the dynamic conf
-// for a all pods.
+// for all Pods.
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
