@@ -132,25 +132,19 @@ func (version FdbVersion) SupportsUsingBinariesFromMainContainer() bool {
 // HasRatekeeperRole determines if a version has a dedicated role for
 // ratekeeper.
 func (version FdbVersion) HasRatekeeperRole() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
+	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
 // HasMaxProtocolClientsInStatus determines if a version has the
 // max_protocol_clients field in the cluster status.
 func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
+	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
 // HasSidecarCrashOnEmpty determines if a version has the flag to have the
 // sidecar crash on a file being empty.
 func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
 	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 20})
-}
-
-// HasZoneFaultToleranceInStatus determines if a version has maxZoneFailuresWithoutLosingData
-// and maxZoneFailuresWithoutLosingAvailability in the status.
-func (version FdbVersion) HasZoneFaultToleranceInStatus() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 0})
 }
 
 // HasNonBlockingExcludes determines if a version has support for non-blocking
@@ -193,7 +187,7 @@ var Versions = struct {
 	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
 	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
 	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
-	WithRatekeeperRole, WithoutRatekeeperRole,
+	WithRatekeeperRole,
 	WithSidecarCrashOnEmpty, WithoutSidecarCrashOnEmpty,
 	MinimumVersion,
 	Default FdbVersion
@@ -208,8 +202,7 @@ var Versions = struct {
 	WithBinariesFromMainContainer:        FdbVersion{Major: 6, Minor: 2, Patch: 15},
 	WithoutBinariesFromMainContainer:     FdbVersion{Major: 6, Minor: 2, Patch: 11},
 	WithRatekeeperRole:                   FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutRatekeeperRole:                FdbVersion{Major: 6, Minor: 1, Patch: 12},
 	WithSidecarCrashOnEmpty:              FdbVersion{Major: 6, Minor: 2, Patch: 20},
 	WithoutSidecarCrashOnEmpty:           FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	MinimumVersion:                       FdbVersion{Major: 6, Minor: 1, Patch: 12},
+	MinimumVersion:                       FdbVersion{Major: 6, Minor: 2, Patch: 0},
 }
