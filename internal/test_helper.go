@@ -21,11 +21,10 @@
 package internal
 
 import (
-	"time"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 // CreateDefaultCluster creates a default FoundationDBCluster for testing
@@ -52,7 +51,7 @@ func CreateDefaultCluster() *fdbtypes.FoundationDBCluster {
 					Enabled:                     &trueValue,
 					FailureDetectionTimeSeconds: &failureDetectionWindow,
 				},
-				WaitDurationBetweenRemovals: 1 * time.Nanosecond,
+				WaitBetweenRemovalsSeconds: pointer.Int(0),
 			},
 			MinimumUptimeSecondsForBounce: 1,
 		},

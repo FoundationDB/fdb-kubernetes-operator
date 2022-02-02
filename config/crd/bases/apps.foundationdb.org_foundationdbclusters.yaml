@@ -97,8 +97,7 @@ spec:
                       type: object
                     useNonBlockingExcludes:
                       type: boolean
-                    waitDurationBetweenRemovals:
-                      format: int64
+                    waitBetweenRemovalsSeconds:
                       type: integer
                   type: object
                 automountServiceAccountToken:

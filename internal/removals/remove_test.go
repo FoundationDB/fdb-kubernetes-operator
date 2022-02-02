@@ -22,7 +22,6 @@ package removals
 
 import (
 	"fmt"
-	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -158,7 +157,7 @@ var _ = Describe("remove", func() {
 				zones,
 				0,
 				nil),
-			Entry("With the deletion mode All",
+			Entry("With an invalid deletion mode",
 				fdbtypes.PodUpdateMode("banana"),
 				zones,
 				0,
@@ -168,7 +167,7 @@ var _ = Describe("remove", func() {
 
 	When("checking if a removal is allowed", func() {
 		DescribeTable("should return if a removal is allowed and the wait time",
-			func(lastDeletion int64, currentTimestamp int64, waitBetween time.Duration, expectedRes bool, expectedWaitTime int64) {
+			func(lastDeletion int64, currentTimestamp int64, waitBetween int, expectedRes bool, expectedWaitTime int64) {
 				waitTime, ok := RemovalAllowed(lastDeletion, currentTimestamp, waitBetween)
 				Expect(ok).To(Equal(expectedRes))
 				Expect(waitTime).To(Equal(expectedWaitTime))
@@ -176,37 +175,37 @@ var _ = Describe("remove", func() {
 			Entry("No last deletion",
 				int64(0),
 				int64(120),
-				1*time.Minute,
+				60,
 				true,
 				int64(0)),
 			Entry("With a recent deletion",
 				int64(120),
 				int64(121),
-				1*time.Minute,
+				60,
 				false,
 				int64(59)),
 			Entry("With a recent deletion",
 				int64(120),
 				int64(179),
-				1*time.Minute,
+				60,
 				false,
 				int64(1)),
 			Entry("With a recent deletion but enough wait time",
 				int64(120),
 				int64(181),
-				1*time.Minute,
+				60,
 				true,
 				int64(0)),
 			Entry("With a recent deletion but a short wait time",
 				int64(120),
 				int64(121),
-				1*time.Nanosecond,
+				0,
 				true,
 				int64(0)),
 			Entry("With a recent deletion and a long wait time",
 				int64(120),
 				int64(181),
-				2*time.Minute,
+				120,
 				false,
 				int64(59)),
 		)

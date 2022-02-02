@@ -98,7 +98,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		// To ensure we are not deletion zones faster than Kubernetes actually removes Pods we are adding a wait time
 		// if we have resources in the terminating state. We will only block if the terminating state was recently (in the
 		// last minute).
-		waitTime, allowed := removals.RemovalAllowed(lastDeletion, time.Now().Unix(), cluster.GetWaitTimeBetweenRemovals())
+		waitTime, allowed := removals.RemovalAllowed(lastDeletion, time.Now().Unix(), cluster.GetWaitBetweenRemovalsSeconds())
 		if !allowed {
 			return &requeue{message: fmt.Sprintf("not allowed to remove process groups, waiting: %v", waitTime), delay: time.Duration(waitTime) * time.Second}
 		}

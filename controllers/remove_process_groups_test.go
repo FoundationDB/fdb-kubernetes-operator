@@ -302,7 +302,7 @@ var _ = Describe("remove_process_groups", func() {
 				BeforeEach(func() {
 					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.ResourcesTerminating))
 					// Set the wait time to the default value
-					cluster.Spec.AutomationOptions.WaitDurationBetweenRemovals = 1 * time.Minute
+					cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(60)
 				})
 
 				It("should remove only one process group", func() {

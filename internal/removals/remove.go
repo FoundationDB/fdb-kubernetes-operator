@@ -23,7 +23,6 @@ package removals
 import (
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
@@ -162,8 +161,8 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 }
 
 // RemovalAllowed returns if we are allowed to remove the process group or if we have to wait to ensure a safe deletion.
-func RemovalAllowed(lastDeletion int64, currentTimestamp int64, waitTime time.Duration) (int64, bool) {
-	ts := currentTimestamp - int64(waitTime.Seconds())
+func RemovalAllowed(lastDeletion int64, currentTimestamp int64, waitTime int) (int64, bool) {
+	ts := currentTimestamp - int64(waitTime)
 	if lastDeletion > ts {
 		return lastDeletion - ts, false
 	}
