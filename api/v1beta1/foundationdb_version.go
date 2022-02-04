@@ -108,45 +108,6 @@ func (version FdbVersion) IsProtocolCompatible(other FdbVersion) bool {
 	return version.Major == other.Major && version.Minor == other.Minor
 }
 
-// HasInstanceIDInSidecarSubstitutions determines if a version has
-// FDB_INSTANCE_ID supported natively in the variable substitutions in the
-// sidecar.
-func (version FdbVersion) HasInstanceIDInSidecarSubstitutions() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
-}
-
-// PrefersCommandLineArgumentsInSidecar determines if a version has
-// support for configuring the sidecar exclusively through command-line
-// arguments.
-func (version FdbVersion) PrefersCommandLineArgumentsInSidecar() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
-}
-
-// SupportsUsingBinariesFromMainContainer determines if a version has
-// support for having the sidecar dynamically switch between using binaries
-// from the main container and binaries provided by the sidecar.
-func (version FdbVersion) SupportsUsingBinariesFromMainContainer() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 15})
-}
-
-// HasRatekeeperRole determines if a version has a dedicated role for
-// ratekeeper.
-func (version FdbVersion) HasRatekeeperRole() bool {
-	return version.IsAtLeast(Versions.MinimumVersion)
-}
-
-// HasMaxProtocolClientsInStatus determines if a version has the
-// max_protocol_clients field in the cluster status.
-func (version FdbVersion) HasMaxProtocolClientsInStatus() bool {
-	return version.IsAtLeast(Versions.MinimumVersion)
-}
-
-// HasSidecarCrashOnEmpty determines if a version has the flag to have the
-// sidecar crash on a file being empty.
-func (version FdbVersion) HasSidecarCrashOnEmpty() bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 2, Patch: 20})
-}
-
 // HasNonBlockingExcludes determines if a version has support for non-blocking
 // exclude commands.
 func (version FdbVersion) HasNonBlockingExcludes(useNonBlockingExcludes bool) bool {
@@ -183,26 +144,13 @@ func (version FdbVersion) IsSupported() bool {
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
-	NextMajorVersion, NextPatchVersion,
-	WithSidecarInstanceIDSubstitution, WithoutSidecarInstanceIDSubstitution,
-	WithCommandLineVariablesForSidecar, WithEnvironmentVariablesForSidecar,
-	WithBinariesFromMainContainer, WithoutBinariesFromMainContainer,
-	WithRatekeeperRole,
-	WithSidecarCrashOnEmpty, WithoutSidecarCrashOnEmpty,
+	NextMajorVersion,
+	NextPatchVersion,
 	MinimumVersion,
 	Default FdbVersion
 }{
-	Default:                              FdbVersion{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:                     FdbVersion{Major: 6, Minor: 2, Patch: 21},
-	NextMajorVersion:                     FdbVersion{Major: 7, Minor: 0, Patch: 0},
-	WithSidecarInstanceIDSubstitution:    FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutSidecarInstanceIDSubstitution: FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithCommandLineVariablesForSidecar:   FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithEnvironmentVariablesForSidecar:   FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithBinariesFromMainContainer:        FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithoutBinariesFromMainContainer:     FdbVersion{Major: 6, Minor: 2, Patch: 11},
-	WithRatekeeperRole:                   FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	WithSidecarCrashOnEmpty:              FdbVersion{Major: 6, Minor: 2, Patch: 20},
-	WithoutSidecarCrashOnEmpty:           FdbVersion{Major: 6, Minor: 2, Patch: 15},
-	MinimumVersion:                       FdbVersion{Major: 6, Minor: 2, Patch: 0},
+	Default:          FdbVersion{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion: FdbVersion{Major: 6, Minor: 2, Patch: 21},
+	NextMajorVersion: FdbVersion{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:   FdbVersion{Major: 6, Minor: 2, Patch: 20},
 }

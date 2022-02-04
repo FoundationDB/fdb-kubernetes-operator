@@ -203,41 +203,6 @@ var _ = Describe("configmap_helper", func() {
 			})
 		})
 
-		Context("with a version that requires sidecar conf", func() {
-			BeforeEach(func() {
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()
-			})
-
-			It("should have the sidecar conf", func() {
-				sidecarConf := make(map[string]interface{})
-				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(sidecarConf)).To(Equal(5))
-				Expect(sidecarConf["COPY_FILES"]).To(Equal([]interface{}{"fdb.cluster"}))
-				Expect(sidecarConf["COPY_BINARIES"]).To(Equal([]interface{}{"fdbserver", "fdbcli"}))
-				Expect(sidecarConf["COPY_LIBRARIES"]).To(Equal([]interface{}{}))
-				Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(Equal("fdbmonitor.conf"))
-			})
-		})
-
-		Context("with the sidecar conf enabled in the status", func() {
-			BeforeEach(func() {
-				cluster.Status.NeedsSidecarConfInConfigMap = true
-			})
-
-			It("should have the sidecar conf", func() {
-				sidecarConf := make(map[string]interface{})
-				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(len(sidecarConf)).To(Equal(5))
-				Expect(sidecarConf["COPY_FILES"]).To(Equal([]interface{}{"fdb.cluster"}))
-				Expect(sidecarConf["COPY_BINARIES"]).To(Equal([]interface{}{"fdbserver", "fdbcli"}))
-				Expect(sidecarConf["COPY_LIBRARIES"]).To(Equal([]interface{}{}))
-				Expect(sidecarConf["INPUT_MONITOR_CONF"]).To(Equal("fdbmonitor.conf"))
-				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(BeNil())
-			})
-		})
-
 		Context("with a custom CA", func() {
 			BeforeEach(func() {
 				cluster.Spec.TrustedCAs = []string{
@@ -248,28 +213,11 @@ var _ = Describe("configmap_helper", func() {
 
 			Context("with a version that uses sidecar command-line arguments", func() {
 				BeforeEach(func() {
-					cluster.Status.RunningVersion = fdbtypes.Versions.WithCommandLineVariablesForSidecar.String()
+					cluster.Status.RunningVersion = fdbtypes.Versions.Default.String()
 				})
 
 				It("should populate the CA file", func() {
 					Expect(configMap.Data["ca-file"]).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
-				})
-			})
-
-			Context("with a version that uses sidecar environment variables", func() {
-				BeforeEach(func() {
-					cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()
-				})
-
-				It("should populate the CA file", func() {
-					Expect(configMap.Data["ca-file"]).To(Equal("-----BEGIN CERTIFICATE-----\nMIIFyDCCA7ACCQDqRnbTl1OkcTANBgkqhkiG9w0BAQsFADCBpTELMAkGA1UEBhMC\n---CERT2----"))
-				})
-
-				It("should copy the CA file in the sidecar conf", func() {
-					sidecarConf := make(map[string]interface{})
-					err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(sidecarConf["COPY_FILES"]).To(Equal([]interface{}{"fdb.cluster", "ca.pem"}))
 				})
 			})
 		})
@@ -282,35 +230,6 @@ var _ = Describe("configmap_helper", func() {
 			It("should empty the monitor conf and cluster file", func() {
 				Expect(configMap.Data[ClusterFileKey]).To(Equal(""))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(""))
-			})
-		})
-
-		Context("with custom sidecar substitutions", func() {
-			BeforeEach(func() {
-				cluster.Spec.SidecarVariables = []string{"FAULT_DOMAIN", "ZONE"}
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithEnvironmentVariablesForSidecar.String()
-			})
-
-			It("should put the substitutions in the sidecar conf", func() {
-				sidecarConf := make(map[string]interface{})
-				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(Equal([]interface{}{"FAULT_DOMAIN", "ZONE", "FDB_INSTANCE_ID"}))
-			})
-		})
-
-		Context("with explicit instance ID substitution", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithoutSidecarInstanceIDSubstitution.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutSidecarInstanceIDSubstitution.String()
-			})
-
-			It("should include the instance ID in the substitutions in the sidecar conf", func() {
-				sidecarConf := make(map[string]interface{})
-				err = json.Unmarshal([]byte(configMap.Data["sidecar-conf"]), &sidecarConf)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(sidecarConf["ADDITIONAL_SUBSTITUTIONS"]).To(Equal([]interface{}{"FDB_INSTANCE_ID"}))
 			})
 		})
 

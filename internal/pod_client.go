@@ -426,17 +426,10 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 
 	substitutions["FDB_INSTANCE_ID"] = GetProcessGroupIDFromMeta(client.Cluster, client.Pod.ObjectMeta)
 
-	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	if version.SupportsUsingBinariesFromMainContainer() {
-		if client.Cluster.IsBeingUpgraded() {
-			substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", client.Cluster.Spec.Version)
-		} else {
-			substitutions["BINARY_DIR"] = "/usr/bin"
-		}
+	if client.Cluster.IsBeingUpgraded() {
+		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", client.Cluster.Spec.Version)
+	} else {
+		substitutions["BINARY_DIR"] = "/usr/bin"
 	}
 
 	if client.Cluster.UseDNSInClusterFile() {

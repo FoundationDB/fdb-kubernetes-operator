@@ -78,40 +78,15 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 
 	if !cluster.Spec.IgnoreUpgradabilityChecks {
 		var unsupportedClients []string
-		if runningVersion.HasMaxProtocolClientsInStatus() {
-			unsupportedClients = make([]string, 0)
-			for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-				if versionInfo.ProtocolVersion == "Unknown" {
-					continue
-				}
-				match := versionInfo.ProtocolVersion == protocolVersion
+		for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
+			if versionInfo.ProtocolVersion == "Unknown" {
+				continue
+			}
+			match := versionInfo.ProtocolVersion == protocolVersion
 
-				if !match {
-					for _, client := range versionInfo.MaxProtocolClients {
-						unsupportedClients = append(unsupportedClients, client.Description())
-					}
-				}
-			}
-		} else {
-			clientsSupported := make(map[string]bool)
-			for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-				if versionInfo.ProtocolVersion == "Unknown" {
-					continue
-				}
-				match := versionInfo.ProtocolVersion == protocolVersion
-				for _, client := range versionInfo.ConnectedClients {
-					description := client.Description()
-					if match {
-						clientsSupported[description] = true
-					} else if !clientsSupported[description] {
-						clientsSupported[description] = false
-					}
-				}
-			}
-			unsupportedClients = make([]string, 0, len(clientsSupported))
-			for client, supported := range clientsSupported {
-				if !supported {
-					unsupportedClients = append(unsupportedClients, client)
+			if !match {
+				for _, client := range versionInfo.MaxProtocolClients {
+					unsupportedClients = append(unsupportedClients, client.Description())
 				}
 			}
 		}

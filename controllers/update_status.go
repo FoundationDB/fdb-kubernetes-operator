@@ -542,14 +542,10 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			return processGroups, err
 		}
 
-		needsSidecarConfInConfigMap, err := validateProcessGroup(ctx, r, cluster, pod, configMapHash, processGroup)
+		err = validateProcessGroup(ctx, r, cluster, pod, configMapHash, processGroup)
 
 		if err != nil {
 			return processGroups, err
-		}
-
-		if needsSidecarConfInConfigMap {
-			status.NeedsSidecarConfInConfigMap = needsSidecarConfInConfigMap
 		}
 	}
 
@@ -558,28 +554,28 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 // validateProcessGroup runs specific checks for the status of an process group.
 // returns failing, incorrect, error
-func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) (bool, error) {
+func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, configMapHash string, processGroupStatus *fdbtypes.ProcessGroupStatus) error {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processGroupStatus.UpdateCondition(fdbtypes.MissingPod, pod == nil, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	if pod == nil {
-		return false, nil
+		return nil
 	}
 
 	_, idNum, err := podmanager.ParseProcessGroupID(processGroupStatus.ProcessGroupID)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	incorrectPod := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
 	if !incorrectPod {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
-			return false, err
+			return err
 		}
 		incorrectPod = !updated
 	}
@@ -592,11 +588,11 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID)...)
 	if err != nil {
-		return false, err
+		return err
 	}
 	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	incorrectPVC := (len(pvcs.Items) == 1) != (desiredPvc != nil)
@@ -606,22 +602,9 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbtypes.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	var needsSidecarConfInConfigMap bool
-	for _, container := range pod.Spec.Containers {
-		if container.Name == "foundationdb" {
-			version, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
-			if err != nil {
-				return false, err
-			}
-			if !version.PrefersCommandLineArgumentsInSidecar() {
-				needsSidecarConfInConfigMap = true
-			}
-		}
-	}
-
 	if pod.Status.Phase == corev1.PodPending {
 		processGroupStatus.UpdateCondition(fdbtypes.PodPending, true, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-		return needsSidecarConfInConfigMap, nil
+		return nil
 	}
 
 	failing := false
@@ -646,7 +629,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 			err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
 			if err != nil {
-				return needsSidecarConfInConfigMap, err
+				return err
 			}
 		}
 	}
@@ -654,7 +637,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	processGroupStatus.UpdateCondition(fdbtypes.PodFailing, failing, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	processGroupStatus.UpdateCondition(fdbtypes.PodPending, false, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	return needsSidecarConfInConfigMap, nil
+	return nil
 }
 
 // removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating

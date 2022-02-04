@@ -123,56 +123,6 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 		}
 	}
 
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
-	}
-	version, err := v1beta1.ParseFdbVersion(versionString)
-	if err != nil {
-		return nil, err
-	}
-	needsInstanceIDSubstitution := !version.HasInstanceIDInSidecarSubstitutions()
-
-	substitutionCount := len(cluster.Spec.SidecarVariables)
-	if needsInstanceIDSubstitution {
-		substitutionCount++
-	}
-
-	var substitutionKeys []string
-
-	if substitutionCount > 0 {
-		substitutionKeys = make([]string, 0, substitutionCount)
-		substitutionKeys = append(substitutionKeys, cluster.Spec.SidecarVariables...)
-
-		if needsInstanceIDSubstitution {
-			substitutionKeys = append(substitutionKeys, "FDB_INSTANCE_ID")
-		}
-	}
-
-	filesToCopy := []string{"fdb.cluster"}
-
-	if len(cluster.Spec.TrustedCAs) > 0 {
-		filesToCopy = append(filesToCopy, "ca.pem")
-	}
-
-	needsSidecarConf := !version.PrefersCommandLineArgumentsInSidecar() ||
-		cluster.Status.NeedsSidecarConfInConfigMap
-
-	if needsSidecarConf {
-		sidecarConf := map[string]interface{}{
-			"COPY_BINARIES":            []string{"fdbserver", "fdbcli"},
-			"COPY_FILES":               filesToCopy,
-			"COPY_LIBRARIES":           []string{},
-			"INPUT_MONITOR_CONF":       "fdbmonitor.conf",
-			"ADDITIONAL_SUBSTITUTIONS": substitutionKeys,
-		}
-		sidecarConfData, err := json.Marshal(sidecarConf)
-		if err != nil {
-			return nil, err
-		}
-		data["sidecar-conf"] = string(sidecarConfData)
-	}
-
 	if cluster.Spec.ConfigMap != nil {
 		for k, v := range cluster.Spec.ConfigMap.Data {
 			data[k] = v

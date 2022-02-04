@@ -198,11 +198,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	}
 	mainContainer.Image = image
 
-	version, err := fdbtypes.ParseFdbVersion(versionString)
-	if err != nil {
-		return nil, err
-	}
-
 	extendEnv(mainContainer, corev1.EnvVar{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"})
 
 	useCustomCAs := len(cluster.Spec.TrustedCAs) > 0
@@ -362,10 +357,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "ca-file", Path: "ca.pem"})
 	}
 
-	if !version.PrefersCommandLineArgumentsInSidecar() {
-		configMapItems = append(configMapItems, corev1.KeyToPath{Key: "sidecar-conf", Path: "config.json"})
-	}
-
 	var configMapRefName string
 	if cluster.Spec.ConfigMap != nil && cluster.Spec.ConfigMap.Name != "" {
 		configMapRefName = fmt.Sprintf("%s-%s", cluster.Name, cluster.Spec.ConfigMap.Name)
@@ -494,39 +485,25 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
 
 	var sidecarArgs []string
-	if version.PrefersCommandLineArgumentsInSidecar() {
-		sidecarArgs = []string{
-			"--copy-file", "fdb.cluster",
-		}
-		if hasTrustedCAs {
-			sidecarArgs = append(sidecarArgs, "--copy-file", "ca.pem")
-		}
-		if optionalCluster != nil {
-			sidecarArgs = append(sidecarArgs,
-				"--input-monitor-conf", "fdbmonitor.conf",
-				"--copy-binary", "fdbserver",
-				"--copy-binary", "fdbcli",
-			)
-			if version.SupportsUsingBinariesFromMainContainer() {
-				sidecarArgs = append(sidecarArgs,
-					"--main-container-version", version.String(),
-				)
-			}
-		}
-	} else {
-		sidecarArgs = make([]string, 0)
+
+	sidecarArgs = []string{
+		"--copy-file", "fdb.cluster",
+	}
+	if hasTrustedCAs {
+		sidecarArgs = append(sidecarArgs, "--copy-file", "ca.pem")
+	}
+	if optionalCluster != nil {
+		sidecarArgs = append(sidecarArgs,
+			"--input-monitor-conf", "fdbmonitor.conf",
+			"--copy-binary", "fdbserver",
+			"--copy-binary", "fdbcli",
+			"--main-container-version", version.String(),
+		)
 	}
 
-	if version.HasSidecarCrashOnEmpty() && optionalCluster == nil {
+	if optionalCluster == nil {
 		sidecarArgs = append(sidecarArgs, "--require-not-empty")
 		sidecarArgs = append(sidecarArgs, "fdb.cluster")
-	}
-
-	if !version.PrefersCommandLineArgumentsInSidecar() {
-		if initMode {
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "COPY_ONCE", Value: "1"})
-		}
-		sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "SIDECAR_CONF_DIR", Value: "/var/input-files"})
 	}
 
 	if optionalCluster != nil {
@@ -538,18 +515,11 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		}
 
 		if cluster.NeedsExplicitListenAddress() {
-			if version.PrefersCommandLineArgumentsInSidecar() {
-				sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_POD_IP")
-			}
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_POD_IP")
 		}
 
-		if version.PrefersCommandLineArgumentsInSidecar() {
-			for _, substitution := range cluster.Spec.SidecarVariables {
-				sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
-			}
-			if !version.HasInstanceIDInSidecarSubstitutions() {
-				sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_INSTANCE_ID")
-			}
+		for _, substitution := range cluster.Spec.SidecarVariables {
+			sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 		}
 
 		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
@@ -585,7 +555,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		}
 	}
 
-	if version.PrefersCommandLineArgumentsInSidecar() && initMode {
+	if initMode {
 		sidecarArgs = append(sidecarArgs, "--init-mode")
 	}
 

@@ -61,16 +61,6 @@ var _ = Describe("[api] FDBVersion", func() {
 			version := FdbVersion{Major: 6, Minor: 2, Patch: 11}
 			Expect(version.String()).To(Equal("6.2.11"))
 		})
-
-		It("should validate the flags for the version correct", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 0}
-			Expect(version.HasInstanceIDInSidecarSubstitutions()).To(BeFalse())
-			Expect(version.PrefersCommandLineArgumentsInSidecar()).To(BeFalse())
-
-			version = FdbVersion{Major: 7, Minor: 0, Patch: 0}
-			Expect(version.HasInstanceIDInSidecarSubstitutions()).To(BeTrue())
-			Expect(version.PrefersCommandLineArgumentsInSidecar()).To(BeTrue())
-		})
 	})
 
 	When("getting the next version of the current FDBVersion", func() {
