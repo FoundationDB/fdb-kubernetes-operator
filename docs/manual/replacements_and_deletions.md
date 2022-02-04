@@ -13,7 +13,7 @@ Decreasing the desired process count without marking anything for removal will c
 
 In general, when we need to update a pod's spec we will do that by deleting and recreating the pod.
 There are some changes that we will roll out by replacing the process group instead, such as changing a volume size.
-There is also a flag in the cluster spec called `updatePodsByReplacement` that will cause the operator to always roll out changes to pod specs by replacement instead of deletion.
+There is also a flag in the cluster spec called `podUpdateStrategy` that will cause the operator to always roll out changes to Pod specs by replacement instead of deletion, either for all Pods or only for transaction system Pods.
 
 The following changes can only be rolled out through replacement:
 
