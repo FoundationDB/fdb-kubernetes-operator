@@ -66,6 +66,10 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return nil
 	}
 
+	if cluster.Spec.IgnoreUpgradabilityChecks {
+		return nil
+	}
+
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return &requeue{curError: err}
@@ -76,30 +80,28 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	if !cluster.Spec.IgnoreUpgradabilityChecks {
-		var unsupportedClients []string
-		for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
-			if versionInfo.ProtocolVersion == "Unknown" {
-				continue
-			}
-			match := versionInfo.ProtocolVersion == protocolVersion
+	var unsupportedClients []string
+	for _, versionInfo := range status.Cluster.Clients.SupportedVersions {
+		if versionInfo.ProtocolVersion == "Unknown" {
+			continue
+		}
+		match := versionInfo.ProtocolVersion == protocolVersion
 
-			if !match {
-				for _, client := range versionInfo.MaxProtocolClients {
-					unsupportedClients = append(unsupportedClients, client.Description())
-				}
+		if !match {
+			for _, client := range versionInfo.MaxProtocolClients {
+				unsupportedClients = append(unsupportedClients, client.Description())
 			}
 		}
+	}
 
-		if len(unsupportedClients) > 0 {
-			message := fmt.Sprintf(
-				"%d clients do not support version %s: %s", len(unsupportedClients),
-				cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
-			)
-			r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
-			logger.Info("Deferring reconciliation due to unsupported clients", "message", message)
-			return &requeue{message: message, delay: 1 * time.Minute}
-		}
+	if len(unsupportedClients) > 0 {
+		message := fmt.Sprintf(
+			"%d clients do not support version %s: %s", len(unsupportedClients),
+			cluster.Spec.Version, strings.Join(unsupportedClients, ", "),
+		)
+		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UnsupportedClient", message)
+		logger.Info("Deferring reconciliation due to unsupported clients", "message", message)
+		return &requeue{message: message, delay: 1 * time.Minute}
 	}
 
 	return nil
