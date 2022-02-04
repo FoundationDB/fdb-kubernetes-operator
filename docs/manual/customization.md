@@ -263,7 +263,7 @@ The sample deployment provides all of this configuration.
 
 ### Global Mode
 
-To use global mode, omit the `WATCH_NAMESPACE` environment variable or the `-watch-namespace` command line flag for the controller. When you are running in global mode, the controller will watch for changes to FDB clusters in all namespaces, and will manage them all through a single instance of the controller.
+To use global mode, omit the `WATCH_NAMESPACE` environment variable and the `-watch-namespace` command line flag for the controller. When you are running in global mode, the controller will watch for changes to FDB clusters in all namespaces, and will manage them all through a single instance of the controller.
 
 The advantage of global mode is that you can easily add new namespaces without needing to run a new instance of the controller, which limits the per-namespace operational load. The disadvantage of global mode is that it requires the controller to have extensive access to all namespaces in the Kubernetes cluster. In a multi-tenant environment, this means the controller would have to be managed by the team that is adminstering your Kubernetes environment, which may create its own operational concerns.
 
