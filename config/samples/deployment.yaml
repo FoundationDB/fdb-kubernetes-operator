@@ -122,6 +122,9 @@ spec:
       containers:
       - command:
         - /manager
+        args:
+        - "-watch-namespace"
+        - "$(WATCH_NAMESPACE)"
         env:
         - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
           value: /usr/bin/fdb
