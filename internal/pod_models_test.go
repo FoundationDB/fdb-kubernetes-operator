@@ -23,6 +23,8 @@ package internal
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -3419,6 +3421,50 @@ var _ = Describe("pod_models", func() {
 		It("builds the DNS name based on the cluster spec", func() {
 			cluster.Spec.Routing.DNSDomain = pointer.String("cluster.example")
 			Expect(GetPodDNSName(cluster, "operator-test-storage-1")).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
+		})
+	})
+
+	When("creating the label selector for Pods", func() {
+		var selector labels.Selector
+
+		When("passing no process class and no process group ID", func() {
+			BeforeEach(func() {
+				selector = generateSelector(cluster, "", "")
+			})
+
+			It("should create the correct selector", func() {
+				Expect(selector.String()).To(Equal("fdb-cluster-name=operator-test-1,fdb-instance-id,fdb-process-class"))
+			})
+		})
+
+		When("passing a process class", func() {
+			BeforeEach(func() {
+				selector = generateSelector(cluster, fdbtypes.ProcessClassStorage, "")
+			})
+
+			It("should create the correct selector", func() {
+				Expect(selector.String()).To(Equal("fdb-cluster-name=operator-test-1,fdb-instance-id,fdb-process-class=storage"))
+			})
+		})
+
+		When("passing a process class and a process group ID", func() {
+			BeforeEach(func() {
+				selector = generateSelector(cluster, fdbtypes.ProcessClassStorage, "test-1")
+			})
+
+			It("should create the correct selector", func() {
+				Expect(selector.String()).To(Equal("fdb-cluster-name=operator-test-1,fdb-instance-id=test-1,fdb-process-class=storage"))
+			})
+		})
+
+		When("passing a process group ID", func() {
+			BeforeEach(func() {
+				selector = generateSelector(cluster, "", "test-1")
+			})
+
+			It("should create the correct selector", func() {
+				Expect(selector.String()).To(Equal("fdb-cluster-name=operator-test-1,fdb-instance-id=test-1,fdb-process-class"))
+			})
 		})
 	})
 })

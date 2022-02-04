@@ -25,11 +25,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"net"
 	"regexp"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
 	"k8s.io/utils/pointer"
 
@@ -169,7 +170,7 @@ func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbty
 	return matchLabels
 }
 
-func generateListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processGroupID string) []client.ListOption {
+func generateSelector(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processGroupID string) labels.Selector {
 	matchLabels := GetPodMatchLabels(cluster, processClass, processGroupID)
 	s := labels.SelectorFromSet(matchLabels)
 
@@ -180,7 +181,7 @@ func generateListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdb
 			cluster.GetProcessClassLabel(),
 			selection.Exists,
 			nil)
-		s.Add(*req)
+		s = s.Add(*req)
 	}
 
 	// If the process group ID is not specified we still want to ensure that the Pod has
@@ -190,12 +191,16 @@ func generateListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdb
 			cluster.GetProcessGroupIDLabel(),
 			selection.Exists,
 			nil)
-		s.Add(*req)
+		s = s.Add(*req)
 	}
 
+	return s
+}
+
+func generateListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processGroupID string) []client.ListOption {
 	return []client.ListOption{
 		client.InNamespace(cluster.ObjectMeta.Namespace),
-		client.MatchingLabelsSelector{Selector: s},
+		client.MatchingLabelsSelector{Selector: generateSelector(cluster, processClass, processGroupID)},
 	}
 }
 
