@@ -76,6 +76,13 @@ spec:
                     maxConcurrentReplacements:
                       minimum: 0
                       type: integer
+                    podUpdateStrategy:
+                      default: Delete
+                      enum:
+                        - Replace
+                        - ReplaceTransactionSystem
+                        - Delete
+                      type: string
                     removalMode:
                       default: Zone
                       enum:
@@ -4664,7 +4671,7 @@ spec:
                       type: integer
                   type: object
                 processGroupIDPrefix:
-                  maxLength: 32
+                  maxLength: 64
                   type: string
                 processGroupsToRemove:
                   items:

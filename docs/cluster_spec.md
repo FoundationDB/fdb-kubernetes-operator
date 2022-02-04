@@ -196,6 +196,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | PodUpdateMode | false |
 | removalMode | RemovalMode defines the removal mode for this cluster. This can be PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | PodUpdateMode | false |
 | waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted processes. Defaults to 60. | *int | false |
+| podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this might change in the 1.0.0 to ReplaceTransactionSystem. | PodUpdateStrategy | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -253,7 +254,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | automationOptions | AutomationOptions defines customization for enabling or disabling certain operations in the operator. | [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions) | false |
 | instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. **Deprecated: Use ProcessGroupsToRemoveWithoutExclusion instead.** | string | false |
 | processGroupIDPrefix | ProcessGroupIDPrefix defines a prefix to append to the process group IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. | string | false |
-| updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. | bool | false |
+| updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. Depreacted: use PodUpdateStrategy instead | bool | false |
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
 | services | Services defines the configuration for services that sit in front of our pods. **Deprecated: Use Routing instead.** | [ServiceConfig](#serviceconfig) | false |
 | routing | Routing defines the configuration for routing to our pods. | [RoutingConfig](#routingconfig) | false |

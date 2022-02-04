@@ -3624,4 +3624,116 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 	})
+
+	When("checking if the process group must be replaced", func() {
+		DescribeTable("it should return to correct update strategy",
+			func(cluster *FoundationDBCluster, processGroup *ProcessGroupStatus, expected bool) {
+				Expect(cluster.NeedsReplacement(processGroup)).To(Equal(expected))
+			},
+			Entry("Default update strategy storage process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: "",
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassStorage,
+				},
+				false,
+			),
+			Entry("Default update strategy log process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: "",
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassTransaction,
+				},
+				false,
+			),
+			Entry("Update strategy all storage process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: PodUpdateStrategyReplacement,
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassStorage,
+				},
+				true,
+			),
+			Entry("Update strategy all log process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: PodUpdateStrategyReplacement,
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassTransaction,
+				},
+				true,
+			),
+			Entry("Update strategy transaction system storage process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: PodUpdateStrategyTransactionReplacement,
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassStorage,
+				},
+				false,
+			),
+			Entry("Update strategy transaction system log process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: PodUpdateStrategyTransactionReplacement,
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassTransaction,
+				},
+				true,
+			),
+			Entry("Update strategy delete storage process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: PodUpdateStrategyDelete,
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassStorage,
+				},
+				false,
+			),
+			Entry("Update strategy delete log process",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						AutomationOptions: FoundationDBClusterAutomationOptions{
+							PodUpdateStrategy: PodUpdateStrategyDelete,
+						},
+					},
+				},
+				&ProcessGroupStatus{
+					ProcessClass: ProcessClassTransaction,
+				},
+				false,
+			),
+		)
+	})
 })

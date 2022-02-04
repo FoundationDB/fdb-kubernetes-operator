@@ -194,11 +194,12 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
-	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:MaxLength=64
 	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// UpdatePodsByReplacement determines whether we should update pod config
 	// by replacing the pods rather than deleting them.
+	// Depreacted: use PodUpdateStrategy instead
 	UpdatePodsByReplacement bool `json:"updatePodsByReplacement,omitempty"`
 
 	// LockOptions allows customizing how we manage locks for global operations.
@@ -1239,6 +1240,13 @@ type FoundationDBClusterAutomationOptions struct {
 	// where the fault tolerance check still includes the already deleted processes.
 	// Defaults to 60.
 	WaitBetweenRemovalsSeconds *int `json:"waitBetweenRemovalsSeconds,omitempty"`
+
+	// PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods.
+	// The default for this might change in the 1.0.0 to ReplaceTransactionSystem.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
+	// +kubebuilder:default:=Delete
+	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -3016,6 +3024,11 @@ func (pClass ProcessClass) IsStateful() bool {
 	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
 }
 
+// IsTransaction determines whether a process class is part of the transaction system.
+func (pClass ProcessClass) IsTransaction() bool {
+	return pClass == ProcessClassStateless || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+}
+
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
@@ -3242,4 +3255,30 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 	}
 
 	return duration
+}
+
+// PodUpdateStrategy defines how Pod spec changes should be applied.
+type PodUpdateStrategy string
+
+const (
+	// PodUpdateStrategyReplacement replace all Pods if there is a spec change.
+	PodUpdateStrategyReplacement PodUpdateStrategy = "Replace"
+	// PodUpdateStrategyTransactionReplacement replace all transaction system Pods if there is a spec change.
+	PodUpdateStrategyTransactionReplacement PodUpdateStrategy = "ReplaceTransactionSystem"
+	// PodUpdateStrategyDelete delete all Pods if there is a spec change.
+	PodUpdateStrategyDelete PodUpdateStrategy = "Delete"
+)
+
+// NeedsReplacement returns true if the Pod should be replaced if the Pod spec has changed
+func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupStatus) bool {
+	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyDelete {
+		return false
+	}
+
+	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyReplacement {
+		return true
+	}
+
+	// Default is ReplaceTransactionSystem.
+	return processGroup.ProcessClass.IsTransaction()
 }

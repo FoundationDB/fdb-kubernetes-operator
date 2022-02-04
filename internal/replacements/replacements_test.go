@@ -296,19 +296,60 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 	})
 
-	Context("when UpdatePodsByReplacement is set and the PodSpecHash doesn't match", func() {
+	Context("when PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
 		It("should need a removal", func() {
 			pod.Spec = corev1.PodSpec{
 				Containers: []corev1.Container{{}},
 			}
 			status := &fdbtypes.ProcessGroupStatus{
+				ProcessClass:   fdbtypes.ProcessClassStorage,
 				ProcessGroupID: processGroupName,
 				Remove:         false,
 			}
 			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 			Expect(err).NotTo(HaveOccurred())
 
-			cluster.Spec.UpdatePodsByReplacement = true
+			cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
+			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+			Expect(needsRemoval).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
+		It("should not need a removal", func() {
+			pod.Spec = corev1.PodSpec{
+				Containers: []corev1.Container{{}},
+			}
+			status := &fdbtypes.ProcessGroupStatus{
+				ProcessClass:   fdbtypes.ProcessClassStorage,
+				ProcessGroupID: processGroupName,
+				Remove:         false,
+			}
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
+			Expect(err).NotTo(HaveOccurred())
+
+			cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
+			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+			Expect(needsRemoval).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
+		It("should need a removal", func() {
+			pod.Spec = corev1.PodSpec{
+				Containers: []corev1.Container{{}},
+			}
+			status := &fdbtypes.ProcessGroupStatus{
+				ProcessClass:   fdbtypes.ProcessClassTransaction,
+				ProcessGroupID: processGroupName,
+				Remove:         false,
+			}
+			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
+			Expect(err).NotTo(HaveOccurred())
+
+			cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
 			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 			Expect(needsRemoval).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -564,6 +605,18 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdbtypes.ProcessClassStorage, nil))
 			}
 
+			for i := 0; i < 1; i++ {
+				_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassTransaction, i)
+				newPVC, err := internal.GetPvc(cluster, fdbtypes.ProcessClassTransaction, i)
+				Expect(err).NotTo(HaveOccurred())
+				pvcMap[id] = *newPVC
+				newPod, err := internal.GetPod(cluster, fdbtypes.ProcessClassTransaction, i)
+				Expect(err).NotTo(HaveOccurred())
+				podMap[id] = newPod
+				// Populate process groups
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdbtypes.ProcessClassTransaction, nil))
+			}
+
 			// Force a replacement of all processes
 			cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
 				"dummy": "test",
@@ -632,6 +685,49 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				}
 
 				Expect(cntReplacements).To(BeNumerically("==", len(cluster.Status.ProcessGroups)))
+			})
+		})
+
+		When("the image doesn't match with the desired image", func() {
+			BeforeEach(func() {
+				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{}
+			})
+
+			When("the process is a storage process", func() {
+				BeforeEach(func() {
+					_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassStorage, 0)
+					pod := podMap[id]
+					spec := pod.Spec.DeepCopy()
+					var cIdx int
+					for idx, con := range spec.Containers {
+						if con.Name != "foundationdb" {
+							continue
+						}
+
+						cIdx = idx
+						break
+					}
+
+					spec.Containers[cIdx].Image = "banana"
+					pod.Spec = *spec
+				})
+
+				It("should not have any replacements", func() {
+					hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(hasReplacement).To(BeFalse())
+
+					cntReplacements := 0
+					for _, pGroup := range cluster.Status.ProcessGroups {
+						if !pGroup.IsMarkedForRemoval() {
+							continue
+						}
+
+						cntReplacements++
+					}
+
+					Expect(cntReplacements).To(BeNumerically("==", 0))
+				})
 			})
 		})
 	})

@@ -264,3 +264,17 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbtypes.PublicIPSource, error) {
 	}
 	return fdbtypes.PublicIPSource(source), nil
 }
+
+// GetImageFromContainer returns the image for the container with the provided name in that PodSpec.
+// If no container exists with that name an empty string will be returned.
+func GetImageFromContainer(containerName string, spec corev1.PodSpec) string {
+	for _, con := range spec.Containers {
+		if con.Name != containerName {
+			continue
+		}
+
+		return con.Image
+	}
+
+	return ""
+}
