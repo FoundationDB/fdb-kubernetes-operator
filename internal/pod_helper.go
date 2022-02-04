@@ -25,6 +25,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"net"
 	"regexp"
 	"strconv"
@@ -127,44 +129,74 @@ func GetJSONHash(object interface{}) (string, error) {
 
 // GetPodLabels creates the labels that we will apply to a Pod
 func GetPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
-	labels := map[string]string{}
+	matchLabels := map[string]string{}
 
 	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
-		labels[key] = value
+		matchLabels[key] = value
 	}
 
 	if processClass != "" {
 		for _, label := range cluster.Spec.LabelConfig.ProcessClassLabels {
-			labels[label] = string(processClass)
+			matchLabels[label] = string(processClass)
 		}
 	}
 
 	if id != "" {
 		for _, label := range cluster.Spec.LabelConfig.ProcessGroupIDLabels {
-			labels[label] = id
+			matchLabels[label] = id
 		}
 	}
 
-	return labels
+	return matchLabels
 }
 
 // GetPodMatchLabels creates the labels that we will use when filtering for a pod.
-func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
-	labels := map[string]string{}
+func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processGroupID string) map[string]string {
+	matchLabels := map[string]string{}
 
 	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
-		labels[key] = value
+		matchLabels[key] = value
 	}
 
 	if processClass != "" {
-		labels[cluster.GetProcessClassLabel()] = string(processClass)
+		matchLabels[cluster.GetProcessClassLabel()] = string(processClass)
 	}
 
-	if id != "" {
-		labels[cluster.GetProcessGroupIDLabel()] = id
+	if processGroupID != "" {
+		matchLabels[cluster.GetProcessGroupIDLabel()] = processGroupID
 	}
 
-	return labels
+	return matchLabels
+}
+
+func generateListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processGroupID string) []client.ListOption {
+	matchLabels := GetPodMatchLabels(cluster, processClass, processGroupID)
+	s := labels.SelectorFromSet(matchLabels)
+
+	// If the process class is not specified we still want to ensure that the Pod has
+	// a label with the that key.
+	if _, ok := matchLabels[cluster.GetProcessClassLabel()]; !ok {
+		req, _ := labels.NewRequirement(
+			cluster.GetProcessClassLabel(),
+			selection.Exists,
+			nil)
+		s.Add(*req)
+	}
+
+	// If the process group ID is not specified we still want to ensure that the Pod has
+	// a label with the that key.
+	if _, ok := matchLabels[cluster.GetProcessGroupIDLabel()]; !ok {
+		req, _ := labels.NewRequirement(
+			cluster.GetProcessGroupIDLabel(),
+			selection.Exists,
+			nil)
+		s.Add(*req)
+	}
+
+	return []client.ListOption{
+		client.InNamespace(cluster.ObjectMeta.Namespace),
+		client.MatchingLabelsSelector{Selector: s},
+	}
 }
 
 // BuildOwnerReference returns an OwnerReference for the provided input
@@ -180,12 +212,12 @@ func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 
 // GetSinglePodListOptions returns the listOptions to list a single Pod
 func GetSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, processGroupID string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", processGroupID))}
+	return generateListOptions(cluster, "", processGroupID)
 }
 
 // GetPodListOptions returns the listOptions to list Pods
-func GetPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) []client.ListOption {
-	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id))}
+func GetPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, processGroupID string) []client.ListOption {
+	return generateListOptions(cluster, processClass, processGroupID)
 }
 
 // GetPvcMetadata returns the metadata for a PVC
