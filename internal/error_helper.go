@@ -24,6 +24,8 @@ import (
 	"errors"
 	"net"
 	"strings"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // IsNetworkError returns true if the network is a network error net.Error
@@ -47,6 +49,18 @@ func IsTimeoutError(err error) bool {
 		}
 
 		err = errors.Unwrap(err)
+	}
+
+	return false
+}
+
+// IsQuotaExceeded returns true if the error returned by the Kubernetes API is a forbidden error with the error message
+// that the quota was exceeded
+func IsQuotaExceeded(err error) bool {
+	if k8serrors.IsForbidden(err) {
+		if strings.Contains(err.Error(), "exceeded quota") {
+			return true
+		}
 	}
 
 	return false

@@ -1180,6 +1180,7 @@ type FoundationDBClusterAutomationOptions struct {
 
 	// DeletePods defines whether the operator is allowed to delete pods in
 	// order to recreate them.
+	// Deprecated: Use DeletionMode with PodUpdateModeNone to prevent the operator from deleting Pods.
 	DeletePods *bool `json:"deletePods,omitempty"`
 
 	// Replacements contains options for automatically replacing failed
@@ -1213,13 +1214,30 @@ type FoundationDBClusterAutomationOptions struct {
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 
 	// DeletionMode defines the deletion mode for this cluster. This can be
-	// DeletionModeAll, DeletionModeZone or DeletionModeProcessGroup. The
+	// PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
 	// DeletionMode defines how Pods are deleted in order to update them or
 	// when they are removed.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup
+	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup;None
 	// +kubebuilder:default:=Zone
-	DeletionMode DeletionMode `json:"deletionMode,omitempty"`
+	DeletionMode PodUpdateMode `json:"deletionMode,omitempty"`
+
+	// RemovalMode defines the removal mode for this cluster. This can be
+	// PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
+	// RemovalMode defines how process groups are deleted in order when they
+	// are marked for removal.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=All;Zone;ProcessGroup;None
+	// +kubebuilder:default:=Zone
+	RemovalMode PodUpdateMode `json:"removalMode,omitempty"`
+
+	// WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an
+	// upper limit if the process group and the according resources are deleted faster than the provided duration the
+	// operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes
+	// a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation
+	// where the fault tolerance check still includes the already deleted processes.
+	// Defaults to 60.
+	WaitBetweenRemovalsSeconds *int `json:"waitBetweenRemovalsSeconds,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -3127,16 +3145,18 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
 }
 
-// DeletionMode defines the deletion mode for the cluster
-type DeletionMode string
+// PodUpdateMode defines the deletion mode for the cluster
+type PodUpdateMode string
 
 const (
-	// DeletionModeAll deletes all process groups at once
-	DeletionModeAll DeletionMode = "All"
-	// DeletionModeZone deletes process groups in the same zone at the same time
-	DeletionModeZone DeletionMode = "Zone"
-	// DeletionModeProcessGroup deletes one process group at a time
-	DeletionModeProcessGroup DeletionMode = "ProcessGroup"
+	// PodUpdateModeAll deletes all process groups at once
+	PodUpdateModeAll PodUpdateMode = "All"
+	// PodUpdateModeZone deletes process groups in the same zone at the same time
+	PodUpdateModeZone PodUpdateMode = "Zone"
+	// PodUpdateModeProcessGroup deletes one process group at a time
+	PodUpdateModeProcessGroup PodUpdateMode = "ProcessGroup"
+	// PodUpdateModeNone defines that the operator is not allowed to update/delete any Pods.
+	PodUpdateModeNone PodUpdateMode = "None"
 )
 
 // FailOver returns a new DatabaseConfiguration that switches the priority for the main and remote DC
@@ -3210,4 +3230,23 @@ func (cluster *FoundationDBCluster) UseDNSInClusterFile() bool {
 // service.
 func (cluster *FoundationDBCluster) GetDNSDomain() string {
 	return pointer.StringDeref(cluster.Spec.Routing.DNSDomain, "cluster.local")
+}
+
+// GetRemovalMode returns the removal mode of the cluster or default to PodUpdateModeZone if unset.
+func (cluster *FoundationDBCluster) GetRemovalMode() PodUpdateMode {
+	if cluster.Spec.AutomationOptions.DeletionMode == "" {
+		return PodUpdateModeZone
+	}
+
+	return cluster.Spec.AutomationOptions.DeletionMode
+}
+
+// GetWaitBetweenRemovalsSeconds returns the WaitDurationBetweenRemovals if set or defaults to 60s.
+func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
+	duration := pointer.IntDeref(cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds, -1)
+	if duration < 0 {
+		return 60
+	}
+
+	return duration
 }

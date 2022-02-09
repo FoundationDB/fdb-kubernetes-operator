@@ -64,6 +64,7 @@ spec:
                         - All
                         - Zone
                         - ProcessGroup
+                        - None
                       type: string
                     enforceFullReplicationForDeletion:
                       type: boolean
@@ -75,6 +76,14 @@ spec:
                     maxConcurrentReplacements:
                       minimum: 0
                       type: integer
+                    removalMode:
+                      default: Zone
+                      enum:
+                        - All
+                        - Zone
+                        - ProcessGroup
+                        - None
+                      type: string
                     replacements:
                       properties:
                         enabled:
@@ -88,6 +97,8 @@ spec:
                       type: object
                     useNonBlockingExcludes:
                       type: boolean
+                    waitBetweenRemovalsSeconds:
+                      type: integer
                   type: object
                 automountServiceAccountToken:
                   type: boolean

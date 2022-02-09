@@ -31,10 +31,8 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
-
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -131,7 +129,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			return &requeue{message: "Requeueing reconciliation to replace pods"}
 		}
 
-		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.DeletePods, true) {
+		if r.PodLifecycleManager.GetDeletionMode(cluster) == fdbtypes.PodUpdateModeNone {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
@@ -156,8 +154,8 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
-func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
-	if deletionMode == fdbtypes.DeletionModeAll {
+func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
+	if deletionMode == fdbtypes.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
 		for _, zoneProcesses := range updates {
@@ -167,7 +165,7 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 		return "cluster", deletions, nil
 	}
 
-	if deletionMode == fdbtypes.DeletionModeProcessGroup {
+	if deletionMode == fdbtypes.PodUpdateModeProcessGroup {
 		for _, zoneProcesses := range updates {
 			if len(zoneProcesses) < 1 {
 				continue
@@ -178,12 +176,16 @@ func getPodsToDelete(deletionMode fdbtypes.DeletionMode, updates map[string][]*c
 		}
 	}
 
-	if deletionMode == fdbtypes.DeletionModeZone {
+	if deletionMode == fdbtypes.PodUpdateModeZone {
 		// Default case is zone
 		for zoneName, zoneProcesses := range updates {
 			// Fetch the first zone and stop
 			return zoneName, zoneProcesses, nil
 		}
+	}
+
+	if deletionMode == fdbtypes.PodUpdateModeNone {
+		return "None", nil, nil
 	}
 
 	return "", nil, fmt.Errorf("unknown deletion mode: \"%s\"", deletionMode)
@@ -207,7 +209,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise we want to delete all Pods and don't require a lock to sync with other clusters.
-	if deletionMode != fdbtypes.DeletionModeAll {
+	if deletionMode != fdbtypes.PodUpdateModeAll {
 		hasLock, err := r.takeLock(cluster, "updating pods")
 		if !hasLock {
 			return &requeue{curError: err}

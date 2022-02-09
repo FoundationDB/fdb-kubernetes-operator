@@ -24,6 +24,9 @@ import (
 	"fmt"
 	"net"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -59,6 +62,34 @@ var _ = Describe("Internal error helper", func() {
 				testCase{
 					err:      fmt.Errorf("test : %w", &net.OpError{Op: "mock", Err: fmt.Errorf("not reachable")}),
 					expected: true,
+				}),
+		)
+	})
+
+	When("checking if an error is a quota exceeded error", func() {
+		type testCase struct {
+			err      error
+			expected bool
+		}
+
+		DescribeTable("parse the status",
+			func(tc testCase) {
+				Expect(IsQuotaExceeded(tc.err)).To(Equal(tc.expected))
+			},
+			Entry("Admission error",
+				testCase{
+					err:      apierrors.NewForbidden(schema.GroupResource{}, "test", fmt.Errorf("exceeded quota: todo")),
+					expected: true,
+				}),
+			Entry("Different forbidden error",
+				testCase{
+					err:      apierrors.NewForbidden(schema.GroupResource{}, "test", fmt.Errorf("not allowed")),
+					expected: false,
+				}),
+			Entry("simple errorr",
+				testCase{
+					err:      fmt.Errorf("error"),
+					expected: false,
 				}),
 		)
 	})

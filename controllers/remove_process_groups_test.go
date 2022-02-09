@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/utils/pointer"
 
@@ -257,6 +258,57 @@ var _ = Describe("remove_process_groups", func() {
 
 				It("should not remove that process group", func() {
 					Expect(result).To(BeNil())
+				})
+			})
+		})
+
+		When("Removing multiple process groups", func() {
+			var initialCnt int
+			var removedProcessGroup *fdbtypes.ProcessGroupStatus
+
+			BeforeEach(func() {
+				initialCnt = len(cluster.Status.ProcessGroups)
+				removedProcessGroup = cluster.Status.ProcessGroups[1]
+				marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
+				Expect(marked).To(BeTrue())
+				Expect(processGroup).To(BeNil())
+				// Exclude the process group
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, removedProcessGroup.Addresses...)
+			})
+
+			It("should remove only one process group", func() {
+				Expect(result).To(BeNil())
+				Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 1))
+			})
+
+			When("a process group is marked as terminating and all resources are removed it should be removed", func() {
+				BeforeEach(func() {
+					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.ResourcesTerminating))
+					err := removeProcessGroup(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).NotTo(HaveOccurred())
+					// Sleep here to prevent some timeing issues.
+					time.Sleep(10 * time.Microsecond)
+				})
+
+				It("should remove the process group and the terminated process group", func() {
+					Expect(result).To(BeNil())
+					Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
+				})
+			})
+
+			When("a process group is marked as terminating and not fully removed", func() {
+				BeforeEach(func() {
+					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.ResourcesTerminating))
+					// Set the wait time to the default value
+					cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(60)
+				})
+
+				It("should remove only one process group", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.message).To(HavePrefix("not allowed to remove process groups, waiting:"))
+					Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 0))
 				})
 			})
 		})

@@ -36,7 +36,7 @@ var _ = Describe("update_pods", func() {
 		var updates map[string][]*corev1.Pod
 
 		type testCase struct {
-			deletionMode         fdbtypes.DeletionMode
+			deletionMode         fdbtypes.PodUpdateMode
 			expectedDeletionsCnt int
 			expectedErr          error
 		}
@@ -80,18 +80,23 @@ var _ = Describe("update_pods", func() {
 			},
 			Entry("With the deletion mode Zone",
 				testCase{
-					deletionMode:         fdbtypes.DeletionModeZone,
+					deletionMode:         fdbtypes.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
-					deletionMode:         fdbtypes.DeletionModeProcessGroup,
+					deletionMode:         fdbtypes.PodUpdateModeProcessGroup,
 					expectedDeletionsCnt: 1,
 				}),
 			Entry("With the deletion mode All",
 				testCase{
-					deletionMode:         fdbtypes.DeletionModeAll,
+					deletionMode:         fdbtypes.PodUpdateModeAll,
 					expectedDeletionsCnt: 4,
+				}),
+			Entry("With the deletion mode None",
+				testCase{
+					deletionMode:         fdbtypes.PodUpdateModeNone,
+					expectedDeletionsCnt: 0,
 				}),
 			Entry("With the deletion mode All",
 				testCase{
