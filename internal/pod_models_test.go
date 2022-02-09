@@ -2077,81 +2077,6 @@ var _ = Describe("pod_models", func() {
 			})
 		})
 
-		Context("with command line arguments for the sidecar", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.Default.String()
-				cluster.Spec.SidecarVariables = []string{"FAULT_DOMAIN", "ZONE"}
-				spec, err = GetPodSpec(cluster, fdbtypes.ProcessClassStorage, 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should add the arguments to the init container", func() {
-				Expect(len(spec.InitContainers)).To(Equal(1))
-				initContainer := spec.InitContainers[0]
-				Expect(initContainer.Name).To(Equal("foundationdb-kubernetes-init"))
-				Expect(initContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
-				Expect(initContainer.Args).To(Equal([]string{
-					"--copy-file", "fdb.cluster", "--input-monitor-conf", "fdbmonitor.conf",
-					"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
-					"--main-container-version", cluster.Spec.Version,
-					"--substitute-variable", "FAULT_DOMAIN", "--substitute-variable", "ZONE",
-					"--init-mode",
-				}))
-				Expect(initContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-				}))
-			})
-
-			It("should add the arguments to the sidecar", func() {
-				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
-				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
-
-				Expect(sidecarContainer.Args).To(Equal([]string{
-					"--copy-file", "fdb.cluster", "--input-monitor-conf", "fdbmonitor.conf",
-					"--copy-binary", "fdbserver", "--copy-binary", "fdbcli",
-					"--main-container-version", cluster.Spec.Version,
-					"--substitute-variable", "FAULT_DOMAIN", "--substitute-variable", "ZONE",
-				}))
-
-				Expect(sidecarContainer.Env).To(Equal([]corev1.EnvVar{
-					{Name: "FDB_PUBLIC_IP", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-					{Name: "FDB_MACHINE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_ZONE_ID", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-					}},
-					{Name: "FDB_INSTANCE_ID", Value: "storage-1"},
-					{Name: "FDB_TLS_VERIFY_PEERS", Value: ""},
-				}))
-			})
-
-			It("should not include the sidecar conf in the config map", func() {
-				Expect(spec.Volumes[2]).To(Equal(corev1.Volume{
-					Name: "config-map",
-					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: fmt.Sprintf("%s-config", cluster.Name)},
-						Items: []corev1.KeyToPath{
-							{Key: "fdbmonitor-conf-storage", Path: "fdbmonitor.conf"},
-							{Key: ClusterFileKey, Path: "fdb.cluster"},
-						},
-					}},
-				}))
-			})
-		})
-
 		Context("with custom map", func() {
 			BeforeEach(func() {
 				cluster.Spec.ConfigMap = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "config1"}}
@@ -3076,33 +3001,6 @@ var _ = Describe("pod_models", func() {
 					{Name: "FDB_TLS_CA_FILE", Value: "/tmp/ca.pem"},
 					{Name: "FDB_CLUSTER_FILE", Value: "/var/dynamic-conf/fdb.cluster"},
 				}))
-			})
-		})
-
-		Context("with the sidecar require-not-empty field", func() {
-			BeforeEach(func() {
-				backup.Spec.Version = fdbtypes.Versions.Default.String()
-				deployment, err = GetBackupDeployment(backup)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(deployment).NotTo(BeNil())
-			})
-
-			Describe("the init container", func() {
-				var container corev1.Container
-
-				BeforeEach(func() {
-					container = deployment.Spec.Template.Spec.InitContainers[0]
-				})
-
-				It("should have a flag to require the cluster file is present", func() {
-					Expect(container.Args).To(Equal([]string{
-						"--copy-file",
-						"fdb.cluster",
-						"--require-not-empty",
-						"fdb.cluster",
-						"--init-mode",
-					}))
-				})
 			})
 		})
 
