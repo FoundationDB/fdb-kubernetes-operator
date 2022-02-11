@@ -1216,7 +1216,7 @@ type FoundationDBClusterAutomationOptions struct {
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 
 	// DeletionMode defines the deletion mode for this cluster. This can be
-	// PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
+	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
 	// DeletionMode defines how Pods are deleted in order to update them or
 	// when they are removed.
 	// +kubebuilder:validation:Optional
@@ -1225,7 +1225,7 @@ type FoundationDBClusterAutomationOptions struct {
 	DeletionMode PodUpdateMode `json:"deletionMode,omitempty"`
 
 	// RemovalMode defines the removal mode for this cluster. This can be
-	// PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
+	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
 	// RemovalMode defines how process groups are deleted in order when they
 	// are marked for removal.
 	// +kubebuilder:validation:Optional

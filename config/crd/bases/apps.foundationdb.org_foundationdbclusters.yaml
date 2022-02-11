@@ -77,7 +77,7 @@ spec:
                       minimum: 0
                       type: integer
                     podUpdateStrategy:
-                      default: Delete
+                      default: ReplaceTransactionSystem
                       enum:
                         - Replace
                         - ReplaceTransactionSystem
@@ -4671,7 +4671,7 @@ spec:
                       type: integer
                   type: object
                 processGroupIDPrefix:
-                  maxLength: 64
+                  maxLength: 32
                   type: string
                 processGroupsToRemove:
                   items:

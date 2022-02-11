@@ -1776,8 +1776,8 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with deletion disabled", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.DeletePods = pointer.Bool(false)
-					cluster.Spec.AutomationOptions.DeletionMode = ""
+					cluster.Spec.AutomationOptions.DeletionMode = fdbtypes.PodUpdateModeNone
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyDelete
 					shouldCompleteReconciliation = false
 
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -1809,6 +1809,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with deletion mode none", func() {
 				BeforeEach(func() {
 					cluster.Spec.AutomationOptions.DeletionMode = fdbtypes.PodUpdateModeNone
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyDelete
 					shouldCompleteReconciliation = false
 
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -2214,8 +2215,9 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			Context("with the default strategy", func() {
+			Context("with the delete strategy", func() {
 				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyDelete
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})

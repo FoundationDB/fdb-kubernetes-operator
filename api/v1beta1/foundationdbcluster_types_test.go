@@ -3654,7 +3654,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				&ProcessGroupStatus{
 					ProcessClass: ProcessClassTransaction,
 				},
-				false,
+				true,
 			),
 			Entry("Update strategy all storage process",
 				&FoundationDBCluster{
