@@ -82,7 +82,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus := fdbtypes.NewProcessGroupStatus("storage-1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
-				_, err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, "", processGroupStatus)
+				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, "", processGroupStatus)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
 				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))

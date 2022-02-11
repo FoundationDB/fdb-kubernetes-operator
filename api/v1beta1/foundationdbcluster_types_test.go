@@ -226,18 +226,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Log:       5,
 				Stateless: 9,
 			}))
-
-			cluster.Spec.ProcessCounts = ProcessCounts{}
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{}
-			cluster.Spec.Version = Versions.WithoutRatekeeperRole.String()
-
-			counts, err = cluster.GetProcessCountsWithDefaults()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
-				Storage:   3,
-				Log:       4,
-				Stateless: 7,
-			}))
 		})
 	})
 

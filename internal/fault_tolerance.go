@@ -33,15 +33,6 @@ func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithout
 
 // HasDesiredFaultTolerance checks if the cluster has the desired fault tolerance.
 func HasDesiredFaultTolerance(adminClient fdbadminclient.AdminClient, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return false, err
-	}
-
-	if !version.HasZoneFaultToleranceInStatus() {
-		return true, nil
-	}
-
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err

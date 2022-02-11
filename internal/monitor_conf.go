@@ -49,15 +49,6 @@ func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdbtype
 		return "", err
 	}
 
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return "", err
-	}
-
-	if !version.SupportsUsingBinariesFromMainContainer() {
-		substitutions["BINARY_DIR"] = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
-	}
-
 	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions["BINARY_DIR"])
 
 	arguments, err := config.GenerateArguments(processNumber, substitutions)
@@ -142,21 +133,11 @@ func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, proc
 	}
 
 	var binaryDir string
-
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	if version.SupportsUsingBinariesFromMainContainer() {
-		substitution, hasSubstitution := substitutions["BINARY_DIR"]
-		if hasSubstitution {
-			binaryDir = substitution
-		} else {
-			binaryDir = "$BINARY_DIR"
-		}
+	substitution, hasSubstitution := substitutions["BINARY_DIR"]
+	if hasSubstitution {
+		binaryDir = substitution
 	} else {
-		binaryDir = fmt.Sprintf("/var/dynamic-conf/bin/%s", cluster.Spec.Version)
+		binaryDir = "$BINARY_DIR"
 	}
 
 	confLines = append(confLines, fmt.Sprintf("command = %s/fdbserver", binaryDir))

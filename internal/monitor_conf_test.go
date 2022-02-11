@@ -668,8 +668,8 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("with binaries from the main container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
+				cluster.Spec.Version = fdbtypes.Versions.Default.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.Default.String()
 				podClient, _ := NewMockFdbPodClient(cluster, pod)
 
 				command, err = GetStartCommand(cluster, fdbtypes.ProcessClassStorage, podClient, 1, 1)
@@ -680,33 +680,6 @@ var _ = Describe("monitor_conf", func() {
 				id := pod.Labels[fdbtypes.FDBProcessGroupIDLabel]
 				Expect(command).To(Equal(strings.Join([]string{
 					"/usr/bin/fdbserver",
-					"--class=storage",
-					"--cluster_file=/var/fdb/data/fdb.cluster",
-					"--datadir=/var/fdb/data",
-					fmt.Sprintf("--locality_instance_id=%s", id),
-					fmt.Sprintf("--locality_machineid=%s-%s", cluster.Name, id),
-					fmt.Sprintf("--locality_zoneid=%s-%s", cluster.Name, id),
-					"--logdir=/var/log/fdb-trace-logs",
-					"--loggroup=" + cluster.Name,
-					fmt.Sprintf("--public_address=%s:4501", address),
-					"--seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-				}, " ")))
-			})
-		})
-
-		Context("with binaries from the sidecar container", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				podClient, _ := NewMockFdbPodClient(cluster, pod)
-				command, err = GetStartCommand(cluster, fdbtypes.ProcessClassStorage, podClient, 1, 1)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("includes the binary path in the start command", func() {
-				id := pod.Labels[fdbtypes.FDBProcessGroupIDLabel]
-				Expect(command).To(Equal(strings.Join([]string{
-					"/var/dynamic-conf/bin/6.2.11/fdbserver",
 					"--class=storage",
 					"--cluster_file=/var/fdb/data/fdb.cluster",
 					"--datadir=/var/fdb/data",
@@ -1107,65 +1080,6 @@ var _ = Describe("monitor_conf", func() {
 					"locality_instance_id = $FDB_INSTANCE_ID",
 					"locality_machineid = $FDB_MACHINE_ID",
 					"locality_zoneid = $RACK",
-				}, "\n")))
-			})
-		})
-
-		Context("with a version that can use binaries from the main container", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
-				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
-				Expect(err).NotTo(HaveOccurred())
-
-			})
-
-			It("should use the binaries from the BINARY_DIR", func() {
-				Expect(conf).To(Equal(strings.Join([]string{
-					"[general]",
-					"kill_on_configuration_change = false",
-					"restart_delay = 60",
-					"[fdbserver.1]",
-					"command = $BINARY_DIR/fdbserver",
-					"cluster_file = /var/fdb/data/fdb.cluster",
-					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
-					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
-					"loggroup = " + cluster.Name,
-					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
-				}, "\n")))
-			})
-		})
-
-		Context("with a version with binaries from the sidecar container", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				conf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should use the binaries from the dynamic conf", func() {
-				Expect(conf).To(Equal(strings.Join([]string{
-					"[general]",
-					"kill_on_configuration_change = false",
-					"restart_delay = 60",
-					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.2.11/fdbserver",
-					"cluster_file = /var/fdb/data/fdb.cluster",
-					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
-					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
-					"loggroup = " + cluster.Name,
-					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
 				}, "\n")))
 			})
 		})

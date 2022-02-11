@@ -448,6 +448,7 @@ type FoundationDBClusterStatus struct {
 	// NeedsSidecarConfInConfigMap determines whether we need to include the
 	// sidecar conf in the config map even when the latest version should not
 	// require it.
+	// Deprecated: will be removed in the next release.
 	NeedsSidecarConfInConfigMap bool `json:"needsSidecarConfInConfigMap,omitempty"`
 
 	// StorageServersPerDisk defines the storageServersPerPod observed in the cluster.
@@ -1470,11 +1471,6 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		}
 	}
 
-	version, err := ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return ProcessCounts{}, err
-	}
-
 	if processCounts.Storage == 0 {
 		processCounts.Storage = cluster.calculateProcessCount(false,
 			roleCounts.Storage)
@@ -1490,11 +1486,8 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
 			cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy) +
 			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution, processCounts.Resolver)
-		if version.HasRatekeeperRole() {
-			primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
-				cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
-		}
-
+		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
+			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 		processCounts.Stateless = cluster.calculateProcessCount(true,
 			primaryStatelessCount,
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),

@@ -3043,8 +3043,8 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a version that can use binaries from the main container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithBinariesFromMainContainer.String()
+				cluster.Spec.Version = fdbtypes.Versions.Default.String()
+				cluster.Status.RunningVersion = fdbtypes.Versions.Default.String()
 				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 
@@ -3057,35 +3057,6 @@ var _ = Describe("cluster_controller", func() {
 					"restart_delay = 60",
 					"[fdbserver.1]",
 					"command = $BINARY_DIR/fdbserver",
-					"cluster_file = /var/fdb/data/fdb.cluster",
-					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
-					"public_address = $FDB_PUBLIC_IP:4501",
-					"class = storage",
-					"logdir = /var/log/fdb-trace-logs",
-					"loggroup = " + cluster.Name,
-					"datadir = /var/fdb/data",
-					"locality_instance_id = $FDB_INSTANCE_ID",
-					"locality_machineid = $FDB_MACHINE_ID",
-					"locality_zoneid = $FDB_ZONE_ID",
-				}, "\n")))
-			})
-		})
-
-		Context("with a version with binaries from the sidecar container", func() {
-			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.WithoutBinariesFromMainContainer.String()
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should use the binaries from the dynamic conf", func() {
-				Expect(conf).To(Equal(strings.Join([]string{
-					"[general]",
-					"kill_on_configuration_change = false",
-					"restart_delay = 60",
-					"[fdbserver.1]",
-					"command = /var/dynamic-conf/bin/6.2.11/fdbserver",
 					"cluster_file = /var/fdb/data/fdb.cluster",
 					"seed_cluster_file = /var/dynamic-conf/fdb.cluster",
 					"public_address = $FDB_PUBLIC_IP:4501",
