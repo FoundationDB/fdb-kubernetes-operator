@@ -194,7 +194,7 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
-	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:MaxLength=64
 	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// UpdatePodsByReplacement determines whether we should update pod config

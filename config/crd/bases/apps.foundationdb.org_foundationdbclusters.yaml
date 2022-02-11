@@ -4673,7 +4673,7 @@ spec:
                       type: integer
                   type: object
                 processGroupIDPrefix:
-                  maxLength: 32
+                  maxLength: 64
                   type: string
                 processGroupsToRemove:
                   items:
