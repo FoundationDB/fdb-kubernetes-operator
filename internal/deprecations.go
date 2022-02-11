@@ -408,6 +408,7 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	}
 
 	if cluster.Spec.UpdatePodsByReplacement {
+		cluster.Spec.UpdatePodsByReplacement = false
 		cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
 	}
 

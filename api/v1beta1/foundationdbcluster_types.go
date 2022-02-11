@@ -194,12 +194,12 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
-	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:MaxLength=32
 	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// UpdatePodsByReplacement determines whether we should update pod config
 	// by replacing the pods rather than deleting them.
-	// Depreacted: use PodUpdateStrategy instead
+	// Deprecated: use PodUpdateStrategy instead
 	UpdatePodsByReplacement bool `json:"updatePodsByReplacement,omitempty"`
 
 	// LockOptions allows customizing how we manage locks for global operations.
@@ -1242,10 +1242,10 @@ type FoundationDBClusterAutomationOptions struct {
 	WaitBetweenRemovalsSeconds *int `json:"waitBetweenRemovalsSeconds,omitempty"`
 
 	// PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods.
-	// The default for this might change in the 1.0.0 to ReplaceTransactionSystem.
+	// The default for this is ReplaceTransactionSystem.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
-	// +kubebuilder:default:=Delete
+	// +kubebuilder:default:=ReplaceTransactionSystem
 	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
 }
 

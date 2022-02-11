@@ -2309,6 +2309,34 @@ var _ = Describe("cluster_controller", func() {
 
 					Expect(currentNames).NotTo(ContainElements(originalNames))
 				})
+
+				It("should not replace the storage Pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
+						if fdbtypes.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
+						if fdbtypes.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).To(ContainElements(originalNames))
+				})
 			})
 
 			Context("with the replacement strategy", func() {
