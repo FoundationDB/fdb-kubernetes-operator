@@ -94,7 +94,7 @@ The `databaseConfiguration` must be configured how it should be when all FDB clu
 The following fields will be automatically set by the `kubectl fdb plugin` when creating the object in Kubernetes:
 
 ```yaml
-instanceIDPrefix: $dcID
+processGroupIDPrefix: $dcID
 dataCenter: $dcID
 seedConnectionString: $connectionString # The seed connection string will be set once the initial cluster is bootstrapped
 ```
@@ -129,7 +129,7 @@ spec:
 The following fields will be automatically set by the `kubectl fdb plugin` when creating the object in Kubernetes:
 
 ```yaml
-instanceIDPrefix: $zoneID
+processGroupIDPrefix: $zoneID
 zoneID: $zoneID
 zoneIdx: $zoneIdx
 seedConnectionString: $connectionString # The seed connection string will be set once the initial cluster is bootstrapped

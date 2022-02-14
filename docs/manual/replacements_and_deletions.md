@@ -25,7 +25,7 @@ The following changes can only be rolled out through replacement:
 * Increasing the resource requirements, when the `replaceInstancesWhenResourcesChange` flag is set.
 
 The number of inflight replacements can be configured by setting `maxConcurrentReplacements`, per default the operator will replace all misconfigured process groups.
-Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources. 
+Depending on the cluster size this can require a quota that is has double the capacity of the actual required resources.
 
 ## Automatic Replacements
 
@@ -39,14 +39,6 @@ The following conditions are currently eligible for replacement:
 
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
-
-## Enforce Full Replication
-
-With this setting enabled (defaults to `true`) the operator will check if the cluster has the desired fault tolerance and is available.
-If one of the conditions above is not met the operator won't remove the underlying resources of that process group (Pod, PVC, Service).
-The processes of that process group will stay excluded until the resources are removed.
-This is a safety measure to reduce the risk of data and availability loss.
-With the `enforceFullReplicationForDeletion` a human operator can decide to disable this safety check.roups when the cluster is fully replicated.
 
 ## Deletion mode
 

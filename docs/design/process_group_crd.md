@@ -16,13 +16,13 @@ Adding to much information into the status of an object has several drawbacks an
 - We can see some conflicts in our operator because multiple reconcile loops try to modify the status.
 - It's not trivial to change the status [319](https://github.com/FoundationDB/fdb-kubernetes-operator/issues/319#issuecomment-705870062).
 - We could split up some of the controller work to make each reconcile phase simpler.
-- Currently we have to maintain a `instancesToRemove` and `instancesToRemoveWithoutExclusion` list to remove `process groups`.
+- Currently we have to maintain a `processGroupsToRemove` and `ProcessGroupsToRemoveWithoutExclusion` list to remove `process groups`.
 - In our code we have sometimes rather complex control loops where we need to filter for process class etc. which could be done by the Kubernetes API.
 
 ## General Design Goals
 
 - Move the process group information out of the stats in it's own CRD.
-- Remove the need of the `instancesToRemove` and `instancesToRemoveWithoutExclusion` list.
+- Remove the need of the `processGroupsToRemove` and `ProcessGroupsToRemoveWithoutExclusion` list.
 - Split up the controller into an additional controller to manage the Kubernetes resource reconcilation.
 - Prevent that the FDB cluster custom resource grows to much.
 
@@ -42,7 +42,7 @@ Additional to the fields above in the `FoundationDBProcessGroup` status it will 
 The `FoundationDBProcessGroup` CRD will get some of fields that are currently represented in the FDB cluster CRD e.g. similar to a `ReplicaSet` that mirrors some of th fields from a `Deployment`:
 
 - The final [ProcessSettings](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#processsettings) for the specific process.
-- `instanceIDPrefix` for the created resources.
+- `processGroupIDPrefix` for the created resources.
 - Part of the [ServiceConfig](https://github.com/FoundationDB/fdb-kubernetes-operator/blob/master/docs/cluster_spec.md#serviceconfig) once we support to override fields in the created services.
 - `storageServersPerPod`.
 - `logGroup`.
@@ -97,7 +97,7 @@ This change has the benefit that we can separate the tasks handled by the differ
 In this case we prevent conflicts since each controller takes care of either the `Spec` or the `Status` but not both.
 This will be major change and will require some refactoring at multiple places.
 
-The `FDB cluster controller` will be still in charge of `excluding`, `including` and `removeing` `ProcessGroups`. 
+The `FDB cluster controller` will be still in charge of `excluding`, `including` and `removeing` `ProcessGroups`.
 Similar to the current implementation the `FDB cluster controller`  will exclude processes that should be removed.
 When the `processes` are successfully removed the `FoundationDBProcessGroup` will be removed and once the `FoundationDBProcessGroup` is removed it will be included.
 

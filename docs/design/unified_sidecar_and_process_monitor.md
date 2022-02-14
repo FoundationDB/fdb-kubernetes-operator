@@ -42,7 +42,7 @@ The new launcher will retain most of the command-line arguments of the current s
 * `--copy-binary` - A binary to copy to the output directory.
 * `--copy-library` - A version of the client library to copy to the output directory.
 * `--input-monitor-conf` - The name of a monitor conf template in the input files.
-* `--main-container-version` - The version of the main foundationdb container in the pod. 
+* `--main-container-version` - The version of the main foundationdb container in the pod.
 * `--shared-binary-dir` - The directory where the binaries written by the sidecar will be mounted in the main container.
 * `--require-not-empty` - A file that must be present and non-empty in the input directory.
 * `--additional-env-file` - A file with additional environment variables to load and make available for environment substitution in the process configuration. This file must contain lines of the format `key=value`, where `key` is the name of the environment variable and `value` is the value.
@@ -50,7 +50,7 @@ The new launcher will retain most of the command-line arguments of the current s
 
 This API will have an option to listen on a TLS connection and restrict the incoming connections using the same peer verification options we support in the current sidecar.
 
-When in `launch` mode, the launcher will watch the input configuration file for changes, and upon detecting changes it will set annotations on the pod to indicate the latest configuration that it has loaded. It will also perform basic safety checks on this configuration, and if the safety checks fail it will create an event describing the error with its configuration. This flow will require that the launcher has a service account token that allows it to communicate with the Kubernetes API. The operator will require that `automountServiceAccountToken` is either unset or set to `true` on the pod spec. We will also be able to set an annotation to tell the launcher to reload configuration, in case it misses an event about changes to the file, but we will generally want the launcher to proactively reload the configuration so that the operator doesn't need to do multiple runs to get a pod to converge on new configuration. The launcher will also create an event on the pod when it loads new configuration.
+When in `launch` mode, the launcher will watch the input configuration file for changes, and upon detecting changes it will set annotations on the pod to indicate the latest configuration that it has loaded. It will also perform basic safety checks on this configuration, and if the safety checks fail it will create an event describing the error with its configuration. This flow will require that the launcher has a service account token that allows it to communicate with the Kubernetes API. We will also be able to set an annotation to tell the launcher to reload configuration, in case it misses an event about changes to the file, but we will generally want the launcher to proactively reload the configuration so that the operator doesn't need to do multiple runs to get a pod to converge on new configuration. The launcher will also create an event on the pod when it loads new configuration.
 
 ### Process Configuration
 
@@ -137,7 +137,7 @@ This would spawn two processes, with the following configuration:
 /usr/bin/fdbserver --public_address 10.0.0.1:4502:tls --listen_address 192.168.0.1:4502:tls --datadir /var/fdb/data/2 --class storage --locality_zoneid zone1 --locality_instance_id storage-1 --locality_process_id storage-1-2
 ```
 
-### Annotations 
+### Annotations
 
 * `foundationdb.org/launcher-current-configuration`: A JSON document with the process configuration that the launcher has currently loaded. This will have the same structure as the input configuration.
 * `foundationdb.org/launcher-environment`: A JSON document with the keys and values for the environment variables that the launcher is using in its process configuration. This will include variables loaded from the `--additional-env-file` parameter.

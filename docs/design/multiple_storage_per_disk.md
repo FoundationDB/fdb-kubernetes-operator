@@ -20,7 +20,7 @@ It is common to provision FoundationDB with multiple storage servers on a single
 
 Every FDB pod consists of a single main container, running fdbmonitor and a single fdbserver process, and a sidecar container providing tools for managing dynamic conf. The stateful pods are provisioned with a single persistent volume claim. The resource requirements for the volume and the rest of the pod can be customized by the user.
 
-Each pod is assigned a single IP address, which is used as both the listen address and public address for the fdbserver process inside the main container. The process listens on a fixed port, which is 4500 for TLS processes and 4501 for non-TLS process. During the conversion between TLS and non-TLS configurations, the process uses two listeners, one on each port. 
+Each pod is assigned a single IP address, which is used as both the listen address and public address for the fdbserver process inside the main container. The process listens on a fixed port, which is 4500 for TLS processes and 4501 for non-TLS process. During the conversion between TLS and non-TLS configurations, the process uses two listeners, one on each port.
 
 The public address, consisting of an IP-and-port combination, is used to target processes in multiple places in the operator. It is used when excluding processes, when killing processes, and when choosing coordinators.
 
@@ -42,7 +42,7 @@ We will use a new field in the cluster status to track the distinct storage-serv
 
 The process count for storage will be interpreted as defining the number of pods, regardless of the number of storage server per disk.
 
-When removing or replacing storage servers, we will always target whole pods. Thus, the instancesToRemove list and the pendingRemovals map will still use instance IDs to identify the set of things being targeted. During exclusions, we will exclude the entire IP address for the instance. This is a small change from our current practice, but it should be compatible with all existing usage. 
+When removing or replacing storage servers, we will always target whole pods. Thus, the processGroupsToRemove list and the pendingRemovals map will still use instance IDs to identify the set of things being targeted. During exclusions, we will exclude the entire IP address for the instance. This is a small change from our current practice, but it should be compatible with all existing usage.
 
 In the incorrectProcesses map in the status, we will track the processes by process ID. This will reflect that the kills must be done on individual server, so we will need to track the full IP and port for each process we are killing. It should also simplify the implementation, since the validations that populate the incorrectProcesses map are done based on per-process information from the database status. The bounce action will use this map to pull the list of addresses for the kill command.
 

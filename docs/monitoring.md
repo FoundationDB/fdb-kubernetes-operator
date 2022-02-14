@@ -14,6 +14,6 @@ The operator specific metrics contain information about:
  - The process groups
  - The reconciliation status
  - The cluster status
- - How many `instancesToRemove` are currently in the list
+ - How many `processGroupsToRemove` are currently in the list
 
  This list is not complete and will be extended over time.
