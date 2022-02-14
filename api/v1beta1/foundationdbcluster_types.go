@@ -185,7 +185,7 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
-	// Deprecated: Use ProcessGroupsToRemoveWithoutExclusion instead.
+	// Deprecated: Use processGroupIDPrefix instead.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
 
 	// ProcessGroupIDPrefix defines a prefix to append to the process group IDs in the
