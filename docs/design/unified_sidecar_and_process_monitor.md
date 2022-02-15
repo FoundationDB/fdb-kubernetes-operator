@@ -59,6 +59,8 @@ The process configuration will be represented in a JSON file that contains a Pro
 ```
 ProcessConfiguration {
 	version: string - The version of FoundationDB the process should run. This will determine the path to the fdbserver process.
+	runServers: bool - Defines whether we should run the server processes. This defaults to true, but you can set it to false to prevent starting new fdbserver processes.
+	-:BinaryPath: string - Provides the path to the binary to launch.
 	arguments: []Argument - The arguments to the fdbserver process
 }
 

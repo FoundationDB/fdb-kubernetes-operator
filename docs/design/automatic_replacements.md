@@ -18,7 +18,7 @@ Replacing failed processes can be a major source of operational toil when runnin
 
 ## Current Implementation
 
-When the operator determines that a process is not reporting to the cluster, it records it in the `missingProcesses` field in the status. This includes a timestamp of the first time the operator noticed the process failing. Once the operator sees the process in the cluster again, it removes it from the missingProcesses field.
+When the operator determines that a process is not reporting to the cluster, it updates the field `removalTimestamp` in `processGroupStatus` status. This includes a timestamp of the first time the operator noticed the process failing. Once the operator sees the process in the cluster again, it removes it from the removalTimestamp field.
 
 Users can manually replace an instance by adding it to the `processGroupsToRemove` field. The operator will also sometimes replace instances by its own logic, such as when changing volume sizes. The source of truth for what instances are going to be removed or replaced is the `pendingRemovals` field in the status.
 
@@ -36,7 +36,7 @@ If the user tries to replace too many pods at once, it can exhaust their resourc
 
 ### Initiating Replacements
 
-We will add an option to replace processes that have been marked as missing for a configurable duration of time. The default will be to disable this feature. When it is enabled, the default duration to wait before the replacement will be 30 minutes. Once a process has been selected for replacement, it will be added to the pending removals list, and reconciliation will continue with the normal replacement process. The selection of instances for replacement will be dune in the ReplaceMisconfiguredPods action, which already has a similar responsibility.
+We will add an option to replace processes that have been marked as missing for a configurable duration of time. The default will be to disable this feature. When it is enabled, the default duration to wait before the replacement will be 30 minutes. Once a process has been selected for replacement, it will be added to the pending removals list, and reconciliation will continue with the normal replacement process. The selection of instances for replacement will be done in the ReplaceMisconfiguredPods action, which already has a similar responsibility.
 
 In order to make sure we consistently detect failures, we will add a new cronjob that runs when automatic replacements are enabled. There will be one instance of the cronjob for every cluster. By default, the frequency of the job will be the same as the replacement wait time. It will use the same service account as the operator by default, and it will need access to the cluster spec, to the list of pods, and to the cluster itself. It will detect missing instances using the same logic that we already use, and if it detects any missing instances it will annotate the cluster resource with a custom annotation set to the current time. This will trigger reconciliation. The cluster spec will offer full customization of the cronjob.
 

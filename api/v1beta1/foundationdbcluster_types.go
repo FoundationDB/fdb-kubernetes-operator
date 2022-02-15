@@ -477,7 +477,7 @@ type LockSystemStatus struct {
 	DenyList []string `json:"lockDenyList,omitempty"`
 }
 
-// ProcessGroupStatus represents a the status of a ProcessGroup.
+// ProcessGroupStatus represents the status of a ProcessGroup.
 type ProcessGroupStatus struct {
 	// ProcessGroupID represents the ID of the process group
 	ProcessGroupID string `json:"processGroupID,omitempty"`
