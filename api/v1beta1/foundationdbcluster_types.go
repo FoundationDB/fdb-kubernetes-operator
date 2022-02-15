@@ -313,7 +313,7 @@ type FoundationDBClusterSpec struct {
 	// the controller will provide the pod's current IP.
 	//
 	// Deprecated: To indicate that a process should be removed, use the
-	// InstancesToRemove field. To get information about pending removals,
+	// processGroupsToRemove field. To get information about pending removals,
 	// use the PendingRemovals field in the status.
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
 
@@ -1264,7 +1264,7 @@ type AutomaticReplacementOptions struct {
 	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.
 	// This will take the list of current replacements and then calculate the difference between
 	// maxConcurrentReplacements and the size of the list. e.g. if currently 3 replacements are
-	// queued (e.g. in the instancesToRemove list) and maxConcurrentReplacements is 5 the operator
+	// queued (e.g. in the processGroupsToRemove list) and maxConcurrentReplacements is 5 the operator
 	// is allowed to replace at most 2 process groups. Setting this to 0 will basically disable the automatic
 	// replacements.
 	// +kubebuilder:default:=1
