@@ -40,6 +40,10 @@ The following conditions are currently eligible for replacement:
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
 
+## Enforce Full Replication
+
+The operator only removes ProcessGroups when the cluster has the desired fault tolerance and is available. This is enforced by default in 1.0.0 without disabling.
+
 ## Deletion mode
 
 The operator supports different deletion modes (`All`, `Zone`, `ProcessGroup`).
