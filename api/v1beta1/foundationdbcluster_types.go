@@ -3026,7 +3026,7 @@ func (pClass ProcessClass) IsStateful() bool {
 
 // IsTransaction determines whether a process class is part of the transaction system.
 func (pClass ProcessClass) IsTransaction() bool {
-	return pClass == ProcessClassStateless || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+	return pClass != ProcessClassStorage && pClass != ProcessClassGeneral
 }
 
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
