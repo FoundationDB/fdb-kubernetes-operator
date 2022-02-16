@@ -328,22 +328,10 @@ func (client *cliAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error)
 	return exclusions, nil
 }
 
-// CanSafelyRemove checks whether it is safe to remove processes from the
-// cluster
-//
-// The list returned by this method will be the addresses that are *not*
-// safe to remove.
-func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
-	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	status, err := client.GetStatus()
-	if err != nil {
-		return nil, err
-	}
-
+// getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
+// The first list return all addresses that are excluded in the cluster and the exclude command can be used to verify if it's safe to remove this address.
+// The second list contains all addresses that are part of the input list and are not marked as excluded in the cluster, those addresses are not safe to remove.
+func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, []fdbtypes.ProcessAddress) {
 	notExcluded := map[string]fdbtypes.None{}
 	for _, addr := range addresses {
 		notExcluded[addr.MachineAddress()] = fdbtypes.None{}
@@ -381,23 +369,43 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddres
 		remaining = make([]fdbtypes.ProcessAddress, 0, len(excludeCheckAddr))
 	}
 
+	return excludeCheckAddr, remaining
+}
+
+// CanSafelyRemove checks whether it is safe to remove processes from the
+// cluster
+//
+// The list returned by this method will be the addresses that are *not*
+// safe to remove.
+func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
+	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	status, err := client.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+
+	markedAsExcluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
 	log.Info("Filtering excluded processes",
 		"namespace", client.Cluster.Namespace,
 		"cluster", client.Cluster.Name,
-		"excludedAddresses", excludeCheckAddr,
+		"markedAsExcluded", markedAsExcluded,
 		"notExcludedAddresses", remaining)
 
 	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
-			fdbtypes.ProcessAddressesString(excludeCheckAddr, " "),
+			fdbtypes.ProcessAddressesString(markedAsExcluded, " "),
 		)})
 		if err != nil {
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
-		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", excludeCheckAddr, "results", exclusionResults)
-		for _, address := range excludeCheckAddr {
+		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", markedAsExcluded, "results", exclusionResults)
+		for _, address := range markedAsExcluded {
 			if exclusionResults[address.String()] != "Success" && exclusionResults[address.String()] != "Missing" {
 				remaining = append(remaining, address)
 			}
@@ -407,7 +415,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddres
 	}
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
 		"exclude %s",
-		fdbtypes.ProcessAddressesString(excludeCheckAddr, " "),
+		fdbtypes.ProcessAddressesString(markedAsExcluded, " "),
 	)})
 
 	if err != nil {

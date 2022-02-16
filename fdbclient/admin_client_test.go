@@ -22,6 +22,9 @@ package fdbclient
 
 import (
 	"fmt"
+	"net"
+
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -144,6 +147,123 @@ var _ = Describe("admin_client_test", func() {
 					expected:    "",
 					expectedErr: fmt.Errorf("the JSON string doesn't contain a starting '{'"),
 				},
+			),
+		)
+	})
+
+	When("getting the excluded and remaining processes", func() {
+		addr1 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.1"), "", 0, nil)
+		addr2 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.2"), "", 0, nil)
+		addr3 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.3"), "", 0, nil)
+		addr4 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.4"), "", 0, nil)
+
+		DescribeTable("fetching the excluded and ramining processes from the status",
+			func(status *fdbtypes.FoundationDBStatus, addresses []fdbtypes.ProcessAddress, expectedExcluded []fdbtypes.ProcessAddress, expectedRemaining []fdbtypes.ProcessAddress) {
+				excluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
+				Expect(expectedExcluded).To(ContainElements(excluded))
+				Expect(len(expectedExcluded)).To(BeNumerically("==", len(excluded)))
+				Expect(expectedRemaining).To(ContainElements(remaining))
+				Expect(len(expectedRemaining)).To(BeNumerically("==", len(remaining)))
+			},
+			Entry("with an empty input address slice",
+				&fdbtypes.FoundationDBStatus{
+					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+							},
+						},
+					},
+				},
+				[]fdbtypes.ProcessAddress{},
+				nil,
+				nil,
+			),
+			Entry("when the process is excluded",
+				&fdbtypes.FoundationDBStatus{
+					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+							},
+						},
+					},
+				},
+				[]fdbtypes.ProcessAddress{addr4},
+				[]fdbtypes.ProcessAddress{addr4},
+				nil,
+			),
+			Entry("when the process is not excluded",
+				&fdbtypes.FoundationDBStatus{
+					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+							},
+						},
+					},
+				},
+				[]fdbtypes.ProcessAddress{addr3},
+				nil,
+				[]fdbtypes.ProcessAddress{addr3},
+			),
+			Entry("when some processes are excludeded and some not",
+				&fdbtypes.FoundationDBStatus{
+					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+							"1": {
+								Address:  addr1,
+								Excluded: true,
+							},
+							"2": {
+								Address: addr2,
+							},
+							"3": {
+								Address: addr3,
+							},
+							"4": {
+								Address:  addr4,
+								Excluded: true,
+							},
+						},
+					},
+				},
+				[]fdbtypes.ProcessAddress{addr1, addr2, addr3, addr4},
+				[]fdbtypes.ProcessAddress{addr1, addr4},
+				[]fdbtypes.ProcessAddress{addr2, addr3},
 			),
 		)
 	})
