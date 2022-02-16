@@ -364,12 +364,12 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 
 			excludeCheckAddr = append(excludeCheckAddr, addr)
 		}
-	} else {
-		excludeCheckAddr = addresses
-		remaining = make([]fdbtypes.ProcessAddress, 0, len(excludeCheckAddr))
+
+		return excludeCheckAddr, remaining
 	}
 
-	return excludeCheckAddr, remaining
+	// All addresses are excluded
+	return addresses, nil
 }
 
 // CanSafelyRemove checks whether it is safe to remove processes from the
