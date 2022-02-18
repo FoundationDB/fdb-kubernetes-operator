@@ -39,10 +39,12 @@ type FdbVersion struct {
 
 	// Patch is the patch version
 	Patch int
+
+	ReleaseCandidate int
 }
 
 // FDBVersionRegex describes the format of a FoundationDB version.
-var FDBVersionRegex = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)`)
+var FDBVersionRegex = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)(-rc(\d+))?`)
 
 // ParseFdbVersion parses a version from its string representation.
 func ParseFdbVersion(version string) (FdbVersion, error) {
@@ -66,12 +68,20 @@ func ParseFdbVersion(version string) (FdbVersion, error) {
 		return FdbVersion{}, err
 	}
 
-	return FdbVersion{Major: major, Minor: minor, Patch: patch}, nil
+	rc, err := strconv.Atoi(matches[5])
+	if err != nil {
+		rc = 0
+	}
+
+	return FdbVersion{Major: major, Minor: minor, Patch: patch, ReleaseCandidate: rc}, nil
 }
 
 // String gets the string representation of an FDB version.
 func (version FdbVersion) String() string {
-	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
+	if version.ReleaseCandidate == 0 {
+		return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
+	}
+	return fmt.Sprintf("%d.%d.%d-rc%d", version.Major, version.Minor, version.Patch, version.ReleaseCandidate)
 }
 
 // Compact prints the version in the major.minor format.
@@ -99,13 +109,19 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 	if version.Patch > other.Patch {
 		return true
 	}
+	if version.ReleaseCandidate < other.ReleaseCandidate {
+		return false
+	}
+	if version.ReleaseCandidate > other.ReleaseCandidate {
+		return true
+	}
 	return true
 }
 
 // IsProtocolCompatible determines whether two versions of FDB are protocol
 // compatible.
 func (version FdbVersion) IsProtocolCompatible(other FdbVersion) bool {
-	return version.Major == other.Major && version.Minor == other.Minor
+	return version.Major == other.Major && version.Minor == other.Minor && version.ReleaseCandidate == other.ReleaseCandidate
 }
 
 // HasNonBlockingExcludes determines if a version has support for non-blocking
@@ -133,7 +149,8 @@ func (version FdbVersion) NextPatchVersion() FdbVersion {
 func (version FdbVersion) Equal(other FdbVersion) bool {
 	return version.Major == other.Major &&
 		version.Minor == other.Minor &&
-		version.Patch == other.Patch
+		version.Patch == other.Patch &&
+		version.ReleaseCandidate == other.ReleaseCandidate
 }
 
 // IsSupported defines the minimum supported FDB version.
