@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/FoundationDB/fdb-kubernetes-operator)
 [![CI for master branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
 
-This project provides an experimental operator for managing FoundationDB
+This project provides an operator for managing FoundationDB
 clusters on Kubernetes.
 
 ## Running the Operator
@@ -82,3 +82,8 @@ export BUILDER='nerdctl -n k8s.io'
 
 You can test your setup with `SKIP_TEST=1 make container-build` which will build the image locally.
 After the command successfully finished you can verify with `nerdctl -n k8s.io images fdb-kubernetes-operator:latest` that the image is available.
+
+### Known Challenges
+1. Support for backups in the operator is still in development, and there are significant missing features.
+2. The unified image is still experimental, and is not recommended outside of development environments.
+3. Read more challenges in [Warnings](docs/manual/warnings.md)
