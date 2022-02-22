@@ -1996,17 +1996,13 @@ func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) 
 // String gets the string representation of an address.
 func (address ProcessAddress) String() string {
 	if address.Port == 0 {
-		return address.IPAddress.String()
+		return address.MachineAddress()
 	}
 
 	var sb strings.Builder
 	// We have to do this since we are creating a template file for the processes.
 	// The template file will contain variables like POD_IP which is not a valid net.IP :)
-	if address.StringAddress == "" {
-		sb.WriteString(net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port)))
-	} else {
-		sb.WriteString(net.JoinHostPort(address.StringAddress, strconv.Itoa(address.Port)))
-	}
+	sb.WriteString(net.JoinHostPort(address.MachineAddress(), strconv.Itoa(address.Port)))
 
 	flags := address.SortedFlags()
 
@@ -2021,13 +2017,22 @@ func (address ProcessAddress) String() string {
 	return sb.String()
 }
 
-// StringWithoutFlags gets the string representation of an address without flags.
-func (address ProcessAddress) StringWithoutFlags() string {
-	if address.Port == 0 {
+// MachineAddress returns the machine address, this is the address without any ports.
+func (address ProcessAddress) MachineAddress() string {
+	if address.StringAddress == "" {
 		return address.IPAddress.String()
 	}
 
-	return net.JoinHostPort(address.IPAddress.String(), strconv.Itoa(address.Port))
+	return address.StringAddress
+}
+
+// StringWithoutFlags gets the string representation of an address without flags.
+func (address ProcessAddress) StringWithoutFlags() string {
+	if address.Port == 0 {
+		return address.MachineAddress()
+	}
+
+	return net.JoinHostPort(address.MachineAddress(), strconv.Itoa(address.Port))
 }
 
 // GetFullAddress gets the full public address we should use for a process.
