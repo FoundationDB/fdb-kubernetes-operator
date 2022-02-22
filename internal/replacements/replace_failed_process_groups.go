@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -50,7 +52,7 @@ func getMaxReplacements(cluster *fdbtypes.FoundationDBCluster, maxReplacements i
 // of whether any processes were thus flagged.
 func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
-	if !*cluster.Spec.AutomationOptions.Replacements.Enabled {
+	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.Enabled, false) {
 		return false
 	}
 

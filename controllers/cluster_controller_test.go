@@ -1776,8 +1776,8 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with deletion disabled", func() {
 				BeforeEach(func() {
-					cluster.Spec.AutomationOptions.DeletePods = pointer.Bool(false)
-					cluster.Spec.AutomationOptions.DeletionMode = ""
+					cluster.Spec.AutomationOptions.DeletionMode = fdbtypes.PodUpdateModeNone
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyDelete
 					shouldCompleteReconciliation = false
 
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -1809,6 +1809,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with deletion mode none", func() {
 				BeforeEach(func() {
 					cluster.Spec.AutomationOptions.DeletionMode = fdbtypes.PodUpdateModeNone
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyDelete
 					shouldCompleteReconciliation = false
 
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -2214,8 +2215,9 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			Context("with the default strategy", func() {
+			Context("with the delete strategy", func() {
 				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyDelete
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -2248,7 +2250,147 @@ var _ = Describe("cluster_controller", func() {
 				})
 			})
 
+			Context("with the replace transaction strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
+					}
+
+					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+					for _, address := range adminClient.KilledAddresses {
+						killedAddresses[address] = true
+					}
+					Expect(killedAddresses).To(Equal(addresses))
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
+					}
+				})
+
+				It("should update the running version", func() {
+					Expect(cluster.Status.RunningVersion).To(Equal(cluster.Spec.Version))
+				})
+
+				It("should replace the transaction system Pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
+						if !fdbtypes.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
+						if !fdbtypes.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
+				})
+
+				It("should not replace the storage Pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
+						if fdbtypes.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
+						if fdbtypes.ProcessClass(class).IsTransaction() {
+							continue
+						}
+
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).To(ContainElements(originalNames))
+				})
+			})
+
 			Context("with the replacement strategy", func() {
+				BeforeEach(func() {
+					cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should bounce the processes", func() {
+					addresses := make(map[string]bool, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						addresses[fmt.Sprintf("%s:4501", pod.Status.PodIP)] = true
+					}
+
+					killedAddresses := make(map[string]bool, len(adminClient.KilledAddresses))
+					for _, address := range adminClient.KilledAddresses {
+						killedAddresses[address] = true
+					}
+					Expect(killedAddresses).To(Equal(addresses))
+				})
+
+				It("should set the image on the pods", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					for _, pod := range pods.Items {
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
+					}
+				})
+
+				It("should replace the process group", func() {
+					pods := &corev1.PodList{}
+					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range originalPods.Items {
+						originalNames = append(originalNames, pod.Name)
+					}
+
+					currentNames := make([]string, 0, len(originalPods.Items))
+					for _, pod := range pods.Items {
+						currentNames = append(currentNames, pod.Name)
+					}
+
+					Expect(currentNames).NotTo(ContainElements(originalNames))
+				})
+			})
+
+			Context("with the deprecated replacement strategy", func() {
 				BeforeEach(func() {
 					cluster.Spec.UpdatePodsByReplacement = true
 					err = k8sClient.Update(context.TODO(), cluster)

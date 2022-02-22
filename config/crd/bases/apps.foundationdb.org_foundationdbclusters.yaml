@@ -76,6 +76,13 @@ spec:
                     maxConcurrentReplacements:
                       minimum: 0
                       type: integer
+                    podUpdateStrategy:
+                      default: ReplaceTransactionSystem
+                      enum:
+                        - Replace
+                        - ReplaceTransactionSystem
+                        - Delete
+                      type: string
                     removalMode:
                       default: Zone
                       enum:

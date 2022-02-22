@@ -23,12 +23,12 @@ package replacements
 import (
 	"fmt"
 
-	"k8s.io/utils/pointer"
-
-	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/go-logr/logr"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -40,505 +40,573 @@ import (
 
 var _ = Describe("replace_misconfigured_pods", func() {
 	var cluster *fdbtypes.FoundationDBCluster
-	var err error
-	processGroupName := fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337)
-	var pod *corev1.Pod
-	falseValue := false
 	var log logr.Logger
 
 	BeforeEach(func() {
 		log = logf.Log.WithName("replacements")
 		cluster = internal.CreateDefaultCluster()
-		cluster.Spec.LabelConfig.FilterOnOwnerReferences = &falseValue
-		cluster.Spec.UpdatePodsByReplacement = false
-		cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-			fdbtypes.ProcessClassGeneral: {
-				PodTemplate: &corev1.PodTemplateSpec{},
-			},
-		}
-		pod = &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					fdbtypes.FDBProcessGroupIDLabel:    processGroupName,
-					fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-					internal.OldFDBProcessGroupIDLabel: processGroupName,
-					internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-				},
-				Annotations: map[string]string{},
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{Name: "foundationdb"},
-					{Name: "foundationdb-kubernetes-sidecar", Env: []corev1.EnvVar{
-						{Name: "FDB_POD_IP"},
-					}},
-				},
-			},
-		}
+		err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 		Expect(err).NotTo(HaveOccurred())
 
-		err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		cluster.Spec.LabelConfig.FilterOnOwnerReferences = pointer.Bool(false)
+		cluster.Spec.UpdatePodsByReplacement = false
 	})
 
-	Describe("Check process group", func() {
-		Context("when process group has no Pod", func() {
-			It("should not need removal", func() {
-				needsRemoval, err := processGroupNeedsRemoval(cluster, nil, nil, log)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).NotTo(HaveOccurred())
+	When("checking process groups fro replacements", func() {
+		var pod *corev1.Pod
+		var status *fdbtypes.ProcessGroupStatus
+		var pClass fdbtypes.ProcessClass
+		var remove bool
+
+		JustBeforeEach(func() {
+			processGroupName := fmt.Sprintf("%s-%d", pClass, 1337)
+			status = &fdbtypes.ProcessGroupStatus{
+				ProcessGroupID: processGroupName,
+				Remove:         remove,
+				ProcessClass:   pClass,
+			}
+
+			pod = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						fdbtypes.FDBProcessGroupIDLabel:    processGroupName,
+						fdbtypes.FDBProcessClassLabel:      string(status.ProcessClass),
+						internal.OldFDBProcessGroupIDLabel: processGroupName,
+						internal.OldFDBProcessClassLabel:   string(status.ProcessClass),
+					},
+					Annotations: map[string]string{},
+				},
+			}
+
+			spec, err := internal.GetPodSpec(cluster, status.ProcessClass, 1337)
+			Expect(err).NotTo(HaveOccurred())
+
+			pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey], err = internal.GetPodSpecHash(cluster, status.ProcessClass, 1337, spec)
+			Expect(err).NotTo(HaveOccurred())
+
+			pod.Spec = *spec
+
+			err = internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Describe("Check process group", func() {
+			Context("when process group has no Pod", func() {
+				It("should not need removal", func() {
+					needsRemoval, err := processGroupNeedsRemoval(cluster, nil, nil, log)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			Context("when processGroupStatus is missing", func() {
+				BeforeEach(func() {
+					pClass = fdbtypes.ProcessClassStorage
+					remove = false
+				})
+
+				It("should return an error", func() {
+					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, nil, log)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal(fmt.Sprintf("unknown process group %s in replace_misconfigured_pods", status.ProcessGroupID)))
+				})
+			})
+
+			Context("when processGroupStatus has remove flag", func() {
+				BeforeEach(func() {
+					pClass = fdbtypes.ProcessClassStorage
+					remove = true
+				})
+
+				It("should not need a removal", func() {
+					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("process group ID prefix changes", func() {
+				When("the process class is storage", func() {
+					BeforeEach(func() {
+						pClass = fdbtypes.ProcessClassStorage
+						remove = false
+					})
+
+					It("should need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+
+						// Change the instance ID should trigger a removal
+						cluster.Spec.InstanceIDPrefix = "test"
+						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+
+						// Change the process group ID should trigger a removal
+						cluster.Spec.ProcessGroupIDPrefix = "test"
+						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the process class is transaction", func() {
+					BeforeEach(func() {
+						pClass = fdbtypes.ProcessClassTransaction
+						remove = false
+					})
+
+					It("should need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+
+						// Change the instance ID should trigger a removal
+						cluster.Spec.InstanceIDPrefix = "test"
+						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+
+						// Change the process group ID should trigger a removal
+						cluster.Spec.ProcessGroupIDPrefix = "test"
+						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+			})
+
+			When("the public IP source changes", func() {
+				BeforeEach(func() {
+					pClass = fdbtypes.ProcessClassStorage
+					remove = false
+				})
+
+				It("should need a removal", func() {
+					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+					Expect(needsRemoval).To(BeFalse())
+					Expect(err).NotTo(HaveOccurred())
+
+					ipSource := fdbtypes.PublicIPSourceService
+					cluster.Spec.Routing.PublicIPSource = &ipSource
+					needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+					Expect(needsRemoval).To(BeTrue())
+					Expect(err).NotTo(HaveOccurred())
+				})
 			})
 		})
 
-		Context("when processGroupStatus is missing", func() {
-			It("should return an error", func() {
-				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, nil, log)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal(fmt.Sprintf("unknown process group %s in replace_misconfigured_pods", processGroupName)))
+		When("the public IP source is removed", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
 			})
-		})
 
-		Context("when processGroupStatus has remove flag", func() {
-			It("should not need a removal", func() {
-				status := &fdbtypes.ProcessGroupStatus{
-					ProcessGroupID: processGroupName,
-					Remove:         true,
-				}
-				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		Context("when process group ID prefix changes", func() {
 			It("should need a removal", func() {
-				status := &fdbtypes.ProcessGroupStatus{
-					ProcessGroupID: processGroupName,
-					Remove:         false,
+				pod.ObjectMeta.Annotations = map[string]string{
+					fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
 				}
-				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).NotTo(HaveOccurred())
-
-				// Change the instance ID should trigger a removal
-				cluster.Spec.InstanceIDPrefix = "test"
-				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-				Expect(needsRemoval).To(BeTrue())
-				Expect(err).NotTo(HaveOccurred())
-
-				// Change the process group ID should trigger a removal
-				cluster.Spec.ProcessGroupIDPrefix = "test"
-				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-				Expect(needsRemoval).To(BeTrue())
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		Context("when the public IP source changes", func() {
-			It("should need a removal", func() {
-				status := &fdbtypes.ProcessGroupStatus{
-					ProcessGroupID: processGroupName,
-					Remove:         false,
-				}
-				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-				Expect(needsRemoval).To(BeFalse())
-				Expect(err).NotTo(HaveOccurred())
 
 				ipSource := fdbtypes.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &ipSource
+
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.Routing.PublicIPSource = nil
 				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
-	})
 
-	When("the public IP source is removed", func() {
-		It("should need a removal", func() {
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-
-			pod.ObjectMeta.Annotations = map[string]string{
-				fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
-			}
-
-			ipSource := fdbtypes.PublicIPSourceService
-			cluster.Spec.Routing.PublicIPSource = &ipSource
-
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			cluster.Spec.Routing.PublicIPSource = nil
-			needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when the public IP source is set to default", func() {
-		It("should not need a removal", func() {
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			ipSource := fdbtypes.PublicIPSourcePod
-			cluster.Spec.Routing.PublicIPSource = &ipSource
-			needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when the storageServersPerPod is changed for a storage class process group", func() {
-		It("should need a removal", func() {
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			cluster.Spec.StorageServersPerPod = 2
-			needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when the storageServersPerPod is changed for a non storage class process group", func() {
-		It("should not need a removal", func() {
-			pod.ObjectMeta = metav1.ObjectMeta{
-				Labels: map[string]string{
-					fdbtypes.FDBProcessGroupIDLabel:    fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
-					fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassLog),
-					internal.OldFDBProcessGroupIDLabel: fmt.Sprintf("%s-1337", fdbtypes.ProcessClassLog),
-					internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassLog),
-				},
-				Annotations: map[string]string{},
-			}
-
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			cluster.Spec.StorageServersPerPod = 2
-			needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when the nodeSelector changes", func() {
-		It("should need a removal", func() {
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
-				"dummy": "test",
-			}
-			needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
-		It("should not need a removal", func() {
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
-			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
-			_, idNum, err := internal.ParseProcessGroupID(processGroupID)
-			Expect(err).NotTo(HaveOccurred())
-			pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
-			Expect(err).NotTo(HaveOccurred())
-			pod.Spec.NodeSelector = map[string]string{
-				"dummy": "test",
-			}
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
-		It("should not need a removal", func() {
-			pod.Spec = corev1.PodSpec{
-				Containers: []corev1.Container{{}},
-			}
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("when UpdatePodsByReplacement is set and the PodSpecHash doesn't match", func() {
-		It("should need a removal", func() {
-			pod.Spec = corev1.PodSpec{
-				Containers: []corev1.Container{{}},
-			}
-			status := &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
-			Expect(err).NotTo(HaveOccurred())
-
-			cluster.Spec.UpdatePodsByReplacement = true
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	When("PVC name doesn't match", func() {
-		It("should need a removal", func() {
-			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
-			Expect(err).NotTo(HaveOccurred())
-			pvc.Name = "Test-storage"
-			needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(needsRemoval).To(BeTrue())
-		})
-	})
-
-	When("PVC name and PVC spec match", func() {
-		It("should not need a removal", func() {
-			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
-			Expect(err).NotTo(HaveOccurred())
-			needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(needsRemoval).To(BeFalse())
-		})
-	})
-
-	When("PVC hash doesn't match", func() {
-		It("should need a removal", func() {
-			pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
-			Expect(err).NotTo(HaveOccurred())
-			pvc.Annotations[fdbtypes.LastSpecKey] = "1"
-			needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(needsRemoval).To(BeTrue())
-		})
-	})
-
-	Context("when the memory resources are changed", func() {
-		var status *fdbtypes.ProcessGroupStatus
-		var pod *corev1.Pod
-
-		BeforeEach(func() {
-			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
-			Expect(err).NotTo(HaveOccurred())
-			pod, err = internal.GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
-			Expect(err).NotTo(HaveOccurred())
-			status = &fdbtypes.ProcessGroupStatus{
-				ProcessGroupID: processGroupName,
-				Remove:         false,
-			}
-
-			needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-			Expect(needsRemoval).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		When("replacement for resource changes is activated", func() {
+		Context("when the public IP source is set to default", func() {
 			BeforeEach(func() {
-				cluster.Spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(true)
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
 			})
 
-			When("the memory is increased", func() {
-				BeforeEach(func() {
-					newMemory, err := resource.ParseQuantity("1Ti")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: newMemory,
-						},
-					}
-				})
+			It("should not need a removal", func() {
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
 
-				It("should need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeTrue())
-					Expect(err).NotTo(HaveOccurred())
-				})
+				ipSource := fdbtypes.PublicIPSourcePod
+				cluster.Spec.Routing.PublicIPSource = &ipSource
+				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when the storageServersPerPod is changed for a storage class process group", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
 			})
 
-			When("the memory is decreased", func() {
-				BeforeEach(func() {
-					newMemory, err := resource.ParseQuantity("1Ki")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: newMemory,
-						},
-					}
-				})
+			It("should need a removal", func() {
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
 
-				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
+				cluster.Spec.StorageServersPerPod = 2
+				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when the storageServersPerPod is changed for a non storage class process group", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassLog
+				remove = false
 			})
 
-			When("the CPU is increased", func() {
-				BeforeEach(func() {
-					newCPU, err := resource.ParseQuantity("1000")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU: newCPU,
-						},
-					}
-				})
+			It("should not need a removal", func() {
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
 
-				It("should need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeTrue())
-					Expect(err).NotTo(HaveOccurred())
-				})
+				cluster.Spec.StorageServersPerPod = 2
+				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when the nodeSelector changes", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
 			})
 
-			When("the CPU is decreased", func() {
-				BeforeEach(func() {
-					newCPU, err := resource.ParseQuantity("1m")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU: newCPU,
-						},
-					}
-				})
+			It("should need a removal", func() {
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
 
-				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
+				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
+					"dummy": "test",
+				}
+				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
 			})
 
-			When("adding another sidecar", func() {
-				BeforeEach(func() {
-					newCPU, err := resource.ParseQuantity("1000")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers,
-						corev1.Container{
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU: newCPU,
-								},
+			It("should not need a removal", func() {
+				processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
+				processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
+				_, idNum, err := internal.ParseProcessGroupID(processGroupID)
+				Expect(err).NotTo(HaveOccurred())
+				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+				Expect(err).NotTo(HaveOccurred())
+				pod.Spec.NodeSelector = map[string]string{
+					"dummy": "test",
+				}
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
+			})
+
+			It("should not need a removal", func() {
+				pod.Spec = corev1.PodSpec{
+					Containers: []corev1.Container{{}},
+				}
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
+			})
+
+			It("should need a removal", func() {
+				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "-1"
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassStorage
+				remove = false
+			})
+
+			It("should not need a removal", func() {
+				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "-1"
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
+			BeforeEach(func() {
+				pClass = fdbtypes.ProcessClassLog
+				remove = false
+			})
+
+			It("should need a removal", func() {
+				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "-1"
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("PVC name doesn't match", func() {
+			It("should need a removal", func() {
+				pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+				pvc.Name = "Test-storage"
+				needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(needsRemoval).To(BeTrue())
+			})
+		})
+
+		When("PVC name and PVC spec match", func() {
+			It("should not need a removal", func() {
+				pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+				needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(needsRemoval).To(BeFalse())
+			})
+		})
+
+		When("PVC hash doesn't match", func() {
+			It("should need a removal", func() {
+				pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				Expect(err).NotTo(HaveOccurred())
+				pvc.Annotations[fdbtypes.LastSpecKey] = "1"
+				needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(needsRemoval).To(BeTrue())
+			})
+		})
+
+		Context("when the memory resources are changed", func() {
+			var status *fdbtypes.ProcessGroupStatus
+			var pod *corev1.Pod
+
+			BeforeEach(func() {
+				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
+				Expect(err).NotTo(HaveOccurred())
+				pod, err = internal.GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
+				Expect(err).NotTo(HaveOccurred())
+				status = &fdbtypes.ProcessGroupStatus{
+					ProcessGroupID: fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337),
+					ProcessClass:   fdbtypes.ProcessClassStorage,
+					Remove:         false,
+				}
+
+				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+				Expect(needsRemoval).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			When("replacement for resource changes is activated", func() {
+				JustBeforeEach(func() {
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(true)
+				})
+
+				When("the memory is increased", func() {
+					JustBeforeEach(func() {
+						newMemory, err := resource.ParseQuantity("1Ti")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: newMemory,
 							},
-						})
+						}
+					})
+
+					It("should need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 
-				It("should need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeTrue())
-					Expect(err).NotTo(HaveOccurred())
+				When("the memory is decreased", func() {
+					JustBeforeEach(func() {
+						newMemory, err := resource.ParseQuantity("1Ki")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: newMemory,
+							},
+						}
+					})
+
+					It("should not need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the CPU is increased", func() {
+					BeforeEach(func() {
+						newCPU, err := resource.ParseQuantity("1000")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU: newCPU,
+							},
+						}
+					})
+
+					It("should need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the CPU is decreased", func() {
+					BeforeEach(func() {
+						newCPU, err := resource.ParseQuantity("1m")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU: newCPU,
+							},
+						}
+					})
+
+					It("should not need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("adding another sidecar", func() {
+					JustBeforeEach(func() {
+						newCPU, err := resource.ParseQuantity("1000")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers,
+							corev1.Container{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: newCPU,
+									},
+								},
+							})
+					})
+
+					It("should need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeTrue())
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 			})
-		})
 
-		When("replacement for resource changes is deactivated", func() {
-			BeforeEach(func() {
-				cluster.Spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(false)
-			})
-
-			When("the memory is increased", func() {
+			When("replacement for resource changes is deactivated", func() {
 				BeforeEach(func() {
-					newMemory, err := resource.ParseQuantity("1Ti")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: newMemory,
-						},
-					}
+					cluster.Spec.ReplaceInstancesWhenResourcesChange = pointer.Bool(false)
 				})
 
-				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
+				When("the memory is increased", func() {
+					BeforeEach(func() {
+						newMemory, err := resource.ParseQuantity("1Ti")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: newMemory,
+							},
+						}
+					})
 
-			When("the memory is decreased", func() {
-				BeforeEach(func() {
-					newMemory, err := resource.ParseQuantity("1Ki")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: newMemory,
-						},
-					}
-				})
-
-				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
-
-			When("the CPU is increased", func() {
-				BeforeEach(func() {
-					newCPU, err := resource.ParseQuantity("1000")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU: newCPU,
-						},
-					}
+					It("should not need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 
-				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
-				})
-			})
+				When("the memory is decreased", func() {
+					BeforeEach(func() {
+						newMemory, err := resource.ParseQuantity("1Ki")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: newMemory,
+							},
+						}
+					})
 
-			When("the CPU is decreased", func() {
-				BeforeEach(func() {
-					newCPU, err := resource.ParseQuantity("1m")
-					Expect(err).NotTo(HaveOccurred())
-					cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU: newCPU,
-						},
-					}
+					It("should not need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 
-				It("should not need a removal", func() {
-					needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
-					Expect(needsRemoval).To(BeFalse())
-					Expect(err).NotTo(HaveOccurred())
+				When("the CPU is increased", func() {
+					BeforeEach(func() {
+						newCPU, err := resource.ParseQuantity("1000")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU: newCPU,
+							},
+						}
+					})
+
+					It("should not need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the CPU is decreased", func() {
+					BeforeEach(func() {
+						newCPU, err := resource.ParseQuantity("1m")
+						Expect(err).NotTo(HaveOccurred())
+						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU: newCPU,
+							},
+						}
+					})
+
+					It("should not need a removal", func() {
+						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
+						Expect(needsRemoval).To(BeFalse())
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 			})
 		})
@@ -562,6 +630,18 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				podMap[id] = newPod
 				// Populate process groups
 				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdbtypes.ProcessClassStorage, nil))
+			}
+
+			for i := 0; i < 1; i++ {
+				_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassTransaction, i)
+				newPVC, err := internal.GetPvc(cluster, fdbtypes.ProcessClassTransaction, i)
+				Expect(err).NotTo(HaveOccurred())
+				pvcMap[id] = *newPVC
+				newPod, err := internal.GetPod(cluster, fdbtypes.ProcessClassTransaction, i)
+				Expect(err).NotTo(HaveOccurred())
+				podMap[id] = newPod
+				// Populate process groups
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdbtypes.ProcessClassTransaction, nil))
 			}
 
 			// Force a replacement of all processes
@@ -632,6 +712,49 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				}
 
 				Expect(cntReplacements).To(BeNumerically("==", len(cluster.Status.ProcessGroups)))
+			})
+		})
+
+		When("the image doesn't match with the desired image", func() {
+			BeforeEach(func() {
+				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{}
+			})
+
+			When("the process is a storage process", func() {
+				BeforeEach(func() {
+					_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassStorage, 0)
+					pod := podMap[id]
+					spec := pod.Spec.DeepCopy()
+					var cIdx int
+					for idx, con := range spec.Containers {
+						if con.Name != "foundationdb" {
+							continue
+						}
+
+						cIdx = idx
+						break
+					}
+
+					spec.Containers[cIdx].Image = "banana"
+					pod.Spec = *spec
+				})
+
+				It("should not have any replacements", func() {
+					hasReplacement, err := ReplaceMisconfiguredProcessGroups(log, cluster, pvcMap, podMap)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(hasReplacement).To(BeFalse())
+
+					cntReplacements := 0
+					for _, pGroup := range cluster.Status.ProcessGroups {
+						if !pGroup.IsMarkedForRemoval() {
+							continue
+						}
+
+						cntReplacements++
+					}
+
+					Expect(cntReplacements).To(BeNumerically("==", 0))
+				})
 			})
 		})
 	})

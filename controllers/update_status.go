@@ -277,7 +277,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return string(status.ImageTypes[i]) < string(status.ImageTypes[j])
 	})
 
-	//
 	// Sort ProcessGroups by ProcessGroupID otherwise this can result in an endless loop when the
 	// order changes.
 	sort.SliceStable(status.ProcessGroups, func(i, j int) bool {

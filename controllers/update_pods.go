@@ -64,6 +64,12 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			continue
 		}
 
+		if cluster.NeedsReplacement(processGroup) {
+			logger.V(1).Info("Skip process group for deletion, requires a replacement",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
 		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
 			logger.V(1).Info("Could not find Pod for process group ID",
