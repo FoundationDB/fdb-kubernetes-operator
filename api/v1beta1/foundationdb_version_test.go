@@ -37,9 +37,11 @@ var _ = Describe("[api] FDBVersion", func() {
 			Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
 		})
 
-		It("should be incompatible when release candidates differ", func() {
-			version := FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2})).To(BeFalse())
+		When("release candidates differ", func() {
+			It("should be incompatible", func() {
+				version := FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}
+				Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2})).To(BeFalse())
+			})
 		})
 	})
 

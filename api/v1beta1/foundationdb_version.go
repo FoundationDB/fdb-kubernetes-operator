@@ -40,6 +40,8 @@ type FdbVersion struct {
 	// Patch is the patch version
 	Patch int
 
+	// ReleaseCandidate is the number from the `-rc\d+` suffix version
+	// of the version if it exists
 	ReleaseCandidate int
 }
 
