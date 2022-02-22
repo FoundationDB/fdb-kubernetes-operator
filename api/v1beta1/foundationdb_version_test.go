@@ -36,6 +36,13 @@ var _ = Describe("[api] FDBVersion", func() {
 			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
 			Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
 		})
+
+		When("release candidates differ", func() {
+			It("should be incompatible", func() {
+				version := FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}
+				Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2})).To(BeFalse())
+			})
+		})
 	})
 
 	Context("Using the fdb version", func() {
@@ -50,7 +57,15 @@ var _ = Describe("[api] FDBVersion", func() {
 
 			version, err = ParseFdbVersion("test-6.2.11-test")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
+			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}))
+
+			version, err = ParseFdbVersion("7.0.0-rc1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}))
+
+			version, err = ParseFdbVersion("7.1.0-rc39")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(Equal(FdbVersion{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}))
 
 			_, err = ParseFdbVersion("6.2")
 			Expect(err).To(HaveOccurred())
@@ -60,6 +75,10 @@ var _ = Describe("[api] FDBVersion", func() {
 		It("should format the version correctly", func() {
 			version := FdbVersion{Major: 6, Minor: 2, Patch: 11}
 			Expect(version.String()).To(Equal("6.2.11"))
+			version = FdbVersion{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}
+			Expect(version.String()).To(Equal("6.2.11"))
+			version = FdbVersion{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 1}
+			Expect(version.String()).To(Equal("6.2.11-rc1"))
 		})
 
 		It("should validate the flags for the version correct", func() {
@@ -83,7 +102,7 @@ var _ = Describe("[api] FDBVersion", func() {
 	})
 
 	When("comparing two FDBVersions", func() {
-		It("should return if they are euqal", func() {
+		It("should return if they are equal", func() {
 			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
 			Expect(version.Equal(version)).To(BeTrue())
 			Expect(version.Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
