@@ -44,15 +44,41 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
+	initialPods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
 	if err != nil {
 		return &requeue{curError: err}
+	}
+
+	podMap := internal.CreatePodMap(cluster, initialPods)
+	var pods = make([]*corev1.Pod, 0, len(initialPods))
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() {
+			logger.V(1).Info("Ignore process group marked for removal",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		pod, ok := podMap[processGroup.ProcessGroupID]
+		if !ok {
+			logger.V(1).Info("Ignore process group with missing Pod",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		if pod.Status.Phase != corev1.PodRunning {
+			logger.V(1).Info("Ignore process group with Pod not in running state",
+				"processGroupID", processGroup.ProcessGroupID,
+				"phase", pod.Status.Phase)
+			continue
+		}
+
+		pods = append(pods, pod)
 	}
 
 	count := cluster.DesiredCoordinatorCount()
 	if len(pods) < count {
 		return &requeue{
-			message: fmt.Sprintf("cannot find enough Pods to recruit coordinators. Require %d, got %d Pods", count, len(pods)),
+			message: fmt.Sprintf("cannot find enough running Pods to recruit coordinators. Require %d, got %d Pods", count, len(pods)),
 			delay:   podSchedulingDelayDuration,
 		}
 	}
@@ -75,8 +101,8 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	}
 
 	processLocality := make([]localityInfo, 0, len(pods))
-	for indexOfProcess := range pods {
-		client, message := r.getPodClient(cluster, pods[indexOfProcess])
+	for _, pod := range pods {
+		client, message := r.getPodClient(cluster, pod)
 		if client == nil {
 			return &requeue{message: message, delay: podSchedulingDelayDuration}
 		}
@@ -85,7 +111,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 			return &requeue{curError: err}
 		}
 		if locality.ID == "" {
-			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pods[indexOfProcess].ObjectMeta)
+			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
 			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "processGroupID", processGroupID)
 			continue
 		}
