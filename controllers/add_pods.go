@@ -65,54 +65,56 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		_, podExists := podMap[processGroup.ProcessGroupID]
-		if !podExists && !processGroup.IsMarkedForRemoval() {
-			_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		if podExists || processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+
+		pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum)
+		if err != nil {
+			r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
+			return &requeue{curError: err}
+		}
+
+		serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+
+		imageType := internal.GetImageType(pod)
+
+		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, serverPerPod)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+
+		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
+
+		if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
+			service := &corev1.Service{}
+			err = r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 			if err != nil {
 				return &requeue{curError: err}
 			}
+			ip := service.Spec.ClusterIP
+			if ip == "" {
+				logger.Info("Service does not have an IP address", "processGroupID", processGroup.ProcessGroupID)
+				return &requeue{message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
+			}
+			pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
+		}
 
-			pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum)
-			if err != nil {
-				r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
-				return &requeue{curError: err}
+		err = r.PodLifecycleManager.CreatePod(ctx, r, pod)
+		if err != nil {
+			if internal.IsQuotaExceeded(err) {
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 
-			serverPerPod, err := internal.GetStorageServersPerPodForPod(pod)
-			if err != nil {
-				return &requeue{curError: err}
-			}
-
-			imageType := internal.GetImageType(pod)
-
-			configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, serverPerPod)
-			if err != nil {
-				return &requeue{curError: err}
-			}
-
-			pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
-
-			if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
-				service := &corev1.Service{}
-				err = r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
-				if err != nil {
-					return &requeue{curError: err}
-				}
-				ip := service.Spec.ClusterIP
-				if ip == "" {
-					logger.Info("Service does not have an IP address", "processGroupID", processGroup.ProcessGroupID)
-					return &requeue{message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
-				}
-				pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
-			}
-
-			err = r.PodLifecycleManager.CreatePod(ctx, r, pod)
-			if err != nil {
-				if internal.IsQuotaExceeded(err) {
-					return &requeue{curError: err, delayedRequeue: true}
-				}
-
-				return &requeue{curError: err}
-			}
+			return &requeue{curError: err}
 		}
 	}
 

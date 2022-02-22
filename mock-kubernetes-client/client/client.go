@@ -352,6 +352,10 @@ func (client *MockClient) Create(_ context.Context, object ctrlClient.Object, _ 
 		if err != nil {
 			return err
 		}
+		err = setJSONValue(genericObject, []string{"status", "phase"}, corev1.PodRunning)
+		if err != nil {
+			return err
+		}
 	}
 
 	client.fillInMaps(kindKey)
