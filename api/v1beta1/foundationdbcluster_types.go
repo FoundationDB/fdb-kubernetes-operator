@@ -199,6 +199,7 @@ type FoundationDBClusterSpec struct {
 
 	// UpdatePodsByReplacement determines whether we should update pod config
 	// by replacing the pods rather than deleting them.
+	// Deprecated: use PodUpdateStrategy instead
 	UpdatePodsByReplacement bool `json:"updatePodsByReplacement,omitempty"`
 
 	// LockOptions allows customizing how we manage locks for global operations.
@@ -1215,7 +1216,7 @@ type FoundationDBClusterAutomationOptions struct {
 	MaxConcurrentReplacements *int `json:"maxConcurrentReplacements,omitempty"`
 
 	// DeletionMode defines the deletion mode for this cluster. This can be
-	// PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
+	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
 	// DeletionMode defines how Pods are deleted in order to update them or
 	// when they are removed.
 	// +kubebuilder:validation:Optional
@@ -1224,7 +1225,7 @@ type FoundationDBClusterAutomationOptions struct {
 	DeletionMode PodUpdateMode `json:"deletionMode,omitempty"`
 
 	// RemovalMode defines the removal mode for this cluster. This can be
-	// PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
+	// PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The
 	// RemovalMode defines how process groups are deleted in order when they
 	// are marked for removal.
 	// +kubebuilder:validation:Optional
@@ -1239,6 +1240,13 @@ type FoundationDBClusterAutomationOptions struct {
 	// where the fault tolerance check still includes the already deleted processes.
 	// Defaults to 60.
 	WaitBetweenRemovalsSeconds *int `json:"waitBetweenRemovalsSeconds,omitempty"`
+
+	// PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods.
+	// The default for this is ReplaceTransactionSystem.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
+	// +kubebuilder:default:=ReplaceTransactionSystem
+	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -3021,6 +3029,11 @@ func (pClass ProcessClass) IsStateful() bool {
 	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
 }
 
+// IsTransaction determines whether a process class is part of the transaction system.
+func (pClass ProcessClass) IsTransaction() bool {
+	return pClass != ProcessClassStorage && pClass != ProcessClassGeneral
+}
+
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
@@ -3247,4 +3260,30 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 	}
 
 	return duration
+}
+
+// PodUpdateStrategy defines how Pod spec changes should be applied.
+type PodUpdateStrategy string
+
+const (
+	// PodUpdateStrategyReplacement replace all Pods if there is a spec change.
+	PodUpdateStrategyReplacement PodUpdateStrategy = "Replace"
+	// PodUpdateStrategyTransactionReplacement replace all transaction system Pods if there is a spec change.
+	PodUpdateStrategyTransactionReplacement PodUpdateStrategy = "ReplaceTransactionSystem"
+	// PodUpdateStrategyDelete delete all Pods if there is a spec change.
+	PodUpdateStrategyDelete PodUpdateStrategy = "Delete"
+)
+
+// NeedsReplacement returns true if the Pod should be replaced if the Pod spec has changed
+func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupStatus) bool {
+	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyDelete {
+		return false
+	}
+
+	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyReplacement {
+		return true
+	}
+
+	// Default is ReplaceTransactionSystem.
+	return processGroup.ProcessClass.IsTransaction()
 }

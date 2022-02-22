@@ -407,6 +407,11 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		cluster.Spec.AutomationOptions.DeletionMode = fdbtypes.PodUpdateModeNone
 	}
 
+	if cluster.Spec.UpdatePodsByReplacement {
+		cluster.Spec.UpdatePodsByReplacement = false
+		cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
+	}
+
 	return nil
 }
 

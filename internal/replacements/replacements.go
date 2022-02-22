@@ -62,7 +62,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 				maxReplacements--
 				continue
 			}
-		} else {
+		} else if processGroup.ProcessClass.IsStateful() {
 			log.V(1).Info("Could not find PVC for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 		}
@@ -202,7 +202,7 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 		}
 	}
 
-	if cluster.Spec.UpdatePodsByReplacement {
+	if cluster.NeedsReplacement(processGroupStatus) {
 		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
 		if err != nil {
 			return false, err

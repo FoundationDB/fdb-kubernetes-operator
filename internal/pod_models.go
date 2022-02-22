@@ -211,7 +211,6 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	}
 
 	if useUnifiedImages {
-
 		mainContainer.Args = []string{
 			"--input-dir", "/var/dynamic-conf",
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
