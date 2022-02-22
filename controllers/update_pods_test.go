@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"fmt"
+	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -103,6 +104,70 @@ var _ = Describe("update_pods", func() {
 					deletionMode:         "banana",
 					expectedDeletionsCnt: 0,
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
+				}),
+		)
+	})
+
+	Context("Validating isPendingDeletion", func() {
+
+		type testCase struct {
+			cluster     *fdbtypes.FoundationDBCluster
+			pod         *corev1.Pod
+			expectedRes bool
+		}
+
+		DescribeTable("is Pod pending deletion",
+			func(input testCase) {
+				Expect(shouldRequeueDueToTerminatingPod(input.pod, input.cluster)).To(Equal(input.expectedRes))
+			},
+			Entry("pod without deletionTimestamp",
+				testCase{
+					pod: &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Pod1",
+						},
+					},
+					cluster:     &fdbtypes.FoundationDBCluster{},
+					expectedRes: false,
+				}),
+			Entry("pod with deletionTimestamp less than ignore limit",
+				testCase{
+					pod: &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:              "Pod1",
+							DeletionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+					},
+					cluster:     &fdbtypes.FoundationDBCluster{},
+					expectedRes: true,
+				}),
+			Entry("pod with deletionTimestamp more than ignore limit",
+				testCase{
+					pod: &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:              "Pod1",
+							DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-15 * time.Minute)},
+						},
+					},
+					cluster:     &fdbtypes.FoundationDBCluster{},
+					expectedRes: false,
+				}),
+			Entry("with configured IgnoreTerminatingPodsDuration",
+				testCase{
+					pod: &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:              "Pod1",
+							DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
+						},
+					},
+					cluster: &fdbtypes.FoundationDBCluster{
+						Spec: fdbtypes.FoundationDBClusterSpec{
+							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+								IgnoreTerminatingPodsDuration: 5 * time.Minute,
+							},
+						},
+					},
+					expectedRes: false,
 				}),
 		)
 	})
