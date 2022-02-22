@@ -185,7 +185,7 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
-	// Deprecated: Use processGroupIDPrefix instead.
+	// Deprecated: Use ProcessGroupIDPrefix instead.
 	InstanceIDPrefix string `json:"instanceIDPrefix,omitempty"`
 
 	// ProcessGroupIDPrefix defines a prefix to append to the process group IDs in the
@@ -313,7 +313,7 @@ type FoundationDBClusterSpec struct {
 	// the controller will provide the pod's current IP.
 	//
 	// Deprecated: To indicate that a process should be removed, use the
-	// processGroupsToRemove field. To get information about pending removals,
+	// ProcessGroupsToRemove field. To get information about pending removals,
 	// use the PendingRemovals field in the status.
 	PendingRemovals map[string]string `json:"pendingRemovals,omitempty"`
 
