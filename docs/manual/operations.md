@@ -30,8 +30,10 @@ metadata:
   name: sample-cluster
 spec:
   version: 6.2.30
-  customParameters:
-    - "knob_always_causal_read_risky=1"
+  processes:
+    general:
+      customParameters:
+      - "knob_always_causal_read_risky=1"
 ```
 
 The operator will update the monitor conf to contain the new knob, and will then bounce all of the fdbserver processes. As soon as fdbmonitor detects that the fdbserver process has died, it will create a new fdbserver process with the latest config. The cluster should be fully available within 10 seconds of executing the bounce, though this can vary based on cluster size.

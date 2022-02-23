@@ -60,11 +60,11 @@ following fields:
 
 *	`processClass`: The process class the process group has.
 *	`addresses`: A list of addresses the process group has been known to have.
-*	`remove`: Whether the process group has been marked for removal.
-*	`excluded`: Whether the process group has been fully excluded.
-*	`conditions`: A list of degraded conditions that the process group is in.
-	This can include `notConnecting`, `incorrectPodSpec`, `incorrectConfigMap`,
-	`incorrectCommandLine`, `podFailing`, `missingPod`, `missingPvc`, and 
+*	`removalTimestamp`:  When the process group was marked for removal.
+*	`exclusionTimestamp`: When the operator observes that process group has been fully excluded.
+*	`processGroupConditions`: A list of degraded conditions that the process group is in.
+	This can include  `incorrectPodSpec`, `incorrectConfigMap`,
+	`incorrectCommandLine`, `podFailing`, `missingPod`, `missingPvc`, and
 	`missingService`. Each entry will include the condition, and the timestamp
 	when we first observed the condition.
 
