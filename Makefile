@@ -8,6 +8,11 @@ ifneq "$(FDB_WEBSITE)" ""
 	img_build_args := $(img_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
 endif
 
+# Support overriding the default build platform
+ifneq "$(BUILD_PLATFORM)" ""
+	img_build_args := $(img_build_args) --platform $(BUILD_PLATFORM)
+endif
+
 # TAG is used to define the version in the kubectl-fdb plugin.
 # If not defined we use the current git hash.
 ifndef TAG
