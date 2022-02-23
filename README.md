@@ -62,7 +62,11 @@ To get this controller running in a local Kubernetes cluster:
    `$GOPATH/src/github.com/foundationdb`.
 3. Run `config/test-certs/generate_secrets.bash` to set up a secret with
    self-signed test certs.
-4. Run `make rebuild-operator` to install the operator.
+4. Run `make rebuild-operator` to install the operator. By default, the
+   docker image is built for the platform where this command is executed.
+   To override the platform, for example, to build amd64 image on Apple M1,
+   you can set the BUILD_PLATFORM env variable
+   `BUILD_PLATFORM="linux/amd64" make rebuild-operator`.
 5. Run `kubectl apply -k ./config/tests/base`
    to create a new FoundationDB cluster with the operator.
 
