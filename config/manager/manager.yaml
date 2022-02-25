@@ -59,9 +59,6 @@ spec:
         image: controller:latest
         imagePullPolicy: IfNotPresent
         name: manager
-        env:
-          - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
-            value: /usr/bin/fdb
         ports:
           - name: metrics
             containerPort: 8080

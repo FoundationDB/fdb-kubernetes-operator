@@ -126,8 +126,6 @@ spec:
         command:
         - /manager
         env:
-        - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
-          value: /usr/bin/fdb
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
