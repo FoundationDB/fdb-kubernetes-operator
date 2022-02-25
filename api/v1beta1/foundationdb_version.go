@@ -120,12 +120,12 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 	return true
 }
 
+// GetBinaryVersion Returns a version string compatible with the log implemented in the sidecars
 func (version FdbVersion) GetBinaryVersion() string {
 	if version.ReleaseCandidate > 0 {
 		return version.String()
-	} else {
-		return version.Compact()
 	}
+	return version.Compact()
 }
 
 // IsProtocolCompatible determines whether two versions of FDB are protocol
@@ -168,7 +168,7 @@ func (version FdbVersion) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
-// returns true if the version is a releasecandidate or not
+// IsReleaseCandidate returns true if the version is a releasecandidate or not
 func (version FdbVersion) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0
 }
