@@ -74,7 +74,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
 | backupState | The desired state of the backup. The default is Running. | BackupState | false |
-| backupName | The name for the backup. If empty defaults to .metadata.name. **Deprecated use BlobStoreConfiguration instead** | string | false |
+| backupName | The name for the backup. If empty defaults to .metadata.name. Deprecated use BlobStoreConfiguration instead** | string | false |
 | accountName | The account name to use with the backup destination. Deprecated use BlobStoreConfiguration instead** | string | false |
 | bucket | The backup bucket to write to. The default is \"fdb-backups\". Deprecated use BlobStoreConfiguration instead** | string | false |
 | agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
