@@ -87,6 +87,10 @@ jobs:
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
         tar xvfz yq.tar.gz
         sudo mv ./yq_linux_amd64 /usr/bin/yq
+    - name: Check for uncommitted changes
+      run: |
+        make clean all 
+        git diff --exit-code
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
@@ -99,9 +103,7 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
         # Run the actual tests
-        make clean all test
-    - name: Check for uncommitted changes
-      run: git diff --exit-code
+        make test
   push_images:
     if: github.ref == 'refs/heads/master'
     needs: build
