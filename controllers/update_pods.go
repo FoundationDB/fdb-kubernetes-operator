@@ -164,7 +164,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbtypes.FoundationDBCluster) bool {
 	return pod.DeletionTimestamp != nil &&
-		pod.DeletionTimestamp.Add(cluster.GetIgnoreTerminatingPodsDuration()).After(time.Now())
+		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsDuration())).After(time.Now())
 }
 
 func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
