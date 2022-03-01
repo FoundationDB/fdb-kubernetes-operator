@@ -140,8 +140,8 @@ func (command cliCommand) getClusterFileFlag() string {
 
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
-	shortVersion := version[:strings.LastIndex(version, ".")]
-	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), shortVersion, binaryName)
+	parsed, _ := fdbtypes.ParseFdbVersion(version)
+	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
 // runCommand executes a command in the CLI.
