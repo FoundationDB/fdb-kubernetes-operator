@@ -246,7 +246,7 @@ func moveFDBBinaries() error {
 				return err
 			}
 			if err == nil {
-				minorVersionPath := path.Join(binFile.Name(), version.String())
+				minorVersionPath := path.Join(binFile.Name(), version.GetBinaryVersion())
 				err = os.MkdirAll(minorVersionPath, os.ModeDir|os.ModePerm)
 				if err != nil {
 					return err
