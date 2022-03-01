@@ -195,7 +195,7 @@ func fmtRawDoc(rawDoc string) string {
 	postDoc = strings.Replace(postDoc, "\t", "\\t", -1)
 	postDoc = strings.Replace(postDoc, "|", "\\|", -1)
 	postDoc = strings.Replace(postDoc, "Deprecated:", "**Deprecated:", -1)
-	if strings.Contains(postDoc, "Deprecated") {
+	if strings.Contains(postDoc, "Deprecated:") {
 		postDoc = postDoc + "**"
 	}
 
