@@ -70,16 +70,16 @@ type FoundationDBBackupSpec struct {
 
 	// The name for the backup.
 	// If empty defaults to .metadata.name.
-	// Deprecated use BlobStoreConfiguration instead
+	// Deprecated: Use BlobStoreConfiguration instead
 	BackupName string `json:"backupName,omitempty"`
 
 	// The account name to use with the backup destination.
-	// Deprecated use BlobStoreConfiguration instead
+	// Deprecated: Use BlobStoreConfiguration instead
 	AccountName string `json:"accountName,omitempty"`
 
 	// The backup bucket to write to.
 	// The default is "fdb-backups".
-	// Deprecated use BlobStoreConfiguration instead
+	// Deprecated: Use BlobStoreConfiguration instead
 	Bucket string `json:"bucket,omitempty"`
 
 	// AgentCount defines the number of backup agents to run.
