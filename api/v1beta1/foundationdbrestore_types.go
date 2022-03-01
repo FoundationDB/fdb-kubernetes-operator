@@ -54,7 +54,7 @@ type FoundationDBRestoreSpec struct {
 	DestinationClusterName string `json:"destinationClusterName"`
 
 	// BackupURL provides the URL for the backup.
-	// Deprecated use BlobStoreConfiguration instead
+	// Deprecated: Use BlobStoreConfiguration instead
 	BackupURL string `json:"backupURL,omitempty"`
 
 	// The key ranges to restore.
