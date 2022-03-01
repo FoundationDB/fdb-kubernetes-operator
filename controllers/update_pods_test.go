@@ -108,17 +108,18 @@ var _ = Describe("update_pods", func() {
 		)
 	})
 
-	FContext("Validating isPendingDeletion", func() {
-		var ignoreTerminatingPodsDuration int = int(5 * time.Minute.Nanoseconds())
+	Context("Validating isPendingDeletion", func() {
+		var ignoreTerminatingPodsDuration = int(5 * time.Minute.Nanoseconds())
 		type testCase struct {
 			cluster     *fdbtypes.FoundationDBCluster
 			pod      *corev1.Pod
+			processGroup string
 			expected bool
 		}
 
 		DescribeTable("is Pod pending deletion",
 			func(input testCase) {
-				Expect(shouldRequeueDueToTerminatingPod(input.pod, input.cluster)).To(Equal(input.expected))
+				Expect(shouldRequeueDueToTerminatingPod(input.pod, input.cluster, input.processGroup)).To(Equal(input.expected))
 			},
 			Entry("pod without deletionTimestamp",
 				testCase{
@@ -128,6 +129,7 @@ var _ = Describe("update_pods", func() {
 						},
 					},
 					cluster:  &fdbtypes.FoundationDBCluster{},
+					processGroup: "",
 					expected: false,
 				}),
 			Entry("pod with deletionTimestamp less than ignore limit",
@@ -139,6 +141,7 @@ var _ = Describe("update_pods", func() {
 						},
 					},
 					cluster:  &fdbtypes.FoundationDBCluster{},
+					processGroup: "",
 					expected: true,
 				}),
 			Entry("pod with deletionTimestamp more than ignore limit",
@@ -167,6 +170,7 @@ var _ = Describe("update_pods", func() {
 							},
 						},
 					},
+					processGroup: "",
 					expected: false,
 				}),
 		)
