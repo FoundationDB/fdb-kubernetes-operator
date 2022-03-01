@@ -111,10 +111,10 @@ var _ = Describe("update_pods", func() {
 	Context("Validating isPendingDeletion", func() {
 		var ignoreTerminatingPodsDuration = int(5 * time.Minute.Nanoseconds())
 		type testCase struct {
-			cluster     *fdbtypes.FoundationDBCluster
-			pod      *corev1.Pod
+			cluster      *fdbtypes.FoundationDBCluster
+			pod          *corev1.Pod
 			processGroup string
-			expected bool
+			expected     bool
 		}
 
 		DescribeTable("is Pod pending deletion",
@@ -128,9 +128,9 @@ var _ = Describe("update_pods", func() {
 							Name: "Pod1",
 						},
 					},
-					cluster:  &fdbtypes.FoundationDBCluster{},
+					cluster:      &fdbtypes.FoundationDBCluster{},
 					processGroup: "",
-					expected: false,
+					expected:     false,
 				}),
 			Entry("pod with deletionTimestamp less than ignore limit",
 				testCase{
@@ -140,9 +140,9 @@ var _ = Describe("update_pods", func() {
 							DeletionTimestamp: &metav1.Time{Time: time.Now()},
 						},
 					},
-					cluster:  &fdbtypes.FoundationDBCluster{},
+					cluster:      &fdbtypes.FoundationDBCluster{},
 					processGroup: "",
-					expected: true,
+					expected:     true,
 				}),
 			Entry("pod with deletionTimestamp more than ignore limit",
 				testCase{
@@ -171,7 +171,7 @@ var _ = Describe("update_pods", func() {
 						},
 					},
 					processGroup: "",
-					expected: false,
+					expected:     false,
 				}),
 		)
 	})
