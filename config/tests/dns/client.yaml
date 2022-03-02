@@ -16,18 +16,14 @@ spec:
     spec:
       automountServiceAccountToken: false
       initContainers:
-        - name: foundationdb-kubernetes-init-6-3
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.10-1
+        - name: foundationdb-kubernetes-init-7-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.0-1
           imagePullPolicy: IfNotPresent
           args:
             - "--copy-file"
             - "fdb.cluster"
             - "--copy-library"
-            - "6.3"
-            - "--copy-library"
-            - "6.2"
-            - "--copy-library"
-            - "6.1"
+            - "7.1"
             - "--init-mode"
             - "--require-not-empty"
             - "fdb.cluster"
@@ -65,6 +61,8 @@ spec:
           volumeMounts:
             - name: dynamic-conf
               mountPath: /var/dynamic-conf
+            - name: trace-logs
+              mountPath: /var/log/fdb
       volumes:
         - name: config-map
           configMap:
@@ -73,6 +71,8 @@ spec:
               - key: cluster-file
                 path: fdb.cluster
         - name: dynamic-conf
+          emptyDir: {}
+        - name: trace-logs
           emptyDir: {}
 ---
 apiVersion: v1

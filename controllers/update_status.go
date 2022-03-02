@@ -84,7 +84,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		databaseStatus, err = adminClient.GetStatus()
 		if err != nil {
 			if cluster.Status.Configured {
-				return &requeue{curError: err}
+				return &requeue{curError: err, delayedRequeue: true}
 			}
 			databaseStatus = &fdbtypes.FoundationDBStatus{
 				Cluster: fdbtypes.FoundationDBStatusClusterInfo{
@@ -249,7 +249,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus, coordinatorStatus)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 
 		status.NeedsNewCoordinators = !coordinatorsValid
