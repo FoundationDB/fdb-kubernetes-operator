@@ -161,10 +161,10 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
-func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbtypes.FoundationDBCluster, processGroup string) bool {
+func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbtypes.FoundationDBCluster, processGroupID string) bool {
 	return pod.DeletionTimestamp != nil &&
-		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsDuration())).After(time.Now()) &&
-		!cluster.ProcessGroupIsBeingRemoved(processGroup)
+		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsSeconds())).After(time.Now()) &&
+		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
 func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {

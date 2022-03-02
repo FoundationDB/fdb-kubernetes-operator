@@ -1194,10 +1194,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// further reconciliation.
 	IgnorePendingPodsDuration time.Duration `json:"ignorePendingPodsDuration,omitempty"`
 
-	// IgnoreTerminatingPodsDuration defines how long a Pod has to be in the Terminating Phase before
+	// IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before
 	// we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block
 	// further reconciliation.
-	IgnoreTerminatingPodsDuration *int `json:"ignoreTerminatingPodsDuration,omitempty"`
+	IgnoreTerminatingPodsSeconds *int `json:"ignoreTerminatingPodsSeconds,omitempty"`
 
 	// EnforceFullReplicationForDeletion defines if the operator is only allowed to delete Pods
 	// if the cluster is fully replicated. If the cluster is not fully replicated the Operator won't
@@ -3122,9 +3122,9 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 	return cluster.Spec.AutomationOptions.IgnorePendingPodsDuration
 }
 
-// GetIgnoreTerminatingPodsDuration returns the value of IgnoreTerminatingPodsDuration or defaults to 10 minutes.
-func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsDuration() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsDuration, int(10*time.Minute.Nanoseconds()))
+// GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.
+func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int(10*time.Minute))
 }
 
 // GetEnforceFullReplicationForDeletion returns the value of enforceFullReplicationForDeletion or true if unset.
