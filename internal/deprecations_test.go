@@ -22,6 +22,7 @@ package internal
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +44,7 @@ var _ = Describe("[internal] deprecations", func() {
 					Name: "operator-test-1",
 				},
 				Spec: fdbtypes.FoundationDBClusterSpec{
-					Version: fdbtypes.Versions.Default.String(),
+					Version: fdb.Versions.Default.String(),
 				},
 			}
 			spec = &cluster.Spec
@@ -84,14 +85,14 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should add the labels to the metadata", func() {
-					metadata := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.ObjectMeta
+					metadata := spec.Processes[fdb.ProcessClassGeneral].PodTemplate.ObjectMeta
 					Expect(metadata.Labels).To(Equal(map[string]string{
 						"fdb-label": "value2",
 					}))
 				})
 
 				It("adds volumes to the process settings", func() {
-					podSpec := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec
+					podSpec := spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec
 
 					mainContainer := podSpec.Containers[0]
 					Expect(mainContainer.Name).To(Equal("foundationdb"))
@@ -132,14 +133,14 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("puts the labels in the pod settings", func() {
 					Expect(spec.PodLabels).To(BeNil())
-					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(spec.Processes[fdb.ProcessClassGeneral].PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{
 						"test-label": "test-value",
 					}))
 				})
 
 				It("puts the labels in the volume claim settings", func() {
 					Expect(spec.PodLabels).To(BeNil())
-					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate.ObjectMeta.Labels).To(Equal(map[string]string{
+					Expect(spec.Processes[fdb.ProcessClassGeneral].VolumeClaimTemplate.ObjectMeta.Labels).To(Equal(map[string]string{
 						"test-label": "test-value",
 					}))
 				})
@@ -167,7 +168,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should set the resources on the main container", func() {
-					mainContainer := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0]
+					mainContainer := spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0]
 					Expect(mainContainer.Name).To(Equal("foundationdb"))
 					Expect(*mainContainer.Resources.Limits.Cpu()).To(Equal(resource.MustParse("4")))
 					Expect(*mainContainer.Resources.Limits.Memory()).To(Equal(resource.MustParse("16Gi")))
@@ -187,7 +188,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should add the init container to the process settings", func() {
-					initContainers := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.InitContainers
+					initContainers := spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.InitContainers
 					Expect(len(initContainers)).To(Equal(2))
 					Expect(initContainers[0].Name).To(Equal("test-container"))
 					Expect(initContainers[0].Image).To(Equal("test-container:latest"))
@@ -207,7 +208,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should add the container to the process settings", func() {
-					containers := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers
+					containers := spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(3))
 					Expect(containers[0].Name).To(Equal("foundationdb"))
 					Expect(containers[0].Image).To(Equal(""))
@@ -231,7 +232,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should add the volume to the process settings", func() {
-					volumes := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Volumes
+					volumes := spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Volumes
 					Expect(len(volumes)).To(Equal(1))
 					Expect(volumes[0].Name).To(Equal("test-volume"))
 					Expect(volumes[0].EmptyDir).NotTo(BeNil())
@@ -249,7 +250,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should add the security context to the process settings", func() {
-					podTemplate := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate
+					podTemplate := spec.Processes[fdb.ProcessClassGeneral].PodTemplate
 					Expect(podTemplate.Spec.SecurityContext).NotTo(BeNil())
 					Expect(*podTemplate.Spec.SecurityContext.RunAsGroup).To(Equal(int64(0xFDB)))
 
@@ -271,17 +272,17 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should put the volume claim template in the process settings", func() {
-					volumeClaim := spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate
+					volumeClaim := spec.Processes[fdb.ProcessClassGeneral].VolumeClaimTemplate
 					Expect(volumeClaim).NotTo(BeNil())
 					Expect(volumeClaim.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("256Gi")))
-					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaim).To(BeNil())
+					Expect(spec.Processes[fdb.ProcessClassGeneral].VolumeClaim).To(BeNil())
 				})
 			})
 
 			Context("with a custom value for the VolumeClaim field in the process settings", func() {
 				BeforeEach(func() {
-					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-						fdbtypes.ProcessClassGeneral: {
+					spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+						fdb.ProcessClassGeneral: {
 							VolumeClaim: &corev1.PersistentVolumeClaim{
 								Spec: corev1.PersistentVolumeClaimSpec{
 									Resources: corev1.ResourceRequirements{
@@ -296,7 +297,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should put the volume claim template in the process settings", func() {
-					volumeClaim := spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate
+					volumeClaim := spec.Processes[fdb.ProcessClassGeneral].VolumeClaimTemplate
 					Expect(volumeClaim).NotTo(BeNil())
 					Expect(volumeClaim.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("256Gi")))
 					Expect(spec.VolumeClaim).To(BeNil())
@@ -310,7 +311,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should put the volume claim template in the process settings", func() {
-					template := spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate
+					template := spec.Processes[fdb.ProcessClassGeneral].PodTemplate
 					Expect(template).NotTo(BeNil())
 					Expect(*template.Spec.AutomountServiceAccountToken).To(BeFalse())
 					Expect(spec.AutomountServiceAccountToken).To(BeNil())
@@ -334,7 +335,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("sets the field in the process settings", func() {
-					Expect(*spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate.Spec.StorageClassName).To(Equal("ebs"))
+					Expect(*spec.Processes[fdb.ProcessClassGeneral].VolumeClaimTemplate.Spec.StorageClassName).To(Equal("ebs"))
 					Expect(spec.StorageClass).To(BeNil())
 				})
 			})
@@ -345,14 +346,14 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("sets the field in the process settings", func() {
-					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("16Gi")))
+					Expect(spec.Processes[fdb.ProcessClassGeneral].VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(resource.MustParse("16Gi")))
 					Expect(spec.VolumeSize).To(Equal(""))
 				})
 			})
 
 			Context("with a running version in the spec", func() {
 				BeforeEach(func() {
-					spec.RunningVersion = fdbtypes.Versions.Default.String()
+					spec.RunningVersion = fdb.Versions.Default.String()
 				})
 
 				It("clears the field in the spec", func() {
@@ -372,13 +373,13 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with custom parameters in the spec", func() {
 				BeforeEach(func() {
-					spec.CustomParameters = fdbtypes.FoundationDBCustomParameters{
+					spec.CustomParameters = fdb.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}
 				})
 
 				It("sets the custom parameters in the process settings", func() {
-					Expect(spec.Processes[fdbtypes.ProcessClassGeneral].CustomParameters).To(Equal(fdbtypes.FoundationDBCustomParameters{
+					Expect(spec.Processes[fdb.ProcessClassGeneral].CustomParameters).To(Equal(fdb.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}))
 					Expect(spec.CustomParameters).To(BeNil())
@@ -409,8 +410,8 @@ var _ = Describe("[internal] deprecations", func() {
 					cluster.Spec.MainContainer.ImageConfigs = append(cluster.Spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-test"})
 					cluster.Spec.SidecarContainer.ImageConfigs = append(cluster.Spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"})
 					cluster.Spec.SidecarVersions = map[string]int{
-						fdbtypes.Versions.Default.String():          2,
-						fdbtypes.Versions.NextMajorVersion.String(): 3,
+						fdb.Versions.Default.String():          2,
+						fdb.Versions.NextMajorVersion.String(): 3,
 					}
 				})
 
@@ -422,8 +423,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 					Expect(spec.SidecarContainer.ImageConfigs).To(Equal([]fdbtypes.ImageConfig{
 						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar-test"},
-						{Version: fdbtypes.Versions.Default.String(), TagSuffix: "-2"},
-						{Version: fdbtypes.Versions.NextMajorVersion.String(), TagSuffix: "-3"},
+						{Version: fdb.Versions.Default.String(), TagSuffix: "-2"},
+						{Version: fdb.Versions.NextMajorVersion.String(), TagSuffix: "-3"},
 						{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"},
 					}))
 
@@ -539,7 +540,7 @@ var _ = Describe("[internal] deprecations", func() {
 		Describe("Validations", func() {
 			Context("with duplicated custom parameters in the spec", func() {
 				It("an error should be returned", func() {
-					spec.CustomParameters = []fdbtypes.FoundationDBCustomParameter{
+					spec.CustomParameters = []fdb.FoundationDBCustomParameter{
 						"knob_disable_posix_kernel_aio = 1",
 						"knob_disable_posix_kernel_aio = 1",
 					}
@@ -550,7 +551,7 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with a protected custom parameter in the spec", func() {
 				It("an error should be returned", func() {
-					spec.CustomParameters = []fdbtypes.FoundationDBCustomParameter{
+					spec.CustomParameters = []fdb.FoundationDBCustomParameter{
 						"datadir=1",
 					}
 					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
@@ -560,9 +561,9 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with a duplicated custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-						fdbtypes.ProcessClassGeneral: {
-							CustomParameters: fdbtypes.FoundationDBCustomParameters{
+					spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+						fdb.ProcessClassGeneral: {
+							CustomParameters: fdb.FoundationDBCustomParameters{
 								"knob_disable_posix_kernel_aio = 1",
 								"knob_disable_posix_kernel_aio = 1",
 							},
@@ -575,9 +576,9 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with a protected custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-						fdbtypes.ProcessClassGeneral: {
-							CustomParameters: fdbtypes.FoundationDBCustomParameters{
+					spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+						fdb.ProcessClassGeneral: {
+							CustomParameters: fdb.FoundationDBCustomParameters{
 								"datadir=1",
 							},
 						},
@@ -601,14 +602,14 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have both containers", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
 				})
 
 				It("should have a main container defined", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -624,7 +625,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have empty sidecar resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -634,7 +635,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have empty init container resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.InitContainers
 					Expect(len(containers)).To(Equal(1))
@@ -645,8 +646,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests for the main container", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-							fdbtypes.ProcessClassGeneral: {
+						spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+							fdb.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -667,7 +668,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -683,8 +684,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests for the sidecar", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-							fdbtypes.ProcessClassGeneral: {
+						spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+							fdb.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -705,7 +706,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -743,13 +744,13 @@ var _ = Describe("[internal] deprecations", func() {
 						OldFDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ResourceLabels).To(Equal(map[string]string{
-						fdbtypes.FDBClusterLabel: cluster.Name,
+						fdb.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{
-						OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
+						OldFDBProcessGroupIDLabel, fdb.FDBProcessGroupIDLabel,
 					}))
 					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{
-						OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
+						OldFDBProcessClassLabel, fdb.FDBProcessClassLabel,
 					}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
@@ -804,14 +805,14 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have a single container", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(1))
 				})
 
 				It("should have empty sidecar resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(1))
@@ -849,13 +850,13 @@ var _ = Describe("[internal] deprecations", func() {
 						OldFDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ResourceLabels).To(Equal(map[string]string{
-						fdbtypes.FDBClusterLabel: cluster.Name,
+						fdb.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{
-						OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
+						OldFDBProcessGroupIDLabel, fdb.FDBProcessGroupIDLabel,
 					}))
 					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{
-						OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
+						OldFDBProcessClassLabel, fdb.FDBProcessClassLabel,
 					}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeTrue())
@@ -887,7 +888,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have default sidecar resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -904,8 +905,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-							fdbtypes.ProcessClassGeneral: {
+						spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+							fdb.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -926,7 +927,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -942,8 +943,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requirements for requests only", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-							fdbtypes.ProcessClassGeneral: {
+						spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+							fdb.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -961,7 +962,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should set the default limits", func() {
-						generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -977,8 +978,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicitly empty resource requirements", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-							fdbtypes.ProcessClassGeneral: {
+						spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+							fdb.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -995,7 +996,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -1026,11 +1027,11 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have the default label config", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{
-						fdbtypes.FDBClusterLabel: cluster.Name,
+						fdb.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ResourceLabels).To(BeNil())
-					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdbtypes.FDBProcessGroupIDLabel}))
-					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdbtypes.FDBProcessClassLabel}))
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdb.FDBProcessGroupIDLabel}))
+					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdb.FDBProcessClassLabel}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})
@@ -1053,7 +1054,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have default sidecar resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdbtypes.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(1))
@@ -1090,11 +1091,11 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have changes to the label config", func() {
 					Expect(spec.LabelConfig.MatchLabels).To(Equal(map[string]string{
-						fdbtypes.FDBClusterLabel: cluster.Name,
+						fdb.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(spec.LabelConfig.ResourceLabels).To(BeNil())
-					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdbtypes.FDBProcessGroupIDLabel}))
-					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdbtypes.FDBProcessClassLabel}))
+					Expect(spec.LabelConfig.ProcessGroupIDLabels).To(Equal([]string{fdb.FDBProcessGroupIDLabel}))
+					Expect(spec.LabelConfig.ProcessClassLabels).To(Equal([]string{fdb.FDBProcessClassLabel}))
 					Expect(spec.LabelConfig.FilterOnOwnerReferences).NotTo(BeNil())
 					Expect(*spec.LabelConfig.FilterOnOwnerReferences).To(BeFalse())
 				})

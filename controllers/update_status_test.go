@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -40,7 +41,7 @@ var _ = Describe("update_status", func() {
 		var configMap *corev1.ConfigMap
 		var adminClient *mockAdminClient
 		var pods []*corev1.Pod
-		var processMap map[string][]fdbtypes.FoundationDBStatusProcessInfo
+		var processMap map[string][]fdb.FoundationDBStatusProcessInfo
 		var err error
 
 		BeforeEach(func() {
@@ -66,7 +67,7 @@ var _ = Describe("update_status", func() {
 		JustBeforeEach(func() {
 			databaseStatus, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
-			processMap = make(map[string][]fdbtypes.FoundationDBStatusProcessInfo)
+			processMap = make(map[string][]fdb.FoundationDBStatusProcessInfo)
 			for _, process := range databaseStatus.Cluster.Processes {
 				processID, ok := process.Locality["process_id"]
 				// if the processID is not set we fall back to the instanceID
@@ -79,7 +80,7 @@ var _ = Describe("update_status", func() {
 
 		When("process group has no Pod", func() {
 			It("should be added to the failing Pods", func() {
-				processGroupStatus := fdbtypes.NewProcessGroupStatus("storage-1337", fdbtypes.ProcessClassStorage, []string{"1.1.1.1"})
+				processGroupStatus := fdbtypes.NewProcessGroupStatus("storage-1337", fdb.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
 				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
 				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, "", processGroupStatus)
@@ -158,7 +159,7 @@ var _ = Describe("update_status", func() {
 
 		When("the pod has the wrong spec", func() {
 			BeforeEach(func() {
-				pods[0].ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "bad"
+				pods[0].ObjectMeta.Annotations[fdb.LastSpecKey] = "bad"
 				err = k8sClient.Update(context.TODO(), pods[0])
 				Expect(err).NotTo(HaveOccurred())
 			})

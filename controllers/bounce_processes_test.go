@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -160,7 +161,7 @@ var _ = Describe("bounceProcesses", func() {
 
 	Context("with a pending upgrade", func() {
 		BeforeEach(func() {
-			cluster.Spec.Version = fdbtypes.Versions.NextMajorVersion.String()
+			cluster.Spec.Version = fdb.Versions.NextMajorVersion.String()
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
 			}
@@ -184,7 +185,7 @@ var _ = Describe("bounceProcesses", func() {
 		It("should update the running version in the status", func() {
 			_, err = reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cluster.Status.RunningVersion).To(Equal(fdbtypes.Versions.NextMajorVersion.String()))
+			Expect(cluster.Status.RunningVersion).To(Equal(fdb.Versions.NextMajorVersion.String()))
 		})
 
 		It("should submit pending upgrade information for all the processes", func() {
@@ -192,7 +193,7 @@ var _ = Describe("bounceProcesses", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				expectedUpgrades[processGroup.ProcessGroupID] = true
 			}
-			Expect(lockClient.pendingUpgrades[fdbtypes.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+			Expect(lockClient.pendingUpgrades[fdb.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
 		})
 
 		Context("with an unknown process", func() {
@@ -216,7 +217,7 @@ var _ = Describe("bounceProcesses", func() {
 			It("should not update the running version in the status", func() {
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(cluster.Status.RunningVersion).To(Equal(fdbtypes.Versions.Default.String()))
+				Expect(cluster.Status.RunningVersion).To(Equal(fdb.Versions.Default.String()))
 			})
 
 			It("should submit pending upgrade information for all the processes", func() {
@@ -224,12 +225,12 @@ var _ = Describe("bounceProcesses", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
-				Expect(lockClient.pendingUpgrades[fdbtypes.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+				Expect(lockClient.pendingUpgrades[fdb.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
 			})
 
 			Context("with a pending upgrade for the unknown process", func() {
 				BeforeEach(func() {
-					err = lockClient.AddPendingUpgrades(fdbtypes.Versions.NextMajorVersion, []string{"dc2-storage-1"})
+					err = lockClient.AddPendingUpgrades(fdb.Versions.NextMajorVersion, []string{"dc2-storage-1"})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -252,7 +253,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			Context("with a pending upgrade to an older version", func() {
 				BeforeEach(func() {
-					err = lockClient.AddPendingUpgrades(fdbtypes.Versions.NextPatchVersion, []string{"dc2-storage-1"})
+					err = lockClient.AddPendingUpgrades(fdb.Versions.NextPatchVersion, []string{"dc2-storage-1"})
 					Expect(err).NotTo(HaveOccurred())
 				})
 

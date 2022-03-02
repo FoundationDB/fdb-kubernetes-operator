@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"log"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -197,7 +198,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 		return nil
 	}
 
-	shrinkMap := make(map[fdbtypes.ProcessClass]int)
+	shrinkMap := make(map[fdb.ProcessClass]int)
 
 	if withShrink {
 		var pods corev1.PodList

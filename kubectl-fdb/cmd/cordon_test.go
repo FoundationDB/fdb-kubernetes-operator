@@ -22,6 +22,7 @@ package cmd
 
 import (
 	ctx "context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -62,7 +63,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					Namespace: namespace,
 				},
 				Spec: fdbtypes.FoundationDBClusterSpec{
-					ProcessCounts: fdbtypes.ProcessCounts{
+					ProcessCounts: fdb.ProcessCounts{
 						Storage: 1,
 					},
 				},
@@ -79,11 +80,11 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
+								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
+								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:                clusterName,
 								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-1",
+								fdb.FDBProcessGroupIDLabel:         "instance-1",
 								internal.OldFDBProcessGroupIDLabel: "instance-1",
 							},
 						},
@@ -96,11 +97,11 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-2",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
+								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
+								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:                clusterName,
 								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-2",
+								fdb.FDBProcessGroupIDLabel:         "instance-2",
 								internal.OldFDBProcessGroupIDLabel: "instance-2",
 							},
 						},

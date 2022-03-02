@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"net"
 	"time"
 
@@ -236,7 +237,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	addresses := make([]fdbtypes.ProcessAddress, 0)
+	addresses := make([]fdb.ProcessAddress, 0)
 
 	hasStatusUpdate := false
 
@@ -244,7 +245,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			for _, pAddr := range processGroup.Addresses {
-				addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+				addresses = append(addresses, fdb.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 			}
 			hasStatusUpdate = true
 		} else {

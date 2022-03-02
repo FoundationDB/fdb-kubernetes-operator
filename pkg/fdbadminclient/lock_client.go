@@ -20,7 +20,10 @@
 
 package fdbadminclient
 
-import "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+import (
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+)
 
 // LockClient provides a client for getting locks on operations for a cluster.
 type LockClient interface {
@@ -32,11 +35,11 @@ type LockClient interface {
 
 	// AddPendingUpgrades registers information about which process groups are
 	// pending an upgrade to a new version.
-	AddPendingUpgrades(version v1beta1.FdbVersion, processGroupIDs []string) error
+	AddPendingUpgrades(version fdb.FdbVersion, processGroupIDs []string) error
 
 	// GetPendingUpgrades returns the stored information about which process
 	// groups are pending an upgrade to a new version.
-	GetPendingUpgrades(version v1beta1.FdbVersion) (map[string]bool, error)
+	GetPendingUpgrades(version fdb.FdbVersion) (map[string]bool, error)
 
 	// ClearPendingUpgrades clears any stored information about pending
 	// upgrades.

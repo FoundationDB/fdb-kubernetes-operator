@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -92,7 +93,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			return &requeue{curError: err}
 		}
 
-		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
+		pod.ObjectMeta.Annotations[fdb.LastConfigMapKey] = configMapHash
 
 		if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
 			service := &corev1.Service{}
@@ -105,7 +106,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 				logger.Info("Service does not have an IP address", "processGroupID", processGroup.ProcessGroupID)
 				return &requeue{message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
 			}
-			pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
+			pod.Annotations[fdb.PublicIPAnnotation] = ip
 		}
 
 		err = r.PodLifecycleManager.CreatePod(ctx, r, pod)

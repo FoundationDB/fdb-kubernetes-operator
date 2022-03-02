@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo"
@@ -66,19 +68,19 @@ var _ = Describe("configmap_helper", func() {
 				Expect(configMap.Namespace).To(Equal("my-ns"))
 				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-config", cluster.Name)))
 				Expect(configMap.Labels).To(Equal(map[string]string{
-					fdbtypes.FDBClusterLabel: cluster.Name,
-					OldFDBClusterLabel:       cluster.Name,
+					fdb.FDBClusterLabel: cluster.Name,
+					OldFDBClusterLabel:  cluster.Name,
 				}))
 				Expect(configMap.Annotations).To(BeNil())
 			})
 
 			It("should have the basic files", func() {
-				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+				expectedConf, err := GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(configMap.Data[ClusterFileKey]).To(Equal("operator-test:asdfasf@127.0.0.1:4501"))
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
-				Expect(configMap.Data["running-version"]).To(Equal(fdbtypes.Versions.Default.String()))
+				Expect(configMap.Data["running-version"]).To(Equal(fdb.Versions.Default.String()))
 				Expect(configMap.Data["sidecar-conf"]).To(Equal(""))
 			})
 		})
@@ -94,7 +96,7 @@ var _ = Describe("configmap_helper", func() {
 				config := monitorapi.ProcessConfiguration{}
 				err = json.Unmarshal([]byte(jsonData), &config)
 				Expect(err).NotTo(HaveOccurred())
-				expectedConfig, err := GetMonitorProcessConfiguration(cluster, fdbtypes.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+				expectedConfig, err := GetMonitorProcessConfiguration(cluster, fdb.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config).To(Equal(expectedConfig))
 			})
@@ -111,7 +113,7 @@ var _ = Describe("configmap_helper", func() {
 			})
 
 			It("includes the data for the split monitor conf", func() {
-				expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+				expectedConf, err := GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 			})
@@ -145,11 +147,11 @@ var _ = Describe("configmap_helper", func() {
 					cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
 				})
 				It("includes the data for both configurations", func() {
-					expectedConf, err := GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+					expectedConf, err := GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-storage"]).To(Equal(expectedConf))
 
-					expectedConf, err = GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 2)
+					expectedConf, err = GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 2)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(configMap.Data["fdbmonitor-conf-storage-density-2"]).To(Equal(expectedConf))
 				})
@@ -166,7 +168,7 @@ var _ = Describe("configmap_helper", func() {
 					config := monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig, err := GetMonitorProcessConfiguration(cluster, fdbtypes.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+					expectedConfig, err := GetMonitorProcessConfiguration(cluster, fdb.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config).To(Equal(expectedConfig))
 
@@ -175,7 +177,7 @@ var _ = Describe("configmap_helper", func() {
 					config = monitorapi.ProcessConfiguration{}
 					err = json.Unmarshal([]byte(jsonData), &config)
 					Expect(err).NotTo(HaveOccurred())
-					expectedConfig, err = GetMonitorProcessConfiguration(cluster, fdbtypes.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
+					expectedConfig, err = GetMonitorProcessConfiguration(cluster, fdb.ProcessClassStorage, 2, FDBImageTypeUnified, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config).To(Equal(expectedConfig))
 				})
@@ -213,7 +215,7 @@ var _ = Describe("configmap_helper", func() {
 
 			Context("with a version that uses sidecar command-line arguments", func() {
 				BeforeEach(func() {
-					cluster.Status.RunningVersion = fdbtypes.Versions.Default.String()
+					cluster.Status.RunningVersion = fdb.Versions.Default.String()
 				})
 
 				It("should populate the CA file", func() {
@@ -246,9 +248,9 @@ var _ = Describe("configmap_helper", func() {
 
 			It("should put the label on the config map", func() {
 				Expect(configMap.Labels).To(Equal(map[string]string{
-					fdbtypes.FDBClusterLabel: cluster.Name,
-					OldFDBClusterLabel:       cluster.Name,
-					"fdb-label":              "value1",
+					fdb.FDBClusterLabel: cluster.Name,
+					OldFDBClusterLabel:  cluster.Name,
+					"fdb-label":         "value1",
 				}))
 			})
 		})

@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"net"
 	"regexp"
 	"sort"
@@ -78,7 +79,7 @@ func getListOptions(cluster *fdbtypes.FoundationDBCluster) []client.ListOption {
 	return []client.ListOption{
 		client.InNamespace("my-ns"),
 		client.MatchingLabels(map[string]string{
-			fdbtypes.FDBClusterLabel: cluster.Name,
+			fdb.FDBClusterLabel: cluster.Name,
 		}),
 	}
 }
@@ -166,34 +167,34 @@ var _ = Describe("cluster_controller", func() {
 				sortPodsByName(pods)
 
 				Expect(pods.Items[0].Name).To(Equal("operator-test-1-cluster-controller-1"))
-				Expect(pods.Items[0].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("cluster_controller-1"))
-				Expect(pods.Items[0].Annotations[fdbtypes.PublicIPSourceAnnotation]).To(Equal("pod"))
-				Expect(pods.Items[0].Annotations[fdbtypes.PublicIPAnnotation]).To(Equal(""))
+				Expect(pods.Items[0].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("cluster_controller-1"))
+				Expect(pods.Items[0].Annotations[fdb.PublicIPSourceAnnotation]).To(Equal("pod"))
+				Expect(pods.Items[0].Annotations[fdb.PublicIPAnnotation]).To(Equal(""))
 
 				Expect(pods.Items[1].Name).To(Equal("operator-test-1-log-1"))
-				Expect(pods.Items[1].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("log-1"))
+				Expect(pods.Items[1].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("log-1"))
 				Expect(pods.Items[4].Name).To(Equal("operator-test-1-log-4"))
-				Expect(pods.Items[4].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("log-4"))
+				Expect(pods.Items[4].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("log-4"))
 				Expect(pods.Items[5].Name).To(Equal("operator-test-1-stateless-1"))
-				Expect(pods.Items[5].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("stateless-1"))
+				Expect(pods.Items[5].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("stateless-1"))
 				Expect(pods.Items[12].Name).To(Equal("operator-test-1-stateless-8"))
-				Expect(pods.Items[12].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("stateless-8"))
+				Expect(pods.Items[12].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("stateless-8"))
 				Expect(pods.Items[13].Name).To(Equal("operator-test-1-storage-1"))
-				Expect(pods.Items[13].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-1"))
+				Expect(pods.Items[13].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("storage-1"))
 				Expect(pods.Items[16].Name).To(Equal("operator-test-1-storage-4"))
-				Expect(pods.Items[16].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-4"))
+				Expect(pods.Items[16].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("storage-4"))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-					fdbtypes.ProcessClassStorage:           4,
-					fdbtypes.ProcessClassLog:               4,
-					fdbtypes.ProcessClassStateless:         8,
-					fdbtypes.ProcessClassClusterController: 1,
+				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+					fdb.ProcessClassStorage:           4,
+					fdb.ProcessClassLog:               4,
+					fdb.ProcessClassStateless:         8,
+					fdb.ProcessClassClusterController: 1,
 				}))
 
 				pod := &pods.Items[0]
 				configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta), pod)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey]).To(Equal(configMapHash))
+				Expect(pod.ObjectMeta.Annotations[fdb.LastConfigMapKey]).To(Equal(configMapHash))
 				Expect(len(cluster.Status.ProcessGroups)).To(Equal(len(pods.Items)))
 			})
 
@@ -205,8 +206,8 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			It("should fill in the required fields in the configuration", func() {
-				Expect(cluster.Status.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
-				Expect(cluster.Status.DatabaseConfiguration.StorageEngine).To(Equal(fdbtypes.StorageEngineSSD2))
+				Expect(cluster.Status.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeDouble))
+				Expect(cluster.Status.DatabaseConfiguration.StorageEngine).To(Equal(fdb.StorageEngineSSD2))
 				Expect(cluster.Status.ConnectionString).NotTo(Equal(""))
 			})
 
@@ -223,9 +224,9 @@ var _ = Describe("cluster_controller", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(adminClient).NotTo(BeNil())
-				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
-				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal(fdbtypes.StorageEngineSSD2))
-				Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdbtypes.RoleCounts{
+				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeDouble))
+				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal(fdb.StorageEngineSSD2))
+				Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdb.RoleCounts{
 					Logs:       3,
 					Proxies:    3,
 					Resolvers:  1,
@@ -241,7 +242,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(int64(1)))
 
 				processCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
-				Expect(processCounts).To(Equal(fdbtypes.ProcessCounts{
+				Expect(processCounts).To(Equal(fdb.ProcessCounts{
 					Storage:           4,
 					Log:               4,
 					Stateless:         8,
@@ -287,9 +288,9 @@ var _ = Describe("cluster_controller", func() {
 
 				for _, pod := range pods.Items {
 					Expect(pod.Spec.Containers[0].Name).To(Equal("foundationdb"))
-					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbtypes.Versions.Default)))
+					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdb.Versions.Default)))
 					Expect(pod.Spec.Containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
-					Expect(pod.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbtypes.Versions.Default)))
+					Expect(pod.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdb.Versions.Default)))
 				}
 			})
 
@@ -332,7 +333,7 @@ var _ = Describe("cluster_controller", func() {
 				sortPodsByName(pods)
 
 				pod := pods.Items[firstStorageIndex]
-				Expect(pod.ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-1"))
+				Expect(pod.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("storage-1"))
 
 				mainContainer := pod.Spec.Containers[0]
 				Expect(mainContainer.Name).To(Equal("foundationdb"))
@@ -404,11 +405,11 @@ var _ = Describe("cluster_controller", func() {
 				Expect(pods.Items[1].Name).To(Equal(originalPods.Items[1].Name))
 				Expect(pods.Items[2].Name).To(Equal(originalPods.Items[2].Name))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-					fdbtypes.ProcessClassStorage:           3,
-					fdbtypes.ProcessClassLog:               4,
-					fdbtypes.ProcessClassStateless:         8,
-					fdbtypes.ProcessClassClusterController: 1,
+				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+					fdb.ProcessClassStorage:           3,
+					fdb.ProcessClassLog:               4,
+					fdb.ProcessClassStateless:         8,
+					fdb.ProcessClassClusterController: 1,
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
@@ -441,11 +442,11 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) + 1))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-					fdbtypes.ProcessClassStorage:           5,
-					fdbtypes.ProcessClassLog:               4,
-					fdbtypes.ProcessClassStateless:         8,
-					fdbtypes.ProcessClassClusterController: 1,
+				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+					fdb.ProcessClassStorage:           5,
+					fdb.ProcessClassLog:               4,
+					fdb.ProcessClassStateless:         8,
+					fdb.ProcessClassClusterController: 1,
 				}))
 			})
 
@@ -472,11 +473,11 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(18))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-					fdbtypes.ProcessClassStorage:           4,
-					fdbtypes.ProcessClassLog:               4,
-					fdbtypes.ProcessClassStateless:         9,
-					fdbtypes.ProcessClassClusterController: 1,
+				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+					fdb.ProcessClassStorage:           4,
+					fdb.ProcessClassLog:               4,
+					fdb.ProcessClassStateless:         9,
+					fdb.ProcessClassClusterController: 1,
 				}))
 			})
 
@@ -504,11 +505,11 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(18))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-					fdbtypes.ProcessClassStorage:           4,
-					fdbtypes.ProcessClassLog:               4,
-					fdbtypes.ProcessClassStateless:         9,
-					fdbtypes.ProcessClassClusterController: 1,
+				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+					fdb.ProcessClassStorage:           4,
+					fdb.ProcessClassLog:               4,
+					fdb.ProcessClassStateless:         9,
+					fdb.ProcessClassClusterController: 1,
 				}))
 			})
 		})
@@ -526,10 +527,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(9))
 
-				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-					fdbtypes.ProcessClassStorage:           4,
-					fdbtypes.ProcessClassLog:               4,
-					fdbtypes.ProcessClassClusterController: 1,
+				Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+					fdb.ProcessClassStorage:           4,
+					fdb.ProcessClassLog:               4,
+					fdb.ProcessClassClusterController: 1,
 				}))
 
 				Expect(cluster.Spec.PendingRemovals).To(BeNil())
@@ -557,7 +558,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with an entry in the process groups to remove list", func() {
 				BeforeEach(func() {
 					cluster.Spec.ProcessGroupsToRemove = []string{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					}
 					err := k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -569,11 +570,11 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(pods.Items)).To(Equal(17))
 
-					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-						fdbtypes.ProcessClassStorage:           4,
-						fdbtypes.ProcessClassLog:               4,
-						fdbtypes.ProcessClassStateless:         8,
-						fdbtypes.ProcessClassClusterController: 1,
+					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+						fdb.ProcessClassStorage:           4,
+						fdb.ProcessClassLog:               4,
+						fdb.ProcessClassStateless:         8,
+						fdb.ProcessClassClusterController: 1,
 					}))
 				})
 
@@ -611,7 +612,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(cluster.Status.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.InstancesToRemove).To(BeNil())
 					Expect(cluster.Spec.ProcessGroupsToRemove).To(Equal([]string{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					}))
 				})
 
@@ -620,7 +621,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(len(processGroups)).To(Equal(len(originalPods.Items)))
 
 					Expect(fdbtypes.ContainsProcessGroupID(processGroups, "storage-5")).To(BeTrue())
-					oldID := originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel]
+					oldID := originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel]
 					Expect(fdbtypes.ContainsProcessGroupID(processGroups, oldID)).To(BeFalse())
 
 					for _, group := range processGroups {
@@ -632,7 +633,7 @@ var _ = Describe("cluster_controller", func() {
 					BeforeEach(func() {
 						pod := originalPods.Items[firstStorageIndex]
 						for _, processGroup := range cluster.Status.ProcessGroups {
-							if processGroup.ProcessGroupID == pod.ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel] {
+							if processGroup.ProcessGroupID == pod.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel] {
 								processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
 							}
 						}
@@ -671,7 +672,7 @@ var _ = Describe("cluster_controller", func() {
 					BeforeEach(func() {
 						originalPod := &originalPods.Items[firstStorageIndex]
 						for _, processGroup := range cluster.Status.ProcessGroups {
-							if processGroup.ProcessGroupID == originalPod.ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel] {
+							if processGroup.ProcessGroupID == originalPod.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel] {
 								processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
 							}
 						}
@@ -724,7 +725,7 @@ var _ = Describe("cluster_controller", func() {
 				Context("with an entry in the process groups to remove list", func() {
 					BeforeEach(func() {
 						cluster.Spec.ProcessGroupsToRemove = []string{
-							originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+							originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 						}
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -749,7 +750,7 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					pod := originalPods.Items[firstStorageIndex]
 					cluster.Status.PendingRemovals = map[string]fdbtypes.PendingRemovalState{
-						pod.ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel]: {
+						pod.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel]: {
 							PodName: pod.Name,
 							Address: pod.Status.PodIP,
 						},
@@ -768,11 +769,11 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(pods.Items)).To(Equal(17))
 
-					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-						fdbtypes.ProcessClassStorage:           4,
-						fdbtypes.ProcessClassLog:               4,
-						fdbtypes.ProcessClassStateless:         8,
-						fdbtypes.ProcessClassClusterController: 1,
+					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+						fdb.ProcessClassStorage:           4,
+						fdb.ProcessClassLog:               4,
+						fdb.ProcessClassStateless:         8,
+						fdb.ProcessClassClusterController: 1,
 					}))
 				})
 
@@ -831,11 +832,11 @@ var _ = Describe("cluster_controller", func() {
 
 					Expect(len(pods.Items)).To(Equal(17))
 
-					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdbtypes.ProcessClass]int{
-						fdbtypes.ProcessClassStorage:           4,
-						fdbtypes.ProcessClassLog:               4,
-						fdbtypes.ProcessClassStateless:         8,
-						fdbtypes.ProcessClassClusterController: 1,
+					Expect(getProcessClassMap(cluster, pods.Items)).To(Equal(map[fdb.ProcessClass]int{
+						fdb.ProcessClassStorage:           4,
+						fdb.ProcessClassLog:               4,
+						fdb.ProcessClassStateless:         8,
+						fdb.ProcessClassClusterController: 1,
 					}))
 				})
 
@@ -887,7 +888,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					cluster.Spec.ProcessGroupsToRemove = []string{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					}
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -919,7 +920,7 @@ var _ = Describe("cluster_controller", func() {
 				It("should clear the removal list", func() {
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.ProcessGroupsToRemove).To(Equal([]string{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					}))
 				})
 			})
@@ -929,7 +930,7 @@ var _ = Describe("cluster_controller", func() {
 					err := k8sClient.RemovePodIP(&originalPods.Items[firstStorageIndex])
 					Expect(err).NotTo(HaveOccurred())
 					cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = []string{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					}
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -960,7 +961,7 @@ var _ = Describe("cluster_controller", func() {
 				It("should clear the removal list", func() {
 					Expect(cluster.Spec.PendingRemovals).To(BeNil())
 					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(Equal([]string{
-						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+						originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					}))
 				})
 			})
@@ -1025,7 +1026,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				cluster.Spec.ProcessGroupsToRemove = []string{
-					originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+					originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 				}
 				err := k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
@@ -1069,7 +1070,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with multiple replacements", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupsToRemove = []string{
-					originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel],
+					originalPods.Items[firstStorageIndex].ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel],
 					"storage-5",
 				}
 				err := k8sClient.Update(context.TODO(), cluster)
@@ -1129,7 +1130,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				err = adminClient.FreezeStatus()
 				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
+				cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
 			})
 
 			Context("with bounces enabled", func() {
@@ -1161,7 +1162,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with a substitution variable", func() {
 				BeforeEach(func() {
 					settings := cluster.Spec.Processes["general"]
-					settings.CustomParameters = []fdbtypes.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
+					settings.CustomParameters = []fdb.FoundationDBCustomParameter{"locality_disk_id=$FDB_INSTANCE_ID"}
 					cluster.Spec.Processes["general"] = settings
 
 					err = k8sClient.Update(context.TODO(), cluster)
@@ -1214,7 +1215,7 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with multiple storage servers per pod", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{}}}
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{}}}
 					cluster.Spec.StorageServersPerPod = 2
 					adminClient.UnfreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
@@ -1238,7 +1239,7 @@ var _ = Describe("cluster_controller", func() {
 					err = adminClient.FreezeStatus()
 					Expect(err).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{"knob_disable_posix_kernel_aio=1"}}}
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -1247,7 +1248,7 @@ var _ = Describe("cluster_controller", func() {
 					addresses := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
 						addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 1).String())
-						if internal.ProcessClassFromLabels(cluster, pod.ObjectMeta.Labels) == fdbtypes.ProcessClassStorage {
+						if internal.ProcessClassFromLabels(cluster, pod.ObjectMeta.Labels) == fdb.ProcessClassStorage {
 							addresses = append(addresses, cluster.GetFullAddress(pod.Status.PodIP, 2).String())
 						}
 					}
@@ -1266,13 +1267,13 @@ var _ = Describe("cluster_controller", func() {
 
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
+				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeDouble))
 
-				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeTriple
+				cluster.Spec.DatabaseConfiguration.RedundancyMode = fdb.RedundancyModeTriple
 
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
+				Expect(status.Cluster.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeDouble))
 			})
 
 			Context("with changes enabled", func() {
@@ -1282,28 +1283,28 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				It("should configure the database", func() {
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeTriple))
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeTriple))
 				})
 			})
 
 			Context("with a change to the log version", func() {
 				BeforeEach(func() {
 					cluster.Spec.DatabaseConfiguration.LogVersion = 3
-					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeDouble
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdb.RedundancyModeDouble
 					generationGap = 1
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("should configure the database", func() {
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeDouble))
 					Expect(adminClient.DatabaseConfiguration.LogVersion).To(Equal(3))
 				})
 			})
 
 			Context("with a change to the log version that is not set in the spec", func() {
 				BeforeEach(func() {
-					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeDouble
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdb.RedundancyModeDouble
 					cluster.Spec.SeedConnectionString = "touch"
 
 					configuration := cluster.DesiredDatabaseConfiguration()
@@ -1326,7 +1327,7 @@ var _ = Describe("cluster_controller", func() {
 					shouldCompleteReconciliation = false
 					var flag = false
 					cluster.Spec.AutomationOptions.ConfigureDatabase = &flag
-					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdbtypes.RedundancyModeTriple
+					cluster.Spec.DatabaseConfiguration.RedundancyMode = fdb.RedundancyModeTriple
 
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
@@ -1346,14 +1347,14 @@ var _ = Describe("cluster_controller", func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbtypes.RedundancyModeDouble))
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdb.RedundancyModeDouble))
 				})
 			})
 		})
 
 		Context("with a change to pod labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"fdb-label": "value3",
@@ -1402,7 +1403,7 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Update(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"fdb-annotation": "value1",
@@ -1425,7 +1426,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
+					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdb.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1433,7 +1434,7 @@ var _ = Describe("cluster_controller", func() {
 
 					configMapHash, err := getConfigMapHash(cluster, internal.GetProcessClassFromMeta(cluster, item.ObjectMeta), &item)
 					Expect(err).NotTo(HaveOccurred())
-					if item.Labels[fdbtypes.FDBProcessGroupIDLabel] == "storage-1" {
+					if item.Labels[fdb.FDBProcessGroupIDLabel] == "storage-1" {
 						Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 							"foundationdb.org/last-applied-config-map": configMapHash,
 							"foundationdb.org/last-applied-spec":       hash,
@@ -1474,7 +1475,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to the PVC labels", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
 								"fdb-label": "value3",
@@ -1523,7 +1524,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.Update(context.TODO(), pvc)
 					Expect(err).NotTo(HaveOccurred())
 
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
 								"fdb-annotation": "value1",
@@ -1539,7 +1540,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pvcs, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pvcs.Items {
-						if item.ObjectMeta.Labels[fdbtypes.FDBProcessGroupIDLabel] == "storage-1" {
+						if item.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel] == "storage-1" {
 							Expect(item.ObjectMeta.Annotations).To(Equal(map[string]string{
 								"fdb-annotation":                       "value1",
 								"foundationdb.org/existing-annotation": "test-value",
@@ -1564,7 +1565,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
+						_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdb.FDBProcessGroupIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
 						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1672,7 +1673,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbtypes.FDBProcessGroupIDLabel])
+					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdb.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1700,7 +1701,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a change to environment variables", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+				cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -1853,7 +1854,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, pod := range pods.Items {
-					Expect(pod.Annotations[fdbtypes.PublicIPSourceAnnotation]).To(Equal("service"))
+					Expect(pod.Annotations[fdb.PublicIPSourceAnnotation]).To(Equal("service"))
 				}
 
 				pod := pods.Items[0]
@@ -1861,8 +1862,8 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(pod.Annotations[fdbtypes.PublicIPAnnotation]).To(Equal(service.Spec.ClusterIP))
-				Expect(pod.Annotations[fdbtypes.PublicIPAnnotation]).NotTo(Equal(""))
+				Expect(pod.Annotations[fdb.PublicIPAnnotation]).To(Equal(service.Spec.ClusterIP))
+				Expect(pod.Annotations[fdb.PublicIPAnnotation]).NotTo(Equal(""))
 				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
 			})
 
@@ -1969,9 +1970,9 @@ var _ = Describe("cluster_controller", func() {
 
 				var storagePod corev1.Pod
 				for _, pod := range pods.Items {
-					Expect(pod.Annotations[fdbtypes.PublicIPSourceAnnotation]).To(Equal("service"))
+					Expect(pod.Annotations[fdb.PublicIPSourceAnnotation]).To(Equal("service"))
 
-					if internal.ProcessClassFromLabels(cluster, pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if internal.ProcessClassFromLabels(cluster, pod.Labels) == fdb.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 					}
 				}
@@ -1980,8 +1981,8 @@ var _ = Describe("cluster_controller", func() {
 				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: storagePod.Namespace, Name: storagePod.Name}, service)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(storagePod.Annotations[fdbtypes.PublicIPAnnotation]).To(Equal(service.Spec.ClusterIP))
-				Expect(storagePod.Annotations[fdbtypes.PublicIPAnnotation]).NotTo(Equal(""))
+				Expect(storagePod.Annotations[fdb.PublicIPAnnotation]).To(Equal(service.Spec.ClusterIP))
+				Expect(storagePod.Annotations[fdb.PublicIPAnnotation]).NotTo(Equal(""))
 				Expect(len(service.Spec.Ports)).To(Equal(cluster.GetStorageServersPerPod() * 2))
 			})
 
@@ -2012,7 +2013,7 @@ var _ = Describe("cluster_controller", func() {
 
 				var storagePod corev1.Pod
 				for _, pod := range pods.Items {
-					if internal.ProcessClassFromLabels(cluster, pod.Labels) == fdbtypes.ProcessClassStorage && storagePod.Name == "" {
+					if internal.ProcessClassFromLabels(cluster, pod.Labels) == fdb.ProcessClassStorage && storagePod.Name == "" {
 						storagePod = pod
 						break
 					}
@@ -2138,7 +2139,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
 					{
-						ProcessClass: fdbtypes.ProcessClassStorage,
+						ProcessClass: fdb.ProcessClassStorage,
 						Priority:     0,
 					},
 				}
@@ -2150,13 +2151,13 @@ var _ = Describe("cluster_controller", func() {
 				connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
 				Expect(err).NotTo(HaveOccurred())
 
-				addressClassMap := map[string]fdbtypes.ProcessClass{}
+				addressClassMap := map[string]fdb.ProcessClass{}
 				for _, pGroup := range cluster.Status.ProcessGroups {
 					addressClassMap[fmt.Sprintf("%s:4501", pGroup.Addresses[0])] = pGroup.ProcessClass
 				}
 
 				for _, coordinator := range connectionString.Coordinators {
-					Expect(addressClassMap[coordinator]).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(addressClassMap[coordinator]).To(Equal(fdb.ProcessClassStorage))
 				}
 			})
 
@@ -2164,7 +2165,7 @@ var _ = Describe("cluster_controller", func() {
 				BeforeEach(func() {
 					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
 						{
-							ProcessClass: fdbtypes.ProcessClassLog,
+							ProcessClass: fdb.ProcessClassLog,
 							Priority:     0,
 						},
 					}
@@ -2177,13 +2178,13 @@ var _ = Describe("cluster_controller", func() {
 					connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
 					Expect(err).NotTo(HaveOccurred())
 
-					addressClassMap := map[string]fdbtypes.ProcessClass{}
+					addressClassMap := map[string]fdb.ProcessClass{}
 					for _, pGroup := range cluster.Status.ProcessGroups {
 						addressClassMap[fmt.Sprintf("%s:4501", pGroup.Addresses[0])] = pGroup.ProcessClass
 					}
 
 					for _, coordinator := range connectionString.Coordinators {
-						Expect(addressClassMap[coordinator]).To(Equal(fdbtypes.ProcessClassLog))
+						Expect(addressClassMap[coordinator]).To(Equal(fdb.ProcessClassLog))
 					}
 				})
 			})
@@ -2192,7 +2193,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("downgrade cluster", func() {
 			BeforeEach(func() {
 				shouldCompleteReconciliation = false
-				IncompatibleVersion := fdbtypes.Versions.Default
+				IncompatibleVersion := fdb.Versions.Default
 				IncompatibleVersion.Patch--
 				cluster.Spec.Version = IncompatibleVersion.String()
 				err := k8sClient.Update(context.TODO(), cluster)
@@ -2201,7 +2202,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("should not downgrade cluster", func() {
 				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
-				Expect(cluster.Status.RunningVersion).To(Equal(fdbtypes.Versions.Default.String()))
+				Expect(cluster.Status.RunningVersion).To(Equal(fdb.Versions.Default.String()))
 			})
 		})
 
@@ -2209,7 +2210,7 @@ var _ = Describe("cluster_controller", func() {
 			var adminClient *mockAdminClient
 
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.NextMajorVersion.String()
+				cluster.Spec.Version = fdb.Versions.NextMajorVersion.String()
 
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -2241,7 +2242,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdb.Versions.NextMajorVersion.String())))
 					}
 				})
 
@@ -2276,7 +2277,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdb.Versions.NextMajorVersion.String())))
 					}
 				})
 
@@ -2291,8 +2292,8 @@ var _ = Describe("cluster_controller", func() {
 
 					originalNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
-						if !fdbtypes.ProcessClass(class).IsTransaction() {
+						class := pod.Labels[fdb.FDBProcessClassLabel]
+						if !fdb.ProcessClass(class).IsTransaction() {
 							continue
 						}
 
@@ -2301,8 +2302,8 @@ var _ = Describe("cluster_controller", func() {
 
 					currentNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range pods.Items {
-						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
-						if !fdbtypes.ProcessClass(class).IsTransaction() {
+						class := pod.Labels[fdb.FDBProcessClassLabel]
+						if !fdb.ProcessClass(class).IsTransaction() {
 							continue
 						}
 
@@ -2319,8 +2320,8 @@ var _ = Describe("cluster_controller", func() {
 
 					originalNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range originalPods.Items {
-						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
-						if fdbtypes.ProcessClass(class).IsTransaction() {
+						class := pod.Labels[fdb.FDBProcessClassLabel]
+						if fdb.ProcessClass(class).IsTransaction() {
 							continue
 						}
 
@@ -2329,8 +2330,8 @@ var _ = Describe("cluster_controller", func() {
 
 					currentNames := make([]string, 0, len(originalPods.Items))
 					for _, pod := range pods.Items {
-						class := pod.Labels[fdbtypes.FDBProcessClassLabel]
-						if fdbtypes.ProcessClass(class).IsTransaction() {
+						class := pod.Labels[fdb.FDBProcessClassLabel]
+						if fdb.ProcessClass(class).IsTransaction() {
 							continue
 						}
 
@@ -2367,7 +2368,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdb.Versions.NextMajorVersion.String())))
 					}
 				})
 
@@ -2416,7 +2417,7 @@ var _ = Describe("cluster_controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					for _, pod := range pods.Items {
-						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdbtypes.Versions.NextMajorVersion.String())))
+						Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb:%s", fdb.Versions.NextMajorVersion.String())))
 					}
 				})
 
@@ -2441,7 +2442,7 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with all upgradable clients", func() {
 				BeforeEach(func() {
-					adminClient.MockClientVersion(fdbtypes.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
+					adminClient.MockClientVersion(fdb.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -2467,8 +2468,8 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with a non-upgradable client", func() {
 				BeforeEach(func() {
-					adminClient.MockClientVersion(fdbtypes.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
-					adminClient.MockClientVersion(fdbtypes.Versions.Default.String(), []string{"127.0.0.3:85891"})
+					adminClient.MockClientVersion(fdb.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
+					adminClient.MockClientVersion(fdb.Versions.Default.String(), []string{"127.0.0.3:85891"})
 				})
 
 				Context("with the check enabled", func() {
@@ -2493,7 +2494,7 @@ var _ = Describe("cluster_controller", func() {
 						Expect(len(matchingEvents)).NotTo(Equal(0))
 
 						Expect(matchingEvents[0].Message).To(Equal(
-							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891", fdbtypes.Versions.NextMajorVersion),
+							fmt.Sprintf("1 clients do not support version %s: 127.0.0.3:85891", fdb.Versions.NextMajorVersion),
 						))
 					})
 				})
@@ -2528,7 +2529,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to the volume size", func() {
 			Context("with the fields from the processes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
@@ -2612,8 +2613,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				sortPodsByName(pods)
-				Expect(pods.Items[0].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("my-instances-cluster_controller-2"))
-				Expect(pods.Items[1].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("my-instances-log-5"))
+				Expect(pods.Items[0].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("my-instances-cluster_controller-2"))
+				Expect(pods.Items[1].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("my-instances-log-5"))
 			})
 		})
 
@@ -2649,8 +2650,8 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				sortPodsByName(pods)
-				Expect(pods.Items[0].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("dev-cluster_controller-2"))
-				Expect(pods.Items[1].Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("dev-log-5"))
+				Expect(pods.Items[0].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("dev-cluster_controller-2"))
+				Expect(pods.Items[1].Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("dev-log-5"))
 			})
 		})
 
@@ -2833,7 +2834,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2861,7 +2862,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a basic storage process group with multiple storage servers per Pod", func() {
 			BeforeEach(func() {
 				cluster.Spec.StorageServersPerPod = 2
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2904,7 +2905,7 @@ var _ = Describe("cluster_controller", func() {
 			BeforeEach(func() {
 				source := fdbtypes.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2934,7 +2935,7 @@ var _ = Describe("cluster_controller", func() {
 				source := fdbtypes.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Status.HasListenIPsForAllPods = true
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2962,7 +2963,7 @@ var _ = Describe("cluster_controller", func() {
 			Context("with pods without the listen IP environment variable", func() {
 				BeforeEach(func() {
 					cluster.Status.HasListenIPsForAllPods = false
-					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, 1)
+					conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -2993,7 +2994,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Spec.MainContainer.EnableTLS = true
 				cluster.Status.RequiredAddresses.NonTLS = false
 				cluster.Status.RequiredAddresses.TLS = true
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3024,7 +3025,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RequiredAddresses.NonTLS = true
 				cluster.Status.RequiredAddresses.TLS = true
 
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3055,7 +3056,7 @@ var _ = Describe("cluster_controller", func() {
 				cluster.Status.RequiredAddresses.NonTLS = true
 				cluster.Status.RequiredAddresses.TLS = true
 
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3083,10 +3084,10 @@ var _ = Describe("cluster_controller", func() {
 		Context("with custom parameters", func() {
 			Context("with general parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
-					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+					conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3114,18 +3115,18 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with process-class parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
-						fdbtypes.ProcessClassGeneral: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+						fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
 							"knob_disable_posix_kernel_aio = 1",
 						}},
-						fdbtypes.ProcessClassStorage: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+						fdb.ProcessClassStorage: {CustomParameters: fdb.FoundationDBCustomParameters{
 							"knob_test = test1",
 						}},
-						fdbtypes.ProcessClassStateless: {CustomParameters: fdbtypes.FoundationDBCustomParameters{
+						fdb.ProcessClassStateless: {CustomParameters: fdb.FoundationDBCustomParameters{
 							"knob_test = test2",
 						}},
 					}
-					conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+					conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3158,7 +3159,7 @@ var _ = Describe("cluster_controller", func() {
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3185,9 +3186,9 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a version that can use binaries from the main container", func() {
 			BeforeEach(func() {
-				cluster.Spec.Version = fdbtypes.Versions.Default.String()
-				cluster.Status.RunningVersion = fdbtypes.Versions.Default.String()
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				cluster.Spec.Version = fdb.Versions.Default.String()
+				cluster.Status.RunningVersion = fdb.Versions.Default.String()
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 
 			})
@@ -3216,7 +3217,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with peer verification rules", func() {
 			BeforeEach(func() {
 				cluster.Spec.MainContainer.PeerVerificationRules = "S.CN=foundationdb.org"
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3245,7 +3246,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a custom log group", func() {
 			BeforeEach(func() {
 				cluster.Spec.LogGroup = "test-fdb-cluster"
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3273,7 +3274,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a data center", func() {
 			BeforeEach(func() {
 				cluster.Spec.DataCenter = "dc01"
-				conf, err = internal.GetMonitorConf(cluster, fdbtypes.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
+				conf, err = internal.GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -3305,7 +3306,7 @@ var _ = Describe("cluster_controller", func() {
 			It("can parse the ID", func() {
 				prefix, id, err := podmanager.ParseProcessGroupID("storage-12")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(fdbtypes.ProcessClassStorage))
+				Expect(prefix).To(Equal(fdb.ProcessClassStorage))
 				Expect(id).To(Equal(12))
 			})
 		})
@@ -3314,7 +3315,7 @@ var _ = Describe("cluster_controller", func() {
 			It("can parse the ID", func() {
 				prefix, id, err := podmanager.ParseProcessGroupID("cluster_controller-3")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(fdbtypes.ProcessClassClusterController))
+				Expect(prefix).To(Equal(fdb.ProcessClassClusterController))
 				Expect(id).To(Equal(3))
 			})
 		})
@@ -3323,7 +3324,7 @@ var _ = Describe("cluster_controller", func() {
 			It("parses the prefix", func() {
 				prefix, id, err := podmanager.ParseProcessGroupID("dc1-storage-12")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(fdbtypes.ProcessClass("dc1-storage")))
+				Expect(prefix).To(Equal(fdb.ProcessClass("dc1-storage")))
 				Expect(id).To(Equal(12))
 			})
 		})
@@ -3487,7 +3488,7 @@ var _ = Describe("cluster_controller", func() {
 	})
 
 	Describe("checkCoordinatorValidity", func() {
-		var status *fdbtypes.FoundationDBStatus
+		var status *fdb.FoundationDBStatus
 		var adminClient fdbadminclient.AdminClient
 		var err error
 
@@ -3526,14 +3527,14 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a tester process without a command line field", func() {
 			It("should ignore the test process and report the coordinators as valid", func() {
-				testProcess := fdbtypes.FoundationDBStatusProcessInfo{
-					Address: fdbtypes.ProcessAddress{
+				testProcess := fdb.FoundationDBStatusProcessInfo{
+					Address: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("9.9.9.9"),
 					},
-					ProcessClass: fdbtypes.ProcessClassTest,
+					ProcessClass: fdb.ProcessClassTest,
 				}
 				Expect(testProcess.Address.IsEmpty()).To(BeFalse())
-				status.Cluster.Processes[string(fdbtypes.ProcessClassTest)] = testProcess
+				status.Cluster.Processes[string(fdb.ProcessClassTest)] = testProcess
 
 				coordinatorStatus := make(map[string]bool, len(status.Client.Coordinators.Coordinators))
 				for _, coordinator := range status.Client.Coordinators.Coordinators {
@@ -3570,7 +3571,7 @@ var _ = Describe("cluster_controller", func() {
 				zone := ""
 				for _, process := range status.Cluster.Processes {
 					if process.Address.Equal(status.Client.Coordinators.Coordinators[0].Address) {
-						zone = process.Locality[fdbtypes.FDBLocalityZoneIDKey]
+						zone = process.Locality[fdb.FDBLocalityZoneIDKey]
 					}
 				}
 				for _, process := range status.Cluster.Processes {
@@ -3614,11 +3615,11 @@ var _ = Describe("cluster_controller", func() {
 
 				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 
-				coordinators := make([]fdbtypes.FoundationDBStatusCoordinator, 0, coordinatorCount)
+				coordinators := make([]fdb.FoundationDBStatusCoordinator, 0, coordinatorCount)
 				dc := 0
 				for _, process := range status.Cluster.Processes {
-					if process.ProcessClass == fdbtypes.ProcessClassStorage {
-						coordinators = append(coordinators, fdbtypes.FoundationDBStatusCoordinator{
+					if process.ProcessClass == fdb.ProcessClassStorage {
+						coordinators = append(coordinators, fdb.FoundationDBStatusCoordinator{
 							Address:   process.Address,
 							Reachable: true,
 						})
@@ -3811,7 +3812,7 @@ var _ = Describe("cluster_controller", func() {
 
 			When("TLS is disabled", func() {
 				It("the locality address should not contain tls", func() {
-					var proc fdbtypes.FoundationDBStatusProcessInfo
+					var proc fdb.FoundationDBStatusProcessInfo
 					for _, p := range status.Cluster.Processes {
 						proc = p
 						// Select the first process Info
@@ -3826,7 +3827,7 @@ var _ = Describe("cluster_controller", func() {
 
 			When("TLS is enabled", func() {
 				It("the locality address should contain tls", func() {
-					var proc fdbtypes.FoundationDBStatusProcessInfo
+					var proc fdb.FoundationDBStatusProcessInfo
 					for _, p := range status.Cluster.Processes {
 						proc = p
 						// Select the first process Info
@@ -4034,8 +4035,8 @@ var _ = Describe("cluster_controller", func() {
 	})
 })
 
-func getProcessClassMap(cluster *fdbtypes.FoundationDBCluster, pods []corev1.Pod) map[fdbtypes.ProcessClass]int {
-	counts := make(map[fdbtypes.ProcessClass]int)
+func getProcessClassMap(cluster *fdbtypes.FoundationDBCluster, pods []corev1.Pod) map[fdb.ProcessClass]int {
+	counts := make(map[fdb.ProcessClass]int)
 	for _, pod := range pods {
 		processClass := internal.ProcessClassFromLabels(cluster, pod.Labels)
 		counts[processClass]++
@@ -4044,7 +4045,7 @@ func getProcessClassMap(cluster *fdbtypes.FoundationDBCluster, pods []corev1.Pod
 }
 
 // getConfigMapHash gets the hash of the data for a cluster's dynamic config.
-func getConfigMapHash(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.ProcessClass, pod *corev1.Pod) (string, error) {
+func getConfigMapHash(cluster *fdbtypes.FoundationDBCluster, pClass fdb.ProcessClass, pod *corev1.Pod) (string, error) {
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
 		return "", err

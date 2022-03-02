@@ -22,6 +22,7 @@ package cmd
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,10 +43,10 @@ var _ = Describe("[plugin] configuration command", func() {
 						Namespace: "test",
 					},
 					Spec: fdbtypes.FoundationDBClusterSpec{
-						DatabaseConfiguration: fdbtypes.DatabaseConfiguration{
-							Regions: []fdbtypes.Region{
+						DatabaseConfiguration: fdb.DatabaseConfiguration{
+							Regions: []fdb.Region{
 								{
-									DataCenters: []fdbtypes.DataCenter{
+									DataCenters: []fdb.DataCenter{
 										{
 											ID:       "test",
 											Priority: 1,
@@ -91,10 +92,10 @@ var _ = Describe("[plugin] configuration command", func() {
 						Namespace: "test",
 					},
 					Spec: fdbtypes.FoundationDBClusterSpec{
-						DatabaseConfiguration: fdbtypes.DatabaseConfiguration{
-							Regions: []fdbtypes.Region{
+						DatabaseConfiguration: fdb.DatabaseConfiguration{
+							Regions: []fdb.Region{
 								{
-									DataCenters: []fdbtypes.DataCenter{
+									DataCenters: []fdb.DataCenter{
 										{
 											ID:       "primary",
 											Priority: 1,
@@ -112,7 +113,7 @@ var _ = Describe("[plugin] configuration command", func() {
 									},
 								},
 								{
-									DataCenters: []fdbtypes.DataCenter{
+									DataCenters: []fdb.DataCenter{
 										{
 											ID:       "remote",
 											Priority: 0,

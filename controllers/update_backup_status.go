@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"reflect"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -41,7 +42,7 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
 	backupDeployments := &appsv1.DeploymentList{}
-	err := r.List(ctx, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbtypes.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
+	err := r.List(ctx, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdb.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
 	if err != nil {
 		return &requeue{curError: err}
 	}

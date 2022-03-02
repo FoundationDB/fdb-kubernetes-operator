@@ -22,6 +22,7 @@ package controllers
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,20 +35,20 @@ var _ = Describe("metrics", func() {
 			Status: fdbtypes.FoundationDBClusterStatus{
 				ProcessGroups: []*fdbtypes.ProcessGroupStatus{
 					{
-						ProcessClass: fdbtypes.ProcessClassStorage,
+						ProcessClass: fdb.ProcessClassStorage,
 					},
 					{
-						ProcessClass: fdbtypes.ProcessClassLog,
+						ProcessClass: fdb.ProcessClassLog,
 						ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
 							fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
 						},
 					},
 					{
-						ProcessClass: fdbtypes.ProcessClassStorage,
+						ProcessClass: fdb.ProcessClassStorage,
 						Remove:       true,
 					},
 					{
-						ProcessClass: fdbtypes.ProcessClassStateless,
+						ProcessClass: fdb.ProcessClassStateless,
 						Remove:       true,
 						Excluded:     true,
 					},
@@ -60,16 +61,16 @@ var _ = Describe("metrics", func() {
 		It("generate the process class metrics", func() {
 			stats, removals, exclusions := getProcessGroupMetrics(cluster)
 			Expect(len(stats)).To(BeNumerically("==", 3))
-			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
-			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
-			Expect(stats[fdbtypes.ProcessClassStorage][fdbtypes.ReadyCondition]).To(BeNumerically("==", 2))
-			Expect(stats[fdbtypes.ProcessClassLog][fdbtypes.ReadyCondition]).To(BeNumerically("==", 0))
-			Expect(stats[fdbtypes.ProcessClassLog][fdbtypes.MissingProcesses]).To(BeNumerically("==", 1))
-			Expect(stats[fdbtypes.ProcessClassStateless][fdbtypes.ReadyCondition]).To(BeNumerically("==", 1))
-			Expect(removals[fdbtypes.ProcessClassStorage]).To(BeNumerically("==", 1))
-			Expect(exclusions[fdbtypes.ProcessClassStorage]).To(BeNumerically("==", 0))
-			Expect(removals[fdbtypes.ProcessClassStateless]).To(BeNumerically("==", 1))
-			Expect(exclusions[fdbtypes.ProcessClassStateless]).To(BeNumerically("==", 1))
+			Expect(len(stats[fdb.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
+			Expect(len(stats[fdb.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
+			Expect(stats[fdb.ProcessClassStorage][fdbtypes.ReadyCondition]).To(BeNumerically("==", 2))
+			Expect(stats[fdb.ProcessClassLog][fdbtypes.ReadyCondition]).To(BeNumerically("==", 0))
+			Expect(stats[fdb.ProcessClassLog][fdbtypes.MissingProcesses]).To(BeNumerically("==", 1))
+			Expect(stats[fdb.ProcessClassStateless][fdbtypes.ReadyCondition]).To(BeNumerically("==", 1))
+			Expect(removals[fdb.ProcessClassStorage]).To(BeNumerically("==", 1))
+			Expect(exclusions[fdb.ProcessClassStorage]).To(BeNumerically("==", 0))
+			Expect(removals[fdb.ProcessClassStateless]).To(BeNumerically("==", 1))
+			Expect(exclusions[fdb.ProcessClassStateless]).To(BeNumerically("==", 1))
 		})
 	})
 })

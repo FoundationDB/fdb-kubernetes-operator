@@ -17,18 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	"encoding/json"
 	"fmt"
-	"html/template"
 	"math"
 	"math/rand"
-	"net"
 	"reflect"
 	"regexp"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"k8s.io/utils/pointer"
 
@@ -89,15 +86,15 @@ type FoundationDBClusterSpec struct {
 	SidecarVersions map[string]int `json:"sidecarVersions,omitempty"`
 
 	// DatabaseConfiguration defines the database configuration.
-	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	DatabaseConfiguration fdb.DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Processes defines process-level settings.
-	Processes map[ProcessClass]ProcessSettings `json:"processes,omitempty"`
+	Processes map[fdb.ProcessClass]ProcessSettings `json:"processes,omitempty"`
 
 	// ProcessCounts defines the number of processes to configure for each
 	// process class. You can generally omit this, to allow the operator to
 	// infer the process counts based on the database configuration.
-	ProcessCounts `json:"processCounts,omitempty"`
+	ProcessCounts fdb.ProcessCounts `json:"processCounts,omitempty"`
 
 	// SeedConnectionString provides a connection string for the initial
 	// reconciliation.
@@ -306,7 +303,7 @@ type FoundationDBClusterSpec struct {
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// processes.
 	// Deprecated: use the Processes field instead.
-	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
+	CustomParameters fdb.FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the name of a pod to its IP address. If a value is left blank,
@@ -371,7 +368,7 @@ type FoundationDBClusterStatus struct {
 	// ProcessCounts defines the number of processes that are currently running
 	// in the cluster.
 	// Deprecated: Use ProcessGroups instead.
-	ProcessCounts `json:"processCounts,omitempty"`
+	ProcessCounts fdb.ProcessCounts `json:"processCounts,omitempty"`
 
 	// IncorrectProcesses provides the processes that do not have the correct
 	// configuration.
@@ -402,7 +399,7 @@ type FoundationDBClusterStatus struct {
 	MissingProcesses map[string]int64 `json:"missingProcesses,omitempty"`
 
 	// DatabaseConfiguration provides the running configuration of the database.
-	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	DatabaseConfiguration fdb.DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Generations provides information about the latest generation to be
 	// reconciled, or to reach other stages at which reconciliation can halt.
@@ -482,7 +479,7 @@ type ProcessGroupStatus struct {
 	// ProcessGroupID represents the ID of the process group
 	ProcessGroupID string `json:"processGroupID,omitempty"`
 	// ProcessClass represents the class the process group has.
-	ProcessClass ProcessClass `json:"processClass,omitempty"`
+	ProcessClass fdb.ProcessClass `json:"processClass,omitempty"`
 	// Addresses represents the list of addresses the process group has been known to have.
 	Addresses []string `json:"addresses,omitempty"`
 	// Remove defines if the process group is marked for removal.
@@ -604,7 +601,7 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap 
 }
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
-func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
+func NewProcessGroupStatus(processGroupID string, processClass fdb.ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{
 		ProcessGroupID: processGroupID,
 		ProcessClass:   processClass,
@@ -638,7 +635,7 @@ func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID 
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
-func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass ProcessClass, address string) (bool, *ProcessGroupStatus) {
+func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass fdb.ProcessClass, address string) (bool, *ProcessGroupStatus) {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID != processGroupID {
 			continue
@@ -736,8 +733,8 @@ func (processGroupStatus *ProcessGroupStatus) removeCondition(conditionType Proc
 }
 
 // CreateProcessCountsFromProcessGroupStatus creates a ProcessCounts struct from the current ProcessGroupStatus.
-func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus, includeRemovals bool) ProcessCounts {
-	processCounts := ProcessCounts{}
+func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus, includeRemovals bool) fdb.ProcessCounts {
+	processCounts := fdb.ProcessCounts{}
 
 	for _, groupStatus := range processGroupStatus {
 		if !groupStatus.IsMarkedForRemoval() || includeRemovals {
@@ -786,7 +783,7 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 }
 
 // ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
-func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass ProcessClass) []*ProcessGroupStatus {
+func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass fdb.ProcessClass) []*ProcessGroupStatus {
 	result := make([]*ProcessGroupStatus, 0)
 
 	for _, groupStatus := range clusterStatus.ProcessGroups {
@@ -1017,158 +1014,6 @@ type PendingRemovalState struct {
 	HadInstance bool `json:"hadInstance,omitempty"`
 }
 
-// RoleCounts represents the roles whose counts can be customized.
-type RoleCounts struct {
-	Storage    int `json:"storage,omitempty"`
-	Logs       int `json:"logs,omitempty"`
-	Proxies    int `json:"proxies,omitempty"`
-	Resolvers  int `json:"resolvers,omitempty"`
-	LogRouters int `json:"log_routers,omitempty"`
-	RemoteLogs int `json:"remote_logs,omitempty"`
-}
-
-// Map returns a map from process classes to the desired count for that role
-func (counts RoleCounts) Map() map[ProcessClass]int {
-	countMap := make(map[ProcessClass]int, len(roleIndices))
-	countValue := reflect.ValueOf(counts)
-	for role, index := range roleIndices {
-		if role != ProcessClassStorage {
-			value := int(countValue.Field(index).Int())
-			countMap[role] = value
-		}
-	}
-	return countMap
-}
-
-// VersionFlags defines internal flags for new features in the database.
-type VersionFlags struct {
-	LogSpill   int `json:"log_spill,omitempty"`
-	LogVersion int `json:"log_version,omitempty"`
-}
-
-// Map returns a map from process classes to the desired count for that role
-func (flags VersionFlags) Map() map[string]int {
-	flagMap := make(map[string]int, len(versionFlagIndices))
-	flagValue := reflect.ValueOf(flags)
-	for flag, index := range versionFlagIndices {
-		value := int(flagValue.Field(index).Int())
-		flagMap[flag] = value
-	}
-	return flagMap
-}
-
-// ProcessCounts represents the number of processes we have for each valid
-// process class.
-//
-// If one of the counts in the spec is set to 0, we will infer the process count
-// for that class from the role counts. If one of the counts in the spec is set
-// to -1, we will not create any processes for that class. See
-// GetProcessCountsWithDefaults for more information on the rules for inferring
-// process counts.
-type ProcessCounts struct {
-	Unset             int `json:"unset,omitempty"`
-	Storage           int `json:"storage,omitempty"`
-	Transaction       int `json:"transaction,omitempty"`
-	Resolution        int `json:"resolution,omitempty"`
-	Tester            int `json:"tester,omitempty"`
-	Proxy             int `json:"proxy,omitempty"`
-	Master            int `json:"master,omitempty"`
-	Stateless         int `json:"stateless,omitempty"`
-	Log               int `json:"log,omitempty"`
-	ClusterController int `json:"cluster_controller,omitempty"`
-	LogRouter         int `json:"router,omitempty"`
-	FastRestore       int `json:"fast_restore,omitempty"`
-	DataDistributor   int `json:"data_distributor,omitempty"`
-	Coordinator       int `json:"coordinator,omitempty"`
-	Ratekeeper        int `json:"ratekeeper,omitempty"`
-	StorageCache      int `json:"storage_cache,omitempty"`
-	BackupWorker      int `json:"backup,omitempty"`
-
-	// Deprecated: This is unsupported and any processes with this process class
-	// will fail to start.
-	Resolver int `json:"resolver,omitempty"`
-}
-
-// Map returns a map from process classes to the number of processes with that
-// class.
-func (counts ProcessCounts) Map() map[ProcessClass]int {
-	countMap := make(map[ProcessClass]int, len(processClassIndices))
-	countValue := reflect.ValueOf(counts)
-	for processClass, index := range processClassIndices {
-		value := int(countValue.Field(index).Int())
-		if value > 0 {
-			countMap[processClass] = value
-		}
-	}
-	return countMap
-}
-
-// IncreaseCount adds to one of the process counts based on the name.
-func (counts *ProcessCounts) IncreaseCount(name ProcessClass, amount int) {
-	index, present := processClassIndices[name]
-	if present {
-		countValue := reflect.ValueOf(counts)
-		value := countValue.Elem().Field(index)
-		value.SetInt(value.Int() + int64(amount))
-	}
-}
-
-// DecreaseCount adds to one of the process counts based on the name.
-func (counts *ProcessCounts) DecreaseCount(name ProcessClass, amount int) {
-	index, present := processClassIndices[name]
-	if present {
-		countValue := reflect.ValueOf(counts)
-		value := countValue.Elem().Field(index)
-		value.SetInt(value.Int() - int64(amount))
-	}
-}
-
-// fieldNames provides the names of fields on a structure.
-func fieldNames(value interface{}) []ProcessClass {
-	countType := reflect.TypeOf(value)
-	names := make([]ProcessClass, 0, countType.NumField())
-	for index := 0; index < countType.NumField(); index++ {
-		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
-		names = append(names, ProcessClass(tag[0]))
-	}
-	return names
-}
-
-// fieldIndices provides a map from the names of fields in a structure to the
-// index of each field in the list of fields.
-func fieldIndices(value interface{}, result interface{}, keyType reflect.Type) {
-	countType := reflect.TypeOf(value)
-	resultValue := reflect.ValueOf(result)
-	for index := 0; index < countType.NumField(); index++ {
-		tag := strings.Split(countType.Field(index).Tag.Get("json"), ",")
-		resultValue.SetMapIndex(reflect.ValueOf(tag[0]).Convert(keyType), reflect.ValueOf(index))
-	}
-}
-
-// ProcessClasses provides a consistent ordered list of the supported process
-// classes.
-var ProcessClasses = fieldNames(ProcessCounts{})
-
-// processClassIndices provides the indices of each process class in the list
-// of process classes.
-var processClassIndices = make(map[ProcessClass]int)
-
-// roleNames provides a consistent ordered list of the supported roles.
-var roleNames = fieldNames(RoleCounts{})
-
-// roleIndices provides the indices of each role in the list of roles.
-var roleIndices = make(map[ProcessClass]int)
-
-// versionFlagIndices provides the indices of each flag in the list of supported
-// version flags..
-var versionFlagIndices = make(map[string]int)
-
-func init() {
-	fieldIndices(ProcessCounts{}, processClassIndices, reflect.TypeOf(ProcessClassStorage))
-	fieldIndices(RoleCounts{}, roleIndices, reflect.TypeOf(ProcessClassStorage))
-	fieldIndices(VersionFlags{}, versionFlagIndices, reflect.TypeOf(""))
-}
-
 // FoundationDBClusterAutomationOptions provides flags for enabling or disabling
 // operations that can be performed on a cluster.
 type FoundationDBClusterAutomationOptions struct {
@@ -1294,7 +1139,7 @@ type ProcessSettings struct {
 
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// process.
-	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
+	CustomParameters fdb.FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// This setting defines if a user provided image can have it's own tag
 	// rather than getting the provided version appended.
@@ -1315,7 +1160,7 @@ func (processSettings *ProcessSettings) GetAllowTagOverride() bool {
 }
 
 // GetProcessSettings gets settings for a process.
-func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass) ProcessSettings {
+func (cluster *FoundationDBCluster) GetProcessSettings(processClass fdb.ProcessClass) ProcessSettings {
 	merged := ProcessSettings{}
 	entries := make([]ProcessSettings, 0, 2)
 
@@ -1324,7 +1169,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 		entries = append(entries, entry)
 	}
 
-	entries = append(entries, cluster.Spec.Processes[ProcessClassGeneral])
+	entries = append(entries, cluster.Spec.Processes[fdb.ProcessClassGeneral])
 	for _, entry := range entries {
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
@@ -1363,7 +1208,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // The default LogRouters value will be equal to 3 times the Logs value when
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
-func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
+func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() fdb.RoleCounts {
 	counts := cluster.Spec.DatabaseConfiguration.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
 		counts.Storage = 2*cluster.DesiredFaultTolerance() + 1
@@ -1454,7 +1299,7 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 
 // GetProcessCountsWithDefaults gets the process counts from the cluster spec
 // and fills in default values for any counts that are 0.
-func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCounts, error) {
+func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (fdb.ProcessCounts, error) {
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
 
@@ -1510,44 +1355,15 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 }
 
 // DesiredFaultTolerance returns the number of replicas we should be able to
-// lose given a redundancy mode.
-func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
-	switch redundancyMode {
-	case RedundancyModeSingle:
-		return 0
-	case RedundancyModeDouble, RedundancyModeUnset:
-		return 1
-	case RedundancyModeTriple:
-		return 2
-	default:
-		return 0
-	}
-}
-
-// DesiredFaultTolerance returns the number of replicas we should be able to
 // lose when the cluster is at full replication health.
 func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
-	return DesiredFaultTolerance(cluster.Spec.DatabaseConfiguration.RedundancyMode)
-}
-
-// MinimumFaultDomains returns the number of fault domains given a redundancy mode.
-func MinimumFaultDomains(redundancyMode RedundancyMode) int {
-	switch redundancyMode {
-	case RedundancyModeSingle:
-		return 1
-	case RedundancyModeDouble, RedundancyModeUnset:
-		return 2
-	case RedundancyModeTriple:
-		return 3
-	default:
-		return 1
-	}
+	return fdb.DesiredFaultTolerance(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
 // MinimumFaultDomains returns the number of fault domains the cluster needs
 // to function.
 func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
-	return MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
+	return fdb.MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
@@ -1594,7 +1410,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	currentCounts := CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, false)
 
-	diff := desiredCounts.diff(currentCounts)
+	diff := desiredCounts.Diff(currentCounts)
 
 	for _, delta := range diff {
 		if delta > 0 {
@@ -1704,27 +1520,6 @@ func (cluster *FoundationDBCluster) GetStorageServersPerPod() int {
 	return cluster.Spec.StorageServersPerPod
 }
 
-// CountsAreSatisfied checks whether the current counts of processes satisfy
-// a desired set of counts.
-func (counts ProcessCounts) CountsAreSatisfied(currentCounts ProcessCounts) bool {
-	return len(counts.diff(currentCounts)) == 0
-}
-
-// diff gets the diff between two sets of process counts.
-func (counts ProcessCounts) diff(currentCounts ProcessCounts) map[ProcessClass]int64 {
-	diff := make(map[ProcessClass]int64)
-	desiredValue := reflect.ValueOf(counts)
-	currentValue := reflect.ValueOf(currentCounts)
-	for label, index := range processClassIndices {
-		desired := desiredValue.Field(index).Int()
-		current := currentValue.Field(index).Int()
-		if (desired > 0 || current > 0) && desired != current {
-			diff[label] = desired - current
-		}
-	}
-	return diff
-}
-
 // alphanum provides the characters that are used for the generation ID in the
 // connection string.
 var alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -1758,7 +1553,7 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 	coordinatorsStrings := strings.Split(components[3], ",")
 	coordinators := make([]string, len(coordinatorsStrings))
 	for idx, coordinatorsString := range coordinatorsStrings {
-		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
+		coordinatorAddress, err := fdb.ParseProcessAddress(coordinatorsString)
 		if err != nil {
 			return ConnectionString{}, err
 		}
@@ -1791,283 +1586,16 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 	return nil
 }
 
-// ProcessAddress provides a structured address for a process.
-type ProcessAddress struct {
-	IPAddress     net.IP          `json:"address,omitempty"`
-	StringAddress string          `json:"stringAddress,omitempty"`
-	Port          int             `json:"port,omitempty"`
-	Flags         map[string]bool `json:"flags,omitempty"`
-	FromHostname  bool            `json:"fromHostname,omitempty"`
-}
-
-// NewProcessAddress creates a new ProcessAddress if the provided string address is a valid IP address it will be set as
-// IPAddress.
-func NewProcessAddress(address net.IP, stringAddress string, port int, flags map[string]bool) ProcessAddress {
-	pAddr := ProcessAddress{
-		IPAddress:     address,
-		StringAddress: stringAddress,
-		Port:          port,
-		Flags:         flags,
-	}
-
-	// If we have a valid IP address in the Placeholder we can set the
-	// IPAddress accordingly.
-	ip := net.ParseIP(pAddr.StringAddress)
-	if ip != nil {
-		pAddr.IPAddress = ip
-		pAddr.StringAddress = ""
-	}
-
-	return pAddr
-}
-
-// IsEmpty returns true if a ProcessAddress is not set
-func (address ProcessAddress) IsEmpty() bool {
-	return address.IPAddress == nil
-}
-
-// Equal checks if two ProcessAddress are the same
-func (address ProcessAddress) Equal(addressB ProcessAddress) bool {
-	if !address.IPAddress.Equal(addressB.IPAddress) {
-		return false
-	}
-
-	if address.Port != addressB.Port {
-		return false
-	}
-
-	if len(address.Flags) != len(addressB.Flags) {
-		return false
-	}
-
-	for k, v := range address.Flags {
-		if v != addressB.Flags[k] {
-			return false
-		}
-	}
-
-	return true
-}
-
-// SortedFlags returns a list of flags on an address, sorted lexographically.
-func (address ProcessAddress) SortedFlags() []string {
-	flags := make([]string, 0, len(address.Flags))
-	for flag, set := range address.Flags {
-		if set {
-			flags = append(flags, flag)
-		}
-	}
-
-	sort.Slice(flags, func(i int, j int) bool {
-		return flags[i] < flags[j]
-	})
-
-	return flags
-}
-
-// ProcessAddressesString converts a slice of ProcessAddress into a string joined by the separator
-func ProcessAddressesString(pAddrs []ProcessAddress, sep string) string {
-	sb := strings.Builder{}
-	maxIdx := len(pAddrs) - 1
-	for idx, pAddr := range pAddrs {
-		sb.WriteString(pAddr.String())
-
-		if idx < maxIdx {
-			sb.WriteString(sep)
-		}
-	}
-
-	return sb.String()
-}
-
-// ProcessAddressesStringWithoutFlags converts a slice of ProcessAddress into a string joined by the separator
-// without the flags
-func ProcessAddressesStringWithoutFlags(pAddrs []ProcessAddress, sep string) string {
-	sb := strings.Builder{}
-	maxIdx := len(pAddrs) - 1
-	for idx, pAddr := range pAddrs {
-		sb.WriteString(pAddr.StringWithoutFlags())
-
-		if idx < maxIdx {
-			sb.WriteString(sep)
-		}
-	}
-
-	return sb.String()
-}
-
-// UnmarshalJSON defines the parsing method for the ProcessAddress field from JSON to struct
-func (address *ProcessAddress) UnmarshalJSON(data []byte) error {
-	trimmed := strings.Trim(string(data), "\"")
-	parsedAddr, err := ParseProcessAddress(trimmed)
-	if err != nil {
-		return err
-	}
-
-	*address = parsedAddr
-
-	return nil
-}
-
-// MarshalJSON defines the parsing method for the ProcessAddress field from struct to JSON
-func (address ProcessAddress) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("\"%s\"", address.String())), nil
-}
-
-// ParseProcessAddress parses a structured address from its string
-// representation.
-func ParseProcessAddress(address string) (ProcessAddress, error) {
-	result := ProcessAddress{}
-	if strings.HasSuffix(address, "(fromHostname)") {
-		address = strings.TrimSuffix(address, "(fromHostname)")
-		result.FromHostname = true
-	}
-
-	// For all Pod based actions we only provide an IP address without the port to actually
-	// like exclusions and includes. If the address is a valid IP address we can directly skip
-	// here and return the Process address, since the address doesn't contain any ports or additional flags.
-	ip := net.ParseIP(address)
-	if ip != nil {
-		result.IPAddress = ip
-		return result, nil
-	}
-
-	// In order to find the address port pair we will go over the address stored in a tmp String.
-	// The idea is to split from the right to the left. If we find a Substring that is not a valid host port pair
-	// we can trim the last part and store it as a flag e.g. ":tls" and try the next substring with the flag removed.
-	// Currently FoundationDB only supports the "tls" flag but with this function we are able to also parse any additional
-	// future flags.
-	tmpStr := address
-	for tmpStr != "" {
-		addr, port, err := net.SplitHostPort(tmpStr)
-
-		// If we didn't get an error we found the addr:port
-		// part of the ProcessAddress.
-		if err == nil {
-			result.IPAddress = net.ParseIP(addr)
-			if result.IPAddress == nil {
-				result.StringAddress = addr
-			}
-			iPort, err := strconv.Atoi(port)
-			if err != nil {
-				return result, err
-			}
-			result.Port = iPort
-			break
-		}
-
-		// Search for the last : in our tmpStr.
-		// If there is no other : in our tmpStr we can abort since we don't
-		// have a valid address port pair left.
-		idx := strings.LastIndex(tmpStr, ":")
-		if idx == -1 {
-			break
-		}
-
-		if result.Flags == nil {
-			result.Flags = map[string]bool{}
-		}
-
-		result.Flags[tmpStr[idx+1:]] = true
-		tmpStr = tmpStr[:idx]
-	}
-
-	return result, nil
-}
-
-func parseAddresses(addrs []string) ([]ProcessAddress, error) {
-	pAddresses := make([]ProcessAddress, len(addrs))
-
-	for idx, addr := range addrs {
-		pAddr, err := ParseProcessAddress(addr)
-		if err != nil {
-			return pAddresses, err
-		}
-
-		pAddresses[idx] = pAddr
-	}
-
-	return pAddresses, nil
-}
-
-// ParseProcessAddressesFromCmdline returns the ProcessAddress slice parsed from the commandline
-// of the process.
-func ParseProcessAddressesFromCmdline(cmdline string) ([]ProcessAddress, error) {
-	addrReg, err := regexp.Compile(`--public_address=(\S+)`)
-	if err != nil {
-		return nil, err
-	}
-
-	res := addrReg.FindStringSubmatch(cmdline)
-	if len(res) != 2 {
-		return nil, fmt.Errorf("invalid cmdline with missing public_address: %s", cmdline)
-	}
-
-	return parseAddresses(strings.Split(res[1], ","))
-}
-
-// String gets the string representation of an address.
-func (address ProcessAddress) String() string {
-	if address.Port == 0 {
-		return address.MachineAddress()
-	}
-
-	var sb strings.Builder
-	// We have to do this since we are creating a template file for the processes.
-	// The template file will contain variables like POD_IP which is not a valid net.IP :)
-	sb.WriteString(net.JoinHostPort(address.MachineAddress(), strconv.Itoa(address.Port)))
-
-	flags := address.SortedFlags()
-
-	if len(flags) > 0 {
-		sb.WriteString(":" + strings.Join(flags, ":"))
-	}
-
-	if address.FromHostname {
-		sb.WriteString("(fromHostname)")
-	}
-
-	return sb.String()
-}
-
-// MachineAddress returns the machine address, this is the address without any ports.
-func (address ProcessAddress) MachineAddress() string {
-	if address.StringAddress == "" {
-		return address.IPAddress.String()
-	}
-
-	return address.StringAddress
-}
-
-// StringWithoutFlags gets the string representation of an address without flags.
-func (address ProcessAddress) StringWithoutFlags() string {
-	if address.Port == 0 {
-		return address.MachineAddress()
-	}
-
-	return net.JoinHostPort(address.MachineAddress(), strconv.Itoa(address.Port))
-}
-
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(ipAddress string, processNumber int) ProcessAddress {
-	addresses := cluster.GetFullAddressList(ipAddress, true, processNumber)
+func (cluster *FoundationDBCluster) GetFullAddress(address string, processNumber int) fdb.ProcessAddress {
+	addresses := cluster.GetFullAddressList(address, true, processNumber)
 	if len(addresses) < 1 {
-		return ProcessAddress{}
+		return fdb.ProcessAddress{}
 	}
 
 	// First element will always be the primary
 	return addresses[0]
-}
-
-// GetProcessPort returns the expected port for a given process number
-// and the tls setting.
-func GetProcessPort(processNumber int, tls bool) int {
-	if tls {
-		return 4498 + 2*processNumber
-	}
-
-	return 4499 + 2*processNumber
 }
 
 // GetFullAddressList gets the full list of public addresses we should use for a
@@ -2078,39 +1606,18 @@ func GetProcessPort(processNumber int, tls bool) int {
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []ProcessAddress {
-	addrs := make([]ProcessAddress, 0, 2)
-
-	// If the address is already enclosed in brackets, remove them since they
-	// will be re-added automatically in the ProcessAddress logic.
-	address = strings.TrimPrefix(strings.TrimSuffix(address, "]"), "[")
-
-	// When a TLS address is provided the TLS address will always be the primary address
-	// see: https://github.com/apple/foundationdb/blob/master/fdbrpc/FlowTransport.h#L49-L56
-	if cluster.Status.RequiredAddresses.TLS {
-		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, true), map[string]bool{"tls": true})
-		addrs = append(addrs, pAddr)
-
-		if cluster.Status.RequiredAddresses.TLS && primaryOnly {
-			return addrs
-		}
-	}
-
-	if cluster.Status.RequiredAddresses.NonTLS {
-		pAddr := NewProcessAddress(nil, address, GetProcessPort(processNumber, false), nil)
-		if !cluster.Status.RequiredAddresses.TLS && primaryOnly {
-			return []ProcessAddress{pAddr}
-		}
-
-		addrs = append(addrs, pAddr)
-	}
-
-	return addrs
+func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []fdb.ProcessAddress {
+	return fdb.GetFullAddressList(
+		address,
+		primaryOnly,
+		processNumber,
+		cluster.Status.RequiredAddresses.TLS,
+		cluster.Status.RequiredAddresses.NonTLS)
 }
 
 // HasCoordinators checks whether this connection string matches a set of
 // coordinators.
-func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
+func (str *ConnectionString) HasCoordinators(coordinators []fdb.ProcessAddress) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
 	for _, address := range str.Coordinators {
 		matchedCoordinators[address] = false
@@ -2157,94 +1664,6 @@ type FoundationDBClusterFaultDomain struct {
 	// KCs in the data center. This is only used in the `kubernetes-cluster`
 	// fault domain strategy.
 	ZoneIndex int `json:"zoneIndex,omitempty"`
-}
-
-// RedundancyMode defines the core replication factor for the database
-// +kubebuilder:validation:MaxLength=100
-type RedundancyMode string
-
-const (
-	// RedundancyModeSingle defines the replication factor 1.
-	RedundancyModeSingle RedundancyMode = "single"
-	// RedundancyModeDouble defines the replication factor 2.
-	RedundancyModeDouble RedundancyMode = "double"
-	// RedundancyModeTriple defines the replication factor 3.
-	RedundancyModeTriple RedundancyMode = "triple"
-	// RedundancyModeUnset defines the replication factor unset.
-	RedundancyModeUnset RedundancyMode = ""
-)
-
-// StorageEngine defines the storage engine for the database
-// +kubebuilder:validation:MaxLength=100
-type StorageEngine string
-
-const (
-	// StorageEngineSSD defines the storage engine ssd.
-	StorageEngineSSD StorageEngine = "ssd"
-	// StorageEngineSSD2 defines the storage engine ssd-2.
-	StorageEngineSSD2 StorageEngine = "ssd-2"
-	// StorageEngineMemory defines the storage engine memory.
-	StorageEngineMemory StorageEngine = "memory"
-	// StorageEngineMemory2 defines the storage engine memory-2.
-	StorageEngineMemory2 StorageEngine = "memory-2"
-)
-
-// DatabaseConfiguration represents the configuration of the database
-type DatabaseConfiguration struct {
-	// RedundancyMode defines the core replication factor for the database.
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=single;double;triple
-	// +kubebuilder:default:double
-	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
-
-	// StorageEngine defines the storage engine the database uses.
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-rocksdb-experimental;memory-radixtree-beta;custom
-	// +kubebuilder:default:=ssd-2
-	StorageEngine StorageEngine `json:"storage_engine,omitempty"`
-
-	// UsableRegions defines how many regions the database should store data in.
-	UsableRegions int `json:"usable_regions,omitempty"`
-
-	// Regions defines the regions that the database can replicate in.
-	Regions []Region `json:"regions,omitempty"`
-
-	// RoleCounts defines how many processes the database should recruit for
-	// each role.
-	RoleCounts `json:""`
-
-	// VersionFlags defines internal flags for testing new features in the
-	// database.
-	VersionFlags `json:""`
-}
-
-// Region represents a region in the database configuration
-type Region struct {
-	// The data centers in this region.
-	DataCenters []DataCenter `json:"datacenters,omitempty"`
-
-	// The number of satellite logs that we should recruit.
-	SatelliteLogs int `json:"satellite_logs,omitempty"`
-
-	// The replication strategy for satellite logs.
-	SatelliteRedundancyMode string `json:"satellite_redundancy_mode,omitempty"`
-}
-
-// DataCenter represents a data center in the region configuration
-type DataCenter struct {
-	// The ID of the data center. This must match the dcid locality field.
-	ID string `json:"id,omitempty"`
-
-	// The priority of this data center when we have to choose a location.
-	// Higher priorities are preferred over lower priorities.
-	Priority int `json:"priority,omitempty"`
-
-	// Satellite indicates whether the data center is serving as a satellite for
-	// the region. A value of 1 indicates that it is a satellite, and a value of
-	// 0 indicates that it is not a satellite.
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=1
-	Satellite int `json:"satellite,omitempty"`
 }
 
 // ContainerOverrides provides options for customizing a container created by
@@ -2344,54 +1763,20 @@ func (config ImageConfig) Image() string {
 	return fmt.Sprintf("%s:%s", config.BaseImage, config.Tag)
 }
 
-// GetConfigurationString gets the CLI command for configuring a database.
-func (configuration DatabaseConfiguration) GetConfigurationString() (string, error) {
-	configurationString := fmt.Sprintf("%s %s", configuration.RedundancyMode, configuration.StorageEngine)
-
-	counts := configuration.RoleCounts.Map()
-	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
-	for _, role := range roleNames {
-		if role != ProcessClassStorage {
-			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
-		}
-	}
-
-	flags := configuration.VersionFlags.Map()
-	for flag, value := range flags {
-		if value != 0 {
-			configurationString += fmt.Sprintf(" %s:=%d", flag, value)
-		}
-	}
-
-	var regionString string
-	if configuration.Regions == nil {
-		regionString = "[]"
-	} else {
-		regionBytes, err := json.Marshal(configuration.Regions)
-		if err != nil {
-			return "", err
-		}
-		regionString = template.JSEscapeString(string(regionBytes))
-	}
-
-	configurationString += " regions=" + regionString
-
-	return configurationString, nil
-}
-
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
-func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
+func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() fdb.DatabaseConfiguration {
 	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
 
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
-	if configuration.StorageEngine == StorageEngineSSD {
-		configuration.StorageEngine = StorageEngineSSD2
+	if configuration.StorageEngine == fdb.StorageEngineSSD {
+		configuration.StorageEngine = fdb.StorageEngineSSD2
 	}
-	if configuration.StorageEngine == StorageEngineMemory {
-		configuration.StorageEngine = StorageEngineMemory2
+	if configuration.StorageEngine == fdb.StorageEngineMemory {
+		configuration.StorageEngine = fdb.StorageEngineMemory2
 	}
+
 	return configuration
 }
 
@@ -2400,7 +1785,7 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 //
 // This allows us to compare the spec to the live configuration while ignoring
 // version flags that are unset in the spec.
-func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *DatabaseConfiguration) {
+func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *fdb.DatabaseConfiguration) {
 	if cluster.Spec.DatabaseConfiguration.LogVersion == 0 {
 		configuration.LogVersion = 0
 	}
@@ -2522,353 +1907,6 @@ func (cluster *FoundationDBCluster) GetPublicIPSource() PublicIPSource {
 	}
 
 	return *source
-}
-
-// FillInDefaultsFromStatus adds in missing fields from the database
-// configuration in the database status to make sure they match the fields that
-// will appear in the cluster spec.
-//
-// Deprecated: Use NormalizeConfiguration instead.
-func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseConfiguration {
-	result := configuration.DeepCopy()
-
-	if result.RemoteLogs == 0 {
-		result.RemoteLogs = -1
-	}
-	if result.LogRouters == 0 {
-		result.LogRouters = -1
-	}
-	return *result
-}
-
-// FillInDefaultVersionFlags adds in missing version flags so they match the
-// running configuration.
-//
-// Deprecated: Use ClearMissingVersionFlags instead on the live configuration
-// instead.
-func (configuration *DatabaseConfiguration) FillInDefaultVersionFlags(liveConfiguration DatabaseConfiguration) {
-	if configuration.LogSpill == 0 {
-		configuration.LogSpill = liveConfiguration.LogSpill
-	}
-}
-
-func getMainDataCenter(region Region) (string, int) {
-	for _, dataCenter := range region.DataCenters {
-		if dataCenter.Satellite == 0 {
-			return dataCenter.ID, dataCenter.Priority
-		}
-	}
-	return "", -1
-}
-
-// NormalizeConfiguration ensures a standardized format and defaults when
-// comparing database configuration in the cluster spec with database
-// configuration in the cluster status.
-//
-// This will fill in defaults of -1 for some fields that have a default of 0,
-// and will ensure that the region configuration is ordered consistently.
-func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConfiguration {
-	result := configuration.DeepCopy()
-
-	if result.RemoteLogs == 0 {
-		result.RemoteLogs = -1
-	}
-	if result.LogRouters == 0 {
-		result.LogRouters = -1
-	}
-
-	if result.UsableRegions < 1 {
-		result.UsableRegions = 1
-	}
-
-	if result.RedundancyMode == RedundancyModeUnset {
-		result.RedundancyMode = RedundancyModeDouble
-	}
-
-	if result.StorageEngine == "" {
-		result.StorageEngine = StorageEngineSSD2
-	}
-
-	for _, region := range result.Regions {
-		sort.Slice(region.DataCenters, func(leftIndex int, rightIndex int) bool {
-			if region.DataCenters[leftIndex].Satellite != region.DataCenters[rightIndex].Satellite {
-				return region.DataCenters[leftIndex].Satellite < region.DataCenters[rightIndex].Satellite
-			} else if region.DataCenters[leftIndex].Priority != region.DataCenters[rightIndex].Priority {
-				return region.DataCenters[leftIndex].Priority > region.DataCenters[rightIndex].Priority
-			} else {
-				return region.DataCenters[leftIndex].ID < region.DataCenters[rightIndex].ID
-			}
-		})
-	}
-
-	sort.Slice(result.Regions, func(leftIndex int, rightIndex int) bool {
-		leftID, leftPriority := getMainDataCenter(result.Regions[leftIndex])
-		rightID, rightPriority := getMainDataCenter(result.Regions[rightIndex])
-		if leftPriority != rightPriority {
-			return leftPriority > rightPriority
-		}
-		return leftID < rightID
-	})
-
-	return *result
-}
-
-func (configuration DatabaseConfiguration) getRegion(id string, priority int) Region {
-	var matchingRegion Region
-
-	for _, region := range configuration.Regions {
-		for dataCenterIndex, dataCenter := range region.DataCenters {
-			if dataCenter.Satellite == 0 && dataCenter.ID == id {
-				matchingRegion = *region.DeepCopy()
-				matchingRegion.DataCenters[dataCenterIndex].Priority = priority
-				break
-			}
-		}
-		if len(matchingRegion.DataCenters) > 0 {
-			break
-		}
-	}
-
-	if len(matchingRegion.DataCenters) == 0 {
-		matchingRegion.DataCenters = append(matchingRegion.DataCenters, DataCenter{ID: id, Priority: priority})
-	}
-
-	return matchingRegion
-}
-
-// GetNextConfigurationChange produces the next marginal change that should
-// be made to transform this configuration into another configuration.
-//
-// If there are multiple changes between the two configurations that can not be
-// made simultaneously, this will produce a subset of the changes that move
-// in the correct direction. Applying this method repeatedly will eventually
-// converge on the final configuration.
-func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfiguration DatabaseConfiguration) DatabaseConfiguration {
-	if !reflect.DeepEqual(configuration.Regions, finalConfiguration.Regions) {
-		result := configuration.DeepCopy()
-		currentPriorities := configuration.getRegionPriorities()
-		nextPriorities := finalConfiguration.getRegionPriorities()
-		finalPriorities := finalConfiguration.getRegionPriorities()
-
-		// Step 1: Apply any changes to the satellites and satellite redundancy
-		// from the final configuration to the next configuration.
-		for regionIndex, region := range result.Regions {
-			for _, dataCenter := range region.DataCenters {
-				if dataCenter.Satellite == 0 {
-					result.Regions[regionIndex] = finalConfiguration.getRegion(dataCenter.ID, dataCenter.Priority)
-					break
-				}
-			}
-		}
-
-		// Step 2: If we have a region that is in the final config that is not
-		// in the current config, add it.
-		//
-		// We can currently only add a maximum of two regions at a time.
-		//
-		// The new region will join at a negative priority, unless it is the
-		// first region in the list.
-		regionToAdd := "none"
-		for len(result.Regions) < 2 && regionToAdd != "" {
-			regionToAdd = ""
-
-			for id, priority := range nextPriorities {
-				_, present := currentPriorities[id]
-				if !present && (regionToAdd == "" || priority > nextPriorities[regionToAdd]) {
-					regionToAdd = id
-				}
-			}
-
-			if regionToAdd != "" {
-				priority := -1
-				if len(result.Regions) == 0 {
-					priority = 1
-				}
-				result.Regions = append(result.Regions, finalConfiguration.getRegion(regionToAdd, priority))
-				currentPriorities[regionToAdd] = priority
-			}
-		}
-		if len(result.Regions) != len(configuration.Regions) {
-			return *result
-		}
-
-		currentRegions := make([]string, 0, len(configuration.Regions))
-		for _, region := range configuration.Regions {
-			for _, dataCenter := range region.DataCenters {
-				if dataCenter.Satellite == 0 {
-					currentRegions = append(currentRegions, dataCenter.ID)
-				}
-			}
-		}
-
-		// Step 3: If we currently have multiple regions, and one of them is not
-		// in the final config, remove it.
-		//
-		// If that region has a positive priority, we must first give it a
-		// negative priority.
-		//
-		// Before removing regions, the UsableRegions must be set to the next
-		// region count.
-		//
-		// We skip this step if we are going to be removing region configuration
-		// entirely.
-		for _, regionID := range currentRegions {
-			_, present := finalPriorities[regionID]
-			if !present && len(configuration.Regions) > 1 && len(finalConfiguration.Regions) > 0 {
-				if currentPriorities[regionID] >= 0 {
-					continue
-				} else if result.UsableRegions != len(result.Regions)-1 {
-					result.UsableRegions = len(result.Regions) - 1
-				} else {
-					newRegions := make([]Region, 0, len(result.Regions)-1)
-					for _, region := range result.Regions {
-						toRemove := false
-						for _, dataCenter := range region.DataCenters {
-							if dataCenter.Satellite == 0 && dataCenter.ID == regionID {
-								toRemove = true
-							}
-						}
-						if !toRemove {
-							newRegions = append(newRegions, region)
-						}
-					}
-					result.Regions = newRegions
-				}
-				return *result
-			}
-		}
-
-		for _, regionID := range currentRegions {
-			priority := currentPriorities[regionID]
-			_, present := finalPriorities[regionID]
-			if !present && len(configuration.Regions) > 1 && len(finalConfiguration.Regions) > 0 {
-				if priority > 0 && configuration.UsableRegions < 2 {
-					continue
-				} else if priority >= 0 {
-					hasAlternativePrimary := false
-					for regionIndex, region := range result.Regions {
-						for dataCenterIndex, dataCenter := range region.DataCenters {
-							if dataCenter.Satellite == 0 {
-								if dataCenter.ID == regionID {
-									result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = -1
-								} else if dataCenter.Priority > 0 {
-									hasAlternativePrimary = true
-								}
-
-							}
-						}
-					}
-
-					if !hasAlternativePrimary {
-						for regionIndex, region := range result.Regions {
-							for dataCenterIndex, dataCenter := range region.DataCenters {
-								if dataCenter.Satellite == 0 {
-									if dataCenter.ID != regionID {
-										result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = 1
-										break
-									}
-								}
-							}
-						}
-					}
-
-					return *result
-				} else if result.UsableRegions != len(result.Regions)-1 {
-					result.UsableRegions = len(result.Regions) - 1
-				} else {
-					newRegions := make([]Region, 0, len(result.Regions)-1)
-					for _, region := range result.Regions {
-						toRemove := false
-						for _, dataCenter := range region.DataCenters {
-							if dataCenter.Satellite == 0 && dataCenter.ID == regionID {
-								toRemove = true
-							}
-						}
-						if !toRemove {
-							newRegions = append(newRegions, region)
-						}
-					}
-					result.Regions = newRegions
-				}
-				return *result
-			}
-		}
-
-		// Step 4: Set all priorities for the regions to the desired value.
-		//
-		// If no region is configured to have a positive priority, ensure that
-		// at least one region has a positive priority.
-		//
-		// Before changing priorities, we must ensure that all regions are
-		// usable.
-
-		maxCurrent := ""
-		maxNext := ""
-
-		for id, priority := range currentPriorities {
-			_, present := nextPriorities[id]
-			if !present {
-				nextPriorities[id] = -1
-			}
-			if maxCurrent == "" || currentPriorities[maxCurrent] < priority {
-				maxCurrent = id
-			}
-		}
-
-		for id, priority := range nextPriorities {
-			_, present := currentPriorities[id]
-			if !present {
-				currentPriorities[id] = -1
-			}
-			if maxNext == "" || nextPriorities[maxNext] < priority {
-				maxNext = id
-			}
-		}
-
-		if maxNext == "" || nextPriorities[maxNext] < 0 {
-			nextPriorities[maxCurrent] = currentPriorities[maxCurrent]
-		}
-
-		if !reflect.DeepEqual(currentPriorities, nextPriorities) {
-			if configuration.UsableRegions != len(configuration.Regions) {
-				result.UsableRegions = len(configuration.Regions)
-			} else {
-				for regionIndex, region := range result.Regions {
-					for dataCenterIndex, dataCenter := range region.DataCenters {
-						if dataCenter.Satellite == 0 {
-							result.Regions[regionIndex].DataCenters[dataCenterIndex].Priority = nextPriorities[dataCenter.ID]
-							break
-						}
-					}
-				}
-			}
-			return *result
-		}
-
-		// Step 5: Set the final region count.
-		if configuration.UsableRegions != finalConfiguration.UsableRegions {
-			result.UsableRegions = finalConfiguration.UsableRegions
-			return *result
-		}
-
-		// Step 6: Set the final region config.
-		result.Regions = finalConfiguration.Regions
-		return *result
-	}
-	return finalConfiguration
-}
-
-func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int {
-	priorities := make(map[string]int, len(configuration.Regions))
-
-	for _, region := range configuration.Regions {
-		for _, dataCenter := range region.DataCenters {
-			if dataCenter.Satellite == 0 {
-				priorities[dataCenter.ID] = dataCenter.Priority
-			}
-		}
-	}
-	return priorities
 }
 
 // LockOptions provides customization for locking global operations.
@@ -3009,36 +2047,6 @@ const (
 	PublicIPSourceService PublicIPSource = "service"
 )
 
-// ProcessClass models the class of a pod
-type ProcessClass string
-
-const (
-	// ProcessClassStorage model for FDB class storage
-	ProcessClassStorage ProcessClass = "storage"
-	// ProcessClassLog model for FDB class log
-	ProcessClassLog ProcessClass = "log"
-	// ProcessClassTransaction model for FDB class transaction
-	ProcessClassTransaction ProcessClass = "transaction"
-	// ProcessClassStateless model for FDB stateless processes
-	ProcessClassStateless ProcessClass = "stateless"
-	// ProcessClassGeneral model for FDB general processes
-	ProcessClassGeneral ProcessClass = "general"
-	// ProcessClassClusterController model for FDB class cluster_controller
-	ProcessClassClusterController ProcessClass = "cluster_controller"
-	// ProcessClassTest model for FDB class test
-	ProcessClassTest ProcessClass = "test"
-)
-
-// IsStateful determines whether a process class should store data.
-func (pClass ProcessClass) IsStateful() bool {
-	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
-}
-
-// IsTransaction determines whether a process class is part of the transaction system.
-func (pClass ProcessClass) IsTransaction() bool {
-	return pClass != ProcessClassStorage && pClass != ProcessClassGeneral
-}
-
 // AddStorageServerPerDisk adds serverPerDisk to the status field to keep track which ConfigMaps should be kept
 func (clusterStatus *FoundationDBClusterStatus) AddStorageServerPerDisk(serversPerDisk int) {
 	for _, curServersPerDisk := range clusterStatus.StorageServersPerDisk {
@@ -3058,13 +2066,13 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int 
 // CoordinatorSelectionSetting defines the process class and the priority of it.
 // A higher priority means that the process class is preferred over another.
 type CoordinatorSelectionSetting struct {
-	ProcessClass ProcessClass `json:"processClass,omitempty"`
-	Priority     int          `json:"priority,omitempty"`
+	ProcessClass fdb.ProcessClass `json:"processClass,omitempty"`
+	Priority     int              `json:"priority,omitempty"`
 }
 
 // IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator.
 // This method will always return false for non stateful process classes.
-func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) bool {
+func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass fdb.ProcessClass) bool {
 	if !pClass.IsStateful() {
 		return false
 	}
@@ -3083,7 +2091,7 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) b
 }
 
 // GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
-func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
+func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass fdb.ProcessClass) int {
 	for _, setting := range cluster.Spec.CoordinatorSelection {
 		if pClass == setting.ProcessClass {
 			return setting.Priority
@@ -3146,7 +2154,7 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 	labels := cluster.Spec.LabelConfig.ProcessClassLabels
 	if len(labels) == 0 {
-		return FDBProcessClassLabel
+		return fdb.FDBProcessClassLabel
 	}
 	return labels[0]
 }
@@ -3156,7 +2164,7 @@ func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 	labels := cluster.Spec.LabelConfig.ProcessGroupIDLabels
 	if len(labels) == 0 {
-		return FDBProcessGroupIDLabel
+		return fdb.FDBProcessGroupIDLabel
 	}
 	return labels[0]
 }
@@ -3179,61 +2187,6 @@ const (
 	// PodUpdateModeNone defines that the operator is not allowed to update/delete any Pods.
 	PodUpdateModeNone PodUpdateMode = "None"
 )
-
-// FailOver returns a new DatabaseConfiguration that switches the priority for the main and remote DC
-func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
-	if len(configuration.Regions) <= 1 {
-		return *configuration
-	}
-
-	newConfiguration := configuration.DeepCopy()
-	newRegions := make([]Region, 0, len(configuration.Regions))
-	priorityMap := map[string]int{}
-
-	// Get the priority of the DCs
-	for _, region := range newConfiguration.Regions {
-		for _, dc := range region.DataCenters {
-			// Don't change the Satellite config
-			if dc.Satellite == 1 {
-				continue
-			}
-
-			priorityMap[dc.ID] = dc.Priority
-		}
-	}
-
-	for _, region := range newConfiguration.Regions {
-		// In order to trigger a fail over we have to change the priority
-		// of the main and remote dc
-		newRegion := Region{}
-		for _, dc := range region.DataCenters {
-			// Don't change the Satellite config
-			if dc.Satellite == 1 {
-				newRegion.DataCenters = append(newRegion.DataCenters, dc)
-				continue
-			}
-
-			// This will only work as long as we have only two
-			// regions.
-			for key, val := range priorityMap {
-				if key == dc.ID {
-					continue
-				}
-
-				newRegion.DataCenters = append(newRegion.DataCenters, DataCenter{
-					ID:       dc.ID,
-					Priority: val,
-				})
-			}
-		}
-
-		newRegions = append(newRegions, newRegion)
-	}
-
-	newConfiguration.Regions = newRegions
-
-	return *newConfiguration
-}
 
 // NeedsHeadlessService determines whether we need to create a headless service
 // for this cluster.

@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"math"
 	"net"
 
@@ -55,8 +56,8 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 	}
 
-	addresses := make([]fdbtypes.ProcessAddress, 0, removalCount)
-	processClassesToExclude := make(map[fdbtypes.ProcessClass]fdbtypes.None)
+	addresses := make([]fdb.ProcessAddress, 0, removalCount)
+	processClassesToExclude := make(map[fdb.ProcessClass]fdb.None)
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
@@ -71,8 +72,8 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			for _, address := range processGroup.Addresses {
 				if processGroup.IsMarkedForRemoval() && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
-					addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(address)})
-					processClassesToExclude[processGroup.ProcessClass] = fdbtypes.None{}
+					addresses = append(addresses, fdb.ProcessAddress{IPAddress: net.ParseIP(address)})
+					processClassesToExclude[processGroup.ProcessClass] = fdb.None{}
 				}
 			}
 		}
@@ -118,7 +119,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (bool, []string) {
+func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass) (bool, []string) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 
 	// Block excludes on missing processes not marked for removal

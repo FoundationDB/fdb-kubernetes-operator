@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -97,7 +98,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		if pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
+		if pod.ObjectMeta.Annotations[fdb.LastConfigMapKey] == configMapHash {
 			continue
 		}
 
@@ -114,7 +115,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 
-			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
+			pod.ObjectMeta.Annotations[fdb.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false
@@ -124,8 +125,8 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
-		delete(pod.ObjectMeta.Annotations, fdbtypes.OutdatedConfigMapKey)
+		pod.ObjectMeta.Annotations[fdb.LastConfigMapKey] = configMapHash
+		delete(pod.ObjectMeta.Annotations, fdb.OutdatedConfigMapKey)
 		err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 		if err != nil {
 			allSynced = false

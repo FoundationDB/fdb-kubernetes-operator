@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +48,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
 	needsChange := false
-	var currentConfiguration fdbtypes.DatabaseConfiguration
+	var currentConfiguration fdb.DatabaseConfiguration
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
@@ -70,7 +71,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 	needsChange = initialConfig || !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
 
 	if needsChange {
-		var nextConfiguration fdbtypes.DatabaseConfiguration
+		var nextConfiguration fdb.DatabaseConfiguration
 		if initialConfig {
 			nextConfiguration = desiredConfiguration
 		} else {

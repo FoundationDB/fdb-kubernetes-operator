@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"math"
 	"time"
 
@@ -56,7 +57,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	}
 
 	minimumUptime := math.Inf(1)
-	addressMap := make(map[string][]fdbtypes.ProcessAddress, len(status.Cluster.Processes))
+	addressMap := make(map[string][]fdb.ProcessAddress, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		addressMap[process.Locality["instance_id"]] = append(addressMap[process.Locality["instance_id"]], process.Address)
 
@@ -70,7 +71,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		fdbtypes.IncorrectPodSpec:     false,
 	}, true)
 
-	addresses := make([]fdbtypes.ProcessAddress, 0, len(processesToBounce))
+	addresses := make([]fdb.ProcessAddress, 0, len(processesToBounce))
 	allSynced := true
 	var missingAddress []string
 
@@ -149,7 +150,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				return &requeue{curError: err}
 			}
 		}
-		version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+		version, err := fdb.ParseFdbVersion(cluster.Spec.Version)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -202,7 +203,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient fdbadminclient.LockClient, cluster *fdbtypes.FoundationDBCluster, version fdbtypes.FdbVersion) ([]fdbtypes.ProcessAddress, *requeue) {
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient fdbadminclient.LockClient, cluster *fdbtypes.FoundationDBCluster, version fdb.FdbVersion) ([]fdb.ProcessAddress, *requeue) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {
@@ -221,7 +222,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadm
 	}
 
 	notReadyProcesses := make([]string, 0)
-	addresses := make([]fdbtypes.ProcessAddress, 0, len(databaseStatus.Cluster.Processes))
+	addresses := make([]fdb.ProcessAddress, 0, len(databaseStatus.Cluster.Processes))
 	for _, process := range databaseStatus.Cluster.Processes {
 		processID := process.Locality["instance_id"]
 		if process.Version == version.String() {

@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"bytes"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"strings"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -115,7 +116,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
 							UseExplicitListenAddress:      &trueValue,
-							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+							Processes: map[fdb.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
@@ -164,10 +165,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 									internal.OldFDBClusterLabel: clusterName,
 								},
 								ResourceLabels: map[string]string{
-									fdbtypes.FDBClusterLabel: clusterName,
+									fdb.FDBClusterLabel: clusterName,
 								},
-								ProcessGroupIDLabels: []string{fdbtypes.FDBProcessGroupIDLabel},
-								ProcessClassLabels:   []string{fdbtypes.FDBProcessClassLabel},
+								ProcessGroupIDLabels: []string{fdb.FDBProcessGroupIDLabel},
+								ProcessClassLabels:   []string{fdb.FDBProcessClassLabel},
 							},
 						},
 					},
@@ -192,7 +193,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
 							UseExplicitListenAddress:      &trueValue,
-							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+							Processes: map[fdb.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
@@ -247,7 +248,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							PodLabels:                     map[string]string{"test": "test"},
 							MinimumUptimeSecondsForBounce: 600,
-							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+							Processes: map[fdb.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
@@ -302,7 +303,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
 							UseExplicitListenAddress:      &trueValue,
-							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+							Processes: map[fdb.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
@@ -351,10 +352,10 @@ var _ = Describe("[plugin] deprecation command", func() {
 									internal.OldFDBClusterLabel: clusterName,
 								},
 								ResourceLabels: map[string]string{
-									fdbtypes.FDBClusterLabel: clusterName,
+									fdb.FDBClusterLabel: clusterName,
 								},
-								ProcessGroupIDLabels: []string{fdbtypes.FDBProcessGroupIDLabel},
-								ProcessClassLabels:   []string{fdbtypes.FDBProcessClassLabel},
+								ProcessGroupIDLabels: []string{fdb.FDBProcessGroupIDLabel},
+								ProcessClassLabels:   []string{fdb.FDBProcessClassLabel},
 							},
 						},
 					},
@@ -376,7 +377,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 						},
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							MinimumUptimeSecondsForBounce: 600,
-							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+							Processes: map[fdb.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
@@ -491,7 +492,7 @@ version: ""`,
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							PodLabels:                     map[string]string{"test": "test"},
 							MinimumUptimeSecondsForBounce: 600,
-							Processes: map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings{
+							Processes: map[fdb.ProcessClass]fdbtypes.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{

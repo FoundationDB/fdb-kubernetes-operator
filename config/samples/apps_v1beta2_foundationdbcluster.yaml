@@ -1,0 +1,6 @@
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBCluster
+metadata:
+  name: foundationdbcluster-sample
+spec:
+  # TODO(user): Add fields here

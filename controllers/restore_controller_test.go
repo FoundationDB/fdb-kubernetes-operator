@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -99,7 +100,7 @@ var _ = Describe("restore_controller", func() {
 
 		When("providing custom parameters", func() {
 			BeforeEach(func() {
-				restore.Spec.CustomParameters = fdbtypes.FoundationDBCustomParameters{
+				restore.Spec.CustomParameters = fdb.FoundationDBCustomParameters{
 					"knob_http_verbose_level=3",
 				}
 				err = k8sClient.Update(context.TODO(), restore)

@@ -1,0 +1,24 @@
+# permissions for end users to edit foundationdbbackups.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: foundationdbbackup-editor-role
+rules:
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbbackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbbackups/status
+  verbs:
+  - get

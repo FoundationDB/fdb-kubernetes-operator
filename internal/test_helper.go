@@ -22,6 +22,7 @@ package internal
 
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -38,8 +39,8 @@ func CreateDefaultCluster() *fdbtypes.FoundationDBCluster {
 			Namespace: "my-ns",
 		},
 		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version: fdbtypes.Versions.Default.String(),
-			ProcessCounts: fdbtypes.ProcessCounts{
+			Version: fdb.Versions.Default.String(),
+			ProcessCounts: fdb.ProcessCounts{
 				Storage:           4,
 				ClusterController: 1,
 			},

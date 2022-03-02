@@ -1,0 +1,6 @@
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBRestore
+metadata:
+  name: foundationdbrestore-sample
+spec:
+  # TODO(user): Add fields here

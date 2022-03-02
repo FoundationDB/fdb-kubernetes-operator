@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"time"
 
 	"k8s.io/utils/pointer"
@@ -61,7 +62,7 @@ var _ = Describe("remove_process_groups", func() {
 		coordinatorID := "storage-1"
 
 		BeforeEach(func() {
-			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdbtypes.ProcessClassStorage, coordinatorIP)
+			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdb.ProcessClassStorage, coordinatorIP)
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
 		})
@@ -135,9 +136,9 @@ var _ = Describe("remove_process_groups", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
-						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+					adminClient.frozenStatus = &fdb.FoundationDBStatus{
+						Client: fdb.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
 								Available: false,
 							},
 						},
@@ -192,9 +193,9 @@ var _ = Describe("remove_process_groups", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
-						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+					adminClient.frozenStatus = &fdb.FoundationDBStatus{
+						Client: fdb.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
 								Available: false,
 							},
 						},
@@ -247,9 +248,9 @@ var _ = Describe("remove_process_groups", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdbtypes.FoundationDBStatus{
-						Client: fdbtypes.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdbtypes.FoundationDBStatusClientDBStatus{
+					adminClient.frozenStatus = &fdb.FoundationDBStatus{
+						Client: fdb.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
 								Available: false,
 							},
 						},

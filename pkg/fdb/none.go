@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package v1beta1
+package fdb
 
 // None is a simple struct to create a set to indicate the value of the map
 // has no meaning.

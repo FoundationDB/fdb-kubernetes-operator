@@ -23,6 +23,8 @@ package replacements
 import (
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/utils/pointer"
@@ -55,7 +57,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 	When("checking process groups fro replacements", func() {
 		var pod *corev1.Pod
 		var status *fdbtypes.ProcessGroupStatus
-		var pClass fdbtypes.ProcessClass
+		var pClass fdb.ProcessClass
 		var remove bool
 
 		JustBeforeEach(func() {
@@ -69,8 +71,8 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			pod = &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdbtypes.FDBProcessGroupIDLabel:    processGroupName,
-						fdbtypes.FDBProcessClassLabel:      string(status.ProcessClass),
+						fdb.FDBProcessGroupIDLabel:         processGroupName,
+						fdb.FDBProcessClassLabel:           string(status.ProcessClass),
 						internal.OldFDBProcessGroupIDLabel: processGroupName,
 						internal.OldFDBProcessClassLabel:   string(status.ProcessClass),
 					},
@@ -81,7 +83,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			spec, err := internal.GetPodSpec(cluster, status.ProcessClass, 1337)
 			Expect(err).NotTo(HaveOccurred())
 
-			pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey], err = internal.GetPodSpecHash(cluster, status.ProcessClass, 1337, spec)
+			pod.ObjectMeta.Annotations[fdb.LastSpecKey], err = internal.GetPodSpecHash(cluster, status.ProcessClass, 1337, spec)
 			Expect(err).NotTo(HaveOccurred())
 
 			pod.Spec = *spec
@@ -101,7 +103,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			Context("when processGroupStatus is missing", func() {
 				BeforeEach(func() {
-					pClass = fdbtypes.ProcessClassStorage
+					pClass = fdb.ProcessClassStorage
 					remove = false
 				})
 
@@ -115,7 +117,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			Context("when processGroupStatus has remove flag", func() {
 				BeforeEach(func() {
-					pClass = fdbtypes.ProcessClassStorage
+					pClass = fdb.ProcessClassStorage
 					remove = true
 				})
 
@@ -129,7 +131,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			When("process group ID prefix changes", func() {
 				When("the process class is storage", func() {
 					BeforeEach(func() {
-						pClass = fdbtypes.ProcessClassStorage
+						pClass = fdb.ProcessClassStorage
 						remove = false
 					})
 
@@ -154,7 +156,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 				When("the process class is transaction", func() {
 					BeforeEach(func() {
-						pClass = fdbtypes.ProcessClassTransaction
+						pClass = fdb.ProcessClassTransaction
 						remove = false
 					})
 
@@ -180,7 +182,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			When("the public IP source changes", func() {
 				BeforeEach(func() {
-					pClass = fdbtypes.ProcessClassStorage
+					pClass = fdb.ProcessClassStorage
 					remove = false
 				})
 
@@ -200,13 +202,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("the public IP source is removed", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
 			It("should need a removal", func() {
 				pod.ObjectMeta.Annotations = map[string]string{
-					fdbtypes.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
+					fdb.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
 				}
 
 				ipSource := fdbtypes.PublicIPSourceService
@@ -225,7 +227,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when the public IP source is set to default", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
@@ -244,7 +246,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when the storageServersPerPod is changed for a storage class process group", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
@@ -262,7 +264,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when the storageServersPerPod is changed for a non storage class process group", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassLog
+				pClass = fdb.ProcessClassLog
 				remove = false
 			})
 
@@ -280,7 +282,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when the nodeSelector changes", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
@@ -289,7 +291,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
-				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
+				cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
 					"dummy": "test",
 				}
 				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
@@ -300,7 +302,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when the nodeSelector doesn't match but the PodSpecHash matches", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
@@ -309,7 +311,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
 				_, idNum, err := internal.ParseProcessGroupID(processGroupID)
 				Expect(err).NotTo(HaveOccurred())
-				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+				pod.ObjectMeta.Annotations[fdb.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Spec.NodeSelector = map[string]string{
 					"dummy": "test",
@@ -322,7 +324,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when UpdatePodsByReplacement is not set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
@@ -338,12 +340,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when PodUpdateStrategyReplacement is set and the PodSpecHash doesn't match", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
 			It("should need a removal", func() {
-				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "-1"
+				pod.ObjectMeta.Annotations[fdb.LastSpecKey] = "-1"
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeTrue())
@@ -353,12 +355,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for storage", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassStorage
+				pClass = fdb.ProcessClassStorage
 				remove = false
 			})
 
 			It("should not need a removal", func() {
-				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "-1"
+				pod.ObjectMeta.Annotations[fdb.LastSpecKey] = "-1"
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeFalse())
@@ -368,12 +370,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		Context("when PodUpdateStrategyTransactionReplacement is set and the PodSpecHash doesn't match for transaction", func() {
 			BeforeEach(func() {
-				pClass = fdbtypes.ProcessClassLog
+				pClass = fdb.ProcessClassLog
 				remove = false
 			})
 
 			It("should need a removal", func() {
-				pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = "-1"
+				pod.ObjectMeta.Annotations[fdb.LastSpecKey] = "-1"
 				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeTrue())
@@ -383,7 +385,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("PVC name doesn't match", func() {
 			It("should need a removal", func() {
-				pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				pvc, err := internal.GetPvc(cluster, fdb.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				pvc.Name = "Test-storage"
 				needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
@@ -394,7 +396,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("PVC name and PVC spec match", func() {
 			It("should not need a removal", func() {
-				pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				pvc, err := internal.GetPvc(cluster, fdb.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
 				needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
 				Expect(err).NotTo(HaveOccurred())
@@ -404,9 +406,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("PVC hash doesn't match", func() {
 			It("should need a removal", func() {
-				pvc, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, 1)
+				pvc, err := internal.GetPvc(cluster, fdb.ProcessClassStorage, 1)
 				Expect(err).NotTo(HaveOccurred())
-				pvc.Annotations[fdbtypes.LastSpecKey] = "1"
+				pvc.Annotations[fdb.LastSpecKey] = "1"
 				needsRemoval, err := processGroupNeedsRemovalForPVC(cluster, *pvc, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(needsRemoval).To(BeTrue())
@@ -420,11 +422,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			BeforeEach(func() {
 				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 				Expect(err).NotTo(HaveOccurred())
-				pod, err = internal.GetPod(cluster, fdbtypes.ProcessClassStorage, 0)
+				pod, err = internal.GetPod(cluster, fdb.ProcessClassStorage, 0)
 				Expect(err).NotTo(HaveOccurred())
 				status = &fdbtypes.ProcessGroupStatus{
-					ProcessGroupID: fmt.Sprintf("%s-%d", fdbtypes.ProcessClassStorage, 1337),
-					ProcessClass:   fdbtypes.ProcessClassStorage,
+					ProcessGroupID: fmt.Sprintf("%s-%d", fdb.ProcessClassStorage, 1337),
+					ProcessClass:   fdb.ProcessClassStorage,
 					Remove:         false,
 				}
 
@@ -442,7 +444,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					JustBeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ti")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
@@ -460,7 +462,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					JustBeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ki")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
@@ -478,7 +480,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
@@ -496,7 +498,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1m")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
@@ -514,7 +516,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					JustBeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers,
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers = append(cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers,
 							corev1.Container{
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
@@ -541,7 +543,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ti")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
@@ -559,7 +561,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newMemory, err := resource.ParseQuantity("1Ki")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceMemory: newMemory,
 							},
@@ -577,7 +579,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1000")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
@@ -595,7 +597,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					BeforeEach(func() {
 						newCPU, err := resource.ParseQuantity("1m")
 						Expect(err).NotTo(HaveOccurred())
-						cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU: newCPU,
 							},
@@ -621,31 +623,31 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			podMap = map[string]*corev1.Pod{}
 
 			for i := 0; i < 10; i++ {
-				_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassStorage, i)
-				newPVC, err := internal.GetPvc(cluster, fdbtypes.ProcessClassStorage, i)
+				_, id := internal.GetProcessGroupID(cluster, fdb.ProcessClassStorage, i)
+				newPVC, err := internal.GetPvc(cluster, fdb.ProcessClassStorage, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
-				newPod, err := internal.GetPod(cluster, fdbtypes.ProcessClassStorage, i)
+				newPod, err := internal.GetPod(cluster, fdb.ProcessClassStorage, i)
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
 				// Populate process groups
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdbtypes.ProcessClassStorage, nil))
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdb.ProcessClassStorage, nil))
 			}
 
 			for i := 0; i < 1; i++ {
-				_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassTransaction, i)
-				newPVC, err := internal.GetPvc(cluster, fdbtypes.ProcessClassTransaction, i)
+				_, id := internal.GetProcessGroupID(cluster, fdb.ProcessClassTransaction, i)
+				newPVC, err := internal.GetPvc(cluster, fdb.ProcessClassTransaction, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
-				newPod, err := internal.GetPod(cluster, fdbtypes.ProcessClassTransaction, i)
+				newPod, err := internal.GetPod(cluster, fdb.ProcessClassTransaction, i)
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
 				// Populate process groups
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdbtypes.ProcessClassTransaction, nil))
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdb.ProcessClassTransaction, nil))
 			}
 
 			// Force a replacement of all processes
-			cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
+			cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{
 				"dummy": "test",
 			}
 		})
@@ -717,12 +719,12 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 		When("the image doesn't match with the desired image", func() {
 			BeforeEach(func() {
-				cluster.Spec.Processes[fdbtypes.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{}
+				cluster.Spec.Processes[fdb.ProcessClassGeneral].PodTemplate.Spec.NodeSelector = map[string]string{}
 			})
 
 			When("the process is a storage process", func() {
 				BeforeEach(func() {
-					_, id := internal.GetProcessGroupID(cluster, fdbtypes.ProcessClassStorage, 0)
+					_, id := internal.GetProcessGroupID(cluster, fdb.ProcessClassStorage, 0)
 					pod := podMap[id]
 					spec := pod.Spec.DeepCopy()
 					var cIdx int

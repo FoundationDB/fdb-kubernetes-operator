@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"strings"
 	"time"
 
@@ -48,12 +49,12 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	}
 	defer adminClient.Close()
 
-	runningVersion, err := fdbtypes.ParseFdbVersion(cluster.Status.RunningVersion)
+	runningVersion, err := fdb.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	version, err := fdbtypes.ParseFdbVersion(cluster.Spec.Version)
+	version, err := fdb.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return &requeue{curError: err}
 	}

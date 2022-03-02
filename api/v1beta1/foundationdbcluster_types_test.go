@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,14 +50,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Namespace: "default",
 				},
 				Spec: FoundationDBClusterSpec{
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
+					DatabaseConfiguration: fdb.DatabaseConfiguration{
+						RedundancyMode: fdb.RedundancyModeDouble,
 					},
 				},
 			}
 
 			counts := cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
+			Expect(counts).To(Equal(fdb.RoleCounts{
 				Storage:    3,
 				Logs:       3,
 				Proxies:    3,
@@ -63,18 +65,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				RemoteLogs: -1,
 				LogRouters: -1,
 			}))
-			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
+			Expect(counts.Map()).To(Equal(map[fdb.ProcessClass]int{
 				"logs":        3,
 				"proxies":     3,
 				"resolvers":   1,
 				"remote_logs": -1,
 				"log_routers": -1,
 			}))
-			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
+			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(fdb.RoleCounts{}))
 
 			cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
+			Expect(counts).To(Equal(fdb.RoleCounts{
 				Storage:    3,
 				Logs:       3,
 				Proxies:    3,
@@ -82,7 +84,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				RemoteLogs: 3,
 				LogRouters: 3,
 			}))
-			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
+			Expect(counts.Map()).To(Equal(map[fdb.ProcessClass]int{
 				"logs":        3,
 				"proxies":     3,
 				"resolvers":   1,
@@ -90,12 +92,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				"log_routers": 3,
 			}))
 
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+			cluster.Spec.DatabaseConfiguration.RoleCounts = fdb.RoleCounts{
 				Storage: 5,
 			}
 
 			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
+			Expect(counts).To(Equal(fdb.RoleCounts{
 				Storage:    5,
 				Logs:       3,
 				Proxies:    3,
@@ -104,11 +106,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				LogRouters: 3,
 			}))
 
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+			cluster.Spec.DatabaseConfiguration.RoleCounts = fdb.RoleCounts{
 				Logs: 8,
 			}
 			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
+			Expect(counts).To(Equal(fdb.RoleCounts{
 				Storage:    3,
 				Logs:       8,
 				Proxies:    3,
@@ -117,13 +119,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				LogRouters: 8,
 			}))
 
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+			cluster.Spec.DatabaseConfiguration.RoleCounts = fdb.RoleCounts{
 				Logs:       4,
 				RemoteLogs: 5,
 				LogRouters: 6,
 			}
 			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
+			Expect(counts).To(Equal(fdb.RoleCounts{
 				Storage:    3,
 				Logs:       4,
 				Proxies:    3,
@@ -142,10 +144,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Namespace: "default",
 				},
 				Spec: FoundationDBClusterSpec{
-					Version: Versions.Default.String(),
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
-						RoleCounts: RoleCounts{
+					Version: fdb.Versions.Default.String(),
+					DatabaseConfiguration: fdb.DatabaseConfiguration{
+						RedundancyMode: fdb.RedundancyModeDouble,
+						RoleCounts: fdb.RoleCounts{
 							Storage:   5,
 							Logs:      3,
 							Proxies:   3,
@@ -157,40 +159,40 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			counts, err := cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
+			Expect(counts).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       4,
 				Stateless: 9,
 			}))
-			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
-				ProcessClassStorage:   5,
-				ProcessClassLog:       4,
-				ProcessClassStateless: 9,
+			Expect(counts.Map()).To(Equal(map[fdb.ProcessClass]int{
+				fdb.ProcessClassStorage:   5,
+				fdb.ProcessClassLog:       4,
+				fdb.ProcessClassStateless: 9,
 			}))
-			Expect(cluster.Spec.ProcessCounts).To(Equal(ProcessCounts{}))
+			Expect(cluster.Spec.ProcessCounts).To(Equal(fdb.ProcessCounts{}))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{
 				Storage: 10,
 			}
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(counts.Storage).To(Equal(10))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{
 				ClusterController: 3,
 			}
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(counts.Stateless).To(Equal(8))
 			Expect(counts.ClusterController).To(Equal(3))
-			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
-				ProcessClassStorage:           5,
-				ProcessClassLog:               4,
-				ProcessClassStateless:         8,
-				ProcessClassClusterController: 3,
+			Expect(counts.Map()).To(Equal(map[fdb.ProcessClass]int{
+				fdb.ProcessClassStorage:           5,
+				fdb.ProcessClassLog:               4,
+				fdb.ProcessClassStateless:         8,
+				fdb.ProcessClassClusterController: 3,
 			}))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{
 				Resolver: 1,
 			}
 			counts, err = cluster.GetProcessCountsWithDefaults()
@@ -199,7 +201,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(counts.Resolver).To(Equal(1))
 			Expect(counts.Resolution).To(Equal(0))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{
 				Resolution: 1,
 			}
 			counts, err = cluster.GetProcessCountsWithDefaults()
@@ -208,20 +210,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(counts.Resolution).To(Equal(1))
 			Expect(counts.Resolver).To(Equal(0))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{
 				Log: 2,
 			}
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(counts.Log).To(Equal(2))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{}
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{}
 			cluster.Spec.DatabaseConfiguration.RoleCounts.RemoteLogs = 4
 			cluster.Spec.DatabaseConfiguration.RoleCounts.LogRouters = 8
 
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
+			Expect(counts).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       5,
 				Stateless: 9,
@@ -237,10 +239,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Namespace: "default",
 				},
 				Spec: FoundationDBClusterSpec{
-					Version: Versions.Default.String(),
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
-						RoleCounts: RoleCounts{
+					Version: fdb.Versions.Default.String(),
+					DatabaseConfiguration: fdb.DatabaseConfiguration{
+						RedundancyMode: fdb.RedundancyModeDouble,
+						RoleCounts: fdb.RoleCounts{
 							Storage:   5,
 							Logs:      3,
 							Proxies:   5,
@@ -255,28 +257,28 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			counts, err := cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
+			Expect(counts).To(Equal(fdb.ProcessCounts{
 				Storage:   2,
 				Log:       2,
 				Stateless: 4,
 			}))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{}
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{}
 			cluster.Spec.FaultDomain.ZoneIndex = 2
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
+			Expect(counts).To(Equal(fdb.ProcessCounts{
 				Storage:   1,
 				Log:       1,
 				Stateless: 3,
 			}))
 
-			cluster.Spec.ProcessCounts = ProcessCounts{}
+			cluster.Spec.ProcessCounts = fdb.ProcessCounts{}
 			cluster.Spec.FaultDomain.ZoneIndex = 1
 			cluster.Spec.FaultDomain.ZoneCount = 5
 			counts, err = cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
+			Expect(counts).To(Equal(fdb.ProcessCounts{
 				Storage:   1,
 				Log:       1,
 				Stateless: 2,
@@ -292,18 +294,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Namespace: "default",
 				},
 				Spec: FoundationDBClusterSpec{
-					Version: Versions.Default.String(),
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
-						RoleCounts: RoleCounts{
+					Version: fdb.Versions.Default.String(),
+					DatabaseConfiguration: fdb.DatabaseConfiguration{
+						RedundancyMode: fdb.RedundancyModeDouble,
+						RoleCounts: fdb.RoleCounts{
 							Storage:   5,
 							Logs:      3,
 							Proxies:   5,
 							Resolvers: 1,
 						},
-						Regions: []Region{
+						Regions: []fdb.Region{
 							{
-								DataCenters: []DataCenter{
+								DataCenters: []fdb.DataCenter{
 									{ID: "dc1", Satellite: 0, Priority: 1},
 									{ID: "dc2", Satellite: 1, Priority: 1},
 								},
@@ -311,7 +313,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 								SatelliteRedundancyMode: "one_satellite_double",
 							},
 							{
-								DataCenters: []DataCenter{
+								DataCenters: []fdb.DataCenter{
 									{ID: "dc3", Satellite: 0, Priority: 1},
 									{ID: "dc4", Satellite: 1, Priority: 1},
 								},
@@ -324,39 +326,39 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			cluster.Spec.DataCenter = "dc1"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       4,
 				Stateless: 11,
 			}))
 
 			cluster.Spec.DataCenter = "dc2"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Log: 3,
 			}))
 
 			cluster.Spec.DataCenter = "dc3"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       4,
 				Stateless: 11,
 			}))
 
 			cluster.Spec.DataCenter = "dc4"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Log: 3,
 			}))
 
 			cluster.Spec.DataCenter = "dc5"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       4,
 				Stateless: 11,
 			}))
 
-			cluster.Spec.DatabaseConfiguration.Regions = []Region{
+			cluster.Spec.DatabaseConfiguration.Regions = []fdb.Region{
 				{
-					DataCenters: []DataCenter{
+					DataCenters: []fdb.DataCenter{
 						{ID: "dc1", Satellite: 0, Priority: 1},
 						{ID: "dc2", Satellite: 1, Priority: 2},
 						{ID: "dc3", Satellite: 1, Priority: 1},
@@ -365,7 +367,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					SatelliteRedundancyMode: "one_satellite_double",
 				},
 				{
-					DataCenters: []DataCenter{
+					DataCenters: []fdb.DataCenter{
 						{ID: "dc3", Satellite: 0, Priority: 1},
 						{ID: "dc2", Satellite: 1, Priority: 1},
 						{ID: "dc1", Satellite: 1, Priority: 2},
@@ -376,19 +378,19 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			cluster.Spec.DataCenter = "dc1"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       7,
 				Stateless: 11,
 			}))
 
 			cluster.Spec.DataCenter = "dc2"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Log: 5,
 			}))
 
 			cluster.Spec.DataCenter = "dc3"
-			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(ProcessCounts{
+			Expect(cluster.GetProcessCountsWithDefaults()).To(Equal(fdb.ProcessCounts{
 				Storage:   5,
 				Log:       8,
 				Stateless: 11,
@@ -398,26 +400,26 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("checking if the process counts are satisfied", func() {
 		It("should return if the process counts are satisfied", func() {
-			counts := ProcessCounts{Stateless: 5}
-			Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 5})).To(BeTrue())
-			Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 6})).To(BeFalse())
-			Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 0})).To(BeFalse())
-			counts = ProcessCounts{Stateless: -1}
-			Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 0})).To(BeTrue())
-			Expect(counts.CountsAreSatisfied(ProcessCounts{Stateless: 5})).To(BeFalse())
+			counts := fdb.ProcessCounts{Stateless: 5}
+			Expect(counts.CountsAreSatisfied(fdb.ProcessCounts{Stateless: 5})).To(BeTrue())
+			Expect(counts.CountsAreSatisfied(fdb.ProcessCounts{Stateless: 6})).To(BeFalse())
+			Expect(counts.CountsAreSatisfied(fdb.ProcessCounts{Stateless: 0})).To(BeFalse())
+			counts = fdb.ProcessCounts{Stateless: -1}
+			Expect(counts.CountsAreSatisfied(fdb.ProcessCounts{Stateless: 0})).To(BeTrue())
+			Expect(counts.CountsAreSatisfied(fdb.ProcessCounts{Stateless: 5})).To(BeFalse())
 		})
 	})
 
 	When("setting the process count by name", func() {
 		It("should set the process counts by name", func() {
-			counts := ProcessCounts{}
-			counts.IncreaseCount(ProcessClassStorage, 2)
+			counts := fdb.ProcessCounts{}
+			counts.IncreaseCount(fdb.ProcessClassStorage, 2)
 			Expect(counts.Storage).To(Equal(2))
 			Expect(counts.ClusterController).To(Equal(0))
-			counts.IncreaseCount(ProcessClassStorage, 3)
+			counts.IncreaseCount(fdb.ProcessClassStorage, 3)
 			Expect(counts.Storage).To(Equal(5))
 			Expect(counts.ClusterController).To(Equal(0))
-			counts.IncreaseCount(ProcessClassClusterController, 1)
+			counts.IncreaseCount(fdb.ProcessClassClusterController, 1)
 			Expect(counts.Storage).To(Equal(5))
 			Expect(counts.ClusterController).To(Equal(1))
 		})
@@ -436,12 +438,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(3))
 
-			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeSingle
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = fdb.RedundancyModeSingle
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(0))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(1))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(1))
 
-			cluster.Spec.DatabaseConfiguration.RedundancyMode = RedundancyModeDouble
+			cluster.Spec.DatabaseConfiguration.RedundancyMode = fdb.RedundancyModeDouble
 			Expect(cluster.DesiredFaultTolerance()).To(Equal(1))
 			Expect(cluster.MinimumFaultDomains()).To(Equal(2))
 			Expect(cluster.DesiredCoordinatorCount()).To(Equal(3))
@@ -472,7 +474,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	coordinators := []ProcessAddress{
+	coordinators := []fdb.ProcessAddress{
 		{
 			IPAddress: net.ParseIP("127.0.0.1"),
 			Port:      4500,
@@ -541,19 +543,19 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(str.HasCoordinators(coordinators)).To(BeTrue())
 			// We have to copy the slice to prevent to modify the original slice
 			// See: https://golang.org/ref/spec#Appending_and_copying_slices
-			newCoord := make([]ProcessAddress, len(coordinators))
+			newCoord := make([]fdb.ProcessAddress, len(coordinators))
 			copy(newCoord, coordinators)
 			rand.Shuffle(len(newCoord), func(i, j int) {
 				newCoord[i], newCoord[j] = newCoord[j], newCoord[i]
 			})
 			Expect(str.HasCoordinators(newCoord)).To(BeTrue())
-			newCoord = make([]ProcessAddress, len(coordinators))
+			newCoord = make([]fdb.ProcessAddress, len(coordinators))
 			copy(newCoord, coordinators)
-			newCoord = append(newCoord, ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			newCoord = append(newCoord, fdb.ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
 			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
-			newCoord = make([]ProcessAddress, len(coordinators))
+			newCoord = make([]fdb.ProcessAddress, len(coordinators))
 			copy(newCoord, coordinators)
-			newCoord = append(newCoord[:2], ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
+			newCoord = append(newCoord[:2], fdb.ProcessAddress{IPAddress: net.ParseIP("127.0.0.4"), Port: 4500})
 			Expect(str.HasCoordinators(newCoord)).To(BeFalse())
 			Expect(str.HasCoordinators(newCoord[:2])).To(BeFalse())
 		})
@@ -567,10 +569,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Namespace: "default",
 				},
 				Spec: FoundationDBClusterSpec{
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
+					DatabaseConfiguration: fdb.DatabaseConfiguration{
+						RedundancyMode: fdb.RedundancyModeDouble,
 						StorageEngine:  "ssd",
-						RoleCounts: RoleCounts{
+						RoleCounts: fdb.RoleCounts{
 							Storage: 5,
 							Logs:    4,
 							Proxies: 5,
@@ -579,11 +581,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				StorageEngine:  "ssd-2",
 				UsableRegions:  1,
-				RoleCounts: RoleCounts{
+				RoleCounts: fdb.RoleCounts{
 					Logs:       4,
 					Proxies:    5,
 					Resolvers:  1,
@@ -594,11 +596,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			cluster.Spec = FoundationDBClusterSpec{}
 
-			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				StorageEngine:  "ssd-2",
 				UsableRegions:  1,
-				RoleCounts: RoleCounts{
+				RoleCounts: fdb.RoleCounts{
 					Logs:       3,
 					Proxies:    3,
 					Resolvers:  1,
@@ -611,18 +613,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("getting the  configuration string", func() {
 		It("should be parsed correctly", func() {
-			configuration := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			configuration := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				StorageEngine:  "ssd",
 				UsableRegions:  1,
-				RoleCounts: RoleCounts{
+				RoleCounts: fdb.RoleCounts{
 					Logs: 5,
 				},
 			}
 			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[]"))
 
-			configuration.Regions = []Region{{
-				DataCenters: []DataCenter{{
+			configuration.Regions = []fdb.Region{{
+				DataCenters: []fdb.DataCenter{{
 					ID:        "iad",
 					Priority:  1,
 					Satellite: 0,
@@ -639,27 +641,27 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("changing the redundancy mode", func() {
 		It("should return the new redundancy mode", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 			}
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeTriple,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeTriple,
 			}
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeTriple,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeTriple,
 			}))
 		})
 	})
 
 	When("enabling fearless DR", func() {
 		It("should return the new fearless config", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -669,12 +671,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -689,7 +691,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -707,12 +709,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -727,7 +729,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -746,12 +748,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -766,7 +768,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -785,12 +787,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -805,7 +807,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -827,17 +829,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("changing tto fearless dr without initial regions", func() {
 		It("should return the fearless config", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -852,7 +854,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -870,12 +872,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -890,7 +892,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -909,12 +911,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -929,7 +931,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -948,12 +950,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -968,7 +970,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -990,17 +992,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("enabling a single region without initial regions", func() {
 		It("should return the new redundancy mode", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1011,12 +1013,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1031,12 +1033,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("disabling fearless DR", func() {
 		It("should return new configuration", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1044,7 +1046,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -1061,12 +1063,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1077,12 +1079,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1090,7 +1092,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1102,12 +1104,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1115,7 +1117,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1127,12 +1129,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1147,12 +1149,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("disabling fearless DR and switch the dc", func() {
 		It("should return the new configuration", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1167,7 +1169,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						SatelliteRedundancyMode: "one_satellite_double",
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -1184,12 +1186,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1200,12 +1202,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1213,7 +1215,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1225,12 +1227,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1238,7 +1240,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1250,12 +1252,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1270,12 +1272,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("disabling and clearing regions", func() {
 		It("should return the new configuration", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1283,7 +1285,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 0,
@@ -1300,18 +1302,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1319,7 +1321,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1331,12 +1333,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1344,7 +1346,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1356,8 +1358,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
 			}))
 			Expect(nextConfig).To(Equal(finalConfig))
@@ -1366,12 +1368,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("changing the primary DC with a single region", func() {
 		It("should return the new configuration", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1381,12 +1383,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1397,12 +1399,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1410,7 +1412,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: -1,
@@ -1422,12 +1424,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1435,7 +1437,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: -1,
@@ -1447,12 +1449,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1460,7 +1462,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1472,12 +1474,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1485,7 +1487,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1497,12 +1499,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1517,12 +1519,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("changing the primary DC with multiple regions", func() {
 		It("should return the new configuration", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1530,7 +1532,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 0,
@@ -1540,12 +1542,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1553,7 +1555,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 0,
@@ -1564,12 +1566,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1577,7 +1579,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1589,12 +1591,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1602,7 +1604,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1614,12 +1616,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1631,12 +1633,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1644,7 +1646,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1656,12 +1658,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1669,7 +1671,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1681,12 +1683,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 0,
@@ -1694,7 +1696,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1706,12 +1708,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1719,7 +1721,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 0,
@@ -1734,12 +1736,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("changing multiple DCs", func() {
 		It("should return the new configuration", func() {
-			currentConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			currentConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -1747,7 +1749,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 0,
@@ -1757,12 +1759,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			finalConfig := fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1770,7 +1772,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc4",
 								Priority: 0,
@@ -1781,12 +1783,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 
 			nextConfig := currentConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1794,7 +1796,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1806,12 +1808,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: -1,
@@ -1819,7 +1821,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1831,12 +1833,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1848,12 +1850,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1861,7 +1863,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1873,12 +1875,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -1886,7 +1888,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: -1,
@@ -1898,12 +1900,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: -1,
@@ -1911,7 +1913,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1923,12 +1925,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: -1,
@@ -1936,7 +1938,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1948,12 +1950,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1965,12 +1967,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  1,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -1978,7 +1980,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc4",
 								Priority: -1,
@@ -1990,12 +1992,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -2003,7 +2005,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc4",
 								Priority: -1,
@@ -2015,12 +2017,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(nextConfig).NotTo(Equal(finalConfig))
 
 			nextConfig = nextConfig.GetNextConfigurationChange(finalConfig)
-			Expect(nextConfig).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
+			Expect(nextConfig).To(Equal(fdb.DatabaseConfiguration{
+				RedundancyMode: fdb.RedundancyModeDouble,
 				UsableRegions:  2,
-				Regions: []Region{
+				Regions: []fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc3",
 								Priority: 1,
@@ -2028,7 +2030,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc4",
 								Priority: 0,
@@ -2044,7 +2046,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	Context("Normalize cluster spec", func() {
 		When("log routers are missing", func() {
 			It("should set the correct value (-1) for og routers", func() {
-				spec := DatabaseConfiguration{}
+				spec := fdb.DatabaseConfiguration{}
 				spec.RemoteLogs = 9
 				normalized := spec.NormalizeConfiguration()
 				Expect(normalized.LogRouters).To(Equal(-1))
@@ -2054,10 +2056,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("the DC order is incorrect", func() {
 			It("should correct the order", func() {
-				spec := DatabaseConfiguration{
-					Regions: []Region{
+				spec := fdb.DatabaseConfiguration{
+					Regions: []fdb.Region{
 						{
-							DataCenters: []DataCenter{
+							DataCenters: []fdb.DataCenter{
 								{
 									ID:       "dc1",
 									Priority: 1,
@@ -2075,7 +2077,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 						},
 						{
-							DataCenters: []DataCenter{
+							DataCenters: []fdb.DataCenter{
 								{
 									ID:        "dc2a",
 									Priority:  2,
@@ -2095,9 +2097,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}
 				normalized := spec.NormalizeConfiguration()
-				Expect(normalized.Regions).To(Equal([]Region{
+				Expect(normalized.Regions).To(Equal([]fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 1,
@@ -2115,7 +2117,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -2138,10 +2140,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("the region order is incorrect", func() {
 			It("should return the correct order", func() {
-				spec := DatabaseConfiguration{
-					Regions: []Region{
+				spec := fdb.DatabaseConfiguration{
+					Regions: []fdb.Region{
 						{
-							DataCenters: []DataCenter{
+							DataCenters: []fdb.DataCenter{
 								{
 									ID:       "dc1",
 									Priority: 0,
@@ -2159,7 +2161,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 						},
 						{
-							DataCenters: []DataCenter{
+							DataCenters: []fdb.DataCenter{
 								{
 									ID:       "dc2",
 									Priority: 1,
@@ -2179,9 +2181,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}
 				normalized := spec.NormalizeConfiguration()
-				Expect(normalized.Regions).To(Equal([]Region{
+				Expect(normalized.Regions).To(Equal([]fdb.Region{
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc2",
 								Priority: 1,
@@ -2199,7 +2201,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 					{
-						DataCenters: []DataCenter{
+						DataCenters: []fdb.DataCenter{
 							{
 								ID:       "dc1",
 								Priority: 0,
@@ -2224,14 +2226,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("the process address is parsed", func() {
 		type testCase struct {
 			input        string
-			expectedAddr ProcessAddress
+			expectedAddr fdb.ProcessAddress
 			expectedStr  string
 			err          error
 		}
 
 		DescribeTable("should print the correct string",
 			func(tc testCase) {
-				address, err := ParseProcessAddress(tc.input)
+				address, err := fdb.ParseProcessAddress(tc.input)
 				if err == nil {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(address).To(Equal(tc.expectedAddr))
@@ -2245,7 +2247,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IPv4 with TLS flag",
 				testCase{
 					input: "127.0.0.1:4500:tls",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("127.0.0.1"),
 						Port:      4500,
 						Flags:     map[string]bool{"tls": true},
@@ -2256,7 +2258,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IPv4 without TLS flag",
 				testCase{
 					input: "127.0.0.1:4500",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("127.0.0.1"),
 						Port:      4500,
 						Flags:     nil,
@@ -2267,7 +2269,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IPv4 without port and TLS flag",
 				testCase{
 					input: "127.0.0.1",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("127.0.0.1"),
 						Port:      0,
 						Flags:     nil,
@@ -2278,7 +2280,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IPv6 with TLS flag",
 				testCase{
 					input: "[::1]:4500:tls",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("::1"),
 						Port:      4500,
 						Flags:     map[string]bool{"tls": true},
@@ -2289,7 +2291,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IPv6 without TLS flag",
 				testCase{
 					input: "[::1]:4500",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("::1"),
 						Port:      4500,
 						Flags:     nil,
@@ -2300,7 +2302,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IPv6 without port and TLS flag",
 				testCase{
 					input: "::1",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("::1"),
 						Port:      0,
 						Flags:     nil,
@@ -2321,7 +2323,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("host name",
 				testCase{
 					input: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local:4500",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						StringAddress: "operator-test-1-storage-1.operator-test-1.my-ns.svc.cluster.local",
 						Port:          4500,
 						Flags:         nil,
@@ -2332,7 +2334,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("IP from host name",
 				testCase{
 					input: "127.0.0.1:4501(fromHostname)",
-					expectedAddr: ProcessAddress{
+					expectedAddr: fdb.ProcessAddress{
 						IPAddress:    net.ParseIP("127.0.0.1"),
 						Port:         4501,
 						Flags:        nil,
@@ -2346,7 +2348,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 	When("printing a process address", func() {
 		type testCase struct {
-			processAddr ProcessAddress
+			processAddr fdb.ProcessAddress
 			expected    string
 		}
 
@@ -2357,7 +2359,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			},
 			Entry("IPv6 with TLS flag",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("::1"),
 						Port:      4500,
 						Flags:     map[string]bool{"tls": true},
@@ -2366,7 +2368,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 			Entry("IPv6 with without TLS flag",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("::1"),
 						Port:      4500,
 						Flags:     map[string]bool{},
@@ -2375,7 +2377,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 			Entry("IPv6 with without port and TLS flag",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("::1"),
 						Port:      0,
 						Flags:     map[string]bool{},
@@ -2384,7 +2386,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 			Entry("IPv4 with TLS flag",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("127.0.0.1"),
 						Port:      4500,
 						Flags:     map[string]bool{"tls": true},
@@ -2393,7 +2395,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 			Entry("IPv4 with without TLS flag",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("127.0.0.1"),
 						Port:      4500,
 						Flags:     map[string]bool{},
@@ -2402,7 +2404,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 			Entry("IPv4 with without port and TLS flag",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("127.0.0.1"),
 						Port:      0,
 						Flags:     map[string]bool{},
@@ -2411,7 +2413,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}),
 			Entry("With a placeholder",
 				testCase{
-					processAddr: ProcessAddress{
+					processAddr: fdb.ProcessAddress{
 						StringAddress: "$POD_IP",
 						Port:          4500,
 						Flags:         map[string]bool{},
@@ -2474,8 +2476,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Generation: 2,
 					},
 					Spec: FoundationDBClusterSpec{
-						Version:               Versions.Default.String(),
-						DatabaseConfiguration: DatabaseConfiguration{},
+						Version:               fdb.Versions.Default.String(),
+						DatabaseConfiguration: fdb.DatabaseConfiguration{},
 					},
 					Status: FoundationDBClusterStatus{
 						Health: ClusterHealth{
@@ -2485,11 +2487,11 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						RequiredAddresses: RequiredAddressSet{
 							NonTLS: true,
 						},
-						DatabaseConfiguration: DatabaseConfiguration{
-							RedundancyMode: RedundancyModeDouble,
+						DatabaseConfiguration: fdb.DatabaseConfiguration{
+							RedundancyMode: fdb.RedundancyModeDouble,
 							StorageEngine:  "ssd-2",
 							UsableRegions:  1,
-							RoleCounts: RoleCounts{
+							RoleCounts: fdb.RoleCounts{
 								Logs:       3,
 								Proxies:    3,
 								Resolvers:  1,
@@ -2500,7 +2502,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Generations: ClusterGenerationStatus{
 							Reconciled: 1,
 						},
-						ProcessCounts: ProcessCounts{
+						ProcessCounts: fdb.ProcessCounts{
 							Storage:   3,
 							Stateless: 9,
 							Log:       4,
@@ -2720,23 +2722,23 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		It("should return the correct settings", func() {
 			cluster := &FoundationDBCluster{
 				Spec: FoundationDBClusterSpec{
-					Processes: map[ProcessClass]ProcessSettings{
-						ProcessClassGeneral: {
+					Processes: map[fdb.ProcessClass]ProcessSettings{
+						fdb.ProcessClassGeneral: {
 							PodTemplate: &corev1.PodTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{"test-label": "label1"},
 								},
 							},
-							CustomParameters: FoundationDBCustomParameters{"test_knob=value1"},
+							CustomParameters: fdb.FoundationDBCustomParameters{"test_knob=value1"},
 						},
-						ProcessClassStorage: {
+						fdb.ProcessClassStorage: {
 							PodTemplate: &corev1.PodTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{"test-label": "label2"},
 								},
 							},
 						},
-						ProcessClassStateless: {
+						fdb.ProcessClassStateless: {
 							PodTemplate: &corev1.PodTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{"test-label": "label3"},
@@ -2746,9 +2748,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 			}
-			settings := cluster.GetProcessSettings(ProcessClassStorage)
+			settings := cluster.GetProcessSettings(fdb.ProcessClassStorage)
 			Expect(settings.PodTemplate.ObjectMeta.Labels).To(Equal(map[string]string{"test-label": "label2"}))
-			Expect(settings.CustomParameters).To(Equal(FoundationDBCustomParameters{"test_knob=value1"}))
+			Expect(settings.CustomParameters).To(Equal(fdb.FoundationDBCustomParameters{"test_knob=value1"}))
 		})
 	})
 
@@ -2776,7 +2778,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(cluster.ShouldUseLocks()).To(BeTrue())
 
 			cluster.Spec.FaultDomain.ZoneCount = 0
-			cluster.Spec.DatabaseConfiguration.Regions = []Region{
+			cluster.Spec.DatabaseConfiguration.Regions = []fdb.Region{
 				{},
 				{},
 			}
@@ -2859,7 +2861,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		DescribeTable("Generate the port correctly",
 			func(tc testCase) {
-				Expect(GetProcessPort(tc.processNumber, tc.tls)).To(Equal(tc.expectedPort))
+				Expect(fdb.GetProcessPort(tc.processNumber, tc.tls)).To(Equal(tc.expectedPort))
 			},
 			Entry("test first process no tls",
 				testCase{
@@ -2988,12 +2990,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("parsing the addresses from the process commandline", func() {
 		type testCase struct {
 			cmdline  string
-			expected []ProcessAddress
+			expected []fdb.ProcessAddress
 		}
 
 		DescribeTable("should add or ignore the addresses",
 			func(tc testCase) {
-				res, err := ParseProcessAddressesFromCmdline(tc.cmdline)
+				res, err := fdb.ParseProcessAddressesFromCmdline(tc.cmdline)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(res)).To(BeNumerically("==", len(tc.expected)))
 				Expect(res).To(Equal(tc.expected))
@@ -3001,7 +3003,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("Only no-tls",
 				testCase{
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-					expected: []ProcessAddress{
+					expected: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4501,
@@ -3011,7 +3013,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("Only TLS",
 				testCase{
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-					expected: []ProcessAddress{
+					expected: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4500,
@@ -3022,7 +3024,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("TLS IPv6",
 				testCase{
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=[::1]:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-					expected: []ProcessAddress{
+					expected: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("::1"),
 							Port:      4500,
@@ -3035,7 +3037,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("TLS and no-TLS",
 				testCase{
 					cmdline: "/usr/bin/fdbserver --class=stateless --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=stateless-9 --locality_machineid=machine1 --locality_zoneid=zone1 --logdir=/var/log/fdb-trace-logs --loggroup=test --public_address=1.2.3.4:4501,1.2.3.4:4500:tls --seed_cluster_file=/var/dynamic-conf/fdb.cluster",
-					expected: []ProcessAddress{
+					expected: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.2.3.4"),
 							Port:      4501,
@@ -3055,7 +3057,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("checking if a process is eligible as coordinator candidate", func() {
 		type testCase struct {
 			cluster  *FoundationDBCluster
-			pClass   ProcessClass
+			pClass   fdb.ProcessClass
 			expected bool
 		}
 
@@ -3066,31 +3068,31 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("storage class without any configuration is eligible",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassStorage,
+					pClass:   fdb.ProcessClassStorage,
 					expected: true,
 				}),
 			Entry("log class without any configuration is eligible",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassLog,
+					pClass:   fdb.ProcessClassLog,
 					expected: true,
 				}),
 			Entry("transaction class without any configuration is eligible",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassTransaction,
+					pClass:   fdb.ProcessClassTransaction,
 					expected: true,
 				}),
 			Entry("stateless class without any configuration is not eligible",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassStateless,
+					pClass:   fdb.ProcessClassStateless,
 					expected: false,
 				}),
 			Entry("cluster controller class without any configuration is not eligible",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassClusterController,
+					pClass:   fdb.ProcessClassClusterController,
 					expected: false,
 				}),
 			Entry("storage class with only storage classes is eligible",
@@ -3099,13 +3101,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Spec: FoundationDBClusterSpec{
 							CoordinatorSelection: []CoordinatorSelectionSetting{
 								{
-									ProcessClass: ProcessClassStorage,
+									ProcessClass: fdb.ProcessClassStorage,
 									Priority:     1,
 								},
 							},
 						},
 					},
-					pClass:   ProcessClassStorage,
+					pClass:   fdb.ProcessClassStorage,
 					expected: true,
 				}),
 			Entry("log class with only storage classes is not eligible",
@@ -3114,13 +3116,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Spec: FoundationDBClusterSpec{
 							CoordinatorSelection: []CoordinatorSelectionSetting{
 								{
-									ProcessClass: ProcessClassStorage,
+									ProcessClass: fdb.ProcessClassStorage,
 									Priority:     1,
 								},
 							},
 						},
 					},
-					pClass:   ProcessClassLog,
+					pClass:   fdb.ProcessClassLog,
 					expected: false,
 				}),
 		)
@@ -3129,7 +3131,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("getting the priority of a process class", func() {
 		type testCase struct {
 			cluster  *FoundationDBCluster
-			pClass   ProcessClass
+			pClass   fdb.ProcessClass
 			expected int
 		}
 
@@ -3140,31 +3142,31 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Entry("storage class without any configuration returns highest priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassStorage,
+					pClass:   fdb.ProcessClassStorage,
 					expected: math.MinInt64,
 				}),
 			Entry("log class without any configuration highest prioritye",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassLog,
+					pClass:   fdb.ProcessClassLog,
 					expected: math.MinInt64,
 				}),
 			Entry("transaction class without any configuration highest priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassTransaction,
+					pClass:   fdb.ProcessClassTransaction,
 					expected: math.MinInt64,
 				}),
 			Entry("stateless class without any configuration highest priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassStateless,
+					pClass:   fdb.ProcessClassStateless,
 					expected: math.MinInt64,
 				}),
 			Entry("cluster controller class without any configuration highest priority",
 				testCase{
 					cluster:  &FoundationDBCluster{},
-					pClass:   ProcessClassClusterController,
+					pClass:   fdb.ProcessClassClusterController,
 					expected: math.MinInt64,
 				}),
 			Entry("storage class with only storage classes returns 1 as priority",
@@ -3173,13 +3175,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Spec: FoundationDBClusterSpec{
 							CoordinatorSelection: []CoordinatorSelectionSetting{
 								{
-									ProcessClass: ProcessClassStorage,
+									ProcessClass: fdb.ProcessClassStorage,
 									Priority:     1,
 								},
 							},
 						},
 					},
-					pClass:   ProcessClassStorage,
+					pClass:   fdb.ProcessClassStorage,
 					expected: 1,
 				}),
 			Entry("log class with only storage classes returns highest priority",
@@ -3188,13 +3190,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Spec: FoundationDBClusterSpec{
 							CoordinatorSelection: []CoordinatorSelectionSetting{
 								{
-									ProcessClass: ProcessClassStorage,
+									ProcessClass: fdb.ProcessClassStorage,
 									Priority:     1,
 								},
 							},
 						},
 					},
-					pClass:   ProcessClassLog,
+					pClass:   fdb.ProcessClassLog,
 					expected: math.MinInt64,
 				}),
 		)
@@ -3304,20 +3306,20 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			configs := []ImageConfig{
 				{
 					BaseImage: "foundationdb/foundationdb",
-					Version:   Versions.Default.String(),
+					Version:   fdb.Versions.Default.String(),
 				},
 				{
 					BaseImage: "foundationdb/foundationdb-slim",
-					Version:   Versions.Default.String(),
+					Version:   fdb.Versions.Default.String(),
 					Tag:       "abcdef",
 					TagSuffix: "-1",
 				},
 			}
 
-			finalConfig := SelectImageConfig(configs, Versions.Default.String())
+			finalConfig := SelectImageConfig(configs, fdb.Versions.Default.String())
 			Expect(finalConfig).To(Equal(ImageConfig{
 				BaseImage: "foundationdb/foundationdb",
-				Version:   Versions.Default.String(),
+				Version:   fdb.Versions.Default.String(),
 				Tag:       "abcdef",
 				TagSuffix: "-1",
 			}))
@@ -3327,10 +3329,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			configs := []ImageConfig{
 				{
 					BaseImage: "foundationdb/foundationdb",
-					Version:   Versions.Default.String(),
+					Version:   fdb.Versions.Default.String(),
 				},
 				{
-					Version: Versions.NextMajorVersion.String(),
+					Version: fdb.Versions.NextMajorVersion.String(),
 					Tag:     "abcdef",
 				},
 				{
@@ -3338,10 +3340,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 			}
 
-			finalConfig := SelectImageConfig(configs, Versions.Default.String())
+			finalConfig := SelectImageConfig(configs, fdb.Versions.Default.String())
 			Expect(finalConfig).To(Equal(ImageConfig{
 				BaseImage: "foundationdb/foundationdb",
-				Version:   Versions.Default.String(),
+				Version:   fdb.Versions.Default.String(),
 				TagSuffix: "-1",
 			}))
 		})
@@ -3351,17 +3353,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		It("applies the fields", func() {
 			config := ImageConfig{
 				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
-				Version:   Versions.Default.String(),
+				Version:   fdb.Versions.Default.String(),
 				TagSuffix: "-2",
 			}
 			image := config.Image()
-			Expect(image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", Versions.Default)))
+			Expect(image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", fdb.Versions.Default)))
 		})
 
 		It("uses the tag to override the version and tag suffix", func() {
 			config := ImageConfig{
 				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
-				Version:   Versions.Default.String(),
+				Version:   fdb.Versions.Default.String(),
 				Tag:       "abcdef",
 				TagSuffix: "-2",
 			}
@@ -3462,10 +3464,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			BeforeEach(func() {
 				cluster = &FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
-						DatabaseConfiguration: DatabaseConfiguration{
-							Regions: []Region{
+						DatabaseConfiguration: fdb.DatabaseConfiguration{
+							Regions: []fdb.Region{
 								{
-									DataCenters: []DataCenter{
+									DataCenters: []fdb.DataCenter{
 										{
 											ID:       "test",
 											Priority: 1,
@@ -3490,10 +3492,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			BeforeEach(func() {
 				cluster = &FoundationDBCluster{
 					Spec: FoundationDBClusterSpec{
-						DatabaseConfiguration: DatabaseConfiguration{
-							Regions: []Region{
+						DatabaseConfiguration: fdb.DatabaseConfiguration{
+							Regions: []fdb.Region{
 								{
-									DataCenters: []DataCenter{
+									DataCenters: []fdb.DataCenter{
 										{
 											ID:       "primary",
 											Priority: 1,
@@ -3511,7 +3513,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 									},
 								},
 								{
-									DataCenters: []DataCenter{
+									DataCenters: []fdb.DataCenter{
 										{
 											ID:       "remote",
 											Priority: 0,
@@ -3536,10 +3538,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 
 			It("should change the priority", func() {
-				expected := DatabaseConfiguration{
-					Regions: []Region{
+				expected := fdb.DatabaseConfiguration{
+					Regions: []fdb.Region{
 						{
-							DataCenters: []DataCenter{
+							DataCenters: []fdb.DataCenter{
 								{
 									ID:       "primary",
 									Priority: 0,
@@ -3557,7 +3559,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 						},
 						{
-							DataCenters: []DataCenter{
+							DataCenters: []fdb.DataCenter{
 								{
 									ID:       "remote",
 									Priority: 1,
@@ -3639,7 +3641,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassStorage,
+					ProcessClass: fdb.ProcessClassStorage,
 				},
 				false,
 			),
@@ -3652,7 +3654,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassTransaction,
+					ProcessClass: fdb.ProcessClassTransaction,
 				},
 				true,
 			),
@@ -3665,7 +3667,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassStorage,
+					ProcessClass: fdb.ProcessClassStorage,
 				},
 				true,
 			),
@@ -3678,7 +3680,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassTransaction,
+					ProcessClass: fdb.ProcessClassTransaction,
 				},
 				true,
 			),
@@ -3691,7 +3693,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassStorage,
+					ProcessClass: fdb.ProcessClassStorage,
 				},
 				false,
 			),
@@ -3704,7 +3706,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassTransaction,
+					ProcessClass: fdb.ProcessClassTransaction,
 				},
 				true,
 			),
@@ -3717,7 +3719,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassStorage,
+					ProcessClass: fdb.ProcessClassStorage,
 				},
 				false,
 			),
@@ -3730,7 +3732,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 				&ProcessGroupStatus{
-					ProcessClass: ProcessClassTransaction,
+					ProcessClass: fdb.ProcessClassTransaction,
 				},
 				false,
 			),

@@ -21,6 +21,7 @@
 package controllers
 
 import (
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"net"
 
 	. "github.com/onsi/ginkgo"
@@ -34,9 +35,9 @@ var _ = Describe("mock_client", func() {
 	When("checking if it's safe to delete a process group", func() {
 		type testCase struct {
 			cluster    *fdbtypes.FoundationDBCluster
-			removals   []fdbtypes.ProcessAddress
-			exclusions []fdbtypes.ProcessAddress
-			remaining  []fdbtypes.ProcessAddress
+			removals   []fdb.ProcessAddress
+			exclusions []fdb.ProcessAddress
+			remaining  []fdb.ProcessAddress
 		}
 
 		DescribeTable("should return the correct image",
@@ -56,9 +57,9 @@ var _ = Describe("mock_client", func() {
 			Entry("Empty list of removals",
 				testCase{
 					cluster:    &fdbtypes.FoundationDBCluster{},
-					removals:   []fdbtypes.ProcessAddress{},
-					exclusions: []fdbtypes.ProcessAddress{},
-					remaining:  []fdbtypes.ProcessAddress{},
+					removals:   []fdb.ProcessAddress{},
+					exclusions: []fdb.ProcessAddress{},
+					remaining:  []fdb.ProcessAddress{},
 				}),
 			Entry("Process group that skips exclusion",
 				testCase{
@@ -79,7 +80,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbtypes.ProcessAddress{
+					removals: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -89,8 +90,8 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdbtypes.ProcessAddress{},
-					remaining: []fdbtypes.ProcessAddress{
+					exclusions: []fdb.ProcessAddress{},
+					remaining: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,
@@ -115,7 +116,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbtypes.ProcessAddress{
+					removals: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -125,13 +126,13 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdbtypes.ProcessAddress{
+					exclusions: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
 						},
 					},
-					remaining: []fdbtypes.ProcessAddress{
+					remaining: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,
@@ -157,7 +158,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbtypes.ProcessAddress{
+					removals: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -167,8 +168,8 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdbtypes.ProcessAddress{},
-					remaining: []fdbtypes.ProcessAddress{
+					exclusions: []fdb.ProcessAddress{},
+					remaining: []fdb.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,

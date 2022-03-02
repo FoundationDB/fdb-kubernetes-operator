@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -97,10 +98,10 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			return &requeue{curError: err}
 		}
 
-		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
+		if pod.ObjectMeta.Annotations[fdb.LastSpecKey] != specHash {
 			logger.Info("Update Pod",
 				"processGroupID", processGroup.ProcessGroupID,
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]))
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdb.LastSpecKey]))
 
 			podClient, message := r.getPodClient(cluster, pod)
 			if podClient == nil {

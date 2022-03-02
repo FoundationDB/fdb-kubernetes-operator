@@ -23,6 +23,8 @@ package removals
 import (
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -31,28 +33,28 @@ import (
 
 var _ = Describe("remove", func() {
 	When("getting the zoned removals", func() {
-		var status *fdbtypes.FoundationDBStatus
+		var status *fdb.FoundationDBStatus
 
 		BeforeEach(func() {
-			status = &fdbtypes.FoundationDBStatus{
-				Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+			status = &fdb.FoundationDBStatus{
+				Cluster: fdb.FoundationDBStatusClusterInfo{
+					Processes: map[string]fdb.FoundationDBStatusProcessInfo{
 						"1": {
 							Locality: map[string]string{
-								fdbtypes.FDBLocalityInstanceIDKey: "1",
-								fdbtypes.FDBLocalityZoneIDKey:     "zone1",
+								fdb.FDBLocalityInstanceIDKey: "1",
+								fdb.FDBLocalityZoneIDKey:     "zone1",
 							},
 						},
 						"2": {
 							Locality: map[string]string{
-								fdbtypes.FDBLocalityInstanceIDKey: "2",
-								fdbtypes.FDBLocalityZoneIDKey:     "zone1",
+								fdb.FDBLocalityInstanceIDKey: "2",
+								fdb.FDBLocalityZoneIDKey:     "zone1",
 							},
 						},
 						"3": {
 							Locality: map[string]string{
-								fdbtypes.FDBLocalityInstanceIDKey: "3",
-								fdbtypes.FDBLocalityZoneIDKey:     "zone3",
+								fdb.FDBLocalityInstanceIDKey: "3",
+								fdb.FDBLocalityZoneIDKey:     "zone3",
 							},
 						},
 					},

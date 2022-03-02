@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -53,11 +55,11 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 
 	if cluster.Spec.PodTemplate != nil {
 		ensurePodTemplatePresent(&cluster.Spec)
-		generalSettings := cluster.Spec.Processes[fdbtypes.ProcessClassGeneral]
+		generalSettings := cluster.Spec.Processes[fdb.ProcessClassGeneral]
 		if reflect.DeepEqual(generalSettings.PodTemplate, &v1.PodTemplateSpec{}) {
 			generalSettings.PodTemplate = cluster.Spec.PodTemplate
 		}
-		cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
+		cluster.Spec.Processes[fdb.ProcessClassGeneral] = generalSettings
 		cluster.Spec.PodTemplate = nil
 	}
 
@@ -70,13 +72,13 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 
 	if cluster.Spec.VolumeClaim != nil {
 		if cluster.Spec.Processes == nil {
-			cluster.Spec.Processes = make(map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings)
+			cluster.Spec.Processes = make(map[fdb.ProcessClass]fdbtypes.ProcessSettings)
 		}
-		generalSettings := cluster.Spec.Processes[fdbtypes.ProcessClassGeneral]
+		generalSettings := cluster.Spec.Processes[fdb.ProcessClassGeneral]
 		if generalSettings.VolumeClaimTemplate == nil {
 			generalSettings.VolumeClaimTemplate = cluster.Spec.VolumeClaim.DeepCopy()
 		}
-		cluster.Spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
+		cluster.Spec.Processes[fdb.ProcessClassGeneral] = generalSettings
 		cluster.Spec.VolumeClaim = nil
 	}
 
@@ -359,7 +361,7 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	if cluster.Spec.LabelConfig.MatchLabels == nil {
 		if options.UseFutureDefaults {
 			cluster.Spec.LabelConfig.MatchLabels = map[string]string{
-				fdbtypes.FDBClusterLabel: cluster.Name,
+				fdb.FDBClusterLabel: cluster.Name,
 			}
 		} else {
 			cluster.Spec.LabelConfig.MatchLabels = map[string]string{
@@ -371,26 +373,26 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 
 	if cluster.Spec.LabelConfig.ResourceLabels == nil && !options.UseFutureDefaults {
 		cluster.Spec.LabelConfig.ResourceLabels = map[string]string{
-			fdbtypes.FDBClusterLabel: cluster.Name,
+			fdb.FDBClusterLabel: cluster.Name,
 		}
 	}
 
 	if cluster.Spec.LabelConfig.ProcessGroupIDLabels == nil {
 		if options.UseFutureDefaults {
-			cluster.Spec.LabelConfig.ProcessGroupIDLabels = []string{fdbtypes.FDBProcessGroupIDLabel}
+			cluster.Spec.LabelConfig.ProcessGroupIDLabels = []string{fdb.FDBProcessGroupIDLabel}
 		} else {
 			cluster.Spec.LabelConfig.ProcessGroupIDLabels = []string{
-				OldFDBProcessGroupIDLabel, fdbtypes.FDBProcessGroupIDLabel,
+				OldFDBProcessGroupIDLabel, fdb.FDBProcessGroupIDLabel,
 			}
 		}
 	}
 
 	if cluster.Spec.LabelConfig.ProcessClassLabels == nil {
 		if options.UseFutureDefaults {
-			cluster.Spec.LabelConfig.ProcessClassLabels = []string{fdbtypes.FDBProcessClassLabel}
+			cluster.Spec.LabelConfig.ProcessClassLabels = []string{fdb.FDBProcessClassLabel}
 		} else {
 			cluster.Spec.LabelConfig.ProcessClassLabels = []string{
-				OldFDBProcessClassLabel, fdbtypes.FDBProcessClassLabel,
+				OldFDBProcessClassLabel, fdb.FDBProcessClassLabel,
 			}
 		}
 	}
@@ -426,13 +428,13 @@ func ensureConfigMapPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 // settings.
 func ensurePodTemplatePresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
-		spec.Processes = make(map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings)
+		spec.Processes = make(map[fdb.ProcessClass]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
+	generalSettings := spec.Processes[fdb.ProcessClassGeneral]
 	if generalSettings.PodTemplate == nil {
 		generalSettings.PodTemplate = &corev1.PodTemplateSpec{}
 	}
-	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
+	spec.Processes[fdb.ProcessClassGeneral] = generalSettings
 }
 
 // updatePodTemplates updates all of the pod templates in the cluster spec.
@@ -474,13 +476,13 @@ func updateVolumeClaims(spec *fdbtypes.FoundationDBClusterSpec, customizer func(
 // settings.
 func ensureVolumeClaimPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
-		spec.Processes = make(map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings)
+		spec.Processes = make(map[fdb.ProcessClass]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
+	generalSettings := spec.Processes[fdb.ProcessClassGeneral]
 	if generalSettings.VolumeClaimTemplate == nil {
 		generalSettings.VolumeClaimTemplate = &corev1.PersistentVolumeClaim{}
 	}
-	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
+	spec.Processes[fdb.ProcessClassGeneral] = generalSettings
 }
 
 // mergeLabels merges labels from another part of the cluster spec into the
@@ -542,14 +544,14 @@ func customizeContainerFromList(containers []corev1.Container, name string, cust
 // settings.
 func ensureCustomParametersPresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
-		spec.Processes = make(map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings)
+		spec.Processes = make(map[fdb.ProcessClass]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
+	generalSettings := spec.Processes[fdb.ProcessClassGeneral]
 	if generalSettings.CustomParameters == nil {
-		params := make([]fdbtypes.FoundationDBCustomParameter, 0)
+		params := make([]fdb.FoundationDBCustomParameter, 0)
 		generalSettings.CustomParameters = params
 	}
-	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
+	spec.Processes[fdb.ProcessClassGeneral] = generalSettings
 }
 
 // ensureContainerPresent looks for a container by name from a list, and adds

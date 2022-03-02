@@ -21,6 +21,7 @@
 package v1beta1
 
 import (
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -65,7 +66,7 @@ type FoundationDBRestoreSpec struct {
 
 	// CustomParameters defines additional parameters to pass to the backup
 	// agents.
-	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
+	CustomParameters fdb.FoundationDBCustomParameters `json:"customParameters,omitempty"`
 }
 
 // FoundationDBRestoreStatus describes the current status of the restore for a cluster.

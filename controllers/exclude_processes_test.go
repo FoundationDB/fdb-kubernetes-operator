@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -52,7 +53,7 @@ var _ = Describe("exclude_processes", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -60,11 +61,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("one process group is missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 1, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 1, fdb.ProcessClassStorage)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -72,11 +73,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 2, fdb.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-2"}))
 				})
@@ -84,11 +85,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups of a different type are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbtypes.ProcessClassLog)
+					createMissingProcesses(cluster, 2, fdb.ProcessClassLog)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -111,11 +112,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 2, fdb.ProcessClassStorage)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -123,11 +124,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("five process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 5, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 5, fdb.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
@@ -136,7 +137,7 @@ var _ = Describe("exclude_processes", func() {
 	})
 })
 
-func createMissingProcesses(cluster *fdbtypes.FoundationDBCluster, count int, processClass fdbtypes.ProcessClass) {
+func createMissingProcesses(cluster *fdbtypes.FoundationDBCluster, count int, processClass fdb.ProcessClass) {
 	missing := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass == processClass {

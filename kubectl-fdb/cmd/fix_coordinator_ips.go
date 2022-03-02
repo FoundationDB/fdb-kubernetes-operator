@@ -23,6 +23,7 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"log"
 	"net"
 	"os"
@@ -181,7 +182,7 @@ func updateIPsInConnectionString(cluster *fdbtypes.FoundationDBCluster) error {
 	}
 	newCoordinators := make([]string, len(connectionString.Coordinators))
 	for coordinatorIndex, coordinator := range connectionString.Coordinators {
-		coordinatorAddress, err := fdbtypes.ParseProcessAddress(coordinator)
+		coordinatorAddress, err := fdb.ParseProcessAddress(coordinator)
 		if err != nil {
 			return err
 		}

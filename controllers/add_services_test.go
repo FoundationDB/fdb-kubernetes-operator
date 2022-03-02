@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"sort"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -131,8 +132,8 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
 			lastService := newServices.Items[len(newServices.Items)-1]
 			Expect(lastService.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastService.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
+			Expect(lastService.Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+			Expect(lastService.Labels[fdb.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastService.Spec.ClusterIP).NotTo(Equal("None"))
 			Expect(lastService.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
@@ -186,7 +187,7 @@ var _ = Describe("add_services", func() {
 			firstService := newServices.Items[0]
 
 			Expect(firstService.Name).To(Equal("operator-test-1"))
-			Expect(firstService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal(""))
+			Expect(firstService.Labels[fdb.FDBProcessGroupIDLabel]).To(Equal(""))
 			Expect(firstService.Spec.ClusterIP).To(Equal("None"))
 		})
 

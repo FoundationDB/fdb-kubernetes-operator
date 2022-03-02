@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"net"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -58,7 +59,7 @@ var _ = Describe("admin_client_test", func() {
 	})
 
 	Describe("JSON status", func() {
-		var status *fdbtypes.FoundationDBStatus
+		var status *fdb.FoundationDBStatus
 		JustBeforeEach(func() {
 			status, err = client.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
@@ -66,30 +67,30 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a basic cluster", func() {
 			It("should generate the status", func() {
-				Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbtypes.DatabaseConfiguration{
-					RedundancyMode: fdbtypes.RedundancyModeDouble,
+				Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdb.DatabaseConfiguration{
+					RedundancyMode: fdb.RedundancyModeDouble,
 					StorageEngine:  "ssd-2",
 					UsableRegions:  1,
-					RoleCounts: fdbtypes.RoleCounts{
+					RoleCounts: fdb.RoleCounts{
 						Logs:       3,
 						Proxies:    3,
 						Resolvers:  1,
 						LogRouters: -1,
 						RemoteLogs: -1,
 					},
-					VersionFlags: fdbtypes.VersionFlags{
+					VersionFlags: fdb.VersionFlags{
 						LogSpill: 2,
 					},
 				}))
 
 				address := cluster.Status.ProcessGroups[13].Addresses[0]
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
-				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
-					Address: fdbtypes.ProcessAddress{
+				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdb.FoundationDBStatusProcessInfo{
+					Address: fdb.ProcessAddress{
 						IPAddress: net.ParseIP(address),
 						Port:      4501,
 					},
-					ProcessClass: fdbtypes.ProcessClassStorage,
+					ProcessClass: fdb.ProcessClassStorage,
 					CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address),
 					Excluded:     false,
 					Locality: map[string]string{
@@ -99,9 +100,9 @@ var _ = Describe("admin_client_test", func() {
 					},
 					Version:       "6.2.20",
 					UptimeSeconds: 60000,
-					Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
+					Roles: []fdb.FoundationDBStatusProcessRoleInfo{
 						{
-							Role: string(fdbtypes.ProcessRoleCoordinator),
+							Role: string(fdb.ProcessRoleCoordinator),
 						},
 					},
 				}))
@@ -118,7 +119,7 @@ var _ = Describe("admin_client_test", func() {
 			When("the cluster has not been reconciled", func() {
 				It("should not have DNS names in the locality", func() {
 					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
-					Expect(locality[fdbtypes.FDBLocalityDNSNameKey]).To(BeEmpty())
+					Expect(locality[fdb.FDBLocalityDNSNameKey]).To(BeEmpty())
 				})
 			})
 
@@ -131,7 +132,7 @@ var _ = Describe("admin_client_test", func() {
 
 				It("should have DNS names in the locality", func() {
 					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
-					Expect(locality[fdbtypes.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, "operator-test-1-storage-1")))
+					Expect(locality[fdb.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, "operator-test-1-storage-1")))
 				})
 			})
 		})
@@ -147,12 +148,12 @@ var _ = Describe("admin_client_test", func() {
 
 			It("puts the additional processes in the status", func() {
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups) + 1))
-				Expect(status.Cluster.Processes["dc2-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
-					Address: fdbtypes.ProcessAddress{
+				Expect(status.Cluster.Processes["dc2-storage-1"]).To(Equal(fdb.FoundationDBStatusProcessInfo{
+					Address: fdb.ProcessAddress{
 						IPAddress: net.ParseIP("1.2.3.4"),
 						Port:      4501,
 					},
-					ProcessClass: fdbtypes.ProcessClassStorage,
+					ProcessClass: fdb.ProcessClassStorage,
 					Locality: map[string]string{
 						"instance_id": "dc2-storage-1",
 						"zoneid":      "dc2-storage-1",
@@ -171,7 +172,7 @@ var _ = Describe("admin_client_test", func() {
 
 			It("should put the backup in the layer status", func() {
 				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
-				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdb.FoundationDBStatusBackupTag{
 					"default": {
 						CurrentContainer: "blobstore://test@test-service/test-backup",
 						RunningBackup:    true,
@@ -211,7 +212,7 @@ var _ = Describe("admin_client_test", func() {
 				})
 
 				It("should mark the backup as stopped", func() {
-					Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+					Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdb.FoundationDBStatusBackupTag{
 						"default": {
 							CurrentContainer: "blobstore://test@test-service/test-backup",
 							RunningBackup:    false,

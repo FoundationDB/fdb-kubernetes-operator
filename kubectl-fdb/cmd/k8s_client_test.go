@@ -23,6 +23,7 @@ package cmd
 import (
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,7 +49,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 					Namespace: namespace,
 				},
 				Spec: fdbtypes.FoundationDBClusterSpec{
-					ProcessCounts: fdbtypes.ProcessCounts{
+					ProcessCounts: fdb.ProcessCounts{
 						Storage: 1,
 					},
 				},
@@ -94,11 +95,11 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
+								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
+								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:                clusterName,
 								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-1",
+								fdb.FDBProcessGroupIDLabel:         "instance-1",
 								internal.OldFDBProcessGroupIDLabel: "instance-1",
 							},
 						},
@@ -111,11 +112,11 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-2",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
+								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
+								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:                clusterName,
 								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-2",
+								fdb.FDBProcessGroupIDLabel:         "instance-2",
 								internal.OldFDBProcessGroupIDLabel: "instance-2",
 							},
 						},
@@ -128,11 +129,11 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-3",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
+								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
+								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:                clusterName,
 								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-3",
+								fdb.FDBProcessGroupIDLabel:         "instance-3",
 								internal.OldFDBProcessGroupIDLabel: "instance-3",
 							},
 						},
@@ -145,11 +146,11 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-4",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
+								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
+								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:                clusterName,
 								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-4",
+								fdb.FDBProcessGroupIDLabel:         "instance-4",
 								internal.OldFDBProcessGroupIDLabel: "instance-4",
 							},
 						},

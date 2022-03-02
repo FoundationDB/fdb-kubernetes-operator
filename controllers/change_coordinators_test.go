@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"math"
 	"net"
 	"strings"
@@ -46,11 +47,11 @@ var _ = Describe("Change coordinators", func() {
 		cluster.Spec.LockOptions.DisableLocks = &disabled
 		cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
 			{
-				ProcessClass: fdbtypes.ProcessClassStorage,
+				ProcessClass: fdb.ProcessClassStorage,
 				Priority:     math.MaxInt32,
 			},
 			{
-				ProcessClass: fdbtypes.ProcessClassLog,
+				ProcessClass: fdb.ProcessClassLog,
 				Priority:     0,
 			},
 		}
@@ -63,7 +64,7 @@ var _ = Describe("Change coordinators", func() {
 
 	Describe("selectCoordinators", func() {
 		Context("with a single FDB cluster", func() {
-			var status *fdbtypes.FoundationDBStatus
+			var status *fdb.FoundationDBStatus
 			var candidates []localityInfo
 
 			JustBeforeEach(func() {
@@ -182,7 +183,7 @@ var _ = Describe("Change coordinators", func() {
 				BeforeEach(func() {
 					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
 						{
-							ProcessClass: fdbtypes.ProcessClassLog,
+							ProcessClass: fdb.ProcessClassLog,
 							Priority:     0,
 						},
 					}
@@ -194,14 +195,14 @@ var _ = Describe("Change coordinators", func() {
 
 					// Only select Storage processes since we select 3 processes and we have 4 storage processes
 					for _, candidate := range candidates {
-						Expect(strings.HasPrefix(candidate.ID, string(fdbtypes.ProcessClassLog))).To(BeTrue())
+						Expect(strings.HasPrefix(candidate.ID, string(fdb.ProcessClassLog))).To(BeTrue())
 					}
 				})
 			})
 		})
 
 		When("Using a HA clusters", func() {
-			var status *fdbtypes.FoundationDBStatus
+			var status *fdb.FoundationDBStatus
 			var candidates []localityInfo
 			var excludes []string
 			var removals []string
@@ -617,19 +618,19 @@ var _ = Describe("Change coordinators", func() {
 				localities = []localityInfo{
 					{
 						ID:    "storage-1",
-						Class: fdbtypes.ProcessClassStorage,
+						Class: fdb.ProcessClassStorage,
 					},
 					{
 						ID:    "tlog-1",
-						Class: fdbtypes.ProcessClassTransaction,
+						Class: fdb.ProcessClassTransaction,
 					},
 					{
 						ID:    "log-1",
-						Class: fdbtypes.ProcessClassLog,
+						Class: fdb.ProcessClassLog,
 					},
 					{
 						ID:    "storage-51",
-						Class: fdbtypes.ProcessClassStorage,
+						Class: fdb.ProcessClassStorage,
 					},
 				}
 			})
@@ -642,13 +643,13 @@ var _ = Describe("Change coordinators", func() {
 				It("should sort the localities based on the IDs", func() {
 					sortLocalities(cluster, localities)
 
-					Expect(localities[0].Class).To(Equal(fdbtypes.ProcessClassLog))
+					Expect(localities[0].Class).To(Equal(fdb.ProcessClassLog))
 					Expect(localities[0].ID).To(Equal("log-1"))
-					Expect(localities[1].Class).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(localities[1].Class).To(Equal(fdb.ProcessClassStorage))
 					Expect(localities[1].ID).To(Equal("storage-1"))
-					Expect(localities[2].Class).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(localities[2].Class).To(Equal(fdb.ProcessClassStorage))
 					Expect(localities[2].ID).To(Equal("storage-51"))
-					Expect(localities[3].Class).To(Equal(fdbtypes.ProcessClassTransaction))
+					Expect(localities[3].Class).To(Equal(fdb.ProcessClassTransaction))
 					Expect(localities[3].ID).To(Equal("tlog-1"))
 				})
 			})
@@ -657,7 +658,7 @@ var _ = Describe("Change coordinators", func() {
 				BeforeEach(func() {
 					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
 						{
-							ProcessClass: fdbtypes.ProcessClassStorage,
+							ProcessClass: fdb.ProcessClassStorage,
 							Priority:     0,
 						},
 					}
@@ -666,13 +667,13 @@ var _ = Describe("Change coordinators", func() {
 				It("should sort the localities based on the provided config", func() {
 					sortLocalities(cluster, localities)
 
-					Expect(localities[0].Class).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(localities[0].Class).To(Equal(fdb.ProcessClassStorage))
 					Expect(localities[0].ID).To(Equal("storage-1"))
-					Expect(localities[1].Class).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(localities[1].Class).To(Equal(fdb.ProcessClassStorage))
 					Expect(localities[1].ID).To(Equal("storage-51"))
-					Expect(localities[2].Class).To(Equal(fdbtypes.ProcessClassLog))
+					Expect(localities[2].Class).To(Equal(fdb.ProcessClassLog))
 					Expect(localities[2].ID).To(Equal("log-1"))
-					Expect(localities[3].Class).To(Equal(fdbtypes.ProcessClassTransaction))
+					Expect(localities[3].Class).To(Equal(fdb.ProcessClassTransaction))
 					Expect(localities[3].ID).To(Equal("tlog-1"))
 				})
 			})
@@ -681,11 +682,11 @@ var _ = Describe("Change coordinators", func() {
 				BeforeEach(func() {
 					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
 						{
-							ProcessClass: fdbtypes.ProcessClassStorage,
+							ProcessClass: fdb.ProcessClassStorage,
 							Priority:     1,
 						},
 						{
-							ProcessClass: fdbtypes.ProcessClassTransaction,
+							ProcessClass: fdb.ProcessClassTransaction,
 							Priority:     0,
 						},
 					}
@@ -694,13 +695,13 @@ var _ = Describe("Change coordinators", func() {
 				It("should sort the localities based on the provided config", func() {
 					sortLocalities(cluster, localities)
 
-					Expect(localities[0].Class).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(localities[0].Class).To(Equal(fdb.ProcessClassStorage))
 					Expect(localities[0].ID).To(Equal("storage-1"))
-					Expect(localities[1].Class).To(Equal(fdbtypes.ProcessClassStorage))
+					Expect(localities[1].Class).To(Equal(fdb.ProcessClassStorage))
 					Expect(localities[1].ID).To(Equal("storage-51"))
-					Expect(localities[2].Class).To(Equal(fdbtypes.ProcessClassTransaction))
+					Expect(localities[2].Class).To(Equal(fdb.ProcessClassTransaction))
 					Expect(localities[2].ID).To(Equal("tlog-1"))
-					Expect(localities[3].Class).To(Equal(fdbtypes.ProcessClassLog))
+					Expect(localities[3].Class).To(Equal(fdb.ProcessClassLog))
 					Expect(localities[3].ID).To(Equal("log-1"))
 				})
 			})
@@ -775,27 +776,27 @@ var _ = Describe("Change coordinators", func() {
 	})
 })
 
-func generateProcessInfo(dcCount int, satCount int, excludes []string) map[string]fdbtypes.FoundationDBStatusProcessInfo {
-	res := map[string]fdbtypes.FoundationDBStatusProcessInfo{}
+func generateProcessInfo(dcCount int, satCount int, excludes []string) map[string]fdb.FoundationDBStatusProcessInfo {
+	res := map[string]fdb.FoundationDBStatusProcessInfo{}
 	logCnt := 4
 
 	for i := 0; i < dcCount; i++ {
 		dcid := fmt.Sprintf("dc%d", i)
 
-		generateProcessInfoDetails(res, dcid, 8, excludes, fdbtypes.ProcessClassStorage)
-		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbtypes.ProcessClassLog)
+		generateProcessInfoDetails(res, dcid, 8, excludes, fdb.ProcessClassStorage)
+		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdb.ProcessClassLog)
 	}
 
 	for i := 0; i < satCount; i++ {
 		dcid := fmt.Sprintf("sat%d", i)
 
-		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbtypes.ProcessClassLog)
+		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdb.ProcessClassLog)
 	}
 
 	return res
 }
 
-func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbtypes.ProcessClass) {
+func generateProcessInfoDetails(res map[string]fdb.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdb.ProcessClass) {
 	for idx := 0; idx < cnt; idx++ {
 		excluded := false
 		zoneID := fmt.Sprintf("%s-%s-%d", dcID, pClass, idx)
@@ -810,15 +811,15 @@ func generateProcessInfoDetails(res map[string]fdbtypes.FoundationDBStatusProces
 		}
 
 		addr := fmt.Sprintf("1.1.1.%d:4501", len(res))
-		res[zoneID] = fdbtypes.FoundationDBStatusProcessInfo{
+		res[zoneID] = fdb.FoundationDBStatusProcessInfo{
 			ProcessClass: pClass,
 			Locality: map[string]string{
-				fdbtypes.FDBLocalityInstanceIDKey: zoneID,
-				fdbtypes.FDBLocalityZoneIDKey:     zoneID,
-				fdbtypes.FDBLocalityDCIDKey:       dcID,
+				fdb.FDBLocalityInstanceIDKey: zoneID,
+				fdb.FDBLocalityZoneIDKey:     zoneID,
+				fdb.FDBLocalityDCIDKey:       dcID,
 			},
 			Excluded: excluded,
-			Address: fdbtypes.ProcessAddress{
+			Address: fdb.ProcessAddress{
 				IPAddress: net.ParseIP(fmt.Sprintf("1.1.1.%d", len(res))),
 				Port:      4501,
 			},

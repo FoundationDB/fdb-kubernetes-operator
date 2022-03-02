@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +42,7 @@ var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 // GetProcessGroupID generates an ID for a process group.
 //
 // This will return the pod name and the processGroupID ID.
-func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (string, string) {
+func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, idNum int) (string, string) {
 	var processGroupID string
 	if cluster.Spec.ProcessGroupIDPrefix != "" {
 		processGroupID = fmt.Sprintf("%s-%s-%d", cluster.Spec.ProcessGroupIDPrefix, processClass, idNum)
@@ -68,10 +70,10 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 
 		ports = append(ports, corev1.ServicePort{
 			Name: tlsPortName,
-			Port: int32(fdbtypes.GetProcessPort(i, true)),
+			Port: int32(fdb.GetProcessPort(i, true)),
 		}, corev1.ServicePort{
 			Name: nonTlSPortName,
-			Port: int32(fdbtypes.GetProcessPort(i, false)),
+			Port: int32(fdb.GetProcessPort(i, false)),
 		})
 	}
 
@@ -79,7 +81,7 @@ func generateServicePorts(processesPerPod int) []corev1.ServicePort {
 }
 
 // GetService builds a service for a new process group
-func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.Service, error) {
+func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, idNum int) (*corev1.Service, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -88,7 +90,7 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 	metadata.OwnerReferences = owner
 
 	processesPerPod := 1
-	if processClass == fdbtypes.ProcessClassStorage {
+	if processClass == fdb.ProcessClassStorage {
 		processesPerPod = cluster.GetStorageServersPerPod()
 	}
 
@@ -104,7 +106,7 @@ func GetService(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 }
 
 // GetPod builds a pod for a new process group
-func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.Pod, error) {
+func GetPod(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, idNum int) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -146,7 +148,7 @@ func GetImage(image string, configs []fdbtypes.ImageConfig, versionString string
 }
 
 // GetPodSpec builds a pod spec for a FoundationDB pod
-func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, idNum int) (*corev1.PodSpec, error) {
 	processSettings := cluster.GetProcessSettings(processClass)
 	podSpec := processSettings.PodTemplate.Spec.DeepCopy()
 	useUnifiedImages := pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
@@ -216,7 +218,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
 		}
 
-		if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbtypes.ProcessClassStorage {
+		if cluster.Spec.StorageServersPerPod > 1 && processClass == fdb.ProcessClassStorage {
 			storageServers := fmt.Sprintf("%d", cluster.Spec.StorageServersPerPod)
 			mainContainer.Args = append(mainContainer.Args, "--process-count", storageServers)
 			mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: storageServers})
@@ -318,7 +320,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 			return nil, err
 		}
 
-		if processClass == fdbtypes.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
+		if processClass == fdb.ProcessClassStorage && cluster.GetStorageServersPerPod() > 1 {
 			sidecarContainer.Env = append(sidecarContainer.Env, corev1.EnvVar{Name: "STORAGE_SERVERS_PER_POD", Value: fmt.Sprintf("%d", cluster.GetStorageServersPerPod())})
 		}
 	}
@@ -431,7 +433,7 @@ func GetPodSpec(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Pro
 		podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{
 			{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{
-					Key: fdbtypes.NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
+					Key: fdb.NodeSelectorNoScheduleLabel, Operator: corev1.NodeSelectorOpIn, Values: []string{"true"},
 				}},
 			},
 		}
@@ -474,7 +476,7 @@ func configureSidecarContainerForBackup(backup *fdbtypes.FoundationDBBackup, con
 // configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
 // container.
 func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbtypes.FoundationDBCluster, allowOverride bool) error {
-	version, err := fdbtypes.ParseFdbVersion(versionString)
+	version, err := fdb.ParseFdbVersion(versionString)
 	if err != nil {
 		return err
 	}
@@ -616,7 +618,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbtypes.FoundationDBCluster, i
 
 	var publicIPKey string
 	if usePublicIPFromService {
-		publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdbtypes.PublicIPAnnotation)
+		publicIPKey = fmt.Sprintf("metadata.annotations['%s']", fdb.PublicIPAnnotation)
 	} else {
 		family := cluster.Spec.Routing.PodIPFamily
 		if family == nil {
@@ -681,7 +683,7 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbtypes.FoundationDBCluster, i
 }
 
 // usePvc determines whether we should attach a PVC to a pod.
-func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) bool {
+func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass) bool {
 	var storage *resource.Quantity
 	processSettings := cluster.GetProcessSettings(processClass)
 
@@ -696,7 +698,7 @@ func usePvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 }
 
 // GetPvc builds a persistent volume claim for a FoundationDB process group.
-func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, idNum int) (*corev1.PersistentVolumeClaim, error) {
+func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, idNum int) (*corev1.PersistentVolumeClaim, error) {
 	if !usePvc(cluster, processClass) {
 		return nil, nil
 	}
@@ -738,7 +740,7 @@ func GetPvc(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.Process
 	if pvc.ObjectMeta.Annotations == nil {
 		pvc.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
-	pvc.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = specHash
+	pvc.ObjectMeta.Annotations[fdb.LastSpecKey] = specHash
 
 	return pvc, nil
 }
@@ -797,7 +799,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 			deployment.ObjectMeta.Annotations[key] = value
 		}
 	}
-	deployment.ObjectMeta.Labels[fdbtypes.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
+	deployment.ObjectMeta.Labels[fdb.BackupDeploymentLabel] = string(backup.ObjectMeta.UID)
 
 	var podTemplate *corev1.PodTemplateSpec
 	if backup.Spec.PodTemplateSpec != nil {
@@ -912,7 +914,7 @@ func GetBackupDeployment(backup *fdbtypes.FoundationDBBackup) (*appsv1.Deploymen
 		return nil, err
 	}
 
-	deployment.ObjectMeta.Annotations[fdbtypes.LastSpecKey] = specHash
+	deployment.ObjectMeta.Annotations[fdb.LastSpecKey] = specHash
 
 	return deployment, nil
 }
@@ -937,7 +939,7 @@ func GetStorageServersPerPodForPod(pod *corev1.Pod) (int, error) {
 }
 
 // GetPodMetadata returns the metadata for a specific Pod
-func GetPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string, specHash string) metav1.ObjectMeta {
+func GetPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, id string, specHash string) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -952,14 +954,14 @@ func GetPodMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[fdbtypes.LastSpecKey] = specHash
-	metadata.Annotations[fdbtypes.PublicIPSourceAnnotation] = string(*cluster.Spec.Routing.PublicIPSource)
+	metadata.Annotations[fdb.LastSpecKey] = specHash
+	metadata.Annotations[fdb.PublicIPSourceAnnotation] = string(*cluster.Spec.Routing.PublicIPSource)
 
 	return metadata
 }
 
 // GetObjectMetadata returns the ObjectMetadata for a process
-func GetObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdbtypes.ProcessClass, id string) metav1.ObjectMeta {
+func GetObjectMetadata(cluster *fdbtypes.FoundationDBCluster, base *metav1.ObjectMeta, processClass fdb.ProcessClass, id string) metav1.ObjectMeta {
 	var metadata *metav1.ObjectMeta
 
 	if base != nil {

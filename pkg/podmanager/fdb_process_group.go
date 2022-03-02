@@ -22,6 +22,7 @@ package podmanager
 
 import (
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"regexp"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -32,7 +33,7 @@ import (
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
 // ParseProcessGroupID extracts the components of an process group ID.
-func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
+func ParseProcessGroupID(id string) (fdb.ProcessClass, int, error) {
 	return internal.ParseProcessGroupID(id)
 }
 
@@ -57,7 +58,7 @@ func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) s
 }
 
 // GetProcessClass fetches the process class from a Pod's metadata.
-func GetProcessClass(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (fdbtypes.ProcessClass, error) {
+func GetProcessClass(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (fdb.ProcessClass, error) {
 	if pod == nil {
 		return "", fmt.Errorf("failed to fetch process class from nil Pod")
 	}
@@ -76,10 +77,10 @@ func GetPublicIPs(pod *corev1.Pod) []string {
 		return []string{}
 	}
 
-	source := pod.ObjectMeta.Annotations[fdbtypes.PublicIPSourceAnnotation]
+	source := pod.ObjectMeta.Annotations[fdb.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
 		return internal.GetPublicIPsForPod(pod)
 	}
 
-	return []string{pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
+	return []string{pod.ObjectMeta.Annotations[fdb.PublicIPAnnotation]}
 }

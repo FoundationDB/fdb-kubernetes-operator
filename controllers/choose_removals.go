@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -61,13 +62,13 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	}
 	localityMap := make(map[string]localityInfo)
 	for _, process := range status.Cluster.Processes {
-		id := process.Locality[fdbtypes.FDBLocalityInstanceIDKey]
+		id := process.Locality[fdb.FDBLocalityInstanceIDKey]
 		localityMap[id] = localityInfo{ID: id, Address: process.Address, LocalityData: process.Locality}
 	}
 
 	remainingProcessMap := make(map[string]bool, len(cluster.Status.ProcessGroups))
 
-	for _, processClass := range fdbtypes.ProcessClasses {
+	for _, processClass := range fdb.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		removedCount := currentCounts[processClass] - desiredCount
 		processClassLocality := make([]localityInfo, 0, currentCounts[processClass])
