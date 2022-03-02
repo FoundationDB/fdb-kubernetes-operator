@@ -72,7 +72,6 @@ spec:
                       format: int64
                       type: integer
                     ignoreTerminatingPodsSeconds:
-                      format: int64
                       type: integer
                     killProcesses:
                       type: boolean
