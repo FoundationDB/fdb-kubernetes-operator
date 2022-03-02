@@ -71,7 +71,7 @@ spec:
                     ignorePendingPodsDuration:
                       format: int64
                       type: integer
-                    ignoreTerminatingPodsDuration:
+                    ignoreTerminatingPodsSeconds:
                       format: int64
                       type: integer
                     killProcesses:

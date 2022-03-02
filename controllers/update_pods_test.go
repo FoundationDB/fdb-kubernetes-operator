@@ -109,7 +109,7 @@ var _ = Describe("update_pods", func() {
 	})
 
 	Context("Validating isPendingDeletion", func() {
-		var ignoreTerminatingPodsDuration = int(5 * time.Minute.Nanoseconds())
+		var ignoreTerminatingPodsSeconds = int(5 * time.Minute.Nanoseconds())
 		type testCase struct {
 			cluster      *fdbtypes.FoundationDBCluster
 			pod          *corev1.Pod
@@ -155,7 +155,7 @@ var _ = Describe("update_pods", func() {
 					cluster:  &fdbtypes.FoundationDBCluster{},
 					expected: false,
 				}),
-			Entry("with configured IgnoreTerminatingPodsDuration",
+			Entry("with configured IgnoreTerminatingPodsSeconds",
 				testCase{
 					pod: &corev1.Pod{
 						ObjectMeta: metav1.ObjectMeta{
@@ -166,7 +166,7 @@ var _ = Describe("update_pods", func() {
 					cluster: &fdbtypes.FoundationDBCluster{
 						Spec: fdbtypes.FoundationDBClusterSpec{
 							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-								IgnoreTerminatingPodsDuration: &ignoreTerminatingPodsDuration,
+								IgnoreTerminatingPodsSeconds: &ignoreTerminatingPodsSeconds,
 							},
 						},
 					},

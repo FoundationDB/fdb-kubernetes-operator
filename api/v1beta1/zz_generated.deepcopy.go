@@ -491,8 +491,8 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		**out = **in
 	}
 	in.Replacements.DeepCopyInto(&out.Replacements)
-	if in.IgnoreTerminatingPodsDuration != nil {
-		in, out := &in.IgnoreTerminatingPodsDuration, &out.IgnoreTerminatingPodsDuration
+	if in.IgnoreTerminatingPodsSeconds != nil {
+		in, out := &in.IgnoreTerminatingPodsSeconds, &out.IgnoreTerminatingPodsSeconds
 		*out = new(int)
 		**out = **in
 	}
