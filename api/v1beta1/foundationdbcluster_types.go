@@ -3124,7 +3124,7 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 
 // GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.
 func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int(10*time.Minute))
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))
 }
 
 // GetEnforceFullReplicationForDeletion returns the value of enforceFullReplicationForDeletion or true if unset.

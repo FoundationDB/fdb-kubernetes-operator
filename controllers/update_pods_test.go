@@ -170,7 +170,7 @@ var _ = Describe("update_pods", func() {
 			var pod *corev1.Pod
 			var ignoreTerminatingPodsSeconds int
 			BeforeEach(func() {
-				ignoreTerminatingPodsSeconds = int(5 * time.Minute.Nanoseconds())
+				ignoreTerminatingPodsSeconds = int(5 * time.Minute.Seconds())
 				cluster = &fdbtypes.FoundationDBCluster{
 					Spec: fdbtypes.FoundationDBClusterSpec{
 						AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
