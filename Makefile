@@ -2,7 +2,7 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
-CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
+CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 
 ifneq "$(FDB_WEBSITE)" ""
 	img_build_args := $(img_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
