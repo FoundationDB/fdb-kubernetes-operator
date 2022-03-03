@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"fmt"
+	"k8s.io/utils/pointer"
 	"time"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
@@ -168,13 +169,11 @@ var _ = Describe("update_pods", func() {
 		When("with configured IgnoreTerminatingPodsSeconds", func() {
 			var cluster *fdbtypes.FoundationDBCluster
 			var pod *corev1.Pod
-			var ignoreTerminatingPodsSeconds int
 			BeforeEach(func() {
-				ignoreTerminatingPodsSeconds = int(5 * time.Minute.Seconds())
 				cluster = &fdbtypes.FoundationDBCluster{
 					Spec: fdbtypes.FoundationDBClusterSpec{
 						AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-							IgnoreTerminatingPodsSeconds: &ignoreTerminatingPodsSeconds,
+							IgnoreTerminatingPodsSeconds: pointer.Int(int(5 * time.Minute.Seconds())),
 						},
 					},
 				}
