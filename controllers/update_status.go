@@ -23,10 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"reflect"
 	"sort"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 

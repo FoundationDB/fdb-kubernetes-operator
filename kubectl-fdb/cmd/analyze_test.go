@@ -23,9 +23,10 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"

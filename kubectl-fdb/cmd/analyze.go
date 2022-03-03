@@ -22,9 +22,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"context"
 

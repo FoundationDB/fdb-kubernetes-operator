@@ -17,8 +17,9 @@ package main
 
 import (
 	"flag"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"os"
+
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 

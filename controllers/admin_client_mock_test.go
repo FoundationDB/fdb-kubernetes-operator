@@ -21,8 +21,9 @@
 package controllers
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"net"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"

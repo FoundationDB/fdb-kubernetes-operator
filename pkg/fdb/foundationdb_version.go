@@ -26,11 +26,11 @@ import (
 	"strconv"
 )
 
-// FdbVersion represents a version of FoundationDB.
+// Version represents a version of FoundationDB.
 //
 // This provides convenience methods for checking features available in
 // different versions.
-type FdbVersion struct {
+type Version struct {
 	// Major is the major version
 	Major int
 
@@ -45,29 +45,29 @@ type FdbVersion struct {
 	ReleaseCandidate int
 }
 
-// FDBVersionRegex describes the format of a FoundationDB version.
-var FDBVersionRegex = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)(-rc(\d+))?`)
+// VersionRegex describes the format of a FoundationDB version.
+var VersionRegex = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)(-rc(\d+))?`)
 
 // ParseFdbVersion parses a version from its string representation.
-func ParseFdbVersion(version string) (FdbVersion, error) {
-	matches := FDBVersionRegex.FindStringSubmatch(version)
+func ParseFdbVersion(version string) (Version, error) {
+	matches := VersionRegex.FindStringSubmatch(version)
 	if matches == nil {
-		return FdbVersion{}, fmt.Errorf("could not parse FDB version from %s", version)
+		return Version{}, fmt.Errorf("could not parse FDB version from %s", version)
 	}
 
 	major, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return FdbVersion{}, err
+		return Version{}, err
 	}
 
 	minor, err := strconv.Atoi(matches[2])
 	if err != nil {
-		return FdbVersion{}, err
+		return Version{}, err
 	}
 
 	patch, err := strconv.Atoi(matches[3])
 	if err != nil {
-		return FdbVersion{}, err
+		return Version{}, err
 	}
 
 	rc, err := strconv.Atoi(matches[5])
@@ -75,11 +75,11 @@ func ParseFdbVersion(version string) (FdbVersion, error) {
 		rc = 0
 	}
 
-	return FdbVersion{Major: major, Minor: minor, Patch: patch, ReleaseCandidate: rc}, nil
+	return Version{Major: major, Minor: minor, Patch: patch, ReleaseCandidate: rc}, nil
 }
 
 // String gets the string representation of an FDB version.
-func (version FdbVersion) String() string {
+func (version Version) String() string {
 	if version.ReleaseCandidate == 0 {
 		return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
 	}
@@ -87,12 +87,12 @@ func (version FdbVersion) String() string {
 }
 
 // Compact prints the version in the major.minor format.
-func (version FdbVersion) Compact() string {
+func (version Version) Compact() string {
 	return fmt.Sprintf("%d.%d", version.Major, version.Minor)
 }
 
 // IsAtLeast determines if a version is greater than or equal to another version.
-func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
+func (version Version) IsAtLeast(other Version) bool {
 	if version.Major < other.Major {
 		return false
 	}
@@ -121,7 +121,7 @@ func (version FdbVersion) IsAtLeast(other FdbVersion) bool {
 }
 
 // GetBinaryVersion Returns a version string compatible with the log implemented in the sidecars
-func (version FdbVersion) GetBinaryVersion() string {
+func (version Version) GetBinaryVersion() string {
 	if version.ReleaseCandidate > 0 {
 		return version.String()
 	}
@@ -130,33 +130,33 @@ func (version FdbVersion) GetBinaryVersion() string {
 
 // IsProtocolCompatible determines whether two versions of FDB are protocol
 // compatible.
-func (version FdbVersion) IsProtocolCompatible(other FdbVersion) bool {
+func (version Version) IsProtocolCompatible(other Version) bool {
 	return version.Major == other.Major && version.Minor == other.Minor && version.ReleaseCandidate == other.ReleaseCandidate
 }
 
 // HasNonBlockingExcludes determines if a version has support for non-blocking
 // exclude commands.
-func (version FdbVersion) HasNonBlockingExcludes(useNonBlockingExcludes bool) bool {
-	return version.IsAtLeast(FdbVersion{Major: 6, Minor: 3, Patch: 5}) && useNonBlockingExcludes
+func (version Version) HasNonBlockingExcludes(useNonBlockingExcludes bool) bool {
+	return version.IsAtLeast(Version{Major: 6, Minor: 3, Patch: 5}) && useNonBlockingExcludes
 }
 
 // NextMajorVersion returns the next major version of FoundationDB.
-func (version FdbVersion) NextMajorVersion() FdbVersion {
-	return FdbVersion{Major: version.Major + 1, Minor: 0, Patch: 0}
+func (version Version) NextMajorVersion() Version {
+	return Version{Major: version.Major + 1, Minor: 0, Patch: 0}
 }
 
 // NextMinorVersion returns the next minor version of FoundationDB.
-func (version FdbVersion) NextMinorVersion() FdbVersion {
-	return FdbVersion{Major: version.Major, Minor: version.Minor + 1, Patch: 0}
+func (version Version) NextMinorVersion() Version {
+	return Version{Major: version.Major, Minor: version.Minor + 1, Patch: 0}
 }
 
 // NextPatchVersion returns the next patch version of FoundationDB.
-func (version FdbVersion) NextPatchVersion() FdbVersion {
-	return FdbVersion{Major: version.Major, Minor: version.Minor, Patch: version.Patch + 1}
+func (version Version) NextPatchVersion() Version {
+	return Version{Major: version.Major, Minor: version.Minor, Patch: version.Patch + 1}
 }
 
-// Equal checks if two FdbVersion are the same.
-func (version FdbVersion) Equal(other FdbVersion) bool {
+// Equal checks if two Version are the same.
+func (version Version) Equal(other Version) bool {
 	return version.Major == other.Major &&
 		version.Minor == other.Minor &&
 		version.Patch == other.Patch &&
@@ -164,12 +164,12 @@ func (version FdbVersion) Equal(other FdbVersion) bool {
 }
 
 // IsSupported defines the minimum supported FDB version.
-func (version FdbVersion) IsSupported() bool {
+func (version Version) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
 // IsReleaseCandidate returns true if the version is a releasecandidate or not
-func (version FdbVersion) IsReleaseCandidate() bool {
+func (version Version) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0
 }
 
@@ -179,10 +179,10 @@ var Versions = struct {
 	NextMajorVersion,
 	NextPatchVersion,
 	MinimumVersion,
-	Default FdbVersion
+	Default Version
 }{
-	Default:          FdbVersion{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion: FdbVersion{Major: 6, Minor: 2, Patch: 21},
-	NextMajorVersion: FdbVersion{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:   FdbVersion{Major: 6, Minor: 2, Patch: 20},
+	Default:          Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion: Version{Major: 6, Minor: 2, Patch: 21},
+	NextMajorVersion: Version{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:   Version{Major: 6, Minor: 2, Patch: 20},
 }

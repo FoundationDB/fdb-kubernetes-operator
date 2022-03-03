@@ -22,6 +22,7 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -66,7 +67,7 @@ var _ = Describe("lock_client_test", func() {
 			err = client.AddPendingUpgrades(fdb.Versions.NextMajorVersion, []string{"storage-3", "storage-4"})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(client.pendingUpgrades).To(Equal(map[fdb.FdbVersion]map[string]bool{
+			Expect(client.pendingUpgrades).To(Equal(map[fdb.Version]map[string]bool{
 				fdb.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,
@@ -82,7 +83,7 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("GetPendingUpgrades", func() {
 		BeforeEach(func() {
-			client.pendingUpgrades = map[fdb.FdbVersion]map[string]bool{
+			client.pendingUpgrades = map[fdb.Version]map[string]bool{
 				fdb.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,

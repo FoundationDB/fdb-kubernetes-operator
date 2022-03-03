@@ -21,9 +21,10 @@
 package controllers
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"sort"
 	"sync"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
@@ -40,7 +41,7 @@ type mockLockClient struct {
 
 	// pendingUpgrades stores data about process groups that have a pending
 	// upgrade.
-	pendingUpgrades map[fdb.FdbVersion]map[string]bool
+	pendingUpgrades map[fdb.Version]map[string]bool
 }
 
 // TakeLock attempts to acquire a lock.
@@ -55,7 +56,7 @@ func (client *mockLockClient) Disabled() bool {
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *mockLockClient) AddPendingUpgrades(version fdb.FdbVersion, processGroupIDs []string) error {
+func (client *mockLockClient) AddPendingUpgrades(version fdb.Version, processGroupIDs []string) error {
 	if client.pendingUpgrades[version] == nil {
 		client.pendingUpgrades[version] = make(map[string]bool)
 	}
@@ -67,7 +68,7 @@ func (client *mockLockClient) AddPendingUpgrades(version fdb.FdbVersion, process
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *mockLockClient) GetPendingUpgrades(version fdb.FdbVersion) (map[string]bool, error) {
+func (client *mockLockClient) GetPendingUpgrades(version fdb.Version) (map[string]bool, error) {
 	upgrades := client.pendingUpgrades[version]
 	if upgrades == nil {
 		return make(map[string]bool), nil
@@ -124,7 +125,7 @@ func newMockLockClientUncast(cluster *fdbtypes.FoundationDBCluster) *mockLockCli
 
 	client := lockClientCache[cluster.Name]
 	if client == nil {
-		client = &mockLockClient{cluster: cluster, pendingUpgrades: make(map[fdb.FdbVersion]map[string]bool)}
+		client = &mockLockClient{cluster: cluster, pendingUpgrades: make(map[fdb.Version]map[string]bool)}
 		lockClientCache[cluster.Name] = client
 	}
 	return client

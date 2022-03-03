@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"os"
 	"os/exec"
 	"regexp"
@@ -32,6 +31,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 

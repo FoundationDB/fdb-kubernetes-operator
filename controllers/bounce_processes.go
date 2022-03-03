@@ -23,9 +23,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"math"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -203,7 +204,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient fdbadminclient.LockClient, cluster *fdbtypes.FoundationDBCluster, version fdb.FdbVersion) ([]fdb.ProcessAddress, *requeue) {
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient fdbadminclient.LockClient, cluster *fdbtypes.FoundationDBCluster, version fdb.Version) ([]fdb.ProcessAddress, *requeue) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {

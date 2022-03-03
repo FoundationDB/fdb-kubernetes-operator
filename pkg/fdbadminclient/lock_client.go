@@ -35,11 +35,11 @@ type LockClient interface {
 
 	// AddPendingUpgrades registers information about which process groups are
 	// pending an upgrade to a new version.
-	AddPendingUpgrades(version fdb.FdbVersion, processGroupIDs []string) error
+	AddPendingUpgrades(version fdb.Version, processGroupIDs []string) error
 
 	// GetPendingUpgrades returns the stored information about which process
 	// groups are pending an upgrade to a new version.
-	GetPendingUpgrades(version fdb.FdbVersion) (map[string]bool, error)
+	GetPendingUpgrades(version fdb.Version) (map[string]bool, error)
 
 	// ClearPendingUpgrades clears any stored information about pending
 	// upgrades.

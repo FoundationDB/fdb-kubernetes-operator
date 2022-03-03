@@ -23,12 +23,13 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"

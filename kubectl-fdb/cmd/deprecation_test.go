@@ -22,8 +22,9 @@ package cmd
 
 import (
 	"bytes"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"strings"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 

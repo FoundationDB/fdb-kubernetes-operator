@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"k8s.io/utils/pointer"
 

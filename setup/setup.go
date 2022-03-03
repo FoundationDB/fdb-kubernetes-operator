@@ -23,12 +23,13 @@ package setup
 import (
 	"flag"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"io"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -254,7 +255,7 @@ func moveFDBBinaries() error {
 	}
 
 	for _, binEntry := range binDir {
-		if binEntry.IsDir() && fdb.FDBVersionRegex.Match([]byte(binEntry.Name())) {
+		if binEntry.IsDir() && fdb.VersionRegex.Match([]byte(binEntry.Name())) {
 			version, err := fdb.ParseFdbVersion(binEntry.Name())
 			if err != nil {
 				return err

@@ -23,10 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"net"
 	"strings"
 	"sync"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"

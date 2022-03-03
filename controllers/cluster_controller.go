@@ -25,10 +25,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"math"
 	"regexp"
 	"sort"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

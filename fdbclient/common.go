@@ -23,8 +23,9 @@ package fdbclient
 import (
 	"encoding/json"
 	"fmt"
-	fdb2 "github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"os"
+
+	fdb2 "github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
