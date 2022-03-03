@@ -108,71 +108,88 @@ var _ = Describe("update_pods", func() {
 		)
 	})
 
-	Context("Validating isPendingDeletion", func() {
-		var ignoreTerminatingPodsSeconds = int(5 * time.Minute.Nanoseconds())
-		type testCase struct {
-			cluster      *fdbtypes.FoundationDBCluster
-			pod          *corev1.Pod
-			processGroup string
-			expected     bool
-		}
+	Context("Validating shouldRequeueDueToTerminatingPod", func() {
+		var processGroup = ""
 
-		DescribeTable("is Pod pending deletion",
-			func(input testCase) {
-				Expect(shouldRequeueDueToTerminatingPod(input.pod, input.cluster, input.processGroup)).To(Equal(input.expected))
-			},
-			Entry("pod without deletionTimestamp",
-				testCase{
-					pod: &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "Pod1",
+		When("pod is without deletionTimestamp", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Pod1",
+					},
+				}
+			})
+
+			It("should not requeue due to terminating pods", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
+
+		When("pod with deletionTimestamp less than ignore limit", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "Pod1",
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+				}
+			})
+
+			It("should requeue due to terminating pods", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeTrue())
+			})
+		})
+
+		When("pod with deletionTimestamp more than ignore limit", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "Pod1",
+						DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-15 * time.Minute)},
+					},
+				}
+
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
+
+		When("with configured IgnoreTerminatingPodsSeconds", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			var ignoreTerminatingPodsSeconds int
+			BeforeEach(func() {
+				ignoreTerminatingPodsSeconds = int(5 * time.Minute.Nanoseconds())
+				cluster = &fdbtypes.FoundationDBCluster{
+					Spec: fdbtypes.FoundationDBClusterSpec{
+						AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+							IgnoreTerminatingPodsSeconds: &ignoreTerminatingPodsSeconds,
 						},
 					},
-					cluster:      &fdbtypes.FoundationDBCluster{},
-					processGroup: "",
-					expected:     false,
-				}),
-			Entry("pod with deletionTimestamp less than ignore limit",
-				testCase{
-					pod: &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:              "Pod1",
-							DeletionTimestamp: &metav1.Time{Time: time.Now()},
-						},
+				}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "Pod1",
+						DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
 					},
-					cluster:      &fdbtypes.FoundationDBCluster{},
-					processGroup: "",
-					expected:     true,
-				}),
-			Entry("pod with deletionTimestamp more than ignore limit",
-				testCase{
-					pod: &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:              "Pod1",
-							DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-15 * time.Minute)},
-						},
-					},
-					cluster:  &fdbtypes.FoundationDBCluster{},
-					expected: false,
-				}),
-			Entry("with configured IgnoreTerminatingPodsSeconds",
-				testCase{
-					pod: &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:              "Pod1",
-							DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
-						},
-					},
-					cluster: &fdbtypes.FoundationDBCluster{
-						Spec: fdbtypes.FoundationDBClusterSpec{
-							AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-								IgnoreTerminatingPodsSeconds: &ignoreTerminatingPodsSeconds,
-							},
-						},
-					},
-					processGroup: "",
-					expected:     false,
-				}),
-		)
+				}
+
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
 	})
 })
