@@ -32,13 +32,13 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("replace_failed_process_groups", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var result bool
 
@@ -75,9 +75,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 	Context("with a process that has been missing for a long time", func() {
 		BeforeEach(func() {
-			processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-				ProcessGroupConditionType: fdbtypes.MissingProcesses,
+			processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
 				Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
 			})
 		})
@@ -104,9 +104,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 		Context("with multiple failed processes", func() {
 			BeforeEach(func() {
-				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
-				processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-					ProcessGroupConditionType: fdbtypes.MissingProcesses,
+				processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
+				processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+					ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
 					Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
 				})
 			})
@@ -132,7 +132,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 		Context("with another in-flight exclusion", func() {
 			BeforeEach(func() {
-				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
+				processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
 				processGroup.MarkForRemoval()
 			})
 
@@ -177,7 +177,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 		Context("with another complete exclusion", func() {
 			BeforeEach(func() {
-				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
+				processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-3")
 				processGroup.MarkForRemoval()
 				processGroup.SetExclude()
 			})
@@ -193,7 +193,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 		Context("with no addresses", func() {
 			BeforeEach(func() {
-				processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+				processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 				processGroup.Addresses = nil
 			})
 
@@ -217,7 +217,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			When("the cluster is not available", func() {
 				BeforeEach(func() {
-					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
@@ -242,7 +242,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			When("the cluster doesn't have full fault tolerance", func() {
 				BeforeEach(func() {
-					processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+					processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
 					processGroup.Addresses = nil
 
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
@@ -263,9 +263,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 	Context("with a process that has been missing for a brief time", func() {
 		BeforeEach(func() {
-			processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-				ProcessGroupConditionType: fdbtypes.MissingProcesses,
+			processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
 				Timestamp:                 time.Now().Unix(),
 			})
 		})
@@ -281,9 +281,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 	Context("with a process that has had an incorrect pod spec for a long time", func() {
 		BeforeEach(func() {
-			processGroup := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
-			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbtypes.ProcessGroupCondition{
-				ProcessGroupConditionType: fdbtypes.IncorrectPodSpec,
+			processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-2")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbv1beta2.IncorrectPodSpec,
 				Timestamp:                 time.Now().Add(-1 * time.Hour).Unix(),
 			})
 		})
@@ -300,7 +300,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 // getRemovedProcessGroupIDs returns a list of ids for the process groups that
 // are marked for removal.
-func getRemovedProcessGroupIDs(cluster *fdbtypes.FoundationDBCluster) []string {
+func getRemovedProcessGroupIDs(cluster *fdbv1beta2.FoundationDBCluster) []string {
 	results := make([]string, 0)
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if processGroupStatus.IsMarkedForRemoval() {

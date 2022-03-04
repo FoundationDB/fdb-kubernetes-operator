@@ -21,11 +21,8 @@
 package cmd
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -42,16 +39,7 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}

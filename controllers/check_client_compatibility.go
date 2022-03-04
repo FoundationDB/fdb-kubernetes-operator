@@ -30,7 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // checkClientCompatibility confirms that all clients are compatible with the
@@ -38,7 +38,7 @@ import (
 type checkClientCompatibility struct{}
 
 // reconcile runs the reconciler's work.
-func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "checkClientCompatibility")
 	if !cluster.Status.Configured {
 		return nil

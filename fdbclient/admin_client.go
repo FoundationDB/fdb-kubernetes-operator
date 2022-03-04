@@ -38,7 +38,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -69,7 +69,7 @@ var protocolVersionRegex = regexp.MustCompile(`(?m)^protocol (\w+)$`)
 // FDB CLI.
 type cliAdminClient struct {
 	// Cluster is the reference to the cluster model.
-	Cluster *fdbtypes.FoundationDBCluster
+	Cluster *fdbv1beta2.FoundationDBCluster
 
 	// clusterFilePath is the path to the temp file containing the cluster file
 	// for this session.
@@ -84,7 +84,7 @@ type cliAdminClient struct {
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
+func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
 	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
@@ -452,7 +452,7 @@ func parseExclusionOutput(output string) map[string]string {
 	return results
 }
 
-// KillInstances restarts processes
+// KillProcesses restarts processes
 func (client *cliAdminClient) KillProcesses(addresses []fdb.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
@@ -479,7 +479,7 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdb.ProcessAddress)
 		return "", err
 	}
 
-	connectionString, err := fdbtypes.ParseConnectionString(string(connectionStringBytes))
+	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
 	if err != nil {
 		return "", err
 	}
@@ -502,7 +502,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 		return "", err
 	}
 
-	connectionString, err := fdbtypes.ParseConnectionString(string(connectionStringBytes))
+	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
 	if err != nil {
 		return "", err
 	}
@@ -612,7 +612,7 @@ func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	statusString, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
 		args: []string{
@@ -625,7 +625,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 		return nil, err
 	}
 
-	status := &fdbtypes.FoundationDBLiveBackupStatus{}
+	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 	statusString, err = removeWarningsInJSON(statusString)
 	if err != nil {
 		return nil, err
@@ -640,7 +640,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 }
 
 // StartRestore starts a new restore.
-func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
+func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error {
 	args := []string{
 		"start",
 		"-r",

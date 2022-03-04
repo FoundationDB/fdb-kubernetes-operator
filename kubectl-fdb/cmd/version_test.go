@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -80,7 +80,7 @@ var _ = Describe("[plugin] version command", func() {
 			func(input testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(input.deployment).Build()
 
 				operatorVersion, err := version(kubeClient, operatorName, "default", "manager")

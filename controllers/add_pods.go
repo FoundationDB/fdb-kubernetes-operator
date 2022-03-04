@@ -30,7 +30,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +40,7 @@ import (
 type addPods struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPods")
 	if err != nil {
@@ -96,7 +96,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 
 		pod.ObjectMeta.Annotations[fdb.LastConfigMapKey] = configMapHash
 
-		if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
+		if *cluster.Spec.Routing.PublicIPSource == fdbv1beta2.PublicIPSourceService {
 			service := &corev1.Service{}
 			err = r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 			if err != nil {

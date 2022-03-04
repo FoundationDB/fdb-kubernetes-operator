@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,7 +55,7 @@ type FoundationDBBackupReconciler struct {
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBBackupReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	backup := &fdbtypes.FoundationDBBackup{}
+	backup := &fdbv1beta2.FoundationDBBackup{}
 
 	err := r.Get(ctx, request.NamespacedName, backup)
 
@@ -111,8 +111,8 @@ func (r *FoundationDBBackupReconciler) getDatabaseClientProvider() DatabaseClien
 }
 
 // adminClientForBackup provides an admin client for a backup reconciler.
-func (r *FoundationDBBackupReconciler) adminClientForBackup(ctx context.Context, backup *fdbtypes.FoundationDBBackup) (fdbadminclient.AdminClient, error) {
-	cluster := &fdbtypes.FoundationDBCluster{}
+func (r *FoundationDBBackupReconciler) adminClientForBackup(ctx context.Context, backup *fdbv1beta2.FoundationDBBackup) (fdbadminclient.AdminClient, error) {
+	cluster := &fdbv1beta2.FoundationDBCluster{}
 	err := r.Get(ctx, types.NamespacedName{Namespace: backup.ObjectMeta.Namespace, Name: backup.Spec.ClusterName}, cluster)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func (r *FoundationDBBackupReconciler) SetupWithManager(mgr ctrl.Manager, maxCon
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles},
 		).
-		For(&fdbtypes.FoundationDBBackup{}).
+		For(&fdbv1beta2.FoundationDBBackup{}).
 		Owns(&appsv1.Deployment{}).
 		// Only react on generation changes or annotation changes and only watch
 		// resources with the provided label selector.
@@ -174,5 +174,5 @@ type backupSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with a
 	`Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue
+	reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue
 }

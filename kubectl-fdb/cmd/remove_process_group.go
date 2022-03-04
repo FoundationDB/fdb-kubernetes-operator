@@ -35,13 +35,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ctx "context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -76,21 +74,8 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			useInstanceList, err := cmd.Root().Flags().GetBool("use-old-instances-remove")
-			if err != nil {
-				return err
-			}
 
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
@@ -108,7 +93,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				}
 			}
 
-			return replaceProcessGroups(kubeClient, cluster, processGroups, namespace, withExclusion, withShrink, force, removeAllFailed, useInstanceList)
+			return replaceProcessGroups(kubeClient, cluster, processGroups, namespace, withExclusion, withShrink, force, removeAllFailed)
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
@@ -119,7 +104,7 @@ kubectl fdb -n default remove process-group  -c cluster pod-1 pod-2
 
 # Remove process groups for a cluster with the process group ID.
 # The process group ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
-kubectl fdb -n default remove process-group  --use-process-group-id -c cluster storage-1 storage-2
+kubectl fdb -n default remove process-group --use-process-group-id -c cluster storage-1 storage-2
 
 # Remove all failed process groups for a cluster (all process groups that have a missing process)
 kubectl fdb -n default remove process-group  -c cluster --remove-all-failed
@@ -128,7 +113,6 @@ kubectl fdb -n default remove process-group  -c cluster --remove-all-failed
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groupss from the provided cluster.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
-	cmd.Flags().Bool("use-process-group-id", false, "if set the operator will use the process group ID to remove it rather than the Pod(s) name.")
 	cmd.Flags().Bool("shrink", false, "define if the removed process groups should not be replaced.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
@@ -172,7 +156,7 @@ func getProcessGroupIDsFromPod(kubeClient client.Client, clusterName string, pod
 	return processGroups, nil
 }
 
-func filterAlreadyMarkedProcessGroups(cluster *fdbtypes.FoundationDBCluster, processGroupIDs []string) []string {
+func filterAlreadyMarkedProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, processGroupIDs []string) []string {
 	res := make([]string, 0, len(processGroupIDs))
 
 	for _, processGroupID := range processGroupIDs {
@@ -185,7 +169,7 @@ func filterAlreadyMarkedProcessGroups(cluster *fdbtypes.FoundationDBCluster, pro
 }
 
 // replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool, useInstanceList bool) error {
+func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
 	if err != nil {
@@ -205,7 +189,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 		var pods corev1.PodList
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
+			client.MatchingLabels(cluster.GetMatchLabels()),
 		)
 		if err != nil {
 			return err
@@ -241,18 +225,10 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 
 	processGroups = filterAlreadyMarkedProcessGroups(cluster, processGroups)
 
-	if useInstanceList {
-		if withExclusion {
-			cluster.Spec.InstancesToRemove = append(cluster.Spec.InstancesToRemove, processGroups...)
-		} else {
-			cluster.Spec.InstancesToRemoveWithoutExclusion = append(cluster.Spec.InstancesToRemoveWithoutExclusion, processGroups...)
-		}
+	if withExclusion {
+		cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, processGroups...)
 	} else {
-		if withExclusion {
-			cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, processGroups...)
-		} else {
-			cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroups...)
-		}
+		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroups...)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)

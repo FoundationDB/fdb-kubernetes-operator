@@ -29,7 +29,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +38,7 @@ import (
 
 var _ = Describe("update_status", func() {
 	Context("validate process group", func() {
-		var cluster *fdbtypes.FoundationDBCluster
+		var cluster *fdbv1beta2.FoundationDBCluster
 		var configMap *corev1.ConfigMap
 		var adminClient *mockAdminClient
 		var pods []*corev1.Pod
@@ -81,13 +81,13 @@ var _ = Describe("update_status", func() {
 
 		When("process group has no Pod", func() {
 			It("should be added to the failing Pods", func() {
-				processGroupStatus := fdbtypes.NewProcessGroupStatus("storage-1337", fdb.ProcessClassStorage, []string{"1.1.1.1"})
+				processGroupStatus := fdbv1beta2.NewProcessGroupStatus("storage-1337", fdb.ProcessClassStorage, []string{"1.1.1.1"})
 				// Reset the status to only tests for the missing Pod
-				processGroupStatus.ProcessGroupConditions = []*fdbtypes.ProcessGroupCondition{}
+				processGroupStatus.ProcessGroupConditions = []*fdbv1beta2.ProcessGroupCondition{}
 				err := validateProcessGroup(context.TODO(), clusterReconciler, cluster, nil, "", processGroupStatus)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(1))
-				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
+				Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
 			})
 		})
 
@@ -110,7 +110,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingPod, false)
+				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.MissingPod, false)
 				Expect(missingProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -129,7 +129,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				incorrectProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectCommandLine, false)
+				incorrectProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectCommandLine, false)
 				Expect(incorrectProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -148,7 +148,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				missingProcesses := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.MissingProcesses, false)
+				missingProcesses := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.MissingProcesses, false)
 				Expect(missingProcesses).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -169,7 +169,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				incorrectPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.IncorrectPodSpec, false)
+				incorrectPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.IncorrectPodSpec, false)
 				Expect(incorrectPods).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -190,7 +190,7 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
+				failingPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodFailing, false)
 				Expect(failingPods).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
@@ -211,44 +211,13 @@ var _ = Describe("update_status", func() {
 				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
 				Expect(err).NotTo(HaveOccurred())
 
-				failingPods := fdbtypes.FilterByCondition(processGroupStatus, fdbtypes.PodFailing, false)
+				failingPods := fdbv1beta2.FilterByCondition(processGroupStatus, fdbv1beta2.PodFailing, false)
 				Expect(failingPods).To(Equal([]string{"storage-1"}))
 
 				Expect(len(processGroupStatus)).To(BeNumerically(">", 4))
 				processGroup := processGroupStatus[len(processGroupStatus)-4]
 				Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
 				Expect(len(processGroup.ProcessGroupConditions)).To(Equal(1))
-			})
-		})
-
-		When("adding a process group to the InstancesToRemove list", func() {
-			var removedProcessGroup string
-
-			BeforeEach(func() {
-				removedProcessGroup = "storage-1"
-				pods[0].Status.Phase = corev1.PodFailed
-				err = k8sClient.Update(context.TODO(), pods[0])
-				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.InstancesToRemove = []string{removedProcessGroup}
-			})
-
-			It("should mark the process group for removal", func() {
-				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
-				Expect(err).NotTo(HaveOccurred())
-
-				removalCount := 0
-				for _, processGroup := range processGroupStatus {
-					if processGroup.ProcessGroupID == removedProcessGroup {
-						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
-						Expect(processGroup.ExclusionSkipped).To(BeFalse())
-						removalCount++
-						continue
-					}
-
-					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
-				}
-
-				Expect(removalCount).To(BeNumerically("==", 1))
 			})
 		})
 
@@ -272,37 +241,6 @@ var _ = Describe("update_status", func() {
 					if processGroup.ProcessGroupID == removedProcessGroup {
 						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
 						Expect(processGroup.ExclusionSkipped).To(BeFalse())
-						removalCount++
-						continue
-					}
-
-					Expect(processGroup.IsMarkedForRemoval()).To(BeFalse())
-				}
-
-				Expect(removalCount).To(BeNumerically("==", 1))
-			})
-		})
-
-		When("adding a process group to the InstancesToRemoveWithoutExclusion list", func() {
-			var removedProcessGroup string
-
-			BeforeEach(func() {
-				removedProcessGroup = "storage-1"
-				pods[0].Status.Phase = corev1.PodFailed
-				err = k8sClient.Update(context.TODO(), pods[0])
-				Expect(err).NotTo(HaveOccurred())
-				cluster.Spec.InstancesToRemoveWithoutExclusion = []string{removedProcessGroup}
-			})
-
-			It("should be mark the process group for removal without exclusion", func() {
-				processGroupStatus, err := validateProcessGroups(context.TODO(), clusterReconciler, cluster, &cluster.Status, processMap, configMap)
-				Expect(err).NotTo(HaveOccurred())
-
-				removalCount := 0
-				for _, processGroup := range processGroupStatus {
-					if processGroup.ProcessGroupID == removedProcessGroup {
-						Expect(processGroup.IsMarkedForRemoval()).To(BeTrue())
-						Expect(processGroup.ExclusionSkipped).To(BeTrue())
 						removalCount++
 						continue
 					}
@@ -363,11 +301,11 @@ var _ = Describe("update_status", func() {
 				unreachableCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == unreachableProcessGroup {
-						Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).NotTo(BeNil())
+						Expect(processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable)).NotTo(BeNil())
 						unreachableCount++
 						continue
 					}
-					Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).To(BeNil())
+					Expect(processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable)).To(BeNil())
 				}
 
 				Expect(unreachableCount).To(BeNumerically("==", 1))
@@ -386,11 +324,11 @@ var _ = Describe("update_status", func() {
 
 					unreachableCount := 0
 					for _, processGroup := range processGroupStatus {
-						if processGroup.GetConditionTime(fdbtypes.SidecarUnreachable) != nil {
+						if processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) != nil {
 							unreachableCount++
 							continue
 						}
-						Expect(processGroup.GetConditionTime(fdbtypes.SidecarUnreachable)).To(BeNil())
+						Expect(processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable)).To(BeNil())
 					}
 
 					Expect(unreachableCount).To(BeNumerically("==", 0))
@@ -415,7 +353,7 @@ var _ = Describe("update_status", func() {
 				pendingCount := 0
 				for _, processGroup := range processGroupStatus {
 					if processGroup.ProcessGroupID == pendingProcessGroup {
-						Expect(processGroup.GetConditionTime(fdbtypes.PodPending)).NotTo(BeNil())
+						Expect(processGroup.GetConditionTime(fdbv1beta2.PodPending)).NotTo(BeNil())
 						pendingCount++
 						continue
 					}
@@ -429,24 +367,24 @@ var _ = Describe("update_status", func() {
 	})
 
 	When("removing duplicated entries in process group status", func() {
-		var status fdbtypes.FoundationDBClusterStatus
+		var status fdbv1beta2.FoundationDBClusterStatus
 
 		BeforeEach(func() {
-			status = fdbtypes.FoundationDBClusterStatus{
-				ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+			status = fdbv1beta2.FoundationDBClusterStatus{
+				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 					{
 						ProcessGroupID: "storage-1",
-						ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-							fdbtypes.NewProcessGroupCondition(fdbtypes.PodPending),
-							fdbtypes.NewProcessGroupCondition(fdbtypes.ResourcesTerminating),
+						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
+							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating),
 						},
 					},
 					{
 						ProcessGroupID: "storage-2",
-						ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-							fdbtypes.NewProcessGroupCondition(fdbtypes.PodPending),
-							fdbtypes.NewProcessGroupCondition(fdbtypes.PodPending),
-							fdbtypes.NewProcessGroupCondition(fdbtypes.SidecarUnreachable),
+						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
+							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.PodPending),
+							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.SidecarUnreachable),
 						},
 					},
 				},
@@ -479,7 +417,7 @@ var _ = Describe("update_status", func() {
 	})
 
 	Describe("Reconcile", func() {
-		var cluster *fdbtypes.FoundationDBCluster
+		var cluster *fdbv1beta2.FoundationDBCluster
 		var err error
 		var requeue *requeue
 

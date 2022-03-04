@@ -33,12 +33,10 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
@@ -55,16 +53,7 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
@@ -109,7 +98,7 @@ func newExecCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	return cmd
 }
 
-func buildCommand(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, context string, namespace string, commandArgs []string) (exec.Cmd, error) {
+func buildCommand(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, commandArgs []string) (exec.Cmd, error) {
 	pods := &corev1.PodList{}
 
 	selector := labels.NewSelector()
@@ -119,7 +108,7 @@ func buildCommand(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluste
 		return exec.Cmd{}, err
 	}
 
-	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+	for key, value := range cluster.GetMatchLabels() {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
 			return exec.Cmd{}, nil
@@ -175,7 +164,7 @@ func buildCommand(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluste
 	return execCommand, nil
 }
 
-func runExec(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, context string, namespace string, commandArgs []string) error {
+func runExec(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, commandArgs []string) error {
 	command, err := buildCommand(kubeClient, cluster, context, namespace, commandArgs)
 	if err != nil {
 		return err

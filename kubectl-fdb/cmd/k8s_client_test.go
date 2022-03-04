@@ -21,8 +21,9 @@
 package cmd
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"time"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,49 +40,49 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 	When("fetching processes with conditions", func() {
 		clusterName := "test"
 		namespace := "test"
-		var cluster fdbtypes.FoundationDBCluster
+		var cluster fdbv1beta2.FoundationDBCluster
 		var podList corev1.PodList
 
 		BeforeEach(func() {
-			cluster = fdbtypes.FoundationDBCluster{
+			cluster = fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
 				},
-				Spec: fdbtypes.FoundationDBClusterSpec{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					ProcessCounts: fdb.ProcessCounts{
 						Storage: 1,
 					},
 				},
-				Status: fdbtypes.FoundationDBClusterStatus{
-					ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
 							Addresses:      []string{"1.2.3.4"},
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
 						},
 						{
 							ProcessGroupID: "instance-2",
 							Addresses:      []string{"1.2.3.5"},
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.IncorrectCommandLine),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectCommandLine),
 							},
 						},
 						{
 							ProcessGroupID: "instance-3",
 							Addresses:      []string{"1.2.3.6"},
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
 						},
 						{
-							ProcessGroupID: "instance-4",
-							Addresses:      []string{"1.2.3.7"},
-							Remove:         true,
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.IncorrectCommandLine),
+							ProcessGroupID:   "instance-4",
+							Addresses:        []string{"1.2.3.7"},
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectCommandLine),
 							},
 						},
 					},
@@ -95,12 +96,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:                clusterName,
-								internal.OldFDBClusterLabel:        clusterName,
-								fdb.FDBProcessGroupIDLabel:         "instance-1",
-								internal.OldFDBProcessGroupIDLabel: "instance-1",
+								fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:        clusterName,
+								fdb.FDBProcessGroupIDLabel: "instance-1",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -112,12 +110,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-2",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:                clusterName,
-								internal.OldFDBClusterLabel:        clusterName,
-								fdb.FDBProcessGroupIDLabel:         "instance-2",
-								internal.OldFDBProcessGroupIDLabel: "instance-2",
+								fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:        clusterName,
+								fdb.FDBProcessGroupIDLabel: "instance-2",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -129,12 +124,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-3",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:                clusterName,
-								internal.OldFDBClusterLabel:        clusterName,
-								fdb.FDBProcessGroupIDLabel:         "instance-3",
-								internal.OldFDBProcessGroupIDLabel: "instance-3",
+								fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:        clusterName,
+								fdb.FDBProcessGroupIDLabel: "instance-3",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -146,12 +138,9 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 							Name:      "instance-4",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:                clusterName,
-								internal.OldFDBClusterLabel:        clusterName,
-								fdb.FDBProcessGroupIDLabel:         "instance-4",
-								internal.OldFDBProcessGroupIDLabel: "instance-4",
+								fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:        clusterName,
+								fdb.FDBProcessGroupIDLabel: "instance-4",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -163,7 +152,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 		})
 
 		type testCase struct {
-			conditions []fdbtypes.ProcessGroupConditionType
+			conditions []fdbv1beta2.ProcessGroupConditionType
 			expected   []string
 		}
 
@@ -171,7 +160,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			func(tc testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 
 				pods, err := getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, tc.conditions)
@@ -180,17 +169,17 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 			},
 			Entry("No conditions",
 				testCase{
-					conditions: []fdbtypes.ProcessGroupConditionType{},
+					conditions: []fdbv1beta2.ProcessGroupConditionType{},
 					expected:   []string{},
 				}),
 			Entry("Single condition",
 				testCase{
-					conditions: []fdbtypes.ProcessGroupConditionType{fdbtypes.MissingProcesses},
+					conditions: []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses},
 					expected:   []string{"instance-1"},
 				}),
 			Entry("Multiple conditions",
 				testCase{
-					conditions: []fdbtypes.ProcessGroupConditionType{fdbtypes.MissingProcesses, fdbtypes.IncorrectCommandLine},
+					conditions: []fdbv1beta2.ProcessGroupConditionType{fdbv1beta2.MissingProcesses, fdbv1beta2.IncorrectCommandLine},
 					expected:   []string{"instance-1", "instance-2"},
 				}),
 		)

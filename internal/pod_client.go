@@ -36,7 +36,7 @@ import (
 	"strings"
 	"time"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"github.com/go-logr/logr"
@@ -74,7 +74,7 @@ const (
 // the Kubernetes sidecar.
 type realFdbPodSidecarClient struct {
 	// Cluster is the cluster we are connecting to.
-	Cluster *fdbtypes.FoundationDBCluster
+	Cluster *fdbv1beta2.FoundationDBCluster
 
 	// Pod is the pod we are connecting to.
 	Pod *corev1.Pod
@@ -94,7 +94,7 @@ type realFdbPodSidecarClient struct {
 // the annotations from the unified Kubernetes image.
 type realFdbPodAnnotationClient struct {
 	// Cluster is the cluster we are connecting to.
-	Cluster *fdbtypes.FoundationDBCluster
+	Cluster *fdbv1beta2.FoundationDBCluster
 
 	// Pod is the pod we are connecting to.
 	Pod *corev1.Pod
@@ -104,7 +104,7 @@ type realFdbPodAnnotationClient struct {
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
 	if GetImageType(pod) == FDBImageTypeUnified {
 		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: logger}, nil
@@ -348,34 +348,34 @@ func (client *realFdbPodAnnotationClient) UpdateFile(name string, contents strin
 		}
 		return match, nil
 	}
-	return false, fmt.Errorf("Unknown file %s", name)
+	return false, fmt.Errorf("unknown file %s", name)
 }
 
 // IsPresent checks whether a file in the sidecar is present.
 // This implementation always returns true, because the unified image handles
 // these checks internally.
-func (client *realFdbPodAnnotationClient) IsPresent(filename string) (bool, error) {
+func (client *realFdbPodAnnotationClient) IsPresent(_ string) (bool, error) {
 	return true, nil
 }
 
 // MockFdbPodClient provides a mock connection to a pod
 type mockFdbPodClient struct {
-	Cluster *fdbtypes.FoundationDBCluster
+	Cluster *fdbv1beta2.FoundationDBCluster
 	Pod     *corev1.Pod
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
-func NewMockFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+func NewMockFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
 }
 
 // UpdateFile checks if a file is up-to-date and tries to update it.
-func (client *mockFdbPodClient) UpdateFile(name string, contents string) (bool, error) {
+func (client *mockFdbPodClient) UpdateFile(_ string, _ string) (bool, error) {
 	return true, nil
 }
 
 // IsPresent checks whether a file in the sidecar is present.
-func (client *mockFdbPodClient) IsPresent(filename string) (bool, error) {
+func (client *mockFdbPodClient) IsPresent(_ string) (bool, error) {
 	return true, nil
 }
 
@@ -473,7 +473,7 @@ func GetImageType(pod *corev1.Pod) FDBImageType {
 
 // GetDesiredImageType determines whether a cluster is configured to use the
 // unified or the split image.
-func GetDesiredImageType(cluster *fdbtypes.FoundationDBCluster) FDBImageType {
+func GetDesiredImageType(cluster *fdbv1beta2.FoundationDBCluster) FDBImageType {
 	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
 		return FDBImageTypeUnified
 	}

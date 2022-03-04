@@ -31,7 +31,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // updatePodConfig provides a reconciliation step for updating the dynamic conf
@@ -39,7 +39,7 @@ import (
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePodConfig")
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
@@ -111,9 +111,9 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				curLogger.Error(err, "Update Pod ConfigMap annotation")
 			}
 			if internal.IsNetworkError(err) {
-				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
-				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 
 			pod.ObjectMeta.Annotations[fdb.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
@@ -136,7 +136,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 
 		hasUpdate = true
-		processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+		processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 	}
 
 	if hasUpdate {

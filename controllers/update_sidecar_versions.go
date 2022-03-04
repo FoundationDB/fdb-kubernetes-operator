@@ -30,7 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // updateSidecarVersions provides a reconciliation step for upgrading the
@@ -38,7 +38,7 @@ import (
 type updateSidecarVersions struct{}
 
 // reconcile runs the reconciler's work.
-func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateSidecarVersions")
 	// We don't need to upgrade the sidecar if no upgrade is in progress, we can skip any further work here.
 	if !cluster.IsBeingUpgraded() {

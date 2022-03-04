@@ -29,7 +29,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // updateDatabaseConfiguration provides a reconciliation step for changing the

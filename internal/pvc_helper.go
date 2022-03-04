@@ -21,12 +21,12 @@
 package internal
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // CreatePVCMap creates a map with the process group ID as a key and the according PVC as a value
-func CreatePVCMap(cluster *fdbtypes.FoundationDBCluster, pvcs *corev1.PersistentVolumeClaimList) map[string]corev1.PersistentVolumeClaim {
+func CreatePVCMap(cluster *fdbv1beta2.FoundationDBCluster, pvcs *corev1.PersistentVolumeClaimList) map[string]corev1.PersistentVolumeClaim {
 	pvcMap := make(map[string]corev1.PersistentVolumeClaim, len(pvcs.Items))
 	for _, pvc := range pvcs.Items {
 		processGroupID := GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)

@@ -28,17 +28,17 @@ import (
 
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func reloadRestore(restore *fdbtypes.FoundationDBRestore) error {
+func reloadRestore(restore *fdbv1beta2.FoundationDBRestore) error {
 	return k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: restore.Namespace, Name: restore.Name}, restore)
 }
 
 var _ = Describe("restore_controller", func() {
-	var cluster *fdbtypes.FoundationDBCluster
-	var restore *fdbtypes.FoundationDBRestore
+	var cluster *fdbv1beta2.FoundationDBCluster
+	var restore *fdbv1beta2.FoundationDBRestore
 	var adminClient *mockAdminClient
 	var err error
 

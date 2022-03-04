@@ -28,13 +28,13 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // mockLockClient provides a mock client for managing operation locks.
 type mockLockClient struct {
 	// cluster stores the cluster this client is working with.
-	cluster *fdbtypes.FoundationDBCluster
+	cluster *fdbv1beta2.FoundationDBCluster
 
 	// owner stores the deny list for lock acquisition.
 	denyList []string
@@ -83,7 +83,7 @@ func (client *mockLockClient) GetDenyList() ([]string, error) {
 
 // UpdateDenyList updates the deny list to match a list of entries.
 // This will return the complete deny list after these changes are made.
-func (client *mockLockClient) UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error {
+func (client *mockLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error {
 	newDenyList := make([]string, 0, len(client.denyList)+len(locks))
 	newDenyMap := make(map[string]bool)
 	for _, id := range client.denyList {
@@ -114,12 +114,12 @@ var lockClientCache = make(map[string]*mockLockClient)
 var lockClientMutex sync.Mutex
 
 // newMockLockClient creates a mock lock client.
-func newMockLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func newMockLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return newMockLockClientUncast(cluster), nil
 }
 
 // NewMockLockClientUncast creates a mock lock client.
-func newMockLockClientUncast(cluster *fdbtypes.FoundationDBCluster) *mockLockClient {
+func newMockLockClientUncast(cluster *fdbv1beta2.FoundationDBCluster) *mockLockClient {
 	lockClientMutex.Lock()
 	defer lockClientMutex.Unlock()
 

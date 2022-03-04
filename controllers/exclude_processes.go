@@ -30,7 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
@@ -43,7 +43,7 @@ var missingProcessThreshold = 0.8
 type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -120,7 +120,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass) (bool, []string) {
+func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass) (bool, []string) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 
 	// Block excludes on missing processes not marked for removal
@@ -132,8 +132,8 @@ func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass 
 			continue
 		}
 
-		if processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses) != nil ||
-			processGroupStatus.GetConditionTime(fdbtypes.MissingPod) != nil {
+		if processGroupStatus.GetConditionTime(fdbv1beta2.MissingProcesses) != nil ||
+			processGroupStatus.GetConditionTime(fdbv1beta2.MissingPod) != nil {
 			missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
 			logger.Info("Missing processes", "processGroupID", processGroupStatus.ProcessGroupID)
 			continue

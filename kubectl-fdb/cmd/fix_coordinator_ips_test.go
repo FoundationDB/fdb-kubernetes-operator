@@ -21,8 +21,7 @@
 package cmd
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +39,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		clusterName := "test"
 		namespace := "test"
 
-		var cluster fdbtypes.FoundationDBCluster
+		var cluster fdbv1beta2.FoundationDBCluster
 		var podList corev1.PodList
 
 		type testCase struct {
@@ -50,12 +49,12 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbtypes.FoundationDBCluster{
+			cluster = fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
 				},
-				Spec: fdbtypes.FoundationDBClusterSpec{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					ProcessCounts: fdb.ProcessCounts{
 						Storage: 1,
 					},
@@ -69,10 +68,8 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:         string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:              clusterName,
-								internal.OldFDBProcessClassLabel: string(fdb.ProcessClassStorage),
-								internal.OldFDBClusterLabel:      clusterName,
+								fdb.FDBProcessClassLabel: string(fdb.ProcessClassStorage),
+								fdb.FDBClusterLabel:      clusterName,
 							},
 						},
 					},
@@ -84,7 +81,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 			func(input testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 				cluster.Status.ConnectionString = "test:test@127.0.0.1:4501"
 
@@ -149,7 +146,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		clusterName := "test"
 		namespace := "test"
 
-		var cluster fdbtypes.FoundationDBCluster
+		var cluster fdbv1beta2.FoundationDBCluster
 
 		type testCase struct {
 			Context                  string
@@ -159,19 +156,19 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbtypes.FoundationDBCluster{
+			cluster = fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
 				},
-				Spec: fdbtypes.FoundationDBClusterSpec{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					ProcessCounts: fdb.ProcessCounts{
 						Storage: 1,
 					},
 				},
-				Status: fdbtypes.FoundationDBClusterStatus{
+				Status: fdbv1beta2.FoundationDBClusterStatus{
 					ConnectionString: "test:asdfkjh@127.0.0.1:4501,127.0.0.2:4501,127.0.0.3:4501",
-					ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "storage-1", Addresses: []string{"127.0.0.1"}},
 						{ProcessGroupID: "storage-2", Addresses: []string{"127.0.0.2"}},
 						{ProcessGroupID: "storage-3", Addresses: []string{"127.0.0.3"}},
@@ -186,7 +183,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 			func(input testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 
 				for processGroupID, address := range input.AddressUpdates {
 					for _, processGroup := range cluster.Status.ProcessGroups {

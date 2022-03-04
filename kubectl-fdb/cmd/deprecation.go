@@ -25,13 +25,11 @@ import (
 	"fmt"
 	"strings"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -59,16 +57,7 @@ Deprecated settings that should be replace by a newer setting (or removed) are p
 				return err
 			}
 
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
@@ -122,7 +111,7 @@ kubectl fdb deprecation --show-cluster-spec`,
 }
 
 func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputClusters []string, namespace string, deprecationOptions internal.DeprecationOptions, showClusterSpec bool) error {
-	clusters := &fdbtypes.FoundationDBClusterList{}
+	clusters := &fdbv1beta2.FoundationDBClusterList{}
 
 	err := kubeClient.List(context.Background(), clusters, client.InNamespace(namespace))
 	if err != nil {

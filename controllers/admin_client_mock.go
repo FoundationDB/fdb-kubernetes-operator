@@ -29,7 +29,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -39,18 +39,18 @@ import (
 
 // mockAdminClient provides a mock implementation of the cluster admin interface
 type mockAdminClient struct {
-	Cluster                                  *fdbtypes.FoundationDBCluster
+	Cluster                                  *fdbv1beta2.FoundationDBCluster
 	KubeClient                               client.Client
 	DatabaseConfiguration                    *fdb.DatabaseConfiguration
 	ExcludedAddresses                        []string
 	ReincludedAddresses                      map[string]bool
 	KilledAddresses                          []string
 	frozenStatus                             *fdb.FoundationDBStatus
-	Backups                                  map[string]fdbtypes.FoundationDBBackupStatusBackupDetails
+	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	restoreURL                               string
 	clientVersions                           map[string][]string
 	missingProcessGroups                     map[string]bool
-	additionalProcesses                      []fdbtypes.ProcessGroupStatus
+	additionalProcesses                      []fdbv1beta2.ProcessGroupStatus
 	localityInfo                             map[string]map[string]string
 	incorrectCommandLines                    map[string]bool
 	maxZoneFailuresWithoutLosingData         *int
@@ -63,14 +63,14 @@ var adminClientCache = make(map[string]*mockAdminClient)
 var adminClientMutex sync.Mutex
 
 // newMockAdminClient creates an admin client for a cluster.
-func newMockAdminClient(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (fdbadminclient.AdminClient, error) {
+func newMockAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client) (fdbadminclient.AdminClient, error) {
 	return newMockAdminClientUncast(cluster, kubeClient)
 }
 
 // newMockAdminClientUncast creates a mock admin client for a cluster.
 // nolint:unparam
 // is required because we always return a nil error
-func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client) (*mockAdminClient, error) {
+func newMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client) (*mockAdminClient, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -85,7 +85,7 @@ func newMockAdminClientUncast(cluster *fdbtypes.FoundationDBCluster, kubeClient 
 			localityInfo:         make(map[string]map[string]string),
 		}
 		adminClientCache[cluster.Name] = cachedClient
-		cachedClient.Backups = make(map[string]fdbtypes.FoundationDBBackupStatusBackupDetails)
+		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
 	} else {
 		cachedClient.Cluster = cluster.DeepCopy()
 	}
@@ -392,7 +392,7 @@ func (client *mockAdminClient) CanSafelyRemove(addresses []fdb.ProcessAddress) (
 	// Check which process groups have the skip exclusion flag or are already
 	// excluded
 	for _, pg := range client.Cluster.Status.ProcessGroups {
-		if !(pg.ExclusionSkipped || pg.Excluded) {
+		if !(pg.IsExcluded()) {
 			continue
 		}
 
@@ -457,7 +457,7 @@ func (client *mockAdminClient) ChangeCoordinators(addresses []fdb.ProcessAddress
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	connectionString, err := fdbtypes.ParseConnectionString(client.Cluster.Status.ConnectionString)
+	connectionString, err := fdbv1beta2.ParseConnectionString(client.Cluster.Status.ConnectionString)
 	if err != nil {
 		return "", err
 	}
@@ -508,7 +508,7 @@ func (client *mockAdminClient) StartBackup(url string, snapshotPeriodSeconds int
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	client.Backups["default"] = fdbtypes.FoundationDBBackupStatusBackupDetails{
+	client.Backups["default"] = fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 		URL:                   url,
 		Running:               true,
 		SnapshotPeriodSeconds: snapshotPeriodSeconds,
@@ -563,15 +563,15 @@ func (client *mockAdminClient) StopBackup(url string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("No backup found for URL %s", url)
+	return fmt.Errorf("no backup found for URL %s", url)
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *mockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+func (client *mockAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	status := &fdbtypes.FoundationDBLiveBackupStatus{}
+	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 
 	tag := "default"
 	backup, present := client.Backups[tag]
@@ -586,7 +586,7 @@ func (client *mockAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBack
 }
 
 // StartRestore starts a new restore.
-func (client *mockAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
+func (client *mockAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -614,7 +614,7 @@ func (client *mockAdminClient) MockClientVersion(version string, clients []strin
 }
 
 // MockAdditionalProcesses adds additional processes to the cluster status.
-func (client *mockAdminClient) MockAdditionalProcesses(processes []fdbtypes.ProcessGroupStatus) {
+func (client *mockAdminClient) MockAdditionalProcesses(processes []fdbv1beta2.ProcessGroupStatus) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 

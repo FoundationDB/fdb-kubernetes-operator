@@ -24,7 +24,7 @@ package v1beta2
 import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -402,6 +402,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 	if in.UseNonBlockingExcludes != nil {
 		in, out := &in.UseNonBlockingExcludes, &out.UseNonBlockingExcludes
 		*out = new(bool)
+		**out = **in
+	}
+	if in.IgnoreTerminatingPodsSeconds != nil {
+		in, out := &in.IgnoreTerminatingPodsSeconds, &out.IgnoreTerminatingPodsSeconds
+		*out = new(int)
 		**out = **in
 	}
 	if in.MaxConcurrentReplacements != nil {

@@ -24,7 +24,7 @@ import (
 	"context"
 	"strings"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // startRestore provides a reconciliation step for starting a new restore.
@@ -32,7 +32,7 @@ type startRestore struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbtypes.FoundationDBRestore) *requeue {
+func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue {
 	adminClient, err := r.adminClientForRestore(ctx, restore)
 	if err != nil {
 		return &requeue{curError: err}

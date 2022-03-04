@@ -24,15 +24,13 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/utils/pointer"
-
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 )
 
-func getMaxReplacements(cluster *fdbtypes.FoundationDBCluster, maxReplacements int) int {
+func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements int) int {
 	// The maximum number of replacements will be the defined number in the cluster spec
 	// minus all currently ongoing replacements e.g. process groups marked for removal but
 	// not fully excluded.
@@ -50,9 +48,10 @@ func getMaxReplacements(cluster *fdbtypes.FoundationDBCluster, maxReplacements i
 
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
-func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
+func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
-	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.Enabled, false) {
+	// Automatic replacements are disabled so we don't have to check anything further
+	if !cluster.GetEnableAutomaticReplacements() {
 		return false
 	}
 
@@ -63,43 +62,45 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBC
 			return hasReplacement
 		}
 
-		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(*cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds)
-		if needsReplacement && *cluster.Spec.AutomationOptions.Replacements.Enabled {
-			if len(processGroupStatus.Addresses) == 0 {
-				// Only replace process groups without an address if the cluster has the desired fault tolerance
-				// and is available.
-				hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
-				if err != nil {
-					log.Error(err, "Could not fetch if cluster has desired fault tolerance")
-					continue
-				}
+		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds())
+		if !needsReplacement {
+			continue
+		}
 
-				if !hasDesiredFaultTolerance {
-					log.Info(
-						"Skip process group with missing address",
-						"processGroupID", processGroupStatus.ProcessGroupID,
-						"failureTime", time.Unix(missingTime, 0).UTC().String())
-					continue
-				}
-
-				// Since the process groups doesn't contain any addresses we have to skip exclusion.
-				// The assumption here is that this is safe since we assume that the process group was never scheduled onto any node
-				// otherwise the process group should have an address associated.
-				processGroupStatus.ExclusionSkipped = true
-				log.Info(
-					"Replace process group with missing address",
-					"processGroupID", processGroupStatus.ProcessGroupID,
-					"failureTime", time.Unix(missingTime, 0).UTC().String())
+		if len(processGroupStatus.Addresses) == 0 {
+			// Only replace process groups without an address if the cluster has the desired fault tolerance
+			// and is available.
+			hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
+			if err != nil {
+				log.Error(err, "Could not fetch if cluster has desired fault tolerance")
+				continue
 			}
 
-			logger.Info("Replace process group",
-				"processGroupID", processGroupStatus.ProcessGroupID,
-				"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
+			if !hasDesiredFaultTolerance {
+				log.Info(
+					"Skip process group with missing address",
+					"processGroupID", processGroupStatus.ProcessGroupID,
+					"failureTime", time.Unix(missingTime, 0).UTC().String())
+				continue
+			}
 
-			processGroupStatus.MarkForRemoval()
-			hasReplacement = true
-			maxReplacements--
+			// Since the process groups doesn't contain any addresses we have to skip exclusion.
+			// The assumption here is that this is safe since we assume that the process group was never scheduled onto any node
+			// otherwise the process group should have an address associated.
+			processGroupStatus.ExclusionSkipped = true
+			log.Info(
+				"Replace process group with missing address",
+				"processGroupID", processGroupStatus.ProcessGroupID,
+				"failureTime", time.Unix(missingTime, 0).UTC().String())
 		}
+
+		logger.Info("Replace process group",
+			"processGroupID", processGroupStatus.ProcessGroupID,
+			"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
+
+		processGroupStatus.MarkForRemoval()
+		hasReplacement = true
+		maxReplacements--
 	}
 
 	return hasReplacement

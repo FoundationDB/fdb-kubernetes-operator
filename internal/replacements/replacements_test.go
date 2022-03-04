@@ -32,7 +32,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/go-logr/logr"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +41,7 @@ import (
 )
 
 var _ = Describe("replace_misconfigured_pods", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var log logr.Logger
 
 	BeforeEach(func() {
@@ -51,30 +51,30 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		cluster.Spec.LabelConfig.FilterOnOwnerReferences = pointer.Bool(false)
-		cluster.Spec.UpdatePodsByReplacement = false
 	})
 
 	When("checking process groups fro replacements", func() {
 		var pod *corev1.Pod
-		var status *fdbtypes.ProcessGroupStatus
+		var status *fdbv1beta2.ProcessGroupStatus
 		var pClass fdb.ProcessClass
 		var remove bool
 
 		JustBeforeEach(func() {
 			processGroupName := fmt.Sprintf("%s-%d", pClass, 1337)
-			status = &fdbtypes.ProcessGroupStatus{
+			status = &fdbv1beta2.ProcessGroupStatus{
 				ProcessGroupID: processGroupName,
-				Remove:         remove,
 				ProcessClass:   pClass,
+			}
+
+			if remove {
+				status.MarkForRemoval()
 			}
 
 			pod = &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						fdb.FDBProcessGroupIDLabel:         processGroupName,
-						fdb.FDBProcessClassLabel:           string(status.ProcessClass),
-						internal.OldFDBProcessGroupIDLabel: processGroupName,
-						internal.OldFDBProcessClassLabel:   string(status.ProcessClass),
+						fdb.FDBProcessGroupIDLabel: processGroupName,
+						fdb.FDBProcessClassLabel:   string(status.ProcessClass),
 					},
 					Annotations: map[string]string{},
 				},
@@ -140,12 +140,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 						Expect(needsRemoval).To(BeFalse())
 						Expect(err).NotTo(HaveOccurred())
 
-						// Change the instance ID should trigger a removal
-						cluster.Spec.InstanceIDPrefix = "test"
-						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-						Expect(needsRemoval).To(BeTrue())
-						Expect(err).NotTo(HaveOccurred())
-
 						// Change the process group ID should trigger a removal
 						cluster.Spec.ProcessGroupIDPrefix = "test"
 						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
@@ -163,12 +157,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					It("should need a removal", func() {
 						needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 						Expect(needsRemoval).To(BeFalse())
-						Expect(err).NotTo(HaveOccurred())
-
-						// Change the instance ID should trigger a removal
-						cluster.Spec.InstanceIDPrefix = "test"
-						needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
-						Expect(needsRemoval).To(BeTrue())
 						Expect(err).NotTo(HaveOccurred())
 
 						// Change the process group ID should trigger a removal
@@ -191,7 +179,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					Expect(needsRemoval).To(BeFalse())
 					Expect(err).NotTo(HaveOccurred())
 
-					ipSource := fdbtypes.PublicIPSourceService
+					ipSource := fdbv1beta2.PublicIPSourceService
 					cluster.Spec.Routing.PublicIPSource = &ipSource
 					needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
 					Expect(needsRemoval).To(BeTrue())
@@ -208,10 +196,10 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			It("should need a removal", func() {
 				pod.ObjectMeta.Annotations = map[string]string{
-					fdb.PublicIPSourceAnnotation: string(fdbtypes.PublicIPSourceService),
+					fdb.PublicIPSourceAnnotation: string(fdbv1beta2.PublicIPSourceService),
 				}
 
-				ipSource := fdbtypes.PublicIPSourceService
+				ipSource := fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &ipSource
 
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
@@ -236,7 +224,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
 
-				ipSource := fdbtypes.PublicIPSourcePod
+				ipSource := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &ipSource
 				needsRemoval, err = processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeFalse())
@@ -346,7 +334,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			It("should need a removal", func() {
 				pod.ObjectMeta.Annotations[fdb.LastSpecKey] = "-1"
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyReplacement
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyReplacement
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -361,7 +349,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			It("should not need a removal", func() {
 				pod.ObjectMeta.Annotations[fdb.LastSpecKey] = "-1"
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeFalse())
 				Expect(err).NotTo(HaveOccurred())
@@ -376,7 +364,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 
 			It("should need a removal", func() {
 				pod.ObjectMeta.Annotations[fdb.LastSpecKey] = "-1"
-				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbtypes.PodUpdateStrategyTransactionReplacement
+				cluster.Spec.AutomationOptions.PodUpdateStrategy = fdbv1beta2.PodUpdateStrategyTransactionReplacement
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
 				Expect(needsRemoval).To(BeTrue())
 				Expect(err).NotTo(HaveOccurred())
@@ -416,7 +404,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		})
 
 		Context("when the memory resources are changed", func() {
-			var status *fdbtypes.ProcessGroupStatus
+			var status *fdbv1beta2.ProcessGroupStatus
 			var pod *corev1.Pod
 
 			BeforeEach(func() {
@@ -424,10 +412,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 				pod, err = internal.GetPod(cluster, fdb.ProcessClassStorage, 0)
 				Expect(err).NotTo(HaveOccurred())
-				status = &fdbtypes.ProcessGroupStatus{
+				status = &fdbv1beta2.ProcessGroupStatus{
 					ProcessGroupID: fmt.Sprintf("%s-%d", fdb.ProcessClassStorage, 1337),
 					ProcessClass:   fdb.ProcessClassStorage,
-					Remove:         false,
 				}
 
 				needsRemoval, err := processGroupNeedsRemoval(cluster, pod, status, log)
@@ -631,7 +618,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
 				// Populate process groups
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdb.ProcessClassStorage, nil))
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdb.ProcessClassStorage, nil))
 			}
 
 			for i := 0; i < 1; i++ {
@@ -643,7 +630,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
 				// Populate process groups
-				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(id, fdb.ProcessClassTransaction, nil))
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(id, fdb.ProcessClassTransaction, nil))
 			}
 
 			// Force a replacement of all processes

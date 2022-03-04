@@ -33,11 +33,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 var _ = Describe("remove_process_groups", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var result *requeue
 
 	BeforeEach(func() {
@@ -63,7 +63,7 @@ var _ = Describe("remove_process_groups", func() {
 		coordinatorID := "storage-1"
 
 		BeforeEach(func() {
-			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdb.ProcessClassStorage, coordinatorIP)
+			marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdb.ProcessClassStorage, coordinatorIP)
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
 		})
@@ -87,7 +87,7 @@ var _ = Describe("remove_process_groups", func() {
 	When("removing a process group", func() {
 		BeforeEach(func() {
 			removedProcessGroup := cluster.Status.ProcessGroups[0]
-			marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
+			marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
 			// Exclude the process group
@@ -97,10 +97,6 @@ var _ = Describe("remove_process_groups", func() {
 		})
 
 		When("using the default setting of EnforceFullReplicationForDeletion", func() {
-			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion = nil
-			})
-
 			When("the cluster is fully replicated", func() {
 				It("should successfully remove that process group", func() {
 					Expect(result).To(BeNil())
@@ -149,129 +145,18 @@ var _ = Describe("remove_process_groups", func() {
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
 					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
-				})
-			})
-		})
-
-		When("enabling the EnforceFullReplicationForDeletion setting", func() {
-			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion = pointer.BoolPtr(true)
-			})
-
-			When("the cluster is fully replicated", func() {
-				It("should successfully remove that process group", func() {
-					Expect(result).To(BeNil())
-				})
-			})
-
-			When("the cluster has degraded availability fault tolerance", func() {
-				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
-				})
-
-				It("should not remove that process group", func() {
-					Expect(result).NotTo(BeNil())
-					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
-				})
-			})
-
-			When("the cluster has degraded data fault tolerance", func() {
-				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
-				})
-
-				It("should not remove that process group", func() {
-					Expect(result).NotTo(BeNil())
-					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
-				})
-			})
-
-			When("the cluster is not available", func() {
-				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdb.FoundationDBStatus{
-						Client: fdb.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
-								Available: false,
-							},
-						},
-					}
-				})
-
-				It("should not remove that process group", func() {
-					Expect(result).NotTo(BeNil())
-					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
-				})
-			})
-		})
-
-		When("disabling the EnforceFullReplicationForDeletion setting", func() {
-			BeforeEach(func() {
-				cluster.Spec.AutomationOptions.EnforceFullReplicationForDeletion = pointer.BoolPtr(false)
-			})
-
-			When("the cluster is fully replicated", func() {
-				It("should successfully remove that process group", func() {
-					Expect(result).To(BeNil())
-				})
-			})
-
-			When("the cluster is not fully replicated", func() {
-				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.maxZoneFailuresWithoutLosingAvailability = pointer.Int(0)
-				})
-
-				It("should not remove that process group", func() {
-					Expect(result).To(BeNil())
-				})
-			})
-
-			When("the cluster has degraded data fault tolerance", func() {
-				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
-				})
-
-				It("should not remove that process group", func() {
-					Expect(result).To(BeNil())
-				})
-			})
-
-			When("the cluster is not available", func() {
-				BeforeEach(func() {
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdb.FoundationDBStatus{
-						Client: fdb.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
-								Available: false,
-							},
-						},
-					}
-				})
-
-				It("should not remove that process group", func() {
-					Expect(result).To(BeNil())
 				})
 			})
 		})
 
 		When("Removing multiple process groups", func() {
 			var initialCnt int
-			var removedProcessGroup *fdbtypes.ProcessGroupStatus
+			var removedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
 				initialCnt = len(cluster.Status.ProcessGroups)
 				removedProcessGroup = cluster.Status.ProcessGroups[1]
-				marked, processGroup := fdbtypes.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
+				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 				Expect(marked).To(BeTrue())
 				Expect(processGroup).To(BeNil())
 				// Exclude the process group
@@ -287,7 +172,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("a process group is marked as terminating and all resources are removed it should be removed", func() {
 				BeforeEach(func() {
-					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.ResourcesTerminating))
+					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
 					err := removeProcessGroup(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
 					Expect(err).NotTo(HaveOccurred())
 					// Sleep here to prevent some timeing issues.
@@ -302,7 +187,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("a process group is marked as terminating and not fully removed", func() {
 				BeforeEach(func() {
-					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbtypes.NewProcessGroupCondition(fdbtypes.ResourcesTerminating))
+					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
 					// Set the wait time to the default value
 					cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(60)
 				})

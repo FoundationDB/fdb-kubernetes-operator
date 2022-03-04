@@ -28,14 +28,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // chooseRemovals chooses which processes will be removed during a shrink.
 type chooseRemovals struct{}
 
 // reconcile runs the reconciler's work.
-func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "chooseRemovals")
 	hasNewRemovals := false
 
@@ -46,7 +46,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		}
 	}
 
-	currentCounts := fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).Map()
+	currentCounts := fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true).Map()
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}

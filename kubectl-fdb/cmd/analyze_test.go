@@ -28,8 +28,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,25 +41,25 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func getCluster(clusterName string, namespace string, available bool, healthy bool, fullReplication bool, reconciled int64, processGroups []*fdbtypes.ProcessGroupStatus) *fdbtypes.FoundationDBCluster {
-	return &fdbtypes.FoundationDBCluster{
+func getCluster(clusterName string, namespace string, available bool, healthy bool, fullReplication bool, reconciled int64, processGroups []*fdbv1beta2.ProcessGroupStatus) *fdbv1beta2.FoundationDBCluster {
+	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       clusterName,
 			Namespace:  namespace,
 			Generation: 0,
 		},
-		Spec: fdbtypes.FoundationDBClusterSpec{
+		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			ProcessCounts: fdb.ProcessCounts{
 				Storage: 1,
 			},
 		},
-		Status: fdbtypes.FoundationDBClusterStatus{
-			Health: fdbtypes.ClusterHealth{
+		Status: fdbv1beta2.FoundationDBClusterStatus{
+			Health: fdbv1beta2.ClusterHealth{
 				Available:       available,
 				Healthy:         healthy,
 				FullReplication: fullReplication,
 			},
-			Generations: fdbtypes.ClusterGenerationStatus{
+			Generations: fdbv1beta2.ClusterGenerationStatus{
 				Reconciled: reconciled,
 			},
 			ProcessGroups: processGroups,
@@ -76,11 +75,9 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 					Name:      "instance-1",
 					Namespace: namespace,
 					Labels: map[string]string{
-						fdb.FDBProcessClassLabel:           string(fdb.ProcessClassStorage),
-						fdb.FDBClusterLabel:                clusterName,
-						internal.OldFDBClusterLabel:        clusterName,
-						fdb.FDBProcessGroupIDLabel:         "instance-1",
-						internal.OldFDBProcessGroupIDLabel: "instance-1",
+						fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
+						fdb.FDBClusterLabel:        clusterName,
+						fdb.FDBProcessGroupIDLabel: "instance-1",
 					},
 					DeletionTimestamp: deletionTimestamp,
 				},
@@ -97,7 +94,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 
 	When("analyzing the cluster", func() {
 		type testCase struct {
-			cluster           *fdbtypes.FoundationDBCluster
+			cluster           *fdbv1beta2.FoundationDBCluster
 			podList           *corev1.PodList
 			ExpectedErrMsg    string
 			ExpectedStdouMsg  string
@@ -111,7 +108,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			func(tc testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.cluster, tc.podList).Build()
 
 				// We use these buffers to check the input/output
@@ -120,7 +117,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force, true, tc.IgnoredConditions)
+				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force, tc.IgnoredConditions)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())
@@ -131,7 +128,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			},
 			Entry("Cluster is fine",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -149,7 +146,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unavailable",
 				testCase{
-					cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, false, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -166,7 +163,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is unhealthy",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, false, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -184,7 +181,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not fully replicated",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, false, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -201,7 +198,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Cluster is not reconciled",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 1, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -218,11 +215,11 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a missing process",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
 						},
 					}),
@@ -240,13 +237,13 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a missing process but is marked for removal",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
-							Remove: true,
+							RemovalTimestamp: &metav1.Time{Time: time.Now()},
 						},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -264,7 +261,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is in Pending phase",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -281,7 +278,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in terminated state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -310,7 +307,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Container is in ready state",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -334,7 +331,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Pod is stuck in terminating",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
@@ -352,7 +349,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing Pods",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{ProcessGroupID: "instance-1"},
 					}),
 					podList:        &corev1.PodList{},
@@ -368,7 +365,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("Missing entry in status",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{}),
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{}),
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
@@ -383,12 +380,12 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				}),
 			Entry("ProcessGroup has a two conditions and we ignore one.",
 				testCase{
-					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbtypes.ProcessGroupStatus{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "instance-1",
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
-								fdbtypes.NewProcessGroupCondition(fdbtypes.IncorrectPodSpec),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.IncorrectPodSpec),
 							},
 						},
 					}),
@@ -404,7 +401,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 ✔ Pods are all running and available`,
 					AutoFix:           false,
 					HasErrors:         true,
-					IgnoredConditions: []string{string(fdbtypes.IncorrectPodSpec)},
+					IgnoredConditions: []string{string(fdbv1beta2.IncorrectPodSpec)},
 				}),
 			// TODO: test cases for auto-fix
 		)
@@ -439,11 +436,11 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				"",
 			),
 			Entry("valid condition",
-				[]string{string(fdbtypes.PodPending)},
+				[]string{string(fdbv1beta2.PodPending)},
 				"",
 			),
 			Entry("valid and invalid condition",
-				[]string{string(fdbtypes.PodPending), "apple pie"},
+				[]string{string(fdbv1beta2.PodPending), "apple pie"},
 				"unknown condition: apple pie\n",
 			),
 			Entry("invalid condition",

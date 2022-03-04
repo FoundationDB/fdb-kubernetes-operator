@@ -30,8 +30,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	fdbtypesv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
 	// +kubebuilder:scaffold:imports
@@ -43,8 +43,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(fdbtypes.AddToScheme(scheme))
-	utilruntime.Must(fdbtypesv1beta2.AddToScheme(scheme))
+	utilruntime.Must(fdbv1beta1.AddToScheme(scheme))
+	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

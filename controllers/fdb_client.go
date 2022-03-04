@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -30,22 +30,22 @@ import (
 // communicate with the database.
 type DatabaseClientProvider interface {
 	// GetLockClient generates a client for working with locks through the database.
-	GetLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error)
+	GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error)
 
 	// GetAdminClient generates a client for performing administrative actions
 	// against the database.
-	GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error)
+	GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error)
 }
 
 type mockDatabaseClientProvider struct{}
 
 // GetLockClient generates a client for working with locks through the database.
-func (p mockDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func (p mockDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return newMockLockClient(cluster)
 }
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p mockDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
+func (p mockDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
 	return newMockAdminClient(cluster, kubernetesClient)
 }

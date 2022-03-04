@@ -25,7 +25,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,7 +34,7 @@ import (
 type removeServices struct{}
 
 // reconcile runs the reconciler's work.
-func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	if cluster.NeedsHeadlessService() {
 		return nil
 	}

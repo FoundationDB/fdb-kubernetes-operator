@@ -41,7 +41,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -58,7 +58,7 @@ type FoundationDBClusterReconciler struct {
 	Log                    logr.Logger
 	InSimulation           bool
 	PodLifecycleManager    podmanager.PodLifecycleManager
-	PodClientProvider      func(*fdbtypes.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
+	PodClientProvider      func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
 	DatabaseClientProvider DatabaseClientProvider
 	DeprecationOptions     internal.DeprecationOptions
 }
@@ -77,7 +77,7 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	cluster := &fdbtypes.FoundationDBCluster{}
+	cluster := &fdbv1beta2.FoundationDBCluster{}
 
 	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
@@ -213,7 +213,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles},
 		).
-		For(&fdbtypes.FoundationDBCluster{}).
+		For(&fdbv1beta2.FoundationDBCluster{}).
 		Owns(&corev1.Pod{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
@@ -235,7 +235,7 @@ func (r *FoundationDBClusterReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 	return builder.Complete(r)
 }
 
-func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
+func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (bool, error) {
 	if cluster.ProcessGroupIsBeingRemoved(podmanager.GetProcessGroupID(cluster, pod)) {
 		return true, nil
 	}
@@ -296,7 +296,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbtypes.F
 	return true, nil
 }
 
-func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, string) {
+func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, string) {
 	if pod == nil {
 		return nil, fmt.Sprintf("Process group in cluster %s/%s does not have pod defined", cluster.Namespace, cluster.Name)
 	}
@@ -318,12 +318,12 @@ func (r *FoundationDBClusterReconciler) getDatabaseClientProvider() DatabaseClie
 	panic("Cluster reconciler does not have a DatabaseClientProvider defined")
 }
 
-func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func (r *FoundationDBClusterReconciler) getLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return r.getDatabaseClientProvider().GetLockClient(cluster)
 }
 
 // takeLock attempts to acquire a lock.
-func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBCluster, action string) (bool, error) {
+func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbv1beta2.FoundationDBCluster, action string) (bool, error) {
 	log.Info("Taking lock on cluster", "namespace", cluster.Namespace, "cluster", cluster.Name, "action", action)
 	lockClient, err := r.getLockClient(cluster)
 	if err != nil {
@@ -339,13 +339,6 @@ func (r *FoundationDBClusterReconciler) takeLock(cluster *fdbtypes.FoundationDBC
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "LockAcquisitionFailed", fmt.Sprintf("Lock required before %s", action))
 	}
 	return hasLock, nil
-}
-
-// clearPendingRemovalsFromSpec removes the pending removals from the cluster spec.
-func (r *FoundationDBClusterReconciler) clearPendingRemovalsFromSpec(ctx context.Context, cluster *fdbtypes.FoundationDBCluster) error {
-	modifiedCluster := cluster.DeepCopy()
-	modifiedCluster.Spec.PendingRemovals = nil
-	return r.Update(ctx, modifiedCluster)
 }
 
 var connectionStringNameRegex, _ = regexp.Compile("[^A-Za-z0-9_]")
@@ -364,7 +357,7 @@ type clusterSubReconciler interface {
 	If reconciliation cannot proceed, this should return a requeue object with
 	a `Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue
+	reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue
 }
 
 // localityInfo captures information about a process for the purposes of
@@ -386,7 +379,7 @@ type localityInfo struct {
 // We have to do this to ensure we get a deterministic result for selecting the candidates
 // otherwise we get a (nearly) random result since processes are stored in a map which is by definition
 // not sorted and doesn't return values in a stable way.
-func sortLocalities(cluster *fdbtypes.FoundationDBCluster, processes []localityInfo) {
+func sortLocalities(cluster *fdbv1beta2.FoundationDBCluster, processes []localityInfo) {
 	// Sort the processes for ID to ensure we have a stable input
 	sort.SliceStable(processes, func(i, j int) bool {
 		p1 := cluster.GetClassCandidatePriority(processes[i].Class)
@@ -430,7 +423,7 @@ func localityInfoForProcess(process fdb.FoundationDBStatusProcessInfo, mainConta
 
 // localityInfoForProcess converts the process information from the sidecar's
 // context into locality info for selecting processes.
-func localityInfoFromSidecar(cluster *fdbtypes.FoundationDBCluster, client podclient.FdbPodClient) (localityInfo, error) {
+func localityInfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client podclient.FdbPodClient) (localityInfo, error) {
 	substitutions, err := client.GetVariableSubstitutions()
 	if err != nil {
 		return localityInfo{}, err
@@ -485,7 +478,7 @@ type processSelectionConstraint struct {
 
 // chooseDistributedProcesses recruits a maximally well-distributed set
 // of processes from a set of potential candidates.
-func chooseDistributedProcesses(cluster *fdbtypes.FoundationDBCluster, processes []localityInfo, count int, constraint processSelectionConstraint) ([]localityInfo, error) {
+func chooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, processes []localityInfo, count int, constraint processSelectionConstraint) ([]localityInfo, error) {
 	chosen := make([]localityInfo, 0, count)
 	chosenIDs := make(map[string]bool, count)
 
@@ -570,7 +563,7 @@ func chooseDistributedProcesses(cluster *fdbtypes.FoundationDBCluster, processes
 	return chosen, nil
 }
 
-func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
+func getHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	if cluster.Spec.DatabaseConfiguration.UsableRegions <= 1 {
 		return map[string]int{fdb.FDBLocalityZoneIDKey: 1}
 	}
@@ -589,7 +582,7 @@ func getHardLimits(cluster *fdbtypes.FoundationDBCluster) map[string]int {
 // matching the cluster spec.
 // The third return value will hold any errors encountered when checking the
 // coordinators.
-func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
+func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *fdb.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
 	if len(coordinatorStatus) == 0 {
 		return false, false, errors.New("unable to get coordinator status")
 	}
@@ -602,7 +595,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
-	processGroups := make(map[string]*fdbtypes.ProcessGroupStatus)
+	processGroups := make(map[string]*fdbv1beta2.ProcessGroupStatus)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
@@ -620,7 +613,7 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 		}
 
 		processGroupStatus := processGroups[process.Locality["instance_id"]]
-		pendingRemoval := processGroupStatus != nil && processGroupStatus.Remove
+		pendingRemoval := processGroupStatus != nil && processGroupStatus.IsMarkedForRemoval()
 		if processGroupStatus != nil && cluster.SkipProcessGroup(processGroupStatus) {
 			log.Info("Skipping process group with pending Pod",
 				"namespace", cluster.Namespace,
@@ -730,11 +723,11 @@ func checkCoordinatorValidity(cluster *fdbtypes.FoundationDBCluster, status *fdb
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
-func newFdbPodClient(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+func newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
 	return internal.NewFdbPodClient(cluster, pod)
 }
 
-func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbtypes.FoundationDBCluster) (map[string]struct{}, error) {
+func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]struct{}, error) {
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
 		return map[string]struct{}{}, err

@@ -34,7 +34,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -43,7 +43,7 @@ import (
 type updatePods struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
@@ -133,12 +133,12 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 
 	if len(updates) > 0 {
-		if cluster.Spec.UpdatePodsByReplacement {
+		if cluster.Spec.AutomationOptions.PodUpdateStrategy == fdbv1beta2.PodUpdateStrategyReplacement {
 			logger.Info("Requeuing reconciliation to replace pods")
 			return &requeue{message: "Requeueing reconciliation to replace pods"}
 		}
 
-		if r.PodLifecycleManager.GetDeletionMode(cluster) == fdbtypes.PodUpdateModeNone {
+		if r.PodLifecycleManager.GetDeletionMode(cluster) == fdbv1beta2.PodUpdateModeNone {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal,
 				"NeedsPodsDeletion", "Spec require deleting some pods, but deleting pods is disabled")
 			cluster.Status.Generations.NeedsPodDeletion = cluster.ObjectMeta.Generation
@@ -163,14 +163,14 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
-func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbtypes.FoundationDBCluster, processGroupID string) bool {
+func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) bool {
 	return pod.DeletionTimestamp != nil &&
 		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsSeconds())*time.Second).After(time.Now()) &&
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
-func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
-	if deletionMode == fdbtypes.PodUpdateModeAll {
+func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
+	if deletionMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []*corev1.Pod
 
 		for _, zoneProcesses := range updates {
@@ -180,7 +180,7 @@ func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*
 		return "cluster", deletions, nil
 	}
 
-	if deletionMode == fdbtypes.PodUpdateModeProcessGroup {
+	if deletionMode == fdbv1beta2.PodUpdateModeProcessGroup {
 		for _, zoneProcesses := range updates {
 			if len(zoneProcesses) < 1 {
 				continue
@@ -191,7 +191,7 @@ func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*
 		}
 	}
 
-	if deletionMode == fdbtypes.PodUpdateModeZone {
+	if deletionMode == fdbv1beta2.PodUpdateModeZone {
 		// Default case is zone
 		for zoneName, zoneProcesses := range updates {
 			// Fetch the first zone and stop
@@ -199,7 +199,7 @@ func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*
 		}
 	}
 
-	if deletionMode == fdbtypes.PodUpdateModeNone {
+	if deletionMode == fdbv1beta2.PodUpdateModeNone {
 		return "None", nil, nil
 	}
 
@@ -207,7 +207,7 @@ func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
 	zone, deletions, err := getPodsToDelete(deletionMode, updates)
 	if err != nil {
@@ -224,7 +224,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise we want to delete all Pods and don't require a lock to sync with other clusters.
-	if deletionMode != fdbtypes.PodUpdateModeAll {
+	if deletionMode != fdbv1beta2.PodUpdateModeAll {
 		hasLock, err := r.takeLock(cluster, "updating pods")
 		if !hasLock {
 			return &requeue{curError: err}

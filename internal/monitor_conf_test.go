@@ -26,7 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,7 +35,7 @@ import (
 )
 
 var _ = Describe("monitor_conf", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var fakeConnectionString string
 	var err error
 
@@ -181,7 +181,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("the public IP comes from the pod", func() {
 			BeforeEach(func() {
-				source := fdbtypes.PublicIPSourcePod
+				source := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
 			})
 
@@ -200,7 +200,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("the public IP comes from the service", func() {
 			BeforeEach(func() {
-				source := fdbtypes.PublicIPSourceService
+				source := fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Status.HasListenIPsForAllPods = true
 			})
@@ -316,7 +316,7 @@ var _ = Describe("monitor_conf", func() {
 		When("the cluster has custom parameters", func() {
 			When("there are parameters in the general section", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
 				})
@@ -331,7 +331,7 @@ var _ = Describe("monitor_conf", func() {
 
 			When("there are parameters on different process classes", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
 						fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
 							"knob_disable_posix_kernel_aio = 1",
 						}},
@@ -355,7 +355,7 @@ var _ = Describe("monitor_conf", func() {
 
 		When("the cluster has an alternative fault domain variable", func() {
 			BeforeEach(func() {
-				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}
@@ -613,7 +613,7 @@ var _ = Describe("monitor_conf", func() {
 		Context("with host replication", func() {
 			BeforeEach(func() {
 				pod.Spec.NodeName = "machine1"
-				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{}
+				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{}
 
 				podClient, _ := NewMockFdbPodClient(cluster, pod)
 				command, err = GetStartCommand(cluster, fdb.ProcessClassStorage, podClient, 1, 1)
@@ -641,7 +641,7 @@ var _ = Describe("monitor_conf", func() {
 			BeforeEach(func() {
 				pod.Spec.NodeName = "machine1"
 
-				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{
 					Key:   "foundationdb.org/kubernetes-cluster",
 					Value: "kc2",
 				}
@@ -805,7 +805,7 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("with the public IP from the pod", func() {
 			BeforeEach(func() {
-				source := fdbtypes.PublicIPSourcePod
+				source := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
 				conf, err = GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
 				Expect(err).NotTo(HaveOccurred())
@@ -834,7 +834,7 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("with the public IP from the service", func() {
 			BeforeEach(func() {
-				source := fdbtypes.PublicIPSourceService
+				source := fdbv1beta2.PublicIPSourceService
 				cluster.Spec.Routing.PublicIPSource = &source
 				cluster.Status.HasListenIPsForAllPods = true
 				conf, err = GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
@@ -986,7 +986,7 @@ var _ = Describe("monitor_conf", func() {
 		Context("with custom parameters", func() {
 			Context("with general parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
 						"knob_disable_posix_kernel_aio = 1",
 					}}}
 					conf, err = GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
@@ -1017,7 +1017,7 @@ var _ = Describe("monitor_conf", func() {
 
 			Context("with process-class parameters", func() {
 				BeforeEach(func() {
-					cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{
+					cluster.Spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
 						fdb.ProcessClassGeneral: {CustomParameters: fdb.FoundationDBCustomParameters{
 							"knob_disable_posix_kernel_aio = 1",
 						}},
@@ -1057,7 +1057,7 @@ var _ = Describe("monitor_conf", func() {
 
 		Context("with an alternative fault domain variable", func() {
 			BeforeEach(func() {
-				cluster.Spec.FaultDomain = fdbtypes.FoundationDBClusterFaultDomain{
+				cluster.Spec.FaultDomain = fdbv1beta2.FoundationDBClusterFaultDomain{
 					Key:       "rack",
 					ValueFrom: "$RACK",
 				}

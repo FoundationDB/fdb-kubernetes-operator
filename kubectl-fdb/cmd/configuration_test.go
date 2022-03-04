@@ -21,7 +21,7 @@
 package cmd
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,15 +34,15 @@ import (
 var _ = Describe("[plugin] configuration command", func() {
 	When("getting the configuration string", func() {
 		When("using a single region cluster", func() {
-			var cluster *fdbtypes.FoundationDBCluster
+			var cluster *fdbv1beta2.FoundationDBCluster
 
 			BeforeEach(func() {
-				cluster = &fdbtypes.FoundationDBCluster{
+				cluster = &fdbv1beta2.FoundationDBCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test",
 						Namespace: "test",
 					},
-					Spec: fdbtypes.FoundationDBClusterSpec{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
 						DatabaseConfiguration: fdb.DatabaseConfiguration{
 							Regions: []fdb.Region{
 								{
@@ -62,7 +62,7 @@ var _ = Describe("[plugin] configuration command", func() {
 			It("should return the configuration string", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", false)
@@ -73,7 +73,7 @@ var _ = Describe("[plugin] configuration command", func() {
 			It("should return the same configuration string with failover", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", true)
@@ -83,15 +83,15 @@ var _ = Describe("[plugin] configuration command", func() {
 		})
 
 		When("using a multi region cluster", func() {
-			var cluster *fdbtypes.FoundationDBCluster
+			var cluster *fdbv1beta2.FoundationDBCluster
 
 			BeforeEach(func() {
-				cluster = &fdbtypes.FoundationDBCluster{
+				cluster = &fdbv1beta2.FoundationDBCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test",
 						Namespace: "test",
 					},
-					Spec: fdbtypes.FoundationDBClusterSpec{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
 						DatabaseConfiguration: fdb.DatabaseConfiguration{
 							Regions: []fdb.Region{
 								{
@@ -140,7 +140,7 @@ var _ = Describe("[plugin] configuration command", func() {
 			It("should return the configuration string", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", false)
@@ -151,7 +151,7 @@ var _ = Describe("[plugin] configuration command", func() {
 			It("should return the configuration string with the modified priority", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", true)

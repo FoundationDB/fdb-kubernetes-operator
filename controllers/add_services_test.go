@@ -28,7 +28,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("add_services", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
 	var initialServices *corev1.ServiceList
@@ -44,7 +44,7 @@ var _ = Describe("add_services", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		source := fdbtypes.PublicIPSourceService
+		source := fdbv1beta2.PublicIPSourceService
 		cluster.Spec.Routing.PublicIPSource = &source
 		enabled := true
 		cluster.Spec.Routing.HeadlessService = &enabled
@@ -103,11 +103,11 @@ var _ = Describe("add_services", func() {
 			It("should set the selector on the services", func() {
 				for _, service := range newServices.Items {
 					labels := map[string]string{
-						internal.OldFDBClusterLabel: cluster.Name,
-						"fdb-test-label":            "true",
+						fdb.FDBClusterLabel: cluster.Name,
+						"fdb-test-label":    "true",
 					}
-					if service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel] != "" {
-						labels[internal.OldFDBProcessGroupIDLabel] = service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel]
+					if service.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel] != "" {
+						labels[fdb.FDBProcessGroupIDLabel] = service.ObjectMeta.Labels[fdb.FDBProcessGroupIDLabel]
 					}
 					Expect(service.Spec.Selector).To(Equal(labels))
 				}
@@ -122,7 +122,7 @@ var _ = Describe("add_services", func() {
 
 	Context("with a process group with no service defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus("storage-9", "storage", nil))
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
 		})
 
 		It("should not requeue", func() {
@@ -141,7 +141,7 @@ var _ = Describe("add_services", func() {
 
 		Context("with the pod public IP source", func() {
 			BeforeEach(func() {
-				source := fdbtypes.PublicIPSourcePod
+				source := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
 			})
 

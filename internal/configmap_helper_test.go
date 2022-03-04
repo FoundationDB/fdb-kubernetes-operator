@@ -26,7 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,14 +35,14 @@ import (
 )
 
 var _ = Describe("configmap_helper", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var fakeConnectionString string
 	var err error
 
 	BeforeEach(func() {
 		cluster = CreateDefaultCluster()
 		err = NormalizeClusterSpec(cluster, DeprecationOptions{})
-		cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
+		cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split"}
 		Expect(err).NotTo(HaveOccurred())
 		fakeConnectionString = "operator-test:asdfasf@127.0.0.1:4501"
 	})
@@ -69,7 +69,6 @@ var _ = Describe("configmap_helper", func() {
 				Expect(configMap.Name).To(Equal(fmt.Sprintf("%s-config", cluster.Name)))
 				Expect(configMap.Labels).To(Equal(map[string]string{
 					fdb.FDBClusterLabel: cluster.Name,
-					OldFDBClusterLabel:  cluster.Name,
 				}))
 				Expect(configMap.Annotations).To(BeNil())
 			})
@@ -87,7 +86,7 @@ var _ = Describe("configmap_helper", func() {
 
 		When("only the unified image is enabled", func() {
 			BeforeEach(func() {
-				cluster.Status.ImageTypes = []fdbtypes.ImageType{"unified"}
+				cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
 			})
 
 			It("includes the data for the unified monitor conf", func() {
@@ -109,7 +108,7 @@ var _ = Describe("configmap_helper", func() {
 
 		When("only the split image is enabled", func() {
 			BeforeEach(func() {
-				cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
+				cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split"}
 			})
 
 			It("includes the data for the split monitor conf", func() {
@@ -126,7 +125,7 @@ var _ = Describe("configmap_helper", func() {
 
 		When("both image types are enabled", func() {
 			BeforeEach(func() {
-				cluster.Status.ImageTypes = []fdbtypes.ImageType{"split", "unified"}
+				cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split", "unified"}
 			})
 
 			It("includes the data for the both images", func() {
@@ -144,7 +143,7 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the split image", func() {
 				BeforeEach(func() {
-					cluster.Status.ImageTypes = []fdbtypes.ImageType{"split"}
+					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"split"}
 				})
 				It("includes the data for both configurations", func() {
 					expectedConf, err := GetMonitorConf(cluster, fdb.ProcessClassStorage, nil, 1)
@@ -159,7 +158,7 @@ var _ = Describe("configmap_helper", func() {
 
 			When("using the unified image", func() {
 				BeforeEach(func() {
-					cluster.Status.ImageTypes = []fdbtypes.ImageType{"unified"}
+					cluster.Status.ImageTypes = []fdbv1beta2.ImageType{"unified"}
 				})
 
 				It("includes the data for both configurations", func() {
@@ -187,7 +186,7 @@ var _ = Describe("configmap_helper", func() {
 
 		Context("with custom resource labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.LabelConfig = fdbtypes.LabelConfig{
+				cluster.Spec.LabelConfig = fdbv1beta2.LabelConfig{
 					MatchLabels:    map[string]string{"fdb-custom-name": cluster.Name, "fdb-managed-by-operator": "true"},
 					ResourceLabels: map[string]string{"fdb-new-custom-name": cluster.Name},
 				}
@@ -249,7 +248,6 @@ var _ = Describe("configmap_helper", func() {
 			It("should put the label on the config map", func() {
 				Expect(configMap.Labels).To(Equal(map[string]string{
 					fdb.FDBClusterLabel: cluster.Name,
-					OldFDBClusterLabel:  cluster.Name,
 					"fdb-label":         "value1",
 				}))
 			})

@@ -32,14 +32,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // addProcessGroups provides a reconciliation step for adding new pods to a cluster.
 type addProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
-func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	desiredCountStruct, err := cluster.GetProcessCountsWithDefaults()
 	if err != nil {
 		return &requeue{curError: err}
@@ -95,7 +95,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 				idNum++
 			}
 			_, processGroupID := internal.GetProcessGroupID(cluster, processClass, idNum)
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus(processGroupID, processClass, nil))
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, processClass, nil))
 
 			idNum++
 		}

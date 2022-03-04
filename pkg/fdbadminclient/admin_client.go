@@ -21,7 +21,7 @@
 package fdbadminclient
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 )
 
@@ -86,10 +86,10 @@ type AdminClient interface {
 	ModifyBackup(int) error
 
 	// GetBackupStatus gets the status of the current backup.
-	GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error)
+	GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error)
 
 	// StartRestore starts a new restore.
-	StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error
+	StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error
 
 	// GetRestoreStatus gets the status of the current restore.
 	GetRestoreStatus() (string, error)

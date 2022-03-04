@@ -28,14 +28,14 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	"k8s.io/utils/pointer"
 )
 
 // GetStartCommand builds the expected start command for a process group.
-func GetStartCommand(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
+func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, podClient podclient.FdbPodClient, processNumber int, processCount int) (string, error) {
 	substitutions, err := podClient.GetVariableSubstitutions()
 	if err != nil {
 		return "", err
@@ -84,7 +84,7 @@ func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Arg
 }
 
 // GetMonitorConf builds the monitor conf template
-func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, podClient podclient.FdbPodClient, serversPerPod int) (string, error) {
+func GetMonitorConf(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, podClient podclient.FdbPodClient, serversPerPod int) (string, error) {
 	if cluster.Status.ConnectionString == "" {
 		return "", nil
 	}
@@ -121,7 +121,7 @@ func GetMonitorConf(cluster *fdbtypes.FoundationDBCluster, processClass fdb.Proc
 	return strings.Join(confLines, "\n"), nil
 }
 
-func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
+func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, substitutions map[string]string, processNumber int, processCount int) ([]string, error) {
 	confLines := make([]string, 0, 20)
 
 	config, err := GetMonitorProcessConfiguration(cluster, processClass, processCount, FDBImageTypeSplit, substitutions)
@@ -155,7 +155,7 @@ func getMonitorConfStartCommandLines(cluster *fdbtypes.FoundationDBCluster, proc
 }
 
 // GetMonitorProcessConfiguration builds the monitor conf template for the unified image.
-func GetMonitorProcessConfiguration(cluster *fdbtypes.FoundationDBCluster, processClass fdb.ProcessClass, processCount int, imageType FDBImageType, customParameterSubstitutions map[string]string) (monitorapi.ProcessConfiguration, error) {
+func GetMonitorProcessConfiguration(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, processCount int, imageType FDBImageType, customParameterSubstitutions map[string]string) (monitorapi.ProcessConfiguration, error) {
 	configuration := monitorapi.ProcessConfiguration{
 		Version: cluster.Spec.Version,
 	}

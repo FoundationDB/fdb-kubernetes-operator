@@ -31,7 +31,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -39,7 +39,7 @@ import (
 type addServices struct{}
 
 // reconcile runs the reconciler's work.
-func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
@@ -63,7 +63,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 		}
 	}
 
-	if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
+	if *cluster.Spec.Routing.PublicIPSource == fdbv1beta2.PublicIPSourceService {
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			if processGroup.IsMarkedForRemoval() {
 				continue
@@ -109,7 +109,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 
 // updateServices updates selected safe fields on a service based on a new
 // service definition.
-func updateService(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster, currentService *corev1.Service, newService *corev1.Service) error {
+func updateService(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, currentService *corev1.Service, newService *corev1.Service) error {
 	serviceLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "service", currentService.Name)
 	originalSpec := currentService.Spec.DeepCopy()
 

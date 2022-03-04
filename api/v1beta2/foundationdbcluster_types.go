@@ -810,6 +810,11 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
+	// IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before
+	// we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block
+	// further reconciliation.
+	IgnoreTerminatingPodsSeconds *int `json:"ignoreTerminatingPodsSeconds,omitempty"`
+
 	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
 	// and these misconfigured Pods must be replaced manually or by another process. For each reconcile
@@ -1573,11 +1578,7 @@ func (cluster *FoundationDBCluster) GetLockID() string {
 // NeedsExplicitListenAddress determines whether we pass a listen address
 // parameter to fdbserver.
 func (cluster *FoundationDBCluster) NeedsExplicitListenAddress() bool {
-	source := cluster.Spec.Routing.PublicIPSource
-	requiredForSource := source != nil && *source == PublicIPSourceService
-	flag := cluster.Spec.UseExplicitListenAddress
-	requiredForFlag := flag != nil && *flag
-	return requiredForSource || requiredForFlag
+	return cluster.GetPublicIPSource() == PublicIPSourceService || cluster.GetUseExplicitListenAddress()
 }
 
 // GetPublicIPSource returns the set PublicIPSource or the default PublicIPSourcePod
@@ -1771,7 +1772,7 @@ func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass fdb.Process
 // ShouldFilterOnOwnerReferences determines if we should check owner references
 // when determining if a resource is related to this cluster.
 func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
-	return cluster.Spec.LabelConfig.FilterOnOwnerReferences != nil && *cluster.Spec.LabelConfig.FilterOnOwnerReferences
+	return pointer.BoolDeref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
 }
 
 // SkipProcessGroup checks if a ProcessGroupStatus should be skip during reconciliation.
@@ -1809,7 +1810,7 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 // GetProcessClassLabel provides the label that this cluster is using for the
 // process class when identifying resources.
 func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
-	labels := cluster.Spec.LabelConfig.ProcessClassLabels
+	labels := cluster.GetProcessClassLabels()
 	if len(labels) == 0 {
 		return fdb.FDBProcessClassLabel
 	}
@@ -1819,7 +1820,7 @@ func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 // GetProcessGroupIDLabel provides the label that this cluster is using for the
 // process group ID when identifying resources.
 func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
-	labels := cluster.Spec.LabelConfig.ProcessGroupIDLabels
+	labels := cluster.GetProcessGroupIDLabels()
 	if len(labels) == 0 {
 		return fdb.FDBProcessGroupIDLabel
 	}
@@ -1906,4 +1907,88 @@ func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupS
 
 	// Default is ReplaceTransactionSystem.
 	return processGroup.ProcessClass.IsTransaction()
+}
+
+// GetResourceLabels returns the resource labels for all created resources
+func (cluster *FoundationDBCluster) GetResourceLabels() map[string]string {
+	if cluster.Spec.LabelConfig.ResourceLabels != nil {
+		return cluster.Spec.LabelConfig.ResourceLabels
+	}
+
+	return map[string]string{
+		fdb.FDBClusterLabel: cluster.Name,
+	}
+}
+
+// GetProcessGroupIDLabels returns the process group ID labels
+func (cluster *FoundationDBCluster) GetProcessGroupIDLabels() []string {
+	if cluster.Spec.LabelConfig.ProcessGroupIDLabels != nil {
+		return cluster.Spec.LabelConfig.ProcessGroupIDLabels
+	}
+
+	return []string{fdb.FDBProcessGroupIDLabel}
+}
+
+// GetProcessClassLabels returns the process class labels
+func (cluster *FoundationDBCluster) GetProcessClassLabels() []string {
+	if cluster.Spec.LabelConfig.ProcessClassLabels != nil {
+		return cluster.Spec.LabelConfig.ProcessClassLabels
+	}
+
+	return []string{fdb.FDBProcessClassLabel}
+}
+
+// GetMatchLabels returns the match labels for all created resources
+func (cluster *FoundationDBCluster) GetMatchLabels() map[string]string {
+	if cluster.Spec.LabelConfig.MatchLabels != nil {
+		return cluster.Spec.LabelConfig.MatchLabels
+	}
+
+	return map[string]string{
+		fdb.FDBClusterLabel: cluster.Name,
+	}
+}
+
+// GetUseExplicitListenAddress returns the UseExplicitListenAddress or if unset the default true
+func (cluster *FoundationDBCluster) GetUseExplicitListenAddress() bool {
+	return pointer.BoolDeref(cluster.Spec.UseExplicitListenAddress, true)
+}
+
+// GetMinimumUptimeSecondsForBounce returns the MinimumUptimeSecondsForBounce if set otherwise 600
+func (cluster *FoundationDBCluster) GetMinimumUptimeSecondsForBounce() int {
+	if cluster.Spec.MinimumUptimeSecondsForBounce == 0 {
+		return 600
+	}
+
+	return cluster.Spec.MinimumUptimeSecondsForBounce
+}
+
+// GetEnableAutomaticReplacements returns cluster.Spec.AutomationOptions.Replacements.Enabled or if unset the default true
+func (cluster *FoundationDBCluster) GetEnableAutomaticReplacements() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.Enabled, true)
+}
+
+// GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 1800
+func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 1800)
+}
+
+// GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true
+func (cluster *FoundationDBCluster) GetSidecarContainerEnableLivenessProbe() bool {
+	return pointer.BoolDeref(cluster.Spec.SidecarContainer.EnableLivenessProbe, true)
+}
+
+// GetSidecarContainerEnableReadinessProbe returns cluster.Spec.SidecarContainer.EnableReadinessProbe or if unset the default false
+func (cluster *FoundationDBCluster) GetSidecarContainerEnableReadinessProbe() bool {
+	return pointer.BoolDeref(cluster.Spec.SidecarContainer.EnableReadinessProbe, false)
+}
+
+// GetUseUnifiedImage returns cluster.Spec.UseUnifiedImage or if unset the default false
+func (cluster *FoundationDBCluster) GetUseUnifiedImage() bool {
+	return pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false)
+}
+
+// GetIgnoreTerminatingPodsSeconds returns the value of IgnoreTerminatingPodsSeconds or defaults to 10 minutes.
+func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))
 }

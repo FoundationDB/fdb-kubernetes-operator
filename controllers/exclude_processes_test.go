@@ -27,13 +27,13 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("exclude_processes", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 
 	BeforeEach(func() {
@@ -138,11 +138,11 @@ var _ = Describe("exclude_processes", func() {
 	})
 })
 
-func createMissingProcesses(cluster *fdbtypes.FoundationDBCluster, count int, processClass fdb.ProcessClass) {
+func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdb.ProcessClass) {
 	missing := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass == processClass {
-			processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, nil, "")
 			missing++
 			if missing == count {
 				break

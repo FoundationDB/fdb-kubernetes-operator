@@ -28,14 +28,14 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("add_pods", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
 	var initialPods *corev1.PodList
@@ -88,7 +88,7 @@ var _ = Describe("add_pods", func() {
 
 	Context("with a storage process group with no pod defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus("storage-9", "storage", nil))
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
 		})
 
 		It("should not requeue", func() {

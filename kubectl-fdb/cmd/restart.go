@@ -24,14 +24,11 @@ import (
 	"fmt"
 	"log"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -72,15 +69,12 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-			clientSet, err := kubernetes.NewForConfig(config)
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
 
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			clientSet, err := kubernetes.NewForConfig(config)
 			if err != nil {
 				return err
 			}
@@ -147,11 +141,11 @@ kubectl fdb restart -c cluster --process-condition=MissingProcesses
 	return cmd
 }
 
-func convertConditions(inputConditions []string) ([]fdbtypes.ProcessGroupConditionType, error) {
-	res := make([]fdbtypes.ProcessGroupConditionType, 0, len(inputConditions))
+func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupConditionType, error) {
+	res := make([]fdbv1beta2.ProcessGroupConditionType, 0, len(inputConditions))
 
 	for _, inputCondition := range inputConditions {
-		cond, err := fdbtypes.GetProcessGroupConditionType(inputCondition)
+		cond, err := fdbv1beta2.GetProcessGroupConditionType(inputCondition)
 		if err != nil {
 			return res, err
 		}

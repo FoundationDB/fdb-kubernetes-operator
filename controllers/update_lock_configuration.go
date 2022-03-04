@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // updateLockConfiguration reconciles the state of the locking system in the
@@ -31,7 +31,7 @@ import (
 type updateLockConfiguration struct{}
 
 // reconcile runs the reconciler's work.
-func (updateLockConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updateLockConfiguration) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	if len(cluster.Spec.LockOptions.DenyList) == 0 || !cluster.ShouldUseLocks() || !cluster.Status.Configured {
 		return nil
 	}

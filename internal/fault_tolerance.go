@@ -21,7 +21,7 @@
 package internal
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 )
 
@@ -32,7 +32,7 @@ func hasDesiredFaultTolerance(expectedFaultTolerance int, maxZoneFailuresWithout
 }
 
 // HasDesiredFaultTolerance checks if the cluster has the desired fault tolerance.
-func HasDesiredFaultTolerance(adminClient fdbadminclient.AdminClient, cluster *fdbtypes.FoundationDBCluster) (bool, error) {
+func HasDesiredFaultTolerance(adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err

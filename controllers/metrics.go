@@ -25,7 +25,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -50,20 +50,6 @@ var (
 	descClusterLastReconciled = prometheus.NewDesc(
 		"fdb_operator_cluster_latest_reconciled_status",
 		"the latest generation that was reconciled.",
-		descClusterDefaultLabels,
-		nil,
-	)
-
-	descInstancesToRemove = prometheus.NewDesc(
-		"fdb_operator_instances_to_remove_total",
-		"the count of instances that should be removed from the cluster. Deprecated, use fdb_operator_process_groups_to_remove_total instead",
-		descClusterDefaultLabels,
-		nil,
-	)
-
-	descInstancesToRemoveWithoutExclusion = prometheus.NewDesc(
-		"fdb_operator_instances_to_remove_without_exclusion_total",
-		"the count of instances that should be removed from the cluster without excluding. Deprecated use fdb_operator_process_groups_to_remove_total instead",
 		descClusterDefaultLabels,
 		nil,
 	)
@@ -127,7 +113,7 @@ func (c *fdbClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements the prometheus.Collector interface
 func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
-	clusters := &fdbtypes.FoundationDBClusterList{}
+	clusters := &fdbv1beta2.FoundationDBClusterList{}
 	err := c.reconciler.List(context.Background(), clusters)
 	if err != nil {
 		return
@@ -137,7 +123,7 @@ func (c *fdbClusterCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBCluster) {
+func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationDBCluster) {
 	addConstMetric := func(desc *prometheus.Desc, t prometheus.ValueType, v float64, lv ...string) {
 		lv = append([]string{cluster.Namespace, cluster.Name}, lv...)
 		ch <- prometheus.MustNewConstMetric(desc, t, v, lv...)
@@ -153,8 +139,6 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	addGauge(descClusterStatus, float64(cluster.Status.Health.DataMovementPriority), "datamovementpriority")
 	addGauge(descClusterLastReconciled, float64(cluster.Status.Generations.Reconciled))
 	addGauge(descClusterReconciled, boolFloat64(cluster.ObjectMeta.Generation == cluster.Status.Generations.Reconciled))
-	addGauge(descInstancesToRemove, float64(len(cluster.Spec.InstancesToRemove)))
-	addGauge(descInstancesToRemoveWithoutExclusion, float64(len(cluster.Spec.InstancesToRemoveWithoutExclusion)))
 	addGauge(descProcessGroupsToRemove, float64(len(cluster.Spec.ProcessGroupsToRemove)))
 	addGauge(descProcessGroupsToRemoveWithoutExclusion, float64(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)))
 
@@ -171,14 +155,14 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbtypes.FoundationDBC
 	}
 }
 
-func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) (map[fdb.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int, map[fdb.ProcessClass]int, map[fdb.ProcessClass]int) {
-	metricMap := map[fdb.ProcessClass]map[fdbtypes.ProcessGroupConditionType]int{}
+func getProcessGroupMetrics(cluster *fdbv1beta2.FoundationDBCluster) (map[fdb.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int, map[fdb.ProcessClass]int, map[fdb.ProcessClass]int) {
+	metricMap := map[fdb.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int{}
 	removals := map[fdb.ProcessClass]int{}
 	exclusions := map[fdb.ProcessClass]int{}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if _, exits := metricMap[processGroup.ProcessClass]; !exits {
-			metricMap[processGroup.ProcessClass] = map[fdbtypes.ProcessGroupConditionType]int{}
+			metricMap[processGroup.ProcessClass] = map[fdbv1beta2.ProcessGroupConditionType]int{}
 			removals[processGroup.ProcessClass] = 0
 			exclusions[processGroup.ProcessClass] = 0
 		}
@@ -192,7 +176,7 @@ func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) (map[fdb.Proc
 		}
 
 		if len(processGroup.ProcessGroupConditions) == 0 {
-			metricMap[processGroup.ProcessClass][fdbtypes.ReadyCondition]++
+			metricMap[processGroup.ProcessClass][fdbv1beta2.ReadyCondition]++
 		}
 
 		for _, condition := range processGroup.ProcessGroupConditions {
@@ -203,10 +187,10 @@ func getProcessGroupMetrics(cluster *fdbtypes.FoundationDBCluster) (map[fdb.Proc
 	// Ensure that all conditions are present
 	for pClass := range metricMap {
 		if _, exits := metricMap[pClass]; !exits {
-			metricMap[pClass] = map[fdbtypes.ProcessGroupConditionType]int{}
+			metricMap[pClass] = map[fdbv1beta2.ProcessGroupConditionType]int{}
 		}
 
-		for _, condition := range fdbtypes.AllProcessGroupConditionTypes() {
+		for _, condition := range fdbv1beta2.AllProcessGroupConditionTypes() {
 			if _, exists := metricMap[pClass][condition]; !exists {
 				metricMap[pClass][condition] = 0
 			}

@@ -2152,7 +2152,7 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 // GetProcessClassLabel provides the label that this cluster is using for the
 // process class when identifying resources.
 func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
-	labels := cluster.Spec.LabelConfig.ProcessClassLabels
+	labels := cluster.GetProcessClassLabels()
 	if len(labels) == 0 {
 		return fdb.FDBProcessClassLabel
 	}
@@ -2162,7 +2162,7 @@ func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 // GetProcessGroupIDLabel provides the label that this cluster is using for the
 // process group ID when identifying resources.
 func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
-	labels := cluster.Spec.LabelConfig.ProcessGroupIDLabels
+	labels := cluster.GetProcessGroupIDLabels()
 	if len(labels) == 0 {
 		return fdb.FDBProcessGroupIDLabel
 	}
@@ -2249,4 +2249,33 @@ func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupS
 
 	// Default is ReplaceTransactionSystem.
 	return processGroup.ProcessClass.IsTransaction()
+}
+
+// GetResourceLabels returns the resource labels for all created resources
+func (cluster *FoundationDBCluster) GetResourceLabels() map[string]string {
+	if cluster.Spec.LabelConfig.ResourceLabels != nil {
+		return cluster.Spec.LabelConfig.ResourceLabels
+	}
+
+	return map[string]string{
+		fdb.FDBClusterLabel: cluster.Name,
+	}
+}
+
+// GetProcessGroupIDLabels returns the process group ID labels
+func (cluster *FoundationDBCluster) GetProcessGroupIDLabels() []string {
+	if cluster.Spec.LabelConfig.ProcessGroupIDLabels != nil {
+		return cluster.Spec.LabelConfig.ProcessGroupIDLabels
+	}
+
+	return []string{fdb.FDBProcessGroupIDLabel}
+}
+
+// GetProcessClassLabels returns the process class labels
+func (cluster *FoundationDBCluster) GetProcessClassLabels() []string {
+	if cluster.Spec.LabelConfig.ProcessClassLabels != nil {
+		return cluster.Spec.LabelConfig.ProcessClassLabels
+	}
+
+	return []string{fdb.FDBProcessClassLabel}
 }

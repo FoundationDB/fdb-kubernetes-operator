@@ -33,11 +33,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 var _ = Describe("admin_client_test", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var client *mockAdminClient
 
 	var err error
@@ -140,7 +140,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with an additional process", func() {
 			BeforeEach(func() {
-				client.MockAdditionalProcesses([]fdbtypes.ProcessGroupStatus{{
+				client.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{{
 					ProcessGroupID: "dc2-storage-1",
 					ProcessClass:   "storage",
 					Addresses:      []string{"1.2.3.4"},
@@ -226,7 +226,7 @@ var _ = Describe("admin_client_test", func() {
 	})
 
 	Describe("backup status", func() {
-		var status *fdbtypes.FoundationDBLiveBackupStatus
+		var status *fdbv1beta2.FoundationDBLiveBackupStatus
 		JustBeforeEach(func() {
 			status, err = client.GetBackupStatus()
 			Expect(err).NotTo(HaveOccurred())

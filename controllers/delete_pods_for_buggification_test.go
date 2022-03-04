@@ -27,7 +27,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("delete_pods_for_buggification", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
 	var originalPods *corev1.PodList
@@ -199,7 +199,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 	Context("with a change to an environment variable", func() {
 		BeforeEach(func() {
-			cluster.Spec.Processes = map[fdb.ProcessClass]fdbtypes.ProcessSettings{fdb.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+			cluster.Spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{fdb.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{

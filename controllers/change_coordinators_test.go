@@ -33,20 +33,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Change coordinators", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var adminClient *mockAdminClient
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
 		disabled := false
 		cluster.Spec.LockOptions.DisableLocks = &disabled
-		cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+		cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 			{
 				ProcessClass: fdb.ProcessClassStorage,
 				Priority:     math.MaxInt32,
@@ -182,7 +182,7 @@ var _ = Describe("Change coordinators", func() {
 
 			When("the coordinator selection setting is changed", func() {
 				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 						{
 							ProcessClass: fdb.ProcessClassLog,
 							Priority:     0,
@@ -638,7 +638,7 @@ var _ = Describe("Change coordinators", func() {
 
 			When("no other preferences are defined", func() {
 				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{}
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{}
 				})
 
 				It("should sort the localities based on the IDs", func() {
@@ -657,7 +657,7 @@ var _ = Describe("Change coordinators", func() {
 
 			When("when the storage class is preferred", func() {
 				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 						{
 							ProcessClass: fdb.ProcessClassStorage,
 							Priority:     0,
@@ -681,7 +681,7 @@ var _ = Describe("Change coordinators", func() {
 
 			When("when the storage class is preferred over transaction class", func() {
 				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbtypes.CoordinatorSelectionSetting{
+					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
 						{
 							ProcessClass: fdb.ProcessClassStorage,
 							Priority:     1,

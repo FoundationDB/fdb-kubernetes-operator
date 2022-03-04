@@ -27,13 +27,13 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("add_process_groups", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
 	var initialProcessCounts fdb.ProcessCounts
@@ -52,7 +52,7 @@ var _ = Describe("add_process_groups", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(generation).To(Equal(int64(1)))
 
-		initialProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
+		initialProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 	})
 
 	JustBeforeEach(func() {
@@ -63,7 +63,7 @@ var _ = Describe("add_process_groups", func() {
 
 		_, err = reloadCluster(cluster)
 		Expect(err).NotTo(HaveOccurred())
-		newProcessCounts = fdbtypes.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
+		newProcessCounts = fdbv1beta2.CreateProcessCountsFromProcessGroupStatus(cluster.Status.ProcessGroups, true)
 
 	})
 
@@ -208,18 +208,18 @@ var _ = Describe("add_process_groups", func() {
 	})
 
 	When("a new processGroup is created", func() {
-		var processGroupStatus *fdbtypes.ProcessGroupStatus
+		var processGroupStatus *fdbv1beta2.ProcessGroupStatus
 
 		BeforeEach(func() {
-			processGroupStatus = fdbtypes.NewProcessGroupStatus("1337", fdb.ProcessClassStorage, []string{"1.1.1.1"})
+			processGroupStatus = fdbv1beta2.NewProcessGroupStatus("1337", fdb.ProcessClassStorage, []string{"1.1.1.1"})
 		})
 
 		It("should have the missing conditions", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(processGroupStatus.ProcessGroupConditions)).To(Equal(3))
-			Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbtypes.MissingProcesses))
-			Expect(processGroupStatus.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPod))
-			Expect(processGroupStatus.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbtypes.MissingPVC))
+			Expect(processGroupStatus.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingProcesses))
+			Expect(processGroupStatus.ProcessGroupConditions[1].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPod))
+			Expect(processGroupStatus.ProcessGroupConditions[2].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingPVC))
 		})
 	})
 })

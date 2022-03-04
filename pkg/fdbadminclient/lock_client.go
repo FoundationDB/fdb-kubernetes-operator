@@ -21,7 +21,7 @@
 package fdbadminclient
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 )
 
@@ -49,5 +49,5 @@ type LockClient interface {
 	GetDenyList() ([]string, error)
 
 	// UpdateDenyList updates the deny list to match a list of entries.
-	UpdateDenyList(locks []v1beta1.LockDenyListEntry) error
+	UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error
 }
