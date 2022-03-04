@@ -2,7 +2,6 @@ name: Integration checks
 on:
   push:
     branches:
-      - master
       - main
   pull_request:
 
@@ -87,10 +86,6 @@ jobs:
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
         tar xvfz yq.tar.gz
         sudo mv ./yq_linux_amd64 /usr/bin/yq
-    - name: Check for uncommitted changes
-      run: |
-        make clean all 
-        git diff --exit-code
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
@@ -104,6 +99,10 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
         # Run the actual tests
         make test
+    - name: Check for uncommitted changes
+      run: |
+        make clean all
+        git diff --exit-code
   push_images:
     if: github.ref == 'refs/heads/main'
     needs: build
@@ -114,13 +113,14 @@ jobs:
         image:
           - fdb-kubernetes-operator
           - fdb-data-loader
+          - fdb-kubernetes-operator-distroless
         include:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
-          - image: fdb-kubernetes-operator
+          - image: fdb-kubernetes-operator-distroless
             context: ./
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: -distrolesss
@@ -146,5 +146,5 @@ jobs:
           build-args: TAG=${GITHUB_SHA}
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:latest${{ matrix.tag }}
+          tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
           file: ${{ matrix.file }}

@@ -2,7 +2,7 @@ name: Create Release
 on:
   push:
     tags:
-    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   create-release:
@@ -97,13 +97,23 @@ jobs:
         image:
           - fdb-kubernetes-operator
           - fdb-data-loader
+          - fdb-kubernetes-operator-distroless
         include:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: ""
+            file: ./Dockerfile
+          - image: fdb-kubernetes-operator-distroless
+            context: ./
+            name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: -distrolesss
+            file: ./distrolesss.dockerfile
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
+            tagSuffix: ""
+            file: ./foundationdb/fdb-data-loader/Dockerfile
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -123,4 +133,5 @@ jobs:
           build-args: TAG=${{ steps.get_tag.outputs.TAG }}
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}
+          tags: ${{ matrix.name }}:${{ steps.get_tag.outputs.TAG }}${{ matrix.tagSuffix }}
+          file: ${{ matrix.file }}
