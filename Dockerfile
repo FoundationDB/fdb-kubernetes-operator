@@ -60,7 +60,7 @@ RUN groupadd --gid 4059 fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
-FROM docker.io/centos:centos8
+FROM docker.io/ubuntu:22.04
 
 WORKDIR /
 
