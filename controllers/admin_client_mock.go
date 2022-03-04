@@ -317,7 +317,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 }
 
 // ConfigureDatabase changes the database configuration
-func (client *mockAdminClient) ConfigureDatabase(configuration fdb.DatabaseConfiguration, newDatabase bool) error {
+func (client *mockAdminClient) ConfigureDatabase(configuration fdb.DatabaseConfiguration, _ bool) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -334,6 +334,7 @@ func (client *mockAdminClient) ExcludeProcesses(addresses []fdb.ProcessAddress) 
 	count := len(addresses) + len(client.ExcludedAddresses)
 	exclusionMap := make(map[string]bool, count)
 	newExclusions := make([]string, 0, count)
+
 	for _, pAddr := range addresses {
 		address := pAddr.String()
 		if !exclusionMap[address] {
@@ -341,15 +342,18 @@ func (client *mockAdminClient) ExcludeProcesses(addresses []fdb.ProcessAddress) 
 			newExclusions = append(newExclusions, address)
 		}
 	}
+
 	for _, address := range client.ExcludedAddresses {
 		if !exclusionMap[address] {
 			exclusionMap[address] = true
 			newExclusions = append(newExclusions, address)
 		}
 	}
+
 	if len(newExclusions) == 0 {
 		newExclusions = nil
 	}
+
 	client.ExcludedAddresses = newExclusions
 	return nil
 }
@@ -419,6 +423,8 @@ func (client *mockAdminClient) CanSafelyRemove(addresses []fdb.ProcessAddress) (
 		remaining = append(remaining, addr)
 	}
 
+	t := client.ExcludedAddresses
+	log.Info("CanSafelyRemove", "addresses", addresses, "skipExclude", skipExclude, "remaining", remaining, "excluded", t)
 	return remaining, nil
 }
 
@@ -586,7 +592,7 @@ func (client *mockAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBa
 }
 
 // StartRestore starts a new restore.
-func (client *mockAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error {
+func (client *mockAdminClient) StartRestore(url string, _ []fdbv1beta2.FoundationDBKeyRange) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 

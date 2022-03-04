@@ -65,14 +65,20 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 			return &requeue{curError: err}
 		}
 
-		currentExclusionMap := make(map[string]bool, len(exclusions))
+		log.Info("current exclusions", "ex", exclusions)
+		currentExclusionMap := make(map[string]fdb.None, len(exclusions))
 		for _, address := range exclusions {
-			currentExclusionMap[address.String()] = true
+			currentExclusionMap[address.String()] = fdb.None{}
 		}
 
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			for _, address := range processGroup.Addresses {
-				if processGroup.IsMarkedForRemoval() && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
+				// Already excluded, so we don't have to exclude it again
+				if _, ok := currentExclusionMap[address]; ok {
+					continue
+				}
+
+				if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
 					addresses = append(addresses, fdb.ProcessAddress{IPAddress: net.ParseIP(address)})
 					processClassesToExclude[processGroup.ProcessClass] = fdb.None{}
 				}

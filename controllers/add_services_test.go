@@ -93,7 +93,10 @@ var _ = Describe("add_services", func() {
 
 		Context("with a change to the match labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.LabelConfig.MatchLabels["fdb-test-label"] = "true"
+				cluster.Spec.LabelConfig.MatchLabels = map[string]string{
+					fdb.FDBClusterLabel: cluster.Name,
+					"fdb-test-label":    "true",
+				}
 			})
 
 			It("should not create any services", func() {

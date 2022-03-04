@@ -60,45 +60,45 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 		}
 	}
 
-	// Set up resource requirements for the main container.
-	updatePodTemplates(&cluster.Spec, func(template *v1.PodTemplateSpec) {
-		template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, "foundationdb", 0)
+	if !options.OnlyShowChanges {
+		// Set up resource requirements for the main container.
+		updatePodTemplates(&cluster.Spec, func(template *v1.PodTemplateSpec) {
+			template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, "foundationdb", 0)
 
-		template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb", func(container *v1.Container) {
-			if container.Resources.Requests == nil {
-				container.Resources.Requests = v1.ResourceList{
-					"cpu":    resource.MustParse("1"),
-					"memory": resource.MustParse("1Gi"),
+			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb", func(container *v1.Container) {
+				if container.Resources.Requests == nil {
+					container.Resources.Requests = v1.ResourceList{
+						"cpu":    resource.MustParse("1"),
+						"memory": resource.MustParse("1Gi"),
+					}
+				}
+
+				if container.Resources.Limits == nil {
+					container.Resources.Limits = container.Resources.Requests
+				}
+			})
+
+			sidecarUpdater := func(container *v1.Container) {
+				if container.Resources.Requests == nil {
+					container.Resources.Requests = v1.ResourceList{
+						"cpu":    resource.MustParse("100m"),
+						"memory": resource.MustParse("256Mi"),
+					}
+				}
+
+				if container.Resources.Limits == nil {
+					container.Resources.Limits = container.Resources.Requests
 				}
 			}
 
-			if container.Resources.Limits == nil {
-				container.Resources.Limits = container.Resources.Requests
+			if !cluster.GetUseUnifiedImage() {
+				template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
 			}
+			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
 		})
-	})
 
-	updateImageConfigs(&cluster.Spec, cluster.GetUseUnifiedImage())
-
-	updatePodTemplates(&cluster.Spec, func(template *v1.PodTemplateSpec) {
-		sidecarUpdater := func(container *v1.Container) {
-			if container.Resources.Requests == nil {
-				container.Resources.Requests = v1.ResourceList{
-					"cpu":    resource.MustParse("100m"),
-					"memory": resource.MustParse("256Mi"),
-				}
-			}
-
-			if container.Resources.Limits == nil {
-				container.Resources.Limits = container.Resources.Requests
-			}
-		}
-
-		if !cluster.GetUseUnifiedImage() {
-			template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
-		}
-		template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
-	})
+		updateImageConfigs(&cluster.Spec, cluster.GetUseUnifiedImage())
+	}
 
 	return nil
 }

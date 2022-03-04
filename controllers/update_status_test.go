@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
@@ -450,16 +452,12 @@ var _ = Describe("update_status", func() {
 			Expect(cluster.Status.Generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
 		})
 
-		When("enabling an explicit listen address", func() {
+		When("disabling an explicit listen address", func() {
 			BeforeEach(func() {
-				enabled := false
-				cluster.Spec.UseExplicitListenAddress = &enabled
 				result, err := reconcileCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Requeue).To(BeFalse())
-
-				enabled = true
-				cluster.Spec.UseExplicitListenAddress = &enabled
+				cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
 			})
 
 			Context("when the cluster has not been reconciled", func() {

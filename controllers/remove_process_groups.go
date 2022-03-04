@@ -55,13 +55,21 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		return &requeue{curError: err}
 	}
 
-	allExcluded, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
+	allExcluded, newExclusions, processGroupsToRemove := r.getProcessGroupsToRemove(cluster, remainingMap)
 	// If no process groups are marked to remove we have to check if all process groups are excluded.
 	if len(processGroupsToRemove) == 0 {
 		if !allExcluded {
 			return &requeue{message: "Reconciliation needs to exclude more processes"}
 		}
 		return nil
+	}
+
+	// Update the cluster to reflect the new exclusions in our status
+	if newExclusions {
+		err = r.Status().Update(ctx, cluster)
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
 
 	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node
@@ -272,10 +280,11 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	return nil
 }
 
-func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, []*fdbv1beta2.ProcessGroupStatus) {
+func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	var cordSet map[string]struct{}
 	allExcluded := true
+	newExclusions := false
 	processGroupsToRemove := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -290,8 +299,21 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1b
 
 			if err != nil {
 				logger.Error(err, "Fetching coordinator set for removal")
-				return false, nil
+				return false, false, nil
 			}
+		}
+
+		if _, ok := cordSet[processGroup.ProcessGroupID]; ok {
+			logger.Info("Block removal of Coordinator", "processGroupID", processGroup.ProcessGroupID)
+			allExcluded = false
+			continue
+		}
+
+		// ProcessGroup is already marked as excluded we can add it to the processGroupsToRemove and skip further
+		// checks.
+		if processGroup.IsExcluded() {
+			processGroupsToRemove = append(processGroupsToRemove, processGroup)
+			continue
 		}
 
 		excluded, err := processGroup.AllAddressesExcluded(remainingMap)
@@ -301,18 +323,13 @@ func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1b
 			continue
 		}
 
-		if _, ok := cordSet[processGroup.ProcessGroupID]; ok {
-			logger.Info("Block removal of Coordinator", "processGroupID", processGroup.ProcessGroupID)
-			allExcluded = false
-			continue
-		}
-
 		logger.Info("Marking exclusion complete", "processGroupID", processGroup.ProcessGroupID, "addresses", processGroup.Addresses)
 		processGroup.SetExclude()
 		processGroupsToRemove = append(processGroupsToRemove, processGroup)
+		newExclusions = true
 	}
 
-	return allExcluded, processGroupsToRemove
+	return allExcluded, newExclusions, processGroupsToRemove
 }
 
 func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster, processGroupsToRemove []string, terminatingProcessGroups []string) map[string]bool {
