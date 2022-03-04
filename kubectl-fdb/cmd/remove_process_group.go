@@ -115,6 +115,7 @@ kubectl fdb -n default remove process-group  -c cluster --remove-all-failed
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
 	cmd.Flags().Bool("shrink", false, "define if the removed process groups should not be replaced.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
+	cmd.Flags().Bool("use-process-group-id", false, "define if the process-group should be used instead of the Pod name.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
 		log.Fatal(err)
