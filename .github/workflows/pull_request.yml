@@ -105,7 +105,7 @@ jobs:
         # Run the actual tests
         make test
   push_images:
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     needs: build
     name: Push Docker images
     runs-on: ubuntu-latest
@@ -118,9 +118,18 @@ jobs:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: ""
+            file: ./Dockerfile
+          - image: fdb-kubernetes-operator
+            context: ./
+            name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: -distrolesss
+            file: ./distrolesss.dockerfile
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
+            tagSuffix: ""
+            file: ./foundationdb/fdb-data-loader/Dockerfile
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -137,4 +146,5 @@ jobs:
           build-args: TAG=${GITHUB_SHA}
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:latest
+          tags: ${{ matrix.name }}:latest${{ matrix.tag }}
+          file: ${{ matrix.file }}
