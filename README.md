@@ -2,27 +2,27 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/FoundationDB/fdb-kubernetes-operator)](https://goreportcard.com/report/github.com/FoundationDB/fdb-kubernetes-operator)
 ![GitHub](https://img.shields.io/github/license/FoundationDB/fdb-kubernetes-operator)
-[![CI for master branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
+[![CI for main branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
 
 This project provides an operator for managing FoundationDB
 clusters on Kubernetes.
 
 ## Running the Operator
 
-To run the operator in your environment, you need to install the controller and
-the CRDs:
+To run the operator in your environment, you need to install the controller and the CRDs:
+*Note* this will install the latest version from main. For a production setup you should refer to a specific tag.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
-kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
-kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
-kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/deployment.yaml
+kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/deployment.yaml
 ```
 
 At that point, you can set up a sample cluster:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/master/config/samples/cluster.yaml
+kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-operator/main/config/samples/cluster.yaml
 ```
 
 You can see logs from the operator by running
