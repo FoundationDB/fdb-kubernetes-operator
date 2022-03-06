@@ -89,7 +89,7 @@ jobs:
       run: |
         make clean all
         git diff --exit-code
-    - name: Ensure samples are in a valid format
+    - name: Ensure CRD can be upgrade from main
       run: |
         # Install the current manifests to ensure we can apply the manifests without any issue
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
