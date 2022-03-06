@@ -109,7 +109,6 @@ jobs:
         GOMAXPROCS: "2"
         TEST_RACE_CONDITIONS: "1"
       run: |
-        # Run the actual tests
         make test
   build_images:
     if: github.ref != 'refs/heads/main'
