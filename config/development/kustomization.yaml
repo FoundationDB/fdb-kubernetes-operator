@@ -1,9 +1,15 @@
-resources:
-- manager.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
+patchesStrategicMerge:
+- test_certs.yaml
+- backup_credentials.yaml
+
+resources:
+- ../deployment
+- ../minio
+
 images:
 - name: controller
   newName: fdb-kubernetes-operator
   newTag: latest
-namePrefix: fdb-kubernetes-operator-

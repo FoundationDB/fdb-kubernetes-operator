@@ -127,8 +127,8 @@ uninstall: manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: install manifests
-	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
+	cd config/development && kustomize edit set image controller=${IMG}
+	kustomize build config/development | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
@@ -172,10 +172,22 @@ rebuild-operator: container-build deploy bounce
 bounce:
 	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager
 
-samples: config/samples/deployment.yaml
+samples: config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
 
-config/samples/deployment.yaml: config/samples/deployment/*.yaml
-	kustomize build config/samples/deployment > config/samples/deployment.yaml
+config/samples/deployment.yaml: config/deployment/*.yaml
+	kustomize build ./config/deployment > $@
+
+config/samples/cluster.yaml: config/tests/base/*.yaml
+	kustomize build ./config/tests/base/ > $@
+
+config/samples/backup.yaml: config/tests/backup/base/*.yaml
+	kustomize build ./config/tests/backup/base > $@
+
+config/samples/restore.yaml: config/tests/backup/base/*.yaml
+	kustomize build ./config/tests/backup/restore > $@
+
+config/samples/client.yaml: config/tests/client/*.yaml
+	kustomize build ./config/tests/client > $@
 
 bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
@@ -193,4 +205,3 @@ documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 
 lint:
 	golangci-lint run ./...
-

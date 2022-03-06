@@ -83,6 +83,7 @@ You can test your setup with `SKIP_TEST=1 make container-build` which will build
 After the command successfully finished you can verify with `nerdctl -n k8s.io images fdb-kubernetes-operator:latest` that the image is available.
 
 ### Known Limitations
+
 1. Support for backups in the operator is still in development, and there are significant missing features.
 2. The unified image is still experimental, and is not recommended outside of development environments.
 3. Additional limitations can be found under [Warnings](docs/manual/warnings.md).
