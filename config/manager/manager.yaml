@@ -17,23 +17,6 @@ spec:
         app: fdb-kubernetes-operator-controller-manager
     spec:
       initContainers:
-        - name: foundationdb-kubernetes-init-6-1
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.1.13-1
-          args:
-            - "--copy-library"
-            - "6.1"
-            - "--copy-binary"
-            - "fdbcli"
-            - "--copy-binary"
-            - "fdbbackup"
-            - "--copy-binary"
-            - "fdbrestore"
-            - "--output-dir"
-            - "/var/output-files/6.1.13"
-            - "--init-mode"
-          volumeMounts:
-            - name: fdb-binaries
-              mountPath: /var/output-files
         - name: foundationdb-kubernetes-init-6-2
           image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
           args:

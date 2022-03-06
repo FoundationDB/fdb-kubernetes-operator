@@ -5,11 +5,6 @@ image:
   pullPolicy: IfNotPresent
 
 initContainers:
-  6.1:
-    image:
-      repository: foundationdb/foundationdb-kubernetes-sidecar
-      tag: 6.1.13-1
-      pullPolicy: IfNotPresent
   6.2:
     image:
       repository: foundationdb/foundationdb-kubernetes-sidecar
