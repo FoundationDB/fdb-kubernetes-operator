@@ -83,9 +83,15 @@ jobs:
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
     - name: Check for uncommitted changes
+      env:
+        # Don't run any tests we run them in the next step
+        SKIP_TEST: "1"
       run: |
         make clean all
         git diff --exit-code
+    - name: Ensure samples are in a valid format
+      run: |
+        kubectl apply -f ./config/samples --dry-run=client
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
