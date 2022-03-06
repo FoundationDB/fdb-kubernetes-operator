@@ -63,7 +63,6 @@ ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race -timeout=30m
 endif
 
-
 all: deps generate fmt vet manager plugin manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push rebuild-operator bounce lint
@@ -127,7 +126,7 @@ uninstall: manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: install manifests
-	cd config/development && kustomize edit set image controller=${IMG}
+	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
 	kustomize build config/development | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.

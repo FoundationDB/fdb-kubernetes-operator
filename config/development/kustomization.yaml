@@ -10,6 +10,6 @@ resources:
 - ../minio
 
 images:
-- name: controller
+- name: foundationdb/fdb-kubernetes-operator
   newName: fdb-kubernetes-operator
   newTag: latest
