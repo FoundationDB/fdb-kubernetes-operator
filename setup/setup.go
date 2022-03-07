@@ -264,7 +264,6 @@ func moveFDBBinaries() error {
 			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
-			defer versionBinFile.Close()
 
 			if err == nil {
 				minorVersionPath := path.Join(binFile.Name(), version.GetBinaryVersion())
@@ -287,12 +286,12 @@ func moveFDBBinaries() error {
 					}
 				}
 			}
+			versionBinFile.Close()
 
 			versionLibFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "lib", "libfdb_c.so"))
 			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
-			defer versionLibFile.Close()
 			if err == nil {
 				currentPath := path.Join(versionLibFile.Name())
 				newPath := path.Join(libDir.Name(), fmt.Sprintf("libfdb_c_%s.so", version))
@@ -302,6 +301,7 @@ func moveFDBBinaries() error {
 					return err
 				}
 			}
+			versionLibFile.Close()
 		}
 	}
 
