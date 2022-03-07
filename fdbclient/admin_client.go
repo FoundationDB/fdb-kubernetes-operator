@@ -333,6 +333,7 @@ func (client *cliAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error)
 // The second list contains all addresses that are part of the input list and are not marked as excluded in the cluster, those addresses are not safe to remove.
 func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, []fdbtypes.ProcessAddress) {
 	notExcluded := map[string]fdbtypes.None{}
+	visitedAddresses := map[string]fdbtypes.None{}
 	for _, addr := range addresses {
 		notExcluded[addr.MachineAddress()] = fdbtypes.None{}
 	}
@@ -343,6 +344,7 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 			continue
 		}
 
+		visitedAddresses[process.Address.MachineAddress()] = fdbtypes.None{}
 		if !process.Excluded {
 			continue
 		}
@@ -356,8 +358,11 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 		remaining = make([]fdbtypes.ProcessAddress, 0, len(notExcluded))
 
 		for _, addr := range addresses {
-			// Those addresses are not excluded, so it's not safe to remove them
-			if _, ok := notExcluded[addr.MachineAddress()]; ok {
+			// Those addresses are not excluded, so it's not safe to start the exclude command to check
+			// if they are fully excluded. If we didn't visit that address (absent in the cluster status) we assume
+			// it's safe to run the exclude command against it.
+			_, visited := visitedAddresses[addr.MachineAddress()]
+			if _, ok := notExcluded[addr.MachineAddress()]; ok && visited {
 				remaining = append(remaining, addr)
 				continue
 			}
