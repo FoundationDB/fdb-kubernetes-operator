@@ -1,5 +1,4 @@
 FROM docker.io/foundationdb/foundationdb:6.2.30 as fdb62
-FROM docker.io/foundationdb/foundationdb:6.1.13 as fdb61
 FROM docker.io/foundationdb/foundationdb:6.3.22 as fdb63
 
 # Build the manager binary
@@ -25,10 +24,6 @@ RUN set -eux && \
 
 # Copy 6.2 binaries
 COPY --from=fdb62 /usr/bin/fdb* /usr/bin/fdb/6.2/
-
-# Copy 6.1 binaries
-COPY --from=fdb61 /usr/bin/fdb* /usr/bin/fdb/6.1/
-COPY --from=fdb61 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.1.so
 
 # Copy 6.3 binaries
 COPY --from=fdb63 /usr/bin/fdb* /usr/bin/fdb/6.3/

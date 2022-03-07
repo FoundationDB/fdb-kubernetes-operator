@@ -30,34 +30,29 @@ spec:
             items:
               - key: cluster-file
                 path: fdb.cluster
-
         # The dynamic-conf volume holds shared configuration between the init
         # container and the main container.
         - name: dynamic-conf
           emptyDir: {}
-
       initContainers:
         # This sample uses the official FDB sidecar to set up configuration for
         # the application in a shared volume.
         - name: foundationdb-kubernetes-init
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.24-1
           args:
             # This copies the cluster file from the cluster's config map into a
             # shared volume, where it can be read by the application and updated
             # by the application when the cluster file changes.
             - "--copy-file"
             - "fdb.cluster"
-
-            # This copies the 6.1 and 6.2 client libraries to allow the
-            # application to connect to an FDB cluster running either 6.1 or
-            # 6.2.
-            - "--copy-library"
-            - "6.1"
+            # This copies the 6.2 and 6.3 client libraries to allow the
+            # application to connect to an FDB cluster running either 6.2 or
+            # 6.3.
             - "--copy-library"
             - "6.2"
-            
+            - "--copy-library"
+            - "6.3"
             - "--init-mode"
-
             # This causes the init container to crash loop until the fdb.cluster
             # file is non-empty. This can make things smoother when you are
             # creating the cluster and the client deployment at the same time.
