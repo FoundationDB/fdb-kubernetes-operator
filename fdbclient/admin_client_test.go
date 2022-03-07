@@ -158,7 +158,7 @@ var _ = Describe("admin_client_test", func() {
 		addr4 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.4"), "", 0, nil)
 		addr5 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.5"), "", 0, nil)
 
-		DescribeTable("fetching the excluded and ramining processes from the status",
+		DescribeTable("fetching the excluded and remaining processes from the status",
 			func(status *fdbtypes.FoundationDBStatus, addresses []fdbtypes.ProcessAddress, expectedExcluded []fdbtypes.ProcessAddress, expectedRemaining []fdbtypes.ProcessAddress) {
 				excluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
 				Expect(expectedExcluded).To(ContainElements(excluded))
@@ -241,7 +241,7 @@ var _ = Describe("admin_client_test", func() {
 				nil,
 				[]fdbtypes.ProcessAddress{addr3},
 			),
-			Entry("when some processes are excludeded and some not",
+			Entry("when some processes are excluded and some not",
 				&fdbtypes.FoundationDBStatus{
 					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
 						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{

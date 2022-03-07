@@ -344,7 +344,6 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 			continue
 		}
 
-		// Add to the visited processes
 		visitedAddresses[process.Address.MachineAddress()] = fdbtypes.None{}
 		if !process.Excluded {
 			continue
