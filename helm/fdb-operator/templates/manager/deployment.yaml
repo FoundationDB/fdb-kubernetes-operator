@@ -70,10 +70,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /manager
-        env:
-        - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
-          value: /usr/bin/fdb
         {{- if not .Values.globalMode.enabled }}
+        env:
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:

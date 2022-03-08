@@ -234,10 +234,25 @@ func moveFDBBinaries() error {
 	if err != nil {
 		return err
 	}
+	defer binFile.Close()
+
+	libDir, err := os.Open(os.Getenv("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(os.Getenv("FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY"), os.ModeDir|os.ModePerm)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
 	binDir, err := binFile.Readdir(0)
 	if err != nil {
 		return err
 	}
+
 	for _, binEntry := range binDir {
 		if binEntry.IsDir() && v1beta1.FDBVersionRegex.Match([]byte(binEntry.Name())) {
 			version, err := v1beta1.ParseFdbVersion(binEntry.Name())
@@ -249,6 +264,7 @@ func moveFDBBinaries() error {
 			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
+
 			if err == nil {
 				minorVersionPath := path.Join(binFile.Name(), version.GetBinaryVersion())
 				err = os.MkdirAll(minorVersionPath, os.ModeDir|os.ModePerm)
@@ -270,6 +286,7 @@ func moveFDBBinaries() error {
 					}
 				}
 			}
+			versionBinFile.Close()
 
 			versionLibFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "lib", "libfdb_c.so"))
 			if err != nil && !os.IsNotExist(err) {
@@ -277,13 +294,14 @@ func moveFDBBinaries() error {
 			}
 			if err == nil {
 				currentPath := path.Join(versionLibFile.Name())
-				newPath := path.Join(binFile.Name(), fmt.Sprintf("libfdb_c_%s.so", version))
+				newPath := path.Join(libDir.Name(), fmt.Sprintf("libfdb_c_%s.so", version))
 				setupLog.Info("Moving FDB library file", "currentPath", currentPath, "newPath", newPath)
 				err = os.Rename(currentPath, newPath)
 				if err != nil {
 					return err
 				}
 			}
+			versionLibFile.Close()
 		}
 	}
 
