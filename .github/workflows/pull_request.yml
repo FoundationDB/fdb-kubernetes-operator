@@ -105,7 +105,6 @@ jobs:
         make test
   build_images:
     if: github.ref != 'refs/heads/main'
-    needs: build
     name: Push Docker images
     runs-on: ubuntu-latest
     strategy:
