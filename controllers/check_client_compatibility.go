@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -50,12 +48,12 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 	}
 	defer adminClient.Close()
 
-	runningVersion, err := fdb.ParseFdbVersion(cluster.Status.RunningVersion)
+	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	version, err := fdb.ParseFdbVersion(cluster.Spec.Version)
+	version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
 		return &requeue{curError: err}
 	}

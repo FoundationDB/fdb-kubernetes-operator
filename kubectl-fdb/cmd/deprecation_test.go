@@ -26,8 +26,6 @@ import (
 
 	"k8s.io/utils/pointer"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	"github.com/spf13/cobra"
@@ -124,7 +122,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 								},
 							},
 							UseExplicitListenAddress: pointer.Bool(true),
-							Processes: map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
+							Processes: map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
 								"general": {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
@@ -187,13 +185,13 @@ var _ = Describe("[plugin] deprecation command", func() {
 							LabelConfig: fdbv1beta2.LabelConfig{
 								FilterOnOwnerReferences: pointer.Bool(true),
 								MatchLabels: map[string]string{
-									fdb.FDBClusterLabel: clusterName,
+									fdbv1beta2.FDBClusterLabel: clusterName,
 								},
 								ResourceLabels: map[string]string{
-									fdb.FDBClusterLabel: clusterName,
+									fdbv1beta2.FDBClusterLabel: clusterName,
 								},
-								ProcessGroupIDLabels: []string{fdb.FDBProcessGroupIDLabel},
-								ProcessClassLabels:   []string{fdb.FDBProcessClassLabel},
+								ProcessGroupIDLabels: []string{fdbv1beta2.FDBProcessGroupIDLabel},
+								ProcessClassLabels:   []string{fdbv1beta2.FDBProcessClassLabel},
 							},
 						},
 					},

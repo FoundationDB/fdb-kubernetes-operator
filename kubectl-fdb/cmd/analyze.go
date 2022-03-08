@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"context"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -159,10 +157,10 @@ kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-con
 }
 
 func allConditionsValid(conditions []string) error {
-	conditionMap := map[string]fdb.None{}
+	conditionMap := map[string]fdbv1beta2.None{}
 
 	for _, condition := range fdbv1beta2.AllProcessGroupConditionTypes() {
-		conditionMap[string(condition)] = fdb.None{}
+		conditionMap[string(condition)] = fdbv1beta2.None{}
 	}
 
 	var errString strings.Builder
@@ -248,12 +246,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
 	var failedProcessGroups []string
-	processGroupMap := map[string]fdb.None{}
+	processGroupMap := map[string]fdbv1beta2.None{}
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
 	var ignoredConditions int
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		processGroupMap[processGroup.ProcessGroupID] = fdb.None{}
+		processGroupMap[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 
 		if len(processGroup.ProcessGroupConditions) == 0 {
 			continue

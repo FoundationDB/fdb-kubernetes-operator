@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package fdb
+package v1beta2
 
 import (
 	"encoding/json"

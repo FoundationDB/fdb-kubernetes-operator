@@ -27,8 +27,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -56,13 +54,13 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	status.StorageServersPerDisk = []int{cluster.GetStorageServersPerPod()}
 	status.ImageTypes = []fdbv1beta2.ImageType{fdbv1beta2.ImageType(internal.GetDesiredImageType(cluster))}
 
-	var databaseStatus *fdb.FoundationDBStatus
-	processMap := make(map[string][]fdb.FoundationDBStatusProcessInfo)
+	var databaseStatus *fdbv1beta2.FoundationDBStatus
+	processMap := make(map[string][]fdbv1beta2.FoundationDBStatusProcessInfo)
 
 	if cluster.Status.ConnectionString == "" {
-		databaseStatus = &fdb.FoundationDBStatus{
-			Cluster: fdb.FoundationDBStatusClusterInfo{
-				Layers: fdb.FoundationDBStatusLayerInfo{
+		databaseStatus = &fdbv1beta2.FoundationDBStatus{
+			Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+				Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
 					Error: "configurationMissing",
 				},
 			},
@@ -86,9 +84,9 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			if cluster.Status.Configured {
 				return &requeue{curError: err, delayedRequeue: true}
 			}
-			databaseStatus = &fdb.FoundationDBStatus{
-				Cluster: fdb.FoundationDBStatusClusterInfo{
-					Layers: fdb.FoundationDBStatusLayerInfo{
+			databaseStatus = &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Layers: fdbv1beta2.FoundationDBStatusLayerInfo{
 						Error: "configurationMissing",
 					},
 				},
@@ -118,7 +116,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	if databaseStatus != nil {
 		for _, coordinator := range databaseStatus.Client.Coordinators.Coordinators {
-			address, err := fdb.ParseProcessAddress(coordinator.Address.String())
+			address, err := fdbv1beta2.ParseProcessAddress(coordinator.Address.String())
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -340,7 +338,7 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
-func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[string][]fdb.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
+func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, processNumber int, processCount int, processGroupStatus *fdbv1beta2.ProcessGroupStatus) error {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	processID := processGroupStatus.ProcessGroupID
 
@@ -390,12 +388,12 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 	return nil
 }
 
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdb.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap) ([]*fdbv1beta2.ProcessGroupStatus, error) {
 	processGroups := status.ProcessGroups
-	processGroupsWithoutExclusion := make(map[string]fdb.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
+	processGroupsWithoutExclusion := make(map[string]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
-		processGroupsWithoutExclusion[processGroupID] = fdb.None{}
+		processGroupsWithoutExclusion[processGroupID] = fdbv1beta2.None{}
 	}
 
 	// Clear the IncorrectCommandLine condition to prevent it being held over
@@ -436,7 +434,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		// Even the process group will be removed we need to keep the config around.
 		// Set the processCount for the process group specific storage servers per pod
-		if processGroup.ProcessClass == fdb.ProcessClassStorage {
+		if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 			processCount, err = internal.GetStorageServersPerPodForPod(pod)
 			if err != nil {
 				return processGroups, err
@@ -535,7 +533,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
-	incorrectConfigMap := pod.ObjectMeta.Annotations[fdb.LastConfigMapKey] != configMapHash
+	incorrectConfigMap := pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
 	pvcs := &corev1.PersistentVolumeClaimList{}

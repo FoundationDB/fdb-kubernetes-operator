@@ -22,7 +22,6 @@ package internal
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -42,7 +41,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should not have TLS sidecar TLS", func() {
-			pod, err := GetPod(cluster, fdb.ProcessClassStorage, 1)
+			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeFalse())
 		})
@@ -54,7 +53,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should have TLS sidecar TLS", func() {
-			pod, err := GetPod(cluster, fdb.ProcessClassStorage, 1)
+			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeTrue())
 		})

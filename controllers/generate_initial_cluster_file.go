@@ -24,8 +24,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +44,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	initialPods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdb.ProcessClassStorage, "")...)
+	initialPods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbv1beta2.ProcessClassStorage, "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}

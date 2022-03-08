@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -155,10 +153,10 @@ func collectMetrics(ch chan<- prometheus.Metric, cluster *fdbv1beta2.FoundationD
 	}
 }
 
-func getProcessGroupMetrics(cluster *fdbv1beta2.FoundationDBCluster) (map[fdb.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int, map[fdb.ProcessClass]int, map[fdb.ProcessClass]int) {
-	metricMap := map[fdb.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int{}
-	removals := map[fdb.ProcessClass]int{}
-	exclusions := map[fdb.ProcessClass]int{}
+func getProcessGroupMetrics(cluster *fdbv1beta2.FoundationDBCluster) (map[fdbv1beta2.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int, map[fdbv1beta2.ProcessClass]int, map[fdbv1beta2.ProcessClass]int) {
+	metricMap := map[fdbv1beta2.ProcessClass]map[fdbv1beta2.ProcessGroupConditionType]int{}
+	removals := map[fdbv1beta2.ProcessClass]int{}
+	exclusions := map[fdbv1beta2.ProcessClass]int{}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if _, exits := metricMap[processGroup.ProcessClass]; !exits {

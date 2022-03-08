@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package fdb
+package v1beta1
 
 import (
 	"errors"

@@ -22,42 +22,41 @@ package fdbadminclient
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 )
 
 // AdminClient describes an interface for running administrative commands on a
 // cluster
 type AdminClient interface {
 	// GetStatus gets the database's status
-	GetStatus() (*fdb.FoundationDBStatus, error)
+	GetStatus() (*fdbv1beta2.FoundationDBStatus, error)
 
 	// ConfigureDatabase sets the database configuration
-	ConfigureDatabase(configuration fdb.DatabaseConfiguration, newDatabase bool) error
+	ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool) error
 
 	// ExcludeProcesses starts evacuating processes so that they can be removed
 	// from the database.
-	ExcludeProcesses(addresses []fdb.ProcessAddress) error
+	ExcludeProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
 	// IncludeProcesses removes processes from the exclusion list and allows
 	// them to take on roles again.
-	IncludeProcesses(addresses []fdb.ProcessAddress) error
+	IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
 	// GetExclusions gets a list of the addresses currently excluded from the
 	// database.
-	GetExclusions() ([]fdb.ProcessAddress, error)
+	GetExclusions() ([]fdbv1beta2.ProcessAddress, error)
 
 	// CanSafelyRemove checks whether it is safe to remove processes from the
 	// cluster.
 	//
 	// The list returned by this method will be the addresses that are *not*
 	// safe to remove.
-	CanSafelyRemove(addresses []fdb.ProcessAddress) ([]fdb.ProcessAddress, error)
+	CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error)
 
 	// KillProcesses restarts processes
-	KillProcesses(addresses []fdb.ProcessAddress) error
+	KillProcesses(addresses []fdbv1beta2.ProcessAddress) error
 
 	// ChangeCoordinators changes the coordinator set
-	ChangeCoordinators(addresses []fdb.ProcessAddress) (string, error)
+	ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error)
 
 	// GetConnectionString fetches the latest connection string.
 	GetConnectionString() (string, error)

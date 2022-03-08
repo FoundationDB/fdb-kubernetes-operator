@@ -23,8 +23,6 @@ package replacements
 import (
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/go-logr/logr"
@@ -122,9 +120,9 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 		return false, err
 	}
 
-	if pvc.Annotations[fdb.LastSpecKey] != pvcHash {
+	if pvc.Annotations[fdbv1beta2.LastSpecKey] != pvcHash {
 		logger.Info("Replace process group",
-			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdb.LastSpecKey]))
+			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbv1beta2.LastSpecKey]))
 		return true, nil
 	}
 	if pvc.Name != desiredPVC.Name {
@@ -176,7 +174,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		return true, nil
 	}
 
-	if processClass == fdb.ProcessClassStorage {
+	if processClass == fdbv1beta2.ProcessClassStorage {
 		// Replace the process group if the storage servers differ
 		storageServersPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
@@ -197,7 +195,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 			return false, err
 		}
 
-		if pod.ObjectMeta.Annotations[fdb.LastSpecKey] != specHash {
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",
 				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
 			return true, nil
@@ -210,9 +208,9 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 			return false, err
 		}
 
-		if pod.ObjectMeta.Annotations[fdb.LastSpecKey] != specHash {
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdb.LastSpecKey]))
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
 			return true, nil
 		}
 	}

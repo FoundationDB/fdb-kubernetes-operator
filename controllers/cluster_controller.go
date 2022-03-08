@@ -29,8 +29,6 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -252,7 +250,7 @@ func (r *FoundationDBClusterReconciler) updatePodDynamicConf(cluster *fdbv1beta2
 		return false, err
 	}
 
-	if processClass == fdb.ProcessClassStorage {
+	if processClass == fdbv1beta2.ProcessClassStorage {
 		serversPerPod, err = internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
 			return false, err
@@ -367,12 +365,12 @@ type localityInfo struct {
 	ID string
 
 	// The process's public address.
-	Address fdb.ProcessAddress
+	Address fdbv1beta2.ProcessAddress
 
 	// The locality map.
 	LocalityData map[string]string
 
-	Class fdb.ProcessClass
+	Class fdbv1beta2.ProcessClass
 }
 
 // Sort processes by their priority and their ID.
@@ -397,13 +395,13 @@ func sortLocalities(cluster *fdbv1beta2.FoundationDBCluster, processes []localit
 
 // localityInfoForProcess converts the process information from the JSON status
 // into locality info for selecting processes.
-func localityInfoForProcess(process fdb.FoundationDBStatusProcessInfo, mainContainerTLS bool) (localityInfo, error) {
-	addresses, err := fdb.ParseProcessAddressesFromCmdline(process.CommandLine)
+func localityInfoForProcess(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContainerTLS bool) (localityInfo, error) {
+	addresses, err := fdbv1beta2.ParseProcessAddressesFromCmdline(process.CommandLine)
 	if err != nil {
 		return localityInfo{}, err
 	}
 
-	var addr fdb.ProcessAddress
+	var addr fdbv1beta2.ProcessAddress
 	// Iterate the addresses and set the expected address as process address
 	// e.g. if we want to use TLS set it to the tls address otherwise use the non-TLS.
 	for _, address := range addresses {
@@ -441,8 +439,8 @@ func localityInfoFromSidecar(cluster *fdbv1beta2.FoundationDBCluster, client pod
 		ID:      substitutions["FDB_INSTANCE_ID"],
 		Address: address,
 		LocalityData: map[string]string{
-			fdb.FDBLocalityZoneIDKey:  substitutions["FDB_ZONE_ID"],
-			fdb.FDBLocalityDNSNameKey: substitutions["FDB_DNS_NAME"],
+			fdbv1beta2.FDBLocalityZoneIDKey:  substitutions["FDB_ZONE_ID"],
+			fdbv1beta2.FDBLocalityDNSNameKey: substitutions["FDB_DNS_NAME"],
 		},
 	}, nil
 }
@@ -484,7 +482,7 @@ func chooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 
 	fields := constraint.Fields
 	if len(fields) == 0 {
-		fields = []string{fdb.FDBLocalityZoneIDKey, fdb.FDBLocalityDCIDKey}
+		fields = []string{fdbv1beta2.FDBLocalityZoneIDKey, fdbv1beta2.FDBLocalityDCIDKey}
 	}
 
 	chosenCounts := make(map[string]map[string]int, len(fields))
@@ -565,13 +563,13 @@ func chooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 
 func getHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	if cluster.Spec.DatabaseConfiguration.UsableRegions <= 1 {
-		return map[string]int{fdb.FDBLocalityZoneIDKey: 1}
+		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1}
 	}
 
 	// TODO (johscheuer): should we calculate that based on the number of DCs?
 	maxCoordinatorsPerDC := int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
 
-	return map[string]int{fdb.FDBLocalityZoneIDKey: 1, fdb.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
+	return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1, fdbv1beta2.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
 }
 
 // checkCoordinatorValidity determines if the cluster's current coordinators
@@ -582,7 +580,7 @@ func getHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 // matching the cluster spec.
 // The third return value will hold any errors encountered when checking the
 // coordinators.
-func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *fdb.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
+func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, coordinatorStatus map[string]bool) (bool, bool, error) {
 	if len(coordinatorStatus) == 0 {
 		return false, false, errors.New("unable to get coordinator status")
 	}
@@ -601,13 +599,13 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 	}
 
 	for _, process := range status.Cluster.Processes {
-		pLogger := curLog.WithValues("process", process.Locality[fdb.FDBLocalityInstanceIDKey])
+		pLogger := curLog.WithValues("process", process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
 		if process.Address.IsEmpty() {
 			pLogger.Info("Skip process with empty address")
 			continue
 		}
 
-		if process.ProcessClass == fdb.ProcessClassTest {
+		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
 			pLogger.Info("Ignoring tester process")
 			continue
 		}
@@ -623,7 +621,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 			continue
 		}
 
-		addresses, err := fdb.ParseProcessAddressesFromCmdline(process.CommandLine)
+		addresses, err := fdbv1beta2.ParseProcessAddressesFromCmdline(process.CommandLine)
 		if err != nil {
 			// We will end here in the error case when the address
 			// is not parsable e.g. no IP address is assigned.
@@ -633,7 +631,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 			continue
 		}
 
-		var ipAddress fdb.ProcessAddress
+		var ipAddress fdbv1beta2.ProcessAddress
 		for _, addr := range addresses {
 			if addr.Flags["tls"] == cluster.Spec.MainContainer.EnableTLS {
 				ipAddress = addr
@@ -647,8 +645,8 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 			coordinatorAddress = ipAddress.String()
 		}
 
-		dnsName := process.Locality[fdb.FDBLocalityDNSNameKey]
-		dnsAddress := fdb.ProcessAddress{
+		dnsName := process.Locality[fdbv1beta2.FDBLocalityDNSNameKey]
+		dnsAddress := fdbv1beta2.ProcessAddress{
 			StringAddress: dnsName,
 			Port:          ipAddress.Port,
 			Flags:         ipAddress.Flags,
@@ -670,8 +668,8 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 		}
 
 		if coordinatorAddress != "" {
-			coordinatorZones[process.Locality[fdb.FDBLocalityZoneIDKey]]++
-			coordinatorDCs[process.Locality[fdb.FDBLocalityDCIDKey]]++
+			coordinatorZones[process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]]++
+			coordinatorDCs[process.Locality[fdbv1beta2.FDBLocalityDCIDKey]]++
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", coordinatorAddress)

@@ -22,7 +22,6 @@ package cmd
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,10 +42,10 @@ var _ = Describe("[plugin] configuration command", func() {
 						Namespace: "test",
 					},
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
-						DatabaseConfiguration: fdb.DatabaseConfiguration{
-							Regions: []fdb.Region{
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							Regions: []fdbv1beta2.Region{
 								{
-									DataCenters: []fdb.DataCenter{
+									DataCenters: []fdbv1beta2.DataCenter{
 										{
 											ID:       "test",
 											Priority: 1,
@@ -92,10 +91,10 @@ var _ = Describe("[plugin] configuration command", func() {
 						Namespace: "test",
 					},
 					Spec: fdbv1beta2.FoundationDBClusterSpec{
-						DatabaseConfiguration: fdb.DatabaseConfiguration{
-							Regions: []fdb.Region{
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							Regions: []fdbv1beta2.Region{
 								{
-									DataCenters: []fdb.DataCenter{
+									DataCenters: []fdbv1beta2.DataCenter{
 										{
 											ID:       "primary",
 											Priority: 1,
@@ -113,7 +112,7 @@ var _ = Describe("[plugin] configuration command", func() {
 									},
 								},
 								{
-									DataCenters: []fdb.DataCenter{
+									DataCenters: []fdbv1beta2.DataCenter{
 										{
 											ID:       "remote",
 											Priority: 0,

@@ -21,23 +21,23 @@
 package internal
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // GetCoordinatorsFromStatus gets the current coordinators from the status.
 // The returning set will contain all processes by their process group ID.
-func GetCoordinatorsFromStatus(status *fdb.FoundationDBStatus) map[string]struct{} {
+func GetCoordinatorsFromStatus(status *v1beta2.FoundationDBStatus) map[string]struct{} {
 	coordinators := make(map[string]struct{})
 
 	for _, pInfo := range status.Cluster.Processes {
 		for _, roleInfo := range pInfo.Roles {
-			if roleInfo.Role != string(fdb.ProcessRoleCoordinator) {
+			if roleInfo.Role != string(v1beta2.ProcessRoleCoordinator) {
 				continue
 			}
 
 			// We don't have to check for duplicates here, if the process group ID is already
 			// set we just overwrite it.
-			coordinators[pInfo.Locality[fdb.FDBLocalityInstanceIDKey]] = struct{}{}
+			coordinators[pInfo.Locality[v1beta2.FDBLocalityInstanceIDKey]] = struct{}{}
 			break
 		}
 	}

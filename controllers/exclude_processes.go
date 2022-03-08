@@ -26,8 +26,6 @@ import (
 	"math"
 	"net"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -57,8 +55,8 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 	}
 
-	addresses := make([]fdb.ProcessAddress, 0, removalCount)
-	processClassesToExclude := make(map[fdb.ProcessClass]fdb.None)
+	addresses := make([]fdbv1beta2.ProcessAddress, 0, removalCount)
+	processClassesToExclude := make(map[fdbv1beta2.ProcessClass]fdbv1beta2.None)
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
@@ -66,9 +64,9 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 
 		log.Info("current exclusions", "ex", exclusions)
-		currentExclusionMap := make(map[string]fdb.None, len(exclusions))
+		currentExclusionMap := make(map[string]fdbv1beta2.None, len(exclusions))
 		for _, address := range exclusions {
-			currentExclusionMap[address.String()] = fdb.None{}
+			currentExclusionMap[address.String()] = fdbv1beta2.None{}
 		}
 
 		for _, processGroup := range cluster.Status.ProcessGroups {
@@ -79,8 +77,8 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 				}
 
 				if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
-					addresses = append(addresses, fdb.ProcessAddress{IPAddress: net.ParseIP(address)})
-					processClassesToExclude[processGroup.ProcessClass] = fdb.None{}
+					addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(address)})
+					processClassesToExclude[processGroup.ProcessClass] = fdbv1beta2.None{}
 				}
 			}
 		}
@@ -126,7 +124,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass) (bool, []string) {
+func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []string) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 
 	// Block excludes on missing processes not marked for removal

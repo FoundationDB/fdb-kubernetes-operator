@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"k8s.io/utils/pointer"
 
 	"github.com/go-logr/logr"
@@ -87,15 +85,15 @@ type FoundationDBClusterSpec struct {
 	SidecarVersions map[string]int `json:"sidecarVersions,omitempty"`
 
 	// DatabaseConfiguration defines the database configuration.
-	DatabaseConfiguration fdb.DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Processes defines process-level settings.
-	Processes map[fdb.ProcessClass]ProcessSettings `json:"processes,omitempty"`
+	Processes map[ProcessClass]ProcessSettings `json:"processes,omitempty"`
 
 	// ProcessCounts defines the number of processes to configure for each
 	// process class. You can generally omit this, to allow the operator to
 	// infer the process counts based on the database configuration.
-	ProcessCounts fdb.ProcessCounts `json:"processCounts,omitempty"`
+	ProcessCounts ProcessCounts `json:"processCounts,omitempty"`
 
 	// SeedConnectionString provides a connection string for the initial
 	// reconciliation.
@@ -304,7 +302,7 @@ type FoundationDBClusterSpec struct {
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// processes.
 	// Deprecated: use the Processes field instead.
-	CustomParameters fdb.FoundationDBCustomParameters `json:"customParameters,omitempty"`
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// PendingRemovals defines the processes that are pending removal.
 	// This maps the name of a pod to its IP address. If a value is left blank,
@@ -369,7 +367,7 @@ type FoundationDBClusterStatus struct {
 	// ProcessCounts defines the number of processes that are currently running
 	// in the cluster.
 	// Deprecated: Use ProcessGroups instead.
-	ProcessCounts fdb.ProcessCounts `json:"processCounts,omitempty"`
+	ProcessCounts ProcessCounts `json:"processCounts,omitempty"`
 
 	// IncorrectProcesses provides the processes that do not have the correct
 	// configuration.
@@ -400,7 +398,7 @@ type FoundationDBClusterStatus struct {
 	MissingProcesses map[string]int64 `json:"missingProcesses,omitempty"`
 
 	// DatabaseConfiguration provides the running configuration of the database.
-	DatabaseConfiguration fdb.DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
+	DatabaseConfiguration DatabaseConfiguration `json:"databaseConfiguration,omitempty"`
 
 	// Generations provides information about the latest generation to be
 	// reconciled, or to reach other stages at which reconciliation can halt.
@@ -480,7 +478,7 @@ type ProcessGroupStatus struct {
 	// ProcessGroupID represents the ID of the process group
 	ProcessGroupID string `json:"processGroupID,omitempty"`
 	// ProcessClass represents the class the process group has.
-	ProcessClass fdb.ProcessClass `json:"processClass,omitempty"`
+	ProcessClass ProcessClass `json:"processClass,omitempty"`
 	// Addresses represents the list of addresses the process group has been known to have.
 	Addresses []string `json:"addresses,omitempty"`
 	// Remove defines if the process group is marked for removal.
@@ -602,7 +600,7 @@ func (processGroupStatus *ProcessGroupStatus) AllAddressesExcluded(remainingMap 
 }
 
 // NewProcessGroupStatus returns a new GroupStatus for the given processGroupID and processClass.
-func NewProcessGroupStatus(processGroupID string, processClass fdb.ProcessClass, addresses []string) *ProcessGroupStatus {
+func NewProcessGroupStatus(processGroupID string, processClass ProcessClass, addresses []string) *ProcessGroupStatus {
 	return &ProcessGroupStatus{
 		ProcessGroupID: processGroupID,
 		ProcessClass:   processClass,
@@ -636,7 +634,7 @@ func ContainsProcessGroupID(processGroups []*ProcessGroupStatus, processGroupID 
 }
 
 // MarkProcessGroupForRemoval sets the remove flag for the given process and ensures that the address is added.
-func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass fdb.ProcessClass, address string) (bool, *ProcessGroupStatus) {
+func MarkProcessGroupForRemoval(processGroups []*ProcessGroupStatus, processGroupID string, processClass ProcessClass, address string) (bool, *ProcessGroupStatus) {
 	for _, processGroup := range processGroups {
 		if processGroup.ProcessGroupID != processGroupID {
 			continue
@@ -734,8 +732,8 @@ func (processGroupStatus *ProcessGroupStatus) removeCondition(conditionType Proc
 }
 
 // CreateProcessCountsFromProcessGroupStatus creates a ProcessCounts struct from the current ProcessGroupStatus.
-func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus, includeRemovals bool) fdb.ProcessCounts {
-	processCounts := fdb.ProcessCounts{}
+func CreateProcessCountsFromProcessGroupStatus(processGroupStatus []*ProcessGroupStatus, includeRemovals bool) ProcessCounts {
+	processCounts := ProcessCounts{}
 
 	for _, groupStatus := range processGroupStatus {
 		if !groupStatus.IsMarkedForRemoval() || includeRemovals {
@@ -784,7 +782,7 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 }
 
 // ProcessGroupsByProcessClass returns a slice of all Process Groups that contains a given process class.
-func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass fdb.ProcessClass) []*ProcessGroupStatus {
+func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(processClass ProcessClass) []*ProcessGroupStatus {
 	result := make([]*ProcessGroupStatus, 0)
 
 	for _, groupStatus := range clusterStatus.ProcessGroups {
@@ -1140,7 +1138,7 @@ type ProcessSettings struct {
 
 	// CustomParameters defines additional parameters to pass to the fdbserver
 	// process.
-	CustomParameters fdb.FoundationDBCustomParameters `json:"customParameters,omitempty"`
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// This setting defines if a user provided image can have it's own tag
 	// rather than getting the provided version appended.
@@ -1161,7 +1159,7 @@ func (processSettings *ProcessSettings) GetAllowTagOverride() bool {
 }
 
 // GetProcessSettings gets settings for a process.
-func (cluster *FoundationDBCluster) GetProcessSettings(processClass fdb.ProcessClass) ProcessSettings {
+func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass) ProcessSettings {
 	merged := ProcessSettings{}
 	entries := make([]ProcessSettings, 0, 2)
 
@@ -1170,7 +1168,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass fdb.ProcessC
 		entries = append(entries, entry)
 	}
 
-	entries = append(entries, cluster.Spec.Processes[fdb.ProcessClassGeneral])
+	entries = append(entries, cluster.Spec.Processes[ProcessClassGeneral])
 	for _, entry := range entries {
 		if merged.PodTemplate == nil {
 			merged.PodTemplate = entry.PodTemplate
@@ -1209,7 +1207,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass fdb.ProcessC
 // The default LogRouters value will be equal to 3 times the Logs value when
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
-func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() fdb.RoleCounts {
+func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	counts := cluster.Spec.DatabaseConfiguration.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
 		counts.Storage = 2*cluster.DesiredFaultTolerance() + 1
@@ -1300,7 +1298,7 @@ func (cluster *FoundationDBCluster) calculateProcessCount(addFaultTolerance bool
 
 // GetProcessCountsWithDefaults gets the process counts from the cluster spec
 // and fills in default values for any counts that are 0.
-func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (fdb.ProcessCounts, error) {
+func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCounts, error) {
 	roleCounts := cluster.GetRoleCountsWithDefaults()
 	processCounts := cluster.Spec.ProcessCounts.DeepCopy()
 
@@ -1358,13 +1356,13 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (fdb.ProcessC
 // DesiredFaultTolerance returns the number of replicas we should be able to
 // lose when the cluster is at full replication health.
 func (cluster *FoundationDBCluster) DesiredFaultTolerance() int {
-	return fdb.DesiredFaultTolerance(cluster.Spec.DatabaseConfiguration.RedundancyMode)
+	return DesiredFaultTolerance(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
 // MinimumFaultDomains returns the number of fault domains the cluster needs
 // to function.
 func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
-	return fdb.MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
+	return MinimumFaultDomains(cluster.Spec.DatabaseConfiguration.RedundancyMode)
 }
 
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
@@ -1554,7 +1552,7 @@ func ParseConnectionString(str string) (ConnectionString, error) {
 	coordinatorsStrings := strings.Split(components[3], ",")
 	coordinators := make([]string, len(coordinatorsStrings))
 	for idx, coordinatorsString := range coordinatorsStrings {
-		coordinatorAddress, err := fdb.ParseProcessAddress(coordinatorsString)
+		coordinatorAddress, err := ParseProcessAddress(coordinatorsString)
 		if err != nil {
 			return ConnectionString{}, err
 		}
@@ -1589,10 +1587,10 @@ func (str *ConnectionString) GenerateNewGenerationID() error {
 
 // GetFullAddress gets the full public address we should use for a process.
 // This will include the IP address, the port, and any additional flags.
-func (cluster *FoundationDBCluster) GetFullAddress(address string, processNumber int) fdb.ProcessAddress {
+func (cluster *FoundationDBCluster) GetFullAddress(address string, processNumber int) ProcessAddress {
 	addresses := cluster.GetFullAddressList(address, true, processNumber)
 	if len(addresses) < 1 {
-		return fdb.ProcessAddress{}
+		return ProcessAddress{}
 	}
 
 	// First element will always be the primary
@@ -1607,8 +1605,8 @@ func (cluster *FoundationDBCluster) GetFullAddress(address string, processNumber
 // If a process needs multiple addresses, this will include all of them,
 // separated by commas. If you pass false for primaryOnly, this will return only
 // the primary address.
-func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []fdb.ProcessAddress {
-	return fdb.GetFullAddressList(
+func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOnly bool, processNumber int) []ProcessAddress {
+	return GetFullAddressList(
 		address,
 		primaryOnly,
 		processNumber,
@@ -1618,7 +1616,7 @@ func (cluster *FoundationDBCluster) GetFullAddressList(address string, primaryOn
 
 // HasCoordinators checks whether this connection string matches a set of
 // coordinators.
-func (str *ConnectionString) HasCoordinators(coordinators []fdb.ProcessAddress) bool {
+func (str *ConnectionString) HasCoordinators(coordinators []ProcessAddress) bool {
 	matchedCoordinators := make(map[string]bool, len(str.Coordinators))
 	for _, address := range str.Coordinators {
 		matchedCoordinators[address] = false
@@ -1766,16 +1764,16 @@ func (config ImageConfig) Image() string {
 
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
-func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() fdb.DatabaseConfiguration {
+func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
 	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
 
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
-	if configuration.StorageEngine == fdb.StorageEngineSSD {
-		configuration.StorageEngine = fdb.StorageEngineSSD2
+	if configuration.StorageEngine == StorageEngineSSD {
+		configuration.StorageEngine = StorageEngineSSD2
 	}
-	if configuration.StorageEngine == fdb.StorageEngineMemory {
-		configuration.StorageEngine = fdb.StorageEngineMemory2
+	if configuration.StorageEngine == StorageEngineMemory {
+		configuration.StorageEngine = StorageEngineMemory2
 	}
 
 	return configuration
@@ -1786,7 +1784,7 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() fdb.DatabaseC
 //
 // This allows us to compare the spec to the live configuration while ignoring
 // version flags that are unset in the spec.
-func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *fdb.DatabaseConfiguration) {
+func (cluster *FoundationDBCluster) ClearMissingVersionFlags(configuration *DatabaseConfiguration) {
 	if cluster.Spec.DatabaseConfiguration.LogVersion == 0 {
 		configuration.LogVersion = 0
 	}
@@ -2067,13 +2065,13 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int 
 // CoordinatorSelectionSetting defines the process class and the priority of it.
 // A higher priority means that the process class is preferred over another.
 type CoordinatorSelectionSetting struct {
-	ProcessClass fdb.ProcessClass `json:"processClass,omitempty"`
-	Priority     int              `json:"priority,omitempty"`
+	ProcessClass ProcessClass `json:"processClass,omitempty"`
+	Priority     int          `json:"priority,omitempty"`
 }
 
 // IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator.
 // This method will always return false for non stateful process classes.
-func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass fdb.ProcessClass) bool {
+func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass ProcessClass) bool {
 	if !pClass.IsStateful() {
 		return false
 	}
@@ -2092,7 +2090,7 @@ func (cluster *FoundationDBCluster) IsEligibleAsCandidate(pClass fdb.ProcessClas
 }
 
 // GetClassCandidatePriority returns the priority for a class. This will be used to sort the processes for coordinator selection
-func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass fdb.ProcessClass) int {
+func (cluster *FoundationDBCluster) GetClassCandidatePriority(pClass ProcessClass) int {
 	for _, setting := range cluster.Spec.CoordinatorSelection {
 		if pClass == setting.ProcessClass {
 			return setting.Priority
@@ -2155,7 +2153,7 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 	labels := cluster.GetProcessClassLabels()
 	if len(labels) == 0 {
-		return fdb.FDBProcessClassLabel
+		return FDBProcessClassLabel
 	}
 	return labels[0]
 }
@@ -2165,7 +2163,7 @@ func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
 func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 	labels := cluster.GetProcessGroupIDLabels()
 	if len(labels) == 0 {
-		return fdb.FDBProcessGroupIDLabel
+		return FDBProcessGroupIDLabel
 	}
 	return labels[0]
 }
@@ -2259,7 +2257,7 @@ func (cluster *FoundationDBCluster) GetResourceLabels() map[string]string {
 	}
 
 	return map[string]string{
-		fdb.FDBClusterLabel: cluster.Name,
+		FDBClusterLabel: cluster.Name,
 	}
 }
 
@@ -2269,7 +2267,7 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabels() []string {
 		return cluster.Spec.LabelConfig.ProcessGroupIDLabels
 	}
 
-	return []string{fdb.FDBProcessGroupIDLabel}
+	return []string{FDBProcessGroupIDLabel}
 }
 
 // GetProcessClassLabels returns the process class labels
@@ -2278,5 +2276,5 @@ func (cluster *FoundationDBCluster) GetProcessClassLabels() []string {
 		return cluster.Spec.LabelConfig.ProcessClassLabels
 	}
 
-	return []string{fdb.FDBProcessClassLabel}
+	return []string{FDBProcessClassLabel}
 }

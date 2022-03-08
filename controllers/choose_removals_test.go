@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -114,8 +112,8 @@ var _ = Describe("choose_removals", func() {
 
 		Context("with multiple processes on one rack", func() {
 			BeforeEach(func() {
-				adminClient.MockLocalityInfo("storage-1", map[string]string{fdb.FDBLocalityZoneIDKey: "r1"})
-				adminClient.MockLocalityInfo("storage-2", map[string]string{fdb.FDBLocalityZoneIDKey: "r1"})
+				adminClient.MockLocalityInfo("storage-1", map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
+				adminClient.MockLocalityInfo("storage-2", map[string]string{fdbv1beta2.FDBLocalityZoneIDKey: "r1"})
 			})
 
 			It("should not requeue", func() {

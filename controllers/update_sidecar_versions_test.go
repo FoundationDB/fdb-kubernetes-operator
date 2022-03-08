@@ -23,14 +23,13 @@ package controllers
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func createClusterSpec(sidecarOverrides fdbv1beta2.ContainerOverrides, processes map[fdb.ProcessClass]fdbv1beta2.ProcessSettings) *fdbv1beta2.FoundationDBCluster {
+func createClusterSpec(sidecarOverrides fdbv1beta2.ContainerOverrides, processes map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings) *fdbv1beta2.FoundationDBCluster {
 	cluster := internal.CreateDefaultCluster()
 
 	cluster.Spec.SidecarContainer = sidecarOverrides
@@ -42,7 +41,7 @@ func createClusterSpec(sidecarOverrides fdbv1beta2.ContainerOverrides, processes
 var _ = Describe("update_sidecar_versions", func() {
 	Context("When fetching the sidecar image", func() {
 		type testCase struct {
-			pClass   fdb.ProcessClass
+			pClass   fdbv1beta2.ProcessClass
 			cluster  *fdbv1beta2.FoundationDBCluster
 			hasError bool
 		}
@@ -63,27 +62,27 @@ var _ = Describe("update_sidecar_versions", func() {
 			},
 			Entry("only defaults used",
 				testCase{
-					pClass: fdb.ProcessClassStorage,
+					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbv1beta2.ContainerOverrides{},
-						map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{}),
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}),
 					hasError: false,
 				}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
 			Entry("sidecar override is set",
 				testCase{
-					pClass: fdb.ProcessClassStorage,
+					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
-						map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{}),
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}),
 					hasError: false,
 				}, "sidecar-override:6.2.20-1"),
 			Entry("settings override sidecar",
 				testCase{
-					pClass: fdb.ProcessClassStorage,
+					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
-						map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
-							fdb.ProcessClassGeneral: {
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+							fdbv1beta2.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{
@@ -100,11 +99,11 @@ var _ = Describe("update_sidecar_versions", func() {
 				}, "settings-override:6.2.20-1"),
 			Entry("settings override sidecar with tag without override",
 				testCase{
-					pClass: fdb.ProcessClassStorage,
+					pClass: fdbv1beta2.ProcessClassStorage,
 					cluster: createClusterSpec(
 						fdbv1beta2.ContainerOverrides{ImageConfigs: []fdbv1beta2.ImageConfig{{BaseImage: "sidecar-override"}}},
-						map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
-							fdb.ProcessClassGeneral: {
+						map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+							fdbv1beta2.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{

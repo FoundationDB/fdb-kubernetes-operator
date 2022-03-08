@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -106,7 +104,7 @@ func (updateLabels) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 func metadataCorrect(desiredMetadata metav1.ObjectMeta, currentMetadata *metav1.ObjectMeta) bool {
 	metadataCorrect := true
-	desiredMetadata.Annotations[fdb.LastSpecKey] = currentMetadata.Annotations[fdb.LastSpecKey]
+	desiredMetadata.Annotations[fdbtypes.LastSpecKey] = currentMetadata.Annotations[fdbtypes.LastSpecKey]
 
 	if mergeLabelsInMetadata(currentMetadata, desiredMetadata) {
 		metadataCorrect = false

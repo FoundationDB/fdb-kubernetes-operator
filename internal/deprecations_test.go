@@ -22,7 +22,6 @@ package internal
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -42,7 +41,7 @@ var _ = Describe("[internal] deprecations", func() {
 					Name: "operator-test-1",
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					Version: fdb.Versions.Default.String(),
+					Version: fdbv1beta2.Versions.Default.String(),
 				},
 			}
 			spec = &cluster.Spec
@@ -51,9 +50,9 @@ var _ = Describe("[internal] deprecations", func() {
 		Describe("Validations", func() {
 			Context("with a duplicated custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdb.ProcessClassGeneral: {
-							CustomParameters: fdb.FoundationDBCustomParameters{
+					spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+						fdbv1beta2.ProcessClassGeneral: {
+							CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
 								"knob_disable_posix_kernel_aio = 1",
 								"knob_disable_posix_kernel_aio = 1",
 							},
@@ -66,9 +65,9 @@ var _ = Describe("[internal] deprecations", func() {
 
 			Context("with a protected custom parameter in the ProcessSettings", func() {
 				It("an error should be returned", func() {
-					spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
-						fdb.ProcessClassGeneral: {
-							CustomParameters: fdb.FoundationDBCustomParameters{
+					spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+						fdbv1beta2.ProcessClassGeneral: {
+							CustomParameters: fdbv1beta2.FoundationDBCustomParameters{
 								"datadir=1",
 							},
 						},
@@ -92,14 +91,14 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have both containers", func() {
-					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
 				})
 
 				It("should have a main container defined", func() {
-					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -115,7 +114,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have empty sidecar resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
@@ -125,7 +124,7 @@ var _ = Describe("[internal] deprecations", func() {
 				})
 
 				It("should have empty init container resource requirements", func() {
-					generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
+					generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.InitContainers
 					Expect(len(containers)).To(Equal(1))
@@ -136,8 +135,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests for the main container", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
-							fdb.ProcessClassGeneral: {
+						spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+							fdbv1beta2.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -158,7 +157,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -174,8 +173,8 @@ var _ = Describe("[internal] deprecations", func() {
 
 				Context("with explicit resource requests for the sidecar", func() {
 					BeforeEach(func() {
-						spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{
-							fdb.ProcessClassGeneral: {
+						spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
+							fdbv1beta2.ProcessClassGeneral: {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
@@ -196,7 +195,7 @@ var _ = Describe("[internal] deprecations", func() {
 					})
 
 					It("should respect the values given", func() {
-						generalProcessConfig, present := spec.Processes[fdb.ProcessClassGeneral]
+						generalProcessConfig, present := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
@@ -227,16 +226,16 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have the default label config", func() {
 					Expect(cluster.GetMatchLabels()).To(Equal(map[string]string{
-						fdb.FDBClusterLabel: cluster.Name,
+						fdbv1beta2.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(cluster.GetResourceLabels()).To(Equal(map[string]string{
-						fdb.FDBClusterLabel: cluster.Name,
+						fdbv1beta2.FDBClusterLabel: cluster.Name,
 					}))
 					Expect(cluster.GetProcessGroupIDLabels()).To(Equal([]string{
-						fdb.FDBProcessGroupIDLabel,
+						fdbv1beta2.FDBProcessGroupIDLabel,
 					}))
 					Expect(cluster.GetProcessClassLabels()).To(Equal([]string{
-						fdb.FDBProcessClassLabel,
+						fdbv1beta2.FDBProcessClassLabel,
 					}))
 					Expect(cluster.ShouldFilterOnOwnerReferences()).To(BeFalse())
 				})

@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-// +k8s:deepcopy-gen=package
-
-package fdb
+package v1beta1
 
 import (
 	"encoding/json"

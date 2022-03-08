@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -54,7 +52,7 @@ var _ = Describe("exclude_processes", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -62,11 +60,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("one process group is missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 1, fdb.ProcessClassStorage)
+					createMissingProcesses(cluster, 1, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -74,11 +72,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdb.ProcessClassStorage)
+					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-2"}))
 				})
@@ -86,11 +84,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups of a different type are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdb.ProcessClassLog)
+					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassLog)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -113,11 +111,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdb.ProcessClassStorage)
+					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -125,11 +123,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("five process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 5, fdb.ProcessClassStorage)
+					createMissingProcesses(cluster, 5, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdb.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
@@ -138,7 +136,7 @@ var _ = Describe("exclude_processes", func() {
 	})
 })
 
-func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdb.ProcessClass) {
+func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdbv1beta2.ProcessClass) {
 	missing := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass == processClass {

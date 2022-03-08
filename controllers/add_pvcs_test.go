@@ -24,8 +24,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -99,8 +97,8 @@ var _ = Describe("add_pvcs", func() {
 			Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
 			lastPVC := newPVCs.Items[len(newPVCs.Items)-1]
 			Expect(lastPVC.Name).To(Equal("operator-test-1-storage-9-data"))
-			Expect(lastPVC.Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastPVC.Labels[fdb.FDBProcessClassLabel]).To(Equal("storage"))
+			Expect(lastPVC.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+			Expect(lastPVC.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastPVC.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 

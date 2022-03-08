@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"os"
 
-	fdb2 "github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -79,7 +77,7 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster) (*fdb2.FoundationDBStatus, error) {
+func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
 	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	statusKey := "\xff\xff/status/json"
 
@@ -116,7 +114,7 @@ func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster) (*fdb2.FoundationD
 		return nil, fmt.Errorf("could not cast result into byte slice")
 	}
 
-	status := &fdb2.FoundationDBStatus{}
+	status := &fdbv1beta2.FoundationDBStatus{}
 	err = json.Unmarshal(statusBytes, &status)
 	if err == nil {
 		log.V(1).Info("Retrieved JSON status", "raw", string(statusBytes), "parsed", status)

@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -36,8 +34,8 @@ var _ = Describe("add_process_groups", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
-	var initialProcessCounts fdb.ProcessCounts
-	var newProcessCounts fdb.ProcessCounts
+	var initialProcessCounts fdbv1beta2.ProcessCounts
+	var newProcessCounts fdbv1beta2.ProcessCounts
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -211,7 +209,7 @@ var _ = Describe("add_process_groups", func() {
 		var processGroupStatus *fdbv1beta2.ProcessGroupStatus
 
 		BeforeEach(func() {
-			processGroupStatus = fdbv1beta2.NewProcessGroupStatus("1337", fdb.ProcessClassStorage, []string{"1.1.1.1"})
+			processGroupStatus = fdbv1beta2.NewProcessGroupStatus("1337", fdbv1beta2.ProcessClassStorage, []string{"1.1.1.1"})
 		})
 
 		It("should have the missing conditions", func() {

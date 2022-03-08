@@ -29,8 +29,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
@@ -172,7 +170,7 @@ func updateIPsInConnectionString(cluster *fdbv1beta2.FoundationDBCluster) error 
 	}
 	newCoordinators := make([]string, len(connectionString.Coordinators))
 	for coordinatorIndex, coordinator := range connectionString.Coordinators {
-		coordinatorAddress, err := fdb.ParseProcessAddress(coordinator)
+		coordinatorAddress, err := fdbv1beta2.ParseProcessAddress(coordinator)
 		if err != nil {
 			return err
 		}

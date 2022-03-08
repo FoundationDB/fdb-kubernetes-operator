@@ -23,8 +23,6 @@ package podmanager
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -148,7 +146,7 @@ func (manager StandardPodLifecycleManager) PodIsUpdated(context.Context, client.
 
 // GetPodSpec provides an external interface for the internal GetPodSpec method
 // This is necessary for compatibility reasons.
-func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, idNum int) (*corev1.PodSpec, error) {
+func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.PodSpec, error) {
 	return internal.GetPodSpec(cluster, processClass, idNum)
 }
 

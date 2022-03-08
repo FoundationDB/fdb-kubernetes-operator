@@ -24,8 +24,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -63,7 +61,7 @@ var _ = Describe("remove_process_groups", func() {
 		coordinatorID := "storage-1"
 
 		BeforeEach(func() {
-			marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdb.ProcessClassStorage, coordinatorIP)
+			marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, coordinatorID, fdbv1beta2.ProcessClassStorage, coordinatorIP)
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
 		})
@@ -134,9 +132,9 @@ var _ = Describe("remove_process_groups", func() {
 				BeforeEach(func() {
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdb.FoundationDBStatus{
-						Client: fdb.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
+					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 								Available: false,
 							},
 						},

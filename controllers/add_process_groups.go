@@ -24,8 +24,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -46,8 +44,8 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	processCounts := make(map[fdb.ProcessClass]int)
-	processGroupIDs := make(map[fdb.ProcessClass]map[int]bool)
+	processCounts := make(map[fdbv1beta2.ProcessClass]int)
+	processGroupIDs := make(map[fdbv1beta2.ProcessClass]map[int]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroupID := processGroup.ProcessGroupID
 		_, num, err := podmanager.ParseProcessGroupID(processGroupID)
@@ -68,7 +66,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 	}
 
 	hasNewProcessGroups := false
-	for _, processClass := range fdb.ProcessClasses {
+	for _, processClass := range fdbv1beta2.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		if desiredCount < 0 {
 			desiredCount = 0

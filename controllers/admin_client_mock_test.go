@@ -26,8 +26,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -39,9 +37,9 @@ var _ = Describe("mock_client", func() {
 	When("checking if it's safe to delete a process group", func() {
 		type testCase struct {
 			cluster    *fdbv1beta2.FoundationDBCluster
-			removals   []fdb.ProcessAddress
-			exclusions []fdb.ProcessAddress
-			remaining  []fdb.ProcessAddress
+			removals   []fdbv1beta2.ProcessAddress
+			exclusions []fdbv1beta2.ProcessAddress
+			remaining  []fdbv1beta2.ProcessAddress
 		}
 
 		DescribeTable("should return the correct image",
@@ -61,9 +59,9 @@ var _ = Describe("mock_client", func() {
 			Entry("Empty list of removals",
 				testCase{
 					cluster:    &fdbv1beta2.FoundationDBCluster{},
-					removals:   []fdb.ProcessAddress{},
-					exclusions: []fdb.ProcessAddress{},
-					remaining:  []fdb.ProcessAddress{},
+					removals:   []fdbv1beta2.ProcessAddress{},
+					exclusions: []fdbv1beta2.ProcessAddress{},
+					remaining:  []fdbv1beta2.ProcessAddress{},
 				}),
 			Entry("Process group that skips exclusion",
 				testCase{
@@ -84,7 +82,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdb.ProcessAddress{
+					removals: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -94,8 +92,8 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdb.ProcessAddress{},
-					remaining: []fdb.ProcessAddress{
+					exclusions: []fdbv1beta2.ProcessAddress{},
+					remaining: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,
@@ -120,7 +118,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdb.ProcessAddress{
+					removals: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -130,13 +128,13 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdb.ProcessAddress{
+					exclusions: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
 						},
 					},
-					remaining: []fdb.ProcessAddress{
+					remaining: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,
@@ -162,7 +160,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdb.ProcessAddress{
+					removals: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -172,8 +170,8 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdb.ProcessAddress{},
-					remaining: []fdb.ProcessAddress{
+					exclusions: []fdbv1beta2.ProcessAddress{},
+					remaining: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,

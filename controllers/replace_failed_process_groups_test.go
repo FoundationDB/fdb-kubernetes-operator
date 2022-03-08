@@ -24,8 +24,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 
 	"k8s.io/utils/pointer"
@@ -222,9 +220,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.frozenStatus = &fdb.FoundationDBStatus{
-						Client: fdb.FoundationDBStatusLocalClientInfo{
-							DatabaseStatus: fdb.FoundationDBStatusClientDBStatus{
+					adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+						Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+							DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
 								Available: false,
 							},
 						},

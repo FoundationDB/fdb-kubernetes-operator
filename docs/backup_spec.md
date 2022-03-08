@@ -81,7 +81,7 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |
 | backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
-| customParameters | CustomParameters defines additional parameters to pass to the backup agents. | fdb.FoundationDBCustomParameters | false |
+| customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. | *bool | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
 

@@ -128,7 +128,7 @@ CoordinatorSelectionSetting defines the process class and the priority of it. A 
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| processClass |  | fdb.ProcessClass | false |
+| processClass |  | ProcessClass | false |
 | priority |  | int | false |
 
 [Back to TOC](#table-of-contents)
@@ -200,9 +200,9 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
 | sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. **Deprecated: Use SidecarContainer.ImageConfigs instead.** | map[string]int | false |
-| databaseConfiguration | DatabaseConfiguration defines the database configuration. | fdb.DatabaseConfiguration | false |
-| processes | Processes defines process-level settings. | map[fdb.ProcessClass][ProcessSettings](#processsettings) | false |
-| processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | fdb.ProcessCounts | false |
+| databaseConfiguration | DatabaseConfiguration defines the database configuration. | DatabaseConfiguration | false |
+| processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
+| processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | ProcessCounts | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
@@ -243,7 +243,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | configured | Configured defines whether we have configured the database yet. **Deprecated: This field has been moved to the status.** | bool | false |
 | podTemplate | PodTemplate allows customizing the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 | volumeClaim | VolumeClaim allows customizing the persistent volume claim for the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
-| customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. **Deprecated: use the Processes field instead.** | fdb.FoundationDBCustomParameters | false |
+| customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. **Deprecated: use the Processes field instead.** | FoundationDBCustomParameters | false |
 | pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP.  **Deprecated: To indicate that a process should be removed, use the ProcessGroupsToRemove field. To get information about pending removals, use the PendingRemovals field in the status.** | map[string]string | false |
 | storageServersPerPod | StorageServersPerPod defines how many Storage Servers should run in a single process group (Pod). This number defines the number of processes running in one Pod whereas the ProcessCounts defines the number of Pods created. This means that you end up with ProcessCounts[\"storage\"] * StorageServersPerPod storage processes | int | false |
 | minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
@@ -262,12 +262,12 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. **Deprecated: Use ProcessGroups instead.** | fdb.ProcessCounts | false |
+| processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. **Deprecated: Use ProcessGroups instead.** | ProcessCounts | false |
 | incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the process group ID to the timestamp when we observed the incorrect configuration. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
 | incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
 | failingPods | FailingPods provides the pods that are not starting correctly.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
 | missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
-| databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | fdb.DatabaseConfiguration | false |
+| databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | DatabaseConfiguration | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
@@ -380,7 +380,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | processGroupID | ProcessGroupID represents the ID of the process group | string | false |
-| processClass | ProcessClass represents the class the process group has. | fdb.ProcessClass | false |
+| processClass | ProcessClass represents the class the process group has. | ProcessClass | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
 | remove | Remove defines if the process group is marked for removal. **Deprecated: Use RemovalTimestamp instead.** | bool | false |
 | removalTimestamp | RemoveTimestamp if not empty defines when the process group was marked for removal. | *metav1.Time | false |
@@ -400,7 +400,7 @@ ProcessSettings defines process-level settings.
 | podTemplate | PodTemplate allows customizing the pod. If a container image with a tag is specified the operator will throw an error and stop processing the cluster. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
 | volumeClaim | VolumeClaim allows customizing the persistent volume claim for the pod. **Deprecated: Use the VolumeClaimTemplate field instead.** | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
 | volumeClaimTemplate | VolumeClaimTemplate allows customizing the persistent volume claim for the pod. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
-| customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | fdb.FoundationDBCustomParameters | false |
+| customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | FoundationDBCustomParameters | false |
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. **Deprecated: Use ImageConfigs instead.** | *bool | false |
 
 [Back to TOC](#table-of-contents)

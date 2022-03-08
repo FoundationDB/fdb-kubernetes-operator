@@ -23,8 +23,6 @@ package controllers
 import (
 	"context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -199,7 +197,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 
 	Context("with a change to an environment variable", func() {
 		BeforeEach(func() {
-			cluster.Spec.Processes = map[fdb.ProcessClass]fdbv1beta2.ProcessSettings{fdb.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
+			cluster.Spec.Processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{fdbv1beta2.ProcessClassGeneral: {PodTemplate: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{

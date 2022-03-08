@@ -24,8 +24,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -99,8 +97,8 @@ var _ = Describe("add_pods", func() {
 			Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
 			lastPod := newPods.Items[len(newPods.Items)-1]
 			Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastPod.Labels[fdb.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastPod.Labels[fdb.FDBProcessClassLabel]).To(Equal("storage"))
+			Expect(lastPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+			Expect(lastPod.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 

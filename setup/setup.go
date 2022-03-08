@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -255,8 +255,8 @@ func moveFDBBinaries() error {
 	}
 
 	for _, binEntry := range binDir {
-		if binEntry.IsDir() && fdb.VersionRegex.Match([]byte(binEntry.Name())) {
-			version, err := fdb.ParseFdbVersion(binEntry.Name())
+		if binEntry.IsDir() && v1beta2.VersionRegex.Match([]byte(binEntry.Name())) {
+			version, err := v1beta2.ParseFdbVersion(binEntry.Name())
 			if err != nil {
 				return err
 			}

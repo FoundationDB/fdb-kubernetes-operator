@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package fdb
+package v1beta1
 
 const (
 	// LastSpecKey provides the annotation name we use to store the hash of the

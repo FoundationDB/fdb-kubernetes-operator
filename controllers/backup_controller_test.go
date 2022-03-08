@@ -23,8 +23,6 @@ package controllers
 import (
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	. "github.com/onsi/ginkgo"
@@ -300,7 +298,7 @@ var _ = Describe("backup_controller", func() {
 
 		When("providing custom parameters", func() {
 			BeforeEach(func() {
-				backup.Spec.CustomParameters = fdb.FoundationDBCustomParameters{
+				backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 					"knob_http_verbose_level=3",
 				}
 				err = k8sClient.Update(context.TODO(), backup)

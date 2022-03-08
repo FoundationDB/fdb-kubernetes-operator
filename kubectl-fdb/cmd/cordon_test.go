@@ -23,8 +23,6 @@ package cmd
 import (
 	ctx "context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -63,7 +61,7 @@ var _ = Describe("[plugin] cordon command", func() {
 					Namespace: namespace,
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					ProcessCounts: fdb.ProcessCounts{
+					ProcessCounts: fdbv1beta2.ProcessCounts{
 						Storage: 1,
 					},
 				},
@@ -80,9 +78,9 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:        clusterName,
-								fdb.FDBProcessGroupIDLabel: "instance-1",
+								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBClusterLabel:        clusterName,
+								fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -94,9 +92,9 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-2",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:        clusterName,
-								fdb.FDBProcessGroupIDLabel: "instance-2",
+								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBClusterLabel:        clusterName,
+								fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
 							},
 						},
 						Spec: corev1.PodSpec{

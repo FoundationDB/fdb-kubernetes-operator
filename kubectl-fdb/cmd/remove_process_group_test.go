@@ -23,8 +23,6 @@ package cmd
 import (
 	ctx "context"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +49,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 				Namespace: namespace,
 			},
 			Spec: fdbv1beta2.FoundationDBClusterSpec{
-				ProcessCounts: fdb.ProcessCounts{
+				ProcessCounts: fdbv1beta2.ProcessCounts{
 					Storage: 1,
 				},
 			},
@@ -70,9 +68,9 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-1",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-									fdb.FDBClusterLabel:        clusterName,
-									fdb.FDBProcessGroupIDLabel: "storage-1",
+									fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+									fdbv1beta2.FDBClusterLabel:        clusterName,
+									fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
 								},
 							},
 						},
@@ -81,9 +79,9 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-2",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdb.FDBProcessClassLabel:   string(fdb.ProcessClassStorage),
-									fdb.FDBClusterLabel:        clusterName,
-									fdb.FDBProcessGroupIDLabel: "storage-2",
+									fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+									fdbv1beta2.FDBClusterLabel:        clusterName,
+									fdbv1beta2.FDBProcessGroupIDLabel: "storage-2",
 								},
 							},
 						},
@@ -147,8 +145,8 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-1",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdb.FDBProcessClassLabel: string(fdb.ProcessClassStorage),
-									fdb.FDBClusterLabel:      clusterName,
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+									fdbv1beta2.FDBClusterLabel:      clusterName,
 								},
 							},
 						},
@@ -162,7 +160,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 				WithShrink                                bool
 				ExpectedInstancesToRemove                 []string
 				ExpectedInstancesToRemoveWithoutExclusion []string
-				ExpectedProcessCounts                     fdb.ProcessCounts
+				ExpectedProcessCounts                     fdbv1beta2.ProcessCounts
 				RemoveAllFailed                           bool
 			}
 
@@ -195,7 +193,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                false,
 						ExpectedInstancesToRemove: []string{"instance-1"},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdb.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
 						RemoveAllFailed: false,
@@ -207,7 +205,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                false,
 						ExpectedInstancesToRemove: []string{},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-						ExpectedProcessCounts: fdb.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
 					}),
@@ -218,7 +216,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                true,
 						ExpectedInstancesToRemove: []string{"instance-1"},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdb.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 0,
 						},
 						RemoveAllFailed: false,
@@ -231,7 +229,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                true,
 						ExpectedInstancesToRemove: []string{},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-						ExpectedProcessCounts: fdb.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 0,
 						},
 						RemoveAllFailed: false,
@@ -243,7 +241,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                false,
 						ExpectedInstancesToRemove: []string{"failed"},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdb.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
 						RemoveAllFailed: true,

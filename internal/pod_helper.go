@@ -29,8 +29,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -102,7 +100,7 @@ func GetProcessGroupIDFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
-func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
 	var err error
 	if spec == nil {
 		spec, err = GetPodSpec(cluster, processClass, id)
@@ -128,7 +126,7 @@ func GetJSONHash(object interface{}) (string, error) {
 }
 
 // GetPodLabels creates the labels that we will apply to a Pod
-func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, id string) map[string]string {
+func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
 	for key, value := range cluster.GetMatchLabels() {
@@ -151,7 +149,7 @@ func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.Proc
 }
 
 // GetPodMatchLabels creates the labels that we will use when filtering for a pod.
-func GetPodMatchLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, id string) map[string]string {
+func GetPodMatchLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
 	for key, value := range cluster.GetMatchLabels() {
@@ -186,12 +184,12 @@ func GetSinglePodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processGro
 }
 
 // GetPodListOptions returns the listOptions to list Pods
-func GetPodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, id string) []client.ListOption {
+func GetPodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) []client.ListOption {
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id))}
 }
 
 // GetPvcMetadata returns the metadata for a PVC
-func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.ProcessClass, id string) metav1.ObjectMeta {
+func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -204,7 +202,7 @@ func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdb.Pr
 }
 
 // GetSidecarImage returns the expected sidecar image for a specific process class
-func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdb.ProcessClass) (string, error) {
+func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.ProcessClass) (string, error) {
 	settings := cluster.GetProcessSettings(pClass)
 
 	image := ""
@@ -241,7 +239,7 @@ func CreatePodMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) m
 }
 
 // ParseProcessGroupID extracts the components of an process group ID.
-func ParseProcessGroupID(id string) (fdb.ProcessClass, int, error) {
+func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
 	result := processGroupIDRegex.FindStringSubmatch(id)
 	if result == nil {
 		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
@@ -251,7 +249,7 @@ func ParseProcessGroupID(id string) (fdb.ProcessClass, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	return fdb.ProcessClass(prefix), number, nil
+	return fdbv1beta2.ProcessClass(prefix), number, nil
 }
 
 // GetPublicIPSource determines how a Pod has gotten its public IP.
@@ -260,7 +258,7 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 		return "", fmt.Errorf("failed to fetch public IP source from nil Pod")
 	}
 
-	source := pod.ObjectMeta.Annotations[fdb.PublicIPSourceAnnotation]
+	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
 	if source == "" {
 		return fdbv1beta2.PublicIPSourcePod, nil
 	}

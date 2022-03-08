@@ -27,8 +27,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -41,11 +39,11 @@ import (
 type mockAdminClient struct {
 	Cluster                                  *fdbv1beta2.FoundationDBCluster
 	KubeClient                               client.Client
-	DatabaseConfiguration                    *fdb.DatabaseConfiguration
+	DatabaseConfiguration                    *fdbv1beta2.DatabaseConfiguration
 	ExcludedAddresses                        []string
 	ReincludedAddresses                      map[string]bool
 	KilledAddresses                          []string
-	frozenStatus                             *fdb.FoundationDBStatus
+	frozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	restoreURL                               string
 	clientVersions                           map[string][]string
@@ -99,7 +97,7 @@ func clearMockAdminClients() {
 }
 
 // GetStatus gets the database's status
-func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
+func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -111,9 +109,9 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	status := &fdb.FoundationDBStatus{
-		Cluster: fdb.FoundationDBStatusClusterInfo{
-			Processes: make(map[string]fdb.FoundationDBStatusProcessInfo, len(pods.Items)),
+	status := &fdbv1beta2.FoundationDBStatus{
+		Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+			Processes: make(map[string]fdbv1beta2.FoundationDBStatusProcessInfo, len(pods.Items)),
 		},
 	}
 
@@ -159,7 +157,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 		}
 
 		for processIndex := 1; processIndex <= processCount; processIndex++ {
-			var fdbRoles []fdb.FoundationDBStatusProcessRoleInfo
+			var fdbRoles []fdbv1beta2.FoundationDBStatusProcessRoleInfo
 
 			fullAddress := client.Cluster.GetFullAddress(processIP, processIndex)
 			_, ipExcluded := exclusionMap[processIP]
@@ -168,7 +166,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 			_, isCoordinator := coordinators[fullAddress.String()]
 			if isCoordinator && !excluded {
 				coordinators[fullAddress.String()] = true
-				fdbRoles = append(fdbRoles, fdb.FoundationDBStatusProcessRoleInfo{Role: string(fdb.ProcessRoleCoordinator)})
+				fdbRoles = append(fdbRoles, fdbv1beta2.FoundationDBStatusProcessRoleInfo{Role: string(fdbv1beta2.ProcessRoleCoordinator)})
 			}
 
 			pClass, err := podmanager.GetProcessClass(client.Cluster, &pod)
@@ -185,9 +183,9 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 			}
 
 			locality := map[string]string{
-				fdb.FDBLocalityInstanceIDKey: processGroupID,
-				fdb.FDBLocalityZoneIDKey:     pod.Name,
-				fdb.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
+				fdbv1beta2.FDBLocalityInstanceIDKey: processGroupID,
+				fdbv1beta2.FDBLocalityZoneIDKey:     pod.Name,
+				fdbv1beta2.FDBLocalityDCIDKey:       client.Cluster.Spec.DataCenter,
 			}
 
 			for key, value := range client.localityInfo[processGroupID] {
@@ -197,7 +195,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 			for _, container := range pod.Spec.Containers {
 				for _, envVar := range container.Env {
 					if envVar.Name == "FDB_DNS_NAME" {
-						locality[fdb.FDBLocalityDNSNameKey] = envVar.Value
+						locality[fdbv1beta2.FDBLocalityDNSNameKey] = envVar.Value
 					}
 				}
 			}
@@ -206,7 +204,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 				locality["process_id"] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
 			}
 
-			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdb.FoundationDBStatusProcessInfo{
+			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbv1beta2.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
 				ProcessClass:  internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
 				CommandLine:   command,
@@ -220,8 +218,8 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 
 		for _, processGroup := range client.additionalProcesses {
 			locality := map[string]string{
-				fdb.FDBLocalityInstanceIDKey: processGroup.ProcessGroupID,
-				fdb.FDBLocalityZoneIDKey:     processGroup.ProcessGroupID,
+				fdbv1beta2.FDBLocalityInstanceIDKey: processGroup.ProcessGroupID,
+				fdbv1beta2.FDBLocalityZoneIDKey:     processGroup.ProcessGroupID,
 			}
 
 			for key, value := range client.localityInfo[processGroupID] {
@@ -229,7 +227,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 			}
 
 			fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
-			status.Cluster.Processes[processGroup.ProcessGroupID] = fdb.FoundationDBStatusProcessInfo{
+			status.Cluster.Processes[processGroup.ProcessGroupID] = fdbv1beta2.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
 				ProcessClass:  processGroup.ProcessClass,
 				Locality:      locality,
@@ -241,21 +239,21 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 	}
 
 	if client.clientVersions != nil {
-		supportedVersions := make([]fdb.FoundationDBStatusSupportedVersion, 0, len(client.clientVersions))
+		supportedVersions := make([]fdbv1beta2.FoundationDBStatusSupportedVersion, 0, len(client.clientVersions))
 		for version, addresses := range client.clientVersions {
 			protocolVersion, err := client.GetProtocolVersion(version)
 			if err != nil {
 				return nil, err
 			}
 
-			protocolClients := make([]fdb.FoundationDBStatusConnectedClient, 0, len(addresses))
+			protocolClients := make([]fdbv1beta2.FoundationDBStatusConnectedClient, 0, len(addresses))
 			for _, address := range addresses {
-				protocolClients = append(protocolClients, fdb.FoundationDBStatusConnectedClient{
+				protocolClients = append(protocolClients, fdbv1beta2.FoundationDBStatusConnectedClient{
 					Address: address,
 				})
 			}
 
-			supportedVersions = append(supportedVersions, fdb.FoundationDBStatusSupportedVersion{
+			supportedVersions = append(supportedVersions, fdbv1beta2.FoundationDBStatusSupportedVersion{
 				ClientVersion:      version,
 				ProtocolVersion:    protocolVersion,
 				MaxProtocolClients: protocolClients,
@@ -265,12 +263,12 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 	}
 
 	for address, reachable := range coordinators {
-		pAddr, err := fdb.ParseProcessAddress(address)
+		pAddr, err := fdbv1beta2.ParseProcessAddress(address)
 		if err != nil {
 			return nil, err
 		}
 
-		status.Client.Coordinators.Coordinators = append(status.Client.Coordinators.Coordinators, fdb.FoundationDBStatusCoordinator{
+		status.Client.Coordinators.Coordinators = append(status.Client.Coordinators.Coordinators, fdbv1beta2.FoundationDBStatusCoordinator{
 			Address:   pAddr,
 			Reachable: reachable,
 		})
@@ -294,9 +292,9 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 	status.Cluster.Data.State.Name = "healthy"
 
 	if len(client.Backups) > 0 {
-		status.Cluster.Layers.Backup.Tags = make(map[string]fdb.FoundationDBStatusBackupTag, len(client.Backups))
+		status.Cluster.Layers.Backup.Tags = make(map[string]fdbv1beta2.FoundationDBStatusBackupTag, len(client.Backups))
 		for tag, tagStatus := range client.Backups {
-			status.Cluster.Layers.Backup.Tags[tag] = fdb.FoundationDBStatusBackupTag{
+			status.Cluster.Layers.Backup.Tags[tag] = fdbv1beta2.FoundationDBStatusBackupTag{
 				CurrentContainer: tagStatus.URL,
 				RunningBackup:    tagStatus.Running,
 				Restorable:       true,
@@ -317,7 +315,7 @@ func (client *mockAdminClient) GetStatus() (*fdb.FoundationDBStatus, error) {
 }
 
 // ConfigureDatabase changes the database configuration
-func (client *mockAdminClient) ConfigureDatabase(configuration fdb.DatabaseConfiguration, _ bool) error {
+func (client *mockAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -327,7 +325,7 @@ func (client *mockAdminClient) ConfigureDatabase(configuration fdb.DatabaseConfi
 
 // ExcludeProcesses starts evacuating processes so that they can be removed
 // from the database.
-func (client *mockAdminClient) ExcludeProcesses(addresses []fdb.ProcessAddress) error {
+func (client *mockAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -360,7 +358,7 @@ func (client *mockAdminClient) ExcludeProcesses(addresses []fdb.ProcessAddress) 
 
 // IncludeProcesses removes processes from the exclusion list and allows
 // them to take on roles again.
-func (client *mockAdminClient) IncludeProcesses(addresses []fdb.ProcessAddress) error {
+func (client *mockAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -390,8 +388,8 @@ func (client *mockAdminClient) IncludeProcesses(addresses []fdb.ProcessAddress) 
 //
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
-func (client *mockAdminClient) CanSafelyRemove(addresses []fdb.ProcessAddress) ([]fdb.ProcessAddress, error) {
-	skipExclude := map[string]fdb.None{}
+func (client *mockAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error) {
+	skipExclude := map[string]fdbv1beta2.None{}
 
 	// Check which process groups have the skip exclusion flag or are already
 	// excluded
@@ -401,18 +399,18 @@ func (client *mockAdminClient) CanSafelyRemove(addresses []fdb.ProcessAddress) (
 		}
 
 		for _, addr := range pg.Addresses {
-			skipExclude[addr] = fdb.None{}
+			skipExclude[addr] = fdbv1beta2.None{}
 		}
 	}
 
 	// Add all process groups that are excluded in the client
 	for _, addr := range client.ExcludedAddresses {
-		skipExclude[addr] = fdb.None{}
+		skipExclude[addr] = fdbv1beta2.None{}
 	}
 
 	// Filter out all excluded process groups and also all process groups
 	// that skip exclusion
-	remaining := make([]fdb.ProcessAddress, 0, len(addresses))
+	remaining := make([]fdbv1beta2.ProcessAddress, 0, len(addresses))
 
 	for _, addr := range addresses {
 		// Is already excluded or skipped
@@ -430,13 +428,13 @@ func (client *mockAdminClient) CanSafelyRemove(addresses []fdb.ProcessAddress) (
 
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
-func (client *mockAdminClient) GetExclusions() ([]fdb.ProcessAddress, error) {
+func (client *mockAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	pAddrs := make([]fdb.ProcessAddress, len(client.ExcludedAddresses))
+	pAddrs := make([]fdbv1beta2.ProcessAddress, len(client.ExcludedAddresses))
 	for _, addr := range client.ExcludedAddresses {
-		pAddrs = append(pAddrs, fdb.ProcessAddress{
+		pAddrs = append(pAddrs, fdbv1beta2.ProcessAddress{
 			IPAddress: net.ParseIP(addr),
 			Port:      0,
 			Flags:     nil,
@@ -447,7 +445,7 @@ func (client *mockAdminClient) GetExclusions() ([]fdb.ProcessAddress, error) {
 }
 
 // KillProcesses restarts processes
-func (client *mockAdminClient) KillProcesses(addresses []fdb.ProcessAddress) error {
+func (client *mockAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	adminClientMutex.Lock()
 	for _, addr := range addresses {
 		client.KilledAddresses = append(client.KilledAddresses, addr.String())
@@ -459,7 +457,7 @@ func (client *mockAdminClient) KillProcesses(addresses []fdb.ProcessAddress) err
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *mockAdminClient) ChangeCoordinators(addresses []fdb.ProcessAddress) (string, error) {
+func (client *mockAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -491,7 +489,7 @@ func (client *mockAdminClient) GetConnectionString() (string, error) {
 // VersionSupported reports whether we can support a cluster with a given
 // version.
 func (client *mockAdminClient) VersionSupported(versionString string) (bool, error) {
-	version, err := fdb.ParseFdbVersion(versionString)
+	version, err := fdbv1beta2.ParseFdbVersion(versionString)
 	if err != nil {
 		return false, err
 	}

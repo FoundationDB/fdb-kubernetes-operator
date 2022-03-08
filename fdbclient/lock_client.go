@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	fdb2 "github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -153,7 +151,7 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *realLockClient) AddPendingUpgrades(version fdb2.Version, processGroupIDs []string) error {
+func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []string) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
@@ -170,7 +168,7 @@ func (client *realLockClient) AddPendingUpgrades(version fdb2.Version, processGr
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *realLockClient) GetPendingUpgrades(version fdb2.Version) (map[string]bool, error) {
+func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[string]bool, error) {
 	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {

@@ -21,7 +21,7 @@
 package controllers
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
+	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

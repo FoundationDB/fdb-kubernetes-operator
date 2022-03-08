@@ -21,7 +21,6 @@
 package internal
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -126,13 +125,13 @@ func ensureImageConfigPresent(imageConfigs *[]fdbtypes.ImageConfig, expected fdb
 // settings.
 func ensurePodTemplatePresent(spec *fdbtypes.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
-		spec.Processes = make(map[fdb.ProcessClass]fdbtypes.ProcessSettings)
+		spec.Processes = make(map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings)
 	}
-	generalSettings := spec.Processes[fdb.ProcessClassGeneral]
+	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
 	if generalSettings.PodTemplate == nil {
 		generalSettings.PodTemplate = &corev1.PodTemplateSpec{}
 	}
-	spec.Processes[fdb.ProcessClassGeneral] = generalSettings
+	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
 }
 
 // updatePodTemplates updates all of the pod templates in the cluster spec.

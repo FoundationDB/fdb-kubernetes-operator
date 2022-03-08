@@ -22,7 +22,6 @@ package cmd
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,7 +56,7 @@ var _ = Describe("[plugin] exec command", func() {
 					Namespace: namespace,
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					ProcessCounts: fdb.ProcessCounts{
+					ProcessCounts: fdbv1beta2.ProcessCounts{
 						Storage: 1,
 					},
 				},
@@ -70,8 +69,8 @@ var _ = Describe("[plugin] exec command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdb.FDBProcessClassLabel: string(fdb.ProcessClassStorage),
-								fdb.FDBClusterLabel:      clusterName,
+								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBClusterLabel:      clusterName,
 							},
 						},
 					},

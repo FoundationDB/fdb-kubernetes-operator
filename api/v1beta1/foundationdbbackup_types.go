@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdb"
-
 	"k8s.io/utils/pointer"
 
 	corev1 "k8s.io/api/core/v1"
@@ -103,7 +101,7 @@ type FoundationDBBackupSpec struct {
 
 	// CustomParameters defines additional parameters to pass to the backup
 	// agents.
-	CustomParameters fdb.FoundationDBCustomParameters `json:"customParameters,omitempty"`
+	CustomParameters FoundationDBCustomParameters `json:"customParameters,omitempty"`
 
 	// This setting defines if a user provided image can have it's own tag
 	// rather than getting the provided version appended.
