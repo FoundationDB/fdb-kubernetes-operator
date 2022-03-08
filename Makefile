@@ -58,6 +58,7 @@ GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+SAMPLES=config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race -timeout=30m
@@ -74,7 +75,8 @@ clean:
 	find api -type f -name "zz_generated.*.go" -delete
 	mkdir -p bin
 	rm -r bin
-	find config/samples -type f -name deployment.yaml -delete
+	rm -f $(SAMPLES)
+	rm -f config/rbac/role.yaml
 	find . -name "cover.out" -delete
 
 clean-deps:
@@ -171,7 +173,7 @@ rebuild-operator: container-build deploy bounce
 bounce:
 	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager
 
-samples: config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
+samples: ${SAMPLES}
 
 config/samples/deployment.yaml: config/deployment/*.yaml
 	kustomize build ./config/deployment > $@

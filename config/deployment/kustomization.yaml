@@ -15,6 +15,6 @@ namePrefix: fdb-kubernetes-operator-
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- rbac_role.yaml
+- ../rbac
 - rbac_role_binding.yaml
 - manager.yaml

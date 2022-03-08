@@ -58,13 +58,13 @@ spec:
         - --copy-file
         - fdb.cluster
         - --copy-library
-        - "6.1"
-        - --copy-library
         - "6.2"
+        - --copy-library
+        - "6.3"
         - --init-mode
         - --require-not-empty
         - fdb.cluster
-        image: foundationdb/foundationdb-kubernetes-sidecar:6.2.30-1
+        image: foundationdb/foundationdb-kubernetes-sidecar:6.3.24-1
         name: foundationdb-kubernetes-init
         volumeMounts:
         - mountPath: /var/input-files

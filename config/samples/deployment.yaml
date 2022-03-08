@@ -4,7 +4,7 @@ metadata:
   name: fdb-kubernetes-operator-controller-manager
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: fdb-kubernetes-operator-manager-role
@@ -12,81 +12,92 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
   - configmaps
-  - persistentvolumeclaims
   - events
+  - persistentvolumeclaims
+  - pods
   - secrets
   - services
   verbs:
-  - get
-  - watch
-  - list
   - create
-  - update
-  - patch
   - delete
-- apiGroups:
-  - apps.foundationdb.org
-  resources:
-  - foundationdbclusters
-  - foundationdbbackups
-  - foundationdbrestores
-  verbs:
   - get
   - list
+  - patch
+  - update
   - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - apps.foundationdb.org
-  resources:
-  - foundationdbclusters/status
-  - foundationdbbackups/status
-  - foundationdbrestores/status
-  verbs:
-  - get
-  - update
-  - patch
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
 - apiGroups:
   - apps
   resources:
   - deployments
   verbs:
+  - create
+  - delete
   - get
   - list
-  - watch
-  - create
-  - update
   - patch
-  - delete
+  - update
+  - watch
 - apiGroups:
-  - coordination.k8s.io
+  - apps.foundationdb.org
   resources:
-  - leases
+  - foundationdbbackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbbackups/status
   verbs:
   - get
-  - list
-  - watch
-  - create
-  - update
   - patch
+  - update
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbclusters
+  verbs:
+  - create
   - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.foundationdb.org
+  resources:
+  - foundationdbrestores/status
+  verbs:
+  - get
+  - patch
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
