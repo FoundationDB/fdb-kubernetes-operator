@@ -120,10 +120,7 @@ spec:
         control-plane: controller-manager
     spec:
       containers:
-      - args:
-        - -watch-namespace
-        - $(WATCH_NAMESPACE)
-        command:
+      - command:
         - /manager
         env:
         - name: WATCH_NAMESPACE
