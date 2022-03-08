@@ -113,7 +113,7 @@ jobs:
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             tagSuffix: ""
-            file: ./foundationdb/fdb-data-loader/Dockerfile
+            file: ./sample-apps/data-loader/Dockerfile
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
