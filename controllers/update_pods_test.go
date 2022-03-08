@@ -22,6 +22,9 @@ package controllers
 
 import (
 	"fmt"
+	"time"
+
+	"k8s.io/utils/pointer"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -105,5 +108,88 @@ var _ = Describe("update_pods", func() {
 					expectedErr:          fmt.Errorf("unknown deletion mode: \"banana\""),
 				}),
 		)
+	})
+
+	Context("Validating shouldRequeueDueToTerminatingPod", func() {
+		var processGroup = ""
+
+		When("pod is without deletionTimestamp", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Pod1",
+					},
+				}
+			})
+
+			It("should not requeue due to terminating pods", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
+
+		When("pod with deletionTimestamp less than ignore limit", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "Pod1",
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+				}
+			})
+
+			It("should requeue due to terminating pods", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeTrue())
+			})
+		})
+
+		When("pod with deletionTimestamp more than ignore limit", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "Pod1",
+						DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-15 * time.Minute)},
+					},
+				}
+
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
+
+		When("with configured IgnoreTerminatingPodsSeconds", func() {
+			var cluster *fdbtypes.FoundationDBCluster
+			var pod *corev1.Pod
+			BeforeEach(func() {
+				cluster = &fdbtypes.FoundationDBCluster{
+					Spec: fdbtypes.FoundationDBClusterSpec{
+						AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+							IgnoreTerminatingPodsSeconds: pointer.Int(int(5 * time.Minute.Seconds())),
+						},
+					},
+				}
+				pod = &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "Pod1",
+						DeletionTimestamp: &metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
+					},
+				}
+
+			})
+
+			It("should not requeue", func() {
+				Expect(shouldRequeueDueToTerminatingPod(pod, cluster, processGroup)).To(BeFalse())
+			})
+		})
 	})
 })

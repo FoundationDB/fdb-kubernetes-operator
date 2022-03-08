@@ -71,6 +71,8 @@ spec:
                     ignorePendingPodsDuration:
                       format: int64
                       type: integer
+                    ignoreTerminatingPodsSeconds:
+                      type: integer
                     killProcesses:
                       type: boolean
                     maxConcurrentReplacements:

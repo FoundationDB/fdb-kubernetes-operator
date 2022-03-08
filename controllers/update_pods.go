@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
@@ -77,7 +78,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			continue
 		}
 
-		if pod.DeletionTimestamp != nil && !cluster.ProcessGroupIsBeingRemoved(processGroup.ProcessGroupID) {
+		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
 			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration}
 		}
 
@@ -158,6 +159,12 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
+}
+
+func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbtypes.FoundationDBCluster, processGroupID string) bool {
+	return pod.DeletionTimestamp != nil &&
+		pod.DeletionTimestamp.Add(time.Duration(cluster.GetIgnoreTerminatingPodsSeconds())*time.Second).After(time.Now()) &&
+		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
 func getPodsToDelete(deletionMode fdbtypes.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
