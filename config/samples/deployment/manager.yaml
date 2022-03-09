@@ -66,9 +66,6 @@ spec:
       containers:
       - command:
         - /manager
-        args:
-        - "-watch-namespace"
-        - "$(WATCH_NAMESPACE)"
         image: foundationdb/fdb-kubernetes-operator:v0.51.0
         name: manager
         env:
