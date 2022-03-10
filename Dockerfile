@@ -1,33 +1,15 @@
-FROM docker.io/foundationdb/foundationdb:6.2.30 as fdb62
-FROM docker.io/foundationdb/foundationdb:6.3.22 as fdb63
-
 # Build the manager binary
 FROM docker.io/library/golang:1.17.6 as builder
 
-# Install FDB
-ARG FDB_VERSION=6.2.30
+# Install FDB this version is only required to complie the fdb operator
+ARG FDB_VERSION=6.3.23
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 ARG TAG="latest"
 
 RUN set -eux && \
 	curl --fail -L ${FDB_WEBSITE}/${FDB_VERSION}/foundationdb-clients_${FDB_VERSION}-1_amd64.deb -o fdb.deb && \
-	dpkg -i fdb.deb && rm fdb.deb && \
-	mkdir -p /usr/bin/fdb/${FDB_VERSION%.*} && \
-	for binary in fdbbackup fdbcli; do \
-		download_path=/usr/bin/fdb/${FDB_VERSION%.*}/$binary && \
-		curl --fail -L ${FDB_WEBSITE}/${FDB_VERSION}/$binary.x86_64 -o $download_path && \
-		chmod u+x $download_path; \
-	done && \
-	mkdir -p /usr/lib/fdb
-
-# TODO: Remove the behavior of copying binaries from the FDB images as part of the 1.0 release of the operator.
-
-# Copy 6.2 binaries
-COPY --from=fdb62 /usr/bin/fdb* /usr/bin/fdb/6.2/
-
-# Copy 6.3 binaries
-COPY --from=fdb63 /usr/bin/fdb* /usr/bin/fdb/6.3/
-COPY --from=fdb63 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.3.so
+	dpkg -i fdb.deb && \
+    rm fdb.deb
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -62,14 +44,14 @@ RUN groupadd --gid 4059 fdb && \
 
 FROM docker.io/debian:bullseye
 
+VOLUME /usr/lib/fdb
+
 WORKDIR /
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 COPY --chown=fdb:fdb --from=builder /workspace/bin/manager .
-COPY --from=builder /usr/bin/fdb /usr/bin/fdb
 COPY --from=builder /usr/lib/libfdb_c.so /usr/lib/
-COPY --from=builder /usr/lib/fdb /usr/lib/fdb/
 COPY --chown=fdb:fdb --from=builder /var/log/fdb/.keep /var/log/fdb/.keep
 
 # Set to the numeric UID of fdb user to satisfy PodSecurityPolices which enforce runAsNonRoot
