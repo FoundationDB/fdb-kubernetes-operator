@@ -32,7 +32,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	mockclient "github.com/FoundationDB/fdb-kubernetes-operator/mock-kubernetes-client/client"
 
 	"github.com/onsi/gomega/gexec"
@@ -68,7 +68,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	err := scheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = fdbtypes.AddToScheme(scheme.Scheme)
+	err = fdbv1beta2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -106,33 +106,33 @@ var _ = AfterEach(func() {
 	clearMockLockClients()
 })
 
-func createDefaultRestore(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBRestore {
-	return &fdbtypes.FoundationDBRestore{
+func createDefaultRestore(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.FoundationDBRestore {
+	return &fdbv1beta2.FoundationDBRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Name,
 			Namespace: cluster.Namespace,
 		},
-		Spec: fdbtypes.FoundationDBRestoreSpec{
-			BlobStoreConfiguration: &fdbtypes.BlobStoreConfiguration{
+		Spec: fdbv1beta2.FoundationDBRestoreSpec{
+			BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
 				AccountName: "test@test-service",
 				BackupName:  "test-backup",
 				Bucket:      "fdb-backups",
 			},
 			DestinationClusterName: cluster.Name,
 		},
-		Status: fdbtypes.FoundationDBRestoreStatus{},
+		Status: fdbv1beta2.FoundationDBRestoreStatus{},
 	}
 }
 
-func reconcileCluster(cluster *fdbtypes.FoundationDBCluster) (reconcile.Result, error) {
+func reconcileCluster(cluster *fdbv1beta2.FoundationDBCluster) (reconcile.Result, error) {
 	return reconcileObject(clusterReconciler, cluster.ObjectMeta, 20)
 }
 
-func reconcileBackup(backup *fdbtypes.FoundationDBBackup) (reconcile.Result, error) {
+func reconcileBackup(backup *fdbv1beta2.FoundationDBBackup) (reconcile.Result, error) {
 	return reconcileObject(backupReconciler, backup.ObjectMeta, 20)
 }
 
-func reconcileRestore(restore *fdbtypes.FoundationDBRestore) (reconcile.Result, error) {
+func reconcileRestore(restore *fdbv1beta2.FoundationDBRestore) (reconcile.Result, error) {
 	return reconcileObject(restoreReconciler, restore.ObjectMeta, 20)
 }
 
@@ -157,7 +157,7 @@ func reconcileObject(reconciler reconcile.Reconciler, metadata metav1.ObjectMeta
 	return result, err
 }
 
-func setupClusterForTest(cluster *fdbtypes.FoundationDBCluster) error {
+func setupClusterForTest(cluster *fdbv1beta2.FoundationDBCluster) error {
 	err := k8sClient.Create(context.TODO(), cluster)
 	if err != nil {
 		return err

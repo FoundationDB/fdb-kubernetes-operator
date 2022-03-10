@@ -2,7 +2,7 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
-CRD_OPTIONS ?= "crd:trivialVersions=true,maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
+CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 
 ifneq "$(FDB_WEBSITE)" ""
 	img_build_args := $(img_build_args) --build-arg FDB_WEBSITE=$(FDB_WEBSITE)
@@ -55,7 +55,7 @@ $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,yq,YQ))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
-GENERATED_GO=api/v1beta1/zz_generated.deepcopy.go
+GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 
@@ -135,10 +135,6 @@ manifests: ${MANIFESTS}
 
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	# See: https://github.com/kubernetes-sigs/controller-tools/issues/476 remove after the next release (and add a note in the release)
-	yq e '.spec.preserveUnknownFields = false' -i ./config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
-	yq e '.spec.preserveUnknownFields = false' -i ./config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
-	yq e '.spec.preserveUnknownFields = false' -i ./config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
 
 # Run go fmt against code
 fmt: bin/fmt_check
@@ -184,14 +180,14 @@ config/samples/deployment.yaml: config/samples/deployment/*.yaml
 bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
 
-docs/cluster_spec.md: bin/po-docgen api/v1beta1/foundationdbcluster_types.go
-	bin/po-docgen api api/v1beta1/foundationdbcluster_types.go > docs/cluster_spec.md
+docs/cluster_spec.md: bin/po-docgen api/v1beta2/foundationdbcluster_types.go
+	bin/po-docgen api api/v1beta2/foundationdbcluster_types.go > docs/cluster_spec.md
 
-docs/backup_spec.md: bin/po-docgen api/v1beta1/foundationdbbackup_types.go
-	bin/po-docgen api api/v1beta1/foundationdbbackup_types.go > docs/backup_spec.md
+docs/backup_spec.md: bin/po-docgen api/v1beta2/foundationdbbackup_types.go
+	bin/po-docgen api api/v1beta2/foundationdbbackup_types.go > docs/backup_spec.md
 
-docs/restore_spec.md: bin/po-docgen api/v1beta1/foundationdbrestore_types.go
-	bin/po-docgen api api/v1beta1/foundationdbrestore_types.go > docs/restore_spec.md
+docs/restore_spec.md: bin/po-docgen api/v1beta2/foundationdbrestore_types.go
+	bin/po-docgen api api/v1beta2/foundationdbrestore_types.go > docs/restore_spec.md
 
 documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 

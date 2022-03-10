@@ -26,7 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +34,7 @@ import (
 )
 
 var _ = Describe("add_services", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
 	var initialServices *corev1.ServiceList
@@ -42,7 +42,7 @@ var _ = Describe("add_services", func() {
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		source := fdbtypes.PublicIPSourceService
+		source := fdbv1beta2.PublicIPSourceService
 		cluster.Spec.Routing.PublicIPSource = &source
 		enabled := true
 		cluster.Spec.Routing.HeadlessService = &enabled
@@ -91,7 +91,10 @@ var _ = Describe("add_services", func() {
 
 		Context("with a change to the match labels", func() {
 			BeforeEach(func() {
-				cluster.Spec.LabelConfig.MatchLabels["fdb-test-label"] = "true"
+				cluster.Spec.LabelConfig.MatchLabels = map[string]string{
+					fdbv1beta2.FDBClusterLabel: cluster.Name,
+					"fdb-test-label":           "true",
+				}
 			})
 
 			It("should not create any services", func() {
@@ -101,11 +104,11 @@ var _ = Describe("add_services", func() {
 			It("should set the selector on the services", func() {
 				for _, service := range newServices.Items {
 					labels := map[string]string{
-						internal.OldFDBClusterLabel: cluster.Name,
-						"fdb-test-label":            "true",
+						fdbv1beta2.FDBClusterLabel: cluster.Name,
+						"fdb-test-label":           "true",
 					}
-					if service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel] != "" {
-						labels[internal.OldFDBProcessGroupIDLabel] = service.ObjectMeta.Labels[internal.OldFDBProcessGroupIDLabel]
+					if service.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel] != "" {
+						labels[fdbv1beta2.FDBProcessGroupIDLabel] = service.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]
 					}
 					Expect(service.Spec.Selector).To(Equal(labels))
 				}
@@ -120,7 +123,7 @@ var _ = Describe("add_services", func() {
 
 	Context("with a process group with no service defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus("storage-9", "storage", nil))
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
 		})
 
 		It("should not requeue", func() {
@@ -131,15 +134,15 @@ var _ = Describe("add_services", func() {
 			Expect(newServices.Items).To(HaveLen(len(initialServices.Items) + 1))
 			lastService := newServices.Items[len(newServices.Items)-1]
 			Expect(lastService.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastService.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
+			Expect(lastService.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+			Expect(lastService.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastService.Spec.ClusterIP).NotTo(Equal("None"))
 			Expect(lastService.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 
 		Context("with the pod public IP source", func() {
 			BeforeEach(func() {
-				source := fdbtypes.PublicIPSourcePod
+				source := fdbv1beta2.PublicIPSourcePod
 				cluster.Spec.Routing.PublicIPSource = &source
 			})
 
@@ -186,7 +189,7 @@ var _ = Describe("add_services", func() {
 			firstService := newServices.Items[0]
 
 			Expect(firstService.Name).To(Equal("operator-test-1"))
-			Expect(firstService.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal(""))
+			Expect(firstService.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal(""))
 			Expect(firstService.Spec.ClusterIP).To(Equal("None"))
 		})
 

@@ -1,5 +1,5 @@
 /*
- * labels.go
+ * none.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,18 +18,8 @@
  * limitations under the License.
  */
 
-package internal
+package v1beta2
 
-const (
-	// OldFDBProcessGroupIDLabel represents the label that is used to represent a instance ID
-	// Deprecated: This label will not be applied by default in the future.
-	OldFDBProcessGroupIDLabel = "fdb-instance-id"
-
-	// OldFDBProcessClassLabel represents the label that is used to represent the process class
-	// Deprecated: This label will not be applied by default in the future.
-	OldFDBProcessClassLabel = "fdb-process-class"
-
-	// OldFDBClusterLabel represents the label that is used to represent the cluster of an instance
-	// Deprecated: This label will not be applied by default in the future.
-	OldFDBClusterLabel = "fdb-cluster-name"
-)
+// None is a simple struct to create a set to indicate the value of the map
+// has no meaning.
+type None struct{}

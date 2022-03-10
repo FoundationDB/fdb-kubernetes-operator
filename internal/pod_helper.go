@@ -31,7 +31,7 @@ import (
 
 	"k8s.io/utils/pointer"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -95,12 +95,12 @@ func GetPublicIPsForPod(pod *corev1.Pod) []string {
 }
 
 // GetProcessGroupIDFromMeta fetches the process group ID from an object's metadata.
-func GetProcessGroupIDFromMeta(cluster *fdbtypes.FoundationDBCluster, metadata metav1.ObjectMeta) string {
+func GetProcessGroupIDFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata metav1.ObjectMeta) string {
 	return metadata.Labels[cluster.GetProcessGroupIDLabel()]
 }
 
 // GetPodSpecHash builds the hash of the expected spec for a pod.
-func GetPodSpecHash(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
+func GetPodSpecHash(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id int, spec *corev1.PodSpec) (string, error) {
 	var err error
 	if spec == nil {
 		spec, err = GetPodSpec(cluster, processClass, id)
@@ -126,21 +126,21 @@ func GetJSONHash(object interface{}) (string, error) {
 }
 
 // GetPodLabels creates the labels that we will apply to a Pod
-func GetPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
+func GetPodLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
-	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+	for key, value := range cluster.GetMatchLabels() {
 		labels[key] = value
 	}
 
 	if processClass != "" {
-		for _, label := range cluster.Spec.LabelConfig.ProcessClassLabels {
+		for _, label := range cluster.GetProcessClassLabels() {
 			labels[label] = string(processClass)
 		}
 	}
 
 	if id != "" {
-		for _, label := range cluster.Spec.LabelConfig.ProcessGroupIDLabels {
+		for _, label := range cluster.GetProcessGroupIDLabels() {
 			labels[label] = id
 		}
 	}
@@ -149,10 +149,10 @@ func GetPodLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.P
 }
 
 // GetPodMatchLabels creates the labels that we will use when filtering for a pod.
-func GetPodMatchLabels(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) map[string]string {
+func GetPodMatchLabels(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) map[string]string {
 	labels := map[string]string{}
 
-	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+	for key, value := range cluster.GetMatchLabels() {
 		labels[key] = value
 	}
 
@@ -179,17 +179,17 @@ func BuildOwnerReference(ownerType metav1.TypeMeta, ownerMetadata metav1.ObjectM
 }
 
 // GetSinglePodListOptions returns the listOptions to list a single Pod
-func GetSinglePodListOptions(cluster *fdbtypes.FoundationDBCluster, processGroupID string) []client.ListOption {
+func GetSinglePodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) []client.ListOption {
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, "", processGroupID))}
 }
 
 // GetPodListOptions returns the listOptions to list Pods
-func GetPodListOptions(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) []client.ListOption {
+func GetPodListOptions(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) []client.ListOption {
 	return []client.ListOption{client.InNamespace(cluster.ObjectMeta.Namespace), client.MatchingLabels(GetPodMatchLabels(cluster, processClass, id))}
 }
 
 // GetPvcMetadata returns the metadata for a PVC
-func GetPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass, id string) metav1.ObjectMeta {
+func GetPvcMetadata(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, id string) metav1.ObjectMeta {
 	var customMetadata *metav1.ObjectMeta
 
 	processSettings := cluster.GetProcessSettings(processClass)
@@ -202,7 +202,7 @@ func GetPvcMetadata(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes
 }
 
 // GetSidecarImage returns the expected sidecar image for a specific process class
-func GetSidecarImage(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.ProcessClass) (string, error) {
+func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.ProcessClass) (string, error) {
 	settings := cluster.GetProcessSettings(pClass)
 
 	image := ""
@@ -214,18 +214,18 @@ func GetSidecarImage(cluster *fdbtypes.FoundationDBCluster, pClass fdbtypes.Proc
 		}
 	}
 
-	var imageConfigs []fdbtypes.ImageConfig
+	var imageConfigs []fdbv1beta2.ImageConfig
 	if pointer.BoolDeref(cluster.Spec.UseUnifiedImage, false) {
 		imageConfigs = cluster.Spec.MainContainer.ImageConfigs
 	} else {
 		imageConfigs = cluster.Spec.SidecarContainer.ImageConfigs
 	}
 
-	return GetImage(image, imageConfigs, cluster.Spec.Version, settings.GetAllowTagOverride())
+	return GetImage(image, imageConfigs, cluster.Spec.Version)
 }
 
 // CreatePodMap creates a map with the process group ID as a key and the according Pod as a value
-func CreatePodMap(cluster *fdbtypes.FoundationDBCluster, pods []*corev1.Pod) map[string]*corev1.Pod {
+func CreatePodMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) map[string]*corev1.Pod {
 	podProcessGroupMap := make(map[string]*corev1.Pod, len(pods))
 	for _, pod := range pods {
 		processGroupID := GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
@@ -239,7 +239,7 @@ func CreatePodMap(cluster *fdbtypes.FoundationDBCluster, pods []*corev1.Pod) map
 }
 
 // ParseProcessGroupID extracts the components of an process group ID.
-func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
+func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
 	result := processGroupIDRegex.FindStringSubmatch(id)
 	if result == nil {
 		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
@@ -249,18 +249,18 @@ func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	return fdbtypes.ProcessClass(prefix), number, nil
+	return fdbv1beta2.ProcessClass(prefix), number, nil
 }
 
 // GetPublicIPSource determines how a Pod has gotten its public IP.
-func GetPublicIPSource(pod *corev1.Pod) (fdbtypes.PublicIPSource, error) {
+func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 	if pod == nil {
 		return "", fmt.Errorf("failed to fetch public IP source from nil Pod")
 	}
 
-	source := pod.ObjectMeta.Annotations[fdbtypes.PublicIPSourceAnnotation]
+	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
 	if source == "" {
-		return fdbtypes.PublicIPSourcePod, nil
+		return fdbv1beta2.PublicIPSourcePod, nil
 	}
-	return fdbtypes.PublicIPSource(source), nil
+	return fdbv1beta2.PublicIPSource(source), nil
 }

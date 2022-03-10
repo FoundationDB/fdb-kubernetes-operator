@@ -25,13 +25,13 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("exclude_processes", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 
 	BeforeEach(func() {
@@ -52,7 +52,7 @@ var _ = Describe("exclude_processes", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -60,11 +60,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("one process group is missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 1, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 1, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -72,11 +72,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-2"}))
 				})
@@ -84,11 +84,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups of a different type are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbtypes.ProcessClassLog)
+					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassLog)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -111,11 +111,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("two process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 2, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 2, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -123,11 +123,11 @@ var _ = Describe("exclude_processes", func() {
 
 			When("five process groups are missing", func() {
 				BeforeEach(func() {
-					createMissingProcesses(cluster, 5, fdbtypes.ProcessClassStorage)
+					createMissingProcesses(cluster, 5, fdbv1beta2.ProcessClassStorage)
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbtypes.ProcessClassStorage)
+					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
@@ -136,11 +136,11 @@ var _ = Describe("exclude_processes", func() {
 	})
 })
 
-func createMissingProcesses(cluster *fdbtypes.FoundationDBCluster, count int, processClass fdbtypes.ProcessClass) {
+func createMissingProcesses(cluster *fdbv1beta2.FoundationDBCluster, count int, processClass fdbv1beta2.ProcessClass) {
 	missing := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.ProcessClass == processClass {
-			processGroup.UpdateCondition(fdbtypes.MissingProcesses, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.MissingProcesses, true, nil, "")
 			missing++
 			if missing == count {
 				break

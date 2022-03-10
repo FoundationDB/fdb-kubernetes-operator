@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -152,14 +152,14 @@ var _ = Describe("admin_client_test", func() {
 	})
 
 	When("getting the excluded and remaining processes", func() {
-		addr1 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.1"), "", 0, nil)
-		addr2 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.2"), "", 0, nil)
-		addr3 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.3"), "", 0, nil)
-		addr4 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.4"), "", 0, nil)
-		addr5 := fdbtypes.NewProcessAddress(net.ParseIP("127.0.0.5"), "", 0, nil)
+		addr1 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.1"), "", 0, nil)
+		addr2 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.2"), "", 0, nil)
+		addr3 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.3"), "", 0, nil)
+		addr4 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.4"), "", 0, nil)
+		addr5 := fdbv1beta2.NewProcessAddress(net.ParseIP("127.0.0.5"), "", 0, nil)
 
-		DescribeTable("fetching the excluded and remaining processes from the status",
-			func(status *fdbtypes.FoundationDBStatus, addresses []fdbtypes.ProcessAddress, expectedExcluded []fdbtypes.ProcessAddress, expectedRemaining []fdbtypes.ProcessAddress) {
+		DescribeTable("fetching the excluded and ramining processes from the status",
+			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress) {
 				excluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
 				Expect(expectedExcluded).To(ContainElements(excluded))
 				Expect(len(expectedExcluded)).To(BeNumerically("==", len(excluded)))
@@ -167,9 +167,9 @@ var _ = Describe("admin_client_test", func() {
 				Expect(len(expectedRemaining)).To(BeNumerically("==", len(remaining)))
 			},
 			Entry("with an empty input address slice",
-				&fdbtypes.FoundationDBStatus{
-					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {
 								Address:  addr1,
 								Excluded: true,
@@ -187,14 +187,14 @@ var _ = Describe("admin_client_test", func() {
 						},
 					},
 				},
-				[]fdbtypes.ProcessAddress{},
+				[]fdbv1beta2.ProcessAddress{},
 				nil,
 				nil,
 			),
 			Entry("when the process is excluded",
-				&fdbtypes.FoundationDBStatus{
-					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {
 								Address:  addr1,
 								Excluded: true,
@@ -212,14 +212,14 @@ var _ = Describe("admin_client_test", func() {
 						},
 					},
 				},
-				[]fdbtypes.ProcessAddress{addr4},
-				[]fdbtypes.ProcessAddress{addr4},
+				[]fdbv1beta2.ProcessAddress{addr4},
+				[]fdbv1beta2.ProcessAddress{addr4},
 				nil,
 			),
 			Entry("when the process is not excluded",
-				&fdbtypes.FoundationDBStatus{
-					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {
 								Address:  addr1,
 								Excluded: true,
@@ -237,14 +237,14 @@ var _ = Describe("admin_client_test", func() {
 						},
 					},
 				},
-				[]fdbtypes.ProcessAddress{addr3},
+				[]fdbv1beta2.ProcessAddress{addr3},
 				nil,
-				[]fdbtypes.ProcessAddress{addr3},
+				[]fdbv1beta2.ProcessAddress{addr3},
 			),
-			Entry("when some processes are excluded and some not",
-				&fdbtypes.FoundationDBStatus{
-					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+			Entry("when some processes are excludeded and some not",
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {
 								Address:  addr1,
 								Excluded: true,
@@ -262,14 +262,14 @@ var _ = Describe("admin_client_test", func() {
 						},
 					},
 				},
-				[]fdbtypes.ProcessAddress{addr1, addr2, addr3, addr4},
-				[]fdbtypes.ProcessAddress{addr1, addr4},
-				[]fdbtypes.ProcessAddress{addr2, addr3},
+				[]fdbv1beta2.ProcessAddress{addr1, addr2, addr3, addr4},
+				[]fdbv1beta2.ProcessAddress{addr1, addr4},
+				[]fdbv1beta2.ProcessAddress{addr2, addr3},
 			),
 			Entry("when a process is missing",
-				&fdbtypes.FoundationDBStatus{
-					Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-						Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+				&fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 							"1": {
 								Address:  addr1,
 								Excluded: true,
@@ -287,9 +287,9 @@ var _ = Describe("admin_client_test", func() {
 						},
 					},
 				},
-				[]fdbtypes.ProcessAddress{addr5},
-				[]fdbtypes.ProcessAddress{addr5},
-				[]fdbtypes.ProcessAddress{},
+				[]fdbv1beta2.ProcessAddress{addr5},
+				[]fdbv1beta2.ProcessAddress{addr5},
+				[]fdbv1beta2.ProcessAddress{},
 			),
 		)
 	})

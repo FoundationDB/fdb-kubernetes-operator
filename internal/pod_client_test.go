@@ -21,13 +21,13 @@
 package internal
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("pod_client", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 
 	BeforeEach(func() {
 		cluster = CreateDefaultCluster()
@@ -41,7 +41,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should not have TLS sidecar TLS", func() {
-			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
+			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeFalse())
 		})
@@ -53,7 +53,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should have TLS sidecar TLS", func() {
-			pod, err := GetPod(cluster, fdbtypes.ProcessClassStorage, 1)
+			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeTrue())
 		})

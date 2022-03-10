@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/utils/pointer"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -39,7 +39,7 @@ var _ = Describe("update_pods", func() {
 		var updates map[string][]*corev1.Pod
 
 		type testCase struct {
-			deletionMode         fdbtypes.PodUpdateMode
+			deletionMode         fdbv1beta2.PodUpdateMode
 			expectedDeletionsCnt int
 			expectedErr          error
 		}
@@ -83,22 +83,22 @@ var _ = Describe("update_pods", func() {
 			},
 			Entry("With the deletion mode Zone",
 				testCase{
-					deletionMode:         fdbtypes.PodUpdateModeZone,
+					deletionMode:         fdbv1beta2.PodUpdateModeZone,
 					expectedDeletionsCnt: 2,
 				}),
 			Entry("With the deletion mode Process Group",
 				testCase{
-					deletionMode:         fdbtypes.PodUpdateModeProcessGroup,
+					deletionMode:         fdbv1beta2.PodUpdateModeProcessGroup,
 					expectedDeletionsCnt: 1,
 				}),
 			Entry("With the deletion mode All",
 				testCase{
-					deletionMode:         fdbtypes.PodUpdateModeAll,
+					deletionMode:         fdbv1beta2.PodUpdateModeAll,
 					expectedDeletionsCnt: 4,
 				}),
 			Entry("With the deletion mode None",
 				testCase{
-					deletionMode:         fdbtypes.PodUpdateModeNone,
+					deletionMode:         fdbv1beta2.PodUpdateModeNone,
 					expectedDeletionsCnt: 0,
 				}),
 			Entry("With the deletion mode All",
@@ -114,10 +114,10 @@ var _ = Describe("update_pods", func() {
 		var processGroup = ""
 
 		When("pod is without deletionTimestamp", func() {
-			var cluster *fdbtypes.FoundationDBCluster
+			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
 			BeforeEach(func() {
-				cluster = &fdbtypes.FoundationDBCluster{}
+				cluster = &fdbv1beta2.FoundationDBCluster{}
 				pod = &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Pod1",
@@ -131,10 +131,10 @@ var _ = Describe("update_pods", func() {
 		})
 
 		When("pod with deletionTimestamp less than ignore limit", func() {
-			var cluster *fdbtypes.FoundationDBCluster
+			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
 			BeforeEach(func() {
-				cluster = &fdbtypes.FoundationDBCluster{}
+				cluster = &fdbv1beta2.FoundationDBCluster{}
 				pod = &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              "Pod1",
@@ -149,10 +149,10 @@ var _ = Describe("update_pods", func() {
 		})
 
 		When("pod with deletionTimestamp more than ignore limit", func() {
-			var cluster *fdbtypes.FoundationDBCluster
+			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
 			BeforeEach(func() {
-				cluster = &fdbtypes.FoundationDBCluster{}
+				cluster = &fdbv1beta2.FoundationDBCluster{}
 				pod = &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              "Pod1",
@@ -168,12 +168,12 @@ var _ = Describe("update_pods", func() {
 		})
 
 		When("with configured IgnoreTerminatingPodsSeconds", func() {
-			var cluster *fdbtypes.FoundationDBCluster
+			var cluster *fdbv1beta2.FoundationDBCluster
 			var pod *corev1.Pod
 			BeforeEach(func() {
-				cluster = &fdbtypes.FoundationDBCluster{
-					Spec: fdbtypes.FoundationDBClusterSpec{
-						AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
+				cluster = &fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 							IgnoreTerminatingPodsSeconds: pointer.Int(int(5 * time.Minute.Seconds())),
 						},
 					},

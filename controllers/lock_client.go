@@ -26,20 +26,20 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // mockLockClient provides a mock client for managing operation locks.
 type mockLockClient struct {
 	// cluster stores the cluster this client is working with.
-	cluster *fdbtypes.FoundationDBCluster
+	cluster *fdbv1beta2.FoundationDBCluster
 
 	// owner stores the deny list for lock acquisition.
 	denyList []string
 
 	// pendingUpgrades stores data about process groups that have a pending
 	// upgrade.
-	pendingUpgrades map[fdbtypes.FdbVersion]map[string]bool
+	pendingUpgrades map[fdbv1beta2.Version]map[string]bool
 }
 
 // TakeLock attempts to acquire a lock.
@@ -54,7 +54,7 @@ func (client *mockLockClient) Disabled() bool {
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *mockLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error {
+func (client *mockLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []string) error {
 	if client.pendingUpgrades[version] == nil {
 		client.pendingUpgrades[version] = make(map[string]bool)
 	}
@@ -66,7 +66,7 @@ func (client *mockLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, pr
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *mockLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error) {
+func (client *mockLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[string]bool, error) {
 	upgrades := client.pendingUpgrades[version]
 	if upgrades == nil {
 		return make(map[string]bool), nil
@@ -81,7 +81,7 @@ func (client *mockLockClient) GetDenyList() ([]string, error) {
 
 // UpdateDenyList updates the deny list to match a list of entries.
 // This will return the complete deny list after these changes are made.
-func (client *mockLockClient) UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error {
+func (client *mockLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error {
 	newDenyList := make([]string, 0, len(client.denyList)+len(locks))
 	newDenyMap := make(map[string]bool)
 	for _, id := range client.denyList {
@@ -112,18 +112,18 @@ var lockClientCache = make(map[string]*mockLockClient)
 var lockClientMutex sync.Mutex
 
 // newMockLockClient creates a mock lock client.
-func newMockLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func newMockLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return newMockLockClientUncast(cluster), nil
 }
 
 // NewMockLockClientUncast creates a mock lock client.
-func newMockLockClientUncast(cluster *fdbtypes.FoundationDBCluster) *mockLockClient {
+func newMockLockClientUncast(cluster *fdbv1beta2.FoundationDBCluster) *mockLockClient {
 	lockClientMutex.Lock()
 	defer lockClientMutex.Unlock()
 
 	client := lockClientCache[cluster.Name]
 	if client == nil {
-		client = &mockLockClient{cluster: cluster, pendingUpgrades: make(map[fdbtypes.FdbVersion]map[string]bool)}
+		client = &mockLockClient{cluster: cluster, pendingUpgrades: make(map[fdbv1beta2.Version]map[string]bool)}
 		lockClientCache[cluster.Name] = client
 	}
 	return client

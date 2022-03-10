@@ -28,7 +28,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/utils/pointer"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 const (
@@ -39,8 +39,8 @@ const (
 )
 
 // GetProcessGroupsToRemove returns a list of process groups to be removed based on the removal mode.
-func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[string][]string) (string, []string, error) {
-	if removalMode == fdbtypes.PodUpdateModeAll {
+func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map[string][]string) (string, []string, error) {
+	if removalMode == fdbv1beta2.PodUpdateModeAll {
 		var deletions []string
 
 		for _, zoneProcesses := range removals {
@@ -50,7 +50,7 @@ func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[s
 		return "cluster", deletions, nil
 	}
 
-	if removalMode == fdbtypes.PodUpdateModeProcessGroup {
+	if removalMode == fdbv1beta2.PodUpdateModeProcessGroup {
 		for _, zoneProcesses := range removals {
 			if len(zoneProcesses) < 1 {
 				continue
@@ -61,7 +61,7 @@ func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[s
 		}
 	}
 
-	if removalMode == fdbtypes.PodUpdateModeZone {
+	if removalMode == fdbv1beta2.PodUpdateModeZone {
 		for zoneName, zoneProcesses := range removals {
 			if zoneName == TerminatingZone {
 				continue
@@ -72,7 +72,7 @@ func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[s
 		return "", nil, nil
 	}
 
-	if removalMode == fdbtypes.PodUpdateModeNone {
+	if removalMode == fdbv1beta2.PodUpdateModeNone {
 		return "None", nil, nil
 	}
 
@@ -82,12 +82,12 @@ func GetProcessGroupsToRemove(removalMode fdbtypes.PodUpdateMode, removals map[s
 // GetZonedRemovals returns a map with the zone as key and a list of process groups IDs to be removed.
 // If the process group has not an associated process in the cluster status the zone will be UnknownZone.
 // if the process group has the ResourcesTerminating condition the zone will be TerminatingZone.
-func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove []*fdbtypes.ProcessGroupStatus) (map[string][]string, int64, error) {
+func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemove []*fdbv1beta2.ProcessGroupStatus) (map[string][]string, int64, error) {
 	var lastestRemovalTimestamp int64
 	// Convert the process list into a map with the process group ID as key.
-	processInfo := map[string]fdbtypes.FoundationDBStatusProcessInfo{}
+	processInfo := map[string]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	for _, p := range status.Cluster.Processes {
-		processInfo[p.Locality[fdbtypes.FDBLocalityInstanceIDKey]] = p
+		processInfo[p.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = p
 	}
 
 	zoneMap := map[string][]string{}
@@ -95,7 +95,7 @@ func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove
 		// Using the ResourcesTerminating is not a complete precise measurement of the time when we
 		// actually removed the process group, but it should be a good indicator to how long the process group is in
 		// that state.
-		removalTimestamp := pointer.Int64Deref(pg.GetConditionTime(fdbtypes.ResourcesTerminating), 0)
+		removalTimestamp := pointer.Int64Deref(pg.GetConditionTime(fdbv1beta2.ResourcesTerminating), 0)
 		if removalTimestamp > 0 {
 			if removalTimestamp > lastestRemovalTimestamp {
 				lastestRemovalTimestamp = removalTimestamp
@@ -110,7 +110,7 @@ func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove
 			continue
 		}
 
-		zone := p.Locality[fdbtypes.FDBLocalityZoneIDKey]
+		zone := p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]
 		zoneMap[zone] = append(zoneMap[zone], pg.ProcessGroupID)
 	}
 
@@ -118,12 +118,12 @@ func GetZonedRemovals(status *fdbtypes.FoundationDBStatus, processGroupsToRemove
 }
 
 // GetRemainingMap returns a map that indicates if a process group is fully excluded in the cluster.
-func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbtypes.FoundationDBCluster) (map[string]bool, error) {
+func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (map[string]bool, error) {
 	var err error
 
-	addresses := make([]fdbtypes.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
+	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if !processGroup.Remove || processGroup.ExclusionSkipped {
+		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
 			continue
 		}
 
@@ -133,11 +133,11 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 		}
 
 		for _, pAddr := range processGroup.Addresses {
-			addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 		}
 	}
 
-	var remaining []fdbtypes.ProcessAddress
+	var remaining []fdbv1beta2.ProcessAddress
 	if len(addresses) > 0 {
 		remaining, err = adminClient.CanSafelyRemove(addresses)
 		if err != nil {

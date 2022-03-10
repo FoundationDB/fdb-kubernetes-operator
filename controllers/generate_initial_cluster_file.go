@@ -28,7 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // generateInitialClusterFile provides a reconciliation step for generating the
@@ -36,7 +36,7 @@ import (
 type generateInitialClusterFile struct{}
 
 // reconcile runs the reconciler's work.
-func (g generateInitialClusterFile) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (g generateInitialClusterFile) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "generateInitialClusterFile")
 	if cluster.Status.ConnectionString != "" {
 		return nil
@@ -44,7 +44,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	logger.Info("Generating initial cluster file")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "ChangingCoordinators", "Choosing initial coordinators")
-	initialPods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbtypes.ProcessClassStorage, "")...)
+	initialPods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, fdbv1beta2.ProcessClassStorage, "")...)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -90,7 +90,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 		clusterName = connectionStringNameRegex.ReplaceAllString(cluster.Name, "_")
 	}
 
-	connectionString := fdbtypes.ConnectionString{DatabaseName: clusterName}
+	connectionString := fdbv1beta2.ConnectionString{DatabaseName: clusterName}
 	if cluster.Spec.PartialConnectionString.GenerationID != "" {
 		connectionString.GenerationID = cluster.Spec.PartialConnectionString.GenerationID
 	} else {

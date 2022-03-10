@@ -19,7 +19,7 @@ You can see logs from the operator by running `kubectl logs -f -l app=fdb-kubern
 
 The example below will cover creating a cluster. All subsequent examples will assume that you have just created this cluster, and will cover an operation on this cluster.
 
-For more information on the fields you can define on the cluster resource, see the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta1#FoundationDBCluster).
+For more information on the fields you can define on the cluster resource, see the [go docs](https://godoc.org/github.com/FoundationDB/fdb-kubernetes-operator/pkg/apis/apps/v1beta2#FoundationDBCluster).
 
 For more information on version compatibility, see our [compatibility guide](/docs/compatibility.md).
 
@@ -28,7 +28,7 @@ For more information on version compatibility, see our [compatibility guide](/do
 To start with, we are going to be creating a cluster with the following configuration:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster

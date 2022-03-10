@@ -30,13 +30,13 @@ import (
 
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func reloadBackup(backup *fdbtypes.FoundationDBBackup) (int64, error) {
+func reloadBackup(backup *fdbv1beta2.FoundationDBBackup) (int64, error) {
 	generations, err := reloadBackupGenerations(backup)
 	if err != nil {
 		return 0, err
@@ -44,17 +44,17 @@ func reloadBackup(backup *fdbtypes.FoundationDBBackup) (int64, error) {
 	return generations.Reconciled, err
 }
 
-func reloadBackupGenerations(backup *fdbtypes.FoundationDBBackup) (fdbtypes.BackupGenerationStatus, error) {
+func reloadBackupGenerations(backup *fdbv1beta2.FoundationDBBackup) (fdbv1beta2.BackupGenerationStatus, error) {
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}, backup)
 	if err != nil {
-		return fdbtypes.BackupGenerationStatus{}, err
+		return fdbv1beta2.BackupGenerationStatus{}, err
 	}
 	return backup.Status.Generations, err
 }
 
 var _ = Describe("backup_controller", func() {
-	var cluster *fdbtypes.FoundationDBCluster
-	var backup *fdbtypes.FoundationDBBackup
+	var cluster *fdbv1beta2.FoundationDBCluster
+	var backup *fdbv1beta2.FoundationDBBackup
 	var adminClient *mockAdminClient
 	var err error
 
@@ -129,15 +129,15 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should update the status on the resource", func() {
-				Expect(backup.Status).To(Equal(fdbtypes.FoundationDBBackupStatus{
+				Expect(backup.Status).To(Equal(fdbv1beta2.FoundationDBBackupStatus{
 					AgentCount:           3,
 					DeploymentConfigured: true,
-					BackupDetails: &fdbtypes.FoundationDBBackupStatusBackupDetails{
+					BackupDetails: &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 						URL:                   "blobstore://test@test-service/test-backup?bucket=fdb-backups",
 						Running:               true,
 						SnapshotPeriodSeconds: 864000,
 					},
-					Generations: fdbtypes.BackupGenerationStatus{
+					Generations: fdbv1beta2.BackupGenerationStatus{
 						Reconciled: 1,
 					},
 				}))
@@ -186,7 +186,7 @@ var _ = Describe("backup_controller", func() {
 
 		Context("when stopping a new backup", func() {
 			BeforeEach(func() {
-				backup.Spec.BackupState = fdbtypes.BackupStateStopped
+				backup.Spec.BackupState = fdbv1beta2.BackupStateStopped
 				err = k8sClient.Update(context.TODO(), backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -200,7 +200,7 @@ var _ = Describe("backup_controller", func() {
 
 		Context("when pausing a backup", func() {
 			BeforeEach(func() {
-				backup.Spec.BackupState = fdbtypes.BackupStatePaused
+				backup.Spec.BackupState = fdbv1beta2.BackupStatePaused
 				err = k8sClient.Update(context.TODO(), backup)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -298,7 +298,7 @@ var _ = Describe("backup_controller", func() {
 
 		When("providing custom parameters", func() {
 			BeforeEach(func() {
-				backup.Spec.CustomParameters = fdbtypes.FoundationDBCustomParameters{
+				backup.Spec.CustomParameters = fdbv1beta2.FoundationDBCustomParameters{
 					"knob_http_verbose_level=3",
 				}
 				err = k8sClient.Update(context.TODO(), backup)

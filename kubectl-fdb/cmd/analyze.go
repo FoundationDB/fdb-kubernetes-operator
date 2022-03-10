@@ -27,14 +27,12 @@ import (
 
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,11 +63,6 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			useInstanceList, err := cmd.Root().Flags().GetBool("use-old-instances-remove")
-			if err != nil {
-				return err
-			}
-
 			ignoreConditions, err := cmd.Flags().GetStringArray("ignore-condition")
 			if err != nil {
 				return err
@@ -88,16 +81,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return cmd.Help()
 			}
 
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
@@ -109,7 +93,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var clusters []string
 			if allClusters {
-				var clusterList fdbtypes.FoundationDBClusterList
+				var clusterList fdbv1beta2.FoundationDBClusterList
 				err := kubeClient.List(context.Background(), &clusterList, client.InNamespace(namespace))
 				if err != nil {
 					return err
@@ -124,7 +108,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, useInstanceList, ignoreConditions)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, ignoreConditions)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -173,10 +157,10 @@ kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-con
 }
 
 func allConditionsValid(conditions []string) error {
-	conditionMap := map[string]fdbtypes.None{}
+	conditionMap := map[string]fdbv1beta2.None{}
 
-	for _, condition := range fdbtypes.AllProcessGroupConditionTypes() {
-		conditionMap[string(condition)] = fdbtypes.None{}
+	for _, condition := range fdbv1beta2.AllProcessGroupConditionTypes() {
+		conditionMap[string(condition)] = fdbv1beta2.None{}
 	}
 
 	var errString strings.Builder
@@ -224,7 +208,7 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, useInstanceList bool, ignoreConditions []string) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, ignoreConditions []string) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -262,12 +246,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
 	var failedProcessGroups []string
-	processGroupMap := map[string]fdbtypes.None{}
+	processGroupMap := map[string]fdbv1beta2.None{}
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
 	var ignoredConditions int
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		processGroupMap[processGroup.ProcessGroupID] = fdbtypes.None{}
+		processGroupMap[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 
 		if len(processGroup.ProcessGroupConditions) == 0 {
 			continue
@@ -285,7 +269,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		for _, condition := range processGroup.ProcessGroupConditions {
 			skip := false
 			for _, ignoreCondition := range ignoreConditions {
-				if condition.ProcessGroupConditionType == fdbtypes.ProcessGroupConditionType(ignoreCondition) {
+				if condition.ProcessGroupConditionType == fdbv1beta2.ProcessGroupConditionType(ignoreCondition) {
 					skip = true
 					ignoredConditions++
 					break
@@ -388,7 +372,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		confirmed := false
 
 		if len(failedProcessGroups) > 0 {
-			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, force, false, useInstanceList)
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, force, false)
 			if err != nil {
 				return err
 			}

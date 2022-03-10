@@ -34,12 +34,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
@@ -61,16 +59,7 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 				return err
 			}
 
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
@@ -115,7 +104,7 @@ func newFixCoordinatorIPsCmd(streams genericclioptions.IOStreams) *cobra.Command
 
 // buildClusterFileUpdateCommands generates commands for using kubectl exec to
 // update the cluster file in the pods for a cluster.
-func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeClient client.Client, context string, namespace string, kubectlPath string) ([]exec.Cmd, error) {
+func buildClusterFileUpdateCommands(cluster *fdbv1beta2.FoundationDBCluster, kubeClient client.Client, context string, namespace string, kubectlPath string) ([]exec.Cmd, error) {
 	pods := &corev1.PodList{}
 
 	selector := labels.NewSelector()
@@ -125,7 +114,7 @@ func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeC
 		return nil, err
 	}
 
-	for key, value := range cluster.Spec.LabelConfig.MatchLabels {
+	for key, value := range cluster.GetMatchLabels() {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
 			return nil, err
@@ -174,14 +163,14 @@ func buildClusterFileUpdateCommands(cluster *fdbtypes.FoundationDBCluster, kubeC
 
 // updateIPsInConnectionString updates the connection string in the cluster
 // status by replacing old coordinator IPs with the latest IPs.
-func updateIPsInConnectionString(cluster *fdbtypes.FoundationDBCluster) error {
-	connectionString, err := fdbtypes.ParseConnectionString(cluster.Status.ConnectionString)
+func updateIPsInConnectionString(cluster *fdbv1beta2.FoundationDBCluster) error {
+	connectionString, err := fdbv1beta2.ParseConnectionString(cluster.Status.ConnectionString)
 	if err != nil {
 		return err
 	}
 	newCoordinators := make([]string, len(connectionString.Coordinators))
 	for coordinatorIndex, coordinator := range connectionString.Coordinators {
-		coordinatorAddress, err := fdbtypes.ParseProcessAddress(coordinator)
+		coordinatorAddress, err := fdbv1beta2.ParseProcessAddress(coordinator)
 		if err != nil {
 			return err
 		}
@@ -204,7 +193,7 @@ func updateIPsInConnectionString(cluster *fdbtypes.FoundationDBCluster) error {
 	return nil
 }
 
-func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, context string, namespace string, dryRun bool) error {
+func runFixCoordinatorIPs(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, context string, namespace string, dryRun bool) error {
 	patch := client.MergeFrom(cluster.DeepCopy())
 	err := updateIPsInConnectionString(cluster)
 	if err != nil {

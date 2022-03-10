@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -36,7 +36,7 @@ const (
 )
 
 // GetConfigMap builds a config map for a cluster's dynamic config
-func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, error) {
+func GetConfigMap(cluster *fdbv1beta2.FoundationDBCluster) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
 	connectionString := cluster.Status.ConnectionString
@@ -61,9 +61,9 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 	}
 	desiredCounts := desiredCountStruct.Map()
 
-	imageTypes := make(map[FDBImageType]v1beta1.None, len(cluster.Status.ImageTypes))
+	imageTypes := make(map[FDBImageType]fdbv1beta2.None, len(cluster.Status.ImageTypes))
 	for _, imageType := range cluster.Status.ImageTypes {
-		imageTypes[FDBImageType(imageType)] = v1beta1.None{}
+		imageTypes[FDBImageType(imageType)] = fdbv1beta2.None{}
 	}
 
 	storageServersPerDisk := cluster.Status.StorageServersPerDisk
@@ -79,7 +79,7 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 		}
 
 		if _, useUnifiedImage := imageTypes[FDBImageTypeUnified]; useUnifiedImage {
-			if processClass == v1beta1.ProcessClassStorage {
+			if processClass == fdbv1beta2.ProcessClassStorage {
 				for _, serversPerPod := range storageServersPerDisk {
 					config, err := GetMonitorProcessConfiguration(cluster, processClass, serversPerPod, FDBImageTypeUnified, nil)
 					if err != nil {
@@ -106,7 +106,7 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 		}
 
 		if _, useSplitImage := imageTypes[FDBImageTypeSplit]; useSplitImage {
-			if processClass == v1beta1.ProcessClassStorage {
+			if processClass == fdbv1beta2.ProcessClassStorage {
 				for _, serversPerPod := range storageServersPerDisk {
 					err := setMonitorConfForFilename(cluster, data, GetConfigMapMonitorConfEntry(processClass, FDBImageTypeSplit, serversPerPod), connectionString, processClass, serversPerPod)
 					if err != nil {
@@ -138,7 +138,7 @@ func GetConfigMap(cluster *v1beta1.FoundationDBCluster) (*corev1.ConfigMap, erro
 	}, nil
 }
 
-func getConfigMapMetadata(cluster *v1beta1.FoundationDBCluster) metav1.ObjectMeta {
+func getConfigMapMetadata(cluster *fdbv1beta2.FoundationDBCluster) metav1.ObjectMeta {
 	var metadata metav1.ObjectMeta
 	if cluster.Spec.ConfigMap != nil {
 		metadata = GetObjectMetadata(cluster, &cluster.Spec.ConfigMap.ObjectMeta, "", "")
@@ -155,7 +155,7 @@ func getConfigMapMetadata(cluster *v1beta1.FoundationDBCluster) metav1.ObjectMet
 	return metadata
 }
 
-func setMonitorConfForFilename(cluster *v1beta1.FoundationDBCluster, data map[string]string, filename string, connectionString string, processClass v1beta1.ProcessClass, serversPerPod int) error {
+func setMonitorConfForFilename(cluster *fdbv1beta2.FoundationDBCluster, data map[string]string, filename string, connectionString string, processClass fdbv1beta2.ProcessClass, serversPerPod int) error {
 	if connectionString == "" {
 		data[filename] = ""
 	} else {
@@ -170,15 +170,15 @@ func setMonitorConfForFilename(cluster *v1beta1.FoundationDBCluster, data map[st
 }
 
 // GetConfigMapMonitorConfEntry returns the specific key for the monitor conf in the ConfigMap
-func GetConfigMapMonitorConfEntry(pClass v1beta1.ProcessClass, imageType FDBImageType, serversPerPod int) string {
+func GetConfigMapMonitorConfEntry(pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) string {
 	if imageType == FDBImageTypeUnified {
-		if serversPerPod > 1 && pClass == v1beta1.ProcessClassStorage {
+		if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
 			return fmt.Sprintf("fdbmonitor-conf-%s-json-multiple", pClass)
 		}
 
 		return fmt.Sprintf("fdbmonitor-conf-%s-json", pClass)
 	}
-	if serversPerPod > 1 && pClass == v1beta1.ProcessClassStorage {
+	if serversPerPod > 1 && pClass == fdbv1beta2.ProcessClassStorage {
 		return fmt.Sprintf("fdbmonitor-conf-%s-density-%d", pClass, serversPerPod)
 	}
 
@@ -189,7 +189,7 @@ func GetConfigMapMonitorConfEntry(pClass v1beta1.ProcessClass, imageType FDBImag
 // cluster's dynamic conf.
 //
 // This will omit keys that we do not expect the Pods to reference e.g. for storage Pods only include the storage config.
-func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass v1beta1.ProcessClass, imageType FDBImageType, serversPerPod int) (string, error) {
+func GetDynamicConfHash(configMap *corev1.ConfigMap, pClass fdbv1beta2.ProcessClass, imageType FDBImageType, serversPerPod int) (string, error) {
 	fields := []string{
 		ClusterFileKey,
 		GetConfigMapMonitorConfEntry(pClass, imageType, serversPerPod),

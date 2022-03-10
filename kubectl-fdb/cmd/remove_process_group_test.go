@@ -23,8 +23,7 @@ package cmd
 import (
 	ctx "context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,16 +40,16 @@ var _ = Describe("[plugin] remove instances command", func() {
 	clusterName := "test"
 	namespace := "test"
 
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 
 	BeforeEach(func() {
-		cluster = &fdbtypes.FoundationDBCluster{
+		cluster = &fdbv1beta2.FoundationDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterName,
 				Namespace: namespace,
 			},
-			Spec: fdbtypes.FoundationDBClusterSpec{
-				ProcessCounts: fdbtypes.ProcessCounts{
+			Spec: fdbv1beta2.FoundationDBClusterSpec{
+				ProcessCounts: fdbv1beta2.ProcessCounts{
 					Storage: 1,
 				},
 			},
@@ -69,12 +68,9 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-1",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-									internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-									fdbtypes.FDBClusterLabel:           clusterName,
-									internal.OldFDBClusterLabel:        clusterName,
-									fdbtypes.FDBProcessGroupIDLabel:    "storage-1",
-									internal.OldFDBProcessGroupIDLabel: "storage-1",
+									fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+									fdbv1beta2.FDBClusterLabel:        clusterName,
+									fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
 								},
 							},
 						},
@@ -83,12 +79,9 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-2",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-									internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-									fdbtypes.FDBClusterLabel:           clusterName,
-									internal.OldFDBClusterLabel:        clusterName,
-									fdbtypes.FDBProcessGroupIDLabel:    "storage-2",
-									internal.OldFDBProcessGroupIDLabel: "storage-2",
+									fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+									fdbv1beta2.FDBClusterLabel:        clusterName,
+									fdbv1beta2.FDBProcessGroupIDLabel: "storage-2",
 								},
 							},
 						},
@@ -105,7 +98,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 				func(input testCase) {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbtypes.AddToScheme(scheme)
+					_ = fdbv1beta2.AddToScheme(scheme)
 					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
 
 					instances, err := getProcessGroupIDsFromPod(kubeClient, clusterName, input.Instances, namespace)
@@ -134,13 +127,13 @@ var _ = Describe("[plugin] remove instances command", func() {
 			var podList corev1.PodList
 
 			BeforeEach(func() {
-				cluster.Status = fdbtypes.FoundationDBClusterStatus{
-					ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+				cluster.Status = fdbv1beta2.FoundationDBClusterStatus{
+					ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 						{
 							ProcessGroupID: "failed",
 							Addresses:      []string{"1.2.3.4"},
-							ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-								fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+							ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+								fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 							},
 						},
 					},
@@ -152,10 +145,8 @@ var _ = Describe("[plugin] remove instances command", func() {
 								Name:      "instance-1",
 								Namespace: namespace,
 								Labels: map[string]string{
-									fdbtypes.FDBProcessClassLabel:    string(fdbtypes.ProcessClassStorage),
-									internal.OldFDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-									fdbtypes.FDBClusterLabel:         clusterName,
-									internal.OldFDBClusterLabel:      clusterName,
+									fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+									fdbv1beta2.FDBClusterLabel:      clusterName,
 								},
 							},
 						},
@@ -169,7 +160,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 				WithShrink                                bool
 				ExpectedInstancesToRemove                 []string
 				ExpectedInstancesToRemoveWithoutExclusion []string
-				ExpectedProcessCounts                     fdbtypes.ProcessCounts
+				ExpectedProcessCounts                     fdbv1beta2.ProcessCounts
 				RemoveAllFailed                           bool
 			}
 
@@ -177,97 +168,13 @@ var _ = Describe("[plugin] remove instances command", func() {
 				func(tc testCase) {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbtypes.AddToScheme(scheme)
+					_ = fdbv1beta2.AddToScheme(scheme)
 					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
 
-					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed, true)
+					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed)
 					Expect(err).NotTo(HaveOccurred())
 
-					var resCluster fdbtypes.FoundationDBCluster
-					err = kubeClient.Get(ctx.Background(), client.ObjectKey{
-						Namespace: namespace,
-						Name:      clusterName,
-					}, &resCluster)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesToRemove).To(ContainElements(resCluster.Spec.InstancesToRemove))
-					Expect(len(tc.ExpectedInstancesToRemove)).To(BeNumerically("==", len(resCluster.Spec.InstancesToRemove)))
-					Expect(tc.ExpectedInstancesToRemoveWithoutExclusion).To(ContainElements(resCluster.Spec.InstancesToRemoveWithoutExclusion))
-					Expect(len(tc.ExpectedInstancesToRemoveWithoutExclusion)).To(BeNumerically("==", len(resCluster.Spec.InstancesToRemoveWithoutExclusion)))
-					Expect(tc.ExpectedProcessCounts.Storage).To(Equal(resCluster.Spec.ProcessCounts.Storage))
-				},
-				Entry("Remove instance with exclusion",
-					testCase{
-						Instances:                 []string{"instance-1"},
-						WithExclusion:             true,
-						WithShrink:                false,
-						ExpectedInstancesToRemove: []string{"instance-1"},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
-							Storage: 1,
-						},
-						RemoveAllFailed: false,
-					}),
-				Entry("Remove instance without exclusion",
-					testCase{
-						Instances:                 []string{"instance-1"},
-						WithExclusion:             false,
-						WithShrink:                false,
-						ExpectedInstancesToRemove: []string{},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
-							Storage: 1,
-						},
-					}),
-				Entry("Remove instance with exclusion and shrink",
-					testCase{
-						Instances:                 []string{"instance-1"},
-						WithExclusion:             true,
-						WithShrink:                true,
-						ExpectedInstancesToRemove: []string{"instance-1"},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
-							Storage: 0,
-						},
-						RemoveAllFailed: false,
-					}),
-
-				Entry("Remove instance without exclusion and shrink",
-					testCase{
-						Instances:                 []string{"instance-1"},
-						WithExclusion:             false,
-						WithShrink:                true,
-						ExpectedInstancesToRemove: []string{},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
-							Storage: 0,
-						},
-						RemoveAllFailed: false,
-					}),
-				Entry("Remove all failed instances",
-					testCase{
-						Instances:                 []string{"failed"},
-						WithExclusion:             true,
-						WithShrink:                false,
-						ExpectedInstancesToRemove: []string{"failed"},
-						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
-							Storage: 1,
-						},
-						RemoveAllFailed: true,
-					}),
-			)
-
-			DescribeTable("should cordon all targeted processes",
-				func(tc testCase) {
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbtypes.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
-
-					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, tc.WithShrink, true, tc.RemoveAllFailed, false)
-					Expect(err).NotTo(HaveOccurred())
-
-					var resCluster fdbtypes.FoundationDBCluster
+					var resCluster fdbv1beta2.FoundationDBCluster
 					err = kubeClient.Get(ctx.Background(), client.ObjectKey{
 						Namespace: namespace,
 						Name:      clusterName,
@@ -286,7 +193,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                false,
 						ExpectedInstancesToRemove: []string{"instance-1"},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
 						RemoveAllFailed: false,
@@ -298,7 +205,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                false,
 						ExpectedInstancesToRemove: []string{},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
 					}),
@@ -309,7 +216,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                true,
 						ExpectedInstancesToRemove: []string{"instance-1"},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 0,
 						},
 						RemoveAllFailed: false,
@@ -322,7 +229,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                true,
 						ExpectedInstancesToRemove: []string{},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 0,
 						},
 						RemoveAllFailed: false,
@@ -334,7 +241,7 @@ var _ = Describe("[plugin] remove instances command", func() {
 						WithShrink:                false,
 						ExpectedInstancesToRemove: []string{"failed"},
 						ExpectedInstancesToRemoveWithoutExclusion: []string{},
-						ExpectedProcessCounts: fdbtypes.ProcessCounts{
+						ExpectedProcessCounts: fdbv1beta2.ProcessCounts{
 							Storage: 1,
 						},
 						RemoveAllFailed: true,

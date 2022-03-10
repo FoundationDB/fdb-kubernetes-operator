@@ -23,7 +23,7 @@ package removals
 import (
 	"fmt"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -31,28 +31,28 @@ import (
 
 var _ = Describe("remove", func() {
 	When("getting the zoned removals", func() {
-		var status *fdbtypes.FoundationDBStatus
+		var status *fdbv1beta2.FoundationDBStatus
 
 		BeforeEach(func() {
-			status = &fdbtypes.FoundationDBStatus{
-				Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-					Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+			status = &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 						"1": {
 							Locality: map[string]string{
-								fdbtypes.FDBLocalityInstanceIDKey: "1",
-								fdbtypes.FDBLocalityZoneIDKey:     "zone1",
+								fdbv1beta2.FDBLocalityInstanceIDKey: "1",
+								fdbv1beta2.FDBLocalityZoneIDKey:     "zone1",
 							},
 						},
 						"2": {
 							Locality: map[string]string{
-								fdbtypes.FDBLocalityInstanceIDKey: "2",
-								fdbtypes.FDBLocalityZoneIDKey:     "zone1",
+								fdbv1beta2.FDBLocalityInstanceIDKey: "2",
+								fdbv1beta2.FDBLocalityZoneIDKey:     "zone1",
 							},
 						},
 						"3": {
 							Locality: map[string]string{
-								fdbtypes.FDBLocalityInstanceIDKey: "3",
-								fdbtypes.FDBLocalityZoneIDKey:     "zone3",
+								fdbv1beta2.FDBLocalityInstanceIDKey: "3",
+								fdbv1beta2.FDBLocalityZoneIDKey:     "zone3",
 							},
 						},
 					},
@@ -61,7 +61,7 @@ var _ = Describe("remove", func() {
 		})
 
 		It("should return the correct mapping", func() {
-			zones, timestamp, err := GetZonedRemovals(status, []*fdbtypes.ProcessGroupStatus{
+			zones, timestamp, err := GetZonedRemovals(status, []*fdbv1beta2.ProcessGroupStatus{
 				{
 					ProcessGroupID: "1",
 				},
@@ -76,18 +76,18 @@ var _ = Describe("remove", func() {
 				},
 				{
 					ProcessGroupID: "5",
-					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 						{
-							ProcessGroupConditionType: fdbtypes.ResourcesTerminating,
+							ProcessGroupConditionType: fdbv1beta2.ResourcesTerminating,
 							Timestamp:                 1,
 						},
 					},
 				},
 				{
 					ProcessGroupID: "6",
-					ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
+					ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
 						{
-							ProcessGroupConditionType: fdbtypes.ResourcesTerminating,
+							ProcessGroupConditionType: fdbv1beta2.ResourcesTerminating,
 							Timestamp:                 42,
 						},
 					},
@@ -122,7 +122,7 @@ var _ = Describe("remove", func() {
 		}
 
 		DescribeTable("should delete the Pods based on the deletion mode",
-			func(removalMode fdbtypes.PodUpdateMode, zones map[string][]string, expected int, expectedErr error) {
+			func(removalMode fdbv1beta2.PodUpdateMode, zones map[string][]string, expected int, expectedErr error) {
 				_, removals, err := GetProcessGroupsToRemove(removalMode, zones)
 				if expectedErr != nil {
 					Expect(err).To(Equal(expectedErr))
@@ -131,34 +131,34 @@ var _ = Describe("remove", func() {
 				Expect(len(removals)).To(Equal(expected))
 			},
 			Entry("With the deletion mode Zone",
-				fdbtypes.PodUpdateModeZone,
+				fdbv1beta2.PodUpdateModeZone,
 				zones,
 				2,
 				nil),
 			Entry("With the deletion mode Zone and only terminating process groupse",
-				fdbtypes.PodUpdateModeZone,
+				fdbv1beta2.PodUpdateModeZone,
 				map[string][]string{
 					TerminatingZone: {"1", "2"},
 				},
 				0,
 				nil),
 			Entry("With the deletion mode Process Group",
-				fdbtypes.PodUpdateModeProcessGroup,
+				fdbv1beta2.PodUpdateModeProcessGroup,
 				zones,
 				1,
 				nil),
 			Entry("With the deletion mode All",
-				fdbtypes.PodUpdateModeAll,
+				fdbv1beta2.PodUpdateModeAll,
 				zones,
 				6,
 				nil),
 			Entry("With the deletion mode None",
-				fdbtypes.PodUpdateModeNone,
+				fdbv1beta2.PodUpdateModeNone,
 				zones,
 				0,
 				nil),
 			Entry("With an invalid deletion mode",
-				fdbtypes.PodUpdateMode("banana"),
+				fdbv1beta2.PodUpdateMode("banana"),
 				zones,
 				0,
 				fmt.Errorf("unknown deletion mode: \"banana\"")),

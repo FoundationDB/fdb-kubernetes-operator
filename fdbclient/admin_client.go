@@ -32,11 +32,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -67,7 +65,7 @@ var protocolVersionRegex = regexp.MustCompile(`(?m)^protocol (\w+)$`)
 // FDB CLI.
 type cliAdminClient struct {
 	// Cluster is the reference to the cluster model.
-	Cluster *fdbtypes.FoundationDBCluster
+	Cluster *fdbv1beta2.FoundationDBCluster
 
 	// clusterFilePath is the path to the temp file containing the cluster file
 	// for this session.
@@ -82,7 +80,7 @@ type cliAdminClient struct {
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbtypes.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
+func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
 	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
@@ -140,7 +138,7 @@ func (command cliCommand) getClusterFileFlag() string {
 
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
-	parsed, _ := fdbtypes.ParseFdbVersion(version)
+	parsed, _ := fdbv1beta2.ParseFdbVersion(version)
 	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
@@ -224,7 +222,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 }
 
 // GetStatus gets the database's status
-func (client *cliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) {
+func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
@@ -242,7 +240,7 @@ func (client *cliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 	if err != nil {
 		return nil, err
 	}
-	status := &fdbtypes.FoundationDBStatus{}
+	status := &fdbv1beta2.FoundationDBStatus{}
 	err = json.Unmarshal([]byte(contents), status)
 	if err != nil {
 		return nil, err
@@ -251,7 +249,7 @@ func (client *cliAdminClient) GetStatus() (*fdbtypes.FoundationDBStatus, error) 
 }
 
 // ConfigureDatabase sets the database configuration
-func (client *cliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseConfiguration, newDatabase bool) error {
+func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool) error {
 	configurationString, err := configuration.GetConfigurationString()
 	if err != nil {
 		return err
@@ -265,14 +263,13 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbtypes.DatabaseC
 	return err
 }
 
-// ExcludeInstances starts evacuating processes so that they can be removed
-// from the database.
-func (client *cliAdminClient) ExcludeProcesses(addresses []fdbtypes.ProcessAddress) error {
+// ExcludeProcesses starts evacuating processes so that they can be removed from the database.
+func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 
-	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
 		return err
 	}
@@ -281,44 +278,43 @@ func (client *cliAdminClient) ExcludeProcesses(addresses []fdbtypes.ProcessAddre
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude no_wait %s",
-				fdbtypes.ProcessAddressesString(addresses, " "),
+				fdbv1beta2.ProcessAddressesString(addresses, " "),
 			)})
 	} else {
 		_, err = client.runCommand(cliCommand{
 			command: fmt.Sprintf(
 				"exclude %s",
-				fdbtypes.ProcessAddressesString(addresses, " "),
+				fdbv1beta2.ProcessAddressesString(addresses, " "),
 			)})
 	}
 	return err
 }
 
-// IncludeInstances removes processes from the exclusion list and allows
-// them to take on roles again.
-func (client *cliAdminClient) IncludeProcesses(addresses []fdbtypes.ProcessAddress) error {
+// IncludeProcesses removes processes from the exclusion list and allows them to take on roles again.
+func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"include %s",
-		fdbtypes.ProcessAddressesString(addresses, " "),
+		fdbv1beta2.ProcessAddressesString(addresses, " "),
 	)})
 	return err
 }
 
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
-func (client *cliAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error) {
+func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
 	output, err := client.runCommand(cliCommand{command: "exclude"})
 	if err != nil {
 		return nil, err
 	}
 	lines := strings.Split(output, "\n")
-	exclusions := make([]fdbtypes.ProcessAddress, 0, len(lines))
+	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(lines))
 	for _, line := range lines {
 		exclusionMatch := exclusionLinePattern.FindStringSubmatch(line)
 		if exclusionMatch != nil {
-			pAddr, err := fdbtypes.ParseProcessAddress(exclusionMatch[1])
+			pAddr, err := fdbv1beta2.ParseProcessAddress(exclusionMatch[1])
 			if err != nil {
 				return nil, err
 			}
@@ -331,11 +327,11 @@ func (client *cliAdminClient) GetExclusions() ([]fdbtypes.ProcessAddress, error)
 // getRemainingAndExcludedFromStatus checks which processes of the input address list are excluded in the cluster and which are not.
 // The first list return all addresses that are excluded in the cluster and the exclude command can be used to verify if it's safe to remove this address.
 // The second list contains all addresses that are part of the input list and are not marked as excluded in the cluster, those addresses are not safe to remove.
-func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, []fdbtypes.ProcessAddress) {
-	notExcluded := map[string]fdbtypes.None{}
-	visitedAddresses := map[string]fdbtypes.None{}
+func getRemainingAndExcludedFromStatus(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, []fdbv1beta2.ProcessAddress) {
+	notExcluded := map[string]fdbv1beta2.None{}
+	visitedAddresses := map[string]fdbv1beta2.None{}
 	for _, addr := range addresses {
-		notExcluded[addr.MachineAddress()] = fdbtypes.None{}
+		notExcluded[addr.MachineAddress()] = fdbv1beta2.None{}
 	}
 
 	// Check in the status output which processes are already marked for exclusion in the cluster
@@ -344,7 +340,7 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 			continue
 		}
 
-		visitedAddresses[process.Address.MachineAddress()] = fdbtypes.None{}
+		visitedAddresses[process.Address.MachineAddress()] = fdbv1beta2.None{}
 		if !process.Excluded {
 			continue
 		}
@@ -352,10 +348,10 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 		delete(notExcluded, process.Address.MachineAddress())
 	}
 
-	var remaining, excludeCheckAddr []fdbtypes.ProcessAddress
+	var remaining, excludeCheckAddr []fdbv1beta2.ProcessAddress
 	if len(notExcluded) > 0 {
-		excludeCheckAddr = make([]fdbtypes.ProcessAddress, 0, len(addresses)-len(notExcluded))
-		remaining = make([]fdbtypes.ProcessAddress, 0, len(notExcluded))
+		excludeCheckAddr = make([]fdbv1beta2.ProcessAddress, 0, len(addresses)-len(notExcluded))
+		remaining = make([]fdbv1beta2.ProcessAddress, 0, len(notExcluded))
 
 		for _, addr := range addresses {
 			// Those addresses are not excluded, so it's not safe to start the exclude command to check
@@ -382,8 +378,8 @@ func getRemainingAndExcludedFromStatus(status *fdbtypes.FoundationDBStatus, addr
 //
 // The list returned by this method will be the addresses that are *not*
 // safe to remove.
-func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddress) ([]fdbtypes.ProcessAddress, error) {
-	version, err := fdbtypes.ParseFdbVersion(client.Cluster.Spec.Version)
+func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, error) {
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +399,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddres
 	if version.HasNonBlockingExcludes(client.Cluster.GetUseNonBlockingExcludes()) {
 		output, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 			"exclude no_wait %s",
-			fdbtypes.ProcessAddressesString(markedAsExcluded, " "),
+			fdbv1beta2.ProcessAddressesString(markedAsExcluded, " "),
 		)})
 		if err != nil {
 			return nil, err
@@ -420,7 +416,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbtypes.ProcessAddres
 	}
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
 		"exclude %s",
-		fdbtypes.ProcessAddressesString(markedAsExcluded, " "),
+		fdbv1beta2.ProcessAddressesString(markedAsExcluded, " "),
 	)})
 
 	if err != nil {
@@ -452,23 +448,23 @@ func parseExclusionOutput(output string) map[string]string {
 	return results
 }
 
-// KillInstances restarts processes
-func (client *cliAdminClient) KillProcesses(addresses []fdbtypes.ProcessAddress) error {
+// KillProcesses restarts processes
+func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	if len(addresses) == 0 {
 		return nil
 	}
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"kill; kill %s; status",
-		fdbtypes.ProcessAddressesStringWithoutFlags(addresses, " "),
+		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)})
 	return err
 }
 
 // ChangeCoordinators changes the coordinator set
-func (client *cliAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAddress) (string, error) {
+func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessAddress) (string, error) {
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
 		"coordinators %s",
-		fdbtypes.ProcessAddressesString(addresses, " "),
+		fdbv1beta2.ProcessAddressesString(addresses, " "),
 	)})
 	if err != nil {
 		return "", err
@@ -479,7 +475,7 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbtypes.ProcessAdd
 		return "", err
 	}
 
-	connectionString, err := fdbtypes.ParseConnectionString(string(connectionStringBytes))
+	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
 	if err != nil {
 		return "", err
 	}
@@ -502,7 +498,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 		return "", err
 	}
 
-	connectionString, err := fdbtypes.ParseConnectionString(string(connectionStringBytes))
+	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
 	if err != nil {
 		return "", err
 	}
@@ -512,7 +508,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 // VersionSupported reports whether we can support a cluster with a given
 // version.
 func (client *cliAdminClient) VersionSupported(versionString string) (bool, error) {
-	version, err := fdbtypes.ParseFdbVersion(versionString)
+	version, err := fdbv1beta2.ParseFdbVersion(versionString)
 	if err != nil {
 		return false, err
 	}
@@ -566,7 +562,7 @@ func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int)
 }
 
 // StopBackup stops a backup.
-func (client *cliAdminClient) StopBackup(url string) error {
+func (client *cliAdminClient) StopBackup(_ string) error {
 	_, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
 		args: []string{
@@ -612,7 +608,7 @@ func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 }
 
 // GetBackupStatus gets the status of the current backup.
-func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBackupStatus, error) {
+func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	statusString, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
 		args: []string{
@@ -625,7 +621,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 		return nil, err
 	}
 
-	status := &fdbtypes.FoundationDBLiveBackupStatus{}
+	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
 	statusString, err = removeWarningsInJSON(statusString)
 	if err != nil {
 		return nil, err
@@ -640,7 +636,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbtypes.FoundationDBLiveBacku
 }
 
 // StartRestore starts a new restore.
-func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbtypes.FoundationDBKeyRange) error {
+func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.FoundationDBKeyRange) error {
 	args := []string{
 		"start",
 		"-r",

@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // toggleBackupPaused provides a reconciliation step for pausing an unpausing
@@ -31,7 +31,7 @@ import (
 type toggleBackupPaused struct{}
 
 // reconcile runs the reconciler's work.
-func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s toggleBackupPaused) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
 	if backup.Status.BackupDetails == nil {
 		if backup.ShouldRun() {
 			return &requeue{message: "Cannot toggle backup state because backup is not running"}

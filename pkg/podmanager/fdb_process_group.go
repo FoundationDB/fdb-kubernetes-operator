@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"regexp"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -32,7 +32,7 @@ import (
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
 // ParseProcessGroupID extracts the components of an process group ID.
-func ParseProcessGroupID(id string) (fdbtypes.ProcessClass, int, error) {
+func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
 	return internal.ParseProcessGroupID(id)
 }
 
@@ -48,7 +48,7 @@ func GetProcessGroupIDFromProcessID(id string) string {
 }
 
 // GetProcessGroupID returns the process group ID from the Pods metadata
-func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) string {
+func GetProcessGroupID(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) string {
 	if pod == nil {
 		return ""
 	}
@@ -57,7 +57,7 @@ func GetProcessGroupID(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) s
 }
 
 // GetProcessClass fetches the process class from a Pod's metadata.
-func GetProcessClass(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (fdbtypes.ProcessClass, error) {
+func GetProcessClass(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (fdbv1beta2.ProcessClass, error) {
 	if pod == nil {
 		return "", fmt.Errorf("failed to fetch process class from nil Pod")
 	}
@@ -66,7 +66,7 @@ func GetProcessClass(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod) (fd
 }
 
 // GetPublicIPSource determines how a Pod has gotten its public IP.
-func GetPublicIPSource(pod *corev1.Pod) (fdbtypes.PublicIPSource, error) {
+func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 	return internal.GetPublicIPSource(pod)
 }
 
@@ -76,10 +76,10 @@ func GetPublicIPs(pod *corev1.Pod) []string {
 		return []string{}
 	}
 
-	source := pod.ObjectMeta.Annotations[fdbtypes.PublicIPSourceAnnotation]
-	if source == "" || source == string(fdbtypes.PublicIPSourcePod) {
+	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
+	if source == "" || source == string(fdbv1beta2.PublicIPSourcePod) {
 		return internal.GetPublicIPsForPod(pod)
 	}
 
-	return []string{pod.ObjectMeta.Annotations[fdbtypes.PublicIPAnnotation]}
+	return []string{pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPAnnotation]}
 }

@@ -31,13 +31,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ctx "context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -65,20 +63,8 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			config, err := o.configFlags.ToRESTConfig()
-			if err != nil {
-				return err
-			}
-			useInstanceList, err := cmd.Root().Flags().GetBool("use-old-instances-remove")
-			if err != nil {
-				return err
-			}
 
-			scheme := runtime.NewScheme()
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbtypes.AddToScheme(scheme)
-
-			kubeClient, err := client.New(config, client.Options{Scheme: scheme})
+			kubeClient, err := getKubeClient(o)
 			if err != nil {
 				return err
 			}
@@ -103,10 +89,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, force, useInstanceList)
+				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, force)
 			}
 
-			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, force, useInstanceList)
+			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, force)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -137,7 +123,7 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, force bool, useInstanceList bool) error {
+func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, force bool) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -149,7 +135,7 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 		var pods corev1.PodList
 		err := kubeClient.List(ctx.Background(), &pods,
 			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
+			client.MatchingLabels(cluster.GetMatchLabels()),
 			client.MatchingFieldsSelector{
 				Selector: fields.OneTermEqualSelector("spec.nodeName", node),
 			})
@@ -175,5 +161,5 @@ func cordonNode(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster,
 		}
 	}
 
-	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, force, false, useInstanceList)
+	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, force, false)
 }

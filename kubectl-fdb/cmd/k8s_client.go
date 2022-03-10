@@ -24,8 +24,12 @@ import (
 	"bytes"
 	ctx "context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +41,20 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func getKubeClient(o *fdbBOptions) (client.Client, error) {
+	config, err := o.configFlags.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(fdbv1beta1.AddToScheme(scheme))
+	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
+
+	return client.New(config, client.Options{Scheme: scheme})
+}
 
 func getNamespace(namespace string) (string, error) {
 	if namespace != "" {
@@ -63,8 +81,8 @@ func getOperator(kubeClient client.Client, operatorName string, namespace string
 	return operator, err
 }
 
-func loadCluster(kubeClient client.Client, namespace string, clusterName string) (*fdbtypes.FoundationDBCluster, error) {
-	cluster := &fdbtypes.FoundationDBCluster{}
+func loadCluster(kubeClient client.Client, namespace string, clusterName string) (*fdbv1beta2.FoundationDBCluster, error) {
+	cluster := &fdbv1beta2.FoundationDBCluster{}
 	err := kubeClient.Get(ctx.Background(), types.NamespacedName{Namespace: namespace, Name: clusterName}, cluster)
 	if err != nil {
 		return nil, err
@@ -92,12 +110,12 @@ func getNodes(kubeClient client.Client, nodeSelector map[string]string) ([]strin
 	return nodes, nil
 }
 
-func getPodsForCluster(kubeClient client.Client, cluster *fdbtypes.FoundationDBCluster, namespace string) (*corev1.PodList, error) {
+func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, namespace string) (*corev1.PodList, error) {
 	var podList corev1.PodList
 	err := kubeClient.List(
 		ctx.Background(),
 		&podList,
-		client.MatchingLabels(cluster.Spec.LabelConfig.MatchLabels),
+		client.MatchingLabels(cluster.GetMatchLabels()),
 		client.InNamespace(namespace))
 
 	return &podList, err
@@ -140,7 +158,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, name 
 	return &stdout, &stderr, err
 }
 
-func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbtypes.ProcessGroupConditionType) ([]string, error) {
+func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName string, namespace string, conditions []fdbv1beta2.ProcessGroupConditionType) ([]string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return []string{}, err
@@ -149,7 +167,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 	processesSet := make(map[string]bool)
 
 	for _, condition := range conditions {
-		for _, process := range fdbtypes.FilterByCondition(cluster.Status.ProcessGroups, condition, true) {
+		for _, process := range fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, condition, true) {
 			if _, ok := processesSet[process]; ok {
 				continue
 			}

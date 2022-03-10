@@ -21,22 +21,22 @@
 package internal
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	v1 "k8s.io/api/core/v1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // GetHeadlessService builds a headless service for a FoundationDB cluster.
-func GetHeadlessService(cluster *v1beta1.FoundationDBCluster) *v1.Service {
+func GetHeadlessService(cluster *fdbv1beta2.FoundationDBCluster) *corev1.Service {
 	if !cluster.NeedsHeadlessService() {
 		return nil
 	}
 
-	service := &v1.Service{
+	service := &corev1.Service{
 		ObjectMeta: GetObjectMetadata(cluster, nil, "", ""),
 	}
 	service.ObjectMeta.Name = cluster.ObjectMeta.Name
 	service.Spec.ClusterIP = "None"
-	service.Spec.Selector = cluster.Spec.LabelConfig.MatchLabels
+	service.Spec.Selector = cluster.GetMatchLabels()
 
 	return service
 }

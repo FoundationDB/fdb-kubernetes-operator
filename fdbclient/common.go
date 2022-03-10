@@ -27,7 +27,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,7 +45,7 @@ var DefaultCLITimeout = 10
 
 // getFDBDatabase opens an FDB database. The result will be cached for
 // subsequent calls, based on the cluster namespace and name.
-func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error) {
+func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, error) {
 	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return fdb.Database{}, err
@@ -77,7 +77,7 @@ func getFDBDatabase(cluster *fdbtypes.FoundationDBCluster) (fdb.Database, error)
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.FoundationDBStatus, error) {
+func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
 	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	statusKey := "\xff\xff/status/json"
 
@@ -114,7 +114,7 @@ func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.Foundatio
 		return nil, fmt.Errorf("could not cast result into byte slice")
 	}
 
-	status := &fdbtypes.FoundationDBStatus{}
+	status := &fdbv1beta2.FoundationDBStatus{}
 	err = json.Unmarshal(statusBytes, &status)
 	if err == nil {
 		log.V(1).Info("Retrieved JSON status", "raw", string(statusBytes), "parsed", status)
@@ -127,13 +127,13 @@ func getStatusFromDB(cluster *fdbtypes.FoundationDBCluster) (*fdbtypes.Foundatio
 type realDatabaseClientProvider struct{}
 
 // GetLockClient generates a client for working with locks through the database.
-func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	return NewRealLockClient(cluster)
 }
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
-func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbtypes.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
+func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
 	return NewCliAdminClient(cluster, kubernetesClient)
 }
 

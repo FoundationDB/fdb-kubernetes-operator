@@ -13,7 +13,7 @@ This is a sample configuration for running a continuous backup of a cluster.
 This sample assumes some configuration that you will need to fill in based on the details of your environment. Those assumptions are explained in comments below.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBBackup
 metadata:
   name: sample-cluster
@@ -100,7 +100,7 @@ FoundationDB supports [URL parameters](https://apple.github.io/foundationdb/back
 If you want to disable the secure connection e.g. for testing you can set the `secure_connection` to `0`:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBBackup
 metadata:
   name: sample-cluster
@@ -122,7 +122,7 @@ The operator will run `fdbbackup` commands to manage the backup, so the operator
 You can start a restore by creating a restore object. Here is an example restore, using the same account as the backup example above:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBRestore
 metadata:
   name: sample-cluster

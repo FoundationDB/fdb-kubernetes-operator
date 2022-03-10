@@ -58,7 +58,6 @@ jobs:
         KUBEBUILDER_VER: "2.3.2"
         KUSTOMIZE_VER: "v3.9.4"
         KIND_VER: "v0.11.1"
-        YQ_VERSION: "v4.6.1"
       run: |
         # Only download all dependencies
         go get -v -t -d ./...
@@ -68,7 +67,6 @@ jobs:
         curl --fail -L "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VER}/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}.tar.gz" -o kubebuilder.tar.gz
         curl --fail -L "https://github.com/apple/foundationdb/releases/download/${{ matrix.fdbver }}/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
-        curl -Lo yq.tar.gz https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64.tar.gz
     - name: Install dependencies
       env:
         KUBEBUILDER_VER: "2.3.2"
@@ -85,8 +83,6 @@ jobs:
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
-        tar xvfz yq.tar.gz
-        sudo mv ./yq_linux_amd64 /usr/bin/yq
     - name: Check for uncommitted changes
       run: |
         make clean all 

@@ -29,11 +29,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 var _ = Describe("bounceProcesses", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var adminClient *mockAdminClient
 	var lockClient *mockLockClient
 	var requeue *requeue
@@ -73,11 +73,11 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
-			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
-			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 		})
 
 		It("should not requeue", func() {
@@ -87,7 +87,7 @@ var _ = Describe("bounceProcesses", func() {
 		It("should kill the targeted processes", func() {
 			addresses := make([]string, 0, 2)
 			for _, processGroupID := range []string{"storage-1", "storage-2"} {
-				processGroupAddresses := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
+				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 				}
@@ -102,8 +102,8 @@ var _ = Describe("bounceProcesses", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
-			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
-			processGroup.UpdateCondition(fdbtypes.PodPending, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.PodPending, true, nil, "")
 			cluster.Spec.AutomationOptions.IgnorePendingPodsDuration = 1 * time.Nanosecond
 		})
 
@@ -113,7 +113,7 @@ var _ = Describe("bounceProcesses", func() {
 
 		It("should not kill the pending processes", func() {
 			addresses := make([]string, 0, 1)
-			processGroupAddresses := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
+			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
 			for _, address := range processGroupAddresses {
 				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 			}
@@ -134,11 +134,11 @@ var _ = Describe("bounceProcesses", func() {
 
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-5"))
-			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 
 			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-6"))
-			processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 		})
 
 		It("should not requeue", func() {
@@ -148,7 +148,7 @@ var _ = Describe("bounceProcesses", func() {
 		It("should kill the targeted processes", func() {
 			addresses := make([]string, 0, 2)
 			for _, processGroupID := range []string{"storage-5", "storage-6"} {
-				processGroupAddresses := fdbtypes.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
+				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
 				for _, address := range processGroupAddresses {
 					addresses = append(addresses, fmt.Sprintf("%s:4501", address), fmt.Sprintf("%s:4503", address))
 				}
@@ -160,9 +160,9 @@ var _ = Describe("bounceProcesses", func() {
 
 	Context("with a pending upgrade", func() {
 		BeforeEach(func() {
-			cluster.Spec.Version = fdbtypes.Versions.NextMajorVersion.String()
+			cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
 			for _, processGroup := range cluster.Status.ProcessGroups {
-				processGroup.UpdateCondition(fdbtypes.IncorrectCommandLine, true, nil, "")
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			}
 		})
 
@@ -184,7 +184,7 @@ var _ = Describe("bounceProcesses", func() {
 		It("should update the running version in the status", func() {
 			_, err = reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cluster.Status.RunningVersion).To(Equal(fdbtypes.Versions.NextMajorVersion.String()))
+			Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.NextMajorVersion.String()))
 		})
 
 		It("should submit pending upgrade information for all the processes", func() {
@@ -192,12 +192,12 @@ var _ = Describe("bounceProcesses", func() {
 			for _, processGroup := range cluster.Status.ProcessGroups {
 				expectedUpgrades[processGroup.ProcessGroupID] = true
 			}
-			Expect(lockClient.pendingUpgrades[fdbtypes.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+			Expect(lockClient.pendingUpgrades[fdbv1beta2.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
 		})
 
 		Context("with an unknown process", func() {
 			BeforeEach(func() {
-				adminClient.MockAdditionalProcesses([]fdbtypes.ProcessGroupStatus{{
+				adminClient.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{{
 					ProcessGroupID: "dc2-storage-1",
 					ProcessClass:   "storage",
 					Addresses:      []string{"1.2.3.4"},
@@ -216,7 +216,7 @@ var _ = Describe("bounceProcesses", func() {
 			It("should not update the running version in the status", func() {
 				_, err = reloadCluster(cluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(cluster.Status.RunningVersion).To(Equal(fdbtypes.Versions.Default.String()))
+				Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.Default.String()))
 			})
 
 			It("should submit pending upgrade information for all the processes", func() {
@@ -224,12 +224,12 @@ var _ = Describe("bounceProcesses", func() {
 				for _, processGroup := range cluster.Status.ProcessGroups {
 					expectedUpgrades[processGroup.ProcessGroupID] = true
 				}
-				Expect(lockClient.pendingUpgrades[fdbtypes.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
+				Expect(lockClient.pendingUpgrades[fdbv1beta2.Versions.NextMajorVersion]).To(Equal(expectedUpgrades))
 			})
 
 			Context("with a pending upgrade for the unknown process", func() {
 				BeforeEach(func() {
-					err = lockClient.AddPendingUpgrades(fdbtypes.Versions.NextMajorVersion, []string{"dc2-storage-1"})
+					err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion, []string{"dc2-storage-1"})
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -252,7 +252,7 @@ var _ = Describe("bounceProcesses", func() {
 
 			Context("with a pending upgrade to an older version", func() {
 				BeforeEach(func() {
-					err = lockClient.AddPendingUpgrades(fdbtypes.Versions.NextPatchVersion, []string{"dc2-storage-1"})
+					err = lockClient.AddPendingUpgrades(fdbv1beta2.Versions.NextPatchVersion, []string{"dc2-storage-1"})
 					Expect(err).NotTo(HaveOccurred())
 				})
 

@@ -28,7 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
@@ -41,7 +41,7 @@ var missingProcessThreshold = 0.8
 type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -55,24 +55,30 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		}
 	}
 
-	addresses := make([]fdbtypes.ProcessAddress, 0, removalCount)
-	processClassesToExclude := make(map[fdbtypes.ProcessClass]fdbtypes.None)
+	addresses := make([]fdbv1beta2.ProcessAddress, 0, removalCount)
+	processClassesToExclude := make(map[fdbv1beta2.ProcessClass]fdbv1beta2.None)
 	if removalCount > 0 {
 		exclusions, err := adminClient.GetExclusions()
 		if err != nil {
 			return &requeue{curError: err}
 		}
 
-		currentExclusionMap := make(map[string]bool, len(exclusions))
+		log.Info("current exclusions", "ex", exclusions)
+		currentExclusionMap := make(map[string]fdbv1beta2.None, len(exclusions))
 		for _, address := range exclusions {
-			currentExclusionMap[address.String()] = true
+			currentExclusionMap[address.String()] = fdbv1beta2.None{}
 		}
 
 		for _, processGroup := range cluster.Status.ProcessGroups {
 			for _, address := range processGroup.Addresses {
-				if processGroup.IsMarkedForRemoval() && !processGroup.ExclusionSkipped && !currentExclusionMap[address] {
-					addresses = append(addresses, fdbtypes.ProcessAddress{IPAddress: net.ParseIP(address)})
-					processClassesToExclude[processGroup.ProcessClass] = fdbtypes.None{}
+				// Already excluded, so we don't have to exclude it again
+				if _, ok := currentExclusionMap[address]; ok {
+					continue
+				}
+
+				if processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
+					addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(address)})
+					processClassesToExclude[processGroup.ProcessClass] = fdbv1beta2.None{}
 				}
 			}
 		}
@@ -118,7 +124,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass fdbtypes.ProcessClass) (bool, []string) {
+func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []string) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 
 	// Block excludes on missing processes not marked for removal
@@ -130,8 +136,8 @@ func canExcludeNewProcesses(cluster *fdbtypes.FoundationDBCluster, processClass 
 			continue
 		}
 
-		if processGroupStatus.GetConditionTime(fdbtypes.MissingProcesses) != nil ||
-			processGroupStatus.GetConditionTime(fdbtypes.MissingPod) != nil {
+		if processGroupStatus.GetConditionTime(fdbv1beta2.MissingProcesses) != nil ||
+			processGroupStatus.GetConditionTime(fdbv1beta2.MissingPod) != nil {
 			missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
 			logger.Info("Missing processes", "processGroupID", processGroupStatus.ProcessGroupID)
 			continue

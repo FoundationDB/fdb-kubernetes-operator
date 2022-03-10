@@ -23,7 +23,7 @@ package replacements
 import (
 	"fmt"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +33,7 @@ import (
 )
 
 // ReplaceMisconfiguredProcessGroups checks if the cluster has any misconfigured process groups that must be replaced.
-func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.FoundationDBCluster, pvcMap map[string]corev1.PersistentVolumeClaim, podMap map[string]*corev1.Pod) (bool, error) {
+func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, pvcMap map[string]corev1.PersistentVolumeClaim, podMap map[string]*corev1.Pod) (bool, error) {
 	hasReplacements := false
 
 	maxReplacements := getMaxReplacements(cluster, cluster.GetMaxConcurrentReplacements())
@@ -88,7 +88,7 @@ func ReplaceMisconfiguredProcessGroups(log logr.Logger, cluster *fdbtypes.Founda
 	return hasReplacements, nil
 }
 
-func processGroupNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger) (bool, error) {
+func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc corev1.PersistentVolumeClaim, log logr.Logger) (bool, error) {
 	processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pvc.ObjectMeta)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pvc", pvc.Name, "processGroupID", processGroupID, "reconciler", "replaceMisconfiguredProcessGroups")
 
@@ -120,9 +120,9 @@ func processGroupNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc c
 		return false, err
 	}
 
-	if pvc.Annotations[fdbtypes.LastSpecKey] != pvcHash {
+	if pvc.Annotations[fdbv1beta2.LastSpecKey] != pvcHash {
 		logger.Info("Replace process group",
-			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbtypes.LastSpecKey]))
+			"reason", fmt.Sprintf("PVC spec has changed from %s to %s", pvcHash, pvc.Annotations[fdbv1beta2.LastSpecKey]))
 		return true, nil
 	}
 	if pvc.Name != desiredPVC.Name {
@@ -134,7 +134,7 @@ func processGroupNeedsRemovalForPVC(cluster *fdbtypes.FoundationDBCluster, pvc c
 	return false, nil
 }
 
-func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbtypes.ProcessGroupStatus, log logr.Logger) (bool, error) {
+func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, processGroupStatus *fdbv1beta2.ProcessGroupStatus, log logr.Logger) (bool, error) {
 	if pod == nil {
 		return false, nil
 	}
@@ -174,7 +174,7 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 		return true, nil
 	}
 
-	if processClass == fdbtypes.ProcessClassStorage {
+	if processClass == fdbv1beta2.ProcessClassStorage {
 		// Replace the process group if the storage servers differ
 		storageServersPerPod, err := internal.GetStorageServersPerPodForPod(pod)
 		if err != nil {
@@ -195,7 +195,7 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 			return false, err
 		}
 
-		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",
 				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
 			return true, nil
@@ -208,9 +208,9 @@ func processGroupNeedsRemoval(cluster *fdbtypes.FoundationDBCluster, pod *corev1
 			return false, err
 		}
 
-		if pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey] != specHash {
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbtypes.LastSpecKey]))
+				"reason", fmt.Sprintf("specHash has changed from %s to %s", specHash, pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey]))
 			return true, nil
 		}
 	}

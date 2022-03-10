@@ -22,21 +22,24 @@ package controllers
 
 import (
 	"net"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 var _ = Describe("mock_client", func() {
 	When("checking if it's safe to delete a process group", func() {
 		type testCase struct {
-			cluster    *fdbtypes.FoundationDBCluster
-			removals   []fdbtypes.ProcessAddress
-			exclusions []fdbtypes.ProcessAddress
-			remaining  []fdbtypes.ProcessAddress
+			cluster    *fdbv1beta2.FoundationDBCluster
+			removals   []fdbv1beta2.ProcessAddress
+			exclusions []fdbv1beta2.ProcessAddress
+			remaining  []fdbv1beta2.ProcessAddress
 		}
 
 		DescribeTable("should return the correct image",
@@ -55,16 +58,16 @@ var _ = Describe("mock_client", func() {
 			},
 			Entry("Empty list of removals",
 				testCase{
-					cluster:    &fdbtypes.FoundationDBCluster{},
-					removals:   []fdbtypes.ProcessAddress{},
-					exclusions: []fdbtypes.ProcessAddress{},
-					remaining:  []fdbtypes.ProcessAddress{},
+					cluster:    &fdbv1beta2.FoundationDBCluster{},
+					removals:   []fdbv1beta2.ProcessAddress{},
+					exclusions: []fdbv1beta2.ProcessAddress{},
+					remaining:  []fdbv1beta2.ProcessAddress{},
 				}),
 			Entry("Process group that skips exclusion",
 				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						Status: fdbtypes.FoundationDBClusterStatus{
-							ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+					cluster: &fdbv1beta2.FoundationDBCluster{
+						Status: fdbv1beta2.FoundationDBClusterStatus{
+							ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 								{
 									Addresses: []string{
 										"1.1.1.1:4500",
@@ -79,7 +82,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbtypes.ProcessAddress{
+					removals: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -89,8 +92,8 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdbtypes.ProcessAddress{},
-					remaining: []fdbtypes.ProcessAddress{
+					exclusions: []fdbv1beta2.ProcessAddress{},
+					remaining: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,
@@ -99,9 +102,9 @@ var _ = Describe("mock_client", func() {
 				}),
 			Entry("Process group that is excluded by the client",
 				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						Status: fdbtypes.FoundationDBClusterStatus{
-							ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+					cluster: &fdbv1beta2.FoundationDBCluster{
+						Status: fdbv1beta2.FoundationDBClusterStatus{
+							ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 								{
 									Addresses: []string{
 										"1.1.1.1:4500",
@@ -115,7 +118,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbtypes.ProcessAddress{
+					removals: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -125,13 +128,13 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdbtypes.ProcessAddress{
+					exclusions: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
 						},
 					},
-					remaining: []fdbtypes.ProcessAddress{
+					remaining: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,
@@ -140,14 +143,14 @@ var _ = Describe("mock_client", func() {
 				}),
 			Entry("Process group that is excluded in the cluster status",
 				testCase{
-					cluster: &fdbtypes.FoundationDBCluster{
-						Status: fdbtypes.FoundationDBClusterStatus{
-							ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+					cluster: &fdbv1beta2.FoundationDBCluster{
+						Status: fdbv1beta2.FoundationDBClusterStatus{
+							ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 								{
 									Addresses: []string{
 										"1.1.1.1:4500",
 									},
-									Excluded: true,
+									ExclusionTimestamp: &metav1.Time{Time: time.Now()},
 								},
 								{
 									Addresses: []string{
@@ -157,7 +160,7 @@ var _ = Describe("mock_client", func() {
 							},
 						},
 					},
-					removals: []fdbtypes.ProcessAddress{
+					removals: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.1"),
 							Port:      4500,
@@ -167,8 +170,8 @@ var _ = Describe("mock_client", func() {
 							Port:      4500,
 						},
 					},
-					exclusions: []fdbtypes.ProcessAddress{},
-					remaining: []fdbtypes.ProcessAddress{
+					exclusions: []fdbv1beta2.ProcessAddress{},
+					remaining: []fdbv1beta2.ProcessAddress{
 						{
 							IPAddress: net.ParseIP("1.1.1.2"),
 							Port:      4500,

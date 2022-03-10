@@ -21,33 +21,33 @@
 package internal
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
 // CreateDefaultCluster creates a default FoundationDBCluster for testing
-func CreateDefaultCluster() *fdbtypes.FoundationDBCluster {
+func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 	trueValue := true
 	failureDetectionWindow := 1
 
-	return &fdbtypes.FoundationDBCluster{
+	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "operator-test-1",
 			Namespace: "my-ns",
 		},
-		Spec: fdbtypes.FoundationDBClusterSpec{
-			Version: fdbtypes.Versions.Default.String(),
-			ProcessCounts: fdbtypes.ProcessCounts{
+		Spec: fdbv1beta2.FoundationDBClusterSpec{
+			Version: fdbv1beta2.Versions.Default.String(),
+			ProcessCounts: fdbv1beta2.ProcessCounts{
 				Storage:           4,
 				ClusterController: 1,
 			},
-			FaultDomain: fdbtypes.FoundationDBClusterFaultDomain{
+			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
 				Key: "foundationdb.org/none",
 			},
-			AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-				Replacements: fdbtypes.AutomaticReplacementOptions{
+			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+				Replacements: fdbv1beta2.AutomaticReplacementOptions{
 					Enabled:                     &trueValue,
 					FailureDetectionTimeSeconds: &failureDetectionWindow,
 				},
@@ -55,11 +55,11 @@ func CreateDefaultCluster() *fdbtypes.FoundationDBCluster {
 			},
 			MinimumUptimeSecondsForBounce: 1,
 		},
-		Status: fdbtypes.FoundationDBClusterStatus{
-			RequiredAddresses: fdbtypes.RequiredAddressSet{
+		Status: fdbv1beta2.FoundationDBClusterStatus{
+			RequiredAddresses: fdbv1beta2.RequiredAddressSet{
 				NonTLS: true,
 			},
-			ProcessGroups: make([]*fdbtypes.ProcessGroupStatus, 0),
+			ProcessGroups: make([]*fdbv1beta2.ProcessGroupStatus, 0),
 		},
 	}
 }
@@ -75,23 +75,23 @@ func GetEnvVars(container v1.Container) map[string]*v1.EnvVar {
 }
 
 // CreateDefaultBackup creates a defaultFoundationDBCluster for testing
-func CreateDefaultBackup(cluster *fdbtypes.FoundationDBCluster) *fdbtypes.FoundationDBBackup {
+func CreateDefaultBackup(cluster *fdbv1beta2.FoundationDBCluster) *fdbv1beta2.FoundationDBBackup {
 	agentCount := 3
-	return &fdbtypes.FoundationDBBackup{
+	return &fdbv1beta2.FoundationDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Name,
 			Namespace: cluster.Namespace,
 		},
-		Spec: fdbtypes.FoundationDBBackupSpec{
-			BackupState: fdbtypes.BackupStateRunning,
+		Spec: fdbv1beta2.FoundationDBBackupSpec{
+			BackupState: fdbv1beta2.BackupStateRunning,
 			Version:     cluster.Spec.Version,
 			ClusterName: cluster.Name,
 			AgentCount:  &agentCount,
-			BlobStoreConfiguration: &fdbtypes.BlobStoreConfiguration{
+			BlobStoreConfiguration: &fdbv1beta2.BlobStoreConfiguration{
 				AccountName: "test@test-service",
 				BackupName:  "test-backup",
 			},
 		},
-		Status: fdbtypes.FoundationDBBackupStatus{},
+		Status: fdbv1beta2.FoundationDBBackupStatus{},
 	}
 }
