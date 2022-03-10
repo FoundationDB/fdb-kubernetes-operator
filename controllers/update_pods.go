@@ -25,11 +25,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-	"github.com/go-logr/logr"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 )
 

@@ -168,7 +168,7 @@ func (version Version) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
-// IsReleaseCandidate returns true if the version is a releasecandidate or not
+// IsReleaseCandidate returns true if the version is a release candidate or not
 func (version Version) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0
 }

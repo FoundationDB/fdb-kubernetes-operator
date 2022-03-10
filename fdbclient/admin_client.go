@@ -32,11 +32,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -564,7 +562,7 @@ func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int)
 }
 
 // StopBackup stops a backup.
-func (client *cliAdminClient) StopBackup(url string) error {
+func (client *cliAdminClient) StopBackup(_ string) error {
 	_, err := client.runCommand(cliCommand{
 		binary: "fdbbackup",
 		args: []string{

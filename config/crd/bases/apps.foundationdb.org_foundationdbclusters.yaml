@@ -9318,6 +9318,8 @@ spec:
                     ignorePendingPodsDuration:
                       format: int64
                       type: integer
+                    ignoreTerminatingPodsSeconds:
+                      type: integer
                     killProcesses:
                       type: boolean
                     maxConcurrentReplacements:
@@ -9619,18 +9621,18 @@ spec:
                       type: integer
                   type: object
                 processGroupIDPrefix:
-                  maxLength: 32
+                  maxLength: 43
                   type: string
                 processGroupsToRemove:
                   items:
                     type: string
-                  maxItems: 100
+                  maxItems: 500
                   minItems: 0
                   type: array
                 processGroupsToRemoveWithoutExclusion:
                   items:
                     type: string
-                  maxItems: 100
+                  maxItems: 500
                   minItems: 0
                   type: array
                 processes:
