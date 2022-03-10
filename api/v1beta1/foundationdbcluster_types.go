@@ -124,7 +124,7 @@ type FoundationDBClusterSpec struct {
 	// ProcessGroupsToRemove defines the process groups that we should remove from the
 	// cluster. This list contains the process group IDs.
 	// +kubebuilder:validation:MinItems=0
-	// +kubebuilder:validation:MaxItems=100
+	// +kubebuilder:validation:MaxItems=500
 	ProcessGroupsToRemove []string `json:"processGroupsToRemove,omitempty"`
 
 	// InstancesToRemoveWithoutExclusion defines the instances that we should
@@ -145,7 +145,7 @@ type FoundationDBClusterSpec struct {
 	// you want to remove it and destroy its volume without confirming the data
 	// is fully replicated.
 	// +kubebuilder:validation:MinItems=0
-	// +kubebuilder:validation:MaxItems=100
+	// +kubebuilder:validation:MaxItems=500
 	ProcessGroupsToRemoveWithoutExclusion []string `json:"processGroupsToRemoveWithoutExclusion,omitempty"`
 
 	// ConfigMap allows customizing the config map the operator creates.
@@ -194,7 +194,7 @@ type FoundationDBClusterSpec struct {
 	// This must be a valid Kubernetes label value. See
 	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	// for more details on that.
-	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:MaxLength=43
 	ProcessGroupIDPrefix string `json:"processGroupIDPrefix,omitempty"`
 
 	// UpdatePodsByReplacement determines whether we should update pod config
