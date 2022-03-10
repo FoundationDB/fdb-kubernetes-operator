@@ -92,7 +92,17 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.CompressOldFiles, "compress", false, "Defines whether the rotated log files should be compressed using gzip or not.")
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
 	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
-	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch")
+	fs.StringVar(&o.WatchNamespace, "watch-namespace", "", "Defines which namespace the operator should watch")
+}
+
+// getNamespace returns either the provided namespace if not empty or reads the value from the WATCH_NAMESPACE env
+// variable.
+func getNamespace(namespace string) string {
+	if namespace != "" {
+		return namespace
+	}
+
+	return os.Getenv("WATCH_NAMESPACE")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -146,9 +156,10 @@ func StartManager(
 		Port:               9443,
 	}
 
-	if operatorOpts.WatchNamespace != "" {
-		options.Namespace = operatorOpts.WatchNamespace
-		setupLog.Info("Operator starting in single namespace mode", "namespace", options.Namespace)
+	namespace := getNamespace(operatorOpts.WatchNamespace)
+	if namespace != "" {
+		options.Namespace = namespace
+		setupLog.Info("Operator starting in single namespace mode", "namespace", namespace)
 	} else {
 		setupLog.Info("Operator starting in Global mode")
 	}
