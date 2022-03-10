@@ -1,4 +1,4 @@
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBRestore
 metadata:
  name: test-cluster

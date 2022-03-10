@@ -26,7 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
 )
@@ -35,7 +35,7 @@ import (
 // database.
 type realLockClient struct {
 	// The cluster we are managing locks for.
-	cluster *fdbtypes.FoundationDBCluster
+	cluster *fdbv1beta2.FoundationDBCluster
 
 	// Whether we should disable locking completely.
 	disableLocks bool
@@ -151,7 +151,7 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 
 // AddPendingUpgrades registers information about which process groups are
 // pending an upgrade to a new version.
-func (client *realLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, processGroupIDs []string) error {
+func (client *realLockClient) AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []string) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
@@ -168,7 +168,7 @@ func (client *realLockClient) AddPendingUpgrades(version fdbtypes.FdbVersion, pr
 
 // GetPendingUpgrades returns the stored information about which process
 // groups are pending an upgrade to a new version.
-func (client *realLockClient) GetPendingUpgrades(version fdbtypes.FdbVersion) (map[string]bool, error) {
+func (client *realLockClient) GetPendingUpgrades(version fdbv1beta2.Version) (map[string]bool, error) {
 	upgrades, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetReadSystemKeys()
 		if err != nil {
@@ -247,7 +247,7 @@ func (client *realLockClient) GetDenyList() ([]string, error) {
 }
 
 // UpdateDenyList updates the deny list to match a list of entries.
-func (client *realLockClient) UpdateDenyList(locks []fdbtypes.LockDenyListEntry) error {
+func (client *realLockClient) UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error {
 	_, err := client.database.Transact(func(tr fdb.Transaction) (interface{}, error) {
 		err := tr.Options().SetAccessSystemKeys()
 		if err != nil {
@@ -303,7 +303,7 @@ func (err invalidLockValue) Error() string {
 }
 
 // NewRealLockClient creates a lock client.
-func NewRealLockClient(cluster *fdbtypes.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
 	if !cluster.ShouldUseLocks() {
 		return &realLockClient{disableLocks: true}, nil
 	}

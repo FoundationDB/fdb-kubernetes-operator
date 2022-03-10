@@ -25,5 +25,5 @@ import (
 
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "FDB API")
+	RunSpecs(t, "FDB v1beta1 API")
 }

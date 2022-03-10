@@ -3,7 +3,7 @@
 #
 # This requires variables to be interpolated for $zone, $zoneIndex,
 # and $connectionString.
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   labels:

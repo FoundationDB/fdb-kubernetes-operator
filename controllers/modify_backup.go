@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // modifyBackup provides a reconciliation step for modifying a backup's
@@ -32,7 +32,7 @@ type modifyBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s modifyBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s modifyBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
 	if backup.Status.BackupDetails == nil || !backup.ShouldRun() {
 		return nil
 	}

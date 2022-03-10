@@ -26,14 +26,14 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("add_pvcs", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 	var requeue *requeue
 	var initialPVCs *corev1.PersistentVolumeClaimList
@@ -86,7 +86,7 @@ var _ = Describe("add_pvcs", func() {
 
 	Context("with a storage process group with no PVC defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus("storage-9", "storage", nil))
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
 		})
 
 		It("should not requeue", func() {
@@ -97,8 +97,8 @@ var _ = Describe("add_pvcs", func() {
 			Expect(newPVCs.Items).To(HaveLen(len(initialPVCs.Items) + 1))
 			lastPVC := newPVCs.Items[len(newPVCs.Items)-1]
 			Expect(lastPVC.Name).To(Equal("operator-test-1-storage-9-data"))
-			Expect(lastPVC.Labels[fdbtypes.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastPVC.Labels[fdbtypes.FDBProcessClassLabel]).To(Equal("storage"))
+			Expect(lastPVC.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+			Expect(lastPVC.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
 			Expect(lastPVC.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
 		})
 
@@ -119,7 +119,7 @@ var _ = Describe("add_pvcs", func() {
 
 	Context("with a stateless process group with no PVC defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbtypes.NewProcessGroupStatus("stateless-9", "stateless", nil))
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("stateless-9", "stateless", nil))
 		})
 
 		It("should not requeue", func() {

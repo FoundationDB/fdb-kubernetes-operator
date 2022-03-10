@@ -9,7 +9,7 @@ Fault domains are controlled through the `faultDomain` field in the cluster spec
 The default fault domain strategy is to replicate across nodes in a single Kubernetes cluster. If you do not specify any fault domain option, we will replicate across nodes. This is equivalent to the following configuration:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -25,7 +25,7 @@ This will create a pod anti-affinity rule preventing multiple pods of the same p
 You can change the fault domain configuration to use a different field as well:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -41,7 +41,7 @@ The example above divides processes across nodes based on the label `topology.ku
 If you have some other mechanism to make this information available in your pod's environment, you can tell the operator to use an environment variable as the source for the zone locality:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -59,7 +59,7 @@ This will set the `zoneid` locality to whatever is in the `RACK` environment var
 Our second strategy is to run multiple Kubernetes cluster, each as its own fault domain. This strategy adds significant operational complexity, but may allow you to have stronger fault domains and thus more reliable deployments. You can enable this strategy by using a special key in the fault domain:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -86,7 +86,7 @@ This will prevent process group ID duplicates in the different Kubernetes cluste
 In local test environments, you may not have any real fault domains to use, and may not care about availability. You can test in this environment while still having replication enabled by using fake fault domains:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -103,7 +103,7 @@ This strategy uses the pod name as the fault domain, which allows each process t
 The replication strategies above all describe how data is replicated within a data center. They control the `zoneid` field in the cluster's locality. If you want to run a cluster across multiple data centers, you can use FoundationDB's multi-region replication. This can work with any of the replication stragies above. The data center will be a separate fault domain from whatever you provide for the zone.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -152,7 +152,7 @@ To block such an instance from taking locks, you can add it to the `denyList` in
 You can set this in the cluster spec on any Kubernetes cluster.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -167,7 +167,7 @@ This will clear any locks held by `dc2`, and prevent it from taking further lock
 In order to clear this deny list, you must change it to allow that instance again:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster

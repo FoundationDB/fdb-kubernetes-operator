@@ -28,7 +28,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +38,7 @@ import (
 type addPods struct{}
 
 // reconcile runs the reconciler's work.
-func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	configMap, err := internal.GetConfigMap(cluster)
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addPods")
 	if err != nil {
@@ -92,9 +92,9 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			return &requeue{curError: err}
 		}
 
-		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
+		pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
 
-		if *cluster.Spec.Routing.PublicIPSource == fdbtypes.PublicIPSourceService {
+		if cluster.GetPublicIPSource() == fdbv1beta2.PublicIPSourceService {
 			service := &corev1.Service{}
 			err = r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, service)
 			if err != nil {
@@ -105,7 +105,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 				logger.Info("Service does not have an IP address", "processGroupID", processGroup.ProcessGroupID)
 				return &requeue{message: fmt.Sprintf("Service %s does not have an IP address", service.Name)}
 			}
-			pod.Annotations[fdbtypes.PublicIPAnnotation] = ip
+			pod.Annotations[fdbv1beta2.PublicIPAnnotation] = ip
 		}
 
 		err = r.PodLifecycleManager.CreatePod(ctx, r, pod)

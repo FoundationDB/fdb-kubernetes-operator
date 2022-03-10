@@ -21,7 +21,7 @@
 package podmanager
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -31,42 +31,42 @@ var _ = Describe("pod_lifecycle_manager", func() {
 	var manager StandardPodLifecycleManager
 
 	DescribeTable("getting the deletion mode of the cluster",
-		func(cluster *fdbtypes.FoundationDBCluster, expected fdbtypes.PodUpdateMode) {
+		func(cluster *fdbv1beta2.FoundationDBCluster, expected fdbv1beta2.PodUpdateMode) {
 			Expect(manager.GetDeletionMode(cluster)).To(Equal(expected))
 		},
 		Entry("Without a deletion mode defined",
-			&fdbtypes.FoundationDBCluster{},
-			fdbtypes.PodUpdateModeZone,
+			&fdbv1beta2.FoundationDBCluster{},
+			fdbv1beta2.PodUpdateModeZone,
 		),
 		Entry("With deletion mode Zone",
-			&fdbtypes.FoundationDBCluster{
-				Spec: fdbtypes.FoundationDBClusterSpec{
-					AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-						DeletionMode: fdbtypes.PodUpdateModeZone,
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						DeletionMode: fdbv1beta2.PodUpdateModeZone,
 					},
 				},
 			},
-			fdbtypes.PodUpdateModeZone,
+			fdbv1beta2.PodUpdateModeZone,
 		),
 		Entry("With deletion mode All",
-			&fdbtypes.FoundationDBCluster{
-				Spec: fdbtypes.FoundationDBClusterSpec{
-					AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-						DeletionMode: fdbtypes.PodUpdateModeAll,
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						DeletionMode: fdbv1beta2.PodUpdateModeAll,
 					},
 				},
 			},
-			fdbtypes.PodUpdateModeAll,
+			fdbv1beta2.PodUpdateModeAll,
 		),
 		Entry("With deletion mode Process Group",
-			&fdbtypes.FoundationDBCluster{
-				Spec: fdbtypes.FoundationDBClusterSpec{
-					AutomationOptions: fdbtypes.FoundationDBClusterAutomationOptions{
-						DeletionMode: fdbtypes.PodUpdateModeProcessGroup,
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
+						DeletionMode: fdbv1beta2.PodUpdateModeProcessGroup,
 					},
 				},
 			},
-			fdbtypes.PodUpdateModeProcessGroup,
+			fdbv1beta2.PodUpdateModeProcessGroup,
 		),
 	)
 })

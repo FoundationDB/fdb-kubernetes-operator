@@ -26,7 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // changeCoordinators provides a reconciliation step for choosing new
@@ -34,7 +34,7 @@ import (
 type changeCoordinators struct{}
 
 // reconcile runs the reconciler's work.
-func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
 
 	if !cluster.Status.Configured {
@@ -101,7 +101,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 		return &requeue{curError: err}
 	}
 
-	coordinatorAddresses := make([]fdbtypes.ProcessAddress, len(coordinators))
+	coordinatorAddresses := make([]fdbv1beta2.ProcessAddress, len(coordinators))
 	for index, process := range coordinators {
 		coordinatorAddresses[index] = getCoordinatorAddress(cluster, process)
 	}
@@ -121,7 +121,7 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 }
 
 // selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
-func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]localityInfo, error) {
 	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded {
@@ -132,7 +132,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 			continue
 		}
 
-		if cluster.ProcessGroupIsBeingRemoved(process.Locality[fdbtypes.FDBLocalityInstanceIDKey]) {
+		if cluster.ProcessGroupIsBeingRemoved(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]) {
 			continue
 		}
 
@@ -147,7 +147,7 @@ func selectCandidates(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.Fo
 	return candidates, nil
 }
 
-func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.FoundationDBStatus) ([]localityInfo, error) {
+func selectCoordinators(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]localityInfo, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "changeCoordinators")
 	var err error
 	coordinatorCount := cluster.DesiredCoordinatorCount()
@@ -187,13 +187,13 @@ func selectCoordinators(cluster *fdbtypes.FoundationDBCluster, status *fdbtypes.
 	return coordinators, nil
 }
 
-func getCoordinatorAddress(cluster *fdbtypes.FoundationDBCluster, locality localityInfo) fdbtypes.ProcessAddress {
-	dnsName := locality.LocalityData[fdbtypes.FDBLocalityDNSNameKey]
+func getCoordinatorAddress(cluster *fdbv1beta2.FoundationDBCluster, locality localityInfo) fdbv1beta2.ProcessAddress {
+	dnsName := locality.LocalityData[fdbv1beta2.FDBLocalityDNSNameKey]
 
 	address := locality.Address
 
 	if cluster.UseDNSInClusterFile() && dnsName != "" {
-		return fdbtypes.ProcessAddress{
+		return fdbv1beta2.ProcessAddress{
 			StringAddress: dnsName,
 			Port:          address.Port,
 			Flags:         address.Flags,

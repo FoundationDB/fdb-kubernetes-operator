@@ -26,7 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,12 +36,12 @@ import (
 type updateBackupStatus struct{}
 
 // reconcile runs the reconciler's work.
-func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
-	status := fdbtypes.FoundationDBBackupStatus{}
+func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
+	status := fdbv1beta2.FoundationDBBackupStatus{}
 	status.Generations.Reconciled = backup.Status.Generations.Reconciled
 
 	backupDeployments := &appsv1.DeploymentList{}
-	err := r.List(ctx, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbtypes.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
+	err := r.List(ctx, backupDeployments, client.InNamespace(backup.Namespace), client.MatchingLabels(map[string]string{fdbv1beta2.BackupDeploymentLabel: string(backup.ObjectMeta.UID)}))
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -87,7 +87,7 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 		return &requeue{curError: err}
 	}
 
-	status.BackupDetails = &fdbtypes.FoundationDBBackupStatusBackupDetails{
+	status.BackupDetails = &fdbv1beta2.FoundationDBBackupStatusBackupDetails{
 		URL:                   liveStatus.DestinationURL,
 		Running:               liveStatus.Status.Running,
 		Paused:                liveStatus.BackupAgentsPaused,

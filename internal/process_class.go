@@ -21,16 +21,16 @@
 package internal
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ProcessClassFromLabels extracts the ProcessClass label from the metav1.ObjectMeta.Labels map
-func ProcessClassFromLabels(cluster *fdbtypes.FoundationDBCluster, labels map[string]string) fdbtypes.ProcessClass {
-	return fdbtypes.ProcessClass(labels[cluster.GetProcessClassLabel()])
+func ProcessClassFromLabels(cluster *fdbv1beta2.FoundationDBCluster, labels map[string]string) fdbv1beta2.ProcessClass {
+	return fdbv1beta2.ProcessClass(labels[cluster.GetProcessClassLabel()])
 }
 
 // GetProcessClassFromMeta fetches the process class from an object's metadata.
-func GetProcessClassFromMeta(cluster *fdbtypes.FoundationDBCluster, metadata v1.ObjectMeta) fdbtypes.ProcessClass {
+func GetProcessClassFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata v1.ObjectMeta) fdbv1beta2.ProcessClass {
 	return ProcessClassFromLabels(cluster, metadata.Labels)
 }

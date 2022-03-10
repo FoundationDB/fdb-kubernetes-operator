@@ -9,7 +9,7 @@ Many of these customizations involve the `processes` field in the cluster spec, 
 Since FoundationDB is limited to a single core it can make sense to run multiple storage server per disk. You can change the number of storage server per Pod with the `storageServersPerPod` setting. This will start multiple FDB processes inside of a single container, under a single `fdbmonitor` process.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -26,7 +26,7 @@ A change to the `storageServersPerPod` will replace all of the storage pods. For
 To use a different `StorageClass` than the default you can set your desired `StorageClass` in the [process settings](/docs/cluster_spec.md#processsettings):
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -42,7 +42,7 @@ spec:
 You can use the same field to customize other parts of the volume claim. For instance, this is how you would define the storage size for your volumes:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -60,7 +60,7 @@ spec:
 A change to the volume claim template will replace all PVC' and the according Pods. You can also use different volume settings for different processes. For instance, you could use a slower but higher-capacity storage class for your storage processes:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -82,7 +82,7 @@ spec:
 The process settings in the cluster spec also allow specifying a pod template, which allows customizing almost everything about your pods. You can define custom environment variables, add your own containers, add additional volumes, and more. You may want to use these fields to handle things that are specific to your environment, like forwarding logs to a central system. In the example below, we add custom resource requirements and a custom container for logging. This new container is making use of the `fdb-trace-logs` volume, which is defined by the operator automatically.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -119,7 +119,7 @@ how to specify a custom base image for both the main container and the sidecar
 container.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -138,7 +138,7 @@ This will produce pods where the `foundationdb` container runs the image `docker
 The image configs also allow specifying a specific tag for the images.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -156,7 +156,7 @@ You can also specify multiple image configs, and customize image configs separat
 
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -176,7 +176,7 @@ This tells the operator to use the base image `docker.example/foundationdb` for 
 You can also specify a suffix for the tag, which tells the operator to append that suffix to the version the cluster is running.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -285,7 +285,7 @@ You can build this kind of configuration easily from the sample deployment by ch
 The operator has default labels that it applies to all resources it manages in order to track those resources. You can customize this labeling through the label config in the cluster spec.
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -306,7 +306,7 @@ Let's say you want the new match labels to be `{"this-cluster": "sample-cluster"
 Add both sets of labels to all resources:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -327,7 +327,7 @@ spec:
 Update the match labels:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -344,7 +344,7 @@ spec:
 Remove the old labels from the spec:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -366,7 +366,7 @@ kubectl label pod,pvc,configmap,service -l this-cluster=sample-cluster my-cluste
 The operator also sets labels on pods and PVCs indicating the process class and process group ID associated with the pod. You can customize the labels used for this through the label config in the cluster spec:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -386,7 +386,7 @@ You can provide multiple label names in these fields. The first entry in the lis
 First, you will need to add the new label to all of the resources:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
     name: sample-cluster
@@ -401,7 +401,7 @@ spec:
 Once this change is reconciled and the new label is applied, you can remove the old label from the spec:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -427,7 +427,7 @@ The operator currently supports two different image types: a split image and a u
 The default behavior in the operator is to use the split image. To switch to the unified image, set the flag in the cluster spec as follows:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster

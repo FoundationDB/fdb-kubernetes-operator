@@ -28,11 +28,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 var _ = Describe("lock_client_test", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var client *mockLockClient
 
 	var err error
@@ -56,22 +56,22 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("AddPendingUpgrades", func() {
 		It("adds the upgrades to the map", func() {
-			err = client.AddPendingUpgrades(fdbtypes.Versions.Default, []string{"storage-1", "storage-2"})
+			err = client.AddPendingUpgrades(fdbv1beta2.Versions.Default, []string{"storage-1", "storage-2"})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = client.AddPendingUpgrades(fdbtypes.Versions.Default, []string{"storage-3"})
+			err = client.AddPendingUpgrades(fdbv1beta2.Versions.Default, []string{"storage-3"})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = client.AddPendingUpgrades(fdbtypes.Versions.NextMajorVersion, []string{"storage-3", "storage-4"})
+			err = client.AddPendingUpgrades(fdbv1beta2.Versions.NextMajorVersion, []string{"storage-3", "storage-4"})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(client.pendingUpgrades).To(Equal(map[fdbtypes.FdbVersion]map[string]bool{
-				fdbtypes.Versions.Default: {
+			Expect(client.pendingUpgrades).To(Equal(map[fdbv1beta2.Version]map[string]bool{
+				fdbv1beta2.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,
 					"storage-3": true,
 				},
-				fdbtypes.Versions.NextMajorVersion: {
+				fdbv1beta2.Versions.NextMajorVersion: {
 					"storage-3": true,
 					"storage-4": true,
 				},
@@ -81,13 +81,13 @@ var _ = Describe("lock_client_test", func() {
 
 	Describe("GetPendingUpgrades", func() {
 		BeforeEach(func() {
-			client.pendingUpgrades = map[fdbtypes.FdbVersion]map[string]bool{
-				fdbtypes.Versions.Default: {
+			client.pendingUpgrades = map[fdbv1beta2.Version]map[string]bool{
+				fdbv1beta2.Versions.Default: {
 					"storage-1": true,
 					"storage-2": true,
 					"storage-3": true,
 				},
-				fdbtypes.Versions.NextMajorVersion: {
+				fdbv1beta2.Versions.NextMajorVersion: {
 					"storage-3": true,
 					"storage-4": true,
 				},
@@ -96,7 +96,7 @@ var _ = Describe("lock_client_test", func() {
 
 		Context("with upgrades in the map", func() {
 			It("returns the upgrades in the map", func() {
-				upgrades, err := client.GetPendingUpgrades(fdbtypes.Versions.Default)
+				upgrades, err := client.GetPendingUpgrades(fdbv1beta2.Versions.Default)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(upgrades).To(Equal(map[string]bool{
 					"storage-1": true,
@@ -108,7 +108,7 @@ var _ = Describe("lock_client_test", func() {
 
 		Context("with a version that is not in the map", func() {
 			It("returns the upgrades in the map", func() {
-				upgrades, err := client.GetPendingUpgrades(fdbtypes.Versions.NextPatchVersion)
+				upgrades, err := client.GetPendingUpgrades(fdbv1beta2.Versions.NextPatchVersion)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(upgrades).NotTo(BeNil())
 				Expect(upgrades).To(BeEmpty())

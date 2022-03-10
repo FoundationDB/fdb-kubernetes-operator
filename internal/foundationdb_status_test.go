@@ -21,7 +21,7 @@
 package internal
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -30,7 +30,7 @@ import (
 var _ = Describe("Internal FoundationDBStatus", func() {
 	When("parsing the status for coordinators", func() {
 		type testCase struct {
-			status   *fdbtypes.FoundationDBStatus
+			status   *v1beta2.FoundationDBStatus
 			expected map[string]struct{}
 		}
 
@@ -41,19 +41,19 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 			},
 			Entry("no coordinators",
 				testCase{
-					status:   &fdbtypes.FoundationDBStatus{},
+					status:   &v1beta2.FoundationDBStatus{},
 					expected: map[string]struct{}{},
 				}),
 			Entry("single coordinators",
 				testCase{
-					status: &fdbtypes.FoundationDBStatus{
-						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-							Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+					status: &v1beta2.FoundationDBStatus{
+						Cluster: v1beta2.FoundationDBStatusClusterInfo{
+							Processes: map[string]v1beta2.FoundationDBStatusProcessInfo{
 								"foo": {
 									Locality: map[string]string{
-										fdbtypes.FDBLocalityInstanceIDKey: "foo",
+										v1beta2.FDBLocalityInstanceIDKey: "foo",
 									},
-									Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
+									Roles: []v1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
 										},
@@ -61,7 +61,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 								},
 								"bar": {
 									Locality: map[string]string{
-										fdbtypes.FDBLocalityInstanceIDKey: "bar",
+										v1beta2.FDBLocalityInstanceIDKey: "bar",
 									},
 								},
 							},
@@ -73,14 +73,14 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				}),
 			Entry("multiple coordinators",
 				testCase{
-					status: &fdbtypes.FoundationDBStatus{
-						Cluster: fdbtypes.FoundationDBStatusClusterInfo{
-							Processes: map[string]fdbtypes.FoundationDBStatusProcessInfo{
+					status: &v1beta2.FoundationDBStatus{
+						Cluster: v1beta2.FoundationDBStatusClusterInfo{
+							Processes: map[string]v1beta2.FoundationDBStatusProcessInfo{
 								"foo": {
 									Locality: map[string]string{
-										fdbtypes.FDBLocalityInstanceIDKey: "foo",
+										v1beta2.FDBLocalityInstanceIDKey: "foo",
 									},
-									Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
+									Roles: []v1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
 										},
@@ -88,9 +88,9 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 								},
 								"bar": {
 									Locality: map[string]string{
-										fdbtypes.FDBLocalityInstanceIDKey: "bar",
+										v1beta2.FDBLocalityInstanceIDKey: "bar",
 									},
-									Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
+									Roles: []v1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
 										},

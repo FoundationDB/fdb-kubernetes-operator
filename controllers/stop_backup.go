@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // stopBackup provides a reconciliation step for stopping backup.
@@ -31,7 +31,7 @@ type stopBackup struct {
 }
 
 // reconcile runs the reconciler's work.
-func (s stopBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (s stopBackup) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
 	if backup.ShouldRun() || backup.Status.BackupDetails == nil || !backup.Status.BackupDetails.Running {
 		return nil
 	}

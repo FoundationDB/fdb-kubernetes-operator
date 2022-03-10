@@ -31,7 +31,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,7 +41,7 @@ import (
 type updateBackupAgents struct{}
 
 // reconcile runs the reconciler's work.
-func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbtypes.FoundationDBBackup) *requeue {
+func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false

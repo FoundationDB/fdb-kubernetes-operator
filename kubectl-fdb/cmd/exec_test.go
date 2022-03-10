@@ -21,8 +21,7 @@
 package cmd
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,7 +38,7 @@ var _ = Describe("[plugin] exec command", func() {
 		clusterName := "test"
 		namespace := "test"
 
-		var cluster fdbtypes.FoundationDBCluster
+		var cluster fdbv1beta2.FoundationDBCluster
 		var podList corev1.PodList
 
 		type testCase struct {
@@ -51,13 +50,13 @@ var _ = Describe("[plugin] exec command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbtypes.FoundationDBCluster{
+			cluster = fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
 				},
-				Spec: fdbtypes.FoundationDBClusterSpec{
-					ProcessCounts: fdbtypes.ProcessCounts{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					ProcessCounts: fdbv1beta2.ProcessCounts{
 						Storage: 1,
 					},
 				},
@@ -70,10 +69,8 @@ var _ = Describe("[plugin] exec command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:    string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:         clusterName,
-								internal.OldFDBProcessClassLabel: string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBClusterLabel:      clusterName,
+								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBClusterLabel:      clusterName,
 							},
 						},
 					},
@@ -85,7 +82,7 @@ var _ = Describe("[plugin] exec command", func() {
 			func(input testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 
 				command, err := buildCommand(kubeClient, &cluster, input.Context, namespace, input.Command)

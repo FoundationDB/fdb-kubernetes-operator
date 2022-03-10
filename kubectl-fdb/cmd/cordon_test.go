@@ -25,8 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,7 +43,7 @@ var _ = Describe("[plugin] cordon command", func() {
 		clusterName := "test"
 		namespace := "test"
 
-		var cluster fdbtypes.FoundationDBCluster
+		var cluster fdbv1beta2.FoundationDBCluster
 		var nodeList corev1.NodeList
 		var podList corev1.PodList
 
@@ -56,13 +55,13 @@ var _ = Describe("[plugin] cordon command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbtypes.FoundationDBCluster{
+			cluster = fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
 				},
-				Spec: fdbtypes.FoundationDBClusterSpec{
-					ProcessCounts: fdbtypes.ProcessCounts{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					ProcessCounts: fdbv1beta2.ProcessCounts{
 						Storage: 1,
 					},
 				},
@@ -79,12 +78,9 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-1",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
-								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-1",
-								internal.OldFDBProcessGroupIDLabel: "instance-1",
+								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBClusterLabel:        clusterName,
+								fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -96,12 +92,9 @@ var _ = Describe("[plugin] cordon command", func() {
 							Name:      "instance-2",
 							Namespace: namespace,
 							Labels: map[string]string{
-								fdbtypes.FDBProcessClassLabel:      string(fdbtypes.ProcessClassStorage),
-								internal.OldFDBProcessClassLabel:   string(fdbtypes.ProcessClassStorage),
-								fdbtypes.FDBClusterLabel:           clusterName,
-								internal.OldFDBClusterLabel:        clusterName,
-								fdbtypes.FDBProcessGroupIDLabel:    "instance-2",
-								internal.OldFDBProcessGroupIDLabel: "instance-2",
+								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+								fdbv1beta2.FDBClusterLabel:        clusterName,
+								fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -116,78 +109,13 @@ var _ = Describe("[plugin] cordon command", func() {
 			func(input testCase) {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
 				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList, &nodeList).Build()
 
-				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true, true)
+				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true)
 				Expect(err).NotTo(HaveOccurred())
 
-				var resCluster fdbtypes.FoundationDBCluster
-				err = kubeClient.Get(ctx.Background(), client.ObjectKey{
-					Namespace: namespace,
-					Name:      clusterName,
-				}, &resCluster)
-
-				Expect(err).NotTo(HaveOccurred())
-				// Use equality.Semantic.DeepEqual here since the Equal check of gomega is to strict
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemove, resCluster.Spec.InstancesToRemove)).To(BeTrue())
-				Expect(equality.Semantic.DeepEqual(input.ExpectedInstancesToRemoveWithoutExclusion, resCluster.Spec.InstancesToRemoveWithoutExclusion)).To(BeTrue())
-			},
-			Entry("Cordon node with exclusion",
-				testCase{
-					nodes:                     []string{"node-1"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-1"},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-				}),
-			Entry("Cordon node without exclusion",
-				testCase{
-					nodes:                     []string{"node-1"},
-					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1"},
-				}),
-			Entry("Cordon no nodes with exclusion",
-				testCase{
-					nodes:                     []string{""},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-				}),
-			Entry("Cordon no node nodes without exclusion",
-				testCase{
-					nodes:                     []string{""},
-					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-				}),
-			Entry("Cordon all nodes with exclusion",
-				testCase{
-					nodes:                     []string{"node-1", "node-2"},
-					WithExclusion:             true,
-					ExpectedInstancesToRemove: []string{"instance-1", "instance-2"},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{},
-				}),
-			Entry("Cordon all nodes without exclusion",
-				testCase{
-					nodes:                     []string{"node-1", "node-2"},
-					WithExclusion:             false,
-					ExpectedInstancesToRemove: []string{},
-					ExpectedInstancesToRemoveWithoutExclusion: []string{"instance-1", "instance-2"},
-				}),
-		)
-
-		DescribeTable("should cordon all targeted processes",
-			func(input testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbtypes.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList, &nodeList).Build()
-
-				err := cordonNode(kubeClient, &cluster, input.nodes, namespace, input.WithExclusion, true, false)
-				Expect(err).NotTo(HaveOccurred())
-
-				var resCluster fdbtypes.FoundationDBCluster
+				var resCluster fdbv1beta2.FoundationDBCluster
 				err = kubeClient.Get(ctx.Background(), client.ObjectKey{
 					Namespace: namespace,
 					Name:      clusterName,

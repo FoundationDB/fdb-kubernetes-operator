@@ -20,7 +20,9 @@
 
 package fdbadminclient
 
-import "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+import (
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+)
 
 // LockClient provides a client for getting locks on operations for a cluster.
 type LockClient interface {
@@ -32,11 +34,11 @@ type LockClient interface {
 
 	// AddPendingUpgrades registers information about which process groups are
 	// pending an upgrade to a new version.
-	AddPendingUpgrades(version v1beta1.FdbVersion, processGroupIDs []string) error
+	AddPendingUpgrades(version fdbv1beta2.Version, processGroupIDs []string) error
 
 	// GetPendingUpgrades returns the stored information about which process
 	// groups are pending an upgrade to a new version.
-	GetPendingUpgrades(version v1beta1.FdbVersion) (map[string]bool, error)
+	GetPendingUpgrades(version fdbv1beta2.Version) (map[string]bool, error)
 
 	// ClearPendingUpgrades clears any stored information about pending
 	// upgrades.
@@ -46,5 +48,5 @@ type LockClient interface {
 	GetDenyList() ([]string, error)
 
 	// UpdateDenyList updates the deny list to match a list of entries.
-	UpdateDenyList(locks []v1beta1.LockDenyListEntry) error
+	UpdateDenyList(locks []fdbv1beta2.LockDenyListEntry) error
 }

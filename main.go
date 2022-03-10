@@ -19,17 +19,21 @@ import (
 	"flag"
 	"os"
 
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
-	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
-	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/setup"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -38,13 +42,14 @@ var (
 )
 
 func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = fdbtypes.AddToScheme(scheme)
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(fdbv1beta1.AddToScheme(scheme))
+	utilruntime.Must(fdbv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-	fdb.MustAPIVersion(610)
+	fdb.MustAPIVersion(620)
 	operatorOpts := setup.Options{}
 	operatorOpts.BindFlags(flag.CommandLine)
 

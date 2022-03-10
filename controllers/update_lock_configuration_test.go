@@ -25,13 +25,13 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("update_lock_configuration", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var lockClient *mockLockClient
 	var err error
 	var requeue *requeue
@@ -73,13 +73,13 @@ var _ = Describe("update_lock_configuration", func() {
 		})
 
 		It("should leave the lock status empty", func() {
-			Expect(cluster.Status.Locks).To(Equal(fdbtypes.LockSystemStatus{}))
+			Expect(cluster.Status.Locks).To(Equal(fdbv1beta2.LockSystemStatus{}))
 		})
 	})
 
 	Context("with an entry in the deny list", func() {
 		BeforeEach(func() {
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbtypes.LockDenyListEntry{ID: "dc2"})
+			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbv1beta2.LockDenyListEntry{ID: "dc2"})
 		})
 
 		It("should not requeue", func() {
@@ -99,9 +99,9 @@ var _ = Describe("update_lock_configuration", func() {
 
 	Context("with an entry to remove from the deny list", func() {
 		BeforeEach(func() {
-			err = lockClient.UpdateDenyList([]fdbtypes.LockDenyListEntry{{ID: "dc2"}, {ID: "dc3"}})
+			err = lockClient.UpdateDenyList([]fdbv1beta2.LockDenyListEntry{{ID: "dc2"}, {ID: "dc3"}})
 			Expect(err).NotTo(HaveOccurred())
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbtypes.LockDenyListEntry{ID: "dc2", Allow: true})
+			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbv1beta2.LockDenyListEntry{ID: "dc2", Allow: true})
 		})
 
 		It("should not requeue", func() {

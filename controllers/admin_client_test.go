@@ -31,11 +31,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 var _ = Describe("admin_client_test", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 	var client *mockAdminClient
 
 	var err error
@@ -58,7 +58,7 @@ var _ = Describe("admin_client_test", func() {
 	})
 
 	Describe("JSON status", func() {
-		var status *fdbtypes.FoundationDBStatus
+		var status *fdbv1beta2.FoundationDBStatus
 		JustBeforeEach(func() {
 			status, err = client.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
@@ -66,31 +66,31 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with a basic cluster", func() {
 			It("should generate the status", func() {
-				Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbtypes.DatabaseConfiguration{
-					RedundancyMode: fdbtypes.RedundancyModeDouble,
+				Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
+					RedundancyMode: fdbv1beta2.RedundancyModeDouble,
 					StorageEngine:  "ssd-2",
 					UsableRegions:  1,
-					RoleCounts: fdbtypes.RoleCounts{
+					RoleCounts: fdbv1beta2.RoleCounts{
 						Logs:       3,
 						Proxies:    3,
 						Resolvers:  1,
 						LogRouters: -1,
 						RemoteLogs: -1,
 					},
-					VersionFlags: fdbtypes.VersionFlags{
+					VersionFlags: fdbv1beta2.VersionFlags{
 						LogSpill: 2,
 					},
 				}))
 
 				address := cluster.Status.ProcessGroups[13].Addresses[0]
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
-				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
-					Address: fdbtypes.ProcessAddress{
+				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
+					Address: fdbv1beta2.ProcessAddress{
 						IPAddress: net.ParseIP(address),
 						Port:      4501,
 					},
-					ProcessClass: fdbtypes.ProcessClassStorage,
-					CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address),
+					ProcessClass: fdbv1beta2.ProcessClassStorage,
+					CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, address),
 					Excluded:     false,
 					Locality: map[string]string{
 						"instance_id": "storage-1",
@@ -99,9 +99,9 @@ var _ = Describe("admin_client_test", func() {
 					},
 					Version:       "6.2.20",
 					UptimeSeconds: 60000,
-					Roles: []fdbtypes.FoundationDBStatusProcessRoleInfo{
+					Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 						{
-							Role: string(fdbtypes.ProcessRoleCoordinator),
+							Role: string(fdbv1beta2.ProcessRoleCoordinator),
 						},
 					},
 				}))
@@ -118,7 +118,7 @@ var _ = Describe("admin_client_test", func() {
 			When("the cluster has not been reconciled", func() {
 				It("should not have DNS names in the locality", func() {
 					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
-					Expect(locality[fdbtypes.FDBLocalityDNSNameKey]).To(BeEmpty())
+					Expect(locality[fdbv1beta2.FDBLocalityDNSNameKey]).To(BeEmpty())
 				})
 			})
 
@@ -131,14 +131,14 @@ var _ = Describe("admin_client_test", func() {
 
 				It("should have DNS names in the locality", func() {
 					locality := status.Cluster.Processes["operator-test-1-storage-1-1"].Locality
-					Expect(locality[fdbtypes.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, "operator-test-1-storage-1")))
+					Expect(locality[fdbv1beta2.FDBLocalityDNSNameKey]).To(Equal(internal.GetPodDNSName(cluster, "operator-test-1-storage-1")))
 				})
 			})
 		})
 
 		Context("with an additional process", func() {
 			BeforeEach(func() {
-				client.MockAdditionalProcesses([]fdbtypes.ProcessGroupStatus{{
+				client.MockAdditionalProcesses([]fdbv1beta2.ProcessGroupStatus{{
 					ProcessGroupID: "dc2-storage-1",
 					ProcessClass:   "storage",
 					Addresses:      []string{"1.2.3.4"},
@@ -147,12 +147,12 @@ var _ = Describe("admin_client_test", func() {
 
 			It("puts the additional processes in the status", func() {
 				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups) + 1))
-				Expect(status.Cluster.Processes["dc2-storage-1"]).To(Equal(fdbtypes.FoundationDBStatusProcessInfo{
-					Address: fdbtypes.ProcessAddress{
+				Expect(status.Cluster.Processes["dc2-storage-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
+					Address: fdbv1beta2.ProcessAddress{
 						IPAddress: net.ParseIP("1.2.3.4"),
 						Port:      4501,
 					},
-					ProcessClass: fdbtypes.ProcessClassStorage,
+					ProcessClass: fdbv1beta2.ProcessClassStorage,
 					Locality: map[string]string{
 						"instance_id": "dc2-storage-1",
 						"zoneid":      "dc2-storage-1",
@@ -171,7 +171,7 @@ var _ = Describe("admin_client_test", func() {
 
 			It("should put the backup in the layer status", func() {
 				Expect(status.Cluster.Layers.Backup.Paused).To(BeFalse())
-				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+				Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 					"default": {
 						CurrentContainer: "blobstore://test@test-service/test-backup",
 						RunningBackup:    true,
@@ -211,7 +211,7 @@ var _ = Describe("admin_client_test", func() {
 				})
 
 				It("should mark the backup as stopped", func() {
-					Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbtypes.FoundationDBStatusBackupTag{
+					Expect(status.Cluster.Layers.Backup.Tags).To(Equal(map[string]fdbv1beta2.FoundationDBStatusBackupTag{
 						"default": {
 							CurrentContainer: "blobstore://test@test-service/test-backup",
 							RunningBackup:    false,
@@ -224,7 +224,7 @@ var _ = Describe("admin_client_test", func() {
 	})
 
 	Describe("backup status", func() {
-		var status *fdbtypes.FoundationDBLiveBackupStatus
+		var status *fdbv1beta2.FoundationDBLiveBackupStatus
 		JustBeforeEach(func() {
 			status, err = client.GetBackupStatus()
 			Expect(err).NotTo(HaveOccurred())

@@ -29,7 +29,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
 
 // updatePodConfig provides a reconciliation step for updating the dynamic conf
@@ -37,7 +37,7 @@ import (
 type updatePodConfig struct{}
 
 // reconcile runs the reconciler's work.
-func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbtypes.FoundationDBCluster) *requeue {
+func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePodConfig")
 	configMap, err := internal.GetConfigMap(cluster)
 	if err != nil {
@@ -97,7 +97,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		if pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] == configMapHash {
+		if pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] == configMapHash {
 			continue
 		}
 
@@ -109,12 +109,12 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 				curLogger.Error(err, "Update Pod ConfigMap annotation")
 			}
 			if internal.IsNetworkError(err) {
-				processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
-				processGroup.UpdateCondition(fdbtypes.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 
-			pod.ObjectMeta.Annotations[fdbtypes.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
+			pod.ObjectMeta.Annotations[fdbv1beta2.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
 			err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 			if err != nil {
 				allSynced = false
@@ -124,8 +124,8 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			continue
 		}
 
-		pod.ObjectMeta.Annotations[fdbtypes.LastConfigMapKey] = configMapHash
-		delete(pod.ObjectMeta.Annotations, fdbtypes.OutdatedConfigMapKey)
+		pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] = configMapHash
+		delete(pod.ObjectMeta.Annotations, fdbv1beta2.OutdatedConfigMapKey)
 		err = r.PodLifecycleManager.UpdateMetadata(ctx, r, cluster, pod)
 		if err != nil {
 			allSynced = false
@@ -134,7 +134,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 
 		hasUpdate = true
-		processGroup.UpdateCondition(fdbtypes.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+		processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, false, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 	}
 
 	if hasUpdate {

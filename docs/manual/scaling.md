@@ -7,7 +7,7 @@ You can manage process counts in either the database configuration or in the pro
 To explicitly set process counts, you could configure the cluster as follows:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -34,7 +34,7 @@ You can also set a process count to -1 to tell the operator not to provision any
 Instead of setting the process counts directly, let's update the counts of recruited roles in the database configuration:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -54,7 +54,7 @@ This will provision 1 additional log process and 3 additional stateless processe
 You can shrink a cluster by changing the database configuration or process count, just like when we grew a cluster:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -77,7 +77,7 @@ Any changes to the database configuration will happen before we exclude any proc
 You can change the replication mode in the database by changing the field in the database configuration:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster

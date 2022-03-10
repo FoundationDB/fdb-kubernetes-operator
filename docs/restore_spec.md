@@ -23,7 +23,7 @@ FoundationDBKeyRange describes a range of keys for a command.  The keys in the k
 
 ## FoundationDBRestore
 
-FoundationDBRestore is the Schema for the FoundationDB Restore API
+FoundationDBRestore is the Schema for the foundationdbrestores API
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -35,7 +35,7 @@ FoundationDBRestore is the Schema for the FoundationDB Restore API
 
 ## FoundationDBRestoreList
 
-FoundationDBRestoreList contains a list of FoundationDBRestore objects.
+FoundationDBRestoreList contains a list of FoundationDBRestore objects
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -51,7 +51,6 @@ FoundationDBRestoreSpec describes the desired state of the backup for a cluster.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | destinationClusterName | DestinationClusterName provides the name of the cluster that the data is being restored into. | string | true |
-| backupURL | BackupURL provides the URL for the backup. **Deprecated: Use BlobStoreConfiguration instead** | string | false |
 | keyRanges | The key ranges to restore. | [][FoundationDBKeyRange](#foundationdbkeyrange) | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *BlobStoreConfiguration | false |
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |

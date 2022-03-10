@@ -21,35 +21,38 @@
 package controllers
 
 import (
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	"time"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("metrics", func() {
-	var cluster *fdbtypes.FoundationDBCluster
+	var cluster *fdbv1beta2.FoundationDBCluster
 
 	BeforeEach(func() {
-		cluster = &fdbtypes.FoundationDBCluster{
-			Status: fdbtypes.FoundationDBClusterStatus{
-				ProcessGroups: []*fdbtypes.ProcessGroupStatus{
+		cluster = &fdbv1beta2.FoundationDBCluster{
+			Status: fdbv1beta2.FoundationDBClusterStatus{
+				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
 					{
-						ProcessClass: fdbtypes.ProcessClassStorage,
+						ProcessClass: fdbv1beta2.ProcessClassStorage,
 					},
 					{
-						ProcessClass: fdbtypes.ProcessClassLog,
-						ProcessGroupConditions: []*fdbtypes.ProcessGroupCondition{
-							fdbtypes.NewProcessGroupCondition(fdbtypes.MissingProcesses),
+						ProcessClass: fdbv1beta2.ProcessClassLog,
+						ProcessGroupConditions: []*fdbv1beta2.ProcessGroupCondition{
+							fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.MissingProcesses),
 						},
 					},
 					{
-						ProcessClass: fdbtypes.ProcessClassStorage,
-						Remove:       true,
+						ProcessClass:     fdbv1beta2.ProcessClassStorage,
+						RemovalTimestamp: &metav1.Time{Time: time.Now()},
 					},
 					{
-						ProcessClass: fdbtypes.ProcessClassStateless,
-						Remove:       true,
-						Excluded:     true,
+						ProcessClass:       fdbv1beta2.ProcessClassStateless,
+						RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+						ExclusionTimestamp: &metav1.Time{Time: time.Now()},
 					},
 				},
 			},
@@ -60,16 +63,16 @@ var _ = Describe("metrics", func() {
 		It("generate the process class metrics", func() {
 			stats, removals, exclusions := getProcessGroupMetrics(cluster)
 			Expect(len(stats)).To(BeNumerically("==", 3))
-			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
-			Expect(len(stats[fdbtypes.ProcessClassStorage])).To(BeNumerically("==", len(fdbtypes.AllProcessGroupConditionTypes())))
-			Expect(stats[fdbtypes.ProcessClassStorage][fdbtypes.ReadyCondition]).To(BeNumerically("==", 2))
-			Expect(stats[fdbtypes.ProcessClassLog][fdbtypes.ReadyCondition]).To(BeNumerically("==", 0))
-			Expect(stats[fdbtypes.ProcessClassLog][fdbtypes.MissingProcesses]).To(BeNumerically("==", 1))
-			Expect(stats[fdbtypes.ProcessClassStateless][fdbtypes.ReadyCondition]).To(BeNumerically("==", 1))
-			Expect(removals[fdbtypes.ProcessClassStorage]).To(BeNumerically("==", 1))
-			Expect(exclusions[fdbtypes.ProcessClassStorage]).To(BeNumerically("==", 0))
-			Expect(removals[fdbtypes.ProcessClassStateless]).To(BeNumerically("==", 1))
-			Expect(exclusions[fdbtypes.ProcessClassStateless]).To(BeNumerically("==", 1))
+			Expect(len(stats[fdbv1beta2.ProcessClassStorage])).To(BeNumerically("==", len(fdbv1beta2.AllProcessGroupConditionTypes())))
+			Expect(len(stats[fdbv1beta2.ProcessClassStorage])).To(BeNumerically("==", len(fdbv1beta2.AllProcessGroupConditionTypes())))
+			Expect(stats[fdbv1beta2.ProcessClassStorage][fdbv1beta2.ReadyCondition]).To(BeNumerically("==", 2))
+			Expect(stats[fdbv1beta2.ProcessClassLog][fdbv1beta2.ReadyCondition]).To(BeNumerically("==", 0))
+			Expect(stats[fdbv1beta2.ProcessClassLog][fdbv1beta2.MissingProcesses]).To(BeNumerically("==", 1))
+			Expect(stats[fdbv1beta2.ProcessClassStateless][fdbv1beta2.ReadyCondition]).To(BeNumerically("==", 1))
+			Expect(removals[fdbv1beta2.ProcessClassStorage]).To(BeNumerically("==", 1))
+			Expect(exclusions[fdbv1beta2.ProcessClassStorage]).To(BeNumerically("==", 0))
+			Expect(removals[fdbv1beta2.ProcessClassStateless]).To(BeNumerically("==", 1))
+			Expect(exclusions[fdbv1beta2.ProcessClassStateless]).To(BeNumerically("==", 1))
 		})
 	})
 })

@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,7 +53,7 @@ type FoundationDBRestoreReconciler struct {
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBRestoreReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	restore := &fdbtypes.FoundationDBRestore{}
+	restore := &fdbv1beta2.FoundationDBRestore{}
 	err := r.Get(ctx, request.NamespacedName, restore)
 
 	if err != nil {
@@ -95,8 +95,8 @@ func (r *FoundationDBRestoreReconciler) getDatabaseClientProvider() DatabaseClie
 }
 
 // adminClientForRestore provides an admin client for a restore reconciler.
-func (r *FoundationDBRestoreReconciler) adminClientForRestore(ctx context.Context, restore *fdbtypes.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
-	cluster := &fdbtypes.FoundationDBCluster{}
+func (r *FoundationDBRestoreReconciler) adminClientForRestore(ctx context.Context, restore *fdbv1beta2.FoundationDBRestore) (fdbadminclient.AdminClient, error) {
+	cluster := &fdbv1beta2.FoundationDBCluster{}
 	err := r.Get(ctx, types.NamespacedName{Namespace: restore.ObjectMeta.Namespace, Name: restore.Spec.DestinationClusterName}, cluster)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (r *FoundationDBRestoreReconciler) SetupWithManager(mgr ctrl.Manager, maxCo
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles},
 		).
-		For(&fdbtypes.FoundationDBRestore{}).
+		For(&fdbv1beta2.FoundationDBRestore{}).
 		// Only react on generation changes or annotation changes and only watch
 		// resources with the provided label selector.
 		WithEventFilter(
@@ -151,5 +151,5 @@ type restoreSubReconciler interface {
 	If reconciliation cannot proceed, this should return a `requeue` object with
 	a `Message` field.
 	*/
-	reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbtypes.FoundationDBRestore) *requeue
+	reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue
 }

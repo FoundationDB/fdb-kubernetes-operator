@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,18 +29,18 @@ import (
 var _ = Describe("[api] FDBVersion", func() {
 	When("checking if the protocol and the version are compatible", func() {
 		It("should return the correct compatibility", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 20})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 2, Patch: 22})).To(BeTrue())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 0})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
-			Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
+			version := Version{Major: 6, Minor: 2, Patch: 20}
+			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 2, Patch: 20})).To(BeTrue())
+			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 2, Patch: 22})).To(BeTrue())
+			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 3, Patch: 0})).To(BeFalse())
+			Expect(version.IsProtocolCompatible(Version{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
+			Expect(version.IsProtocolCompatible(Version{Major: 7, Minor: 2, Patch: 20})).To(BeFalse())
 		})
 
 		When("release candidates differ", func() {
 			It("should be incompatible", func() {
-				version := FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}
-				Expect(version.IsProtocolCompatible(FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2})).To(BeFalse())
+				version := Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}
+				Expect(version.IsProtocolCompatible(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 2})).To(BeFalse())
 			})
 		})
 	})
@@ -49,23 +49,23 @@ var _ = Describe("[api] FDBVersion", func() {
 		It("should return the fdb version struct", func() {
 			version, err := ParseFdbVersion("6.2.11")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
+			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11}))
 
 			version, err = ParseFdbVersion("prerelease-6.2.11")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11}))
+			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11}))
 
 			version, err = ParseFdbVersion("test-6.2.11-test")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}))
+			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}))
 
 			version, err = ParseFdbVersion("7.0.0-rc1")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}))
+			Expect(version).To(Equal(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}))
 
 			version, err = ParseFdbVersion("7.1.0-rc39")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(Equal(FdbVersion{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}))
+			Expect(version).To(Equal(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}))
 
 			_, err = ParseFdbVersion("6.2")
 			Expect(err).To(HaveOccurred())
@@ -73,38 +73,38 @@ var _ = Describe("[api] FDBVersion", func() {
 		})
 
 		It("should format the version correctly", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 11}
+			version := Version{Major: 6, Minor: 2, Patch: 11}
 			Expect(version.String()).To(Equal("6.2.11"))
-			version = FdbVersion{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}
+			version = Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}
 			Expect(version.String()).To(Equal("6.2.11"))
-			version = FdbVersion{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 1}
+			version = Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 1}
 			Expect(version.String()).To(Equal("6.2.11-rc1"))
 		})
 	})
 
 	When("getting the next version of the current FDBVersion", func() {
 		It("should return the correct next version", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
-			Expect(version.NextMajorVersion()).To(Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0}))
-			Expect(version.NextMinorVersion()).To(Equal(FdbVersion{Major: version.Major, Minor: 3, Patch: 0}))
-			Expect(version.NextPatchVersion()).To(Equal(FdbVersion{Major: version.Major, Minor: version.Minor, Patch: 21}))
+			version := Version{Major: 6, Minor: 2, Patch: 20}
+			Expect(version.NextMajorVersion()).To(Equal(Version{Major: 7, Minor: 0, Patch: 0}))
+			Expect(version.NextMinorVersion()).To(Equal(Version{Major: version.Major, Minor: 3, Patch: 0}))
+			Expect(version.NextPatchVersion()).To(Equal(Version{Major: version.Major, Minor: version.Minor, Patch: 21}))
 		})
 	})
 
 	When("comparing two FDBVersions", func() {
 		It("should return if they are equal", func() {
-			version := FdbVersion{Major: 6, Minor: 2, Patch: 20}
+			version := Version{Major: 6, Minor: 2, Patch: 20}
 			Expect(version.Equal(version)).To(BeTrue())
-			Expect(version.Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
-			Expect(version.Equal(FdbVersion{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
-			Expect(version.Equal(FdbVersion{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
-			Expect(version.Equal(FdbVersion{Major: 6, Minor: 2, Patch: 21})).To(BeFalse())
+			Expect(version.Equal(Version{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
+			Expect(version.Equal(Version{Major: 7, Minor: 0, Patch: 0})).To(BeFalse())
+			Expect(version.Equal(Version{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
+			Expect(version.Equal(Version{Major: 6, Minor: 2, Patch: 21})).To(BeFalse())
 		})
 	})
 
 	When("checking if the version has support for non-blocking exclude commands", func() {
 		type testCase struct {
-			version                FdbVersion
+			version                Version
 			useNonBlockingExcludes bool
 			expectedResult         bool
 		}
@@ -115,25 +115,25 @@ var _ = Describe("[api] FDBVersion", func() {
 			},
 			Entry("When version is below 6.3.5 and useNonBlockingExcludes is false",
 				testCase{
-					version:                FdbVersion{Major: 6, Minor: 3, Patch: 0},
+					version:                Version{Major: 6, Minor: 3, Patch: 0},
 					useNonBlockingExcludes: false,
 					expectedResult:         false,
 				}),
 			Entry("When version is below 6.3.5 and useNonBlockingExcludes is true",
 				testCase{
-					version:                FdbVersion{Major: 6, Minor: 3, Patch: 0},
+					version:                Version{Major: 6, Minor: 3, Patch: 0},
 					useNonBlockingExcludes: false,
 					expectedResult:         false,
 				}),
 			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is false",
 				testCase{
-					version:                FdbVersion{Major: 6, Minor: 3, Patch: 5},
+					version:                Version{Major: 6, Minor: 3, Patch: 5},
 					useNonBlockingExcludes: false,
 					expectedResult:         false,
 				}),
 			Entry("When version is atleast 6.3.5 and useNonBlockingExcludes is true",
 				testCase{
-					version:                FdbVersion{Major: 6, Minor: 3, Patch: 6},
+					version:                Version{Major: 6, Minor: 3, Patch: 6},
 					useNonBlockingExcludes: true,
 					expectedResult:         true,
 				}),
