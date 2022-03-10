@@ -1,6 +1,0 @@
-apiVersion: apps.foundationdb.org/v1beta2
-kind: FoundationDBBackup
-metadata:
-  name: foundationdbbackup-sample
-spec:
-  # TODO(user): Add fields here

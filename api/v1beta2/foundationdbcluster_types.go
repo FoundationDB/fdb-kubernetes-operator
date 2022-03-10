@@ -54,7 +54,7 @@ type FoundationDBCluster struct {
 
 //+kubebuilder:object:root=true
 
-// FoundationDBClusterList contains a list of FoundationDBCluster
+// FoundationDBClusterList contains a list of FoundationDBCluster objects
 type FoundationDBClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -209,6 +209,7 @@ type FoundationDBClusterSpec struct {
 
 	// UseExplicitListenAddress determines if we should add a listen address
 	// that is separate from the public address.
+	// Deprecated: This setting will be removed in the next major release.
 	UseExplicitListenAddress *bool `json:"useExplicitListenAddress,omitempty"`
 
 	// UseUnifiedImage determines if we should use the unified image rather than
@@ -1076,7 +1077,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount := cluster.calculateProcessCountFromRole(1, processCounts.Master) +
 			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
 			cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy) +
-			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution, processCounts.Resolver)
+			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution)
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 		processCounts.Stateless = cluster.calculateProcessCount(true,
@@ -1408,6 +1409,7 @@ type ContainerOverrides struct {
 
 	// EnableReadinessProbe defines if the sidecar should have a readinessProbe.
 	// This setting will be ignored on the main container.
+	// Deprecated: Will be removed in the next major release.
 	EnableReadinessProbe *bool `json:"enableReadinessProbe,omitempty"`
 
 	// EnableTLS controls whether we should be listening on a TLS connection.
@@ -1700,6 +1702,7 @@ type LabelConfig struct {
 	// FilterOnOwnerReferences determines whether we should check that resources
 	// are owned by the cluster object, in addition to the constraints provided
 	// by the match labels.
+	// Deprecated: This setting will be removed in the next major release.
 	FilterOnOwnerReferences *bool `json:"filterOnOwnerReference,omitempty"`
 }
 

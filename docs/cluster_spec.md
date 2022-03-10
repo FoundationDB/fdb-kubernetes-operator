@@ -22,13 +22,11 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
-* [PendingRemovalState](#pendingremovalstate)
 * [ProcessGroupCondition](#processgroupcondition)
 * [ProcessGroupStatus](#processgroupstatus)
 * [ProcessSettings](#processsettings)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoutingConfig](#routingconfig)
-* [ServiceConfig](#serviceconfig)
 
 ## AutomaticReplacementOptions
 
@@ -71,9 +69,7 @@ ClusterGenerationStatus stores information on which generations have reached dif
 | missingDatabaseStatus | DatabaseUnavailable provides the last generation that could not complete reconciliation due to the database being unavailable. | int64 | false |
 | hasExtraListeners | HasExtraListeners provides the last generation that could not complete reconciliation because it has more listeners than it is supposed to. | int64 | false |
 | needsServiceUpdate | NeedsServiceUpdate provides the last generation that needs an update to the service config. | int64 | false |
-| needsBackupAgentUpdate | NeedsBackupAgentUpdate provides the last generation that could not complete reconciliation because the backup agent deployment needs to be updated. **Deprecated: This needs to get moved into FoundationDBBackup** | int64 | false |
 | hasPendingRemoval | HasPendingRemoval provides the last generation that has pods that have been excluded but are pending being removed.  A cluster in this state is considered reconciled, but we track this in the status to allow users of the operator to track when the removal is fully complete. | int64 | false |
-| hasFailingPods | HasFailingPods provides the last generation that has pods that are failing to start. **Deprecated: This is no longer used.** | int64 | false |
 | hasUnhealthyProcess | HasUnhealthyProcess provides the last generation that has at least one process group with a negative condition. | int64 | false |
 | needsLockConfigurationChanges | NeedsLockConfigurationChanges provides the last generation that is pending a change to the configuration of the locking system. | int64 | false |
 
@@ -111,14 +107,10 @@ ContainerOverrides provides options for customizing a container created by the o
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | enableLivenessProbe | EnableLivenessProbe defines if the sidecar should have a livenessProbe. This setting will be ignored on the main container. | *bool | false |
-| enableReadinessProbe | EnableReadinessProbe defines if the sidecar should have a readinessProbe. This setting will be ignored on the main container. | *bool | false |
+| enableReadinessProbe | EnableReadinessProbe defines if the sidecar should have a readinessProbe. This setting will be ignored on the main container. **Deprecated: Will be removed in the next major release.** | *bool | false |
 | enableTls | EnableTLS controls whether we should be listening on a TLS connection. | bool | false |
 | peerVerificationRules | PeerVerificationRules provides the rules for what client certificates the process should accept. | string | false |
 | imageConfigs | ImageConfigs allows customizing the image that we use for a container. | [][ImageConfig](#imageconfig) | false |
-| env | Env provides environment variables.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core) | false |
-| volumeMounts | VolumeMounts provides volume mounts.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core) | false |
-| imageName | ImageName provides the name of the image to use for the container, without the version tag.  **Deprecated: Use the PodTemplate field instead.** | string | false |
-| securityContext | SecurityContext provides the container's security context.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -153,12 +145,10 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | ----- | ----------- | ------ | -------- |
 | configureDatabase | ConfigureDatabase defines whether the operator is allowed to reconfigure the database. | *bool | false |
 | killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
-| deletePods | DeletePods defines whether the operator is allowed to delete pods in order to recreate them. **Deprecated: Use DeletionMode with PodUpdateModeNone to prevent the operator from deleting Pods.** | *bool | false |
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
-| ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before we ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
-| ignoreTerminatingPodsSeconds | IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block further reconciliation. | *int | false |
-| enforceFullReplicationForDeletion | EnforceFullReplicationForDeletion defines if the operator is only allowed to delete Pods if the cluster is fully replicated. If the cluster is not fully replicated the Operator won't delete any Pods that are marked for removal. Defaults to true. **Deprecated: Will be enforced by default in 1.0.0 without disabling.** | *bool | false |
+| ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
+| ignoreTerminatingPodsSeconds | IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block further reconciliation. | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements defines how many process groups can be concurrently replaced if they are misconfigured. If the value will be set to 0 this will block replacements and these misconfigured Pods must be replaced manually or by another process. For each reconcile loop the operator calculates the maximum number of possible replacements by taken this value as the upper limit and removes all ongoing replacements that have not finished. Which means if the value is set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the operator is allowed to replace on further process group. | *int | false |
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | PodUpdateMode | false |
 | removalMode | RemovalMode defines the removal mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | PodUpdateMode | false |
@@ -183,7 +173,7 @@ FoundationDBClusterFaultDomain describes the fault domain that a cluster is repl
 
 ## FoundationDBClusterList
 
-FoundationDBClusterList contains a list of FoundationDBCluster
+FoundationDBClusterList contains a list of FoundationDBCluster objects
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -199,16 +189,13 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
-| sidecarVersions | SidecarVersions defines the build version of the sidecar to run. This maps an FDB version to the corresponding sidecar build version. **Deprecated: Use SidecarContainer.ImageConfigs instead.** | map[string]int | false |
 | databaseConfiguration | DatabaseConfiguration defines the database configuration. | DatabaseConfiguration | false |
 | processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
 | processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | ProcessCounts | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
-| instancesToRemove | InstancesToRemove defines the instances that we should remove from the cluster. This list contains the instance IDs. **Deprecated: Use ProcessGroupsToRemove instead.** | []string | false |
 | processGroupsToRemove | ProcessGroupsToRemove defines the process groups that we should remove from the cluster. This list contains the process group IDs. | []string | false |
-| instancesToRemoveWithoutExclusion | InstancesToRemoveWithoutExclusion defines the instances that we should remove from the cluster without excluding them. This list contains the instance IDs.  This should be used for cases where a pod does not have an IP address and you want to remove it and destroy its volume without confirming the data is fully replicated. **Deprecated: Use ProcessGroupsToRemoveWithoutExclusion instead.** | []string | false |
 | processGroupsToRemoveWithoutExclusion | ProcessGroupsToRemoveWithoutExclusion defines the process groups that we should remove from the cluster without excluding them. This list contains the process group IDs.  This should be used for cases where a pod does not have an IP address and you want to remove it and destroy its volume without confirming the data is fully replicated. | []string | false |
 | configMap | ConfigMap allows customizing the config map the operator creates. | *[corev1.ConfigMap](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#configmap-v1-core) | false |
 | mainContainer | MainContainer defines customization for the foundationdb container. | [ContainerOverrides](#containeroverrides) | false |
@@ -219,39 +206,18 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | dataCenter | DataCenter defines the data center where these processes are running. | string | false |
 | dataHall | DataHall defines the data hall where these processes are running. | string | false |
 | automationOptions | AutomationOptions defines customization for enabling or disabling certain operations in the operator. | [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions) | false |
-| instanceIDPrefix | InstanceIDPrefix defines a prefix to append to the instance IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. **Deprecated: Use ProcessGroupIDPrefix instead.** | string | false |
 | processGroupIDPrefix | ProcessGroupIDPrefix defines a prefix to append to the process group IDs in the locality fields.  This must be a valid Kubernetes label value. See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set for more details on that. | string | false |
-| updatePodsByReplacement | UpdatePodsByReplacement determines whether we should update pod config by replacing the pods rather than deleting them. **Deprecated: use PodUpdateStrategy instead** | bool | false |
 | lockOptions | LockOptions allows customizing how we manage locks for global operations. | [LockOptions](#lockoptions) | false |
-| services | Services defines the configuration for services that sit in front of our pods. **Deprecated: Use Routing instead.** | [ServiceConfig](#serviceconfig) | false |
 | routing | Routing defines the configuration for routing to our pods. | [RoutingConfig](#routingconfig) | false |
 | ignoreUpgradabilityChecks | IgnoreUpgradabilityChecks determines whether we should skip the check for client compatibility when performing an upgrade. | bool | false |
 | buggify | Buggify defines settings for injecting faults into a cluster for testing. | [BuggifyConfig](#buggifyconfig) | false |
-| sidecarVersion | SidecarVersion defines the build version of the sidecar to use.  **Deprecated: Use SidecarVersions instead.** | int | false |
-| podLabels | PodLabels defines custom labels to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | map[string]string | false |
-| resources | Resources defines the resource requirements for the foundationdb containers.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core) | false |
-| initContainers | InitContainers defines custom init containers for the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core) | false |
-| containers | Containers defines custom containers for the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | [][corev1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core) | false |
-| volumes | Volumes defines custom volumes for the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | []corev1.Volume | false |
-| podSecurityContext | PodSecurityContext defines the security context to apply to the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | *[corev1.PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core) | false |
-| automountServiceAccountToken | AutomountServiceAccountToken defines whether we should automount the service account tokens in the FDB pods.  **Deprecated: Use the PodTemplate field instead.** | *bool | false |
-| nextInstanceID | NextInstanceID defines the ID to use when creating the next instance.  **Deprecated: This is no longer used.** | int | false |
-| storageClass | StorageClass defines the storage class for the volumes in the cluster.  **Deprecated: Use the VolumeClaim field instead.** | *string | false |
-| volumeSize | VolumeSize defines the size of the volume to use for stateful processes.  **Deprecated: Use the VolumeClaim field instead.** | string | false |
-| runningVersion | RunningVersion defines the version of FoundationDB that the cluster is currently running.  **Deprecated: Consult the running version in the status instead.** | string | false |
-| connectionString | ConnectionString defines the contents of the cluster file.  **Deprecated: You can use SeedConnectionString for bootstrapping, and you can use the ConnectionString in the status to get the latest connection string.** | string | false |
-| configured | Configured defines whether we have configured the database yet. **Deprecated: This field has been moved to the status.** | bool | false |
-| podTemplate | PodTemplate allows customizing the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
-| volumeClaim | VolumeClaim allows customizing the persistent volume claim for the FoundationDB pods. **Deprecated: use the Processes field instead.** | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
-| customParameters | CustomParameters defines additional parameters to pass to the fdbserver processes. **Deprecated: use the Processes field instead.** | FoundationDBCustomParameters | false |
-| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the name of a pod to its IP address. If a value is left blank, the controller will provide the pod's current IP.  **Deprecated: To indicate that a process should be removed, use the ProcessGroupsToRemove field. To get information about pending removals, use the PendingRemovals field in the status.** | map[string]string | false |
 | storageServersPerPod | StorageServersPerPod defines how many Storage Servers should run in a single process group (Pod). This number defines the number of processes running in one Pod whereas the ProcessCounts defines the number of Pods created. This means that you end up with ProcessCounts[\"storage\"] * StorageServersPerPod storage processes | int | false |
 | minimumUptimeSecondsForBounce | MinimumUptimeSecondsForBounce defines the minimum time, in seconds, that the processes in the cluster must have been up for before the operator can execute a bounce. | int | false |
 | replaceInstancesWhenResourcesChange | ReplaceInstancesWhenResourcesChange defines if an instance should be replaced when the resource requirements are increased. This can be useful with the combination of local storage. | *bool | false |
 | skip | Skip defines if the cluster should be skipped for reconciliation. This can be useful for investigating in issues or if the environment is unstable. | bool | false |
 | coordinatorSelection | CoordinatorSelection defines which process classes are eligible for coordinator selection. If empty all stateful processes classes are equally eligible. A higher priority means that a process class is preferred over another process class. If the FoundationDB cluster is spans across multiple Kubernetes clusters or DCs the CoordinatorSelection must match in all FoundationDB cluster resources otherwise the coordinator selection process could conflict. | [][CoordinatorSelectionSetting](#coordinatorselectionsetting) | false |
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
-| useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. | *bool | false |
+| useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 | useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
 
 [Back to TOC](#table-of-contents)
@@ -262,11 +228,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| processCounts | ProcessCounts defines the number of processes that are currently running in the cluster. **Deprecated: Use ProcessGroups instead.** | ProcessCounts | false |
-| incorrectProcesses | IncorrectProcesses provides the processes that do not have the correct configuration.  This will map the process group ID to the timestamp when we observed the incorrect configuration. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
-| incorrectPods | IncorrectPods provides the pods that do not have the correct spec.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
-| failingPods | FailingPods provides the pods that are not starting correctly.  This will contain the name of the pod. **Deprecated: Use ProcessGroups instead.** | []string | false |
-| missingProcesses | MissingProcesses provides the processes that are not reporting to the cluster. This will map the names of the pod to the timestamp when we observed that the process was missing. **Deprecated: Use ProcessGroups instead.** | map[string]int64 | false |
 | databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | DatabaseConfiguration | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
@@ -278,8 +239,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | connectionString | ConnectionString defines the contents of the cluster file. | string | false |
 | configured | Configured defines whether we have configured the database yet. | bool | false |
 | hasListenIPsForAllPods | HasListenIPsForAllPods defines whether every pod has an environment variable for its listen address. | bool | false |
-| pendingRemovals | PendingRemovals defines the processes that are pending removal. This maps the process group ID to its removal state. **Deprecated: Use ProcessGroups instead.** | map[string][PendingRemovalState](#pendingremovalstate) | false |
-| needsSidecarConfInConfigMap | NeedsSidecarConfInConfigMap determines whether we need to include the sidecar conf in the config map even when the latest version should not require it. **Deprecated: will be removed in the next release.** | bool | false |
 | storageServersPerDisk | StorageServersPerDisk defines the storageServersPerPod observed in the cluster. If there are more than one value in the slice the reconcile phase is not finished. | []int | false |
 | imageTypes | ImageTypes defines the kinds of images that are in use in the cluster. If there is more than one value in the slice the reconcile phase is not finished. | []ImageType | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
@@ -310,7 +269,7 @@ LabelConfig allows customizing labels used by the operator.
 | resourceLabels | ResourceLabels provides additional labels that the operator should apply to resources it creates. | map[string]string | false |
 | processGroupIDLabels | ProcessGroupIDLabels provides the labels that we use for the process group ID field. The first label will be used by the operator when filtering resources. | []string | false |
 | processClassLabels | ProcessClassLabels provides the labels that we use for the process class field. The first label will be used by the operator when filtering resources. | []string | false |
-| filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. | *bool | false |
+| filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -348,20 +307,6 @@ LockSystemStatus provides a summary of the status of the locking system.
 
 [Back to TOC](#table-of-contents)
 
-## PendingRemovalState
-
-PendingRemovalState holds information about a process that is being removed. **Deprecated: This is modeled in the process group status instead.**
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| podName | The name of the pod that is being removed. | string | false |
-| address | The public address of the process. | string | false |
-| exclusionStarted | Whether we have started the exclusion. **Deprecated: This field is no longer filled in.** | bool | false |
-| exclusionComplete | Whether we have completed the exclusion. | bool | false |
-| hadInstance | Whether this removal has ever corresponded to a real instance. | bool | false |
-
-[Back to TOC](#table-of-contents)
-
 ## ProcessGroupCondition
 
 ProcessGroupCondition represents a degraded condition that a process group is in.
@@ -382,9 +327,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | processGroupID | ProcessGroupID represents the ID of the process group | string | false |
 | processClass | ProcessClass represents the class the process group has. | ProcessClass | false |
 | addresses | Addresses represents the list of addresses the process group has been known to have. | []string | false |
-| remove | Remove defines if the process group is marked for removal. **Deprecated: Use RemovalTimestamp instead.** | bool | false |
 | removalTimestamp | RemoveTimestamp if not empty defines when the process group was marked for removal. | *metav1.Time | false |
-| excluded | Excluded defines if the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. **Deprecated: Use ExclusionTimestamp instead.** | bool | false |
 | exclusionTimestamp | ExcludedTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
@@ -398,10 +341,8 @@ ProcessSettings defines process-level settings.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | podTemplate | PodTemplate allows customizing the pod. If a container image with a tag is specified the operator will throw an error and stop processing the cluster. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
-| volumeClaim | VolumeClaim allows customizing the persistent volume claim for the pod. **Deprecated: Use the VolumeClaimTemplate field instead.** | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
 | volumeClaimTemplate | VolumeClaimTemplate allows customizing the persistent volume claim for the pod. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | FoundationDBCustomParameters | false |
-| allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. **Deprecated: Use ImageConfigs instead.** | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -427,16 +368,5 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | podIPFamily | PodIPFamily tells the pod which family of IP addresses to use. You can use 4 to represent IPv4, and 6 to represent IPv6. This feature is only supported in FDB 7.0 or later, and requires dual-stack support in your Kubernetes environment. | *int | false |
 | useDNSInClusterFile | UseDNSInClusterFile determines whether to use DNS names rather than IP addresses to identify coordinators in the cluster file. NOTE: This is an experimental feature, and is not supported in the latest stable version of FoundationDB. | *bool | false |
 | dnsDomain | DNSDomain defines the cluster domain used in a DNS name generated for a service. The default is `cluster.local`. | *string | false |
-
-[Back to TOC](#table-of-contents)
-
-## ServiceConfig
-
-ServiceConfig allows configuring services that sit in front of our pods. **Deprecated: Use RoutingConfig instead.**
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| headless | Headless determines whether we want to run a headless service for the cluster. | *bool | false |
-| publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *PublicIPSource | false |
 
 [Back to TOC](#table-of-contents)

@@ -191,24 +191,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}))
 
 			cluster.Spec.ProcessCounts = ProcessCounts{
-				Resolver: 1,
-			}
-			counts, err = cluster.GetProcessCountsWithDefaults()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(counts.Stateless).To(Equal(8))
-			Expect(counts.Resolver).To(Equal(1))
-			Expect(counts.Resolution).To(Equal(0))
-
-			cluster.Spec.ProcessCounts = ProcessCounts{
-				Resolution: 1,
-			}
-			counts, err = cluster.GetProcessCountsWithDefaults()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(counts.Stateless).To(Equal(8))
-			Expect(counts.Resolution).To(Equal(1))
-			Expect(counts.Resolver).To(Equal(0))
-
-			cluster.Spec.ProcessCounts = ProcessCounts{
 				Log: 2,
 			}
 			counts, err = cluster.GetProcessCountsWithDefaults()

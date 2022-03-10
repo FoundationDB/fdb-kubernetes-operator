@@ -698,10 +698,6 @@ type ProcessCounts struct {
 	Ratekeeper        int `json:"ratekeeper,omitempty"`
 	StorageCache      int `json:"storage_cache,omitempty"`
 	BackupWorker      int `json:"backup,omitempty"`
-
-	// Deprecated: This is unsupported and any processes with this process class
-	// will fail to start.
-	Resolver int `json:"resolver,omitempty"`
 }
 
 // Map returns a map from process classes to the number of processes with that

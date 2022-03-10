@@ -17,7 +17,7 @@ stringData:
   key.pem: |
     # Put your key here.
 ---
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster

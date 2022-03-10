@@ -37,7 +37,7 @@ type FoundationDBRestore struct {
 
 //+kubebuilder:object:root=true
 
-// FoundationDBRestoreList contains a list of FoundationDBRestore
+// FoundationDBRestoreList contains a list of FoundationDBRestore objects
 type FoundationDBRestoreList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

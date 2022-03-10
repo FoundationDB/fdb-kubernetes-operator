@@ -38,13 +38,13 @@ BlobStoreConfiguration describes the blob store configuration.
 | backupName | The name for the backup. If empty defaults to .metadata.name. | string | false |
 | accountName | The account name to use with the backup destination. | string | true |
 | bucket | The backup bucket to write to. The default is \"fdb-backups\". | string | false |
-| urlParameters | Additional URL parameters passed to the blobstore URL. | []URLParamater | false |
+| urlParameters | Additional URL parameters passed to the blobstore URL. | []URLParameter | false |
 
 [Back to TOC](#table-of-contents)
 
 ## FoundationDBBackup
 
-FoundationDBBackup is the Schema for the FoundationDB Backup API
+FoundationDBBackup is the Schema for the foundationdbbackups API
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -56,7 +56,7 @@ FoundationDBBackup is the Schema for the FoundationDB Backup API
 
 ## FoundationDBBackupList
 
-FoundationDBBackupList contains a list of FoundationDBBackup
+FoundationDBBackupList contains a list of FoundationDBBackup objects
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
@@ -74,9 +74,6 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | version | The version of FoundationDB that the backup agents should run. | string | true |
 | clusterName | The cluster this backup is for. | string | true |
 | backupState | The desired state of the backup. The default is Running. | BackupState | false |
-| backupName | The name for the backup. If empty defaults to .metadata.name. **Deprecated: Use BlobStoreConfiguration instead** | string | false |
-| accountName | The account name to use with the backup destination. **Deprecated: Use BlobStoreConfiguration instead** | string | false |
-| bucket | The backup bucket to write to. The default is \"fdb-backups\". **Deprecated: Use BlobStoreConfiguration instead** | string | false |
 | agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
 | snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |
 | backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |

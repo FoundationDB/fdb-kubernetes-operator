@@ -7,7 +7,7 @@ If you delete a pod, the operator will automatically create a new pod to replace
 As an alternative, you can replace a pod by explicitly placing it in the `processGroupsToRemove` list:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -24,7 +24,7 @@ When comparing the desired process count with the current pod count, any pods th
 To add a knob, you can change the `customParameters` in the cluster spec:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
@@ -45,7 +45,7 @@ The process for updating the monitor conf can take several minutes, based on the
 To upgrade a cluster, you can change the version in the cluster spec:
 
 ```yaml
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
 metadata:
   name: sample-cluster
