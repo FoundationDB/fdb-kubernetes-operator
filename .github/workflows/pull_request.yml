@@ -83,9 +83,25 @@ jobs:
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
     - name: Check for uncommitted changes
+      env:
+        # Don't run any tests we run them in the next step
+        SKIP_TEST: "1"
       run: |
         make clean all
         git diff --exit-code
+    - name: Ensure CRD can be upgrade from main
+      run: |
+        # Install the current manifests to ensure we can apply the manifests without any issue
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
+        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/main/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+        # Ensure that the CRDs are established
+        kubectl wait --for condition="established" crd --all
+        # Ensure we can upgrade the CRD with the current changes
+        make install
+    - name: Ensure samples are in a valid format
+      run: |
+        kubectl apply -f ./config/samples --dry-run=server
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
@@ -93,11 +109,6 @@ jobs:
         GOMAXPROCS: "2"
         TEST_RACE_CONDITIONS: "1"
       run: |
-        # Install the current manifests to ensure we can apply the manifests without any issue
-        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml
-        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml
-        kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
-        # Run the actual tests
         make test
   build_images:
     if: github.ref != 'refs/heads/main'
