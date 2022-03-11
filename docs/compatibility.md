@@ -25,7 +25,7 @@ published for each major version.
 
 | Operator Version | Most Recent Version | Supported Cluster Models | Supported FDB Versions | Supported Kubernetes Versions |
 |------------------|---------------------|--------------------------|------------------------|-------------------------------|
-| 0.x              | 0.51.0              | v1beta1                  | 6.1.12+                | 1.15.0+                       |
+| 0.x              | 0.51.1              | v1beta1                  | 6.1.12+                | 1.15.0+                       |
 | 1.x              | -                   | v1beta1,v1beta2          | 6.2.20+                | 1.19.0+                       |
 
 ## Preparing for a Major Release
