@@ -1,4 +1,5 @@
 FROM docker.io/foundationdb/foundationdb:6.2.30 as fdb62
+FROM docker.io/foundationdb/foundationdb:6.1.13 as fdb61
 FROM docker.io/foundationdb/foundationdb:6.3.22 as fdb63
 
 # Build the manager binary
@@ -24,6 +25,10 @@ RUN set -eux && \
 
 # Copy 6.2 binaries
 COPY --from=fdb62 /usr/bin/fdb* /usr/bin/fdb/6.2/
+
+# Copy 6.1 binaries
+COPY --from=fdb61 /usr/bin/fdb* /usr/bin/fdb/6.1/
+COPY --from=fdb61 /usr/lib/libfdb_c.so /usr/lib/fdb/libfdb_c_6.1.so
 
 # Copy 6.3 binaries
 COPY --from=fdb63 /usr/bin/fdb* /usr/bin/fdb/6.3/
@@ -60,7 +65,7 @@ RUN groupadd --gid 4059 fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
-FROM docker.io/debian:bullseye
+FROM gcr.io/distroless/base
 
 WORKDIR /
 
@@ -78,6 +83,6 @@ USER 4059
 ENV FDB_NETWORK_OPTION_TRACE_LOG_GROUP=fdb-kubernetes-operator
 ENV FDB_NETWORK_OPTION_TRACE_ENABLE=/var/log/fdb
 ENV FDB_BINARY_DIR=/usr/bin/fdb
-ENV FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY=/usr/bin/fdb
+ENV FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY=/usr/lib/fdb
 
 ENTRYPOINT ["/manager"]

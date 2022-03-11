@@ -2,7 +2,6 @@ name: Integration checks
 on:
   push:
     branches:
-      - master
       - main
   pull_request:
 
@@ -85,7 +84,7 @@ jobs:
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
     - name: Check for uncommitted changes
       run: |
-        make clean all 
+        make clean all
         git diff --exit-code
     - name: Run tests
       # Currently the default runner has 2 vCPU:
@@ -100,8 +99,47 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/FoundationDB/fdb-kubernetes-operator/master/config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
         # Run the actual tests
         make test
+  build_images:
+    if: github.ref != 'refs/heads/main'
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - fdb-kubernetes-operator
+          - fdb-data-loader
+          - fdb-kubernetes-operator-distroless
+        include:
+          - image: fdb-kubernetes-operator
+            context: ./
+            name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: ""
+            file: ./Dockerfile
+          - image: fdb-kubernetes-operator-distroless
+            context: ./
+            name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: -distrolesss
+            file: ./distrolesss.dockerfile
+          - image: fdb-data-loader
+            context: ./sample-apps/data-loader
+            name: foundationdb/fdb-data-loader
+            tagSuffix: ""
+            file: ./sample-apps/data-loader/Dockerfile
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Build image
+        uses: docker/build-push-action@v2
+        with:
+          build-args: TAG=${GITHUB_SHA}
+          push: false
+          context: ${{ matrix.context }}
+          tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
+          file: ${{ matrix.file }}
   push_images:
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     needs: build
     name: Push Docker images
     runs-on: ubuntu-latest
@@ -110,13 +148,23 @@ jobs:
         image:
           - fdb-kubernetes-operator
           - fdb-data-loader
+          - fdb-kubernetes-operator-distroless
         include:
           - image: fdb-kubernetes-operator
             context: ./
             name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: ""
+            file: ./Dockerfile
+          - image: fdb-kubernetes-operator-distroless
+            context: ./
+            name: foundationdb/fdb-kubernetes-operator
+            tagSuffix: -distrolesss
+            file: ./distrolesss.dockerfile
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
+            tagSuffix: ""
+            file: ./sample-apps/data-loader/Dockerfile
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -133,4 +181,5 @@ jobs:
           build-args: TAG=${GITHUB_SHA}
           push: true
           context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:latest
+          tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
+          file: ${{ matrix.file }}
