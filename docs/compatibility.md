@@ -24,8 +24,8 @@ versions of related services that each operator version is compatible with. The
 published for each major version.
 
 | Operator Version  | Most Recent Version | Supported Cluster Models  | Supported FDB Versions  | Supported Kubernetes Versions |
-| ----------------- | ------------------- | ------------------------- | ----------------------- | ----------------------------- |
-| 0.x               | 0.51.0              | v1beta1                   | 6.1.12+                 | 1.15.0+                       |
+| ----------------- |---------------------| ------------------------- | ----------------------- | ----------------------------- |
+| 0.x               | 0.51.1              | v1beta1                   | 6.1.12+                 | 1.15.0+                       |
 
 ## Preparing for a Major Release
 
