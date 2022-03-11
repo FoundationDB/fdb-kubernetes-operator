@@ -101,7 +101,7 @@ jobs:
         make install
     - name: Ensure samples are in a valid format
       run: |
-        kubectl apply -f ./config/samples --dry-run=client
+        kubectl apply -f ./config/samples --dry-run=server
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
