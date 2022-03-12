@@ -1,48 +1,24 @@
-apiVersion: v1
-kind: Service
+apiVersion: apps.foundationdb.org/v1beta2
+kind: FoundationDBBackup
 metadata:
-  labels:
-    app: test-cluster-client
-  name: test-cluster-client
+  name: test-cluster
 spec:
-  ports:
-  - port: 9562
-    targetPort: 5000
-  selector:
-    app: test-cluster-client
-  type: LoadBalancer
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: test-cluster-client
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: test-cluster-client
-  template:
-    metadata:
-      labels:
-        app: test-cluster-client
-      name: test-cluster-client
+  blobStoreConfiguration:
+    accountName: minio@minio-service:9000
+  clusterName: test-cluster
+  podTemplateSpec:
     spec:
-      automountServiceAccountToken: false
       containers:
       - env:
-        - name: FDB_CLUSTER_FILE
-          value: /var/dynamic-conf/fdb.cluster
-        - name: FDB_API_VERSION
-          value: "610"
-        - name: FDB_NETWORK_OPTION_TRACE_LOG_GROUP
-          value: test-cluster-client
-        - name: FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY
-          value: /var/dynamic-conf/lib/multiversion
-        - name: LD_LIBRARY_PATH
-          value: /var/dynamic-conf/lib
-        image: foundationdb/foundationdb-sample-python-app:latest
-        imagePullPolicy: Always
-        name: client
+        - name: FDB_BLOB_CREDENTIALS
+          value: /var/backup-credentials/credentials
+        - name: FDB_TLS_CERTIFICATE_FILE
+          value: /tmp/fdb-certs/tls.crt
+        - name: FDB_TLS_CA_FILE
+          value: /tmp/fdb-certs/tls.crt
+        - name: FDB_TLS_KEY_FILE
+          value: /tmp/fdb-certs/tls.key
+        name: foundationdb
         resources:
           limits:
             cpu: 250m
@@ -50,36 +26,34 @@ spec:
           requests:
             cpu: 250m
             memory: 128Mi
+        securityContext:
+          runAsGroup: 0
+          runAsUser: 0
         volumeMounts:
-        - mountPath: /var/dynamic-conf
-          name: dynamic-conf
+        - mountPath: /tmp/fdb-certs
+          name: fdb-certs
+        - mountPath: /var/backup-credentials
+          name: backup-credentials
       initContainers:
-      - args:
-        - --copy-file
-        - fdb.cluster
-        - --copy-library
-        - "6.2"
-        - --copy-library
-        - "6.3"
-        - --init-mode
-        - --require-not-empty
-        - fdb.cluster
-        image: foundationdb/foundationdb-kubernetes-sidecar:6.3.24-1
-        name: foundationdb-kubernetes-init
-        volumeMounts:
-        - mountPath: /var/input-files
-          name: config-map
-        - mountPath: /var/output-files
-          name: dynamic-conf
+      - name: foundationdb-kubernetes-init
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          runAsUser: 0
       volumes:
-      - configMap:
-          items:
-          - key: cluster-file
-            path: fdb.cluster
-          name: test-cluster-config
-        name: config-map
-      - emptyDir: {}
-        name: dynamic-conf
+      - name: backup-credentials
+        secret:
+          secretName: minio-credentials
+      - name: fdb-certs
+        secret:
+          secretName: fdb-kubernetes-operator-secrets
+  snapshotPeriodSeconds: 3600
+  version: 6.3.22
 ---
 apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBCluster
