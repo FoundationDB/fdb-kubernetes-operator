@@ -432,8 +432,17 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		substitutions["BINARY_DIR"] = "/usr/bin"
 	}
 
-	if client.Cluster.UseDNSInClusterFile() {
-		substitutions["FDB_DNS_NAME"] = GetPodDNSName(client.Cluster, client.Pod.Name)
+	copyableSubstitutions := map[string]fdbv1beta2.None{
+		"FDB_DNS_NAME":    {},
+		"FDB_INSTANCE_ID": {},
+	}
+	for _, container := range client.Pod.Spec.Containers {
+		for _, envVar := range container.Env {
+			_, copyable := copyableSubstitutions[envVar.Name]
+			if copyable {
+				substitutions[envVar.Name] = envVar.Value
+			}
+		}
 	}
 
 	return substitutions, nil
