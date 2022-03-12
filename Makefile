@@ -58,11 +58,11 @@ GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
 GO_ALL=${GO_SRC} ${GENERATED_GO}
 MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config/crd/bases/apps.foundationdb.org_foundationdbclusters.yaml config/crd/bases/apps.foundationdb.org_foundationdbrestores.yaml
+SAMPLES=config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race -timeout=30m
 endif
-
 
 all: deps generate fmt vet manager plugin manifests samples documentation test_if_changed
 
@@ -75,7 +75,8 @@ clean:
 	find api -type f -name "zz_generated.*.go" -delete
 	mkdir -p bin
 	rm -r bin
-	find config/samples -type f -name deployment.yaml -delete
+	rm -f $(SAMPLES)
+	rm -f config/rbac/role.yaml
 	find . -name "cover.out" -delete
 
 clean-deps:
@@ -127,14 +128,17 @@ uninstall: manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: install manifests
-	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
+	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
+	kustomize build config/development | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
 
 ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	# Per default controller-gen will generate a ClusterRole for our example we want to use a Role and the namespace marker doesn't
+	# work since it requires a namespace and kustomize doesn't support to change the Kind.
+	@sed -i 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml
 
 # Run go fmt against code
 fmt: bin/fmt_check
@@ -172,10 +176,22 @@ rebuild-operator: container-build deploy bounce
 bounce:
 	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager
 
-samples: config/samples/deployment.yaml
+samples: ${SAMPLES}
 
-config/samples/deployment.yaml: config/samples/deployment/*.yaml
-	kustomize build config/samples/deployment > config/samples/deployment.yaml
+config/samples/deployment.yaml: config/deployment/*.yaml
+	kustomize build ./config/deployment > $@
+
+config/samples/cluster.yaml: config/tests/base/*.yaml
+	kustomize build ./config/tests/base/ > $@
+
+config/samples/backup.yaml: config/tests/backup/base/*.yaml
+	kustomize build ./config/tests/backup/base > $@
+
+config/samples/restore.yaml: config/tests/backup/base/*.yaml
+	kustomize build ./config/tests/backup/restore > $@
+
+config/samples/client.yaml: config/tests/client/*.yaml
+	kustomize build ./config/tests/client > $@
 
 bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
@@ -193,4 +209,3 @@ documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 
 lint:
 	golangci-lint run ./...
-

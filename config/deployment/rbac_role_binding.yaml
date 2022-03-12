@@ -6,7 +6,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: manager-role
+  name: fdb-kubernetes-operator-manager-role
 subjects:
 - kind: ServiceAccount
-  name: controller-manager
+  name: fdb-kubernetes-operator-controller-manager

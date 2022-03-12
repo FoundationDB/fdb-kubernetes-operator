@@ -1,3 +1,5 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
 # Adds namespace to all resources.
 
 # Value of this field is prepended to the
@@ -13,6 +15,6 @@ namePrefix: fdb-kubernetes-operator-
 # YAML string, with resources separated by document
 # markers ("---").
 resources:
-- rbac_role.yaml
+- ../rbac
 - rbac_role_binding.yaml
 - manager.yaml
