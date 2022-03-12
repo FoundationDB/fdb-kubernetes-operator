@@ -3,7 +3,7 @@
 # This sample assumes some configuration that you will need to fill in based on
 # the details of your environment. Those assumptions are explained in comments
 # below.
-apiVersion: apps.foundationdb.org/v1beta1
+apiVersion: apps.foundationdb.org/v1beta2
 kind: FoundationDBBackup
 metadata:
   name: sample-cluster
@@ -14,7 +14,8 @@ spec:
   # This assumes you have an account with the name `account` in an S3-compatible
   # object store located at `https://object-store.example:443`. You will need
   # to fill this in with the details of your real object storage.
-  accountName: account@object-store.example:443
+  blobStoreConfiguration:
+    accountName: minio@minio-service:9000
 
   podTemplateSpec:
     spec:
