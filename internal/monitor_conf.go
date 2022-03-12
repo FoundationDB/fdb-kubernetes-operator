@@ -49,6 +49,8 @@ func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1
 		return "", err
 	}
 
+	extractPlaceholderEnvVars(substitutions, config.Arguments)
+
 	config.BinaryPath = fmt.Sprintf("%s/fdbserver", substitutions["BINARY_DIR"])
 
 	arguments, err := config.GenerateArguments(processNumber, substitutions)
@@ -74,7 +76,9 @@ func GetStartCommand(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1
 func extractPlaceholderEnvVars(env map[string]string, arguments []monitorapi.Argument) {
 	for _, argument := range arguments {
 		if argument.ArgumentType == monitorapi.EnvironmentArgumentType {
-			env[argument.Source] = fmt.Sprintf("$%s", argument.Source)
+			if _, present := env[argument.Source]; !present {
+				env[argument.Source] = fmt.Sprintf("$%s", argument.Source)
+			}
 		} else if argument.ArgumentType == monitorapi.ConcatenateArgumentType {
 			extractPlaceholderEnvVars(env, argument.Values)
 		}
@@ -129,8 +133,9 @@ func getMonitorConfStartCommandLines(cluster *fdbv1beta2.FoundationDBCluster, pr
 
 	if substitutions == nil {
 		substitutions = make(map[string]string)
-		extractPlaceholderEnvVars(substitutions, config.Arguments)
 	}
+
+	extractPlaceholderEnvVars(substitutions, config.Arguments)
 
 	var binaryDir string
 	substitution, hasSubstitution := substitutions["BINARY_DIR"]
