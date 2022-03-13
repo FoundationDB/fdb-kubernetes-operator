@@ -32,6 +32,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
@@ -77,10 +79,13 @@ type cliAdminClient struct {
 	// Whether the admin client should be able to run operations through the
 	// client library rather than the CLI.
 	useClientLibrary bool
+
+	// log implementation for logging output
+	log logr.Logger
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
-func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client) (fdbadminclient.AdminClient, error) {
+func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client, log logr.Logger) (fdbadminclient.AdminClient, error) {
 	clusterFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
@@ -97,7 +102,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client)
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true}, nil
+	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true, log: log}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -198,13 +203,13 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	defer cancelFunction()
 	execCommand := exec.CommandContext(timeoutContext, binary, args...)
 
-	log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
+	client.log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
 
 	output, err := execCommand.CombinedOutput()
 	if err != nil {
 		exitError, canCast := err.(*exec.ExitError)
 		if canCast {
-			log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
+			client.log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 		return "", err
 	}
@@ -217,7 +222,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	} else {
 		debugOutput = outputString
 	}
-	log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
+	client.log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
+
 	return outputString, nil
 }
 
@@ -229,13 +235,13 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	if client.useClientLibrary {
 		// This will call directly the database and fetch the status information
 		// from the system key space.
-		return getStatusFromDB(client.Cluster)
+		return getStatusFromDB(client.Cluster, client.log)
 	}
 	contents, err := client.runCommand(cliCommand{command: "status json"})
 	if err != nil {
 		return nil, err
 	}
-	log.V(1).Info("Fetched status JSON", "contents", contents)
+	client.log.V(1).Info("Fetched status JSON", "contents", contents)
 	contents, err = removeWarningsInJSON(contents)
 	if err != nil {
 		return nil, err
@@ -390,7 +396,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 	}
 
 	markedAsExcluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
-	log.Info("Filtering excluded processes",
+	client.log.Info("Filtering excluded processes",
 		"namespace", client.Cluster.Namespace,
 		"cluster", client.Cluster.Name,
 		"markedAsExcluded", markedAsExcluded,
@@ -405,7 +411,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
-		log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", markedAsExcluded, "results", exclusionResults)
+		client.log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", markedAsExcluded, "results", exclusionResults)
 		for _, address := range markedAsExcluded {
 			if exclusionResults[address.String()] != "Success" && exclusionResults[address.String()] != "Missing" {
 				remaining = append(remaining, address)

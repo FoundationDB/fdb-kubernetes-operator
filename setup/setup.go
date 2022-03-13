@@ -175,7 +175,7 @@ func StartManager(
 		clusterReconciler.Client = mgr.GetClient()
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
-		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
@@ -191,7 +191,7 @@ func StartManager(
 	if backupReconciler != nil {
 		backupReconciler.Client = mgr.GetClient()
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
-		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
 
 		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
@@ -203,7 +203,7 @@ func StartManager(
 	if restoreReconciler != nil {
 		restoreReconciler.Client = mgr.GetClient()
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
-		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider()
+		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
 
 		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {

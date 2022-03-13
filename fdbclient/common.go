@@ -25,16 +25,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var log = logf.Log.WithName("fdbclient")
 
 const (
 	defaultTransactionTimeout int64 = 5000
@@ -77,7 +74,7 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 }
 
 // getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.FoundationDBStatus, error) {
+func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (*fdbv1beta2.FoundationDBStatus, error) {
 	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
 	statusKey := "\xff\xff/status/json"
 
@@ -124,21 +121,26 @@ func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster) (*fdbv1beta2.Found
 	return status, err
 }
 
-type realDatabaseClientProvider struct{}
+type realDatabaseClientProvider struct {
+	// log implementation for logging output
+	log logr.Logger
+}
 
 // GetLockClient generates a client for working with locks through the database.
 func (p *realDatabaseClientProvider) GetLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
-	return NewRealLockClient(cluster)
+	return NewRealLockClient(cluster, p.log)
 }
 
 // GetAdminClient generates a client for performing administrative actions
 // against the database.
 func (p *realDatabaseClientProvider) GetAdminClient(cluster *fdbv1beta2.FoundationDBCluster, kubernetesClient client.Client) (fdbadminclient.AdminClient, error) {
-	return NewCliAdminClient(cluster, kubernetesClient)
+	return NewCliAdminClient(cluster, kubernetesClient, p.log)
 }
 
 // NewDatabaseClientProvider generates a client provider for talking to real
 // databases.
-func NewDatabaseClientProvider() controllers.DatabaseClientProvider {
-	return &realDatabaseClientProvider{}
+func NewDatabaseClientProvider(log logr.Logger) controllers.DatabaseClientProvider {
+	return &realDatabaseClientProvider{
+		log: log.WithName("fdbclient"),
+	}
 }
