@@ -4,6 +4,7 @@ kind: Kustomization
 patchesStrategicMerge:
 - test_certs.yaml
 - backup_credentials.yaml
+- debug_logs.yaml
 
 resources:
 - ../deployment

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -42,6 +44,9 @@ type realLockClient struct {
 
 	// The connection to the database.
 	database fdb.Database
+
+	// log implementation for logging output
+	log logr.Logger
 }
 
 // Disabled determines if the client should automatically grant locks.
@@ -77,7 +82,7 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	lockValue := transaction.Get(lockKey).MustGet()
 
 	if len(lockValue) == 0 {
-		log.Info("Setting initial lock")
+		client.log.Info("Setting initial lock")
 		client.updateLock(transaction, 0)
 		return true, nil
 	}
@@ -109,7 +114,7 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	cluster := client.cluster
 	newOwnerDenied := transaction.Get(client.getDenyListKey(cluster.GetLockID())).MustGet() != nil
 	if newOwnerDenied {
-		log.Info("Failed to get lock due to deny list", "namespace", cluster.Namespace, "cluster", cluster.Name)
+		client.log.Info("Failed to get lock due to deny list", "namespace", cluster.Namespace, "cluster", cluster.Name)
 		return false, nil
 	}
 
@@ -117,18 +122,19 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 	shouldClear := endTime < time.Now().Unix() || oldOwnerDenied
 
 	if shouldClear {
-		log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		client.log.Info("Clearing expired lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 		client.updateLock(transaction, startTime)
 		return true, nil
 	}
 
 	if ownerID == client.cluster.GetLockID() {
-		log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+		client.log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 		client.updateLock(transaction, startTime)
 		return true, nil
 	}
 
-	log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+	client.log.Info("Failed to get lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
+
 	return false, nil
 }
 
@@ -145,7 +151,7 @@ func (client *realLockClient) updateLock(transaction fdb.Transaction, start int6
 		start,
 		end,
 	}
-	log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
+	client.log.Info("Setting new lock", "namespace", client.cluster.Namespace, "cluster", client.cluster.Name, "lockValue", lockValue)
 	transaction.Set(lockKey, lockValue.Pack())
 }
 
@@ -303,7 +309,7 @@ func (err invalidLockValue) Error() string {
 }
 
 // NewRealLockClient creates a lock client.
-func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.LockClient, error) {
+func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (fdbadminclient.LockClient, error) {
 	if !cluster.ShouldUseLocks() {
 		return &realLockClient{disableLocks: true}, nil
 	}
@@ -313,5 +319,5 @@ func NewRealLockClient(cluster *fdbv1beta2.FoundationDBCluster) (fdbadminclient.
 		return nil, err
 	}
 
-	return &realLockClient{cluster: cluster, database: database}, nil
+	return &realLockClient{cluster: cluster, database: database, log: log}, nil
 }
