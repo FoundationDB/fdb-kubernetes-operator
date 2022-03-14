@@ -31,7 +31,7 @@ type AdminClient interface {
 	GetStatus() (*fdbv1beta2.FoundationDBStatus, error)
 
 	// ConfigureDatabase sets the database configuration
-	ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool) error
+	ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool, version string) error
 
 	// ExcludeProcesses starts evacuating processes so that they can be removed
 	// from the database.

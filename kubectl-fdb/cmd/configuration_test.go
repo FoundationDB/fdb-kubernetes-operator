@@ -54,6 +54,7 @@ var _ = Describe("[plugin] configuration command", func() {
 								},
 							},
 						},
+						Version: fdbv1beta2.Versions.Default.String(),
 					},
 				}
 			})
@@ -131,6 +132,7 @@ var _ = Describe("[plugin] configuration command", func() {
 								},
 							},
 						},
+						Version: fdbv1beta2.Versions.Default.String(),
 					},
 				}
 

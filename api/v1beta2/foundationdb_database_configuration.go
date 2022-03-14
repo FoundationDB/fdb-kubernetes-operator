@@ -472,13 +472,24 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.
-func (configuration DatabaseConfiguration) GetConfigurationString() (string, error) {
+func (configuration DatabaseConfiguration) GetConfigurationString(version string) (string, error) {
 	configurationString := fmt.Sprintf("%s %s", configuration.RedundancyMode, configuration.StorageEngine)
+
+	fdbVersion, err := ParseFdbVersion(version)
+	if err != nil {
+		return configurationString, err
+	}
 
 	counts := configuration.RoleCounts.Map()
 	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
 	// TODO: roleNames !
 	for _, role := range roleNames {
+		if fdbVersion.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0}) && role == "proxies" {
+			continue
+		} else if !fdbVersion.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0}) && (role == "commit_proxies" || role == "grv_proxies") {
+			continue
+		}
+
 		if role != ProcessClassStorage {
 			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
 		}
@@ -588,12 +599,14 @@ const (
 
 // RoleCounts represents the roles whose counts can be customized.
 type RoleCounts struct {
-	Storage    int `json:"storage,omitempty"`
-	Logs       int `json:"logs,omitempty"`
-	Proxies    int `json:"proxies,omitempty"`
-	Resolvers  int `json:"resolvers,omitempty"`
-	LogRouters int `json:"log_routers,omitempty"`
-	RemoteLogs int `json:"remote_logs,omitempty"`
+	Storage       int `json:"storage,omitempty"`
+	Logs          int `json:"logs,omitempty"`
+	Proxies       int `json:"proxies,omitempty"`
+	CommitProxies int `json:"commit_proxies,omitempty"`
+	GrvProxies    int `json:"grv_proxies,omitempty"`
+	Resolvers     int `json:"resolvers,omitempty"`
+	LogRouters    int `json:"log_routers,omitempty"`
+	RemoteLogs    int `json:"remote_logs,omitempty"`
 }
 
 // Map returns a map from process classes to the desired count for that role
@@ -687,6 +700,8 @@ type ProcessCounts struct {
 	Resolution        int `json:"resolution,omitempty"`
 	Tester            int `json:"tester,omitempty"`
 	Proxy             int `json:"proxy,omitempty"`
+	CommitProxy       int `json:"commit_proxy,omitempty"`
+	GrvProxy          int `json:"grv_proxy,omitempty"`
 	Master            int `json:"master,omitempty"`
 	Stateless         int `json:"stateless,omitempty"`
 	Log               int `json:"log,omitempty"`

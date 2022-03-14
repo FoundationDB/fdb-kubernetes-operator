@@ -76,7 +76,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		} else {
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
-		configurationString, _ := nextConfiguration.GetConfigurationString()
+		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
 		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
 
 		if !dataHealthy {
@@ -109,7 +109,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
-		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig)
+		err = adminClient.ConfigureDatabase(nextConfiguration, initialConfig, cluster.Spec.Version)
 		if err != nil {
 			return &requeue{curError: err}
 		}

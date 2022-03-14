@@ -953,6 +953,12 @@ func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	if counts.Proxies == 0 {
 		counts.Proxies = 3
 	}
+	if counts.CommitProxies == 0 {
+		counts.CommitProxies = 2
+	}
+	if counts.GrvProxies == 0 {
+		counts.GrvProxies = 1
+	}
 	if counts.Resolvers == 0 {
 		counts.Resolvers = 1
 	}
@@ -1076,10 +1082,23 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 	if processCounts.Stateless == 0 {
 		primaryStatelessCount := cluster.calculateProcessCountFromRole(1, processCounts.Master) +
 			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
-			cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy) +
 			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution)
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
+
+		fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+		if err != nil {
+			return *processCounts, err
+		}
+
+		if fdbVersion.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0}) {
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.GrvProxies, processCounts.GrvProxy)
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.CommitProxies, processCounts.CommitProxy)
+		} else {
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)
+
+		}
+
 		processCounts.Stateless = cluster.calculateProcessCount(true,
 			primaryStatelessCount,
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
