@@ -616,10 +616,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				StorageEngine:  "ssd",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
-					Logs: 5,
+					Logs:          5,
+					Proxies:       1,
+					CommitProxies: 2,
+					GrvProxies:    2,
 				},
 			}
-			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[]"))
+			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 proxies=1 resolvers=0 log_routers=0 remote_logs=0 regions=[]"))
 
 			configuration.Regions = []Region{{
 				DataCenters: []DataCenter{{
@@ -629,11 +632,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}},
 				SatelliteLogs: 2,
 			}}
-			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
+			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 proxies=1 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 			configuration.Regions = nil
 
 			configuration.VersionFlags.LogSpill = 3
-			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 proxies=1 resolvers=0 log_routers=0 remote_logs=0 log_spill:=3 regions=[]"))
+
+			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 commit_proxies=2 grv_proxies=2 resolvers=0 log_routers=0 remote_logs=0 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 commit_proxies=2 grv_proxies=2 resolvers=0 log_routers=0 remote_logs=0 log_spill:=3 regions=[]"))
 		})
 	})
 
