@@ -9423,6 +9423,10 @@ spec:
                 type: string
               databaseConfiguration:
                 properties:
+                  commit_proxies:
+                    type: integer
+                  grv_proxies:
+                    type: integer
                   log_routers:
                     type: integer
                   log_spill:
@@ -9589,11 +9593,15 @@ spec:
                     type: integer
                   cluster_controller:
                     type: integer
+                  commit_proxy:
+                    type: integer
                   coordinator:
                     type: integer
                   data_distributor:
                     type: integer
                   fast_restore:
+                    type: integer
+                  grv_proxy:
                     type: integer
                   log:
                     type: integer
@@ -12807,6 +12815,10 @@ spec:
                 type: string
               databaseConfiguration:
                 properties:
+                  commit_proxies:
+                    type: integer
+                  grv_proxies:
+                    type: integer
                   log_routers:
                     type: integer
                   log_spill:
