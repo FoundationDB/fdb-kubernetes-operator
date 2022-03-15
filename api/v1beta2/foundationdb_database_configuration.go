@@ -484,9 +484,9 @@ func (configuration DatabaseConfiguration) GetConfigurationString(version string
 	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
 	// TODO: roleNames !
 	for _, role := range roleNames {
-		if fdbVersion.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0}) && role == "proxies" {
+		if fdbVersion.HasSeparatedProxies() && role == "proxies" {
 			continue
-		} else if !fdbVersion.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0}) && (role == "commit_proxies" || role == "grv_proxies") {
+		} else if !fdbVersion.HasSeparatedProxies() && (role == "commit_proxies" || role == "grv_proxies") {
 			continue
 		}
 

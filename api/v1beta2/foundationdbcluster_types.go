@@ -1091,7 +1091,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			return *processCounts, err
 		}
 
-		if fdbVersion.IsAtLeast(Version{Major: 7, Minor: 0, Patch: 0}) {
+		if fdbVersion.HasSeparatedProxies() {
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.GrvProxies, processCounts.GrvProxy)
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.CommitProxies, processCounts.CommitProxy)
 		} else {
