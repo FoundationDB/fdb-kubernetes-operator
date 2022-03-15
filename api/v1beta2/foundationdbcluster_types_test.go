@@ -160,10 +160,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					DatabaseConfiguration: DatabaseConfiguration{
 						RedundancyMode: RedundancyModeDouble,
 						RoleCounts: RoleCounts{
-							Storage:   5,
-							Logs:      3,
-							Proxies:   3,
-							Resolvers: 1,
+							Storage:       5,
+							Logs:          3,
+							Proxies:       3,
+							GrvProxies:    4,
+							CommitProxies: 12,
+							Resolvers:     1,
 						},
 					},
 				},
@@ -221,6 +223,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Storage:   5,
 				Log:       5,
 				Stateless: 9,
+			}))
+
+			cluster.Spec.Version = "7.1.0-rc2"
+			counts, err = cluster.GetProcessCountsWithDefaults()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(counts).To(Equal(ProcessCounts{
+				Storage:   5,
+				Log:       5,
+				Stateless: 22,
 			}))
 		})
 	})
