@@ -5,11 +5,11 @@ patchesStrategicMerge:
 - test_certs.yaml
 - backup_credentials.yaml
 - debug_logs.yaml
+- images.yaml
 
 resources:
 - ../deployment
 - ../minio
-
 images:
 - name: foundationdb/fdb-kubernetes-operator
   newName: fdb-kubernetes-operator
