@@ -831,7 +831,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	When("changing tto fearless dr without initial regions", func() {
+	When("changing to fearless dr without initial regions", func() {
 		It("should return the fearless config", func() {
 			currentConfig := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
