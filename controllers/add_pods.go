@@ -64,8 +64,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		_, podExists := podMap[processGroup.ProcessGroupID]
-		if podExists || processGroup.IsMarkedForRemoval() {
+		if _, podExists := podMap[processGroup.ProcessGroupID]; podExists {
 			continue
 		}
 

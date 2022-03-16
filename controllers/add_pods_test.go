@@ -94,12 +94,7 @@ var _ = Describe("add_pods", func() {
 		})
 
 		It("should create an extra pod", func() {
-			Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
-			lastPod := newPods.Items[len(newPods.Items)-1]
-			Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastPod.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
-			Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+			expectNewPodToHaveBeenCreated(initialPods, newPods, cluster)
 		})
 
 		Context("when the process group is being removed", func() {
@@ -111,9 +106,22 @@ var _ = Describe("add_pods", func() {
 				Expect(requeue).To(BeNil())
 			})
 
-			It("should not create any pods", func() {
-				Expect(newPods.Items).To(HaveLen(len(initialPods.Items)))
+			It("should create an extra pod", func() {
+				// Regression test for a bug where pods marked for removal would not be recreated.
+				// The reason they actually do need to be recreated is that they might contain data
+				// that needs to be drained to other storage nodes, so they should cease to exist
+				// only when they have been successfully drained.
+				expectNewPodToHaveBeenCreated(initialPods, newPods, cluster)
 			})
 		})
 	})
 })
+
+func expectNewPodToHaveBeenCreated(initialPods *corev1.PodList, newPods *corev1.PodList, cluster *fdbv1beta2.FoundationDBCluster) {
+	Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
+	lastPod := newPods.Items[len(newPods.Items)-1]
+	Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
+	Expect(lastPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+	Expect(lastPod.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
+	Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+}
