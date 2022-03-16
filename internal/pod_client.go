@@ -36,6 +36,8 @@ import (
 	"strings"
 	"time"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
@@ -104,10 +106,9 @@ type realFdbPodAnnotationClient struct {
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name)
+func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger) (podclient.FdbPodClient, error) {
 	if GetImageType(pod) == FDBImageTypeUnified {
-		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: logger}, nil
+		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: log}, nil
 	}
 
 	if pod.Status.PodIP == "" {
@@ -151,12 +152,12 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: logger}, nil
+	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: log}, nil
 }
 
 // getListenIP gets the IP address that a pod listens on.
 func (client *realFdbPodSidecarClient) getListenIP() string {
-	ips := GetPublicIPsForPod(client.Pod)
+	ips := GetPublicIPsForPod(client.Pod, client.logger)
 	if len(ips) > 0 {
 		return ips[0]
 	}
@@ -362,11 +363,12 @@ func (client *realFdbPodAnnotationClient) IsPresent(_ string) (bool, error) {
 type mockFdbPodClient struct {
 	Cluster *fdbv1beta2.FoundationDBCluster
 	Pod     *corev1.Pod
+	logger  logr.Logger
 }
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
 func NewMockFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return &mockFdbPodClient{Cluster: cluster, Pod: pod}, nil
+	return &mockFdbPodClient{Cluster: cluster, Pod: pod, logger: logf.NullLogger{}}, nil
 }
 
 // UpdateFile checks if a file is up-to-date and tries to update it.
@@ -390,7 +392,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 		}
 	}
 
-	ipString := GetPublicIPsForPod(client.Pod)[0]
+	ipString := GetPublicIPsForPod(client.Pod, client.logger)[0]
 	substitutions["FDB_PUBLIC_IP"] = ipString
 	if ipString != "" {
 		ip := net.ParseIP(ipString)

@@ -26,7 +26,23 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
 )
+
+// CliLogFileCleaner contains the logger and the minFileAge
+type CliLogFileCleaner struct {
+	log        logr.Logger
+	minFileAge time.Duration
+}
+
+// NewCliLogFileCleaner returns a new CliLogFileCleaner
+func NewCliLogFileCleaner(log logr.Logger, minFileAge time.Duration) *CliLogFileCleaner {
+	return &CliLogFileCleaner{
+		log:        log,
+		minFileAge: minFileAge,
+	}
+}
 
 func shouldRemoveLogFile(info os.FileInfo, now time.Time, minFileAge time.Duration) (bool, error) {
 	if info.IsDir() {
@@ -55,7 +71,7 @@ func shouldRemoveLogFile(info os.FileInfo, now time.Time, minFileAge time.Durati
 }
 
 // CleanupOldCliLogs removes old fdbcli log files.
-func CleanupOldCliLogs(minFileAge time.Duration) {
+func (c CliLogFileCleaner) CleanupOldCliLogs() {
 	logDir := os.Getenv("FDB_NETWORK_OPTION_TRACE_ENABLE")
 	if logDir == "" {
 		return
@@ -63,13 +79,13 @@ func CleanupOldCliLogs(minFileAge time.Duration) {
 
 	deletedCnt := 0
 
-	log.V(1).Info("Attempt to clean up old CLI log files", "logDir", logDir)
+	c.log.V(1).Info("Attempt to clean up old CLI log files", "logDir", logDir)
 	err := filepath.Walk(logDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		remove, err := shouldRemoveLogFile(info, time.Now(), minFileAge)
+		remove, err := shouldRemoveLogFile(info, time.Now(), c.minFileAge)
 		if err != nil {
 			return err
 		}
@@ -92,5 +108,9 @@ func CleanupOldCliLogs(minFileAge time.Duration) {
 		return nil
 	})
 
-	log.V(1).Info("Cleanup old CLI log files", "deleted files", deletedCnt, "error", err)
+	if err != nil {
+		c.log.Error(err, "error during old Cli log file clean up")
+	}
+
+	c.log.V(1).Info("Clean up old CLI log files", "deleted files", deletedCnt)
 }
