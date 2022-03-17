@@ -10,6 +10,7 @@ patchesStrategicMerge:
 resources:
 - ../deployment
 - ../minio
+
 images:
 - name: foundationdb/fdb-kubernetes-operator
   newName: fdb-kubernetes-operator
