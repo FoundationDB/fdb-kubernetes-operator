@@ -5,6 +5,39 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+        # Install client libraries for unreleased versions of FDB
+        - name: foundationdb-kubernetes-init-7-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.0-rc2-1
+          args:
+            - "--copy-binary"
+            - "fdbcli"
+            - "--copy-binary"
+            - "fdbbackup"
+            - "--copy-binary"
+            - "fdbrestore"
+            - "--output-dir"
+            - "/var/output-files/7.1.0-rc2"
+            - "--init-mode"
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
+        # Install this library in a special location to force the operator to
+        # use it as the primary library.
+        - name: foundationdb-kubernetes-init-7-1-primary
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.0-rc2-1
+          args:
+            - "--copy-library"
+            - "7.1"
+            - "--output-dir"
+            - "/var/output-files/primary"
+            - "--init-mode"
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
       containers:
         - name: manager
           imagePullPolicy: IfNotPresent
+          env:
+            - name: LD_LIBRARY_PATH
+              value: /usr/bin/fdb/primary/lib
