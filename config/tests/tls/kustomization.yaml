@@ -5,6 +5,6 @@ patchesJson6902:
 - path: tls.yaml
   target:
     group: apps.foundationdb.org
-    version: v1beta1
+    version: v1beta2
     kind: FoundationDBCluster
     name: test-cluster

@@ -17,7 +17,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: foundationdb-kubernetes-init-7-1
-          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.0-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.0-rc2-1
           imagePullPolicy: IfNotPresent
           args:
             - "--copy-file"
@@ -34,10 +34,8 @@ spec:
               mountPath: /var/output-files
       containers:
         - name: client
-          image: foundationdb/foundationdb-sample-go-app:latest
+          image: foundationdb/foundationdb-sample-python-app:latest
           imagePullPolicy: IfNotPresent
-          command:
-            - /go/bin/fdb-demo-golang
           env:
             - name: FDB_CLUSTER_FILE
               value: /var/dynamic-conf/fdb.cluster
@@ -87,4 +85,4 @@ spec:
   type: LoadBalancer
   ports:
     - port: 9562
-      targetPort: 8080
+      targetPort: 5000

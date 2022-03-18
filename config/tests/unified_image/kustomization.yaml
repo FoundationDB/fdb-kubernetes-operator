@@ -8,6 +8,6 @@ patchesJson6902:
 - path: images.yaml
   target:
     group: apps.foundationdb.org
-    version: v1beta1
+    version: v1beta2
     kind: FoundationDBCluster
     name: test-cluster
