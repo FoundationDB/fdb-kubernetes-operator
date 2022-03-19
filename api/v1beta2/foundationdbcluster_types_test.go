@@ -3708,7 +3708,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(len(removals)))
 					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(0))
 				})
-
 			})
 
 			When("a process group is already included in the list", func() {
@@ -3728,7 +3727,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		When("removing without exclusion", func() {
-			When("a np process group is already included in the list", func() {
+			When("a process group is not already included in the list", func() {
 				It("should add the process group to the removal list", func() {
 					removals := []string{"test1"}
 					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
@@ -3740,7 +3739,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			When("a process group is already included in the list", func() {
 				BeforeEach(func() {
-					cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, "test1")
+					cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, "test1")
 					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements("test1"))
 				})
 
