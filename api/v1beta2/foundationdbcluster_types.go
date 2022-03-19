@@ -1994,3 +1994,39 @@ func (cluster *FoundationDBCluster) GetUseUnifiedImage() bool {
 func (cluster *FoundationDBCluster) GetIgnoreTerminatingPodsSeconds() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreTerminatingPodsSeconds, int((10 * time.Minute).Seconds()))
 }
+
+// AddProcessGroupsToRemovalList adds the provided process group IDs to the remove list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupIDs []string) {
+	removals := map[string]None{}
+
+	for _, id := range cluster.Spec.ProcessGroupsToRemove {
+		removals[id] = None{}
+	}
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := removals[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, processGroupID)
+	}
+}
+
+// AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []string) {
+	removals := map[string]None{}
+
+	for _, id := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
+		removals[id] = None{}
+	}
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := removals[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
+	}
+}
