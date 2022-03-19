@@ -247,6 +247,57 @@ var _ = Describe("[plugin] remove instances command", func() {
 						RemoveAllFailed: true,
 					}),
 			)
+
+			When("a procress group was already marked for removal", func() {
+				var kubeClient client.Client
+
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemove = []string{"instance-1"}
+					scheme := runtime.NewScheme()
+					_ = clientgoscheme.AddToScheme(scheme)
+					_ = fdbv1beta2.AddToScheme(scheme)
+					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+				})
+
+				When("adding the same process group to the removal list without exclusion", func() {
+					It("should add the process group to the removal without exclusion list", func() {
+						removals := []string{"instance-1"}
+						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, false, false, true, false)
+						Expect(err).NotTo(HaveOccurred())
+
+						var resCluster fdbv1beta2.FoundationDBCluster
+						err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      clusterName,
+						}, &resCluster)
+
+						Expect(err).NotTo(HaveOccurred())
+						Expect(resCluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
+						Expect(len(resCluster.Spec.ProcessGroupsToRemove)).To(BeNumerically("==", len(removals)))
+						Expect(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
+						Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", len(removals)))
+					})
+				})
+
+				When("adding the same process group to the removal list", func() {
+					It("should add the process group to the removal without exclusion list", func() {
+						removals := []string{"instance-1"}
+						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, true, false, true, false)
+						Expect(err).NotTo(HaveOccurred())
+
+						var resCluster fdbv1beta2.FoundationDBCluster
+						err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+							Namespace: namespace,
+							Name:      clusterName,
+						}, &resCluster)
+
+						Expect(err).NotTo(HaveOccurred())
+						Expect(resCluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
+						Expect(len(resCluster.Spec.ProcessGroupsToRemove)).To(BeNumerically("==", len(removals)))
+						Expect(len(resCluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(BeNumerically("==", 0))
+					})
+				})
+			})
 		})
 	})
 })
