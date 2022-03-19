@@ -31,8 +31,6 @@ CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v3@v3.9.4
 KUSTOMIZE=$(GOBIN)/kustomize
-YQ_PKG?=github.com/mikefarah/yq/v4@v4.13.5
-YQ=$(GOBIN)/yq
 GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 BUILD_DEPS?=
@@ -43,7 +41,7 @@ BUILD_DEPS+=$(1)
 $($2):
 	(export TMP_DIR=$$$$(mktemp -d) ;\
 	cd $$$$TMP_DIR ;\
-	go get $$($2_PKG) ;\
+	go install $$($2_PKG) ;\
 	cd - ;\
 	rm -rf $$$$TMP_DIR )
 $(1): $$($2)
@@ -52,7 +50,6 @@ endef
 $(eval $(call godep,controller-gen,CONTROLLER_GEN))
 $(eval $(call godep,golangci-lint,GOLANGCI_LINT))
 $(eval $(call godep,kustomize,KUSTOMIZE))
-$(eval $(call godep,yq,YQ))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
