@@ -207,5 +207,5 @@ docs/restore_spec.md: bin/po-docgen api/v1beta2/foundationdbrestore_types.go
 
 documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 
-lint:
+lint: golangci-lint
 	golangci-lint run ./...
