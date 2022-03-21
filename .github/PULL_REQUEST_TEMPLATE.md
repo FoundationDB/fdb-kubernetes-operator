@@ -12,18 +12,18 @@
 - Documentation
 - Other
 
-# Discussion
+## Discussion
 
 *Are there any design details that you would like to discuss further?*
 
-# Testing
+## Testing
 
 *Please describe the tests that you ran to verify your changes. Unit tests?
 Manual testing?*
 
 *Do we need to perform additional testing once this is merged, or perform in a larger testing environment?*
 
-# Documentation
+## Documentation
 
 *Did you update relevant documentation within this repository?*
 
@@ -33,7 +33,7 @@ Manual testing?*
 
 *If this change is adding new safety checks or new potential failure modes, have we documented and how to debug potential issues?*
 
-# Follow-up
+## Follow-up
 
 *Are there any follow-up issues that we should pursue in the future?*
 

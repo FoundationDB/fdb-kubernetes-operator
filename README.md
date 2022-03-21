@@ -4,8 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/FoundationDB/fdb-kubernetes-operator)
 [![CI for main branch](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml/badge.svg)](https://github.com/FoundationDB/fdb-kubernetes-operator/actions/workflows/pull_request.yml)
 
-This project provides an operator for managing FoundationDB
-clusters on Kubernetes.
+This project provides an operator for managing FoundationDB clusters on Kubernetes.
 
 ## Running the Operator
 
@@ -26,10 +25,10 @@ kubectl apply -f https://raw.githubusercontent.com/foundationdb/fdb-kubernetes-o
 ```
 
 You can see logs from the operator by running
-`kubectl logs -f -l app=fdb-kubernetes-operator-controller-manager --container=manager`. To determine whether the reconciliation has completed, you can run `kubectl get foundationdbcluster my-cluster`. This will show the latest generation of the
+`kubectl logs -f -l app=fdb-kubernetes-operator-controller-manager --container=manager`. To determine whether the reconciliation has completed, you can run `kubectl get foundationdbcluster test-cluster`. This will show the latest generation of the
 spec and the last reconciled generation of the spec. Once reconciliation has completed, these values will be the same.
 
-Once the reconciliation is complete, you can run `kubectl exec -it my-cluster-log-1 -- fdbcli` to open up a CLI on your cluster.
+Once the reconciliation is complete, you can run `kubectl exec -it test-cluster-log-1 -- fdbcli` to open up a CLI on your cluster.
 
 You can also browse the [sample directory](config/samples) for more examples of different resource configurations.
 
@@ -37,36 +36,31 @@ For more information about using the operator, including detailed discussion of 
 
 For more information on version compatibility, see our [compatibility guide](docs/compatibility.md).
 
-For more information on the fields you can define on the cluster resource, see
-the [API documentation](docs/cluster_spec.md).
+For more information on the fields you can define on the cluster resource, see the [API documentation](docs/cluster_spec.md).
 
 ## Local Development
 
 ### Environment Set-up
 
-1. Install GO on your machine, see the [Getting Started](https://golang.org/doc/install) guide for more information.
-2. Install KubeBuilder and its dependencies on your machine, see [The KubeBuilder Book](https://book.kubebuilder.io/quick-start.html) for more information (currently version `2.3.2` is used).
-3. Set your $GOPATH, e.x. `/Users/me/Code/go`.
-4. Install [kustomize](https://github.com/kubernetes-sigs/kustomize).
-5. Install the [foundationDB client package](https://www.foundationdb.org/download).
+1. Install Go on your machine, see the [Getting Started](https://golang.org/doc/install) guide for more information.
+1. Install the required dependencies with `make deps`.
+1. Install the [foundationDB client package](https://www.foundationdb.org/download).
 
 ### Running Locally
 
 To get this controller running in a local Kubernetes cluster:
 
-1. Change your current directory to $GOPATH/src/github.com using the
-   command `cd $GOPATH/src/github.com` and run `mkdir foundationdb`
-   to create the directory `foundationdb`.
-2. CD into the newly created directory and clone this github repo inside
-   `$GOPATH/src/github.com/foundationdb`.
-3. Run `config/test-certs/generate_secrets.bash` to set up a secret with
+1. The assumption is that you have local Kubernetes cluster running.
+   Depending on what solution you use some of the following steps might differ.
+1. Clone this repository onto your local machine.
+1. Run `config/test-certs/generate_secrets.bash` to set up a secret with
    self-signed test certs.
-4. Run `make rebuild-operator` to install the operator. By default, the
-   docker image is built for the platform where this command is executed.
-   To override the platform, for example, to build amd64 image on Apple M1,
-   you can set the BUILD_PLATFORM env variable
+1. Run `make rebuild-operator` to install the operator. By default, the
+   container image is built for the platform where this command is executed.
+   To override the platform, for example, to build an amd64 image on Apple M1,
+   you can set the `BUILD_PLATFORM` env variable
    `BUILD_PLATFORM="linux/amd64" make rebuild-operator`.
-5. Run `kubectl apply -k ./config/tests/base`
+1. Run `kubectl apply -k ./config/tests/base`
    to create a new FoundationDB cluster with the operator.
 
 ### Running locally with nerdctl
