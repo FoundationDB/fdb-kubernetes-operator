@@ -21,23 +21,17 @@
 package cmd
 
 import (
+	ctx "context"
 	"fmt"
 	"log"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-
-	corev1 "k8s.io/api/core/v1"
-
-	"github.com/spf13/cobra"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	ctx "context"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -155,18 +149,6 @@ func getProcessGroupIDsFromPod(kubeClient client.Client, clusterName string, pod
 	return processGroups, nil
 }
 
-func filterAlreadyMarkedProcessGroups(cluster *fdbv1beta2.FoundationDBCluster, processGroupIDs []string) []string {
-	res := make([]string, 0, len(processGroupIDs))
-
-	for _, processGroupID := range processGroupIDs {
-		if !cluster.ProcessGroupIsBeingRemoved(processGroupID) {
-			res = append(res, processGroupID)
-		}
-	}
-
-	return res
-}
-
 // replaceProcessGroups adds process groups to the removal list of the cluster
 func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
@@ -202,8 +184,18 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 
 	patch := client.MergeFrom(cluster.DeepCopy())
 
+	processGroupSet := map[string]fdbv1beta2.None{}
+	for _, processGroup := range processGroups {
+		processGroupSet[processGroup] = fdbv1beta2.None{}
+	}
+
 	if removeAllFailed {
 		for _, processGroupStatus := range cluster.Status.ProcessGroups {
+			// Those are already included so we can skip the check and don't add duplicates
+			if _, ok := processGroupSet[processGroupStatus.ProcessGroupID]; ok {
+				continue
+			}
+
 			needsReplacement, _ := processGroupStatus.NeedsReplacement(0)
 			if needsReplacement {
 				processGroups = append(processGroups, processGroupStatus.ProcessGroupID)
@@ -222,12 +214,10 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 		}
 	}
 
-	processGroups = filterAlreadyMarkedProcessGroups(cluster, processGroups)
-
 	if withExclusion {
-		cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, processGroups...)
+		cluster.AddProcessGroupsToRemovalList(processGroups)
 	} else {
-		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroups...)
+		cluster.AddProcessGroupsToRemovalWithoutExclusionList(processGroups)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)

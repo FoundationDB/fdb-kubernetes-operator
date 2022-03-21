@@ -3691,4 +3691,82 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			),
 		)
 	})
+
+	When("adding a process to the removal list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		When("removing with exclusion", func() {
+			When("a np process group is already included in the list", func() {
+				It("should add the process group to the removal list", func() {
+					removals := []string{"test1"}
+					cluster.AddProcessGroupsToRemovalList(removals)
+					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
+					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(len(removals)))
+					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(0))
+				})
+			})
+
+			When("a process group is already included in the list", func() {
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, "test1")
+				})
+
+				It("should only add the missing process groups", func() {
+					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements("test1"))
+					removals := []string{"test1", "test2"}
+					cluster.AddProcessGroupsToRemovalList(removals)
+					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements(removals))
+					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(len(removals)))
+					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(0))
+				})
+			})
+		})
+
+		When("removing without exclusion", func() {
+			When("a process group is not already included in the list", func() {
+				It("should add the process group to the removal list", func() {
+					removals := []string{"test1"}
+					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
+					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
+					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
+					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(0))
+				})
+			})
+
+			When("a process group is already included in the list", func() {
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, "test1")
+					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements("test1"))
+				})
+
+				It("should only add the missing process groups", func() {
+					removals := []string{"test1", "test2"}
+					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
+					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
+					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
+					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(0))
+				})
+			})
+
+			When("a process group is already included in the with exclusion list", func() {
+				BeforeEach(func() {
+					cluster.Spec.ProcessGroupsToRemove = append(cluster.Spec.ProcessGroupsToRemove, "test1")
+					Expect(cluster.Spec.ProcessGroupsToRemove).To(ContainElements("test1"))
+					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(0))
+				})
+
+				It("should only add the missing process groups", func() {
+					removals := []string{"test1", "test2"}
+					cluster.AddProcessGroupsToRemovalWithoutExclusionList(removals)
+					Expect(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion).To(ContainElements(removals))
+					Expect(len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion)).To(Equal(len(removals)))
+					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(1))
+				})
+			})
+		})
+	})
 })
