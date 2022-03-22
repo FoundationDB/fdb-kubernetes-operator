@@ -156,6 +156,9 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 		}
 
 		diff := cmp.Diff(originalYAML, normalizedYAML)
+		if err != nil {
+			return err
+		}
 		if diff == "" {
 			if !showClusterSpec {
 				cmd.Printf("Cluster %s has no deprecation\n", cluster.Name)
@@ -180,6 +183,20 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 
 	cmd.Printf("%d cluster(s) without deprecations\n", clusterCounter)
 	return nil
+}
+
+func getDiff(objectA interface{}, objectB interface{}) (string, error) {
+	originalYAML, err := getMinimalYAML(objectA)
+	if err != nil {
+		return "", err
+	}
+
+	normalizedYAML, err := getMinimalYAML(objectB)
+	if err != nil {
+		return "", err
+	}
+
+	return cmp.Diff(originalYAML, normalizedYAML), nil
 }
 
 func getMinimalYAML(object interface{}) ([]byte, error) {

@@ -21,6 +21,9 @@
 package cmd
 
 import (
+	ctx "context"
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +37,17 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Get the configuration string based on the database configuration of the cluster spec.",
 		Long:  "Get the configuration string based on the database configuration of the cluster spec.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			force, err := cmd.Root().Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
+
 			failOver, err := cmd.Flags().GetBool("fail-over")
+			if err != nil {
+				return err
+			}
+
+			update, err := cmd.Flags().GetBool("update")
 			if err != nil {
 				return err
 			}
@@ -50,6 +63,10 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			}
 
 			for _, clusterName := range args {
+				if update {
+					return updateConfig(kubeClient, clusterName, namespace, failOver, force)
+				}
+
 				configuration, err := getConfigurationString(kubeClient, clusterName, namespace, failOver)
 				if err != nil {
 					return err
@@ -73,6 +90,9 @@ kubectl fdb -n default get configuration c1
 
 # Get the configuration string from cluster c1 and change the priority for an HA cluster
 kubectl fdb get configuration --fail-over c1
+
+# Change the priority for an HA cluster named c1 and apply these changes
+kubectl fdb get configuration --fail-over --update c1
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -80,12 +100,41 @@ kubectl fdb get configuration --fail-over c1
 	cmd.SetIn(o.In)
 
 	cmd.Flags().Bool("fail-over", false, "defines if the configuration should be changed to issue a fail over")
+	cmd.Flags().Bool("update", false, "defines if the configuration should be updated in the cluster spec")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
-// printConfiguration
+func updateConfig(kubeClient client.Client, clusterName string, namespace string, failOver bool, force bool) error {
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
+	if err != nil {
+		return err
+	}
+
+	config := cluster.Spec.DatabaseConfiguration
+	if failOver {
+		config = config.FailOver()
+	}
+
+	if !force {
+		diff, err := getDiff(cluster.Spec.DatabaseConfiguration, config)
+		if err != nil {
+			return err
+		}
+
+		confirmed := confirmAction(fmt.Sprintf("The following changes will be made:\n%s", diff))
+		if !confirmed {
+			return fmt.Errorf("user aborted the change")
+		}
+	}
+
+	cluster.Spec.DatabaseConfiguration = config
+
+	return kubeClient.Update(ctx.Background(), cluster)
+}
+
+// getConfigurationString returns the configuration string
 func getConfigurationString(kubeClient client.Client, clusterName string, namespace string, failOver bool) (string, error) {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
