@@ -186,17 +186,17 @@ func checkDeprecation(cmd *cobra.Command, kubeClient client.Client, inputCluster
 }
 
 func getDiff(objectA interface{}, objectB interface{}) (string, error) {
-	originalYAML, err := getMinimalYAML(objectA)
+	aYaml, err := getMinimalYAML(objectA)
 	if err != nil {
 		return "", err
 	}
 
-	normalizedYAML, err := getMinimalYAML(objectB)
+	bYaml, err := getMinimalYAML(objectB)
 	if err != nil {
 		return "", err
 	}
 
-	return cmp.Diff(originalYAML, normalizedYAML), nil
+	return cmp.Diff(aYaml, bYaml), nil
 }
 
 func getMinimalYAML(object interface{}) ([]byte, error) {
