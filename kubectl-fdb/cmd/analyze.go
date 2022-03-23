@@ -247,6 +247,8 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	// We could add here more fields from cluster.Status.Generations and check if they are present.
 	var failedProcessGroups []string
 	processGroupMap := map[string]fdbv1beta2.None{}
+	removedProcessGroups := map[string]fdbv1beta2.None{}
+
 	// 3. Check for issues in processGroupID
 	processGroupIssue := false
 	var ignoredConditions int
@@ -261,6 +263,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		// or should we check for how long they are marked as removed e.g. stuck in removal?
 		if processGroup.IsMarkedForRemoval() {
 			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
+			removedProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 			printStatement(cmd, statement, errorMessage)
 			continue
 		}
@@ -315,6 +318,24 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 	processGroupIDLabel := cluster.GetProcessGroupIDLabel()
 	for _, pod := range pods.Items {
+		// Skip Pods that are marked for removal those will probably be in a terminating state.
+		if _, ok := removedProcessGroups[pod.Labels[cluster.GetProcessGroupIDLabel()]]; ok {
+			continue
+		}
+
+		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
+			podIssue = true
+			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", namespace, pod.Name, pod.DeletionTimestamp)
+			printStatement(cmd, statement, errorMessage)
+
+			// The process groups that should be deleted, so we can safely replace it
+			if autoFix {
+				failedProcessGroups = append(failedProcessGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
+			}
+
+			continue
+		}
+
 		if pod.Status.Phase != corev1.PodRunning {
 			podIssue = true
 			statement := fmt.Sprintf("Pod %s/%s has unexpected Phase %s with Reason: %s", namespace, pod.Name, pod.Status.Phase, pod.Status.Reason)
@@ -339,17 +360,6 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 
 		if deletePod && autoFix {
 			killPods = append(killPods, pod)
-		}
-
-		if pod.DeletionTimestamp != nil && pod.DeletionTimestamp.Add(5*time.Minute).Before(time.Now()) {
-			podIssue = true
-			statement := fmt.Sprintf("Pod %s/%s has been stuck in terminating since %s", namespace, pod.Name, pod.DeletionTimestamp)
-			printStatement(cmd, statement, errorMessage)
-
-			// The process groups that should be deleted, so we can safely replace it
-			if autoFix {
-				failedProcessGroups = append(failedProcessGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
-			}
 		}
 
 		id := pod.Labels[processGroupIDLabel]
