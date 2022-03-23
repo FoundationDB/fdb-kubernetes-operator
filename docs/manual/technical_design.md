@@ -171,7 +171,7 @@ The `AddPVCs` subreconciler creates any PVCs that are required for the cluster. 
 
 ### AddPods
 
-The `AddPods` subreconciler creates any pods that are required for the cluster. Every process group will have one pod created for it. If a process group is flagged for removal, we will not create a pod for it.
+The `AddPods` subreconciler creates any pods that are required for the cluster. Every process group will have one pod created for it. If a process group is flagged for removal and a previous run of `RemoveProcessGroups` has determined (by submitting the `exclude` command to FoundationDB) that it has in fact been fully excluded from the FoundationDB cluster, we will not create a pod for it. However, if we do not know for certain that the process group is fully excluded from FoundationDB, we will bring it back up even if it is flagged for removal - this is to handle a case where a storage node crashes (or is accidentally stopped) while it is draining.
 
 ### GenerateInitialClusterFile
 
