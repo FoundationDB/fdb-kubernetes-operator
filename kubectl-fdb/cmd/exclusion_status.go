@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"time"
 
@@ -79,6 +80,10 @@ func newExclusionStatusCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			pods, err := getPodsForCluster(kubeClient, cluster, namespace)
 			if err != nil {
 				return err
+			}
+
+			if len(pods.Items) == 0 {
+				return fmt.Errorf("no running Pods are found for cluster: %s/%s", cluster.Namespace, cluster.Name)
 			}
 
 			// TODO get the pod randomly
