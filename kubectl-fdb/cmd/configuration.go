@@ -37,7 +37,7 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Get the configuration string based on the database configuration of the cluster spec.",
 		Long:  "Get the configuration string based on the database configuration of the cluster spec.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := cmd.Root().Flags().GetBool("force")
+			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func newConfigurationCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			for _, clusterName := range args {
 				if update {
-					return updateConfig(kubeClient, clusterName, namespace, failOver, force)
+					return updateConfig(kubeClient, clusterName, namespace, failOver, wait)
 				}
 
 				configuration, err := getConfigurationString(kubeClient, clusterName, namespace, failOver)
@@ -106,7 +106,7 @@ kubectl fdb get configuration --fail-over --update c1
 	return cmd
 }
 
-func updateConfig(kubeClient client.Client, clusterName string, namespace string, failOver bool, force bool) error {
+func updateConfig(kubeClient client.Client, clusterName string, namespace string, failOver bool, wait bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func updateConfig(kubeClient client.Client, clusterName string, namespace string
 		config = config.FailOver()
 	}
 
-	if !force {
+	if wait {
 		diff, err := getDiff(cluster.Spec.DatabaseConfiguration, config)
 		if err != nil {
 			return err

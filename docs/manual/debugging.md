@@ -161,7 +161,7 @@ kubectl fdb get configuration sample-cluster
 
 When the `--fail-over` flag is provided the resulting configuration string will change the priority for the primary and the remote dc.
 You can also update the config directly by providing the `--update` flag to the command.
-If the `--force` flag is not set a diff of the new changes will be shown before updating the cluster spec.
+Per default a diff of the new changes will be shown before updating the cluster spec.
 For an HA cluster you have to update all clusters that are managed by the operator with the same command to ensure that all operator instance want to converge to the same configuration. 
 
 ## Next

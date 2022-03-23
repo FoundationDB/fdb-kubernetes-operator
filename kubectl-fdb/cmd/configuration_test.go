@@ -174,7 +174,7 @@ var _ = Describe("[plugin] configuration command", func() {
 					_ = fdbv1beta2.AddToScheme(scheme)
 					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 
-					err := updateConfig(kubeClient, "test", "test", true, true)
+					err := updateConfig(kubeClient, "test", "test", true, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster

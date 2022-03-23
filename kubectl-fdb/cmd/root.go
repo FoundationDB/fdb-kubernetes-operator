@@ -67,7 +67,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 	viper.SetDefault("license", "apache 2")
 	cmd.PersistentFlags().StringP("operator-name", "o", "fdb-kubernetes-operator-controller-manager", "Name of the Deployment for the operator.")
-	cmd.PersistentFlags().BoolP("force", "f", false, "Suppress the confirmation dialog")
+	cmd.PersistentFlags().BoolP("wait", "w", true, "If the plugin should wait for confirmation before executing any action")
 	o.configFlags.AddFlags(cmd.Flags())
 
 	cmd.AddCommand(
