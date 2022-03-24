@@ -943,40 +943,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
-	counts := cluster.Spec.DatabaseConfiguration.RoleCounts.DeepCopy()
-	if counts.Storage == 0 {
-		counts.Storage = 2*cluster.DesiredFaultTolerance() + 1
-	}
-	if counts.Logs == 0 {
-		counts.Logs = 3
-	}
-	if counts.Proxies == 0 {
-		counts.Proxies = 3
-	}
-	if counts.CommitProxies == 0 {
-		counts.CommitProxies = 2
-	}
-	if counts.GrvProxies == 0 {
-		counts.GrvProxies = 1
-	}
-	if counts.Resolvers == 0 {
-		counts.Resolvers = 1
-	}
-	if counts.RemoteLogs == 0 {
-		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
-			counts.RemoteLogs = counts.Logs
-		} else {
-			counts.RemoteLogs = -1
-		}
-	}
-	if counts.LogRouters == 0 {
-		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
-			counts.LogRouters = counts.Logs
-		} else {
-			counts.LogRouters = -1
-		}
-	}
-	return *counts
+	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(cluster.DesiredFaultTolerance())
 }
 
 // calculateProcessCount determines the process count from a given role count.
