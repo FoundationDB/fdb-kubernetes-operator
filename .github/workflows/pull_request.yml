@@ -15,6 +15,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.17.6
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -26,9 +30,8 @@ jobs:
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: v1.42
+        run: |
+          make fmt lint
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -54,29 +57,14 @@ jobs:
           ${{ runner.os }}-go
     - name: Get dependencies
       env:
-        KUBEBUILDER_VER: "2.3.2"
-        KUSTOMIZE_VER: "v3.9.4"
         KIND_VER: "v0.11.1"
       run: |
         # Only download all dependencies
-        go get -v -t -d ./...
-        curl --fail -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VER}/kustomize_${KUSTOMIZE_VER}_linux_amd64.tar.gz" -o kustomize.tar.gz
-        os=$(go env GOOS)
-        arch=$(go env GOARCH)
-        curl --fail -L "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VER}/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}.tar.gz" -o kubebuilder.tar.gz
         curl --fail -L "https://github.com/apple/foundationdb/releases/download/${{ matrix.fdbver }}/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
     - name: Install dependencies
-      env:
-        KUBEBUILDER_VER: "2.3.2"
       run: |
         # Install dependencies either from cache or freshly downloaded
-        tar xvfz kustomize.tar.gz
-        sudo mv kustomize /usr/local/bin/
-        tar -xz -C /tmp/ -f kubebuilder.tar.gz
-        os=$(go env GOOS)
-        arch=$(go env GOARCH)
-        sudo mv "/tmp/kubebuilder_${KUBEBUILDER_VER}_${os}_${arch}" /usr/local/kubebuilder
         sudo dpkg -i fdb.deb
         # Install Kind and start a local Kubernetes cluster
         chmod +x kind
