@@ -28,7 +28,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd"
 	"github.com/spf13/pflag"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 func main() {
