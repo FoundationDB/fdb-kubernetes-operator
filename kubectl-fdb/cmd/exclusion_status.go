@@ -26,6 +26,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -145,8 +147,15 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 			cmd.PrintErrln(serr.String())
 		}
 
+		res, err := internal.RemoveWarningsInJSON(out.String())
+		if err != nil {
+			// If an error occurs retry
+			cmd.PrintErrln(err)
+			continue
+		}
+
 		status := &fdbv1beta2.FoundationDBStatus{}
-		err = json.Unmarshal(out.Bytes(), status)
+		err = json.Unmarshal([]byte(res), status)
 		if err != nil {
 			// If an error occurs retry
 			cmd.PrintErrln(err)
