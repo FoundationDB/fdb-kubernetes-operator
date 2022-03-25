@@ -653,6 +653,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
 			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
 		})
+
 		When("CommitProxies and GrvProxies are not configured", func() {
 			configuration := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
@@ -667,12 +668,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
 				Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
 			})
+
 			It("should have no proxies configured", func() {
 				version, _ := ParseFdbVersion("7.0.0")
 				Expect(configuration.AreSeparatedProxiesConfigured()).To(BeFalse())
 				Expect(configuration.GetProxiesString(version)).To(Equal(" proxies=1"))
 			})
 		})
+
 		When("CommitProxies and GrvProxies are configured but not proxies", func() {
 			configuration := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
@@ -690,6 +693,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(configuration.GetProxiesString(version)).To(Equal(" proxies=3"))
 				Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[]"))
 			})
+
 			It("should have separated proxies configured with FDB > 7.0.0", func() {
 				version, _ := ParseFdbVersion("7.0.0")
 				Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())

@@ -521,15 +521,21 @@ func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool 
 	return false
 }
 
+// GetProxiesString returns a string that contains the correct fdbcli
+// commands for use inside the database `configure` command.
+//
+// If the version argument supports the separate grv/commit proxy roles
+// and they have been configured as decided by
+// AreSeparatedProxiesConfigured(), then this function will return the
+// string "commit_proxies=%d grv_proxies=%d", otherwise just
+// "proxies=%d" using the correct counts of the configuration object.
+//
 func (configuration DatabaseConfiguration) GetProxiesString(version Version) string {
 	counts := configuration.GetRoleCountsWithDefaults(DesiredFaultTolerance(configuration.RedundancyMode))
-	var proxies_string string
 	if version.HasSeparatedProxies() && configuration.AreSeparatedProxiesConfigured() {
-		proxies_string += fmt.Sprintf(" commit_proxies=%d grv_proxies=%d", counts.CommitProxies, counts.GrvProxies)
-	} else {
-		proxies_string += fmt.Sprintf(" proxies=%d", counts.Proxies)
+		return fmt.Sprintf(" commit_proxies=%d grv_proxies=%d", counts.CommitProxies, counts.GrvProxies)
 	}
-	return proxies_string
+	return fmt.Sprintf(" proxies=%d", counts.Proxies)
 }
 
 // FillInDefaultsFromStatus adds in missing fields from the database
