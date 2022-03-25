@@ -35,6 +35,7 @@ GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 BUILD_DEPS?=
 BUILDER?="docker"
+GINKGO_PARALLEL=8
 
 define godep
 BUILD_DEPS+=$(1)
@@ -79,17 +80,14 @@ clean:
 clean-deps:
 	@rm $(CONTROLLER_GEN) $(KUSTOMIZE) $(KUBEBUILDER) $(GOLANGCI_LINT)
 
-# Run tests
-test:
-ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out
-endif
-
 test_if_changed: cover.out
 
+# Run tests
 cover.out: ${GO_ALL} ${MANIFESTS}
+
+test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out -tags test
+	go test ${go_test_flags} ./... -coverprofile cover.out --ginkgo.parallel.total $(GINKGO_PARALLEL)
 endif
 
 # Build manager binary
