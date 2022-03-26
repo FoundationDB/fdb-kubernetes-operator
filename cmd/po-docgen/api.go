@@ -26,29 +26,29 @@ import (
 )
 
 const (
-	firstParagraph = `<br>
-# API Docs
+	firstParagraph = `# API Docs
+
 This Document documents the types introduced by the FoundationDB Operator to be consumed by users.
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.`
 )
 
 var (
 	links = map[string]string{
-		"metav1.ObjectMeta":            "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta",
-		"metav1.ListMeta":              "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta",
-		"metav1.LabelSelector":         "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#labelselector-v1-meta",
-		"corev1.ResourceRequirements":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core",
-		"corev1.LocalObjectReference":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#localobjectreference-v1-core",
-		"corev1.SecretKeySelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#secretkeyselector-v1-core",
-		"corev1.PersistentVolumeClaim": "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core",
-		"corev1.EmptyDirVolumeSource":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#emptydirvolumesource-v1-core",
-		"corev1.Container":             "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core",
-		"corev1.PodSecurityContext":    "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core",
-		"corev1.SecurityContext":       "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#securitycontext-v1-core",
-		"corev1.EnvVar":                "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#envvar-v1-core",
-		"corev1.VolumeMount":           "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#volumemount-v1-core",
-		"corev1.PodTemplateSpec":       "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core",
-		"corev1.ConfigMap":             "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#configmap-v1-core",
+		"metav1.ObjectMeta":            "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta",
+		"metav1.ListMeta":              "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#listmeta-v1-meta",
+		"metav1.LabelSelector":         "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta",
+		"corev1.ResourceRequirements":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#resourcerequirements-v1-core",
+		"corev1.LocalObjectReference":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#localobjectreference-v1-core",
+		"corev1.SecretKeySelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#secretkeyselector-v1-core",
+		"corev1.PersistentVolumeClaim": "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#persistentvolumeclaim-v1-core",
+		"corev1.EmptyDirVolumeSource":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#emptydirvolumesource-v1-core",
+		"corev1.Container":             "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core",
+		"corev1.PodSecurityContext":    "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podsecuritycontext-v1-core",
+		"corev1.SecurityContext":       "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#securitycontext-v1-core",
+		"corev1.EnvVar":                "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#envvar-v1-core",
+		"corev1.VolumeMount":           "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#volumemount-v1-core",
+		"corev1.PodTemplateSpec":       "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podtemplatespec-v1-core",
+		"corev1.ConfigMap":             "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#configmap-v1-core",
 	}
 
 	selfLinks = map[string]string{}
@@ -61,7 +61,7 @@ func toSectionLink(name string) string {
 }
 
 func printTOC(types []KubeTypes) {
-	fmt.Printf("\n## Table of Contents\n")
+	fmt.Printf("\n## Table of Contents\n\n")
 	for _, t := range types {
 		strukt := t[0]
 		if len(t) > 1 {
@@ -101,7 +101,7 @@ func printAPIDocs(paths []string) {
 	}
 }
 
-// Pair of strings. We keed the name of fields and the doc
+// Pair of strings. We keep the name of fields and the doc
 type Pair struct {
 	Name, Doc, Type string
 	Mandatory       bool

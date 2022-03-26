@@ -1,9 +1,10 @@
-<br>
 # API Docs
+
 This Document documents the types introduced by the FoundationDB Operator to be consumed by users.
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+
 * [BackupGenerationStatus](#backupgenerationstatus)
 * [BlobStoreConfiguration](#blobstoreconfiguration)
 * [FoundationDBBackup](#foundationdbbackup)
@@ -48,7 +49,7 @@ FoundationDBBackup is the Schema for the foundationdbbackups API
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
+| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
 | spec |  | [FoundationDBBackupSpec](#foundationdbbackupspec) | false |
 | status |  | [FoundationDBBackupStatus](#foundationdbbackupstatus) | false |
 
@@ -60,7 +61,7 @@ FoundationDBBackupList contains a list of FoundationDBBackup objects
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
+| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#listmeta-v1-meta) | false |
 | items |  | [][FoundationDBBackup](#foundationdbbackup) | true |
 
 [Back to TOC](#table-of-contents)
@@ -76,8 +77,8 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | backupState | The desired state of the backup. The default is Running. | BackupState | false |
 | agentCount | AgentCount defines the number of backup agents to run. The default is run 2 agents. | *int | false |
 | snapshotPeriodSeconds | The time window between new snapshots. This is measured in seconds. The default is 864,000, or 10 days. | *int | false |
-| backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
-| podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
+| backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
+| podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podtemplatespec-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. | *bool | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |

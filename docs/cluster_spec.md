@@ -1,9 +1,10 @@
-<br>
 # API Docs
+
 This Document documents the types introduced by the FoundationDB Operator to be consumed by users.
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+
 * [AutomaticReplacementOptions](#automaticreplacementoptions)
 * [BuggifyConfig](#buggifyconfig)
 * [ClusterGenerationStatus](#clustergenerationstatus)
@@ -27,6 +28,12 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [ProcessSettings](#processsettings)
 * [RequiredAddressSet](#requiredaddressset)
 * [RoutingConfig](#routingconfig)
+* [DataCenter](#datacenter)
+* [DatabaseConfiguration](#databaseconfiguration)
+* [ProcessCounts](#processcounts)
+* [Region](#region)
+* [RoleCounts](#rolecounts)
+* [VersionFlags](#versionflags)
 
 ## AutomaticReplacementOptions
 
@@ -131,7 +138,7 @@ FoundationDBCluster is the Schema for the foundationdbclusters API
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) | false |
+| metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
 | spec |  | [FoundationDBClusterSpec](#foundationdbclusterspec) | false |
 | status |  | [FoundationDBClusterStatus](#foundationdbclusterstatus) | false |
 
@@ -177,7 +184,7 @@ FoundationDBClusterList contains a list of FoundationDBCluster objects
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta) | false |
+| metadata |  | [metav1.ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#listmeta-v1-meta) | false |
 | items |  | [][FoundationDBCluster](#foundationdbcluster) | true |
 
 [Back to TOC](#table-of-contents)
@@ -189,15 +196,15 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | version | Version defines the version of FoundationDB the cluster should run. | string | true |
-| databaseConfiguration | DatabaseConfiguration defines the database configuration. | DatabaseConfiguration | false |
+| databaseConfiguration | DatabaseConfiguration defines the database configuration. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | processes | Processes defines process-level settings. | map[ProcessClass][ProcessSettings](#processsettings) | false |
-| processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | ProcessCounts | false |
+| processCounts | ProcessCounts defines the number of processes to configure for each process class. You can generally omit this, to allow the operator to infer the process counts based on the database configuration. | [ProcessCounts](#processcounts) | false |
 | seedConnectionString | SeedConnectionString provides a connection string for the initial reconciliation.  After the initial reconciliation, this will not be used. | string | false |
 | partialConnectionString | PartialConnectionString provides a way to specify part of the connection string (e.g. the database name and coordinator generation) without specifying the entire string. This does not allow for setting the coordinator IPs. If `SeedConnectionString` is set, `PartialConnectionString` will have no effect. They cannot be used together. | [ConnectionString](#connectionstring) | false |
 | faultDomain | FaultDomain defines the rules for what fault domain to replicate across. | [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain) | false |
 | processGroupsToRemove | ProcessGroupsToRemove defines the process groups that we should remove from the cluster. This list contains the process group IDs. | []string | false |
 | processGroupsToRemoveWithoutExclusion | ProcessGroupsToRemoveWithoutExclusion defines the process groups that we should remove from the cluster without excluding them. This list contains the process group IDs.  This should be used for cases where a pod does not have an IP address and you want to remove it and destroy its volume without confirming the data is fully replicated. | []string | false |
-| configMap | ConfigMap allows customizing the config map the operator creates. | *[corev1.ConfigMap](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#configmap-v1-core) | false |
+| configMap | ConfigMap allows customizing the config map the operator creates. | *[corev1.ConfigMap](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#configmap-v1-core) | false |
 | mainContainer | MainContainer defines customization for the foundationdb container. | [ContainerOverrides](#containeroverrides) | false |
 | sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | [ContainerOverrides](#containeroverrides) | false |
 | trustedCAs | TrustedCAs defines a list of root CAs the cluster should trust, in PEM format. | []string | false |
@@ -228,7 +235,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | DatabaseConfiguration | false |
+| databaseConfiguration | DatabaseConfiguration provides the running configuration of the database. | [DatabaseConfiguration](#databaseconfiguration) | false |
 | generations | Generations provides information about the latest generation to be reconciled, or to reach other stages at which reconciliation can halt. | [ClusterGenerationStatus](#clustergenerationstatus) | false |
 | health | Health provides information about the health of the database. | [ClusterHealth](#clusterhealth) | false |
 | requiredAddresses | RequiredAddresses define that addresses that we need to enable for the processes in the cluster. | [RequiredAddressSet](#requiredaddressset) | false |
@@ -340,8 +347,8 @@ ProcessSettings defines process-level settings.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| podTemplate | PodTemplate allows customizing the pod. If a container image with a tag is specified the operator will throw an error and stop processing the cluster. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core) | false |
-| volumeClaimTemplate | VolumeClaimTemplate allows customizing the persistent volume claim for the pod. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core) | false |
+| podTemplate | PodTemplate allows customizing the pod. If a container image with a tag is specified the operator will throw an error and stop processing the cluster. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podtemplatespec-v1-core) | false |
+| volumeClaimTemplate | VolumeClaimTemplate allows customizing the persistent volume claim for the pod. | *[corev1.PersistentVolumeClaim](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#persistentvolumeclaim-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the fdbserver process. | FoundationDBCustomParameters | false |
 
 [Back to TOC](#table-of-contents)
@@ -368,5 +375,96 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | podIPFamily | PodIPFamily tells the pod which family of IP addresses to use. You can use 4 to represent IPv4, and 6 to represent IPv6. This feature is only supported in FDB 7.0 or later, and requires dual-stack support in your Kubernetes environment. | *int | false |
 | useDNSInClusterFile | UseDNSInClusterFile determines whether to use DNS names rather than IP addresses to identify coordinators in the cluster file. NOTE: This is an experimental feature, and is not supported in the latest stable version of FoundationDB. | *bool | false |
 | dnsDomain | DNSDomain defines the cluster domain used in a DNS name generated for a service. The default is `cluster.local`. | *string | false |
+
+[Back to TOC](#table-of-contents)
+
+## DataCenter
+
+DataCenter represents a data center in the region configuration
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| id | The ID of the data center. This must match the dcid locality field. | string | false |
+| priority | The priority of this data center when we have to choose a location. Higher priorities are preferred over lower priorities. | int | false |
+| satellite | Satellite indicates whether the data center is serving as a satellite for the region. A value of 1 indicates that it is a satellite, and a value of 0 indicates that it is not a satellite. | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## DatabaseConfiguration
+
+DatabaseConfiguration represents the configuration of the database
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| redundancy_mode | RedundancyMode defines the core replication factor for the database. | RedundancyMode | false |
+| storage_engine | StorageEngine defines the storage engine the database uses. | StorageEngine | false |
+| usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
+| regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
+| RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
+| VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
+
+[Back to TOC](#table-of-contents)
+
+## ProcessCounts
+
+ProcessCounts represents the number of processes we have for each valid process class.  If one of the counts in the spec is set to 0, we will infer the process count for that class from the role counts. If one of the counts in the spec is set to -1, we will not create any processes for that class. See GetProcessCountsWithDefaults for more information on the rules for inferring process counts.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| unset |  | int | false |
+| storage |  | int | false |
+| transaction |  | int | false |
+| resolution |  | int | false |
+| tester |  | int | false |
+| proxy |  | int | false |
+| master |  | int | false |
+| stateless |  | int | false |
+| log |  | int | false |
+| cluster_controller |  | int | false |
+| router |  | int | false |
+| fast_restore |  | int | false |
+| data_distributor |  | int | false |
+| coordinator |  | int | false |
+| ratekeeper |  | int | false |
+| storage_cache |  | int | false |
+| backup |  | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## Region
+
+Region represents a region in the database configuration
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| datacenters | The data centers in this region. | [][DataCenter](#datacenter) | false |
+| satellite_logs | The number of satellite logs that we should recruit. | int | false |
+| satellite_redundancy_mode | The replication strategy for satellite logs. | string | false |
+
+[Back to TOC](#table-of-contents)
+
+## RoleCounts
+
+RoleCounts represents the roles whose counts can be customized.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| storage |  | int | false |
+| logs |  | int | false |
+| proxies |  | int | false |
+| resolvers |  | int | false |
+| log_routers |  | int | false |
+| remote_logs |  | int | false |
+
+[Back to TOC](#table-of-contents)
+
+## VersionFlags
+
+VersionFlags defines internal flags for new features in the database.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| log_spill |  | int | false |
+| log_version |  | int | false |
 
 [Back to TOC](#table-of-contents)
