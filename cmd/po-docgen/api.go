@@ -97,6 +97,9 @@ func printAPIDocs(paths []string) {
 			}
 			fmt.Println("")
 			fmt.Println("[Back to TOC](#table-of-contents)")
+		} else {
+			fmt.Printf("\n## %s\n\n%s\n\n", strukt.Name, strukt.Doc)
+			fmt.Println("[Back to TOC](#table-of-contents)")
 		}
 	}
 }
@@ -121,12 +124,14 @@ func ParseDocumentationFrom(srcs []string) []KubeTypes {
 		pkg := astFrom(src)
 
 		for _, kubType := range pkg.Types {
+
 			if structType, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType); ok {
 				var ks KubeTypes
 				ks = append(ks, Pair{kubType.Name, fmtRawDoc(kubType.Doc), "", false})
 
 				for _, field := range structType.Fields.List {
 					typeString := fieldType(field.Type)
+
 					fieldMandatory := fieldRequired(field)
 					if n := fieldName(field); n != "-" {
 						fieldDoc := fmtRawDoc(field.Doc.Text())
@@ -134,6 +139,9 @@ func ParseDocumentationFrom(srcs []string) []KubeTypes {
 					}
 				}
 				docForTypes = append(docForTypes, ks)
+			} else if i, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.Ident); ok {
+				// Add documentation for typed string that are not structs.
+				docForTypes = append(docForTypes, KubeTypes{Pair{kubType.Name, fmtRawDoc(kubType.Doc), i.Name, false}})
 			}
 		}
 	}
