@@ -191,8 +191,10 @@ config/samples/client.yaml: config/tests/client/*.yaml
 bin/po-docgen: cmd/po-docgen/*.go
 	go build -o bin/po-docgen cmd/po-docgen/main.go  cmd/po-docgen/api.go
 
-docs/cluster_spec.md: bin/po-docgen api/v1beta2/foundationdbcluster_types.go api/v1beta2/foundationdb_custom_parameter.go api/v1beta2/foundationdb_database_configuration.go
-	bin/po-docgen api api/v1beta2/foundationdbcluster_types.go api/v1beta2/foundationdb_custom_parameter.go api/v1beta2/foundationdb_database_configuration.go > $@
+CLUSTER_DOCS_INPUT=api/v1beta2/foundationdbcluster_types.go api/v1beta2/foundationdb_custom_parameter.go api/v1beta2/foundationdb_database_configuration.go api/v1beta2/foundationdb_process_class.go
+
+docs/cluster_spec.md: bin/po-docgen $(CLUSTER_DOCS_INPUT)
+	bin/po-docgen api $(CLUSTER_DOCS_INPUT) > $@
 
 docs/backup_spec.md: bin/po-docgen api/v1beta2/foundationdbbackup_types.go
 	bin/po-docgen api api/v1beta2/foundationdbbackup_types.go api/v1beta2/foundationdb_custom_parameter.go > $@

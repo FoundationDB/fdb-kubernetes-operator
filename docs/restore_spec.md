@@ -67,3 +67,9 @@ FoundationDBRestoreStatus describes the current status of the restore for a clus
 | running | Running describes whether the restore is currently running. | bool | false |
 
 [Back to TOC](#table-of-contents)
+
+## FoundationDBCustomParameter
+
+FoundationDBCustomParameter defines a single custom knob
+
+[Back to TOC](#table-of-contents)
