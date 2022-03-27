@@ -1,0 +1,35 @@
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: kubectl-fdb
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./kubectl-fdb
+    binary: kubectl-fdb
+    ldflags:
+      - -s -w -X github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd.pluginVersion={{.Version}}
+    goarch:
+      - amd64
+      - arm64
+archives:
+  - id: kubectl-fdb
+    builds:
+    - kubectl-fdb
+    format: binary
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+# TODO(johscheuer): evaluate if we want to use this feature
+changelog:
+  skip: true

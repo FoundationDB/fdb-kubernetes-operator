@@ -137,6 +137,19 @@ jobs:
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
           file: ${{ matrix.file }}
+  goreleaser:
+    name: Build kubectl-fdb binaries
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Fetch all tags
+        run: git fetch --force --tags
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.17.6
+      - name: Build with goreleaser
+        run: make snapshot
   push_images:
     if: github.ref == 'refs/heads/main'
     needs: build
