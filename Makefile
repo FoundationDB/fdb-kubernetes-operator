@@ -33,6 +33,8 @@ KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v3@v3.9.4
 KUSTOMIZE=$(GOBIN)/kustomize
 GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
+GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
+GORELEASER=$(GOBIN)/goreleaser
 BUILD_DEPS?=
 BUILDER?="docker"
 GINKGO_PARALLEL=8
@@ -51,6 +53,7 @@ endef
 $(eval $(call godep,controller-gen,CONTROLLER_GEN))
 $(eval $(call godep,golangci-lint,GOLANGCI_LINT))
 $(eval $(call godep,kustomize,KUSTOMIZE))
+$(eval $(call godep,goreleaser,GORELEASER))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
@@ -62,7 +65,7 @@ ifeq "$(TEST_RACE_CONDITIONS)" "1"
 	go_test_flags := $(go_test_flags) -race -timeout=30m
 endif
 
-all: deps generate fmt vet manager plugin manifests samples documentation test_if_changed
+all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push rebuild-operator bounce lint
 
@@ -75,10 +78,11 @@ clean:
 	rm -r bin
 	rm -f $(SAMPLES)
 	rm -f config/rbac/role.yaml
+	rm -rf ./dist/*
 	find . -name "cover.out" -delete
 
 clean-deps:
-	@rm $(CONTROLLER_GEN) $(KUSTOMIZE) $(KUBEBUILDER) $(GOLANGCI_LINT)
+	@rm $(CONTROLLER_GEN) $(KUSTOMIZE) $(GOLANGCI_LINT) $(GORELEASER)
 
 test_if_changed: cover.out
 
@@ -96,18 +100,13 @@ manager: bin/manager
 bin/manager: ${GO_SRC}
 	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/setup.operatorVersion=${TAG}" -o bin/manager main.go
 
-# package the plugin
-package: plugin bin/kubectl-fdb.tar.gz
-
-bin/kubectl-fdb.tar.gz:
-	cp ./kubectl-fdb/Readme.md ./bin
-	(cd ./bin; tar cfvz ./kubectl-fdb.tar.gz ./kubectl-fdb ./Readme.md)
-
 # Build kubectl-fdb binary
 plugin: bin/kubectl-fdb
 
-bin/kubectl-fdb: ${GO_SRC}
-	go build -ldflags="-s -w -X github.com/FoundationDB/fdb-kubernetes-operator/kubectl-fdb/cmd.pluginVersion=${TAG}" -o bin/kubectl-fdb ./kubectl-fdb
+bin/kubectl-fdb: ${GO_SRC} $(GORELEASER)
+	$(GORELEASER) build --single-target --skip-validate --rm-dist
+	@mkdir -p bin
+	@touch $@
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate manifests
@@ -140,16 +139,16 @@ fmt: bin/fmt_check
 
 bin/fmt_check: ${GO_ALL}
 	gofmt -w -s .
-	mkdir -p bin
-	@touch bin/fmt_check
+	@mkdir -p bin
+	@touch $@
 
 # Run go vet against code
 vet: bin/vet_check
 
 bin/vet_check: ${GO_ALL}
 	go vet ./...
-	mkdir -p bin
-	@touch bin/vet_check
+	@mkdir -p bin
+	@touch $@
 
 # Generate code
 generate: ${GENERATED_GO}
@@ -202,5 +201,25 @@ docs/restore_spec.md: bin/po-docgen api/v1beta2/foundationdbrestore_types.go
 
 documentation: docs/cluster_spec.md docs/backup_spec.md docs/restore_spec.md
 
-lint: golangci-lint
+lint: bin/lint
+
+bin/lint: $(GOLANGCI_LINT) ${GO_SRC}
 	$(GOLANGCI_LINT) run ./...
+	@mkdir -p bin
+	@touch $@
+
+snapshot: bin/snapshot
+
+bin/snapshot: ${GO_SRC} $(GORELEASER)
+	$(GORELEASER) check
+	$(GORELEASER) release --snapshot --rm-dist
+	@mkdir -p bin
+	@touch $@
+
+release: bin/release
+
+bin/release: ${GO_SRC} $(GORELEASER)
+	$(GORELEASER) check
+	$(GORELEASER) release --rm-dist
+	@mkdir -p bin
+	@touch $@

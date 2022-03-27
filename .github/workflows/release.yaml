@@ -31,63 +31,23 @@ jobs:
           draft: false
           prerelease: false
   release-plugin:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macOS-latest
+    runs-on: ubuntu-latest
     needs: create-release
     steps:
-      - uses: actions/checkout@v2
-      - name: Set package name
-        id: set_package_name
-        run: echo ::set-output name=package_name::kubectl-fdb-${{ needs.create-release.outputs.tag }}-$(echo ${RUNNER_OS} | tr [:upper:] [:lower:])
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch all tags
+        run: git fetch --force --tags
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
           go-version: 1.17.6
-      - name: Get FDB client
-        if: runner.os != 'Windows'
-        env:
-          FDB_VER: "6.2.29"
-        run: |
-          go get -v -t -d ./...
-          if [[ "${RUNNER_OS}" == "macOS" ]];then
-              curl --fail -L "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/FoundationDB-${FDB_VER}.pkg" -o fdb.pkg
-              sudo installer -allowUntrusted -verbose -pkg ./fdb.pkg -target /
-              # required later for calculating the sha256
-              brew install coreutils
-          else
-              curl --fail -L "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
-              sudo dpkg -i fdb.deb
-          fi
-      - name: Build
-        run: TAG=${{ needs.create-release.outputs.tag }} make plugin package
-      - name: Test binary
-        run: ./bin/kubectl-fdb version --client-only
-      - name: Create sha256 for assert
-        run: |
-          cp ./bin/kubectl-fdb ${{ steps.set_package_name.outputs.package_name }}
-          sha256sum ${{ steps.set_package_name.outputs.package_name }} > ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
-      - name: Upload Release asset
-        uses: actions/upload-release-asset@v1
+      - name: Release binaries
+        run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./bin/kubectl-fdb
-          asset_name: ${{ steps.set_package_name.outputs.package_name }}
-          asset_content_type: application/octet-stream
-      - name: Upload sha256 for asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./bin/${{ steps.set_package_name.outputs.package_name }}.sha256
-          asset_name: ${{ steps.set_package_name.outputs.package_name }}.sha256
-          asset_content_type: text/plain
   push_images:
     name: Push Docker images
     needs: create-release
