@@ -515,10 +515,7 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 // to 0
 func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
 	counts := configuration.RoleCounts
-	if counts.Proxies == 0 && (counts.GrvProxies > 0 && counts.CommitProxies > 0) {
-		return true
-	}
-	return false
+	return counts.Proxies == 0 && (counts.GrvProxies > 0 && counts.CommitProxies > 0)
 }
 
 // GetProxiesString returns a string that contains the correct fdbcli
