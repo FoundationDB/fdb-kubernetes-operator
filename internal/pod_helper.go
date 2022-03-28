@@ -29,6 +29,8 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/utils/pointer"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -40,7 +42,7 @@ import (
 var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
 // GetPublicIPsForPod returns the public IPs for a Pod
-func GetPublicIPsForPod(pod *corev1.Pod) []string {
+func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 	var podIPFamily *int
 
 	if pod == nil {

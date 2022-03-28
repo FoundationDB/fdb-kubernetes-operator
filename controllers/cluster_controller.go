@@ -723,7 +723,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 
 // newFdbPodClient builds a client for working with an FDB Pod
 func newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return internal.NewFdbPodClient(cluster, pod)
+	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name))
 }
 
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]struct{}, error) {
