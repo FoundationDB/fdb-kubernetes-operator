@@ -135,9 +135,8 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 
-	if len(pods) == 1 {
+	if len(pods) == 1 && pods[0].DeletionTimestamp.IsZero() {
 		err = r.PodLifecycleManager.DeletePod(ctx, r, pods[0])
-
 		if err != nil {
 			return err
 		}
@@ -150,7 +149,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	if err != nil {
 		return err
 	}
-	if len(pvcs.Items) == 1 {
+	if len(pvcs.Items) == 1 && pvcs.Items[0].DeletionTimestamp.IsZero() {
 		err = r.Delete(ctx, &pvcs.Items[0])
 		if err != nil {
 			return err
@@ -164,7 +163,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 	if err != nil {
 		return err
 	}
-	if len(services.Items) == 1 {
+	if len(services.Items) == 1 && services.Items[0].DeletionTimestamp.IsZero() {
 		err = r.Delete(ctx, &services.Items[0])
 		if err != nil {
 			return err
@@ -334,10 +333,12 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeProcessGroups")
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "RemovingProcesses", fmt.Sprintf("Removing pods: %v", processGroupsToRemove))
 
-	for _, id := range processGroupsToRemove {
+	processGroups := append(processGroupsToRemove, terminatingProcessGroups...)
+
+	for _, id := range processGroups {
 		err := removeProcessGroup(ctx, r, cluster, id)
 		if err != nil {
-			logger.Error(err, "Error during remove Pod", "processGroupID", id)
+			logger.Error(err, "Error during remove procress group", "processGroupID", id)
 			continue
 		}
 	}
@@ -345,10 +346,10 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	removedProcessGroups := make(map[string]bool)
 	// We have to check if the currently removed process groups are completely removed.
 	// In addition, we have to check if one of the terminating process groups has been cleaned up.
-	for _, id := range append(processGroupsToRemove, terminatingProcessGroups...) {
+	for _, id := range processGroups {
 		removed, include, err := confirmRemoval(ctx, r, cluster, id)
 		if err != nil {
-			logger.Error(err, "Error during confirm Pod removal", "processGroupID", id)
+			logger.Error(err, "Error during confirm procress group removal", "processGroupID", id)
 			continue
 		}
 
