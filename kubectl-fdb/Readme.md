@@ -9,9 +9,10 @@ Install from release:
 
 ```bash
 pushd $TMPDIR
-OS=macos
+OS=$(uname)
+ARCH="x86_64"
 VERSION="$(curl -s "https://api.github.com/repos/FoundationDB/fdb-kubernetes-operator/releases/latest" | jq -r '.tag_name')"
-curl -sLo kubectl-fdb "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/kubectl-fdb-${VERSION}-${OS}"
+curl -sLo kubectl-fdb "https://github.com/FoundationDB/fdb-kubernetes-operator/releases/download/${VERSION}/kubectl-fdb_${VERSION}_${OS}_${ARCH}"
 chmod +x kubectl-fdb
 sudo mv ./kubectl-fdb /usr/local/bin
 popd
@@ -22,7 +23,7 @@ In order to install the latest version from the source code run:
 ```bash
 make plugin
 # move the binary into your path
-export PATH="$PATH:$(pwd)/bin" 
+export PATH="${PATH}:$(pwd)/dist/kubectl-fdb_$(go env GOHOSTOS)_$(go env GOARCH)"
 ```
 
 ## Usage
