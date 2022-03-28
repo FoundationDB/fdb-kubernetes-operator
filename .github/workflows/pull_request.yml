@@ -30,8 +30,7 @@ jobs:
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
-        run: |
-          make fmt lint
+        run: make fmt lint
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -49,6 +48,10 @@ jobs:
         go-version: 1.17.6
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Fetch all tags
+      run: git fetch --force --tags
     - uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
