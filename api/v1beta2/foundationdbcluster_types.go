@@ -1736,8 +1736,10 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentAutomaticReplacements() int 
 // CoordinatorSelectionSetting defines the process class and the priority of it.
 // A higher priority means that the process class is preferred over another.
 type CoordinatorSelectionSetting struct {
+	// ProcessClass defines the process class to associate with priority with.
 	ProcessClass ProcessClass `json:"processClass,omitempty"`
-	Priority     int          `json:"priority,omitempty"`
+	// Priority defines the ordering of different process classes.
+	Priority int `json:"priority,omitempty"`
 }
 
 // IsEligibleAsCandidate checks if the given process has the right process class to be considered a valid coordinator.
