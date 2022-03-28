@@ -65,48 +65,109 @@ var _ = Describe("admin_client_test", func() {
 		})
 
 		Context("with a basic cluster", func() {
-			It("should generate the status", func() {
-				Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
-					RedundancyMode: fdbv1beta2.RedundancyModeDouble,
-					StorageEngine:  "ssd-2",
-					UsableRegions:  1,
-					RoleCounts: fdbv1beta2.RoleCounts{
-						Logs:          3,
-						Proxies:       3,
-						CommitProxies: 2,
-						GrvProxies:    1,
-						Resolvers:     1,
-						LogRouters:    -1,
-						RemoteLogs:    -1,
-					},
-					VersionFlags: fdbv1beta2.VersionFlags{
-						LogSpill: 2,
-					},
-				}))
+			When("the version supports grv and commit proxies", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+					err = k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
 
-				address := cluster.Status.ProcessGroups[13].Addresses[0]
-				Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
-				Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
-					Address: fdbv1beta2.ProcessAddress{
-						IPAddress: net.ParseIP(address),
-						Port:      4501,
-					},
-					ProcessClass: fdbv1beta2.ProcessClassStorage,
-					CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, address),
-					Excluded:     false,
-					Locality: map[string]string{
-						"instance_id": "storage-1",
-						"zoneid":      "operator-test-1-storage-1",
-						"dcid":        "",
-					},
-					Version:       "6.2.20",
-					UptimeSeconds: 60000,
-					Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
-						{
-							Role: string(fdbv1beta2.ProcessRoleCoordinator),
+					result, err := reconcileCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Requeue).To(BeFalse())
+
+					generation, err := reloadCluster(cluster)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(generation).NotTo(Equal(int64(0)))
+
+					client, err = newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should generate the status", func() {
+					Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
+						RedundancyMode: fdbv1beta2.RedundancyModeDouble,
+						StorageEngine:  "ssd-2",
+						UsableRegions:  1,
+						RoleCounts: fdbv1beta2.RoleCounts{
+							Logs:          3,
+							Proxies:       3,
+							CommitProxies: 2,
+							GrvProxies:    1,
+							Resolvers:     1,
+							LogRouters:    -1,
+							RemoteLogs:    -1,
 						},
-					},
-				}))
+						VersionFlags: fdbv1beta2.VersionFlags{
+							LogSpill: 2,
+						},
+					}))
+
+					address := cluster.Status.ProcessGroups[13].Addresses[0]
+					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
+					Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
+						Address: fdbv1beta2.ProcessAddress{
+							IPAddress: net.ParseIP(address),
+							Port:      4501,
+						},
+						ProcessClass: fdbv1beta2.ProcessClassStorage,
+						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, address),
+						Excluded:     false,
+						Locality: map[string]string{
+							"instance_id": "storage-1",
+							"zoneid":      "operator-test-1-storage-1",
+							"dcid":        "",
+						},
+						Version:       fdbv1beta2.Versions.NextMajorVersion.String(),
+						UptimeSeconds: 60000,
+						Roles:         nil,
+					}))
+				})
+			})
+
+			When("the version does not supports grv and commit proxies", func() {
+				It("should generate the status", func() {
+					Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
+						RedundancyMode: fdbv1beta2.RedundancyModeDouble,
+						StorageEngine:  "ssd-2",
+						UsableRegions:  1,
+						RoleCounts: fdbv1beta2.RoleCounts{
+							Logs:          3,
+							Proxies:       3,
+							CommitProxies: 0,
+							GrvProxies:    0,
+							Resolvers:     1,
+							LogRouters:    -1,
+							RemoteLogs:    -1,
+						},
+						VersionFlags: fdbv1beta2.VersionFlags{
+							LogSpill: 2,
+						},
+					}))
+
+					address := cluster.Status.ProcessGroups[13].Addresses[0]
+					Expect(status.Cluster.Processes).To(HaveLen(len(cluster.Status.ProcessGroups)))
+					Expect(status.Cluster.Processes["operator-test-1-storage-1-1"]).To(Equal(fdbv1beta2.FoundationDBStatusProcessInfo{
+						Address: fdbv1beta2.ProcessAddress{
+							IPAddress: net.ParseIP(address),
+							Port:      4501,
+						},
+						ProcessClass: fdbv1beta2.ProcessClassStorage,
+						CommandLine:  fmt.Sprintf("/usr/bin/fdbserver --class=storage --cluster_file=/var/fdb/data/fdb.cluster --datadir=/var/fdb/data --listen_address=%s:4501 --locality_instance_id=storage-1 --locality_machineid=operator-test-1-storage-1 --locality_zoneid=operator-test-1-storage-1 --logdir=/var/log/fdb-trace-logs --loggroup=operator-test-1 --public_address=%s:4501 --seed_cluster_file=/var/dynamic-conf/fdb.cluster", address, address),
+						Excluded:     false,
+						Locality: map[string]string{
+							"instance_id": "storage-1",
+							"zoneid":      "operator-test-1-storage-1",
+							"dcid":        "",
+						},
+						Version:       "6.2.20",
+						UptimeSeconds: 60000,
+						Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
+							{
+								Role: string(fdbv1beta2.ProcessRoleCoordinator),
+							},
+						},
+					}))
+				})
 			})
 		})
 

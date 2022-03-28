@@ -315,11 +315,22 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 }
 
 // ConfigureDatabase changes the database configuration
-func (client *mockAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool, _ string) error {
+func (client *mockAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, _ bool, version string) error {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
 	client.DatabaseConfiguration = configuration.DeepCopy()
+
+	ver, err := fdbv1beta2.ParseFdbVersion(version)
+	if err != nil {
+		return err
+	}
+
+	if !ver.HasSeparatedProxies() {
+		client.DatabaseConfiguration.GrvProxies = 0
+		client.DatabaseConfiguration.CommitProxies = 0
+	}
+
 	return nil
 }
 

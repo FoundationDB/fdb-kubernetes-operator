@@ -943,7 +943,9 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
-	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(cluster.DesiredFaultTolerance())
+	// We can ignore the error here since the version will be validated in an earlier step.
+	version, _ := ParseFdbVersion(cluster.Spec.Version)
+	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(version, cluster.DesiredFaultTolerance())
 }
 
 // calculateProcessCount determines the process count from a given role count.
@@ -1158,7 +1160,7 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	if !equality.Semantic.DeepEqual(cluster.Status.DatabaseConfiguration, desiredConfiguration) {
-		logger.Info("Pending database configuration change", "state", "NeedsConfigurationChange")
+		logger.Info("Pending database configuration change", "state", "NeedsConfigurationChange", "current", cluster.Status.DatabaseConfiguration, "desired", desiredConfiguration)
 		cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
