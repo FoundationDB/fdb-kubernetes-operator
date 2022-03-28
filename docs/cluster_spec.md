@@ -453,6 +453,8 @@ ProcessCounts represents the number of processes we have for each valid process 
 | resolution |  | int | false |
 | tester |  | int | false |
 | proxy |  | int | false |
+| commit_proxy |  | int | false |
+| grv_proxy |  | int | false |
 | master |  | int | false |
 | stateless |  | int | false |
 | log |  | int | false |
@@ -494,6 +496,8 @@ RoleCounts represents the roles whose counts can be customized.
 | storage |  | int | false |
 | logs |  | int | false |
 | proxies |  | int | false |
+| commit_proxies |  | int | false |
+| grv_proxies |  | int | false |
 | resolvers |  | int | false |
 | log_routers |  | int | false |
 | remote_logs |  | int | false |
