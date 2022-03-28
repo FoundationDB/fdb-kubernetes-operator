@@ -669,56 +669,122 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	When("getting the cluster database configuration", func() {
-		It("should be parsed correctly", func() {
-			cluster := &FoundationDBCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: FoundationDBClusterSpec{
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
-						StorageEngine:  "ssd",
-						RoleCounts: RoleCounts{
-							Storage: 5,
-							Logs:    4,
-							Proxies: 5,
-						},
+		var cluster *FoundationDBCluster
+
+		When("the version supports grv and commit proxies", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "default",
 					},
-				},
-			}
+					Spec: FoundationDBClusterSpec{
+						DatabaseConfiguration: DatabaseConfiguration{
+							RedundancyMode: RedundancyModeDouble,
+							StorageEngine:  "ssd",
+							RoleCounts: RoleCounts{
+								Storage: 5,
+								Logs:    4,
+								Proxies: 5,
+							},
+						},
+						Version: "7.0.0",
+					},
+				}
+			})
 
-			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
-				StorageEngine:  "ssd-2",
-				UsableRegions:  1,
-				RoleCounts: RoleCounts{
-					Logs:          4,
-					Proxies:       5,
-					CommitProxies: 2,
-					GrvProxies:    1,
-					Resolvers:     1,
-					LogRouters:    -1,
-					RemoteLogs:    -1,
-				},
-			}))
+			It("should be parsed correctly", func() {
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  "ssd-2",
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       5,
+						CommitProxies: 2,
+						GrvProxies:    1,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
 
-			cluster.Spec = FoundationDBClusterSpec{}
+				cluster.Spec = FoundationDBClusterSpec{
+					Version: "7.0.0",
+				}
 
-			Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
-				RedundancyMode: RedundancyModeDouble,
-				StorageEngine:  "ssd-2",
-				UsableRegions:  1,
-				RoleCounts: RoleCounts{
-					Logs:          3,
-					Proxies:       3,
-					CommitProxies: 2,
-					GrvProxies:    1,
-					Resolvers:     1,
-					LogRouters:    -1,
-					RemoteLogs:    -1,
-				},
-			}))
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  "ssd-2",
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          3,
+						Proxies:       3,
+						CommitProxies: 2,
+						GrvProxies:    1,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
+		})
+
+		When("the version supports grv and commit proxies", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "default",
+					},
+					Spec: FoundationDBClusterSpec{
+						DatabaseConfiguration: DatabaseConfiguration{
+							RedundancyMode: RedundancyModeDouble,
+							StorageEngine:  "ssd",
+							RoleCounts: RoleCounts{
+								Storage: 5,
+								Logs:    4,
+								Proxies: 5,
+							},
+						},
+						Version: "6.3.23",
+					},
+				}
+			})
+
+			It("should be parsed correctly", func() {
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  "ssd-2",
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       5,
+						CommitProxies: 0,
+						GrvProxies:    0,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+
+				cluster.Spec = FoundationDBClusterSpec{}
+
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  "ssd-2",
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          3,
+						Proxies:       3,
+						CommitProxies: 0,
+						GrvProxies:    0,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
 		})
 	})
 
@@ -2611,252 +2677,510 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	When("checking the reconciliation for a cluster", func() {
-		It("should return the correct status", func() {
-			createCluster := func() *FoundationDBCluster {
-				return &FoundationDBCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "sample-cluster",
-						Namespace:  "default",
-						Generation: 2,
-					},
-					Spec: FoundationDBClusterSpec{
-						Version:               Versions.Default.String(),
-						DatabaseConfiguration: DatabaseConfiguration{},
-					},
-					Status: FoundationDBClusterStatus{
-						Health: ClusterHealth{
-							Available: true,
-							Healthy:   true,
+		var createCluster func() *FoundationDBCluster
+
+		When("the cluster supports grv and commit proxies", func() {
+			BeforeEach(func() {
+				createCluster = func() *FoundationDBCluster {
+					return &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "sample-cluster",
+							Namespace:  "default",
+							Generation: 2,
 						},
-						RequiredAddresses: RequiredAddressSet{
-							NonTLS: true,
+						Spec: FoundationDBClusterSpec{
+							Version:               "7.0.0",
+							DatabaseConfiguration: DatabaseConfiguration{},
 						},
-						DatabaseConfiguration: DatabaseConfiguration{
-							RedundancyMode: RedundancyModeDouble,
-							StorageEngine:  "ssd-2",
-							UsableRegions:  1,
-							RoleCounts: RoleCounts{
-								Logs:          3,
-								Proxies:       3,
-								GrvProxies:    1,
-								CommitProxies: 2,
-								Resolvers:     1,
-								LogRouters:    -1,
-								RemoteLogs:    -1,
+						Status: FoundationDBClusterStatus{
+							Health: ClusterHealth{
+								Available: true,
+								Healthy:   true,
 							},
+							RequiredAddresses: RequiredAddressSet{
+								NonTLS: true,
+							},
+							DatabaseConfiguration: DatabaseConfiguration{
+								RedundancyMode: RedundancyModeDouble,
+								StorageEngine:  "ssd-2",
+								UsableRegions:  1,
+								RoleCounts: RoleCounts{
+									Logs:          3,
+									Proxies:       3,
+									GrvProxies:    1,
+									CommitProxies: 2,
+									Resolvers:     1,
+									LogRouters:    -1,
+									RemoteLogs:    -1,
+								},
+							},
+							Generations: ClusterGenerationStatus{
+								Reconciled: 1,
+							},
+							ProcessGroups: []*ProcessGroupStatus{
+								{ProcessGroupID: "storage-1", ProcessClass: "storage"},
+								{ProcessGroupID: "storage-2", ProcessClass: "storage"},
+								{ProcessGroupID: "storage-3", ProcessClass: "storage"},
+								{ProcessGroupID: "stateless-1", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-2", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-3", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-4", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-5", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-6", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-7", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-8", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-9", ProcessClass: "stateless"},
+								{ProcessGroupID: "log-1", ProcessClass: "log"},
+								{ProcessGroupID: "log-2", ProcessClass: "log"},
+								{ProcessGroupID: "log-3", ProcessClass: "log"},
+								{ProcessGroupID: "log-4", ProcessClass: "log"},
+							},
+							Configured: true,
 						},
-						Generations: ClusterGenerationStatus{
-							Reconciled: 1,
-						},
-						ProcessGroups: []*ProcessGroupStatus{
-							{ProcessGroupID: "storage-1", ProcessClass: "storage"},
-							{ProcessGroupID: "storage-2", ProcessClass: "storage"},
-							{ProcessGroupID: "storage-3", ProcessClass: "storage"},
-							{ProcessGroupID: "stateless-1", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-2", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-3", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-4", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-5", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-6", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-7", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-8", ProcessClass: "stateless"},
-							{ProcessGroupID: "stateless-9", ProcessClass: "stateless"},
-							{ProcessGroupID: "log-1", ProcessClass: "log"},
-							{ProcessGroupID: "log-2", ProcessClass: "log"},
-							{ProcessGroupID: "log-3", ProcessClass: "log"},
-							{ProcessGroupID: "log-4", ProcessClass: "log"},
-						},
-						Configured: true,
-					},
+					}
 				}
-			}
+			})
 
-			cluster := createCluster()
+			It("should return the correct status", func() {
+				cluster := createCluster()
 
-			result, err := cluster.CheckReconciliation(log)
-			Expect(result).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled: 2,
-			}))
+				result, err := cluster.CheckReconciliation(log)
+				Expect(result).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.Configured = false
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:               1,
-				NeedsConfigurationChange: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.Configured = false
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:               1,
+					NeedsConfigurationChange: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:  1,
-				NeedsShrink: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:  1,
+					NeedsShrink: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[1:]
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled: 1,
-				NeedsGrow:  2,
-			}))
+				cluster = createCluster()
+				cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[1:]
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 1,
+					NeedsGrow:  2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.Health.Available = false
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:          1,
-				DatabaseUnavailable: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.Health.Available = false
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:          1,
+					DatabaseUnavailable: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-1"
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:               1,
-				NeedsConfigurationChange: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-1"
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:               1,
+					NeedsConfigurationChange: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.HasIncorrectConfigMap = true
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:             1,
-				NeedsMonitorConfUpdate: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.HasIncorrectConfigMap = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:             1,
+					NeedsMonitorConfUpdate: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.RequiredAddresses.TLS = true
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:        1,
-				HasExtraListeners: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.RequiredAddresses.TLS = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:        1,
+					HasExtraListeners: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.ProcessCounts.Storage = 2
-			cluster.Status.ProcessGroups[0].MarkForRemoval()
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:  1,
-				NeedsShrink: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.ProcessCounts.Storage = 2
+				cluster.Status.ProcessGroups[0].MarkForRemoval()
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:  1,
+					NeedsShrink: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.ProcessCounts.Storage = 2
-			cluster.Status.ProcessGroups[0].MarkForRemoval()
-			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeTrue())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:        2,
-				HasPendingRemoval: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.ProcessCounts.Storage = 2
+				cluster.Status.ProcessGroups[0].MarkForRemoval()
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:        2,
+					HasPendingRemoval: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.ProcessCounts.Storage = 2
-			cluster.Status.ProcessGroups[0].MarkForRemoval()
-			cluster.Status.ProcessGroups[0].SetExclude()
-			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
-			cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeTrue())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:        2,
-				HasPendingRemoval: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.ProcessCounts.Storage = 2
+				cluster.Status.ProcessGroups[0].MarkForRemoval()
+				cluster.Status.ProcessGroups[0].SetExclude()
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:        2,
+					HasPendingRemoval: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.HasIncorrectServiceConfig = true
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:         1,
-				NeedsServiceUpdate: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.HasIncorrectServiceConfig = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:         1,
+					NeedsServiceUpdate: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.NeedsNewCoordinators = true
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:             1,
-				NeedsCoordinatorChange: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.NeedsNewCoordinators = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:             1,
+					NeedsCoordinatorChange: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:          1,
-				HasUnhealthyProcess: 2,
-			}))
+				cluster = createCluster()
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:          1,
+					HasUnhealthyProcess: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:                    1,
-				NeedsLockConfigurationChanges: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:                    1,
+					NeedsLockConfigurationChanges: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
-			cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeTrue())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
-			cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeFalse())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled:                    1,
-				NeedsLockConfigurationChanges: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:                    1,
+					NeedsLockConfigurationChanges: 2,
+				}))
 
-			cluster = createCluster()
-			cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
-			result, err = cluster.CheckReconciliation(log)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(BeTrue())
-			Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
-				Reconciled: 2,
-			}))
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 2,
+				}))
+			})
 		})
+
+		When("the cluster does not support grv and commit proxies", func() {
+			BeforeEach(func() {
+				createCluster = func() *FoundationDBCluster {
+					return &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "sample-cluster",
+							Namespace:  "default",
+							Generation: 2,
+						},
+						Spec: FoundationDBClusterSpec{
+							Version:               Versions.Default.String(),
+							DatabaseConfiguration: DatabaseConfiguration{},
+						},
+						Status: FoundationDBClusterStatus{
+							Health: ClusterHealth{
+								Available: true,
+								Healthy:   true,
+							},
+							RequiredAddresses: RequiredAddressSet{
+								NonTLS: true,
+							},
+							DatabaseConfiguration: DatabaseConfiguration{
+								RedundancyMode: RedundancyModeDouble,
+								StorageEngine:  "ssd-2",
+								UsableRegions:  1,
+								RoleCounts: RoleCounts{
+									Logs:          3,
+									Proxies:       3,
+									GrvProxies:    0,
+									CommitProxies: 0,
+									Resolvers:     1,
+									LogRouters:    -1,
+									RemoteLogs:    -1,
+								},
+							},
+							Generations: ClusterGenerationStatus{
+								Reconciled: 1,
+							},
+							ProcessGroups: []*ProcessGroupStatus{
+								{ProcessGroupID: "storage-1", ProcessClass: "storage"},
+								{ProcessGroupID: "storage-2", ProcessClass: "storage"},
+								{ProcessGroupID: "storage-3", ProcessClass: "storage"},
+								{ProcessGroupID: "stateless-1", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-2", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-3", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-4", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-5", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-6", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-7", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-8", ProcessClass: "stateless"},
+								{ProcessGroupID: "stateless-9", ProcessClass: "stateless"},
+								{ProcessGroupID: "log-1", ProcessClass: "log"},
+								{ProcessGroupID: "log-2", ProcessClass: "log"},
+								{ProcessGroupID: "log-3", ProcessClass: "log"},
+								{ProcessGroupID: "log-4", ProcessClass: "log"},
+							},
+							Configured: true,
+						},
+					}
+				}
+			})
+
+			It("should return the correct status", func() {
+				cluster := createCluster()
+
+				result, err := cluster.CheckReconciliation(log)
+				Expect(result).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.Configured = false
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:               1,
+					NeedsConfigurationChange: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, &ProcessGroupStatus{ProcessGroupID: "storage-5", ProcessClass: "storage"})
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:  1,
+					NeedsShrink: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[1:]
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 1,
+					NeedsGrow:  2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.Health.Available = false
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:          1,
+					DatabaseUnavailable: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-1"
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:               1,
+					NeedsConfigurationChange: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.HasIncorrectConfigMap = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:             1,
+					NeedsMonitorConfUpdate: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.RequiredAddresses.TLS = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:        1,
+					HasExtraListeners: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.ProcessCounts.Storage = 2
+				cluster.Status.ProcessGroups[0].MarkForRemoval()
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:  1,
+					NeedsShrink: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.ProcessCounts.Storage = 2
+				cluster.Status.ProcessGroups[0].MarkForRemoval()
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:        2,
+					HasPendingRemoval: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.ProcessCounts.Storage = 2
+				cluster.Status.ProcessGroups[0].MarkForRemoval()
+				cluster.Status.ProcessGroups[0].SetExclude()
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+				cluster.Status.ProcessGroups[0].UpdateCondition(ResourcesTerminating, true, nil, "")
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:        2,
+					HasPendingRemoval: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.HasIncorrectServiceConfig = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:         1,
+					NeedsServiceUpdate: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.NeedsNewCoordinators = true
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:             1,
+					NeedsCoordinatorChange: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Status.ProcessGroups[0].UpdateCondition(IncorrectCommandLine, true, nil, "")
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:          1,
+					HasUnhealthyProcess: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:                    1,
+					NeedsLockConfigurationChanges: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1"})
+				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				cluster.Status.Locks.DenyList = []string{"dc1", "dc2"}
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled:                    1,
+					NeedsLockConfigurationChanges: 2,
+				}))
+
+				cluster = createCluster()
+				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, LockDenyListEntry{ID: "dc1", Allow: true})
+				result, err = cluster.CheckReconciliation(log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(BeTrue())
+				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
+					Reconciled: 2,
+				}))
+			})
+		})
+
 	})
 
 	When("getting the process settings", func() {
