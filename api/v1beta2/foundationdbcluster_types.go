@@ -943,34 +943,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
-	counts := cluster.Spec.DatabaseConfiguration.RoleCounts.DeepCopy()
-	if counts.Storage == 0 {
-		counts.Storage = 2*cluster.DesiredFaultTolerance() + 1
-	}
-	if counts.Logs == 0 {
-		counts.Logs = 3
-	}
-	if counts.Proxies == 0 {
-		counts.Proxies = 3
-	}
-	if counts.Resolvers == 0 {
-		counts.Resolvers = 1
-	}
-	if counts.RemoteLogs == 0 {
-		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
-			counts.RemoteLogs = counts.Logs
-		} else {
-			counts.RemoteLogs = -1
-		}
-	}
-	if counts.LogRouters == 0 {
-		if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
-			counts.LogRouters = counts.Logs
-		} else {
-			counts.LogRouters = -1
-		}
-	}
-	return *counts
+	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(cluster.DesiredFaultTolerance())
 }
 
 // calculateProcessCount determines the process count from a given role count.
@@ -1076,10 +1049,23 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 	if processCounts.Stateless == 0 {
 		primaryStatelessCount := cluster.calculateProcessCountFromRole(1, processCounts.Master) +
 			cluster.calculateProcessCountFromRole(1, processCounts.ClusterController) +
-			cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy) +
 			cluster.calculateProcessCountFromRole(roleCounts.Resolvers, processCounts.Resolution)
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
+
+		fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+		if err != nil {
+			return *processCounts, err
+		}
+
+		if fdbVersion.HasSeparatedProxies() {
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.GrvProxies, processCounts.GrvProxy)
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.CommitProxies, processCounts.CommitProxy)
+		} else {
+			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)
+
+		}
+
 		processCounts.Stateless = cluster.calculateProcessCount(true,
 			primaryStatelessCount,
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),

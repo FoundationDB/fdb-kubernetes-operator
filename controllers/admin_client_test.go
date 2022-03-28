@@ -71,11 +71,13 @@ var _ = Describe("admin_client_test", func() {
 					StorageEngine:  "ssd-2",
 					UsableRegions:  1,
 					RoleCounts: fdbv1beta2.RoleCounts{
-						Logs:       3,
-						Proxies:    3,
-						Resolvers:  1,
-						LogRouters: -1,
-						RemoteLogs: -1,
+						Logs:          3,
+						Proxies:       3,
+						CommitProxies: 2,
+						GrvProxies:    1,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
 					},
 					VersionFlags: fdbv1beta2.VersionFlags{
 						LogSpill: 2,

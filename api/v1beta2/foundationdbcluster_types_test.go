@@ -56,38 +56,46 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			counts := cluster.GetRoleCountsWithDefaults()
 			Expect(counts).To(Equal(RoleCounts{
-				Storage:    3,
-				Logs:       3,
-				Proxies:    3,
-				Resolvers:  1,
-				RemoteLogs: -1,
-				LogRouters: -1,
+				Storage:       3,
+				Logs:          3,
+				Proxies:       3,
+				CommitProxies: 2,
+				GrvProxies:    1,
+				Resolvers:     1,
+				RemoteLogs:    -1,
+				LogRouters:    -1,
 			}))
 			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
-				"logs":        3,
-				"proxies":     3,
-				"resolvers":   1,
-				"remote_logs": -1,
-				"log_routers": -1,
+				"logs":           3,
+				"proxies":        3,
+				"resolvers":      1,
+				"remote_logs":    -1,
+				"log_routers":    -1,
+				"commit_proxies": 2,
+				"grv_proxies":    1,
 			}))
 			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
 
 			cluster.Spec.DatabaseConfiguration.UsableRegions = 2
 			counts = cluster.GetRoleCountsWithDefaults()
 			Expect(counts).To(Equal(RoleCounts{
-				Storage:    3,
-				Logs:       3,
-				Proxies:    3,
-				Resolvers:  1,
-				RemoteLogs: 3,
-				LogRouters: 3,
+				Storage:       3,
+				Logs:          3,
+				CommitProxies: 2,
+				GrvProxies:    1,
+				Proxies:       3,
+				Resolvers:     1,
+				RemoteLogs:    3,
+				LogRouters:    3,
 			}))
 			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
-				"logs":        3,
-				"proxies":     3,
-				"resolvers":   1,
-				"remote_logs": 3,
-				"log_routers": 3,
+				"logs":           3,
+				"proxies":        3,
+				"resolvers":      1,
+				"remote_logs":    3,
+				"log_routers":    3,
+				"commit_proxies": 2,
+				"grv_proxies":    1,
 			}))
 
 			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
@@ -96,12 +104,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			counts = cluster.GetRoleCountsWithDefaults()
 			Expect(counts).To(Equal(RoleCounts{
-				Storage:    5,
-				Logs:       3,
-				Proxies:    3,
-				Resolvers:  1,
-				RemoteLogs: 3,
-				LogRouters: 3,
+				Storage:       5,
+				Logs:          3,
+				Proxies:       3,
+				GrvProxies:    1,
+				CommitProxies: 2,
+				Resolvers:     1,
+				RemoteLogs:    3,
+				LogRouters:    3,
 			}))
 
 			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
@@ -109,12 +119,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			counts = cluster.GetRoleCountsWithDefaults()
 			Expect(counts).To(Equal(RoleCounts{
-				Storage:    3,
-				Logs:       8,
-				Proxies:    3,
-				Resolvers:  1,
-				RemoteLogs: 8,
-				LogRouters: 8,
+				Storage:       3,
+				Logs:          8,
+				CommitProxies: 2,
+				GrvProxies:    1,
+				Proxies:       3,
+				Resolvers:     1,
+				RemoteLogs:    8,
+				LogRouters:    8,
 			}))
 
 			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
@@ -124,12 +136,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			}
 			counts = cluster.GetRoleCountsWithDefaults()
 			Expect(counts).To(Equal(RoleCounts{
-				Storage:    3,
-				Logs:       4,
-				Proxies:    3,
-				Resolvers:  1,
-				RemoteLogs: 5,
-				LogRouters: 6,
+				Storage:       3,
+				Logs:          4,
+				Proxies:       3,
+				GrvProxies:    1,
+				CommitProxies: 2,
+				Resolvers:     1,
+				RemoteLogs:    5,
+				LogRouters:    6,
 			}))
 		})
 	})
@@ -146,10 +160,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					DatabaseConfiguration: DatabaseConfiguration{
 						RedundancyMode: RedundancyModeDouble,
 						RoleCounts: RoleCounts{
-							Storage:   5,
-							Logs:      3,
-							Proxies:   3,
-							Resolvers: 1,
+							Storage:       5,
+							Logs:          3,
+							Proxies:       3,
+							GrvProxies:    4,
+							CommitProxies: 12,
+							Resolvers:     1,
 						},
 					},
 				},
@@ -207,6 +223,15 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Storage:   5,
 				Log:       5,
 				Stateless: 9,
+			}))
+
+			cluster.Spec.Version = "7.1.0-rc2"
+			counts, err = cluster.GetProcessCountsWithDefaults()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(counts).To(Equal(ProcessCounts{
+				Storage:   5,
+				Log:       5,
+				Stateless: 22,
 			}))
 		})
 	})
@@ -566,11 +591,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				StorageEngine:  "ssd-2",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
-					Logs:       4,
-					Proxies:    5,
-					Resolvers:  1,
-					LogRouters: -1,
-					RemoteLogs: -1,
+					Logs:          4,
+					Proxies:       5,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Resolvers:     1,
+					LogRouters:    -1,
+					RemoteLogs:    -1,
 				},
 			}))
 
@@ -581,27 +608,33 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				StorageEngine:  "ssd-2",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
-					Logs:       3,
-					Proxies:    3,
-					Resolvers:  1,
-					LogRouters: -1,
-					RemoteLogs: -1,
+					Logs:          3,
+					Proxies:       3,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Resolvers:     1,
+					LogRouters:    -1,
+					RemoteLogs:    -1,
 				},
 			}))
 		})
 	})
 
-	When("getting the  configuration string", func() {
+	When("getting the configuration string", func() {
 		It("should be parsed correctly", func() {
 			configuration := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
 				StorageEngine:  "ssd",
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
-					Logs: 5,
+					Logs:          5,
+					Proxies:       1,
+					CommitProxies: 2,
+					GrvProxies:    2,
 				},
 			}
-			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[]"))
+			Expect(configuration.AreSeparatedProxiesConfigured()).To(BeFalse())
+			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
 
 			configuration.Regions = []Region{{
 				DataCenters: []DataCenter{{
@@ -611,11 +644,62 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}},
 				SatelliteLogs: 2,
 			}}
-			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
+			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"iad\\\",\\\"priority\\\":1}],\\\"satellite_logs\\\":2}]"))
 			configuration.Regions = nil
 
 			configuration.VersionFlags.LogSpill = 3
-			Expect(configuration.GetConfigurationString()).To(Equal("double ssd usable_regions=1 logs=5 proxies=0 resolvers=0 log_routers=0 remote_logs=0 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
+
+			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
+		})
+
+		When("CommitProxies and GrvProxies are not configured", func() {
+			configuration := DatabaseConfiguration{
+				RedundancyMode: RedundancyModeDouble,
+				StorageEngine:  "ssd",
+				UsableRegions:  1,
+				RoleCounts: RoleCounts{
+					Logs:    5,
+					Proxies: 1,
+				},
+			}
+			It("should be parsed correctly", func() {
+				Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
+				Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
+			})
+
+			It("should have no proxies configured", func() {
+				version, _ := ParseFdbVersion("7.0.0")
+				Expect(configuration.AreSeparatedProxiesConfigured()).To(BeFalse())
+				Expect(configuration.GetProxiesString(version)).To(Equal(" proxies=1"))
+			})
+		})
+
+		When("CommitProxies and GrvProxies are configured but not proxies", func() {
+			configuration := DatabaseConfiguration{
+				RedundancyMode: RedundancyModeDouble,
+				StorageEngine:  "ssd",
+				UsableRegions:  1,
+				RoleCounts: RoleCounts{
+					Logs:          5,
+					CommitProxies: 2,
+					GrvProxies:    1,
+				},
+			}
+			It("should have old proxies configuration with version FDB < 7.0.0 ", func() {
+				version, _ := ParseFdbVersion("6.3.24")
+				Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())
+				Expect(configuration.GetProxiesString(version)).To(Equal(" proxies=3"))
+				Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[]"))
+			})
+
+			It("should have separated proxies configured with FDB > 7.0.0", func() {
+				version, _ := ParseFdbVersion("7.0.0")
+				Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())
+				Expect(configuration.GetProxiesString(version)).To(Equal(" commit_proxies=2 grv_proxies=1"))
+				Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=2 grv_proxies=1 regions=[]"))
+			})
 		})
 	})
 
@@ -807,7 +891,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 	})
 
-	When("changing tto fearless dr without initial regions", func() {
+	When("changing to fearless dr without initial regions", func() {
 		It("should return the fearless config", func() {
 			currentConfig := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
@@ -2450,11 +2534,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							StorageEngine:  "ssd-2",
 							UsableRegions:  1,
 							RoleCounts: RoleCounts{
-								Logs:       3,
-								Proxies:    3,
-								Resolvers:  1,
-								LogRouters: -1,
-								RemoteLogs: -1,
+								Logs:          3,
+								Proxies:       3,
+								GrvProxies:    1,
+								CommitProxies: 2,
+								Resolvers:     1,
+								LogRouters:    -1,
+								RemoteLogs:    -1,
 							},
 						},
 						Generations: ClusterGenerationStatus{

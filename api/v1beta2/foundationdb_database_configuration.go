@@ -217,6 +217,62 @@ func (configuration DatabaseConfiguration) getRegion(id string, priority int) Re
 	return matchingRegion
 }
 
+// GetRoleCountsWithDefaults gets the role counts from the cluster spec and
+// fills in default values for any role counts that are 0.
+//
+// The default Storage value will be 2F + 1, where F is the cluster's fault
+// tolerance.
+//
+// The default Logs value will be 3.
+//
+// The default Proxies value will be 3.
+//
+// The default Resolvers value will be 1.
+//
+// The default RemoteLogs value will be equal to the Logs value when the
+// UsableRegions is greater than 1. It will be equal to -1 when the
+// UsableRegions is less than or equal to 1.
+//
+// The default LogRouters value will be equal to 3 times the Logs value when
+// the UsableRegions is greater than 1. It will be equal to -1 when the
+// UsableRegions is less than or equal to 1.
+func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultTolerance int) RoleCounts {
+	counts := configuration.RoleCounts.DeepCopy()
+	if counts.Storage == 0 {
+		counts.Storage = 2*faultTolerance + 1
+	}
+	if counts.Logs == 0 {
+		counts.Logs = 3
+	}
+	if counts.Proxies == 0 {
+		counts.Proxies = 3
+	}
+	if counts.CommitProxies == 0 {
+		counts.CommitProxies = 2
+	}
+	if counts.GrvProxies == 0 {
+		counts.GrvProxies = 1
+	}
+	if counts.Resolvers == 0 {
+		counts.Resolvers = 1
+	}
+	if counts.RemoteLogs == 0 {
+		if configuration.UsableRegions > 1 {
+			counts.RemoteLogs = counts.Logs
+		} else {
+			counts.RemoteLogs = -1
+		}
+	}
+	if counts.LogRouters == 0 {
+		if configuration.UsableRegions > 1 {
+			counts.LogRouters = counts.Logs
+		} else {
+			counts.LogRouters = -1
+		}
+	}
+	return *counts
+}
+
 // GetNextConfigurationChange produces the next marginal change that should
 // be made to transform this configuration into another configuration.
 //
@@ -454,6 +510,31 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 	return priorities
 }
 
+// AreSeparatedProxiesConfigured returns true if grv_proxies and
+// commit_proxies are greater than 0 (explicitly set) and Proxies is set
+// to 0
+func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
+	counts := configuration.RoleCounts
+	return counts.Proxies == 0 && (counts.GrvProxies > 0 && counts.CommitProxies > 0)
+}
+
+// GetProxiesString returns a string that contains the correct fdbcli
+// commands for use inside the database `configure` command.
+//
+// If the version argument supports the separate grv/commit proxy roles
+// and they have been configured as decided by
+// AreSeparatedProxiesConfigured(), then this function will return the
+// string "commit_proxies=%d grv_proxies=%d", otherwise just
+// "proxies=%d" using the correct counts of the configuration object.
+//
+func (configuration DatabaseConfiguration) GetProxiesString(version Version) string {
+	counts := configuration.GetRoleCountsWithDefaults(DesiredFaultTolerance(configuration.RedundancyMode))
+	if version.HasSeparatedProxies() && configuration.AreSeparatedProxiesConfigured() {
+		return fmt.Sprintf(" commit_proxies=%d grv_proxies=%d", counts.CommitProxies, counts.GrvProxies)
+	}
+	return fmt.Sprintf(" proxies=%d", counts.Proxies)
+}
+
 // FillInDefaultsFromStatus adds in missing fields from the database
 // configuration in the database status to make sure they match the fields that
 // will appear in the cluster spec.
@@ -472,17 +553,28 @@ func (configuration DatabaseConfiguration) FillInDefaultsFromStatus() DatabaseCo
 }
 
 // GetConfigurationString gets the CLI command for configuring a database.
-func (configuration DatabaseConfiguration) GetConfigurationString() (string, error) {
+func (configuration DatabaseConfiguration) GetConfigurationString(version string) (string, error) {
 	configurationString := fmt.Sprintf("%s %s", configuration.RedundancyMode, configuration.StorageEngine)
+
+	fdbVersion, err := ParseFdbVersion(version)
+	if err != nil {
+		return configurationString, err
+	}
 
 	counts := configuration.RoleCounts.Map()
 	configurationString += fmt.Sprintf(" usable_regions=%d", configuration.UsableRegions)
 	// TODO: roleNames !
 	for _, role := range roleNames {
+		if role == "proxies" || role == "commit_proxies" || role == "grv_proxies" {
+			continue
+		}
+
 		if role != ProcessClassStorage {
 			configurationString += fmt.Sprintf(" %s=%d", role, counts[role])
 		}
 	}
+
+	configurationString += configuration.GetProxiesString(fdbVersion)
 
 	flags := configuration.VersionFlags.Map()
 	for flag, value := range flags {
@@ -588,12 +680,14 @@ const (
 
 // RoleCounts represents the roles whose counts can be customized.
 type RoleCounts struct {
-	Storage    int `json:"storage,omitempty"`
-	Logs       int `json:"logs,omitempty"`
-	Proxies    int `json:"proxies,omitempty"`
-	Resolvers  int `json:"resolvers,omitempty"`
-	LogRouters int `json:"log_routers,omitempty"`
-	RemoteLogs int `json:"remote_logs,omitempty"`
+	Storage       int `json:"storage,omitempty"`
+	Logs          int `json:"logs,omitempty"`
+	Proxies       int `json:"proxies,omitempty"`
+	CommitProxies int `json:"commit_proxies,omitempty"`
+	GrvProxies    int `json:"grv_proxies,omitempty"`
+	Resolvers     int `json:"resolvers,omitempty"`
+	LogRouters    int `json:"log_routers,omitempty"`
+	RemoteLogs    int `json:"remote_logs,omitempty"`
 }
 
 // Map returns a map from process classes to the desired count for that role
@@ -687,6 +781,8 @@ type ProcessCounts struct {
 	Resolution        int `json:"resolution,omitempty"`
 	Tester            int `json:"tester,omitempty"`
 	Proxy             int `json:"proxy,omitempty"`
+	CommitProxy       int `json:"commit_proxy,omitempty"`
+	GrvProxy          int `json:"grv_proxy,omitempty"`
 	Master            int `json:"master,omitempty"`
 	Stateless         int `json:"stateless,omitempty"`
 	Log               int `json:"log,omitempty"`
