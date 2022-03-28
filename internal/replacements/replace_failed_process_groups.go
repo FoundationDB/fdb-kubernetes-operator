@@ -49,7 +49,6 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
 func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
 	// Automatic replacements are disabled so we don't have to check anything further
 	if !cluster.GetEnableAutomaticReplacements() {
 		return false
@@ -94,7 +93,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 				"failureTime", time.Unix(missingTime, 0).UTC().String())
 		}
 
-		logger.Info("Replace process group",
+		log.Info("Replace process group",
 			"processGroupID", processGroupStatus.ProcessGroupID,
 			"reason", fmt.Sprintf("automatic replacement detected failure time: %s", time.Unix(missingTime, 0).UTC().String()))
 
