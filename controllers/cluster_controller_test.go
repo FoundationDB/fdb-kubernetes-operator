@@ -219,6 +219,29 @@ var _ = Describe("cluster_controller", func() {
 				Expect(configMap.Data).To(Equal(expectedConfigMap.Data))
 			})
 
+			When("the version supports grv and commit proxies", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = "7.0.0"
+				})
+
+				It("should send the configuration to the cluster", func() {
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(adminClient).NotTo(BeNil())
+					Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
+					Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal(fdbv1beta2.StorageEngineSSD2))
+					Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdbv1beta2.RoleCounts{
+						Logs:          3,
+						Proxies:       3,
+						CommitProxies: 2,
+						GrvProxies:    1,
+						Resolvers:     1,
+						RemoteLogs:    -1,
+						LogRouters:    -1,
+					}))
+				})
+			})
+
 			It("should send the configuration to the cluster", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
@@ -226,13 +249,11 @@ var _ = Describe("cluster_controller", func() {
 				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
 				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal(fdbv1beta2.StorageEngineSSD2))
 				Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdbv1beta2.RoleCounts{
-					Logs:          3,
-					Proxies:       3,
-					CommitProxies: 2,
-					GrvProxies:    1,
-					Resolvers:     1,
-					RemoteLogs:    -1,
-					LogRouters:    -1,
+					Logs:       3,
+					Proxies:    3,
+					Resolvers:  1,
+					RemoteLogs: -1,
+					LogRouters: -1,
 				}))
 			})
 

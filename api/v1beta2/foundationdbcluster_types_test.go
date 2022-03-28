@@ -41,110 +41,212 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	log := logf.Log.WithName("controller")
 
 	When("getting the default role counts", func() {
-		It("should return the default role counts", func() {
-			cluster := &FoundationDBCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "default",
-				},
-				Spec: FoundationDBClusterSpec{
-					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
+		When("the version does not supports grv and commit proxies", func() {
+			It("should return the default role counts", func() {
+				cluster := &FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "default",
 					},
-				},
-			}
+					Spec: FoundationDBClusterSpec{
+						DatabaseConfiguration: DatabaseConfiguration{
+							RedundancyMode: RedundancyModeDouble,
+						},
+						Version: "6.3.24",
+					},
+				}
 
-			counts := cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
-				Storage:       3,
-				Logs:          3,
-				Proxies:       3,
-				CommitProxies: 2,
-				GrvProxies:    1,
-				Resolvers:     1,
-				RemoteLogs:    -1,
-				LogRouters:    -1,
-			}))
-			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
-				"logs":           3,
-				"proxies":        3,
-				"resolvers":      1,
-				"remote_logs":    -1,
-				"log_routers":    -1,
-				"commit_proxies": 2,
-				"grv_proxies":    1,
-			}))
-			Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
+				counts := cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:    3,
+					Logs:       3,
+					Proxies:    3,
+					Resolvers:  1,
+					RemoteLogs: -1,
+					LogRouters: -1,
+				}))
+				Expect(counts.Map()).To(Equal(map[ProcessClass]int{
+					"logs":           3,
+					"proxies":        3,
+					"resolvers":      1,
+					"commit_proxies": 0,
+					"grv_proxies":    0,
+					"remote_logs":    -1,
+					"log_routers":    -1,
+				}))
+				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
 
-			cluster.Spec.DatabaseConfiguration.UsableRegions = 2
-			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
-				Storage:       3,
-				Logs:          3,
-				CommitProxies: 2,
-				GrvProxies:    1,
-				Proxies:       3,
-				Resolvers:     1,
-				RemoteLogs:    3,
-				LogRouters:    3,
-			}))
-			Expect(counts.Map()).To(Equal(map[ProcessClass]int{
-				"logs":           3,
-				"proxies":        3,
-				"resolvers":      1,
-				"remote_logs":    3,
-				"log_routers":    3,
-				"commit_proxies": 2,
-				"grv_proxies":    1,
-			}))
+				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:    3,
+					Logs:       3,
+					Proxies:    3,
+					Resolvers:  1,
+					RemoteLogs: 3,
+					LogRouters: 3,
+				}))
+				Expect(counts.Map()).To(Equal(map[ProcessClass]int{
+					"logs":           3,
+					"proxies":        3,
+					"commit_proxies": 0,
+					"grv_proxies":    0,
+					"resolvers":      1,
+					"remote_logs":    3,
+					"log_routers":    3,
+				}))
 
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
-				Storage: 5,
-			}
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Storage: 5,
+				}
 
-			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
-				Storage:       5,
-				Logs:          3,
-				Proxies:       3,
-				GrvProxies:    1,
-				CommitProxies: 2,
-				Resolvers:     1,
-				RemoteLogs:    3,
-				LogRouters:    3,
-			}))
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:    5,
+					Logs:       3,
+					Proxies:    3,
+					Resolvers:  1,
+					RemoteLogs: 3,
+					LogRouters: 3,
+				}))
 
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
-				Logs: 8,
-			}
-			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
-				Storage:       3,
-				Logs:          8,
-				CommitProxies: 2,
-				GrvProxies:    1,
-				Proxies:       3,
-				Resolvers:     1,
-				RemoteLogs:    8,
-				LogRouters:    8,
-			}))
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Logs: 8,
+				}
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:    3,
+					Logs:       8,
+					Proxies:    3,
+					Resolvers:  1,
+					RemoteLogs: 8,
+					LogRouters: 8,
+				}))
 
-			cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
-				Logs:       4,
-				RemoteLogs: 5,
-				LogRouters: 6,
-			}
-			counts = cluster.GetRoleCountsWithDefaults()
-			Expect(counts).To(Equal(RoleCounts{
-				Storage:       3,
-				Logs:          4,
-				Proxies:       3,
-				GrvProxies:    1,
-				CommitProxies: 2,
-				Resolvers:     1,
-				RemoteLogs:    5,
-				LogRouters:    6,
-			}))
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Logs:       4,
+					RemoteLogs: 5,
+					LogRouters: 6,
+				}
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:    3,
+					Logs:       4,
+					Proxies:    3,
+					Resolvers:  1,
+					RemoteLogs: 5,
+					LogRouters: 6,
+				}))
+			})
+		})
+
+		When("the version supports grv and commit proxies", func() {
+			It("should return the default role counts", func() {
+				cluster := &FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "default",
+					},
+					Spec: FoundationDBClusterSpec{
+						DatabaseConfiguration: DatabaseConfiguration{
+							RedundancyMode: RedundancyModeDouble,
+						},
+						Version: "7.0.0",
+					},
+				}
+
+				counts := cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					Proxies:       3,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
+				}))
+				Expect(counts.Map()).To(Equal(map[ProcessClass]int{
+					"logs":           3,
+					"proxies":        3,
+					"resolvers":      1,
+					"remote_logs":    -1,
+					"log_routers":    -1,
+					"commit_proxies": 2,
+					"grv_proxies":    1,
+				}))
+				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
+
+				cluster.Spec.DatabaseConfiguration.UsableRegions = 2
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Proxies:       3,
+					Resolvers:     1,
+					RemoteLogs:    3,
+					LogRouters:    3,
+				}))
+				Expect(counts.Map()).To(Equal(map[ProcessClass]int{
+					"logs":           3,
+					"proxies":        3,
+					"resolvers":      1,
+					"remote_logs":    3,
+					"log_routers":    3,
+					"commit_proxies": 2,
+					"grv_proxies":    1,
+				}))
+
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Storage: 5,
+				}
+
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:       5,
+					Logs:          3,
+					Proxies:       3,
+					GrvProxies:    1,
+					CommitProxies: 2,
+					Resolvers:     1,
+					RemoteLogs:    3,
+					LogRouters:    3,
+				}))
+
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Logs: 8,
+				}
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          8,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Proxies:       3,
+					Resolvers:     1,
+					RemoteLogs:    8,
+					LogRouters:    8,
+				}))
+
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Logs:       4,
+					RemoteLogs: 5,
+					LogRouters: 6,
+				}
+				counts = cluster.GetRoleCountsWithDefaults()
+				Expect(counts).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          4,
+					Proxies:       3,
+					GrvProxies:    1,
+					CommitProxies: 2,
+					Resolvers:     1,
+					RemoteLogs:    5,
+					LogRouters:    6,
+				}))
+			})
 		})
 	})
 

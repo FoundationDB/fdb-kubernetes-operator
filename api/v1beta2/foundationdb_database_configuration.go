@@ -236,7 +236,7 @@ func (configuration DatabaseConfiguration) getRegion(id string, priority int) Re
 // The default LogRouters value will be equal to 3 times the Logs value when
 // the UsableRegions is greater than 1. It will be equal to -1 when the
 // UsableRegions is less than or equal to 1.
-func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultTolerance int) RoleCounts {
+func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Version, faultTolerance int) RoleCounts {
 	counts := configuration.RoleCounts.DeepCopy()
 	if counts.Storage == 0 {
 		counts.Storage = 2*faultTolerance + 1
@@ -247,11 +247,13 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(faultToler
 	if counts.Proxies == 0 {
 		counts.Proxies = 3
 	}
-	if counts.CommitProxies == 0 {
-		counts.CommitProxies = 2
-	}
-	if counts.GrvProxies == 0 {
-		counts.GrvProxies = 1
+	if version.HasSeparatedProxies() {
+		if counts.CommitProxies == 0 {
+			counts.CommitProxies = 2
+		}
+		if counts.GrvProxies == 0 {
+			counts.GrvProxies = 1
+		}
 	}
 	if counts.Resolvers == 0 {
 		counts.Resolvers = 1
@@ -528,7 +530,7 @@ func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool 
 // "proxies=%d" using the correct counts of the configuration object.
 //
 func (configuration DatabaseConfiguration) GetProxiesString(version Version) string {
-	counts := configuration.GetRoleCountsWithDefaults(DesiredFaultTolerance(configuration.RedundancyMode))
+	counts := configuration.GetRoleCountsWithDefaults(version, DesiredFaultTolerance(configuration.RedundancyMode))
 	if version.HasSeparatedProxies() && configuration.AreSeparatedProxiesConfigured() {
 		return fmt.Sprintf(" commit_proxies=%d grv_proxies=%d", counts.CommitProxies, counts.GrvProxies)
 	}
