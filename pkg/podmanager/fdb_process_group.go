@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +33,7 @@ import (
 
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
-// ParseProcessGroupID extracts the components of an process group ID.
+// ParseProcessGroupID extracts the components of a process group ID.
 func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
 	return internal.ParseProcessGroupID(id)
 }
@@ -71,14 +73,14 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 }
 
 // GetPublicIPs returns the public IP of a pod.
-func GetPublicIPs(pod *corev1.Pod) []string {
+func GetPublicIPs(pod *corev1.Pod, log logr.Logger) []string {
 	if pod == nil {
 		return []string{}
 	}
 
 	source := pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPSourceAnnotation]
 	if source == "" || source == string(fdbv1beta2.PublicIPSourcePod) {
-		return internal.GetPublicIPsForPod(pod)
+		return internal.GetPublicIPsForPod(pod, log)
 	}
 
 	return []string{pod.ObjectMeta.Annotations[fdbv1beta2.PublicIPAnnotation]}

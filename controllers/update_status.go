@@ -424,7 +424,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 		pod := pods[0]
 
-		processGroup.AddAddresses(podmanager.GetPublicIPs(pod), processGroup.IsMarkedForRemoval() || !status.Health.Available)
+		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 		processCount := 1
 
 		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {

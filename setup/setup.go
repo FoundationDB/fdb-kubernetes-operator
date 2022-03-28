@@ -29,27 +29,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"gopkg.in/natefinch/lumberjack.v2"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/fdbclient"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"gopkg.in/natefinch/lumberjack.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var setupLog = ctrl.Log.WithName("setup")
 var operatorVersion = "latest"
 
 // Options provides all configuration Options for the operator
@@ -137,6 +133,7 @@ func StartManager(
 	// Might be called by controller-runtime in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/1420
 	klog.SetLogger(logger)
 
+	setupLog := logger.WithName("setup")
 	fdbclient.DefaultCLITimeout = operatorOpts.CliTimeout
 
 	options := ctrl.Options{
@@ -160,7 +157,7 @@ func StartManager(
 		os.Exit(1)
 	}
 
-	if err := moveFDBBinaries(); err != nil {
+	if err := moveFDBBinaries(setupLog); err != nil {
 		setupLog.Error(err, "unable to move FDB binaries")
 		os.Exit(1)
 	}
@@ -214,11 +211,12 @@ func StartManager(
 
 	if operatorOpts.CleanUpOldLogFile {
 		setupLog.V(1).Info("setup log file cleaner", "LogFileMinAge", operatorOpts.LogFileMinAge.String())
+		cleaner := internal.NewCliLogFileCleaner(logger, operatorOpts.LogFileMinAge)
 		ticker := time.NewTicker(operatorOpts.LogFileMinAge)
 		go func() {
 			for {
 				<-ticker.C
-				internal.CleanupOldCliLogs(operatorOpts.LogFileMinAge)
+				cleaner.CleanupOldCliLogs()
 			}
 		}()
 	}
@@ -230,7 +228,7 @@ func StartManager(
 
 // MoveFDBBinaries moves FDB binaries that are pulled from setup containers into
 // the correct locations.
-func moveFDBBinaries() error {
+func moveFDBBinaries(log logr.Logger) error {
 	binFile, err := os.Open(os.Getenv("FDB_BINARY_DIR"))
 	if err != nil {
 		return err
@@ -280,14 +278,14 @@ func moveFDBBinaries() error {
 				for _, versionBinEntry := range versionBinDir {
 					currentPath := path.Join(versionBinFile.Name(), versionBinEntry.Name())
 					newPath := path.Join(minorVersionPath, versionBinEntry.Name())
-					setupLog.Info("Moving FDB binary file", "currentPath", currentPath, "newPath", newPath)
+					log.Info("Moving FDB binary file", "currentPath", currentPath, "newPath", newPath)
 					err = os.Rename(currentPath, newPath)
 					if err != nil {
 						return err
 					}
 				}
 			}
-			versionBinFile.Close()
+			_ = versionBinFile.Close()
 
 			versionLibFile, err := os.Open(path.Join(binFile.Name(), binEntry.Name(), "lib", "libfdb_c.so"))
 			if err != nil && !os.IsNotExist(err) {
@@ -296,13 +294,13 @@ func moveFDBBinaries() error {
 			if err == nil {
 				currentPath := path.Join(versionLibFile.Name())
 				newPath := path.Join(libDir.Name(), fmt.Sprintf("libfdb_c_%s.so", version))
-				setupLog.Info("Moving FDB library file", "currentPath", currentPath, "newPath", newPath)
+				log.Info("Moving FDB library file", "currentPath", currentPath, "newPath", newPath)
 				err = os.Rename(currentPath, newPath)
 				if err != nil {
 					return err
 				}
 			}
-			versionLibFile.Close()
+			_ = versionLibFile.Close()
 		}
 	}
 
