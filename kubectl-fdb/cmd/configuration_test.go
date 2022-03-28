@@ -54,6 +54,7 @@ var _ = Describe("[plugin] configuration command", func() {
 								},
 							},
 						},
+						Version: fdbv1beta2.Versions.Default.String(),
 					},
 				}
 			})
@@ -66,7 +67,7 @@ var _ = Describe("[plugin] configuration command", func() {
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configuration).To(Equal("  usable_regions=0 logs=0 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"test\\\",\\\"priority\\\":1}]}]"))
+				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"test\\\",\\\"priority\\\":1}]}]"))
 			})
 
 			It("should return the same configuration string with failover", func() {
@@ -77,7 +78,7 @@ var _ = Describe("[plugin] configuration command", func() {
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", true)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configuration).To(Equal("  usable_regions=0 logs=0 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"test\\\",\\\"priority\\\":1}]}]"))
+				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"test\\\",\\\"priority\\\":1}]}]"))
 			})
 		})
 
@@ -131,6 +132,7 @@ var _ = Describe("[plugin] configuration command", func() {
 								},
 							},
 						},
+						Version: fdbv1beta2.Versions.Default.String(),
 					},
 				}
 
@@ -144,7 +146,7 @@ var _ = Describe("[plugin] configuration command", func() {
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configuration).To(Equal("  usable_regions=0 logs=0 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}]},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}]}]"))
+				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}]},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}]}]"))
 			})
 
 			It("should return the configuration string with the modified priority", func() {
@@ -155,7 +157,7 @@ var _ = Describe("[plugin] configuration command", func() {
 
 				configuration, err := getConfigurationString(kubeClient, "test", "test", true)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configuration).To(Equal("  usable_regions=0 logs=0 proxies=0 resolvers=0 log_routers=0 remote_logs=0 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}]},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}]}]"))
+				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}]},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}]}]"))
 			})
 		})
 	})

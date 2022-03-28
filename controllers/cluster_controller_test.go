@@ -226,11 +226,13 @@ var _ = Describe("cluster_controller", func() {
 				Expect(adminClient.DatabaseConfiguration.RedundancyMode).To(Equal(fdbv1beta2.RedundancyModeDouble))
 				Expect(adminClient.DatabaseConfiguration.StorageEngine).To(Equal(fdbv1beta2.StorageEngineSSD2))
 				Expect(adminClient.DatabaseConfiguration.RoleCounts).To(Equal(fdbv1beta2.RoleCounts{
-					Logs:       3,
-					Proxies:    3,
-					Resolvers:  1,
-					RemoteLogs: -1,
-					LogRouters: -1,
+					Logs:          3,
+					Proxies:       3,
+					CommitProxies: 2,
+					GrvProxies:    1,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
 				}))
 			})
 
@@ -1164,7 +1166,7 @@ var _ = Describe("cluster_controller", func() {
 
 					configuration := cluster.DesiredDatabaseConfiguration()
 					configuration.LogVersion = 3
-					err = adminClient.ConfigureDatabase(configuration, false)
+					err = adminClient.ConfigureDatabase(configuration, false, cluster.Spec.Version)
 					Expect(err).NotTo(HaveOccurred())
 
 					generationGap = 1

@@ -50,6 +50,7 @@ var _ = Describe("[api] FDBVersion", func() {
 			version, err := ParseFdbVersion("6.2.11")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11}))
+			Expect(version.HasSeparatedProxies()).To(BeFalse())
 
 			version, err = ParseFdbVersion("prerelease-6.2.11")
 			Expect(err).NotTo(HaveOccurred())
@@ -59,6 +60,11 @@ var _ = Describe("[api] FDBVersion", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(Version{Major: 6, Minor: 2, Patch: 11, ReleaseCandidate: 0}))
 
+			version, err = ParseFdbVersion("7.0.0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(Equal(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 0}))
+			Expect(version.HasSeparatedProxies()).To(BeTrue())
+
 			version, err = ParseFdbVersion("7.0.0-rc1")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(Version{Major: 7, Minor: 0, Patch: 0, ReleaseCandidate: 1}))
@@ -66,6 +72,7 @@ var _ = Describe("[api] FDBVersion", func() {
 			version, err = ParseFdbVersion("7.1.0-rc39")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 39}))
+			Expect(version.HasSeparatedProxies()).To(BeTrue())
 
 			_, err = ParseFdbVersion("6.2")
 			Expect(err).To(HaveOccurred())

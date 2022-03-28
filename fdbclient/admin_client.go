@@ -255,8 +255,8 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 }
 
 // ConfigureDatabase sets the database configuration
-func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool) error {
-	configurationString, err := configuration.GetConfigurationString()
+func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.DatabaseConfiguration, newDatabase bool, version string) error {
+	configurationString, err := configuration.GetConfigurationString(version)
 	if err != nil {
 		return err
 	}
