@@ -483,7 +483,7 @@ Region represents a region in the database configuration
 | ----- | ----------- | ------ | -------- |
 | datacenters | The data centers in this region. | [][DataCenter](#datacenter) | false |
 | satellite_logs | The number of satellite logs that we should recruit. | int | false |
-| satellite_redundancy_mode | The replication strategy for satellite logs. | string | false |
+| satellite_redundancy_mode | The replication strategy for satellite logs. | [RedundancyMode](#redundancymode) | false |
 
 [Back to TOC](#table-of-contents)
 

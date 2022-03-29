@@ -44,7 +44,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Analyze if the given clusters have any issues",
 		Long:  "Analyze if the given clusters have any issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := cmd.Root().Flags().GetBool("force")
+			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err
 			}
@@ -108,7 +108,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, force, ignoreConditions)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, wait, ignoreConditions)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -208,7 +208,7 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, force bool, ignoreConditions []string) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, wait bool, ignoreConditions []string) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -372,14 +372,14 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		confirmed := false
 
 		if len(failedProcessGroups) > 0 {
-			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, force, false)
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, wait, false)
 			if err != nil {
 				return err
 			}
 		}
 
 		pods := filterDeletePods(failedProcessGroups, killPods)
-		if !force && len(pods) > 0 {
+		if wait && len(pods) > 0 {
 			podNames := make([]string, 0, len(killPods))
 			for _, pod := range killPods {
 				podNames = append(podNames, pod.Name)
@@ -388,7 +388,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 			confirmed = confirmAction(fmt.Sprintf("Delete Pods %v in cluster %s/%s", strings.Join(podNames, ","), namespace, clusterName))
 		}
 
-		if force || confirmed {
+		if !wait || confirmed {
 			for _, pod := range pods {
 				cmd.Printf("Delete Pod: %s/%s\n", pod.Namespace, pod.Name)
 				err := kubeClient.Delete(context.Background(), &pod)

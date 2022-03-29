@@ -97,7 +97,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			ExpectedErrMsg    string
 			ExpectedStdouMsg  string
 			AutoFix           bool
-			Force             bool
+			NoWait            bool
 			HasErrors         bool
 			IgnoredConditions []string
 		}
@@ -115,7 +115,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.Force, tc.IgnoredConditions)
+				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())

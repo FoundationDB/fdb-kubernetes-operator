@@ -39,7 +39,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Restarts process(es) in a given FDB cluster.",
 		Long:  "Restarts process(es) in a given FDB cluster.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := cmd.Root().Flags().GetBool("force")
+			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err
 			}
@@ -108,7 +108,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				processes = args
 			}
 
-			return restartProcesses(cmd, config, clientSet, processes, namespace, clusterName, force)
+			return restartProcesses(cmd, config, clientSet, processes, namespace, clusterName, wait)
 		},
 		Example: `
 # Restart processes for a cluster in the current namespace
@@ -157,8 +157,8 @@ func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupCondi
 }
 
 //nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
-func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, force bool) error {
-	if !force {
+func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, wait bool) error {
+	if wait {
 		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", processes, namespace, clusterName))
 		if !confirmed {
 			return fmt.Errorf("user aborted the removal")

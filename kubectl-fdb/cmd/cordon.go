@@ -47,7 +47,7 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Short: "Adds all process groups (or multiple) that run on a node to the remove list of the given cluster",
 		Long:  "Adds all process groups (or multiple) that run on a node to the remove list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := cmd.Root().Flags().GetBool("force")
+			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err
 			}
@@ -89,10 +89,10 @@ func newCordonCmd(streams genericclioptions.IOStreams) *cobra.Command {
 					return err
 				}
 
-				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, force)
+				return cordonNode(kubeClient, cluster, nodes, namespace, withExclusion, wait)
 			}
 
-			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, force)
+			return cordonNode(kubeClient, cluster, args, namespace, withExclusion, wait)
 		},
 		Example: `
 # Evacuate all process groups for a cluster in the current namespace that are hosted on node-1
@@ -123,7 +123,7 @@ kubectl fdb cordon -c cluster --node-selector machine=a,disk=fast
 }
 
 // cordonNode gets all process groups of this cluster that run on the given nodes and add them to the remove list
-func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, force bool) error {
+func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluster, nodes []string, namespace string, withExclusion bool, wait bool) error {
 	fmt.Printf("Start to cordon %d nodes\n", len(nodes))
 	if len(nodes) == 0 {
 		return nil
@@ -161,5 +161,5 @@ func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluste
 		}
 	}
 
-	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, force, false)
+	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, wait, false)
 }
