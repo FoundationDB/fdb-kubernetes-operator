@@ -43,7 +43,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.17.6
+          go-version: 1.17.8
       - name: Release binaries
         run: make release
         env:
