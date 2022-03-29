@@ -42,7 +42,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 		Short: "Adds a process group (or multiple) to the remove list of the given cluster",
 		Long:  "Adds a process group (or multiple) to the remove list field of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, err := cmd.Root().Flags().GetBool("force")
+			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
 				return err
 			}
@@ -85,21 +85,21 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				}
 			}
 
-			return replaceProcessGroups(kubeClient, cluster, processGroups, namespace, withExclusion, withShrink, force, removeAllFailed)
+			return replaceProcessGroups(kubeClient, cluster, processGroups, namespace, withExclusion, withShrink, wait, removeAllFailed)
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
 kubectl fdb remove process-group -c cluster pod-1 -i pod-2
 
 # Remove process groups for a cluster in the namespace default
-kubectl fdb -n default remove process-group  -c cluster pod-1 pod-2
+kubectl fdb -n default remove process-group -c cluster pod-1 pod-2
 
 # Remove process groups for a cluster with the process group ID.
 # The process group ID of a Pod can be fetched with "kubectl get po -L foundationdb.org/fdb-process-group-id"
 kubectl fdb -n default remove process-group --use-process-group-id -c cluster storage-1 storage-2
 
 # Remove all failed process groups for a cluster (all process groups that have a missing process)
-kubectl fdb -n default remove process-group  -c cluster --remove-all-failed
+kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 `,
 	}
 
@@ -150,7 +150,7 @@ func getProcessGroupIDsFromPod(kubeClient client.Client, clusterName string, pod
 }
 
 // replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, force bool, removeAllFailed bool) error {
+func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, wait bool, removeAllFailed bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
 	if err != nil {
@@ -207,7 +207,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 		cluster.Spec.ProcessCounts.DecreaseCount(class, amount)
 	}
 
-	if !force {
+	if wait {
 		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", processGroups, namespace, clusterName, withExclusion, withShrink))
 		if !confirmed {
 			return fmt.Errorf("user aborted the removal")

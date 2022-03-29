@@ -7,8 +7,8 @@ You can use the [kubectl-fdb](/kubectl-fdb) plugin when investigating issues and
 If a cluster is stuck in a reconciliation you can use the `kubectl-fdb` plugin to analyze the issue:
 
 ```bash
-$ kubectl fdb analyze example-cluster
-Checking cluster: default/example-cluster
+$ kubectl fdb analyze sample-cluster
+Checking cluster: default/sample-cluster
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✖ Cluster is not reconciled
@@ -17,19 +17,19 @@ Checking cluster: default/example-cluster
 ✖ ProcessGroup: storage-2 has the following condition: PodFailing since 2021-03-25 18:23:22 +0000 GMT
 ✖ ProcessGroup: storage-2 has the following condition: IncorrectConfigMap since 2021-03-26 19:20:56 +0000 GMT
 ✖ ProcessGroup: transaction-5 has the following condition: MissingProcesses since 2021-04-27 02:57:24 +0100 BST
-✖ Pod default/example-cluster-storage-2 has unexpected Phase Pending with Reason:
-✖ Pod default/example-cluster-storage-2 has an unready container: foundationdb
-✖ Pod default/example-cluster-storage-2 has an unready container: foundationdb-kubernetes-sidecar
-✖ Pod default/example-cluster-storage-2 has an unready container: trace-log-forwarder
+✖ Pod default/sample-cluster-storage-2 has unexpected Phase Pending with Reason:
+✖ Pod default/sample-cluster-storage-2 has an unready container: foundationdb
+✖ Pod default/sample-cluster-storage-2 has an unready container: foundationdb-kubernetes-sidecar
+✖ Pod default/sample-cluster-storage-2 has an unready container: trace-log-forwarder
 Error:
-found issues for cluster example-cluster. Please check them
+found issues for cluster sample-cluster. Please check them
 ```
 
 The plugin can also resolve most of these issues automatically:
 
 ```bash
-$ kubectl fdb analyze example-cluster --auto-fix
-Checking cluster: default/example-cluster
+$ kubectl fdb analyze sample-cluster --auto-fix
+Checking cluster: default/sample-cluster
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✖ Cluster is not reconciled
@@ -38,13 +38,13 @@ Checking cluster: default/example-cluster
 ✖ ProcessGroup: storage-2 has the following condition: PodFailing since 2021-03-25 18:23:22 +0000 GMT
 ✖ ProcessGroup: storage-2 has the following condition: IncorrectConfigMap since 2021-03-26 19:20:56 +0000 GMT
 ✖ ProcessGroup: transaction-5 has the following condition: MissingProcesses since 2021-04-27 02:57:24 +0100 BST
-✖ Pod default/example-cluster-storage-2 has unexpected Phase Pending with Reason:
-✖ Pod default/example-cluster-storage-2 has an unready container: foundationdb
-✖ Pod default/example-cluster-storage-2 has an unready container: foundationdb-kubernetes-sidecar
-✖ Pod default/example-cluster-storage-2 has an unready container: trace-log-forwarder
-Replace process groups [stateless-5 storage-2 transaction-5] in cluster default/example-cluster [y/n]: y
+✖ Pod default/sample-cluster-storage-2 has unexpected Phase Pending with Reason:
+✖ Pod default/sample-cluster-storage-2 has an unready container: foundationdb
+✖ Pod default/examsampleple-cluster-storage-2 has an unready container: foundationdb-kubernetes-sidecar
+✖ Pod default/sample-cluster-storage-2 has an unready container: trace-log-forwarder
+Replace process groups [stateless-5 storage-2 transaction-5] in cluster default/sample-cluster [y/n]: y
 Error:
-found issues for cluster example-cluster. Please check them
+found issues for cluster sample-cluster. Please check them
 ```
 
 When using this feature, read carefully what the plugin wants to do and only confirm the dialog when you are sure that you want to do these actions.
@@ -56,11 +56,11 @@ You can do that using a [plugin command](#replacing-pods-with-the-kubectl-plugin
 
 ## Replacing Pods with the kubectl plugin
 
-Let's assume we are working with the cluster `example-cluster`, and the pod `example-cluster-storage-1` is failing to launch.
+Let's assume we are working with the cluster `sample-cluster`, and the pod `sample-cluster-storage-1` is failing to launch.
 
 ```bash
-$ kubectl fdb remove process-groups -c example-cluster example-cluster-storage-1
-Remove [storage-1] from cluster default/example-cluster with exclude: true and shrink: false [y/n]:
+$ kubectl fdb remove process-groups -c sample-cluster sample-cluster-storage-1
+Remove [storage-1] from cluster default/sample-cluster with exclude: true and shrink: false [y/n]:
 # Confirm with 'y' if the excluded Pod is the correct one
 ```
 
@@ -74,8 +74,8 @@ If this happens, you will see an error of the form `Cannot check the exclusion s
 When this happens, the only way to finish the replacement is to skip the exclusion:
 
 ```bash
-$ kubectl fdb remove process-groups --exclusion=false -c example-cluster example-cluster-storage-1
-Remove [storage-1] from cluster default/example-cluster with exclude: false and shrink: false [y/n]:
+$ kubectl fdb remove process-groups --exclusion=false -c sample-cluster sample-cluster-storage-1
+Remove [storage-1] from cluster default/sample-cluster with exclude: false and shrink: false [y/n]:
 # Confirm with 'y' if the excluded Pod is the correct one
 ```
 
@@ -138,7 +138,7 @@ To simplify this process, the kubectl-fdb plugin has a command that encapsulates
 If you want to open up a shell or run a CLI, you can use the [plugin](#kubectl-fdb-plugin):
 
 ```bash
- kubectl fdb exec -c example-cluster -- bash
+ kubectl fdb exec -c sample-cluster -- bash
 ```
 
 Or if you want to check a specific pod:
@@ -150,6 +150,19 @@ kubectl exec -it sample-cluster-storage-1 -c foundationdb -- bash
 This will open up a shell inside the container. You can use this shell to examine local files, run debug commands, or open a CLI.
 
 When running the CLI on Kubernetes, you can simply run `fdbcli` with no additional arguments. The shell path, cluster file, TLS certificates, and any other required configuration will be supplied through the environment.
+
+## Get the configuration string
+
+The kubectl plugin supports to generate the configuration string from a FoundationDB cluster spec:
+
+```bash
+kubectl fdb get configuration sample-cluster
+```
+
+When the `--fail-over` flag is provided the resulting configuration string will change the priority for the primary and the remote dc.
+You can also update the config directly by providing the `--update` flag to the command.
+Per default a diff of the new changes will be shown before updating the cluster spec.
+For an HA cluster you have to update all clusters that are managed by the operator with the same command to ensure that all operator instance want to converge to the same configuration. 
 
 ## Next
 

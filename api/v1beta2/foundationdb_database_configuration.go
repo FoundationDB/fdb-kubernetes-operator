@@ -1,5 +1,5 @@
 /*
- * foundationdb_labels.go
+ * foundationdb_database_configuration.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -67,7 +67,7 @@ type Region struct {
 	SatelliteLogs int `json:"satellite_logs,omitempty"`
 
 	// The replication strategy for satellite logs.
-	SatelliteRedundancyMode string `json:"satellite_redundancy_mode,omitempty"`
+	SatelliteRedundancyMode RedundancyMode `json:"satellite_redundancy_mode,omitempty"`
 }
 
 // DataCenter represents a data center in the region configuration
@@ -110,10 +110,12 @@ func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
 	}
 
 	for _, region := range newConfiguration.Regions {
-		// In order to trigger a fail over we have to change the priority
-		// of the main and remote dc
+		// In order to trigger a fail-over we have to change the priority of the main and remote dc
 		newRegion := Region{}
 		for _, dc := range region.DataCenters {
+			newRegion.SatelliteRedundancyMode = region.SatelliteRedundancyMode
+			newRegion.SatelliteLogs = region.SatelliteLogs
+
 			// Don't change the Satellite config
 			if dc.Satellite == 1 {
 				newRegion.DataCenters = append(newRegion.DataCenters, dc)
@@ -661,6 +663,10 @@ const (
 	RedundancyModeDouble RedundancyMode = "double"
 	// RedundancyModeTriple defines the replication factor 3.
 	RedundancyModeTriple RedundancyMode = "triple"
+	// RedundancyModeOneSatelliteSingle defines the replication factor one_satellite_single.
+	RedundancyModeOneSatelliteSingle RedundancyMode = "one_satellite_single"
+	// RedundancyModeOneSatelliteDouble  defines the replication factor one_satellite_double.
+	RedundancyModeOneSatelliteDouble RedundancyMode = "one_satellite_double"
 	// RedundancyModeUnset defines the replication factor unset.
 	RedundancyModeUnset RedundancyMode = ""
 )

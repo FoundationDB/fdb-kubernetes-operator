@@ -9463,6 +9463,7 @@ spec:
                         satellite_logs:
                           type: integer
                         satellite_redundancy_mode:
+                          maxLength: 100
                           type: string
                       type: object
                     type: array
@@ -12855,6 +12856,7 @@ spec:
                         satellite_logs:
                           type: integer
                         satellite_redundancy_mode:
+                          maxLength: 100
                           type: string
                       type: object
                     type: array
