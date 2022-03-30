@@ -44,7 +44,7 @@ For more information on the fields you can define on the cluster resource, see t
 
 1. Install Go on your machine, see the [Getting Started](https://golang.org/doc/install) guide for more information.
 1. Install the required dependencies with `make deps`.
-1. Install the [foundationDB client package](https://www.foundationdb.org/download).
+1. Install the [foundationDB client package](https://github.com/apple/foundationdb/releases).
 
 ### Running Locally
 
