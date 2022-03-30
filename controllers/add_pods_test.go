@@ -38,6 +38,7 @@ var _ = Describe("add_pods", func() {
 	var requeue *requeue
 	var initialPods *corev1.PodList
 	var newPods *corev1.PodList
+	var processGroupWithoutPod *fdbv1beta2.ProcessGroupStatus
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
@@ -86,7 +87,8 @@ var _ = Describe("add_pods", func() {
 
 	Context("with a storage process group with no pod defined", func() {
 		BeforeEach(func() {
-			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", nil))
+			processGroupWithoutPod = fdbv1beta2.NewProcessGroupStatus("storage-9", "storage", []string{"100.101.102.103"})
+			cluster.Status.ProcessGroups = append(cluster.Status.ProcessGroups, processGroupWithoutPod)
 		})
 
 		It("should not requeue", func() {
@@ -94,26 +96,49 @@ var _ = Describe("add_pods", func() {
 		})
 
 		It("should create an extra pod", func() {
-			Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
-			lastPod := newPods.Items[len(newPods.Items)-1]
-			Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
-			Expect(lastPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
-			Expect(lastPod.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
-			Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+			expectNewPodToHaveBeenCreated(initialPods, newPods, cluster)
 		})
 
-		Context("when the process group is being removed", func() {
+		When("the process group is being removed", func() {
 			BeforeEach(func() {
-				cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-1].MarkForRemoval()
+				processGroupWithoutPod.MarkForRemoval()
 			})
 
-			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+			When("the process group is excluded", func() {
+				BeforeEach(func() {
+					// When the system is actually running, this would previously have been set by
+					// the `removeProcessGroups` subreconciler and saved in the cluster status,
+					// which would then be visible to the next run of the `addPods` subreconciler.
+					processGroupWithoutPod.SetExclude()
+				})
+
+				It("should not requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should not create any pods", func() {
+					Expect(newPods.Items).To(HaveLen(len(initialPods.Items)))
+				})
 			})
 
-			It("should not create any pods", func() {
-				Expect(newPods.Items).To(HaveLen(len(initialPods.Items)))
+			When("the process group is not excluded", func() {
+				It("should not requeue", func() {
+					Expect(requeue).To(BeNil())
+				})
+
+				It("should create an extra pod", func() {
+					expectNewPodToHaveBeenCreated(initialPods, newPods, cluster)
+				})
 			})
 		})
 	})
 })
+
+func expectNewPodToHaveBeenCreated(initialPods *corev1.PodList, newPods *corev1.PodList, cluster *fdbv1beta2.FoundationDBCluster) {
+	Expect(newPods.Items).To(HaveLen(len(initialPods.Items) + 1))
+	lastPod := newPods.Items[len(newPods.Items)-1]
+	Expect(lastPod.Name).To(Equal("operator-test-1-storage-9"))
+	Expect(lastPod.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-9"))
+	Expect(lastPod.Labels[fdbv1beta2.FDBProcessClassLabel]).To(Equal("storage"))
+	Expect(lastPod.OwnerReferences).To(Equal(internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)))
+}

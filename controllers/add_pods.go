@@ -24,9 +24,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -64,8 +63,18 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		_, podExists := podMap[processGroup.ProcessGroupID]
-		if podExists || processGroup.IsMarkedForRemoval() {
+		if _, podExists := podMap[processGroup.ProcessGroupID]; podExists {
+			continue
+		}
+
+		// If this process group is marked for removal, we normally don't want to spin it back up
+		// again. However, in a downscaling scenario, it could be that this is a storage node that
+		// is still draining its data onto another one. Therefore, we only want to leave it off
+		// (by continue'ing) if the cluster says that this process group is fully drained and safe
+		// to delete, which is the case if a previous run of the `removeProcessGroups` subreconciler
+		// has marked it as excluded in the cluster status (it does so only after executing the
+		// `exclude` FDB command and being told that the nodes in question are fully excluded).
+		if processGroup.IsMarkedForRemoval() && processGroup.IsExcluded() {
 			continue
 		}
 
