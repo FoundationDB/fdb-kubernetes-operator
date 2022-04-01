@@ -2629,7 +2629,7 @@ var _ = Describe("cluster_controller", func() {
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
 					})
-					It("generations are not matching", func() {
+					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
@@ -2642,7 +2642,7 @@ var _ = Describe("cluster_controller", func() {
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
 					})
-					It("generations are not matching", func() {
+					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
