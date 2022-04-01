@@ -107,6 +107,16 @@ var _ = Describe("[api] FDBVersion", func() {
 			Expect(version.Equal(Version{Major: 6, Minor: 3, Patch: 20})).To(BeFalse())
 			Expect(version.Equal(Version{Major: 6, Minor: 2, Patch: 21})).To(BeFalse())
 		})
+
+		It("should return correct result for IsAtleast", func() {
+			version := Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 2}
+			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0})).To(BeFalse())
+			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1})).To(BeTrue())
+			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 3})).To(BeFalse())
+
+			version = Version{Major: 7, Minor: 1, Patch: 0}
+			Expect(version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 1})).To(BeTrue())
+		})
 	})
 
 	When("checking if the version has support for non-blocking exclude commands", func() {

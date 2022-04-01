@@ -39,7 +39,7 @@ type DatabaseConfiguration struct {
 
 	// StorageEngine defines the storage engine the database uses.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-rocksdb-experimental;memory-radixtree-beta;custom
+	// +kubebuilder:validation:Enum=ssd;ssd-1;ssd-2;memory;memory-1;memory-2;ssd-redwood-1-experimental;ssd-rocksdb-experimental;ssd-rocksdb-v1;memory-radixtree-beta;custom
 	// +kubebuilder:default:=ssd-2
 	StorageEngine StorageEngine `json:"storage_engine,omitempty"`
 
@@ -684,6 +684,10 @@ const (
 	StorageEngineMemory StorageEngine = "memory"
 	// StorageEngineMemory2 defines the storage engine memory-2.
 	StorageEngineMemory2 StorageEngine = "memory-2"
+	// StorageEngineRocksDbExperimental defines the storage engine ssd-rocksdb-experimental.
+	StorageEngineRocksDbExperimental StorageEngine = "ssd-rocksdb-experimental"
+	// StorageEngineRocksDbV1 defines the storage engine ssd-rocksdb-v1.
+	StorageEngineRocksDbV1 StorageEngine = "ssd-rocksdb-v1"
 )
 
 // RoleCounts represents the roles whose counts can be customized.
