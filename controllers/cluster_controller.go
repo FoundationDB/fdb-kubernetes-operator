@@ -120,6 +120,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 	if !storageEngineSupported {
+		r.Recorder.Event(cluster, corev1.EventTypeWarning, "Storage engine not supported", fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
 		return ctrl.Result{}, fmt.Errorf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version)
 	}
 
@@ -749,7 +750,5 @@ func isStorageEngineSupported(versionString string, storageEngine fdbv1beta2.Sto
 	if err != nil {
 		return false, err
 	}
-
-	supported := version.IsStorageEngineSupported(storageEngine)
-	return supported, nil
+	return version.IsStorageEngineSupported(storageEngine), nil
 }

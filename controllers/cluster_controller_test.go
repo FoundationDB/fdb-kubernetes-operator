@@ -2535,56 +2535,118 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
-		Context("mixing storage engine and cluster version", func() {
-			Context("with rocksdb-v1 engine", func() {
-				BeforeEach(func() {
-					generationGap = 0
+		When("creating a cluster with RocksDB as storage engine", func() {
+			When("using rocksdb-v1 engine", func() {
+				When("using 6.3.26", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.Version = "6.3.26"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
-				It("should fail with 6.3.26", func() {
-					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
-					cluster.Spec.Version = "6.3.26"
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = reconcileCluster(cluster)
-					Expect(err).To(HaveOccurred())
+				When("using 7.1.0-rc3", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.Version = "7.1.0-rc3"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
-				It("should pass with 7.1.0", func() {
-					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
-					cluster.Spec.Version = "7.1.0"
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = reconcileCluster(cluster)
-					Expect(err).ToNot(HaveOccurred())
+				When("using 7.1.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.Version = "7.1.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
-				It("should pass with 7.1.0-rc4", func() {
-					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
-					cluster.Spec.Version = "7.1.0-rc4"
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = reconcileCluster(cluster)
-					Expect(err).ToNot(HaveOccurred())
+				When("using 7.1.0-rc4", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.Version = "7.1.0-rc4"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
 			})
 
-			Context("with ssd-rocksdb-experimental", func() {
-				BeforeEach(func() {
-					generationGap = 0
+			When("using ssd-rocksdb-experimental", func() {
+				When("using 7.1.0-rc4", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.Version = "7.1.0-rc4"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
-				It("should fail with 7.1.0", func() {
-					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
-					cluster.Spec.Version = "7.1.0"
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = reconcileCluster(cluster)
-					Expect(err).To(HaveOccurred())
+				When("using 7.1.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.Version = "7.1.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
-				It("should pass with 6.3.24", func() {
-					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
-					cluster.Spec.Version = "6.3.24"
-					err := k8sClient.Update(context.TODO(), cluster)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = reconcileCluster(cluster)
-					Expect(err).ToNot(HaveOccurred())
+				When("using 7.1.0-rc3", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.Version = "7.1.0-rc3"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 6.3.24", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.Version = "6.3.24"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
 				})
 			})
 		})
