@@ -2535,6 +2535,60 @@ var _ = Describe("cluster_controller", func() {
 			})
 		})
 
+		Context("mixing storage engine and cluster version", func() {
+			Context("with rocksdb-v1 engine", func() {
+				BeforeEach(func() {
+					generationGap = 0
+				})
+				It("should fail with 6.3.26", func() {
+					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+					cluster.Spec.Version = "6.3.26"
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = reconcileCluster(cluster)
+					Expect(err).To(HaveOccurred())
+				})
+				It("should pass with 7.1.0", func() {
+					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+					cluster.Spec.Version = "7.1.0"
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = reconcileCluster(cluster)
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should pass with 7.1.0-rc4", func() {
+					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+					cluster.Spec.Version = "7.1.0-rc4"
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = reconcileCluster(cluster)
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+
+			Context("with ssd-rocksdb-experimental", func() {
+				BeforeEach(func() {
+					generationGap = 0
+				})
+				It("should fail with 7.1.0", func() {
+					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+					cluster.Spec.Version = "7.1.0"
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = reconcileCluster(cluster)
+					Expect(err).To(HaveOccurred())
+				})
+				It("should pass with 6.3.24", func() {
+					cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+					cluster.Spec.Version = "6.3.24"
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = reconcileCluster(cluster)
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+		})
+
 		When("When a process have an incorrect commandline", func() {
 			var adminClient *mockAdminClient
 

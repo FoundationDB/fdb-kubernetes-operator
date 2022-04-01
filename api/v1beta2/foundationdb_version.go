@@ -174,6 +174,15 @@ func (version Version) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
+func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) bool {
+	if storageEngine == "ssd-rocksdb-v1" {
+		return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0})
+	} else if storageEngine == "ssd-rocksdb-experimental" {
+		return !version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0})
+	}
+	return true
+}
+
 // IsReleaseCandidate returns true if the version is a release candidate or not
 func (version Version) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0

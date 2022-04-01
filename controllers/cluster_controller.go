@@ -115,6 +115,14 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, fmt.Errorf("version %s is not supported", cluster.Spec.Version)
 	}
 
+	storageEngineSupported, err := isStorageEngineSupported(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.StorageEngine)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !storageEngineSupported {
+		return ctrl.Result{}, fmt.Errorf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version)
+	}
+
 	subReconcilers := []clusterSubReconciler{
 		updateStatus{},
 		updateLockConfiguration{},
@@ -734,4 +742,14 @@ func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.Fo
 	defer adminClient.Close()
 
 	return adminClient.GetCoordinatorSet()
+}
+
+func isStorageEngineSupported(versionString string, storageEngine fdbv1beta2.StorageEngine) (bool, error) {
+	version, err := fdbv1beta2.ParseFdbVersion(versionString)
+	if err != nil {
+		return false, err
+	}
+
+	supported := version.IsStorageEngineSupported(storageEngine)
+	return supported, nil
 }
