@@ -174,6 +174,7 @@ func (version Version) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
+// IsStorageEngineSupported return true if storage engine is supported by FDB version.
 func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) bool {
 	if storageEngine == "ssd-rocksdb-v1" {
 		return version.IsAtLeast(Version{Major: 7, Minor: 1, Patch: 0})
