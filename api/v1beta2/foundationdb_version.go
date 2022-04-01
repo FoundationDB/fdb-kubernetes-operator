@@ -111,6 +111,12 @@ func (version Version) IsAtLeast(other Version) bool {
 	if version.Patch > other.Patch {
 		return true
 	}
+	if version.ReleaseCandidate == 0 {
+		return true
+	}
+	if other.ReleaseCandidate == 0 {
+		return false
+	}
 	if version.ReleaseCandidate < other.ReleaseCandidate {
 		return false
 	}
@@ -174,6 +180,16 @@ func (version Version) IsSupported() bool {
 	return version.IsAtLeast(Versions.MinimumVersion)
 }
 
+// IsStorageEngineSupported return true if storage engine is supported by FDB version.
+func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) bool {
+	if storageEngine == StorageEngineRocksDbV1 {
+		return version.IsAtLeast(Versions.SupportsRocksDBV1)
+	} else if storageEngine == StorageEngineRocksDbExperimental {
+		return !version.IsAtLeast(Versions.SupportsRocksDBV1)
+	}
+	return true
+}
+
 // IsReleaseCandidate returns true if the version is a release candidate or not
 func (version Version) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0
@@ -185,10 +201,12 @@ var Versions = struct {
 	NextMajorVersion,
 	NextPatchVersion,
 	MinimumVersion,
+	SupportsRocksDBV1,
 	Default Version
 }{
-	Default:          Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion: Version{Major: 6, Minor: 2, Patch: 21},
-	NextMajorVersion: Version{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:   Version{Major: 6, Minor: 2, Patch: 20},
+	Default:           Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:  Version{Major: 6, Minor: 2, Patch: 21},
+	NextMajorVersion:  Version{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:    Version{Major: 6, Minor: 2, Patch: 20},
+	SupportsRocksDBV1: Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
 }
