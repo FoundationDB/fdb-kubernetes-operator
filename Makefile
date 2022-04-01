@@ -35,9 +35,10 @@ GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
 GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
+GINKGO_PKG?=github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
+GINKGO=$(GOBIN)/ginkgo
 BUILD_DEPS?=
 BUILDER?="docker"
-GINKGO_PARALLEL=8
 
 define godep
 BUILD_DEPS+=$(1)
@@ -54,6 +55,7 @@ $(eval $(call godep,controller-gen,CONTROLLER_GEN))
 $(eval $(call godep,golangci-lint,GOLANGCI_LINT))
 $(eval $(call godep,kustomize,KUSTOMIZE))
 $(eval $(call godep,goreleaser,GORELEASER))
+$(eval $(call godep,ginkgo,GINKGO))
 
 GO_SRC=$(shell find . -name "*.go" -not -name "zz_generated.*.go")
 GENERATED_GO=api/v1beta2/zz_generated.deepcopy.go
@@ -89,9 +91,9 @@ test_if_changed: cover.out
 # Run tests
 cover.out: ${GO_ALL} ${MANIFESTS}
 
-test:
+test: $(GINKGO)
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out --ginkgo.parallel.total $(GINKGO_PARALLEL)
+	$(GINKGO) -p --slow-spec-threshold=10s -keep-going ${go_test_flags} ./... -coverprofile cover.out
 endif
 
 # Build manager binary
