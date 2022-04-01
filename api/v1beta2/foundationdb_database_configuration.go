@@ -678,7 +678,7 @@ const (
 	StorageEngineMemory StorageEngine = "memory"
 	// StorageEngineMemory2 defines the storage engine memory-2.
 	StorageEngineMemory2 StorageEngine = "memory-2"
-	// StorageEngineRocksDbV1 defines the storage engine ssd-rocksdb-experimental.
+	// StorageEngineRocksDbExperimental defines the storage engine ssd-rocksdb-experimental.
 	StorageEngineRocksDbExperimental StorageEngine = "ssd-rocksdb-experimental"
 	// StorageEngineRocksDbV1 defines the storage engine ssd-rocksdb-v1.
 	StorageEngineRocksDbV1 StorageEngine = "ssd-rocksdb-v1"
