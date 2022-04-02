@@ -121,14 +121,14 @@ func getPodsForCluster(kubeClient client.Client, cluster *fdbv1beta2.FoundationD
 	return &podList, err
 }
 
-func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, name string, namespace string, command string) (*bytes.Buffer, *bytes.Buffer, error) {
+func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podName string, namespace string, command string) (*bytes.Buffer, *bytes.Buffer, error) {
 	cmd := []string{
 		"/bin/bash",
 		"-c",
 		command,
 	}
 	req := kubeClient.CoreV1().RESTClient().Post().
-		Resource("pods").Name(name).
+		Resource("pods").Name(podName).
 		Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
