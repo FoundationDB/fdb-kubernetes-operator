@@ -242,7 +242,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 		return nil, err
 	}
 	client.log.V(1).Info("Fetched status JSON", "contents", contents)
-	contents, err = removeWarningsInJSON(contents)
+	contents, err = internal.RemoveWarningsInJSON(contents)
 	if err != nil {
 		return nil, err
 	}
@@ -628,7 +628,7 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 	}
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
-	statusString, err = removeWarningsInJSON(statusString)
+	statusString, err = internal.RemoveWarningsInJSON(statusString)
 	if err != nil {
 		return nil, err
 	}
@@ -683,15 +683,6 @@ func (client *cliAdminClient) Close() error {
 		return err
 	}
 	return nil
-}
-
-func removeWarningsInJSON(jsonString string) (string, error) {
-	idx := strings.Index(jsonString, "{")
-	if idx == -1 {
-		return "", fmt.Errorf("the JSON string doesn't contain a starting '{'")
-	}
-
-	return strings.TrimSpace(jsonString[idx:]), nil
 }
 
 // GetCoordinatorSet gets the current coordinators from the status

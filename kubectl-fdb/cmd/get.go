@@ -49,6 +49,7 @@ kubectl fdb -n default get configuration c1
 	cmd.SetIn(o.In)
 
 	cmd.AddCommand(newConfigurationCmd(streams))
+	cmd.AddCommand(newExclusionStatusCmd(streams))
 	o.configFlags.AddFlags(cmd.Flags())
 
 	return cmd

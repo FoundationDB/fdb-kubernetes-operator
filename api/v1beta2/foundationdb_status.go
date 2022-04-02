@@ -133,6 +133,8 @@ type FoundationDBStatusProcessInfo struct {
 type FoundationDBStatusProcessRoleInfo struct {
 	// Role defines the role a process currently has
 	Role string `json:"role,omitempty"`
+	// StoredBytes defines the number of bytes that are currently stored for this process.
+	StoredBytes int `json:"stored_bytes,omitempty"`
 }
 
 // FoundationDBStatusDataStatistics provides information about the data in
