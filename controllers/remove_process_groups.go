@@ -338,7 +338,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	for _, id := range processGroups {
 		err := removeProcessGroup(ctx, r, cluster, id)
 		if err != nil {
-			logger.Error(err, "Error during remove procress group", "processGroupID", id)
+			logger.Error(err, "Error during remove process group", "processGroupID", id)
 			continue
 		}
 	}
@@ -349,7 +349,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	for _, id := range processGroups {
 		removed, include, err := confirmRemoval(ctx, r, cluster, id)
 		if err != nil {
-			logger.Error(err, "Error during confirm procress group removal", "processGroupID", id)
+			logger.Error(err, "Error during confirm process group removal", "processGroupID", id)
 			continue
 		}
 
