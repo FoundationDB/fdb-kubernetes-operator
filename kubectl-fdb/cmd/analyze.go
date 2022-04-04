@@ -198,7 +198,7 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 
 	if mesType == warnMessage {
 		color.Set(color.FgYellow)
-		cmd.Printf("⚠ %s\n", line)
+		cmd.PrintErrf("⚠ %s\n", line)
 		color.Unset()
 		return
 	}
@@ -255,16 +255,16 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroupMap[processGroup.ProcessGroupID] = fdbv1beta2.None{}
 
-		if len(processGroup.ProcessGroupConditions) == 0 {
-			continue
-		}
-
 		// Skip if the processGroup should be removed
 		// or should we check for how long they are marked as removed e.g. stuck in removal?
 		if processGroup.IsMarkedForRemoval() {
 			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
 			removedProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
-			printStatement(cmd, statement, errorMessage)
+			printStatement(cmd, statement, warnMessage)
+			continue
+		}
+
+		if len(processGroup.ProcessGroupConditions) == 0 {
 			continue
 		}
 
