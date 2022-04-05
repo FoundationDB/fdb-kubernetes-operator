@@ -247,7 +247,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: "✖ ProcessGroup: instance-1 is marked for removal, excluded state: false",
+					ExpectedErrMsg: "⚠ ProcessGroup: instance-1 is marked for removal, excluded state: false",
 					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -345,6 +345,40 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					AutoFix:   false,
 					HasErrors: true,
 				}),
+			Entry("Pod is stuck in terminating and marked for removal",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID:     "instance-1",
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+					}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "test",
+								Ready: false,
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{
+										ExitCode:   127,
+										FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+									},
+								},
+							},
+						},
+					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
+					ExpectedErrMsg: "⚠ ProcessGroup: instance-1 is marked for removal, excluded state: true",
+					ExpectedStdouMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition
+✔ Pods are all running and available`,
+					AutoFix:   false,
+					HasErrors: true,
+				}),
 			Entry("Missing Pods",
 				testCase{
 					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
@@ -390,12 +424,11 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s\n⚠ ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
 					ExpectedStdouMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
-⚠ ignored 1 conditions
 ✔ Pods are all running and available`,
 					AutoFix:           false,
 					HasErrors:         true,
