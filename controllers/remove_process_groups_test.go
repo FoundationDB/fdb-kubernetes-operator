@@ -84,8 +84,10 @@ var _ = Describe("remove_process_groups", func() {
 	})
 
 	When("removing a process group", func() {
+		var removedProcessGroup *fdbv1beta2.ProcessGroupStatus
+
 		BeforeEach(func() {
-			removedProcessGroup := cluster.Status.ProcessGroups[0]
+			removedProcessGroup = cluster.Status.ProcessGroups[0]
 			marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 			Expect(marked).To(BeTrue())
 			Expect(processGroup).To(BeNil())
@@ -99,6 +101,11 @@ var _ = Describe("remove_process_groups", func() {
 			When("the cluster is fully replicated", func() {
 				It("should successfully remove that process group", func() {
 					Expect(result).To(BeNil())
+					// Ensure resources are deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeTrue())
+					Expect(include).To(BeTrue())
 				})
 			})
 
@@ -112,6 +119,11 @@ var _ = Describe("remove_process_groups", func() {
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
 					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					// Ensure resources are not deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeFalse())
+					Expect(include).To(BeFalse())
 				})
 			})
 
@@ -125,6 +137,11 @@ var _ = Describe("remove_process_groups", func() {
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
 					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					// Ensure resources are not deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeFalse())
+					Expect(include).To(BeFalse())
 				})
 			})
 
@@ -144,35 +161,50 @@ var _ = Describe("remove_process_groups", func() {
 				It("should not remove that process group", func() {
 					Expect(result).NotTo(BeNil())
 					Expect(result.message).To(Equal("Removals cannot proceed because cluster has degraded fault tolerance"))
+					// Ensure resources are not deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeFalse())
+					Expect(include).To(BeFalse())
 				})
 			})
 		})
 
 		When("Removing multiple process groups", func() {
 			var initialCnt int
-			var removedProcessGroup *fdbv1beta2.ProcessGroupStatus
+			var secondRemovedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
 				initialCnt = len(cluster.Status.ProcessGroups)
-				removedProcessGroup = cluster.Status.ProcessGroups[1]
-				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, removedProcessGroup.ProcessGroupID, removedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
+				secondRemovedProcessGroup = cluster.Status.ProcessGroups[1]
+				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, secondRemovedProcessGroup.ProcessGroupID, secondRemovedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
 				Expect(marked).To(BeTrue())
 				Expect(processGroup).To(BeNil())
 				// Exclude the process group
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, removedProcessGroup.Addresses...)
+				adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, secondRemovedProcessGroup.Addresses...)
 			})
 
 			It("should remove only one process group", func() {
 				Expect(result).To(BeNil())
 				Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 1))
+				// Ensure resources are deleted
+				removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+				Expect(err).To(BeNil())
+				Expect(removed).To(BeTrue())
+				Expect(include).To(BeTrue())
+				// Ensure resources are not deleted
+				removed, include, err = confirmRemoval(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+				Expect(err).To(BeNil())
+				Expect(removed).To(BeFalse())
+				Expect(include).To(BeFalse())
 			})
 
 			When("a process group is marked as terminating and all resources are removed it should be removed", func() {
 				BeforeEach(func() {
-					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
-					err := removeProcessGroup(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
+					err := removeProcessGroup(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
 					Expect(err).NotTo(HaveOccurred())
 					// Sleep here to prevent some timeing issues.
 					time.Sleep(10 * time.Microsecond)
@@ -181,12 +213,45 @@ var _ = Describe("remove_process_groups", func() {
 				It("should remove the process group and the terminated process group", func() {
 					Expect(result).To(BeNil())
 					Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
+					// Ensure resources are deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeTrue())
+					Expect(include).To(BeTrue())
+					// Ensure resources are deleted
+					removed, include, err = confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeTrue())
+					Expect(include).To(BeTrue())
+				})
+			})
+
+			When("a process group is marked as terminating and the resources are not removed", func() {
+				BeforeEach(func() {
+					secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
+					// Sleep here to prevent some timeing issues.
+					time.Sleep(10 * time.Microsecond)
+				})
+
+				It("should remove the process group and the terminated process group", func() {
+					Expect(result).To(BeNil())
+					Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 2))
+					// Ensure resources are deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeTrue())
+					Expect(include).To(BeTrue())
+					// Ensure resources are deleted
+					removed, include, err = confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeTrue())
+					Expect(include).To(BeTrue())
 				})
 			})
 
 			When("a process group is marked as terminating and not fully removed", func() {
 				BeforeEach(func() {
-					removedProcessGroup.ProcessGroupConditions = append(removedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
+					secondRemovedProcessGroup.ProcessGroupConditions = append(secondRemovedProcessGroup.ProcessGroupConditions, fdbv1beta2.NewProcessGroupCondition(fdbv1beta2.ResourcesTerminating))
 					// Set the wait time to the default value
 					cluster.Spec.AutomationOptions.WaitBetweenRemovalsSeconds = pointer.Int(60)
 				})
@@ -195,6 +260,16 @@ var _ = Describe("remove_process_groups", func() {
 					Expect(result).NotTo(BeNil())
 					Expect(result.message).To(HavePrefix("not allowed to remove process groups, waiting:"))
 					Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 0))
+					// Ensure resources are not deleted
+					removed, include, err := confirmRemoval(context.Background(), clusterReconciler, cluster, removedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeFalse())
+					Expect(include).To(BeFalse())
+					// Ensure resources are deleted
+					removed, include, err = confirmRemoval(context.Background(), clusterReconciler, cluster, secondRemovedProcessGroup.ProcessGroupID)
+					Expect(err).To(BeNil())
+					Expect(removed).To(BeFalse())
+					Expect(include).To(BeFalse())
 				})
 			})
 		})
