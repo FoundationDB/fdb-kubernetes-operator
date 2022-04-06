@@ -680,7 +680,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Spec: FoundationDBClusterSpec{
 						DatabaseConfiguration: DatabaseConfiguration{
 							RedundancyMode: RedundancyModeDouble,
-							StorageEngine:  "ssd",
+							StorageEngine:  StorageEngineSSD,
 							RoleCounts: RoleCounts{
 								Storage: 5,
 								Logs:    4,
@@ -695,7 +695,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			It("should be parsed correctly", func() {
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
-					StorageEngine:  "ssd-2",
+					StorageEngine:  StorageEngineSSD2,
 					UsableRegions:  1,
 					RoleCounts: RoleCounts{
 						Logs:          4,
@@ -714,7 +714,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
-					StorageEngine:  "ssd-2",
+					StorageEngine:  StorageEngineSSD2,
 					UsableRegions:  1,
 					RoleCounts: RoleCounts{
 						Logs:          3,
@@ -739,7 +739,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Spec: FoundationDBClusterSpec{
 						DatabaseConfiguration: DatabaseConfiguration{
 							RedundancyMode: RedundancyModeDouble,
-							StorageEngine:  "ssd",
+							StorageEngine:  StorageEngineSSD,
 							RoleCounts: RoleCounts{
 								Storage: 5,
 								Logs:    4,
@@ -754,7 +754,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			It("should be parsed correctly", func() {
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
-					StorageEngine:  "ssd-2",
+					StorageEngine:  StorageEngineSSD2,
 					UsableRegions:  1,
 					RoleCounts: RoleCounts{
 						Logs:          4,
@@ -771,7 +771,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
-					StorageEngine:  "ssd-2",
+					StorageEngine:  StorageEngineSSD2,
 					UsableRegions:  1,
 					RoleCounts: RoleCounts{
 						Logs:          3,
@@ -791,7 +791,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		It("should be parsed correctly", func() {
 			configuration := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
-				StorageEngine:  "ssd",
+				StorageEngine:  StorageEngineSSD,
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
 					Logs:          5,
@@ -824,7 +824,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		When("CommitProxies and GrvProxies are not configured", func() {
 			configuration := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
-				StorageEngine:  "ssd",
+				StorageEngine:  StorageEngineSSD,
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
 					Logs:    5,
@@ -846,7 +846,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		When("CommitProxies and GrvProxies are configured but not proxies", func() {
 			configuration := DatabaseConfiguration{
 				RedundancyMode: RedundancyModeDouble,
-				StorageEngine:  "ssd",
+				StorageEngine:  StorageEngineSSD,
 				UsableRegions:  1,
 				RoleCounts: RoleCounts{
 					Logs:          5,
@@ -2701,7 +2701,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							DatabaseConfiguration: DatabaseConfiguration{
 								RedundancyMode: RedundancyModeDouble,
-								StorageEngine:  "ssd-2",
+								StorageEngine:  StorageEngineSSD2,
 								UsableRegions:  1,
 								RoleCounts: RoleCounts{
 									Logs:          3,
@@ -2952,7 +2952,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							},
 							DatabaseConfiguration: DatabaseConfiguration{
 								RedundancyMode: RedundancyModeDouble,
-								StorageEngine:  "ssd-2",
+								StorageEngine:  StorageEngineSSD2,
 								UsableRegions:  1,
 								RoleCounts: RoleCounts{
 									Logs:          3,

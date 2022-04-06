@@ -76,7 +76,7 @@ var _ = Describe("FoundationDBStatus", func() {
 					},
 					DatabaseConfiguration: DatabaseConfiguration{
 						RedundancyMode: RedundancyModeDouble,
-						StorageEngine:  "ssd-2",
+						StorageEngine:  StorageEngineSSD2,
 						UsableRegions:  1,
 						Regions:        nil,
 						RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
@@ -460,7 +460,7 @@ var _ = Describe("FoundationDBStatus", func() {
 		status := FoundationDBStatusClusterInfo{
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode: "double",
-				StorageEngine:  "ssd-2",
+				StorageEngine:  StorageEngineSSD2,
 				UsableRegions:  1,
 				Regions:        nil,
 				RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},

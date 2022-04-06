@@ -86,7 +86,7 @@ var _ = Describe("admin_client_test", func() {
 				It("should generate the status", func() {
 					Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
 						RedundancyMode: fdbv1beta2.RedundancyModeDouble,
-						StorageEngine:  "ssd-2",
+						StorageEngine:  fdbv1beta2.StorageEngineSSD2,
 						UsableRegions:  1,
 						RoleCounts: fdbv1beta2.RoleCounts{
 							Logs:          3,
@@ -128,7 +128,7 @@ var _ = Describe("admin_client_test", func() {
 				It("should generate the status", func() {
 					Expect(status.Cluster.DatabaseConfiguration).To(Equal(fdbv1beta2.DatabaseConfiguration{
 						RedundancyMode: fdbv1beta2.RedundancyModeDouble,
-						StorageEngine:  "ssd-2",
+						StorageEngine:  fdbv1beta2.StorageEngineSSD2,
 						UsableRegions:  1,
 						RoleCounts: fdbv1beta2.RoleCounts{
 							Logs:          3,

@@ -2539,7 +2539,7 @@ var _ = Describe("cluster_controller", func() {
 			When("using rocksdb-v1 engine", func() {
 				When("using 6.3.26", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
 						cluster.Spec.Version = "6.3.26"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2553,7 +2553,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 				When("using 7.1.0-rc3", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
 						cluster.Spec.Version = "7.1.0-rc3"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2567,7 +2567,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 				When("using 7.1.0", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
 						cluster.Spec.Version = "7.1.0"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2580,7 +2580,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 				When("using 7.1.0-rc4", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-v1"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
 						cluster.Spec.Version = "7.1.0-rc4"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2596,7 +2596,7 @@ var _ = Describe("cluster_controller", func() {
 			When("using ssd-rocksdb-experimental", func() {
 				When("using 7.1.0-rc4", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
 						cluster.Spec.Version = "7.1.0-rc4"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2610,7 +2610,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 				When("using 7.1.0", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
 						cluster.Spec.Version = "7.1.0"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2624,7 +2624,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 				When("using 7.1.0-rc3", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
 						cluster.Spec.Version = "7.1.0-rc3"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
@@ -2637,7 +2637,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 				When("using 6.3.24", func() {
 					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = "ssd-rocksdb-experimental"
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
 						cluster.Spec.Version = "6.3.24"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
