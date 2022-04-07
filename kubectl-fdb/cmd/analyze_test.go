@@ -415,7 +415,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 							},
 						},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
-					ExpectedErrMsg: "⚠ ignored 1 process groups marked for removal",
+					ExpectedErrMsg: "⚠ Ignored 1 process groups marked for removal",
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
@@ -473,7 +473,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					podList: getPodList(clusterName, namespace, corev1.PodStatus{
 						Phase: corev1.PodRunning,
 					}, nil),
-					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s\n⚠ ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
+					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s\n⚠ Ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
 					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated

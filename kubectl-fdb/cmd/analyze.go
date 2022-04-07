@@ -307,11 +307,11 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 	}
 
 	if ignoreRemovals && len(removedProcessGroups) > 0 {
-		printStatement(cmd, fmt.Sprintf("ignored %d process groups marked for removal", len(removedProcessGroups)), warnMessage)
+		printStatement(cmd, fmt.Sprintf("Ignored %d process groups marked for removal", len(removedProcessGroups)), warnMessage)
 	}
 
 	if ignoredConditions > 0 {
-		printStatement(cmd, fmt.Sprintf("ignored %d conditions", ignoredConditions), warnMessage)
+		printStatement(cmd, fmt.Sprintf("Ignored %d conditions", ignoredConditions), warnMessage)
 	}
 
 	if !processGroupIssue {
