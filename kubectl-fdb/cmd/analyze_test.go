@@ -94,11 +94,12 @@ var _ = Describe("[plugin] analyze cluster", func() {
 			cluster           *fdbv1beta2.FoundationDBCluster
 			podList           *corev1.PodList
 			ExpectedErrMsg    string
-			ExpectedStdouMsg  string
+			ExpectedStdoutMsg string
 			AutoFix           bool
 			NoWait            bool
 			HasErrors         bool
 			IgnoredConditions []string
+			IgnoreRemovals    bool
 		}
 
 		DescribeTable("return all successful and failed checks",
@@ -114,14 +115,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions)
+				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())
 				}
 
 				Expect(strings.TrimSpace(tc.ExpectedErrMsg)).To(Equal(strings.TrimSpace(errBuffer.String())))
-				Expect(strings.TrimSpace(tc.ExpectedStdouMsg)).To(Equal(strings.TrimSpace(outBuffer.String())))
+				Expect(strings.TrimSpace(tc.ExpectedStdoutMsg)).To(Equal(strings.TrimSpace(outBuffer.String())))
 			},
 			Entry("Cluster is fine",
 				testCase{
@@ -132,14 +133,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: false,
+					AutoFix:        false,
+					HasErrors:      false,
+					IgnoreRemovals: true,
 				}),
 			Entry("Cluster is unavailable",
 				testCase{
@@ -150,13 +152,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "✖ Cluster is not available",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Cluster is unhealthy",
 				testCase{
@@ -167,14 +170,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Cluster is not fully replicated",
 				testCase{
@@ -185,13 +189,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "✖ Cluster is not fully replicated",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Cluster is not reconciled",
 				testCase{
@@ -202,13 +207,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "✖ Cluster is not reconciled",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("ProcessGroup has a missing process",
 				testCase{
@@ -224,13 +230,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s", time.Unix(time.Now().Unix(), 0).String()),
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("ProcessGroup has a missing process but is marked for removal",
 				testCase{
@@ -247,14 +254,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "⚠ ProcessGroup: instance-1 is marked for removal, excluded state: false",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: false,
+					AutoFix:        false,
+					HasErrors:      false,
+					IgnoreRemovals: false,
 				}),
 			Entry("Pod is in Pending phase",
 				testCase{
@@ -265,13 +273,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodPending,
 					}, nil),
 					ExpectedErrMsg: "✖ Pod test/instance-1 has unexpected Phase Pending with Reason:",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					IgnoreRemovals: true,
+					HasErrors:      true,
 				}),
 			Entry("Container is in terminated state",
 				testCase{
@@ -294,13 +303,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						},
 					}, nil),
 					ExpectedErrMsg: "✖ Pod test/instance-1 has an unready container: foundationdb",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Container is in ready state",
 				testCase{
@@ -317,14 +327,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						},
 					}, nil),
 					ExpectedErrMsg: "",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: false,
+					AutoFix:        false,
+					HasErrors:      false,
+					IgnoreRemovals: true,
 				}),
 			Entry("Pod is stuck in terminating",
 				testCase{
@@ -336,13 +347,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						ContainerStatuses: []corev1.ContainerStatus{},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
 					ExpectedErrMsg: fmt.Sprintf("✖ Pod test/instance-1 has been stuck in terminating since %s", time.Unix(time.Now().Add(-1*time.Hour).Unix(), 0).String()),
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Pod is stuck in terminating and marked for removal",
 				testCase{
@@ -369,14 +381,50 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						},
 					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
 					ExpectedErrMsg: "⚠ ProcessGroup: instance-1 is marked for removal, excluded state: true",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: false,
+				}),
+			Entry("Pod is stuck in terminating and marked for removal and removals are ignored",
+				testCase{
+					cluster: getCluster(clusterName, namespace, true, true, true, 0, []*fdbv1beta2.ProcessGroupStatus{
+						{
+							ProcessGroupID:     "instance-1",
+							RemovalTimestamp:   &metav1.Time{Time: time.Now()},
+							ExclusionTimestamp: &metav1.Time{Time: time.Now()},
+						},
+					}),
+					podList: getPodList(clusterName, namespace, corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "test",
+								Ready: false,
+								State: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{
+										ExitCode:   127,
+										FinishedAt: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+									},
+								},
+							},
+						},
+					}, &metav1.Time{Time: time.Now().Add(-1 * time.Hour)}),
+					ExpectedErrMsg: "⚠ ignored 1 process groups marked for removal",
+					ExpectedStdoutMsg: `Checking cluster: test/test
+✔ Cluster is available
+✔ Cluster is fully replicated
+✔ Cluster is reconciled
+✔ ProcessGroups are all in ready condition
+✔ Pods are all running and available`,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Missing Pods",
 				testCase{
@@ -385,14 +433,15 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					}),
 					podList:        &corev1.PodList{},
 					ExpectedErrMsg: "✖ Found no Pods for this cluster",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition
 ✔ Pods are all running and available`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("Missing entry in status",
 				testCase{
@@ -401,13 +450,14 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: "✖ Pod test/instance-1 with the ID instance-1 is not part of the cluster spec status",
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
 ✔ ProcessGroups are all in ready condition`,
-					AutoFix:   false,
-					HasErrors: true,
+					AutoFix:        false,
+					HasErrors:      true,
+					IgnoreRemovals: true,
 				}),
 			Entry("ProcessGroup has a two conditions and we ignore one.",
 				testCase{
@@ -424,7 +474,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 					}, nil),
 					ExpectedErrMsg: fmt.Sprintf("✖ ProcessGroup: instance-1 has the following condition: MissingProcesses since %s\n⚠ ignored 1 conditions", time.Unix(time.Now().Unix(), 0).String()),
-					ExpectedStdouMsg: `Checking cluster: test/test
+					ExpectedStdoutMsg: `Checking cluster: test/test
 ✔ Cluster is available
 ✔ Cluster is fully replicated
 ✔ Cluster is reconciled
@@ -432,6 +482,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 					AutoFix:           false,
 					HasErrors:         true,
 					IgnoredConditions: []string{string(fdbv1beta2.IncorrectPodSpec)},
+					IgnoreRemovals:    true,
 				}),
 			// TODO: test cases for auto-fix
 		)
