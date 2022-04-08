@@ -63,6 +63,11 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
+			ignoreRemovals, err := cmd.Flags().GetBool("ignore-removals")
+			if err != nil {
+				return err
+			}
+
 			ignoreConditions, err := cmd.Flags().GetStringArray("ignore-condition")
 			if err != nil {
 				return err
@@ -108,7 +113,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, wait, ignoreConditions)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, wait, ignoreConditions, ignoreRemovals)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -139,6 +144,10 @@ kubectl fdb analyze --auto-fix sample-cluster-1
 
 # Analyze the cluster "sample-cluster-1" in the current namespace and ignore the IncorrectCommandLine and IncorrectPodSpec condition
 kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-condition=IncorrectPodSpec sample-cluster-1
+
+# Per default the plugin will print out how many process groups are marked for removal instead of printing out each process group.
+# This can be disabled by using the ignore-removals flag to print out the details about process groups that are marked for removal.
+kubectl fdb analyze cluster --ignore-removals=false sample-cluster-1
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -149,7 +158,8 @@ kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-con
 	cmd.Flags().Bool("all-clusters", false, "defines all clusters in the given namespace should be analyzed.")
 	// We might want to move this into the root cmd if we need this in multiple places
 	cmd.Flags().Bool("no-color", false, "Disable color output.")
-	cmd.Flags().StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout")
+	cmd.Flags().StringArray("ignore-condition", nil, "specify which process group conditions should be ignored and not be printed to stdout.")
+	cmd.Flags().Bool("ignore-removals", true, "specify if process groups marked for removal should be ignored.")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
@@ -208,7 +218,7 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, wait bool, ignoreConditions []string) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -258,9 +268,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		// Skip if the processGroup should be removed
 		// or should we check for how long they are marked as removed e.g. stuck in removal?
 		if processGroup.IsMarkedForRemoval() {
-			statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
 			removedProcessGroups[processGroup.ProcessGroupID] = fdbv1beta2.None{}
-			printStatement(cmd, statement, warnMessage)
+			if !ignoreRemovals {
+				statement := fmt.Sprintf("ProcessGroup: %s is marked for removal, excluded state: %t", processGroup.ProcessGroupID, processGroup.IsExcluded())
+				printStatement(cmd, statement, warnMessage)
+			}
+
 			continue
 		}
 
@@ -293,8 +306,12 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		}
 	}
 
+	if ignoreRemovals && len(removedProcessGroups) > 0 {
+		printStatement(cmd, fmt.Sprintf("Ignored %d process groups marked for removal", len(removedProcessGroups)), warnMessage)
+	}
+
 	if ignoredConditions > 0 {
-		printStatement(cmd, fmt.Sprintf("ignored %d conditions", ignoredConditions), warnMessage)
+		printStatement(cmd, fmt.Sprintf("Ignored %d conditions", ignoredConditions), warnMessage)
 	}
 
 	if !processGroupIssue {
