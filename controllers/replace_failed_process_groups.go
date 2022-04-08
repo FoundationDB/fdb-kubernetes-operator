@@ -33,13 +33,21 @@ type replaceFailedProcessGroups struct{}
 
 // reconcile runs the reconciler's work.
 func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "replaceFailedProcessGroups")
+	// If the EmptyMonitorConf setting is set we expect that all fdb processes of this cluster part are missing in order
+	// to prevent the operator from replacing any process groups we skip this reconciliation here.
+	if cluster.Spec.Buggify.EmptyMonitorConf {
+		logger.V(1).Info("Skipping because EmptyMonitorConf is set to true")
+		return nil
+	}
+
 	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
 
-	if replacements.ReplaceFailedProcessGroups(log, cluster, adminClient) {
+	if replacements.ReplaceFailedProcessGroups(logger, cluster, adminClient) {
 		err := r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
