@@ -21,10 +21,8 @@
 package controllers
 
 import (
-	"context"
+	ctx "context"
 	"time"
-
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal/replacements"
 
 	"k8s.io/utils/pointer"
 
@@ -38,11 +36,11 @@ import (
 var _ = Describe("replace_failed_process_groups", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
-	var result bool
+	var result *requeue
 
 	BeforeEach(func() {
 		cluster = internal.CreateDefaultCluster()
-		err = k8sClient.Create(context.TODO(), cluster)
+		err = k8sClient.Create(ctx.TODO(), cluster)
 		Expect(err).NotTo(HaveOccurred())
 
 		result, err := reconcileCluster(cluster)
@@ -58,12 +56,12 @@ var _ = Describe("replace_failed_process_groups", func() {
 		adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adminClient).NotTo(BeNil())
-		result = replacements.ReplaceFailedProcessGroups(log, cluster, adminClient)
+		result = replaceFailedProcessGroups{}.reconcile(ctx.Background(), clusterReconciler, cluster)
 	})
 
 	Context("with no missing processes", func() {
-		It("should return false", func() {
-			Expect(result).To(BeFalse())
+		It("should return nil", func() {
+			Expect(result).To(BeNil())
 		})
 
 		It("should not mark anything for removal", func() {
@@ -81,8 +79,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 		})
 
 		Context("with no other removals", func() {
-			It("should return true", func() {
-				Expect(result).To(BeTrue())
+			It("should requeue", func() {
+				Expect(result).NotTo(BeNil())
+				Expect(result.message).To(Equal("Removals have been updated in the cluster status"))
 			})
 
 			It("should mark the process group for removal", func() {
@@ -98,6 +97,20 @@ var _ = Describe("replace_failed_process_groups", func() {
 					Expect(pg.ExclusionSkipped).To(BeFalse())
 				}
 			})
+
+			When("EmptyMonitorConf is set to true", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.EmptyMonitorConf = true
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
 		})
 
 		Context("with multiple failed processes", func() {
@@ -109,8 +122,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 				})
 			})
 
-			It("should return true", func() {
-				Expect(result).To(BeTrue())
+			It("should requeue", func() {
+				Expect(result).NotTo(BeNil())
+				Expect(result.message).To(Equal("Removals have been updated in the cluster status"))
 			})
 
 			It("should mark the first process group for removal", func() {
@@ -134,8 +148,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 				processGroup.MarkForRemoval()
 			})
 
-			It("should return false", func() {
-				Expect(result).To(BeFalse())
+			It("should return nil", func() {
+				Expect(result).To(BeNil())
 			})
 
 			It("should not mark the process group for removal", func() {
@@ -148,8 +162,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
 				})
 
-				It("should return true", func() {
-					Expect(result).To(BeTrue())
+				It("should requeue", func() {
+					Expect(result).NotTo(BeNil())
+					Expect(result.message).To(Equal("Removals have been updated in the cluster status"))
 				})
 
 				It("should mark the process group for removal", func() {
@@ -163,8 +178,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
 				})
 
-				It("should return false", func() {
-					Expect(result).To(BeFalse())
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
 				})
 
 				It("should not mark the process group for removal", func() {
@@ -180,8 +195,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 				processGroup.SetExclude()
 			})
 
-			It("should return true", func() {
-				Expect(result).To(BeTrue())
+			It("should requeue", func() {
+				Expect(result).NotTo(BeNil())
+				Expect(result.message).To(Equal("Removals have been updated in the cluster status"))
 			})
 
 			It("should mark the process group for removal", func() {
@@ -195,8 +211,9 @@ var _ = Describe("replace_failed_process_groups", func() {
 				processGroup.Addresses = nil
 			})
 
-			It("should return true", func() {
-				Expect(result).To(BeTrue())
+			It("should requeue", func() {
+				Expect(result).NotTo(BeNil())
+				Expect(result.message).To(Equal("Removals have been updated in the cluster status"))
 			})
 
 			It("should mark the process group for removal", func() {
@@ -229,8 +246,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 					}
 				})
 
-				It("should return false", func() {
-					Expect(result).To(BeFalse())
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
 				})
 
 				It("should not mark the process group for removal", func() {
@@ -248,8 +265,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 					adminClient.maxZoneFailuresWithoutLosingData = pointer.Int(0)
 				})
 
-				It("should return false", func() {
-					Expect(result).To(BeFalse())
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
 				})
 
 				It("should not mark the process group for removal", func() {
@@ -268,8 +285,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 		})
 
-		It("should return false", func() {
-			Expect(result).To(BeFalse())
+		It("should return nil", func() {
+			Expect(result).To(BeNil())
 		})
 
 		It("should not mark the process group for removal", func() {
@@ -286,8 +303,8 @@ var _ = Describe("replace_failed_process_groups", func() {
 			})
 		})
 
-		It("should return false", func() {
-			Expect(result).To(BeFalse())
+		It("should return nil", func() {
+			Expect(result).To(BeNil())
 		})
 
 		It("should not mark the process group for removal", func() {
