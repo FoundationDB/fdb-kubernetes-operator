@@ -498,7 +498,15 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 	if len(addresses) == 0 {
 		return nil
 	}
-	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
+
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Status.RunningVersion)
+	if err == nil && version.IsAtLeast(fdbv1beta2.Versions.SupportsBindingKill) {
+		return rebootWorker(client.log, client.Cluster, addresses)
+	}
+
+	// If we can't parse the version e.g. because the operator didn't set the running version
+	// we fallback to the fdbcli kill.
+	_, err = client.runCommand(cliCommand{command: fmt.Sprintf(
 		"kill; kill %s; status",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)})

@@ -23,13 +23,12 @@ package fdbclient
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/go-logr/logr"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -119,6 +118,30 @@ func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (
 	}
 
 	return status, err
+}
+
+// rebootWorker restarts the provided addresses.
+func rebootWorker(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addresses []fdbv1beta2.ProcessAddress) error {
+	database, err := getFDBDatabase(cluster)
+	if err != nil {
+		return err
+	}
+
+	var failedAddresses []string
+	for _, addr := range addresses {
+		pAddr := addr.StringWithoutFlags()
+		err = database.RebootWorker(pAddr, false, 0)
+		if err != nil {
+			log.Error(err, "Reboot", "address", pAddr)
+			failedAddresses = append(failedAddresses, pAddr)
+		}
+	}
+
+	if len(failedAddresses) > 0 {
+		return fmt.Errorf("the following addresses couldn't be rebooted: %v", failedAddresses)
+	}
+
+	return nil
 }
 
 type realDatabaseClientProvider struct {

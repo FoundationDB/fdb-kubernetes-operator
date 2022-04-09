@@ -27,6 +27,8 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
+replace github.com/apple/foundationdb/bindings/go => github.com/johscheuer/foundationdb/bindings/go v0.0.0-20220408101945-c41e9a5df327
+
 require (
 	cloud.google.com/go v0.54.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect

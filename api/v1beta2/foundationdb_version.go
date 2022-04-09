@@ -195,9 +195,14 @@ func (version Version) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0
 }
 
-// SupportsIsPresent returns true if the sidecar of this version supports the is_present endpoint
+// SupportsIsPresent returns true if the sidecar of this version supports the is_present endpoint.
 func (version Version) SupportsIsPresent() bool {
 	return version.IsAtLeast(Versions.SupportsIsPresent)
+}
+
+// SupportsManagementAPI returns true if the version supports the use of the management API.
+func (version Version) SupportsManagementAPI() bool {
+	return version.IsAtLeast(Versions.SupportsManagementAPI)
 }
 
 // Versions provides a shorthand for known versions.
@@ -208,12 +213,14 @@ var Versions = struct {
 	MinimumVersion,
 	SupportsRocksDBV1,
 	SupportsIsPresent,
+	SupportsManagementAPI,
 	Default Version
 }{
-	Default:           Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:  Version{Major: 6, Minor: 2, Patch: 21},
-	NextMajorVersion:  Version{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:    Version{Major: 6, Minor: 2, Patch: 20},
-	SupportsRocksDBV1: Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
-	SupportsIsPresent: Version{Major: 7, Minor: 1, Patch: 4},
+	Default:               Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:      Version{Major: 6, Minor: 2, Patch: 21},
+	NextMajorVersion:      Version{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:        Version{Major: 6, Minor: 2, Patch: 20},
+	SupportsRocksDBV1:     Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
+	SupportsManagementAPI: Version{Major: 7, Minor: 0, Patch: 0},
+	SupportsIsPresent:     Version{Major: 7, Minor: 1, Patch: 4},
 }
