@@ -140,8 +140,10 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		})
 
 		When("the version supports grv and commit proxies", func() {
-			It("should return the default role counts", func() {
-				cluster := &FoundationDBCluster{
+			var cluster *FoundationDBCluster
+
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "foo",
 						Namespace: "default",
@@ -153,14 +155,16 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Version: "7.0.0",
 					},
 				}
+			})
 
+			It("should return the default role counts", func() {
 				counts := cluster.GetRoleCountsWithDefaults()
 				Expect(counts).To(Equal(RoleCounts{
 					Storage:       3,
 					Logs:          3,
 					Proxies:       3,
-					CommitProxies: 2,
-					GrvProxies:    1,
+					CommitProxies: 0,
+					GrvProxies:    0,
 					Resolvers:     1,
 					RemoteLogs:    -1,
 					LogRouters:    -1,
@@ -171,8 +175,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					"resolvers":      1,
 					"remote_logs":    -1,
 					"log_routers":    -1,
-					"commit_proxies": 2,
-					"grv_proxies":    1,
+					"commit_proxies": 0,
+					"grv_proxies":    0,
 				}))
 				Expect(cluster.Spec.DatabaseConfiguration.RoleCounts).To(Equal(RoleCounts{}))
 
@@ -181,8 +185,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(counts).To(Equal(RoleCounts{
 					Storage:       3,
 					Logs:          3,
-					CommitProxies: 2,
-					GrvProxies:    1,
+					CommitProxies: 0,
+					GrvProxies:    0,
 					Proxies:       3,
 					Resolvers:     1,
 					RemoteLogs:    3,
@@ -194,8 +198,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					"resolvers":      1,
 					"remote_logs":    3,
 					"log_routers":    3,
-					"commit_proxies": 2,
-					"grv_proxies":    1,
+					"commit_proxies": 0,
+					"grv_proxies":    0,
 				}))
 
 				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
@@ -207,8 +211,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Storage:       5,
 					Logs:          3,
 					Proxies:       3,
-					GrvProxies:    1,
-					CommitProxies: 2,
+					GrvProxies:    0,
+					CommitProxies: 0,
 					Resolvers:     1,
 					RemoteLogs:    3,
 					LogRouters:    3,
@@ -221,8 +225,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(counts).To(Equal(RoleCounts{
 					Storage:       3,
 					Logs:          8,
-					CommitProxies: 2,
-					GrvProxies:    1,
+					CommitProxies: 0,
+					GrvProxies:    0,
 					Proxies:       3,
 					Resolvers:     1,
 					RemoteLogs:    8,
@@ -239,19 +243,112 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Storage:       3,
 					Logs:          4,
 					Proxies:       3,
-					GrvProxies:    1,
-					CommitProxies: 2,
+					GrvProxies:    0,
+					CommitProxies: 0,
 					Resolvers:     1,
 					RemoteLogs:    5,
 					LogRouters:    6,
 				}))
+
 			})
+
+			It("should return the correct counts when all proxies are unconfigured", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Proxies:       0,
+					CommitProxies: 0,
+					GrvProxies:    0,
+				}
+				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					Proxies:       3,
+					GrvProxies:    0,
+					CommitProxies: 0,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
+				}))
+			})
+
+			It("should return the correct counts when only proxies are configured", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Proxies:       3,
+					CommitProxies: 0,
+					GrvProxies:    0,
+				}
+				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					Proxies:       3,
+					GrvProxies:    0,
+					CommitProxies: 0,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
+				}))
+			})
+
+			It("should return the correct counts when only proxies are unconfigured and grv_proxies/commit_proxies are configured", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Proxies:       0,
+					CommitProxies: 9,
+					GrvProxies:    4,
+				}
+				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					Proxies:       0,
+					GrvProxies:    4,
+					CommitProxies: 9,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
+				}))
+			})
+
+			It("should return the correct counts when proxies, grv_proxies are unconfigured and commit_proxies configured", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Proxies:       0,
+					CommitProxies: 3,
+					GrvProxies:    0,
+				}
+				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					Proxies:       0,
+					GrvProxies:    1,
+					CommitProxies: 3,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
+				}))
+			})
+
+			It("should return the correct counts when proxies, commit_proxies are unconfigured and grv_proxies configured", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts = RoleCounts{
+					Proxies:       0,
+					CommitProxies: 0,
+					GrvProxies:    5,
+				}
+				Expect(cluster.GetRoleCountsWithDefaults()).To(Equal(RoleCounts{
+					Storage:       3,
+					Logs:          3,
+					Proxies:       0,
+					GrvProxies:    5,
+					CommitProxies: 2,
+					Resolvers:     1,
+					RemoteLogs:    -1,
+					LogRouters:    -1,
+				}))
+			})
+
 		})
 	})
 
 	When("getting the default process counts", func() {
-		It("should return the default process counts", func() {
-			cluster := &FoundationDBCluster{
+		var cluster *FoundationDBCluster
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "default",
@@ -271,7 +368,9 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				},
 			}
+		})
 
+		It("should return the default process counts", func() {
 			counts, err := cluster.GetProcessCountsWithDefaults()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(counts).To(Equal(ProcessCounts{
@@ -332,6 +431,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			Expect(counts).To(Equal(ProcessCounts{
 				Storage:   5,
 				Log:       5,
+				Stateless: 9,
+			}))
+		})
+
+		It("should return the default process counts when proxies are unset", func() {
+			cluster.Spec.Version = "7.1.0-rc2"
+			cluster.Spec.DatabaseConfiguration.Proxies = 0
+			counts, err := cluster.GetProcessCountsWithDefaults()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(counts).To(Equal(ProcessCounts{
+				Storage:   5,
+				Log:       4,
 				Stateless: 22,
 			}))
 		})
@@ -700,8 +811,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					RoleCounts: RoleCounts{
 						Logs:          4,
 						Proxies:       5,
-						CommitProxies: 2,
-						GrvProxies:    1,
+						CommitProxies: 0,
+						GrvProxies:    0,
 						Resolvers:     1,
 						LogRouters:    -1,
 						RemoteLogs:    -1,
@@ -719,8 +830,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					RoleCounts: RoleCounts{
 						Logs:          3,
 						Proxies:       3,
-						CommitProxies: 2,
-						GrvProxies:    1,
+						CommitProxies: 0,
+						GrvProxies:    0,
 						Resolvers:     1,
 						LogRouters:    -1,
 						RemoteLogs:    -1,
@@ -2275,11 +2386,12 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	})
 
 	Context("Normalize cluster spec", func() {
+		version := "7.1.0"
 		When("log routers are missing", func() {
-			It("should set the correct value (-1) for og routers", func() {
+			It("should set the correct value (-1) for log routers", func() {
 				spec := DatabaseConfiguration{}
 				spec.RemoteLogs = 9
-				normalized := spec.NormalizeConfiguration()
+				normalized := spec.NormalizeConfiguration(version, false)
 				Expect(normalized.LogRouters).To(Equal(-1))
 				Expect(normalized.RemoteLogs).To(Equal(9))
 			})
@@ -2327,7 +2439,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				}
-				normalized := spec.NormalizeConfiguration()
+				normalized := spec.NormalizeConfiguration(version, false)
 				Expect(normalized.Regions).To(Equal([]Region{
 					{
 						DataCenters: []DataCenter{
@@ -2411,7 +2523,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						},
 					},
 				}
-				normalized := spec.NormalizeConfiguration()
+				normalized := spec.NormalizeConfiguration(version, false)
 				Expect(normalized.Regions).To(Equal([]Region{
 					{
 						DataCenters: []DataCenter{
@@ -2706,8 +2818,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 								RoleCounts: RoleCounts{
 									Logs:          3,
 									Proxies:       3,
-									GrvProxies:    1,
-									CommitProxies: 2,
+									GrvProxies:    0,
+									CommitProxies: 0,
 									Resolvers:     1,
 									LogRouters:    -1,
 									RemoteLogs:    -1,

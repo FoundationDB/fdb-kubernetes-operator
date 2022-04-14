@@ -91,8 +91,8 @@ var _ = Describe("admin_client_test", func() {
 						RoleCounts: fdbv1beta2.RoleCounts{
 							Logs:          3,
 							Proxies:       3,
-							CommitProxies: 2,
-							GrvProxies:    1,
+							CommitProxies: 0,
+							GrvProxies:    0,
 							Resolvers:     1,
 							LogRouters:    -1,
 							RemoteLogs:    -1,

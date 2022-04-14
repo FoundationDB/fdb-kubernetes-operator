@@ -150,8 +150,18 @@ func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
 //
 // This will fill in defaults of -1 for some fields that have a default of 0,
 // and will ensure that the region configuration is ordered consistently.
-func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfiguration(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
 	result := configuration.DeepCopy()
+
+	parsedVersion, _ := ParseFdbVersion(version)
+	if parsedVersion.HasSeparatedProxies() {
+		if !areSeparatedProxiesConfigured {
+			result.GrvProxies = 0
+			result.CommitProxies = 0
+		} else {
+			result.Proxies = 0
+		}
+	}
 
 	if result.RemoteLogs == 0 {
 		result.RemoteLogs = -1
@@ -246,16 +256,24 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 	if counts.Logs == 0 {
 		counts.Logs = 3
 	}
-	if counts.Proxies == 0 {
-		counts.Proxies = 3
-	}
+
 	if version.HasSeparatedProxies() {
-		if counts.CommitProxies == 0 {
-			counts.CommitProxies = 2
+		if counts.CommitProxies == 0 && counts.GrvProxies == 0 && counts.Proxies == 0 {
+			counts.Proxies = 3
+		} else if counts.Proxies == 0 {
+			if counts.GrvProxies == 0 {
+				counts.GrvProxies = 1
+			}
+			if counts.CommitProxies == 0 {
+				counts.CommitProxies = 2
+			}
 		}
-		if counts.GrvProxies == 0 {
-			counts.GrvProxies = 1
+	} else {
+		if counts.Proxies == 0 {
+			counts.Proxies = 3
 		}
+		counts.CommitProxies = 0
+		counts.GrvProxies = 0
 	}
 	if counts.Resolvers == 0 {
 		counts.Resolvers = 1
