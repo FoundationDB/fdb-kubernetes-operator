@@ -803,7 +803,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				}
 			})
 
-			It("should be parsed correctly", func() {
+			It("should be parsed correctly when proxies are set", func() {
 				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
 					RedundancyMode: RedundancyModeDouble,
 					StorageEngine:  StorageEngineSSD2,
@@ -838,9 +838,85 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}))
 			})
+
+			It("should be parsed correctly when no proxies are set", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  StorageEngineSSD2,
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       3,
+						CommitProxies: 0,
+						GrvProxies:    0,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
+
+			It("should be parsed correctly when only grv_proxies are set", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  StorageEngineSSD2,
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       0,
+						CommitProxies: 2,
+						GrvProxies:    4,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
+
+			It("should be parsed correctly when only grv_proxies are set", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  StorageEngineSSD2,
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       0,
+						CommitProxies: 4,
+						GrvProxies:    1,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
+
+			It("should be parsed correctly when both grv_proxies/commit_proxies are set", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 0
+				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
+				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  StorageEngineSSD2,
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       0,
+						CommitProxies: 4,
+						GrvProxies:    4,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
 		})
 
-		When("the version supports grv and commit proxies", func() {
+		When("the version does not support grv and commit proxies", func() {
 			BeforeEach(func() {
 				cluster = &FoundationDBCluster{
 					ObjectMeta: metav1.ObjectMeta{
