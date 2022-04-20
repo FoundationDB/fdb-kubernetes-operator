@@ -65,7 +65,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		return nil
 	}
 
-	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfiguration()
+	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	cluster.ClearMissingVersionFlags(&currentConfiguration)
 	needsChange = initialConfig || !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
 
