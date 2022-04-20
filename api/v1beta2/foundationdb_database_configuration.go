@@ -150,18 +150,8 @@ func (configuration *DatabaseConfiguration) FailOver() DatabaseConfiguration {
 //
 // This will fill in defaults of -1 for some fields that have a default of 0,
 // and will ensure that the region configuration is ordered consistently.
-func (configuration DatabaseConfiguration) NormalizeConfiguration(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
+func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConfiguration {
 	result := configuration.DeepCopy()
-
-	parsedVersion, _ := ParseFdbVersion(version)
-	if parsedVersion.HasSeparatedProxies() {
-		if !areSeparatedProxiesConfigured {
-			result.GrvProxies = 0
-			result.CommitProxies = 0
-		} else {
-			result.Proxies = 0
-		}
-	}
 
 	if result.RemoteLogs == 0 {
 		result.RemoteLogs = -1
@@ -204,6 +194,30 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration(version string
 	})
 
 	return *result
+}
+
+// NormalizeConfigurationWithSeparatedProxies ensures a standardized
+// format and defaults when comparing database configuration in the
+// cluster spec with database configuration in the cluster status,
+// taking into account and if the current running version of FDB
+// supports them and if we need them configured.
+//
+// This will fill in defaults of -1 for some fields that have a default of 0,
+// and will ensure that the region configuration is ordered consistently.
+func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
+	result := configuration.NormalizeConfiguration()
+
+	parsedVersion, _ := ParseFdbVersion(version)
+	if parsedVersion.HasSeparatedProxies() {
+		if !areSeparatedProxiesConfigured {
+			result.GrvProxies = 0
+			result.CommitProxies = 0
+		} else {
+			result.Proxies = 0
+		}
+	}
+
+	return result
 }
 
 func (configuration DatabaseConfiguration) getRegion(id string, priority int) Region {
