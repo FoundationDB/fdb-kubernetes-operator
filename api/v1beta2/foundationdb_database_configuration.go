@@ -199,11 +199,12 @@ func (configuration DatabaseConfiguration) NormalizeConfiguration() DatabaseConf
 // NormalizeConfigurationWithSeparatedProxies ensures a standardized
 // format and defaults when comparing database configuration in the
 // cluster spec with database configuration in the cluster status,
-// taking into account and if the current running version of FDB
-// supports them and if we need them configured.
+// taking into account if the current running version of FDB supports
+// them and if we need them configured.
 //
-// This will fill in defaults of -1 for some fields that have a default of 0,
-// and will ensure that the region configuration is ordered consistently.
+// This will fill in defaults of -1 for some fields that have a default
+// of 0, and will ensure that the region configuration is ordered
+// consistently.
 func (configuration DatabaseConfiguration) NormalizeConfigurationWithSeparatedProxies(version string, areSeparatedProxiesConfigured bool) DatabaseConfiguration {
 	result := configuration.NormalizeConfiguration()
 
