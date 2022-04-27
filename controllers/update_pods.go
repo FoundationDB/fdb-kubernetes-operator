@@ -76,7 +76,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
-			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration}
+			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration, delayedRequeue: true}
 		}
 
 		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
