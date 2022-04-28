@@ -2992,7 +2992,7 @@ var _ = Describe("pod_models", func() {
 				}, false, "test/curImage:6.3.10"),
 			Entry("image tag is set but not allowOverride",
 				testCase{
-					imageName: "test/curImage:6.3.10",
+					imageName: "test/curImage:dev",
 					imageConfigs: []fdbv1beta2.ImageConfig{
 						{BaseImage: "test/test"},
 					},
@@ -3000,12 +3000,12 @@ var _ = Describe("pod_models", func() {
 				}, false, ""),
 			Entry("image tag is set and allowOverride",
 				testCase{
-					imageName: "test/curImage:6.3.10",
+					imageName: "test/curImage:dev",
 					imageConfigs: []fdbv1beta2.ImageConfig{
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, true, ""),
+				}, true, "test/curImage:dev"),
 		)
 
 		Context("Configure the sidecar image", func() {
