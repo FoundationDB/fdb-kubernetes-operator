@@ -307,6 +307,11 @@ type ProcessGroupStatus struct {
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 }
 
+// GetExclusionString returns the exclusion string
+func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
+	return fmt.Sprintf("locality_instance_id:%s", processGroupStatus.ProcessGroupID)
+}
+
 // IsExcluded returns if a process group is excluded
 func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
 	return (processGroupStatus.ExclusionTimestamp != nil && !processGroupStatus.ExclusionTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped

@@ -279,3 +279,112 @@ var _ = Describe("remove_process_groups", func() {
 		k8sClient.Clear()
 	})
 })
+
+var _ = Describe("validating getIncludedProcesses", func() {
+	var (
+		cluster               *fdbv1beta2.FoundationDBCluster
+		fdbProcessesToInclude []fdbv1beta2.ProcessAddress
+		removedProcessGroups  map[string]bool
+		processGroups         []*fdbv1beta2.ProcessGroupStatus
+	)
+
+	BeforeEach(func() {
+		cluster = &fdbv1beta2.FoundationDBCluster{
+			Status: fdbv1beta2.FoundationDBClusterStatus{
+				ProcessGroups: []*fdbv1beta2.ProcessGroupStatus{
+					{ProcessGroupID: "storage-1", ProcessClass: "storage", Addresses: []string{"1.1.1.1"}},
+					{ProcessGroupID: "storage-2", ProcessClass: "storage", Addresses: []string{"1.1.1.2"}},
+					{ProcessGroupID: "storage-3", ProcessClass: "storage", Addresses: []string{"1.1.1.3"}},
+					{ProcessGroupID: "stateless-1", ProcessClass: "stateless", Addresses: []string{"1.1.1.4"}},
+					{ProcessGroupID: "stateless-2", ProcessClass: "stateless", Addresses: []string{"1.1.1.5"}},
+					{ProcessGroupID: "stateless-3", ProcessClass: "stateless", Addresses: []string{"1.1.1.6"}},
+					{ProcessGroupID: "stateless-4", ProcessClass: "stateless", Addresses: []string{"1.1.1.7"}},
+					{ProcessGroupID: "stateless-5", ProcessClass: "stateless", Addresses: []string{"1.1.1.8"}},
+					{ProcessGroupID: "stateless-6", ProcessClass: "stateless", Addresses: []string{"1.1.1.9"}},
+					{ProcessGroupID: "stateless-7", ProcessClass: "stateless", Addresses: []string{"1.1.2.1"}},
+					{ProcessGroupID: "stateless-8", ProcessClass: "stateless", Addresses: []string{"1.1.2.2"}},
+					{ProcessGroupID: "stateless-9", ProcessClass: "stateless", Addresses: []string{"1.1.2.3"}},
+					{ProcessGroupID: "log-1", ProcessClass: "log", Addresses: []string{"1.1.2.4"}},
+					{ProcessGroupID: "log-2", ProcessClass: "log", Addresses: []string{"1.1.2.5"}},
+					{ProcessGroupID: "log-3", ProcessClass: "log", Addresses: []string{"1.1.2.6"}},
+					{ProcessGroupID: "log-4", ProcessClass: "log", Addresses: []string{"1.1.2.7"}},
+				},
+			},
+		}
+		fdbProcessesToInclude = make([]fdbv1beta2.ProcessAddress, 0)
+		removedProcessGroups = make(map[string]bool)
+		processGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0)
+	})
+
+	Context("fdb version is below 7.0.1", func() {
+		BeforeEach(func() {
+			cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
+		})
+
+		When("including no process", func() {
+			It("should not include any process", func() {
+				hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups, &fdbProcessesToInclude, &processGroups)
+				Expect(err).To(BeNil())
+				Expect(hasStatusUpdate).To(BeFalse())
+				Expect(len(fdbProcessesToInclude)).To(Equal(0))
+				Expect(len(processGroups)).To(Equal(16))
+			})
+		})
+
+		When("including one process", func() {
+			BeforeEach(func() {
+				processGroup := cluster.Status.ProcessGroups[0]
+				Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+				processGroup.MarkForRemoval()
+				cluster.Status.ProcessGroups[0] = processGroup
+
+				removedProcessGroups[processGroup.ProcessGroupID] = true
+			})
+
+			It("should include one process", func() {
+				hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups, &fdbProcessesToInclude, &processGroups)
+				Expect(err).To(BeNil())
+				Expect(hasStatusUpdate).To(BeTrue())
+				Expect(len(fdbProcessesToInclude)).To(Equal(1))
+				Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal("1.1.1.1"))
+				Expect(len(processGroups)).To(Equal(15))
+			})
+		})
+	})
+
+	Context("fdb version is above 7.0.1", func() {
+		BeforeEach(func() {
+			cluster.Spec.Version = fdbv1beta2.Versions.LatestFdbVersion.String()
+		})
+
+		When("including no process", func() {
+			It("should not include any process", func() {
+				hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups, &fdbProcessesToInclude, &processGroups)
+				Expect(err).To(BeNil())
+				Expect(hasStatusUpdate).To(BeFalse())
+				Expect(len(fdbProcessesToInclude)).To(Equal(0))
+				Expect(len(processGroups)).To(Equal(16))
+			})
+		})
+
+		When("including one process", func() {
+			BeforeEach(func() {
+				processGroup := cluster.Status.ProcessGroups[0]
+				Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+				processGroup.MarkForRemoval()
+				cluster.Status.ProcessGroups[0] = processGroup
+
+				removedProcessGroups[processGroup.ProcessGroupID] = true
+			})
+
+			It("should include one process", func() {
+				hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups, &fdbProcessesToInclude, &processGroups)
+				Expect(err).To(BeNil())
+				Expect(hasStatusUpdate).To(BeTrue())
+				Expect(len(fdbProcessesToInclude)).To(Equal(1))
+				Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(cluster.Status.ProcessGroups[0].GetExclusionString()))
+				Expect(len(processGroups)).To(Equal(15))
+			})
+		})
+	})
+})

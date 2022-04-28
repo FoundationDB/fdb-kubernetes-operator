@@ -121,6 +121,11 @@ func GetZonedRemovals(status *fdbv1beta2.FoundationDBStatus, processGroupsToRemo
 func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (map[string]bool, error) {
 	var err error
 
+	fdbVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return map[string]bool{}, err
+	}
+
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.IsMarkedForRemoval() || processGroup.IsExcluded() {
@@ -132,8 +137,12 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 			continue
 		}
 
-		for _, pAddr := range processGroup.Addresses {
-			addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+		if fdbVersion.IsAtLeast(fdbv1beta2.Versions.LatestFdbVersion) {
+			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
+		} else {
+			for _, pAddr := range processGroup.Addresses {
+				addresses = append(addresses, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
+			}
 		}
 	}
 
