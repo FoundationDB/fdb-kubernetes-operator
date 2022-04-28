@@ -944,7 +944,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	// We can ignore the error here since the version will be validated in an earlier step.
-	version, _ := ParseFdbVersion(cluster.Spec.Version)
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
 	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(version, cluster.DesiredFaultTolerance())
 }
 
@@ -1055,7 +1055,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 
-		fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+		fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 		if err != nil {
 			return *processCounts, err
 		}
@@ -1072,6 +1072,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
 		)
 	}
+
 	return *processCounts, nil
 }
 
@@ -1467,7 +1468,7 @@ func (config ImageConfig) Image() string {
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.GetRunningVersion(), cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
@@ -2025,4 +2026,17 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionLis
 
 		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
 	}
+}
+
+// GetRunningVersion returns the running version of the cluster defined in the cluster status or if not defined the version
+// defined in the cluster spec.
+func (cluster *FoundationDBCluster) GetRunningVersion() string {
+	// We have to use the running version here otherwise if the operator gets killed during an upgrade it will try to apply
+	// the grv and commit proxies.
+	versionString := cluster.Status.RunningVersion
+	if versionString == "" {
+		return cluster.Spec.Version
+	}
+
+	return versionString
 }

@@ -182,10 +182,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
 
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
-	}
+	versionString := cluster.GetRunningVersion()
 
 	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString)
 	if err != nil {

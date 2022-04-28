@@ -424,15 +424,19 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Log:       5,
 				Stateless: 9,
 			}))
+		})
 
-			cluster.Spec.Version = "7.1.0-rc2"
-			counts, err = cluster.GetProcessCountsWithDefaults()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
-				Storage:   5,
-				Log:       5,
-				Stateless: 9,
-			}))
+		When("using a version that supports grv and commit proxies", func() {
+			It("should return the default process counts", func() {
+				cluster.Spec.Version = "7.1.0"
+				counts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(counts).To(Equal(ProcessCounts{
+					Storage:   5,
+					Log:       4,
+					Stateless: 22,
+				}))
+			})
 		})
 
 		It("should return the default process counts when proxies are unset", func() {
@@ -983,12 +987,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				RoleCounts: RoleCounts{
 					Logs:          5,
 					Proxies:       1,
-					CommitProxies: 2,
+					CommitProxies: 4,
 					GrvProxies:    2,
 				},
 			}
-			Expect(configuration.AreSeparatedProxiesConfigured()).To(BeFalse())
+			// This check is not version dependent
+			Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())
 			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.1.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[]"))
 
 			configuration.Regions = []Region{{
 				DataCenters: []DataCenter{{
@@ -1004,8 +1010,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			configuration.VersionFlags.LogSpill = 3
 			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
 
-			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
-			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
 		})
 
 		When("CommitProxies and GrvProxies are not configured", func() {
