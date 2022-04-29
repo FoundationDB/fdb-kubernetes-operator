@@ -825,7 +825,11 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := GetImage(mainContainer.Image, []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}, backup.Spec.Version)
+	if backup.Spec.ImageConfigs == nil {
+		backup.Spec.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}
+	}
+
+	image, err := GetImage(mainContainer.Image, backup.Spec.ImageConfigs, backup.Spec.Version)
 	if err != nil {
 		return nil, err
 	}

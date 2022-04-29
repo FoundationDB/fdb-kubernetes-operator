@@ -3197,6 +3197,19 @@ spec:
                   type: string
                 maxItems: 100
                 type: array
+              imageConfigs:
+                items:
+                  properties:
+                    baseImage:
+                      type: string
+                    tag:
+                      type: string
+                    tagSuffix:
+                      type: string
+                    version:
+                      type: string
+                  type: object
+                type: array
               podTemplateSpec:
                 properties:
                   metadata:
