@@ -2947,6 +2947,19 @@ var _ = Describe("pod_models", func() {
 				Expect(deployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--customParameter=1337"))
 			})
 		})
+
+		When("defining an image config", func() {
+			BeforeEach(func() {
+				backup.Spec.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb", Tag: "dev"}}
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the image based on the image configs", func() {
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("foundationdb/foundationdb:dev"))
+			})
+		})
 	})
 
 	Context("Get image for container", func() {
