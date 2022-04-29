@@ -815,6 +815,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
+	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses.
+	// The default is false.
+	UseLocalitiesForExclusion *bool `json:"useLocalitiesForExclusion,omitempty"`
+
 	// IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before
 	// we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block
 	// further reconciliation.
@@ -1802,6 +1806,15 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	}
 
 	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
+}
+
+// GetUseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
+func (cluster *FoundationDBCluster) GetUseLocalitiesForExclusion() bool {
+	if cluster.Spec.AutomationOptions.UseLocalitiesForExclusion == nil {
+		return false
+	}
+
+	return *cluster.Spec.AutomationOptions.UseLocalitiesForExclusion
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the

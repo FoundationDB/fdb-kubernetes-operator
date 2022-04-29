@@ -319,9 +319,6 @@ func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, erro
 	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(lines))
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if len(strings.Split(line, " ")) != 1 {
-			continue
-		}
 		exclusionMatch := exclusionLinePattern.FindStringSubmatch(line)
 		if exclusionMatch != nil {
 			pAddr, err := fdbv1beta2.ParseProcessAddress(exclusionMatch[1])

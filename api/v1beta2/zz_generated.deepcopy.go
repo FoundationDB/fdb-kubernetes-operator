@@ -458,6 +458,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
+	if in.UseLocalitiesForExclusion != nil {
+		in, out := &in.UseLocalitiesForExclusion, &out.UseLocalitiesForExclusion
+		*out = new(bool)
+		**out = **in
+	}
 	if in.IgnoreTerminatingPodsSeconds != nil {
 		in, out := &in.IgnoreTerminatingPodsSeconds, &out.IgnoreTerminatingPodsSeconds
 		*out = new(int)
