@@ -66,6 +66,8 @@ type Options struct {
 	PrintVersion            bool
 	LabelSelector           string
 	WatchNamespace          string
+	GetTimeout              time.Duration
+	PostTimeout             time.Duration
 }
 
 // BindFlags will parse the given flagset for the operator option flags
@@ -90,6 +92,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.PrintVersion, "version", false, "Prints the version of the operator and exits.")
 	fs.StringVar(&o.LabelSelector, "label-selector", "", "Defines a label-selector that will be used to select resources.")
 	fs.StringVar(&o.WatchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Defines which namespace the operator should watch")
+	fs.DurationVar(&o.GetTimeout, "get-timeout", 5*time.Second, "http timeout for get requests to the FDB sidecar")
+	fs.DurationVar(&o.PostTimeout, "post-timeout", 10*time.Second, "http timeout for post requests to the FDB sidecar")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -173,6 +177,8 @@ func StartManager(
 		clusterReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbcluster-controller")
 		clusterReconciler.DeprecationOptions = operatorOpts.DeprecationOptions
 		clusterReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
+		clusterReconciler.GetTimeout = operatorOpts.GetTimeout
+		clusterReconciler.PostTimeout = operatorOpts.PostTimeout
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
