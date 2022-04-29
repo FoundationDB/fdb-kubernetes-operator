@@ -90,6 +90,12 @@ type realFdbPodSidecarClient struct {
 
 	// logger is used to add common fields to log messages.
 	logger logr.Logger
+
+	// getTimeout defines the timeout for get requests
+	getTimeout time.Duration
+
+	// postTimeout defines the timeout for post requests
+	postTimeout time.Duration
 }
 
 // realPodSidecarClient provides a client for use in real environments, using
@@ -106,7 +112,7 @@ type realFdbPodAnnotationClient struct {
 }
 
 // NewFdbPodClient builds a client for working with an FDB Pod
-func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger) (podclient.FdbPodClient, error) {
+func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, log logr.Logger, getTimeout time.Duration, postTimeout time.Duration) (podclient.FdbPodClient, error) {
 	if GetImageType(pod) == FDBImageTypeUnified {
 		return &realFdbPodAnnotationClient{Cluster: cluster, Pod: pod, logger: log}, nil
 	}
@@ -152,7 +158,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		tlsConfig.RootCAs = certPool
 	}
 
-	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: log}, nil
+	return &realFdbPodSidecarClient{Cluster: cluster, Pod: pod, useTLS: useTLS, tlsConfig: tlsConfig, logger: log, getTimeout: getTimeout, postTimeout: postTimeout}, nil
 }
 
 // getListenIP gets the IP address that a pod listens on.
@@ -186,12 +192,10 @@ func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (
 	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
 	switch method {
 	case http.MethodGet:
-		// We assume that a get request should be relative fast.
-		retryClient.HTTPClient.Timeout = 5 * time.Second
+		retryClient.HTTPClient.Timeout = client.getTimeout
 		resp, err = retryClient.Get(url)
 	case http.MethodPost:
-		// A post request could take a little bit longer since we copy sometimes files.
-		retryClient.HTTPClient.Timeout = 10 * time.Second
+		retryClient.HTTPClient.Timeout = client.postTimeout
 		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
 	default:
 		return "", fmt.Errorf("unknown HTTP method %s", method)

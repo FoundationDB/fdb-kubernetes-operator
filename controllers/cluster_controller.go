@@ -28,6 +28,7 @@ import (
 	"math"
 	"regexp"
 	"sort"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -59,14 +60,18 @@ type FoundationDBClusterReconciler struct {
 	PodClientProvider      func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
 	DatabaseClientProvider DatabaseClientProvider
 	DeprecationOptions     internal.DeprecationOptions
+	GetTimeout             time.Duration
+	PostTimeout            time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
 func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycleManager) *FoundationDBClusterReconciler {
-	return &FoundationDBClusterReconciler{
+	r := &FoundationDBClusterReconciler{
 		PodLifecycleManager: podLifecycleManager,
-		PodClientProvider:   newFdbPodClient,
 	}
+	r.PodClientProvider = r.newFdbPodClient
+
+	return r
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters,verbs=get;list;watch;create;update;patch;delete
@@ -309,6 +314,7 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbv1beta2.Foundat
 		return nil, fmt.Sprintf("Process group in cluster %s/%s does not have pod defined", cluster.Namespace, cluster.Name)
 	}
 
+	// TODO how to pass this down?
 	podClient, err := r.PodClientProvider(cluster, pod)
 	if err != nil {
 		return nil, err.Error()
@@ -731,8 +737,8 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod
-func newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name))
+func (r *FoundationDBClusterReconciler) newFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
+	return internal.NewFdbPodClient(cluster, pod, log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "pod", pod.Name), r.GetTimeout, r.PostTimeout)
 }
 
 func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.FoundationDBCluster) (map[string]struct{}, error) {
