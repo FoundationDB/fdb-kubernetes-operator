@@ -746,6 +746,15 @@ spec:
                 type: string
               databaseConfiguration:
                 properties:
+                  excluded_servers:
+                    items:
+                      properties:
+                        address:
+                          type: string
+                        locality:
+                          type: string
+                      type: object
+                    type: array
                   log_routers:
                     type: integer
                   log_spill:
@@ -8997,6 +9006,15 @@ spec:
                 type: string
               databaseConfiguration:
                 properties:
+                  excluded_servers:
+                    items:
+                      properties:
+                        address:
+                          type: string
+                        locality:
+                          type: string
+                      type: object
+                    type: array
                   log_routers:
                     type: integer
                   log_spill:
@@ -9429,6 +9447,15 @@ spec:
                 properties:
                   commit_proxies:
                     type: integer
+                  excluded_servers:
+                    items:
+                      properties:
+                        address:
+                          type: string
+                        locality:
+                          type: string
+                      type: object
+                    type: array
                   grv_proxies:
                     type: integer
                   log_routers:
@@ -12823,6 +12850,15 @@ spec:
                 properties:
                   commit_proxies:
                     type: integer
+                  excluded_servers:
+                    items:
+                      properties:
+                        address:
+                          type: string
+                        locality:
+                          type: string
+                      type: object
+                    type: array
                   grv_proxies:
                     type: integer
                   log_routers:

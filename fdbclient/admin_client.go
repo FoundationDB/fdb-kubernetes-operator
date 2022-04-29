@@ -60,7 +60,6 @@ func parseMaxCommandOutput() int {
 	return result
 }
 
-var exclusionLinePattern = regexp.MustCompile("(?m)^ +(.*)$")
 var protocolVersionRegex = regexp.MustCompile(`(?m)^protocol (\w+)$`)
 
 // cliAdminClient provides an implementation of the admin interface using the
@@ -311,25 +310,17 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
 func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
-	output, err := client.runCommand(cliCommand{command: "exclude"})
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(output, "\n")
-	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		exclusionMatch := exclusionLinePattern.FindStringSubmatch(line)
-		if exclusionMatch != nil {
-			pAddr, err := fdbv1beta2.ParseProcessAddress(exclusionMatch[1])
+	excludedServers := client.Cluster.Status.DatabaseConfiguration.ExcludedServers
+	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(excludedServers))
+	for _, excludedServer := range excludedServers {
+		if len(excludedServer.Address) != 0 {
+			pAddr, err := fdbv1beta2.ParseProcessAddress(excludedServer.Address)
 			if err != nil {
 				return nil, err
 			}
 			exclusions = append(exclusions, pAddr)
-			continue
-		}
-		if strings.HasPrefix(line, "locality") {
-			exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: line})
+		} else {
+			exclusions = append(exclusions, fdbv1beta2.ProcessAddress{StringAddress: excludedServer.Locality})
 		}
 	}
 	return exclusions, nil
