@@ -107,9 +107,9 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
-                  useNonBlockingExcludes:
-                    type: boolean
                   useLocalitiesForExclusion:
+                    type: boolean
+                  useNonBlockingExcludes:
                     type: boolean
                   waitBetweenRemovalsSeconds:
                     type: integer
@@ -9355,9 +9355,9 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
-                  useNonBlockingExcludes:
-                    type: boolean
                   useLocalitiesForExclusion:
+                    type: boolean
+                  useNonBlockingExcludes:
                     type: boolean
                   waitBetweenRemovalsSeconds:
                     type: integer
