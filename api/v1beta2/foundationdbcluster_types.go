@@ -1069,12 +1069,11 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			return *processCounts, err
 		}
 
-		if fdbVersion.HasSeparatedProxies() {
+		if fdbVersion.HasSeparatedProxies() && cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.GrvProxies, processCounts.GrvProxy)
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.CommitProxies, processCounts.CommitProxy)
 		} else {
 			primaryStatelessCount += cluster.calculateProcessCountFromRole(roleCounts.Proxies, processCounts.Proxy)
-
 		}
 
 		processCounts.Stateless = cluster.calculateProcessCount(true,
@@ -1477,10 +1476,17 @@ func (config ImageConfig) Image() string {
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfiguration()
-
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
+
+	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+		configuration.RoleCounts.Proxies = 0
+	} else {
+		configuration.RoleCounts.GrvProxies = 0
+		configuration.RoleCounts.CommitProxies = 0
+	}
+
 	if configuration.StorageEngine == StorageEngineSSD {
 		configuration.StorageEngine = StorageEngineSSD2
 	}
