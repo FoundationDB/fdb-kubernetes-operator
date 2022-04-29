@@ -175,6 +175,11 @@ var _ = Describe("remove_process_groups", func() {
 			var secondRemovedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
 			BeforeEach(func() {
+				// To allow multiple process groups to be removed we have to use the update mode all
+				cluster.Spec.AutomationOptions.RemovalMode = fdbv1beta2.PodUpdateModeAll
+				err := k8sClient.Update(context.TODO(), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
 				initialCnt = len(cluster.Status.ProcessGroups)
 				secondRemovedProcessGroup = cluster.Status.ProcessGroups[1]
 				marked, processGroup := fdbv1beta2.MarkProcessGroupForRemoval(cluster.Status.ProcessGroups, secondRemovedProcessGroup.ProcessGroupID, secondRemovedProcessGroup.ProcessClass, removedProcessGroup.Addresses[0])
