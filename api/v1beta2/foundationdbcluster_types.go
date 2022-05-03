@@ -953,7 +953,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	// We can ignore the error here since the version will be validated in an earlier step.
-	version, _ := ParseFdbVersion(cluster.Spec.Version)
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
 	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(version, cluster.DesiredFaultTolerance())
 }
 
@@ -1064,7 +1064,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 
-		fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+		fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 		if err != nil {
 			return *processCounts, err
 		}
@@ -1081,6 +1081,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
 		)
 	}
+
 	return *processCounts, nil
 }
 
@@ -1420,63 +1421,10 @@ type ContainerOverrides struct {
 	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
 }
 
-// ImageConfig provides a policy for customizing an image.
-//
-// When multiple image configs are provided, they will be merged into a single
-// config that will be used to define the final image. For each field, we select
-// the value from the first entry in the config list that defines a value for
-// that field, and matches the version of FoundationDB the image is for. Any
-// config that specifies a different version than the one under consideration
-// will be ignored for the purposes of defining that image.
-type ImageConfig struct {
-	// Version is the version of FoundationDB this policy applies to. If this is
-	// blank, the policy applies to all FDB versions.
-	Version string `json:"version,omitempty"`
-
-	// BaseImage specifies the part of the image before the tag.
-	BaseImage string `json:"baseImage,omitempty"`
-
-	// Tag specifies a full image tag.
-	Tag string `json:"tag,omitempty"`
-
-	// TagSuffix specifies a suffix that will be added after the version to form
-	// the full tag.
-	TagSuffix string `json:"tagSuffix,omitempty"`
-}
-
-// SelectImageConfig selects image configs that apply to a version of FDB and
-// merges them into a single config.
-func SelectImageConfig(allConfigs []ImageConfig, versionString string) ImageConfig {
-	config := ImageConfig{Version: versionString}
-	for _, nextConfig := range allConfigs {
-		if nextConfig.Version != "" && nextConfig.Version != versionString {
-			continue
-		}
-		if config.BaseImage == "" {
-			config.BaseImage = nextConfig.BaseImage
-		}
-		if config.Tag == "" {
-			config.Tag = nextConfig.Tag
-		}
-		if config.TagSuffix == "" {
-			config.TagSuffix = nextConfig.TagSuffix
-		}
-	}
-	return config
-}
-
-// Image generates an image using a config.
-func (config ImageConfig) Image() string {
-	if config.Tag == "" {
-		return fmt.Sprintf("%s:%s%s", config.BaseImage, config.Version, config.TagSuffix)
-	}
-	return fmt.Sprintf("%s:%s", config.BaseImage, config.Tag)
-}
-
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.GetRunningVersion(), cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
@@ -2039,4 +1987,17 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionLis
 
 		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
 	}
+}
+
+// GetRunningVersion returns the running version of the cluster defined in the cluster status or if not defined the version
+// defined in the cluster spec.
+func (cluster *FoundationDBCluster) GetRunningVersion() string {
+	// We have to use the running version here otherwise if the operator gets killed during an upgrade it will try to apply
+	// the grv and commit proxies.
+	versionString := cluster.Status.RunningVersion
+	if versionString == "" {
+		return cluster.Spec.Version
+	}
+
+	return versionString
 }

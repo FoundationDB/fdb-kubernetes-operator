@@ -18,7 +18,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
-* [ImageConfig](#imageconfig)
 * [LabelConfig](#labelconfig)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
@@ -34,6 +33,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [Region](#region)
 * [RoleCounts](#rolecounts)
 * [VersionFlags](#versionflags)
+* [ImageConfig](#imageconfig)
 
 ## AutomaticReplacementOptions
 
@@ -251,19 +251,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | imageTypes | ImageTypes defines the kinds of images that are in use in the cluster. If there is more than one value in the slice the reconcile phase is not finished. | [][ImageType](#imagetype) | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
-
-[Back to TOC](#table-of-contents)
-
-## ImageConfig
-
-ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| version | Version is the version of FoundationDB this policy applies to. If this is blank, the policy applies to all FDB versions. | string | false |
-| baseImage | BaseImage specifies the part of the image before the tag. | string | false |
-| tag | Tag specifies a full image tag. | string | false |
-| tagSuffix | TagSuffix specifies a suffix that will be added after the version to form the full tag. | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -525,5 +512,18 @@ VersionFlags defines internal flags for new features in the database.
 ## ProcessClass
 
 ProcessClass models the class of a pod
+
+[Back to TOC](#table-of-contents)
+
+## ImageConfig
+
+ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| version | Version is the version of FoundationDB this policy applies to. If this is blank, the policy applies to all FDB versions. | string | false |
+| baseImage | BaseImage specifies the part of the image before the tag. | string | false |
+| tag | Tag specifies a full image tag. | string | false |
+| tagSuffix | TagSuffix specifies a suffix that will be added after the version to form the full tag. | string | false |
 
 [Back to TOC](#table-of-contents)

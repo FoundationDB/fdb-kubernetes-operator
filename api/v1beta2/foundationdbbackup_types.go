@@ -89,10 +89,15 @@ type FoundationDBBackupSpec struct {
 	// You have to ensure that the specified version in the Spec is compatible
 	// with the given version in your custom image.
 	// +kubebuilder:default:=false
+	// Deprecated: use ImageConfigs instead.
 	AllowTagOverride *bool `json:"allowTagOverride,omitempty"`
 
 	// This is the configuration of the target blobstore for this backup.
 	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
+
+	// ImageConfigs allows customizing the image that we use for
+	// a container.
+	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.

@@ -3,8 +3,6 @@ before:
     - go mod tidy
 builds:
   - id: kubectl-fdb
-    env:
-      - CGO_ENABLED=0
     goos:
       - linux
       - windows

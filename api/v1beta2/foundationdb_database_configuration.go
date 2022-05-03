@@ -319,6 +319,7 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 			counts.LogRouters = -1
 		}
 	}
+
 	return *counts
 }
 
@@ -564,7 +565,7 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 // to 0
 func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
 	counts := configuration.RoleCounts
-	return counts.Proxies == 0 && (counts.GrvProxies > 0 || counts.CommitProxies > 0)
+	return counts.GrvProxies > 0 || counts.CommitProxies > 0
 }
 
 // GetProxiesString returns a string that contains the correct fdbcli

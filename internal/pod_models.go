@@ -182,10 +182,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
 
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
-	}
+	versionString := cluster.GetRunningVersion()
 
 	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString)
 	if err != nil {
@@ -825,7 +822,11 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := GetImage(mainContainer.Image, []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}, backup.Spec.Version)
+	if backup.Spec.ImageConfigs == nil {
+		backup.Spec.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}
+	}
+
+	image, err := GetImage(mainContainer.Image, backup.Spec.ImageConfigs, backup.Spec.Version)
 	if err != nil {
 		return nil, err
 	}
