@@ -127,10 +127,13 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 }
 
 // GetImage returns the image for container
-func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString string) (string, error) {
+func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString string, allowTagOverride bool) (string, error) {
 	if image != "" {
 		imageComponents := strings.Split(image, ":")
 		if len(imageComponents) > 1 {
+			if allowTagOverride {
+				return image, nil
+			}
 			// If the specified image contains a tag and allowOverride is false return an error
 			return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", imageComponents[1])
 		}
@@ -184,7 +187,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	versionString := cluster.GetRunningVersion()
 
-	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString)
+	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString, false)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +276,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			sidecarVersionString = cluster.Spec.Version
 		}
 
-		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString)
+		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString, false)
 		if err != nil {
 			return nil, err
 		}
@@ -573,7 +576,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 
-	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString)
+	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString, false)
 	if err != nil {
 		return err
 	}
@@ -826,7 +829,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		backup.Spec.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}
 	}
 
-	image, err := GetImage(mainContainer.Image, backup.Spec.ImageConfigs, backup.Spec.Version)
+	image, err := GetImage(mainContainer.Image, backup.Spec.ImageConfigs, backup.Spec.Version, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
 	if err != nil {
 		return nil, err
 	}
