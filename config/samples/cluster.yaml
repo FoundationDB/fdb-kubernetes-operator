@@ -13,9 +13,9 @@ spec:
     matchLabels:
       foundationdb.org/fdb-cluster-name: test-cluster
     processClassLabels:
-      - foundationdb.org/fdb-process-class
+    - foundationdb.org/fdb-process-class
     processGroupIDLabels:
-      - foundationdb.org/fdb-process-group-id
+    - foundationdb.org/fdb-process-group-id
   minimumUptimeSecondsForBounce: 60
   processCounts:
     cluster_controller: 1
@@ -23,38 +23,38 @@ spec:
   processes:
     general:
       customParameters:
-        - knob_disable_posix_kernel_aio=1
+      - knob_disable_posix_kernel_aio=1
       podTemplate:
         spec:
           containers:
-            - name: foundationdb
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-              securityContext:
-                runAsUser: 0
-            - name: foundationdb-kubernetes-sidecar
-              resources:
-                limits:
-                  cpu: 100m
-                  memory: 128Mi
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-              securityContext:
-                runAsUser: 0
+          - name: foundationdb
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
+          - name: foundationdb-kubernetes-sidecar
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
           initContainers:
-            - name: foundationdb-kubernetes-init
-              resources:
-                limits:
-                  cpu: 100m
-                  memory: 128Mi
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-              securityContext:
-                runAsUser: 0
+          - name: foundationdb-kubernetes-init
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              runAsUser: 0
       volumeClaimTemplate:
         spec:
           resources:
