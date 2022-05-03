@@ -208,6 +208,23 @@ spec:
         volumeMounts:
         - mountPath: /var/output-files
           name: fdb-binaries
+      - args:
+        - --copy-library
+        - "7.1"
+        - --copy-binary
+        - fdbcli
+        - --copy-binary
+        - fdbbackup
+        - --copy-binary
+        - fdbrestore
+        - --output-dir
+        - /var/output-files/7.1.2
+        - --init-mode
+        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.2-1
+        name: foundationdb-kubernetes-init-7-1
+        volumeMounts:
+        - mountPath: /var/output-files
+          name: fdb-binaries
       securityContext:
         fsGroup: 4059
         runAsGroup: 4059

@@ -5,13 +5,13 @@ on:
       - main
   pull_request:
 
+env:
+  FDB_VER: "6.3.23"
+
 jobs:
   lint-go:
     name: Lint go code
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        fdbver: [ "6.2.30", "6.3.22", "7.1.0-rc3" ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -26,7 +26,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go
       - name: Get dependencies
-        run: curl -L --fail "https://github.com/apple/foundationdb/releases/download/${{ matrix.fdbver }}/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
+        run: curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
       - name: Install dependencies
         run: sudo dpkg -i fdb.deb
       - name: Run golangci-lint
@@ -40,7 +40,6 @@ jobs:
         # With a new supported Kubernetes version we should adjust the version
         # See https://kubernetes.io/releases for the current releases
         kubever: [ "v1.19.0", "v1.20.0", "v1.21.1", "v1.22.0", "v1.23.0" ]
-        fdbver: [ "6.2.30", "6.3.22", "7.1.0-rc3" ]
     steps:
     - name: Set up Go
       uses: actions/setup-go@v1
@@ -63,7 +62,7 @@ jobs:
         KIND_VER: "v0.11.1"
       run: |
         # Only download all dependencies
-        curl --fail -L "https://github.com/apple/foundationdb/releases/download/${{ matrix.fdbver }}/foundationdb-clients_${{ matrix.fdbver }}-1_amd64.deb" -o fdb.deb
+        curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
         curl -Lo kind https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-amd64
     - name: Install dependencies
       run: |
@@ -93,6 +92,34 @@ jobs:
     - name: Ensure samples are in a valid format
       run: |
         kubectl apply -f ./config/samples --dry-run=server
+  testing:
+    name: Testing
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.17.8
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Fetch all tags
+      run: git fetch --force --tags
+    - uses: actions/cache@v2
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go
+    - name: Get dependencies
+      run: |
+        # Only download all dependencies
+        curl -L --fail "https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb" -o fdb.deb
+    - name: Install dependencies
+      run: |
+        # Install dependencies either from cache or freshly downloaded
+        sudo dpkg -i fdb.deb
     - name: Run tests
       # Currently the default runner has 2 vCPU:
       # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
