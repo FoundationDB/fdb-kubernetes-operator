@@ -133,13 +133,13 @@ var _ = Describe("admin_client_test", func() {
 
 		DescribeTable("fetching the excluded and remaining processes from the status",
 			func(status *fdbv1beta2.FoundationDBStatus, addresses []fdbv1beta2.ProcessAddress, expectedExcluded []fdbv1beta2.ProcessAddress, expectedRemaining []fdbv1beta2.ProcessAddress, expectedFullyExcluded []fdbv1beta2.ProcessAddress) {
-				excluded, fullyExcluded, remaining := getRemainingAndExcludedFromStatus(status, addresses)
-				Expect(expectedExcluded).To(ContainElements(excluded))
-				Expect(len(expectedExcluded)).To(BeNumerically("==", len(excluded)))
-				Expect(expectedRemaining).To(ContainElements(remaining))
-				Expect(len(expectedRemaining)).To(BeNumerically("==", len(remaining)))
-				Expect(expectedFullyExcluded).To(ContainElements(fullyExcluded))
-				Expect(len(expectedFullyExcluded)).To(BeNumerically("==", len(fullyExcluded)))
+				exclusions := getRemainingAndExcludedFromStatus(status, addresses)
+				Expect(expectedExcluded).To(ContainElements(exclusions.inProgress))
+				Expect(len(expectedExcluded)).To(BeNumerically("==", len(exclusions.inProgress)))
+				Expect(expectedRemaining).To(ContainElements(exclusions.notExcluded))
+				Expect(len(expectedRemaining)).To(BeNumerically("==", len(exclusions.notExcluded)))
+				Expect(expectedFullyExcluded).To(ContainElements(exclusions.fullyExcluded))
+				Expect(len(expectedFullyExcluded)).To(BeNumerically("==", len(exclusions.fullyExcluded)))
 			},
 			Entry("with an empty input address slice",
 				status,
