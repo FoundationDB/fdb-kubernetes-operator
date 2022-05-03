@@ -282,7 +282,7 @@ var _ = Describe("remove_process_groups", func() {
 		})
 	})
 
-	Context("validating getIncludedProcesses", func() {
+	Context("validating getProcessesToInclude", func() {
 		var removedProcessGroups map[string]bool
 
 		BeforeEach(func() {
@@ -323,9 +323,8 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, processGroups, hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups)
+					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(err).To(BeNil())
-					Expect(hasStatusUpdate).To(BeFalse())
 					Expect(len(fdbProcessesToInclude)).To(Equal(0))
 					Expect(len(processGroups)).To(Equal(16))
 				})
@@ -342,9 +341,8 @@ var _ = Describe("remove_process_groups", func() {
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, processGroups, hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups)
+					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(err).To(BeNil())
-					Expect(hasStatusUpdate).To(BeTrue())
 					Expect(len(fdbProcessesToInclude)).To(Equal(1))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal("1.1.1.1"))
 					Expect(len(processGroups)).To(Equal(15))
@@ -359,9 +357,8 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, processGroups, hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups)
+					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(err).To(BeNil())
-					Expect(hasStatusUpdate).To(BeFalse())
 					Expect(len(fdbProcessesToInclude)).To(Equal(0))
 					Expect(len(processGroups)).To(Equal(16))
 				})
@@ -378,9 +375,8 @@ var _ = Describe("remove_process_groups", func() {
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, processGroups, hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups)
+					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(err).To(BeNil())
-					Expect(hasStatusUpdate).To(BeTrue())
 					Expect(len(fdbProcessesToInclude)).To(Equal(2))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[0].Addresses[0])))
 					Expect(len(processGroups)).To(Equal(15))

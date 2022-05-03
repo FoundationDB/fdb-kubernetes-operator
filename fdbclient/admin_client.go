@@ -310,10 +310,14 @@ func (client *cliAdminClient) IncludeProcesses(addresses []fdbv1beta2.ProcessAdd
 // GetExclusions gets a list of the addresses currently excluded from the
 // database.
 func (client *cliAdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) {
-	excludedServers := client.Cluster.Status.DatabaseConfiguration.ExcludedServers
+	status, err := client.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+	excludedServers := status.Cluster.DatabaseConfiguration.ExcludedServers
 	exclusions := make([]fdbv1beta2.ProcessAddress, 0, len(excludedServers))
 	for _, excludedServer := range excludedServers {
-		if len(excludedServer.Address) != 0 {
+		if excludedServer.Address != "" {
 			pAddr, err := fdbv1beta2.ParseProcessAddress(excludedServer.Address)
 			if err != nil {
 				return nil, err

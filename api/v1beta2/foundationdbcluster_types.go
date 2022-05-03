@@ -1816,11 +1816,7 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 
 // GetUseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
 func (cluster *FoundationDBCluster) GetUseLocalitiesForExclusion() bool {
-	if cluster.Spec.AutomationOptions.UseLocalitiesForExclusion == nil {
-		return false
-	}
-
-	return *cluster.Spec.AutomationOptions.UseLocalitiesForExclusion
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the

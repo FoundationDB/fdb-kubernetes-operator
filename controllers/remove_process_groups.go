@@ -243,7 +243,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 
 	var fdbProcessesToInclude []fdbv1beta2.ProcessAddress
 	var processGroups []*fdbv1beta2.ProcessGroupStatus
-	fdbProcessesToInclude, processGroups, hasStatusUpdate, err := getIncludedProcesses(cluster, removedProcessGroups)
+	fdbProcessesToInclude, processGroups, err = getProcessesToInclude(cluster, removedProcessGroups)
 	if err != nil {
 		return err
 	}
@@ -255,9 +255,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 		if err != nil {
 			return err
 		}
-	}
 
-	if hasStatusUpdate {
 		cluster.Status.ProcessGroups = processGroups
 		err := r.Status().Update(ctx, cluster)
 		if err != nil {
@@ -268,16 +266,16 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	return nil
 }
 
-func getIncludedProcesses(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus, bool, error) {
+func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus, error) {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
+	// TODO (09harsh): don't allocate extra space for processGroups, #1196
 	processGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 
 	fdbVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
-		return fdbProcessesToInclude, processGroups, false, err
+		return fdbProcessesToInclude, processGroups, err
 	}
 
-	hasStatusUpdate := false
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			if fdbVersion.IsAtLeast(fdbv1beta2.Versions.NextMajorVersion) && cluster.GetUseLocalitiesForExclusion() {
@@ -286,12 +284,11 @@ func getIncludedProcesses(cluster *fdbv1beta2.FoundationDBCluster, removedProces
 			for _, pAddr := range processGroup.Addresses {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 			}
-			hasStatusUpdate = true
 		} else {
 			processGroups = append(processGroups, processGroup)
 		}
 	}
-	return fdbProcessesToInclude, processGroups, hasStatusUpdate, nil
+	return fdbProcessesToInclude, processGroups, nil
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {

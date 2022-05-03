@@ -75,13 +75,12 @@ var _ = Describe("FoundationDBStatus", func() {
 						MaxZoneFailuresWithoutLosingData:         1,
 					},
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode:  RedundancyModeDouble,
-						StorageEngine:   "ssd-2",
-						UsableRegions:   1,
-						Regions:         nil,
-						ExcludedServers: make([]ExcludedServers, 0),
-						RoleCounts:      RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
-						VersionFlags:    VersionFlags{LogSpill: 2},
+						RedundancyMode: RedundancyModeDouble,
+						StorageEngine:  "ssd-2",
+						UsableRegions:  1,
+						Regions:        nil,
+						RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
+						VersionFlags:   VersionFlags{LogSpill: 2},
 					},
 					Processes: map[string]FoundationDBStatusProcessInfo{
 						"b9c25278c0fa207bc2a73bda2300d0a9": {

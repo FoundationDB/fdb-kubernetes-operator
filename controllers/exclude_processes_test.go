@@ -139,7 +139,7 @@ var _ = Describe("exclude_processes", func() {
 		})
 	})
 
-	Describe("validating getProcessesToExclude", func() {
+	When("validating getProcessesToExclude", func() {
 		var exclusions []fdbv1beta2.ProcessAddress
 
 		BeforeEach(func() {

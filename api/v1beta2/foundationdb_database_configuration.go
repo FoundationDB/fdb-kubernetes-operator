@@ -73,7 +73,7 @@ type Region struct {
 	SatelliteRedundancyMode RedundancyMode `json:"satellite_redundancy_mode,omitempty"`
 }
 
-// ExcludedServers represents the excluded servers in database configuration
+// ExcludedServers represents the excluded servers in the database configuration
 type ExcludedServers struct {
 	// The Address of the excluded server.
 	Address string `json:"address,omitempty"`

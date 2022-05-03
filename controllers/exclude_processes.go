@@ -130,6 +130,8 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 			continue
 		}
 
+		// We are excluding process here using the locality field. It might be possible that the process was already excluded using IP before
+		// but for the sake of consistency it is better to exclude process using locality as well.
 		if cluster.GetUseLocalitiesForExclusion() && fdbVersion.IsAtLeast(fdbv1beta2.Versions.NextMajorVersion) && processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
 			fdbProcessesToExclude = append(fdbProcessesToExclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 			processClassesToExclude[processGroup.ProcessClass] = fdbv1beta2.None{}
