@@ -2970,11 +2970,8 @@ var _ = Describe("pod_models", func() {
 		}
 
 		DescribeTable("should return the correct image",
-			func(input testCase, expected string) {
-				image, _ := GetImage(
-					input.imageName,
-					input.imageConfigs,
-					input.versionString)
+			func(input testCase, allowTagOverride bool, expected string) {
+				image, _ := GetImage(input.imageName, input.imageConfigs, input.versionString, allowTagOverride)
 				Expect(image).To(Equal(expected))
 			},
 			Entry("only defaults used",
@@ -2984,7 +2981,7 @@ var _ = Describe("pod_models", func() {
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, "test/test:6.3.10"),
+				}, false, "test/test:6.3.10"),
 			Entry("imageName is set",
 				testCase{
 					imageName: "test/curImage",
@@ -2992,15 +2989,23 @@ var _ = Describe("pod_models", func() {
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, "test/curImage:6.3.10"),
+				}, false, "test/curImage:6.3.10"),
 			Entry("image tag is set but not allowOverride",
 				testCase{
-					imageName: "test/curImage:6.3.10",
+					imageName: "test/curImage:dev",
 					imageConfigs: []fdbv1beta2.ImageConfig{
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, ""),
+				}, false, ""),
+			Entry("image tag is set and allowOverride",
+				testCase{
+					imageName: "test/curImage:dev",
+					imageConfigs: []fdbv1beta2.ImageConfig{
+						{BaseImage: "test/test"},
+					},
+					versionString: "6.3.10",
+				}, true, "test/curImage:dev"),
 		)
 
 		Context("Configure the sidecar image", func() {
