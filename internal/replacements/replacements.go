@@ -202,7 +202,8 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		}
 	}
 
-	if cluster.NeedsReplacement(processGroupStatus) {
+	// Only replace process groups when we are not doing an upgrade.
+	if cluster.NeedsReplacement(processGroupStatus) && !cluster.IsBeingUpgraded() {
 		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
 		if err != nil {
 			return false, err

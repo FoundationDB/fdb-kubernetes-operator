@@ -39,6 +39,11 @@ type updatePods struct{}
 
 // reconcile runs the reconciler's work.
 func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	// During an upgrade we don't want to recreate all Pods before we run the new version in the cluster.
+	if cluster.IsBeingUpgraded() {
+		return nil
+	}
+
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)

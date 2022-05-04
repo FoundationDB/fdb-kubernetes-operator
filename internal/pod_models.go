@@ -185,9 +185,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
 
-	versionString := cluster.GetRunningVersion()
-
-	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString, false)
+	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, cluster.Spec.Version, false)
 	if err != nil {
 		return nil, err
 	}
@@ -271,12 +269,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 	}
 
 	if useUnifiedImages {
-		sidecarVersionString := cluster.Status.RunningVersion
-		if sidecarVersionString == "" {
-			sidecarVersionString = cluster.Spec.Version
-		}
-
-		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString, false)
+		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, cluster.Spec.Version, false)
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +278,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		sidecarContainer.Args = []string{
 			"--mode", "sidecar",
 			"--output-dir", "/var/fdb/shared-binaries",
-			"--main-container-version", versionString,
+			"--main-container-version", cluster.Spec.Version,
 			"--copy-binary", "fdbserver",
 			"--copy-binary", "fdbcli",
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -452,7 +445,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
 func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string) error {
-	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
+	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.Spec.Version, cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init

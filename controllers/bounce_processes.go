@@ -67,7 +67,6 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
 		fdbv1beta2.IncorrectCommandLine: true,
-		fdbv1beta2.IncorrectPodSpec:     false,
 	}, true)
 
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
@@ -110,7 +109,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{message: "Waiting for config map to sync to all pods"}
 	}
 
-	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
+	upgrading := cluster.IsBeingUpgraded()
 
 	if len(addresses) > 0 {
 		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
