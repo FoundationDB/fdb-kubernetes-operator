@@ -89,7 +89,8 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |
 | allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. **Deprecated: use ImageConfigs instead.** | *bool | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
-| imageConfigs | ImageConfigs allows customizing the image that we use for a container. | [][ImageConfig](#imageconfig) | false |
+| mainContainer | MainContainer defines customization for the foundationdb container. | ContainerOverrides | false |
+| sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 
 [Back to TOC](#table-of-contents)
 

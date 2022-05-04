@@ -95,9 +95,12 @@ type FoundationDBBackupSpec struct {
 	// This is the configuration of the target blobstore for this backup.
 	BlobStoreConfiguration *BlobStoreConfiguration `json:"blobStoreConfiguration,omitempty"`
 
-	// ImageConfigs allows customizing the image that we use for
-	// a container.
-	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
+	// MainContainer defines customization for the foundationdb container.
+	MainContainer ContainerOverrides `json:"mainContainer,omitempty"`
+
+	// SidecarContainer defines customization for the
+	// foundationdb-kubernetes-sidecar container.
+	SidecarContainer ContainerOverrides `json:"sidecarContainer,omitempty"`
 }
 
 // FoundationDBBackupStatus describes the current status of the backup for a cluster.
