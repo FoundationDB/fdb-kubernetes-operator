@@ -918,6 +918,26 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}))
 			})
+
+			It("should be parsed correctly when both grv_proxies/commit_proxies and proxies are set", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 12
+				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
+				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  StorageEngineSSD2,
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       0,
+						CommitProxies: 4,
+						GrvProxies:    4,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
 		})
 
 		When("the version does not support grv and commit proxies", func() {
@@ -974,6 +994,48 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						RemoteLogs:    -1,
 					},
 				}))
+			})
+
+			When("grv and commit proxies are passed in addition to proxies", func() {
+				BeforeEach(func() {
+					cluster = &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Spec: FoundationDBClusterSpec{
+							DatabaseConfiguration: DatabaseConfiguration{
+								RedundancyMode: RedundancyModeDouble,
+								StorageEngine:  StorageEngineSSD,
+								RoleCounts: RoleCounts{
+									Storage:       5,
+									Logs:          4,
+									Proxies:       5,
+									GrvProxies:    1,
+									CommitProxies: 1,
+								},
+							},
+							Version: "6.3.23",
+						},
+					}
+				})
+
+				It("should be only contain the configured proxies", func() {
+					Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+						RedundancyMode: RedundancyModeDouble,
+						StorageEngine:  StorageEngineSSD2,
+						UsableRegions:  1,
+						RoleCounts: RoleCounts{
+							Logs:          4,
+							Proxies:       5,
+							CommitProxies: 0,
+							GrvProxies:    0,
+							Resolvers:     1,
+							LogRouters:    -1,
+							RemoteLogs:    -1,
+						},
+					}))
+				})
 			})
 		})
 	})

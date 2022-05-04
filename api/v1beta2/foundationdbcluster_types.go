@@ -1419,7 +1419,8 @@ func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfi
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
-	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
+	if version.HasSeparatedProxies() && cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 		configuration.RoleCounts.Proxies = 0
 	} else {
 		configuration.RoleCounts.GrvProxies = 0
