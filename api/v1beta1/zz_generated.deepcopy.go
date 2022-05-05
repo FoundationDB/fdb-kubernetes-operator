@@ -492,11 +492,6 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
-	if in.UseLocalitiesForExclusion != nil {
-		in, out := &in.UseLocalitiesForExclusion, &out.UseLocalitiesForExclusion
-		*out = new(bool)
-		**out = **in
-	}
 	if in.MaxConcurrentReplacements != nil {
 		in, out := &in.MaxConcurrentReplacements, &out.MaxConcurrentReplacements
 		*out = new(int)
