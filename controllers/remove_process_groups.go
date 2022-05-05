@@ -140,7 +140,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		if err != nil {
 			return err
 		}
-	} else if len(pods) > 0 {
+	} else if len(pods) > 1 {
 		return fmt.Errorf("multiple pods found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -168,7 +168,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		if err != nil {
 			return err
 		}
-	} else if len(services.Items) > 0 {
+	} else if len(services.Items) > 1 {
 		return fmt.Errorf("multiple services found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
