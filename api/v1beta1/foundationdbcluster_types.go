@@ -1054,10 +1054,6 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
-	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses.
-	// The default is false.
-	UseLocalitiesForExclusion *bool `json:"useLocalitiesForExclusion,omitempty"`
-
 	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
 	// and these misconfigured Pods must be replaced manually or by another process. For each reconcile
@@ -2150,15 +2146,6 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	}
 
 	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
-}
-
-// GetUseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
-func (cluster *FoundationDBCluster) GetUseLocalitiesForExclusion() bool {
-	if cluster.Spec.AutomationOptions.UseLocalitiesForExclusion == nil {
-		return false
-	}
-
-	return *cluster.Spec.AutomationOptions.UseLocalitiesForExclusion
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the

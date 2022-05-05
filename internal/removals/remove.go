@@ -137,7 +137,7 @@ func GetRemainingMap(logger logr.Logger, adminClient fdbadminclient.AdminClient,
 			continue
 		}
 
-		if fdbVersion.IsAtLeast(fdbv1beta2.Versions.NextMajorVersion) && cluster.GetUseLocalitiesForExclusion() {
+		if cluster.UseLocalitiesForExclusion(fdbVersion) {
 			addresses = append(addresses, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 		}
 		for _, pAddr := range processGroup.Addresses {

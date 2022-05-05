@@ -1762,9 +1762,9 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
 }
 
-// GetUseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
-func (cluster *FoundationDBCluster) GetUseLocalitiesForExclusion() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
+// UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
+func (cluster *FoundationDBCluster) UseLocalitiesForExclusion(fdbVersion Version) bool {
+	return fdbVersion.IsAtLeast(Versions.NextMajorVersion) && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the

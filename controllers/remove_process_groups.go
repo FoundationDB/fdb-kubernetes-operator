@@ -278,7 +278,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
-			if fdbVersion.IsAtLeast(fdbv1beta2.Versions.NextMajorVersion) && cluster.GetUseLocalitiesForExclusion() {
+			if cluster.UseLocalitiesForExclusion(fdbVersion) {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 			}
 			for _, pAddr := range processGroup.Addresses {
