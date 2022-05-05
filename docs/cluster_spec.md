@@ -29,6 +29,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [RoutingConfig](#routingconfig)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
+* [ExcludedServers](#excludedservers)
 * [ProcessCounts](#processcounts)
 * [Region](#region)
 * [RoleCounts](#rolecounts)
@@ -424,8 +425,20 @@ DatabaseConfiguration represents the configuration of the database
 | storage_engine | StorageEngine defines the storage engine the database uses. | [StorageEngine](#storageengine) | false |
 | usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
+| excluded_servers | ExcludedServers defines the list  of excluded servers form the database. | [][ExcludedServers](#excludedservers) | false |
 | RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
 | VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
+
+[Back to TOC](#table-of-contents)
+
+## ExcludedServers
+
+ExcludedServers represents the excluded servers in the database configuration
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| address | The Address of the excluded server. | string | false |
+| locality | The Locality of the excluded server. | string | false |
 
 [Back to TOC](#table-of-contents)
 
