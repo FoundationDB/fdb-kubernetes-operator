@@ -107,8 +107,6 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
-                  useLocalitiesForExclusion:
-                    type: boolean
                   useNonBlockingExcludes:
                     type: boolean
                   waitBetweenRemovalsSeconds:
@@ -746,15 +744,6 @@ spec:
                 type: string
               databaseConfiguration:
                 properties:
-                  excluded_servers:
-                    items:
-                      properties:
-                        address:
-                          type: string
-                        locality:
-                          type: string
-                      type: object
-                    type: array
                   log_routers:
                     type: integer
                   log_spill:
@@ -9006,15 +8995,6 @@ spec:
                 type: string
               databaseConfiguration:
                 properties:
-                  excluded_servers:
-                    items:
-                      properties:
-                        address:
-                          type: string
-                        locality:
-                          type: string
-                      type: object
-                    type: array
                   log_routers:
                     type: integer
                   log_spill:
