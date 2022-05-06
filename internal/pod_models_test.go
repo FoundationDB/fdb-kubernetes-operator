@@ -2950,7 +2950,12 @@ var _ = Describe("pod_models", func() {
 
 		When("defining an image config", func() {
 			BeforeEach(func() {
-				backup.Spec.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb", Tag: "dev"}}
+				backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb", Tag: "dev"},
+				}
+				backup.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", Tag: "dev-1"},
+				}
 				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
@@ -2958,6 +2963,39 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the image based on the image configs", func() {
 				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("foundationdb/foundationdb:dev"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:dev-1"))
+			})
+		})
+
+		When("AllowTagOverride is set to true", func() {
+			BeforeEach(func() {
+				backup.Spec.AllowTagOverride = pointer.Bool(true)
+				templateSpec := corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "foundationdb",
+								Image: "test:main",
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								Name:  "foundationdb-kubernetes-init",
+								Image: "test:sidecar",
+							},
+						},
+					},
+				}
+
+				backup.Spec.PodTemplateSpec = &templateSpec
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the image without validating the tag", func() {
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test:main"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("test:sidecar"))
 			})
 		})
 	})
