@@ -328,8 +328,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
-					Expect(err).To(BeNil())
+					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(0))
 					Expect(len(processGroups)).To(Equal(16))
 				})
@@ -346,8 +345,7 @@ var _ = Describe("remove_process_groups", func() {
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
-					Expect(err).To(BeNil())
+					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(1))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal("1.1.1.1"))
 					Expect(len(processGroups)).To(Equal(15))
@@ -362,8 +360,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
-					Expect(err).To(BeNil())
+					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(0))
 					Expect(len(processGroups)).To(Equal(16))
 				})
@@ -380,8 +377,7 @@ var _ = Describe("remove_process_groups", func() {
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, processGroups, err := getProcessesToInclude(cluster, removedProcessGroups)
-					Expect(err).To(BeNil())
+					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(2))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[0].Addresses[0])))
 					Expect(len(processGroups)).To(Equal(15))

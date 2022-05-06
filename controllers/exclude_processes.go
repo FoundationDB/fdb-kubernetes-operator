@@ -63,11 +63,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 			return &requeue{curError: err}
 		}
 		log.Info("current exclusions", "ex", exclusions)
-
-		fdbProcessesToExclude, processClassesToExclude, err = getProcessesToExclude(exclusions, cluster, removalCount)
-		if err != nil {
-			return &requeue{curError: err}
-		}
+		fdbProcessesToExclude, processClassesToExclude = getProcessesToExclude(exclusions, cluster, removalCount)
 	}
 
 	if len(fdbProcessesToExclude) > 0 {
@@ -110,18 +106,13 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 	return nil
 }
 
-func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv1beta2.FoundationDBCluster, removalCount int) ([]fdbv1beta2.ProcessAddress, map[fdbv1beta2.ProcessClass]fdbv1beta2.None, error) {
+func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv1beta2.FoundationDBCluster, removalCount int) ([]fdbv1beta2.ProcessAddress, map[fdbv1beta2.ProcessClass]fdbv1beta2.None) {
 	processClassesToExclude := make(map[fdbv1beta2.ProcessClass]fdbv1beta2.None)
 	fdbProcessesToExclude := make([]fdbv1beta2.ProcessAddress, 0, removalCount)
 
 	currentExclusionMap := make(map[string]fdbv1beta2.None, len(exclusions))
 	for _, exclusion := range exclusions {
 		currentExclusionMap[exclusion.String()] = fdbv1beta2.None{}
-	}
-
-	fdbVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return fdbProcessesToExclude, processClassesToExclude, err
 	}
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -132,7 +123,7 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 
 		// We are excluding process here using the locality field. It might be possible that the process was already excluded using IP before
 		// but for the sake of consistency it is better to exclude process using locality as well.
-		if cluster.UseLocalitiesForExclusion(fdbVersion) && processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
+		if cluster.UseLocalitiesForExclusion() && processGroup.IsMarkedForRemoval() && !processGroup.IsExcluded() {
 			fdbProcessesToExclude = append(fdbProcessesToExclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 			processClassesToExclude[processGroup.ProcessClass] = fdbv1beta2.None{}
 			continue
@@ -150,7 +141,7 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 			}
 		}
 	}
-	return fdbProcessesToExclude, processClassesToExclude, nil
+	return fdbProcessesToExclude, processClassesToExclude
 }
 
 func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []string) {

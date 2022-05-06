@@ -243,11 +243,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 
 	var fdbProcessesToInclude []fdbv1beta2.ProcessAddress
 	var processGroups []*fdbv1beta2.ProcessGroupStatus
-	fdbProcessesToInclude, processGroups, err = getProcessesToInclude(cluster, removedProcessGroups)
-	if err != nil {
-		return err
-	}
-
+	fdbProcessesToInclude, processGroups = getProcessesToInclude(cluster, removedProcessGroups)
 	if len(fdbProcessesToInclude) > 0 {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
 
@@ -266,19 +262,14 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	return nil
 }
 
-func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus, error) {
+func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus) {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
 	// TODO (09harsh): don't allocate extra space for processGroups, #1196
 	processGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 
-	fdbVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
-	if err != nil {
-		return fdbProcessesToInclude, processGroups, err
-	}
-
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
-			if cluster.UseLocalitiesForExclusion(fdbVersion) {
+			if cluster.UseLocalitiesForExclusion() {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{StringAddress: processGroup.GetExclusionString()})
 			}
 			for _, pAddr := range processGroup.Addresses {
@@ -288,7 +279,7 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 			processGroups = append(processGroups, processGroup)
 		}
 	}
-	return fdbProcessesToInclude, processGroups, nil
+	return fdbProcessesToInclude, processGroups
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {

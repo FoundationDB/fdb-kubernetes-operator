@@ -1763,7 +1763,13 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 }
 
 // UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
-func (cluster *FoundationDBCluster) UseLocalitiesForExclusion(fdbVersion Version) bool {
+func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
+	fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		// Fall back to use exclusions with IP if we can't parse the version.
+		// This should never happen since the version is validated in earlier steps.
+		return false
+	}
 	return fdbVersion.IsAtLeast(Versions.NextMajorVersion) && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 }
 
