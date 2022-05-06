@@ -154,7 +154,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		if err != nil {
 			return err
 		}
-	} else if len(pvcs.Items) > 0 {
+	} else if len(pvcs.Items) > 1 {
 		return fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -193,7 +193,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 		}
 		// Pod is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(pods) > 0 {
+	} else if len(pods) > 1 {
 		return false, false, fmt.Errorf("multiple pods found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -210,7 +210,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 		}
 		// PVC is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(pvcs.Items) > 0 {
+	} else if len(pvcs.Items) > 1 {
 		return false, canBeIncluded, fmt.Errorf("multiple PVCs found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
@@ -227,7 +227,7 @@ func confirmRemoval(ctx context.Context, r *FoundationDBClusterReconciler, clust
 		}
 		// service is in terminating state so we don't want to block but we also don't want to include it
 		canBeIncluded = false
-	} else if len(services.Items) > 0 {
+	} else if len(services.Items) > 1 {
 		return false, canBeIncluded, fmt.Errorf("multiple services found for cluster %s, processGroupID %s", cluster.Name, processGroupID)
 	}
 
