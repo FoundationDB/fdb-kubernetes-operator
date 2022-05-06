@@ -3197,19 +3197,30 @@ spec:
                   type: string
                 maxItems: 100
                 type: array
-              imageConfigs:
-                items:
-                  properties:
-                    baseImage:
-                      type: string
-                    tag:
-                      type: string
-                    tagSuffix:
-                      type: string
-                    version:
-                      type: string
-                  type: object
-                type: array
+              mainContainer:
+                properties:
+                  enableLivenessProbe:
+                    type: boolean
+                  enableReadinessProbe:
+                    type: boolean
+                  enableTls:
+                    type: boolean
+                  imageConfigs:
+                    items:
+                      properties:
+                        baseImage:
+                          type: string
+                        tag:
+                          type: string
+                        tagSuffix:
+                          type: string
+                        version:
+                          type: string
+                      type: object
+                    type: array
+                  peerVerificationRules:
+                    type: string
+                type: object
               podTemplateSpec:
                 properties:
                   metadata:
@@ -6163,6 +6174,30 @@ spec:
                     required:
                     - containers
                     type: object
+                type: object
+              sidecarContainer:
+                properties:
+                  enableLivenessProbe:
+                    type: boolean
+                  enableReadinessProbe:
+                    type: boolean
+                  enableTls:
+                    type: boolean
+                  imageConfigs:
+                    items:
+                      properties:
+                        baseImage:
+                          type: string
+                        tag:
+                          type: string
+                        tagSuffix:
+                          type: string
+                        version:
+                          type: string
+                      type: object
+                    type: array
+                  peerVerificationRules:
+                    type: string
                 type: object
               snapshotPeriodSeconds:
                 type: integer
