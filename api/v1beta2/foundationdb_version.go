@@ -195,6 +195,11 @@ func (version Version) IsReleaseCandidate() bool {
 	return version.ReleaseCandidate > 0
 }
 
+// SupportsIsPresent returns true if the sidecar of this version supports the is_present endpoint
+func (version Version) SupportsIsPresent() bool {
+	return version.IsAtLeast(Versions.SupportsIsPresent)
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
@@ -202,6 +207,7 @@ var Versions = struct {
 	NextPatchVersion,
 	MinimumVersion,
 	SupportsRocksDBV1,
+	SupportsIsPresent,
 	Default Version
 }{
 	Default:           Version{Major: 6, Minor: 2, Patch: 20},
@@ -209,4 +215,5 @@ var Versions = struct {
 	NextMajorVersion:  Version{Major: 7, Minor: 0, Patch: 0},
 	MinimumVersion:    Version{Major: 6, Minor: 2, Patch: 20},
 	SupportsRocksDBV1: Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
+	SupportsIsPresent: Version{Major: 7, Minor: 1, Patch: 4},
 }

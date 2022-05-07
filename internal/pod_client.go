@@ -172,7 +172,7 @@ func (client *realFdbPodSidecarClient) getListenIP() string {
 }
 
 // makeRequest submits a request to the sidecar.
-func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (string, error) {
+func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
 	var resp *http.Response
 	var err error
 
@@ -198,11 +198,11 @@ func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (
 		retryClient.HTTPClient.Timeout = client.postTimeout
 		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
 	default:
-		return "", fmt.Errorf("unknown HTTP method %s", method)
+		return "", 0, fmt.Errorf("unknown HTTP method %s", method)
 	}
 
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	defer resp.Body.Close()
@@ -211,26 +211,39 @@ func (client *realFdbPodSidecarClient) makeRequest(method string, path string) (
 	bodyText := string(body)
 
 	if err != nil {
-		return "", err
+		return "", resp.StatusCode, err
 	}
 
-	return bodyText, nil
+	return bodyText, resp.StatusCode, nil
 }
 
 // IsPresent checks whether a file in the sidecar is present.
 func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) {
-	_, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
-		client.logger.Info("Waiting for file", "file", filename)
+		return false, nil
+	}
+
+	path := "check_hash"
+	// This endpoint was added in 7.1.4 and only checks if a file is present without calculating the hash of a file.
+	// The benefit of this approach is that the resource requirements for the sidecar is reduced and for larger files
+	// e.g. with debug symbols the response will be faster.
+	if version.SupportsIsPresent() {
+		path = "is_present"
+	}
+
+	_, code, err := client.makeRequest("GET", fmt.Sprintf("%s/%s", path, filename))
+	if err != nil || code != http.StatusOK {
+		client.logger.Info("Waiting for file", "file", filename, "response_code", code)
 		return false, err
 	}
 
-	return true, nil
+	return code == http.StatusOK, nil
 }
 
 // CheckHash checks whether a file in the sidecar has the expected contents.
 func (client *realFdbPodSidecarClient) checkHash(filename string, contents string) (bool, error) {
-	response, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
+	response, _, err := client.makeRequest("GET", fmt.Sprintf("check_hash/%s", filename))
 	if err != nil {
 		return false, err
 	}
@@ -242,21 +255,21 @@ func (client *realFdbPodSidecarClient) checkHash(filename string, contents strin
 
 // GenerateMonitorConf updates the monitor conf file for a pod
 func (client *realFdbPodSidecarClient) generateMonitorConf() error {
-	_, err := client.makeRequest("POST", "copy_monitor_conf")
+	_, _, err := client.makeRequest("POST", "copy_monitor_conf")
 	return err
 }
 
 // copyFiles copies the files from the config map to the shared dynamic conf
 // volume
 func (client *realFdbPodSidecarClient) copyFiles() error {
-	_, err := client.makeRequest("POST", "copy_files")
+	_, _, err := client.makeRequest("POST", "copy_files")
 	return err
 }
 
 // GetVariableSubstitutions gets the current keys and values that this
 // process group will substitute into its monitor conf.
 func (client *realFdbPodSidecarClient) GetVariableSubstitutions() (map[string]string, error) {
-	contents, err := client.makeRequest("GET", "substitutions")
+	contents, _, err := client.makeRequest("GET", "substitutions")
 	if err != nil {
 		return nil, err
 	}
