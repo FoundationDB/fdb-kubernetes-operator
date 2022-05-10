@@ -2,7 +2,7 @@
 FROM docker.io/library/golang:1.17.8 as builder
 
 # Install FDB this version is only required to compile the fdb operator
-ARG FDB_VERSION=6.3.23
+ARG FDB_VERSION=7.1.4
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 ARG TAG="latest"
 
