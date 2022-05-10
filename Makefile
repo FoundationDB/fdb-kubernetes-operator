@@ -37,7 +37,7 @@ GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
 BUILD_DEPS?=
 BUILDER?="docker"
-KUBECTL_ARGS?=""
+KUBECTL_ARGS?=
 
 define godep
 BUILD_DEPS+=$(1)
