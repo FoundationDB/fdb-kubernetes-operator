@@ -37,6 +37,7 @@ GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
 BUILD_DEPS?=
 BUILDER?="docker"
+KUBECTL_ARGS?=
 
 define godep
 BUILD_DEPS+=$(1)
@@ -113,16 +114,16 @@ run: generate manifests
 
 # Install CRDs into a cluster
 install: manifests
-	kustomize build config/crd | kubectl apply -f -
+	kustomize build config/crd | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Uninstall CRDs from a cluster
 uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
+	kustomize build config/crd | kubectl $(KUBECTL_ARGS) delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: install manifests
 	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
-	kustomize build config/development | kubectl apply -f -
+	kustomize build config/development | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${MANIFESTS}
@@ -167,7 +168,7 @@ container-push:
 rebuild-operator: container-build deploy bounce
 
 bounce:
-	kubectl delete pod -l app=fdb-kubernetes-operator-controller-manager
+	kubectl $(KUBECTL_ARGS) delete pod -l app=fdb-kubernetes-operator-controller-manager
 
 samples: ${SAMPLES}
 

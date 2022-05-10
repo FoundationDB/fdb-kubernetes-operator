@@ -150,7 +150,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: foundationdb/fdb-kubernetes-operator:v1.3.1
+        image: foundationdb/fdb-kubernetes-operator:v1.4.0
         name: manager
         ports:
         - containerPort: 8080
@@ -205,6 +205,23 @@ spec:
         - --init-mode
         image: foundationdb/foundationdb-kubernetes-sidecar:6.3.10-1
         name: foundationdb-kubernetes-init-6-3
+        volumeMounts:
+        - mountPath: /var/output-files
+          name: fdb-binaries
+      - args:
+        - --copy-library
+        - "7.1"
+        - --copy-binary
+        - fdbcli
+        - --copy-binary
+        - fdbbackup
+        - --copy-binary
+        - fdbrestore
+        - --output-dir
+        - /var/output-files/7.1.2
+        - --init-mode
+        image: foundationdb/foundationdb-kubernetes-sidecar:7.1.2-1
+        name: foundationdb-kubernetes-init-7-1
         volumeMounts:
         - mountPath: /var/output-files
           name: fdb-binaries

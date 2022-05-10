@@ -2950,7 +2950,12 @@ var _ = Describe("pod_models", func() {
 
 		When("defining an image config", func() {
 			BeforeEach(func() {
-				backup.Spec.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb", Tag: "dev"}}
+				backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb", Tag: "dev"},
+				}
+				backup.Spec.SidecarContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+					{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", Tag: "dev-1"},
+				}
 				deployment, err = GetBackupDeployment(backup)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment).NotTo(BeNil())
@@ -2958,6 +2963,39 @@ var _ = Describe("pod_models", func() {
 
 			It("should set the image based on the image configs", func() {
 				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("foundationdb/foundationdb:dev"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:dev-1"))
+			})
+		})
+
+		When("AllowTagOverride is set to true", func() {
+			BeforeEach(func() {
+				backup.Spec.AllowTagOverride = pointer.Bool(true)
+				templateSpec := corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "foundationdb",
+								Image: "test:main",
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								Name:  "foundationdb-kubernetes-init",
+								Image: "test:sidecar",
+							},
+						},
+					},
+				}
+
+				backup.Spec.PodTemplateSpec = &templateSpec
+				deployment, err = GetBackupDeployment(backup)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment).NotTo(BeNil())
+			})
+
+			It("should set the image without validating the tag", func() {
+				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test:main"))
+				Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).To(Equal("test:sidecar"))
 			})
 		})
 	})
@@ -2970,11 +3008,8 @@ var _ = Describe("pod_models", func() {
 		}
 
 		DescribeTable("should return the correct image",
-			func(input testCase, expected string) {
-				image, _ := GetImage(
-					input.imageName,
-					input.imageConfigs,
-					input.versionString)
+			func(input testCase, allowTagOverride bool, expected string) {
+				image, _ := GetImage(input.imageName, input.imageConfigs, input.versionString, allowTagOverride)
 				Expect(image).To(Equal(expected))
 			},
 			Entry("only defaults used",
@@ -2984,7 +3019,7 @@ var _ = Describe("pod_models", func() {
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, "test/test:6.3.10"),
+				}, false, "test/test:6.3.10"),
 			Entry("imageName is set",
 				testCase{
 					imageName: "test/curImage",
@@ -2992,15 +3027,23 @@ var _ = Describe("pod_models", func() {
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, "test/curImage:6.3.10"),
+				}, false, "test/curImage:6.3.10"),
 			Entry("image tag is set but not allowOverride",
 				testCase{
-					imageName: "test/curImage:6.3.10",
+					imageName: "test/curImage:dev",
 					imageConfigs: []fdbv1beta2.ImageConfig{
 						{BaseImage: "test/test"},
 					},
 					versionString: "6.3.10",
-				}, ""),
+				}, false, ""),
+			Entry("image tag is set and allowOverride",
+				testCase{
+					imageName: "test/curImage:dev",
+					imageConfigs: []fdbv1beta2.ImageConfig{
+						{BaseImage: "test/test"},
+					},
+					versionString: "6.3.10",
+				}, true, "test/curImage:dev"),
 		)
 
 		Context("Configure the sidecar image", func() {
