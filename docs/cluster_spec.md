@@ -29,6 +29,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [RoutingConfig](#routingconfig)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
+* [ExcludedServers](#excludedservers)
 * [ProcessCounts](#processcounts)
 * [Region](#region)
 * [RoleCounts](#rolecounts)
@@ -155,6 +156,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
+| useLocalitiesForExclusion | UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses. The default is false. | *bool | false |
 | ignoreTerminatingPodsSeconds | IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block further reconciliation. | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements defines how many process groups can be concurrently replaced if they are misconfigured. If the value will be set to 0 this will block replacements and these misconfigured Pods must be replaced manually or by another process. For each reconcile loop the operator calculates the maximum number of possible replacements by taken this value as the upper limit and removes all ongoing replacements that have not finished. Which means if the value is set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the operator is allowed to replace on further process group. | *int | false |
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | [PodUpdateMode](#podupdatemode) | false |
@@ -423,8 +425,20 @@ DatabaseConfiguration represents the configuration of the database
 | storage_engine | StorageEngine defines the storage engine the database uses. | [StorageEngine](#storageengine) | false |
 | usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
+| excluded_servers | ExcludedServers defines the list  of excluded servers form the database. | [][ExcludedServers](#excludedservers) | false |
 | RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
 | VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
+
+[Back to TOC](#table-of-contents)
+
+## ExcludedServers
+
+ExcludedServers represents the excluded servers in the database configuration
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| address | The Address of the excluded server. | string | false |
+| locality | The Locality of the excluded server. | string | false |
 
 [Back to TOC](#table-of-contents)
 

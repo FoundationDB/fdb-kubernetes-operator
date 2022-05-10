@@ -105,6 +105,8 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 	status.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
 	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	// Removing excluded servers as we don't want them during comparison.
+	status.DatabaseConfiguration.ExcludedServers = nil
 	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
 	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
 
