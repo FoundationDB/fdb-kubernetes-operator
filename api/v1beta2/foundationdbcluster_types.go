@@ -307,6 +307,11 @@ type ProcessGroupStatus struct {
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 }
 
+// GetExclusionString returns the exclusion string
+func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
+	return fmt.Sprintf("locality_instance_id:%s", processGroupStatus.ProcessGroupID)
+}
+
 // IsExcluded returns if a process group is excluded
 func (processGroupStatus *ProcessGroupStatus) IsExcluded() bool {
 	return (processGroupStatus.ExclusionTimestamp != nil && !processGroupStatus.ExclusionTimestamp.IsZero()) || processGroupStatus.ExclusionSkipped
@@ -809,6 +814,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands.
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
+
+	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses.
+	// The default is false.
+	UseLocalitiesForExclusion *bool `json:"useLocalitiesForExclusion,omitempty"`
 
 	// IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before
 	// we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block
@@ -1752,6 +1761,17 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	}
 
 	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
+}
+
+// UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
+func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
+	fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		// Fall back to use exclusions with IP if we can't parse the version.
+		// This should never happen since the version is validated in earlier steps.
+		return false
+	}
+	return fdbVersion.IsAtLeast(Versions.NextMajorVersion) && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
 }
 
 // GetProcessClassLabel provides the label that this cluster is using for the

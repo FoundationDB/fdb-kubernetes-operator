@@ -9353,6 +9353,8 @@ spec:
                         minimum: 0
                         type: integer
                     type: object
+                  useLocalitiesForExclusion:
+                    type: boolean
                   useNonBlockingExcludes:
                     type: boolean
                   waitBetweenRemovalsSeconds:
@@ -9425,6 +9427,15 @@ spec:
                 properties:
                   commit_proxies:
                     type: integer
+                  excluded_servers:
+                    items:
+                      properties:
+                        address:
+                          type: string
+                        locality:
+                          type: string
+                      type: object
+                    type: array
                   grv_proxies:
                     type: integer
                   log_routers:
@@ -12819,6 +12830,15 @@ spec:
                 properties:
                   commit_proxies:
                     type: integer
+                  excluded_servers:
+                    items:
+                      properties:
+                        address:
+                          type: string
+                        locality:
+                          type: string
+                      type: object
+                    type: array
                   grv_proxies:
                     type: integer
                   log_routers:
