@@ -37,6 +37,17 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
+const (
+	// SidecarContainer is the name of the sidecar container
+	SidecarContainer string = "foundationdb-kubernetes-sidecar"
+	// MainContainer is the name of main container that runs FoundationDB
+	MainContainer string = "foundationdb"
+	// InitContainer is the name of the init container
+	InitContainer string = "foundationdb-kubernetes-init"
+	// SidecarDefaultImage is the name of the default sidecar and init container
+	SidecarDefaultImage string = "foundationdb/foundationdb-kubernetes-sidecar"
+)
+
 // GetProcessGroupID generates an ID for a process group.
 //
 // This will return the pod name and the processGroupID ID.
@@ -154,9 +165,9 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 	var initContainer *corev1.Container
 
 	for index, container := range podSpec.Containers {
-		if container.Name == "foundationdb" {
+		if container.Name == MainContainer {
 			mainContainer = &podSpec.Containers[index]
-		} else if container.Name == "foundationdb-kubernetes-sidecar" {
+		} else if container.Name == SidecarContainer {
 			sidecarContainer = &podSpec.Containers[index]
 		}
 	}
@@ -173,7 +184,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		initContainer = &corev1.Container{}
 	} else {
 		for index, container := range podSpec.InitContainers {
-			if container.Name == "foundationdb-kubernetes-init" {
+			if container.Name == InitContainer {
 				initContainer = &podSpec.InitContainers[index]
 			}
 		}
@@ -546,7 +557,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 	if len(imageConfigs) > 0 {
 		overrides.ImageConfigs = imageConfigs
 	} else {
-		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"}}
+		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: SidecarDefaultImage, TagSuffix: "-1"}}
 	}
 
 	if overrides.EnableTLS && !initMode {
@@ -791,20 +802,20 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	var initContainer *corev1.Container
 
 	for index, container := range podTemplate.Spec.Containers {
-		if container.Name == "foundationdb" {
+		if container.Name == MainContainer {
 			mainContainer = &podTemplate.Spec.Containers[index]
 		}
 	}
 
 	for index, container := range podTemplate.Spec.InitContainers {
-		if container.Name == "foundationdb-kubernetes-init" {
+		if container.Name == InitContainer {
 			initContainer = &podTemplate.Spec.InitContainers[index]
 		}
 	}
 
 	if mainContainer == nil {
 		containers := []corev1.Container{
-			{Name: "foundationdb"},
+			{Name: MainContainer},
 		}
 		containers = append(containers, podTemplate.Spec.Containers...)
 		mainContainer = &containers[0]
@@ -861,7 +872,7 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 	}
 
 	if initContainer == nil {
-		podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, corev1.Container{Name: "foundationdb-kubernetes-init"})
+		podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, corev1.Container{Name: InitContainer})
 		initContainer = &podTemplate.Spec.InitContainers[0]
 	}
 

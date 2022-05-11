@@ -1298,7 +1298,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
+					id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1437,7 +1437,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
+						id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
 						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1545,7 +1545,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					_, id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
+					id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -3162,72 +3162,6 @@ var _ = Describe("cluster_controller", func() {
 					"locality_dcid = dc01",
 				}, "\n")))
 			})
-		})
-	})
-
-	Describe("ParseProcessGroupID", func() {
-		Context("with a storage ID", func() {
-			It("can parse the ID", func() {
-				prefix, id, err := podmanager.ParseProcessGroupID("storage-12")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(fdbv1beta2.ProcessClassStorage))
-				Expect(id).To(Equal(12))
-			})
-		})
-
-		Context("with a cluster controller ID", func() {
-			It("can parse the ID", func() {
-				prefix, id, err := podmanager.ParseProcessGroupID("cluster_controller-3")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(fdbv1beta2.ProcessClassClusterController))
-				Expect(id).To(Equal(3))
-			})
-		})
-
-		Context("with a custom prefix", func() {
-			It("parses the prefix", func() {
-				prefix, id, err := podmanager.ParseProcessGroupID("dc1-storage-12")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(prefix).To(Equal(fdbv1beta2.ProcessClass("dc1-storage")))
-				Expect(id).To(Equal(12))
-			})
-		})
-
-		Context("with no prefix", func() {
-			It("gives a parsing error", func() {
-				_, _, err := podmanager.ParseProcessGroupID("6")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("could not parse process group ID 6"))
-			})
-		})
-
-		Context("with no numbers", func() {
-			It("gives a parsing error", func() {
-				_, _, err := podmanager.ParseProcessGroupID("storage")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("could not parse process group ID storage"))
-			})
-		})
-
-		Context("with a text suffix", func() {
-			It("gives a parsing error", func() {
-				_, _, err := podmanager.ParseProcessGroupID("storage-bad")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("could not parse process group ID storage-bad"))
-			})
-		})
-	})
-
-	Describe("GetProcessGroupIDFromProcessID", func() {
-		It("can parse a process ID", func() {
-			Expect(podmanager.GetProcessGroupIDFromProcessID("storage-1-1")).To(Equal("storage-1"))
-		})
-		It("can parse a process ID with a prefix", func() {
-			Expect(podmanager.GetProcessGroupIDFromProcessID("dc1-storage-1-1")).To(Equal("dc1-storage-1"))
-		})
-
-		It("can handle a process group ID with no process number", func() {
-			Expect(podmanager.GetProcessGroupIDFromProcessID("storage-2")).To(Equal("storage-2"))
 		})
 	})
 

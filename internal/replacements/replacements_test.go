@@ -295,7 +295,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			It("should not need a removal", func() {
 				processClass := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
 				processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
-				_, idNum, err := internal.ParseProcessGroupID(processGroupID)
+				idNum, err := internal.ParseProcessGroupID(processGroupID)
 				Expect(err).NotTo(HaveOccurred())
 				pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey], err = internal.GetPodSpecHash(cluster, processClass, idNum, nil)
 				Expect(err).NotTo(HaveOccurred())

@@ -192,7 +192,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
-	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !internal.MetadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
@@ -266,18 +266,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	}
 
 	return nil
-}
-
-// containsAll determines if one map contains all the keys and matching values
-// from another map.
-func containsAll(current map[string]string, desired map[string]string) bool {
-	for key, value := range desired {
-		if current[key] != value {
-			return false
-		}
-	}
-
-	return true
 }
 
 // optionList creates an order-preserved unique list
@@ -515,27 +503,20 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return nil
 	}
 
-	_, idNum, err := podmanager.ParseProcessGroupID(processGroupStatus.ProcessGroupID)
+	correctPodSpec, err := internal.PodHasCorrectSpec(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, *pod)
 	if err != nil {
 		return err
 	}
 
-	specHash, err := internal.GetPodSpecHash(cluster, processGroupStatus.ProcessClass, idNum, nil)
-	if err != nil {
-		return err
-	}
-
-	incorrectPod := !metadataMatches(pod.ObjectMeta, internal.GetPodMetadata(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, specHash))
-	if !incorrectPod {
+	if correctPodSpec && !cluster.IsBeingUpgraded() {
 		updated, err := r.PodLifecycleManager.PodIsUpdated(ctx, r, cluster, pod)
 		if err != nil {
 			return err
 		}
-		incorrectPod = !updated
+		correctPodSpec = updated
 	}
 
-	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, incorrectPod, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
-
+	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectPodSpec, !correctPodSpec, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 	incorrectConfigMap := pod.ObjectMeta.Annotations[fdbv1beta2.LastConfigMapKey] != configMapHash
 	processGroupStatus.UpdateCondition(fdbv1beta2.IncorrectConfigMap, incorrectConfigMap, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)
 
@@ -544,6 +525,11 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	if err != nil {
 		return err
 	}
+	idNum, err := podmanager.ParseProcessGroupID(processGroupStatus.ProcessGroupID)
+	if err != nil {
+		return err
+	}
+
 	desiredPvc, err := internal.GetPvc(cluster, processGroupStatus.ProcessClass, idNum)
 	if err != nil {
 		return err
@@ -551,7 +537,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 
 	incorrectPVC := (len(pvcs.Items) == 1) != (desiredPvc != nil)
 	if !incorrectPVC && desiredPvc != nil {
-		incorrectPVC = !metadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
+		incorrectPVC = !internal.MetadataMatches(pvcs.Items[0].ObjectMeta, desiredPvc.ObjectMeta)
 	}
 
 	processGroupStatus.UpdateCondition(fdbv1beta2.MissingPVC, incorrectPVC, cluster.Status.ProcessGroups, processGroupStatus.ProcessGroupID)

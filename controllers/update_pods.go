@@ -84,7 +84,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration, delayedRequeue: true}
 		}
 
-		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &requeue{curError: err}
 		}

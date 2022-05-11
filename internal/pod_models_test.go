@@ -262,7 +262,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+				Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
@@ -387,13 +387,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a livenessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
 					Expect(sidecarContainer.LivenessProbe).NotTo(BeNil())
 				})
 
 				It("should not have a livenessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.Name).To(Equal(InitContainer))
 					Expect(sidecarContainer.LivenessProbe).To(BeNil())
 				})
 			})
@@ -408,13 +408,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should not have a readinessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 
 				It("should not have a readinessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.Name).To(Equal(InitContainer))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
@@ -429,13 +429,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a readinessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
 					Expect(sidecarContainer.ReadinessProbe).NotTo(BeNil())
 				})
 
 				It("should not have a readinessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(sidecarContainer.Name).To(Equal(InitContainer))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
@@ -465,7 +465,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should have the main foundationdb container", func() {
 					mainContainer := spec.Containers[0]
-					Expect(mainContainer.Name).To(Equal("foundationdb"))
+					Expect(mainContainer.Name).To(Equal(MainContainer))
 					Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
 					Expect(mainContainer.Command).To(BeNil())
 					Expect(mainContainer.Args).To(Equal([]string{
@@ -1667,10 +1667,10 @@ var _ = Describe("pod_models", func() {
 							Image: "test/foundationdb-kubernetes-sidecar:dummy",
 						}},
 						Containers: []corev1.Container{{
-							Name:  "foundationdb",
+							Name:  MainContainer,
 							Image: "test/foundationdb:dummy",
 						}, {
-							Name:  "foundationdb-kubernetes-sidecar",
+							Name:  SidecarContainer,
 							Image: "test/foundationdb-kubernetes-sidecar:dummy",
 						}},
 					},
@@ -3181,4 +3181,114 @@ var _ = Describe("pod_models", func() {
 			Expect(GetPodDNSName(cluster, "operator-test-storage-1")).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
 		})
 	})
+
+	DescribeTable("getting the sidecar image from the pod spec", func(spec *corev1.PodSpec, expected string) {
+		Expect(GetSidecarImageFromPodSpec(spec)).To(Equal(expected))
+	},
+		Entry("sidecar container exists",
+			&corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  MainContainer,
+						Image: "main",
+					},
+					{
+						Name:  SidecarContainer,
+						Image: "sidecar",
+					},
+				},
+			}, "sidecar"),
+		Entry("sidecar container is absent",
+			&corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  MainContainer,
+						Image: "main",
+					},
+				},
+			}, ""),
+	)
+
+	When("checking if the pod spec matches the expected spec", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var id string
+		var pod corev1.Pod
+
+		When("the cluster is upgraded", func() {
+			BeforeEach(func() {
+				cluster = CreateDefaultCluster()
+				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Status.RunningVersion = cluster.Spec.Version
+				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				id = "storage-1"
+			})
+
+			When("the sidecar matches", func() {
+				BeforeEach(func() {
+					pod = corev1.Pod{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  MainContainer,
+									Image: "main",
+								},
+								{
+									Name:  SidecarContainer,
+									Image: fmt.Sprintf("%s:%s-1", SidecarDefaultImage, cluster.Spec.Version),
+								},
+							},
+						},
+					}
+				})
+
+				It("should return that the spec matches", func() {
+					Expect(cluster.IsBeingUpgraded()).To(BeTrue())
+					correctSpec, err := PodHasCorrectSpec(cluster, fdbv1beta2.ProcessClassStorage, id, pod)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(correctSpec).To(BeTrue())
+				})
+			})
+
+			When("the sidecar doesn't matches", func() {
+				BeforeEach(func() {
+					pod = corev1.Pod{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  MainContainer,
+									Image: "main",
+								},
+								{
+									Name:  SidecarContainer,
+									Image: fmt.Sprintf("%s:%s-1", SidecarDefaultImage, cluster.Status.RunningVersion),
+								},
+							},
+						},
+					}
+				})
+
+				It("should return that the spec doesn't match", func() {
+					Expect(cluster.IsBeingUpgraded()).To(BeTrue())
+					correctSpec, err := PodHasCorrectSpec(cluster, fdbv1beta2.ProcessClassStorage, id, pod)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(correctSpec).To(BeFalse())
+				})
+			})
+
+		})
+	})
 })
+
+/*
+
+add tests:
+
+
+	specHash, err := GetPodSpecHash(cluster, class, idNum, nil)
+	if err != nil {
+		return false, err
+	}
+
+	return MetadataMatches(pod.ObjectMeta, GetPodMetadata(cluster, class, id, specHash)), nil
+*/

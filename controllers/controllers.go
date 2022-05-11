@@ -42,12 +42,6 @@ const (
 	podSchedulingDelayDuration = 15 * time.Second
 )
 
-// metadataMatches determines if the current metadata on an object matches the
-// metadata specified by the cluster spec.
-func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
-	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
-}
-
 // mergeLabels merges the the labels specified by the operator into
 // on object's metadata.
 //

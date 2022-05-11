@@ -26,8 +26,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -38,8 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
 // GetPublicIPsForPod returns the public IPs for a Pod
 func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
@@ -210,7 +208,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	image := ""
 	if settings.PodTemplate != nil {
 		for _, container := range settings.PodTemplate.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+			if container.Name == SidecarContainer && container.Image != "" {
 				image = container.Image
 			}
 		}
@@ -224,6 +222,20 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	}
 
 	return GetImage(image, imageConfigs, cluster.Spec.Version, false)
+}
+
+// GetSidecarImageFromPodSpec returns the sidecar image from a Pod or an empty string if no container with the sidecar name
+// was found.
+func GetSidecarImageFromPodSpec(spec *corev1.PodSpec) string {
+	for _, container := range spec.Containers {
+		if container.Name != SidecarContainer {
+			continue
+		}
+
+		return container.Image
+	}
+
+	return ""
 }
 
 // CreatePodMap creates a map with the process group ID as a key and the according Pod as a value
@@ -240,18 +252,16 @@ func CreatePodMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) m
 	return podProcessGroupMap
 }
 
-// ParseProcessGroupID extracts the components of an process group ID.
-func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
-	result := processGroupIDRegex.FindStringSubmatch(id)
-	if result == nil {
-		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
+// ParseProcessGroupID extracts the ID number from a process group ID.
+func ParseProcessGroupID(id string) (int, error) {
+	split := strings.Split(id, "-")
+
+	idNum, err := strconv.Atoi(split[len(split)-1])
+	if err != nil || len(split) <= 1 {
+		return -1, fmt.Errorf("could not parse process group ID %s", id)
 	}
-	prefix := result[1]
-	number, err := strconv.Atoi(result[2])
-	if err != nil {
-		return "", 0, err
-	}
-	return fdbv1beta2.ProcessClass(prefix), number, nil
+
+	return idNum, nil
 }
 
 // GetPublicIPSource determines how a Pod has gotten its public IP.
@@ -265,4 +275,48 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 		return fdbv1beta2.PublicIPSourcePod, nil
 	}
 	return fdbv1beta2.PublicIPSource(source), nil
+}
+
+// PodHasCorrectSpec returns if the pod spec of a pod matches the desired spec
+func PodHasCorrectSpec(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.ProcessClass, id string, pod corev1.Pod) (bool, error) {
+	idNum, err := ParseProcessGroupID(id)
+	if err != nil {
+		return false, err
+	}
+
+	if cluster.IsBeingUpgraded() {
+		// When a cluster is upgraded we only want to validate that the sidecar is matching to ensure the new binary is
+		// available.
+		desiredSpec, err := GetPodSpec(cluster, pClass, idNum)
+		if err != nil {
+			return false, err
+		}
+
+		return GetSidecarImageFromPodSpec(desiredSpec) == GetSidecarImageFromPodSpec(&pod.Spec), nil
+	}
+
+	specHash, err := GetPodSpecHash(cluster, pClass, idNum, nil)
+	if err != nil {
+		return false, err
+	}
+
+	return MetadataMatches(pod.ObjectMeta, GetPodMetadata(cluster, pClass, id, specHash)), nil
+}
+
+// MetadataMatches determines if the current metadata on an object matches the
+// metadata specified by the cluster spec.
+func MetadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {
+	return containsAll(currentMetadata.Labels, desiredMetadata.Labels) && containsAll(currentMetadata.Annotations, desiredMetadata.Annotations)
+}
+
+// containsAll determines if one map contains all the keys and matching values
+// from another map.
+func containsAll(current map[string]string, desired map[string]string) bool {
+	for key, value := range desired {
+		if current[key] != value {
+			return false
+		}
+	}
+
+	return true
 }

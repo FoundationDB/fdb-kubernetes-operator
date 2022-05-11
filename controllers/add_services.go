@@ -71,7 +71,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 				continue
 			}
 
-			_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+			idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 			if err != nil {
 				return &requeue{curError: err}
 			}

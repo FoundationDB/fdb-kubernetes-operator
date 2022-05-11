@@ -79,7 +79,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &requeue{curError: err}
 		}
