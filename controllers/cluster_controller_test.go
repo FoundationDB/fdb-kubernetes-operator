@@ -3051,7 +3051,6 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a version that can use binaries from the main container", func() {
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.Default.String()
-				cluster.Status.RunningVersion = fdbv1beta2.Versions.Default.String()
 				conf, err = internal.GetMonitorConf(cluster, fdbv1beta2.ProcessClassStorage, nil, cluster.GetStorageServersPerPod())
 				Expect(err).NotTo(HaveOccurred())
 

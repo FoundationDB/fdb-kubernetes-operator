@@ -43,7 +43,6 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	if cluster.IsBeingUpgraded() {
 		return nil
 	}
-
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updatePods")
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)

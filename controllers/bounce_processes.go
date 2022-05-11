@@ -110,8 +110,6 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{message: "Waiting for config map to sync to all pods"}
 	}
 
-	upgrading := cluster.IsBeingUpgraded()
-
 	if len(addresses) > 0 {
 		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
@@ -154,6 +152,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			return &requeue{curError: err}
 		}
 
+		upgrading := cluster.IsBeingUpgraded()
 		if useLocks && upgrading {
 			processGroupIDs := make([]string, 0, len(cluster.Status.ProcessGroups))
 			for _, processGroup := range cluster.Status.ProcessGroups {
@@ -187,13 +186,13 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		if err != nil {
 			return &requeue{curError: err}
 		}
-	}
 
-	if upgrading {
-		cluster.Status.RunningVersion = cluster.Spec.Version
-		err = r.Status().Update(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
+		if upgrading {
+			cluster.Status.RunningVersion = cluster.Spec.Version
+			err = r.Status().Update(ctx, cluster)
+			if err != nil {
+				return &requeue{curError: err}
+			}
 		}
 	}
 
