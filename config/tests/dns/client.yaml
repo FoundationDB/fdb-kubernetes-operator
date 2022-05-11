@@ -17,7 +17,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: foundationdb-kubernetes-init-7-1
-          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.0-rc2-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.5-renxuan-dev-1-debug
           imagePullPolicy: IfNotPresent
           args:
             - "--copy-file"

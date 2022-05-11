@@ -64,7 +64,7 @@ spec:
             - name: fdb-binaries
               mountPath: /var/output-files
         - name: foundationdb-kubernetes-init-7-1
-          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.2-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.5-renxuan-dev-1-debug
           args:
             - "--copy-library"
             - "7.1"
