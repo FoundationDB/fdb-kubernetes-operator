@@ -262,7 +262,7 @@ var _ = Describe("pod_models", func() {
 
 			It("should have the sidecar container", func() {
 				sidecarContainer := spec.Containers[1]
-				Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
+				Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainer))
 				Expect(sidecarContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-1", cluster.Spec.Version)))
 				Expect(sidecarContainer.Args).To(Equal([]string{
 					"--copy-file",
@@ -387,13 +387,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a livenessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainer))
 					Expect(sidecarContainer.LivenessProbe).NotTo(BeNil())
 				})
 
 				It("should not have a livenessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal(InitContainer))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.InitContainer))
 					Expect(sidecarContainer.LivenessProbe).To(BeNil())
 				})
 			})
@@ -408,13 +408,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should not have a readinessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainer))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 
 				It("should not have a readinessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal(InitContainer))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.InitContainer))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
@@ -429,13 +429,13 @@ var _ = Describe("pod_models", func() {
 
 				It("should have a readinessProbe for the sidecar", func() {
 					sidecarContainer := spec.Containers[1]
-					Expect(sidecarContainer.Name).To(Equal(SidecarContainer))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.SidecarContainer))
 					Expect(sidecarContainer.ReadinessProbe).NotTo(BeNil())
 				})
 
 				It("should not have a readinessProbe for the init container", func() {
 					sidecarContainer := spec.InitContainers[0]
-					Expect(sidecarContainer.Name).To(Equal(InitContainer))
+					Expect(sidecarContainer.Name).To(Equal(fdbv1beta2.InitContainer))
 					Expect(sidecarContainer.ReadinessProbe).To(BeNil())
 				})
 			})
@@ -465,7 +465,7 @@ var _ = Describe("pod_models", func() {
 
 				It("should have the main foundationdb container", func() {
 					mainContainer := spec.Containers[0]
-					Expect(mainContainer.Name).To(Equal(MainContainer))
+					Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainer))
 					Expect(mainContainer.Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", cluster.Spec.Version)))
 					Expect(mainContainer.Command).To(BeNil())
 					Expect(mainContainer.Args).To(Equal([]string{
@@ -1667,10 +1667,10 @@ var _ = Describe("pod_models", func() {
 							Image: "test/foundationdb-kubernetes-sidecar:dummy",
 						}},
 						Containers: []corev1.Container{{
-							Name:  MainContainer,
+							Name:  fdbv1beta2.MainContainer,
 							Image: "test/foundationdb:dummy",
 						}, {
-							Name:  SidecarContainer,
+							Name:  fdbv1beta2.SidecarContainer,
 							Image: "test/foundationdb-kubernetes-sidecar:dummy",
 						}},
 					},
@@ -3189,11 +3189,11 @@ var _ = Describe("pod_models", func() {
 			&corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  MainContainer,
+						Name:  fdbv1beta2.MainContainer,
 						Image: "main",
 					},
 					{
-						Name:  SidecarContainer,
+						Name:  fdbv1beta2.SidecarContainer,
 						Image: "sidecar",
 					},
 				},
@@ -3202,7 +3202,7 @@ var _ = Describe("pod_models", func() {
 			&corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  MainContainer,
+						Name:  fdbv1beta2.MainContainer,
 						Image: "main",
 					},
 				},
@@ -3230,12 +3230,12 @@ var _ = Describe("pod_models", func() {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name:  MainContainer,
+									Name:  fdbv1beta2.MainContainer,
 									Image: "main",
 								},
 								{
-									Name:  SidecarContainer,
-									Image: fmt.Sprintf("%s:%s-1", SidecarDefaultImage, cluster.Spec.Version),
+									Name:  fdbv1beta2.SidecarContainer,
+									Image: fmt.Sprintf("%s:%s-1", fdbv1beta2.SidecarDefaultImage, cluster.Spec.Version),
 								},
 							},
 						},
@@ -3256,12 +3256,12 @@ var _ = Describe("pod_models", func() {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name:  MainContainer,
+									Name:  fdbv1beta2.MainContainer,
 									Image: "main",
 								},
 								{
-									Name:  SidecarContainer,
-									Image: fmt.Sprintf("%s:%s-1", SidecarDefaultImage, cluster.Status.RunningVersion),
+									Name:  fdbv1beta2.SidecarContainer,
+									Image: fmt.Sprintf("%s:%s-1", fdbv1beta2.SidecarDefaultImage, cluster.Status.RunningVersion),
 								},
 							},
 						},
@@ -3279,16 +3279,3 @@ var _ = Describe("pod_models", func() {
 		})
 	})
 })
-
-/*
-
-add tests:
-
-
-	specHash, err := GetPodSpecHash(cluster, class, idNum, nil)
-	if err != nil {
-		return false, err
-	}
-
-	return MetadataMatches(pod.ObjectMeta, GetPodMetadata(cluster, class, id, specHash)), nil
-*/

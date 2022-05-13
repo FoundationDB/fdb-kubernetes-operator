@@ -34,8 +34,14 @@ import (
 var processIDRegex = regexp.MustCompile(`^([\w-]+-\d)-\d$`)
 
 // ParseProcessGroupID extracts the components of a process group ID.
-func ParseProcessGroupID(id string) (int, error) {
+// Deprecated: This method is deprecated and shouldn't be used. The signature is misleading and the return values should be (string, int ,error).
+func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
 	return internal.ParseProcessGroupID(id)
+}
+
+// GetProcessGroupIDNumber extracts the process group ID number from the process group ID string.
+func GetProcessGroupIDNumber(id string) (int, error) {
+	return internal.GetProcessGroupIDNumber(id)
 }
 
 // GetProcessGroupIDFromProcessID returns the process group ID for the process ID

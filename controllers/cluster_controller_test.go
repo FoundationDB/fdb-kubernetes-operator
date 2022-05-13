@@ -1298,7 +1298,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
+					id, err := podmanager.GetProcessGroupIDNumber(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1437,7 +1437,7 @@ var _ = Describe("cluster_controller", func() {
 					err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 					Expect(err).NotTo(HaveOccurred())
 					for _, item := range pods.Items {
-						id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
+						id, err := podmanager.GetProcessGroupIDNumber(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 						Expect(err).NotTo(HaveOccurred())
 
 						hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)
@@ -1545,7 +1545,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, item := range pods.Items {
-					id, err := podmanager.ParseProcessGroupID(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
+					id, err := podmanager.GetProcessGroupIDNumber(item.Labels[fdbv1beta2.FDBProcessGroupIDLabel])
 					Expect(err).NotTo(HaveOccurred())
 
 					hash, err := internal.GetPodSpecHash(cluster, internal.ProcessClassFromLabels(cluster, item.Labels), id, nil)

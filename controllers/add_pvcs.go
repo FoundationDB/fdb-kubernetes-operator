@@ -44,7 +44,7 @@ func (a addPVCs) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			continue
 		}
 
-		idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
+		idNum, err := podmanager.GetProcessGroupIDNumber(processGroup.ProcessGroupID)
 		if err != nil {
 			return &requeue{curError: err}
 		}

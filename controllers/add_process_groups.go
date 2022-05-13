@@ -48,7 +48,7 @@ func (a addProcessGroups) reconcile(ctx context.Context, r *FoundationDBClusterR
 	processGroupIDs := make(map[fdbv1beta2.ProcessClass]map[int]bool)
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		processGroupID := processGroup.ProcessGroupID
-		num, err := podmanager.ParseProcessGroupID(processGroupID)
+		num, err := podmanager.GetProcessGroupIDNumber(processGroupID)
 		if err != nil {
 			return &requeue{curError: err}
 		}

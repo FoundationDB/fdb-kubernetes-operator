@@ -106,7 +106,7 @@ func processGroupNeedsRemovalForPVC(cluster *fdbv1beta2.FoundationDBCluster, pvc
 		return false, nil
 	}
 
-	idNum, err := internal.ParseProcessGroupID(processGroupID)
+	idNum, err := internal.GetProcessGroupIDNumber(processGroupID)
 	if err != nil {
 		return false, err
 	}
@@ -151,7 +151,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		return false, nil
 	}
 
-	idNum, err := internal.ParseProcessGroupID(processGroupID)
+	idNum, err := internal.GetProcessGroupIDNumber(processGroupID)
 	if err != nil {
 		return false, err
 	}

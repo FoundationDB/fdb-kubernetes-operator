@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -38,6 +39,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var processGroupIDRegex = regexp.MustCompile(`^([\w-]+)-(\d+)`)
 
 // GetPublicIPsForPod returns the public IPs for a Pod
 func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
@@ -208,7 +211,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	image := ""
 	if settings.PodTemplate != nil {
 		for _, container := range settings.PodTemplate.Spec.Containers {
-			if container.Name == SidecarContainer && container.Image != "" {
+			if container.Name == fdbv1beta2.SidecarContainer && container.Image != "" {
 				image = container.Image
 			}
 		}
@@ -228,7 +231,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 // was found.
 func GetSidecarImageFromPodSpec(spec *corev1.PodSpec) string {
 	for _, container := range spec.Containers {
-		if container.Name != SidecarContainer {
+		if container.Name != fdbv1beta2.SidecarContainer {
 			continue
 		}
 
@@ -252,8 +255,24 @@ func CreatePodMap(cluster *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod) m
 	return podProcessGroupMap
 }
 
-// ParseProcessGroupID extracts the ID number from a process group ID.
-func ParseProcessGroupID(id string) (int, error) {
+// ParseProcessGroupID extracts the components of a process group ID.
+// Deprecated: This method is deprecated and shouldn't be used. The signature is misleading and the return values should be (string, int ,error).
+func ParseProcessGroupID(id string) (fdbv1beta2.ProcessClass, int, error) {
+	result := processGroupIDRegex.FindStringSubmatch(id)
+	if result == nil {
+		return "", 0, fmt.Errorf("could not parse process group ID %s", id)
+	}
+	prefix := result[1]
+	number, err := strconv.Atoi(result[2])
+	if err != nil {
+		return "", 0, err
+	}
+
+	return fdbv1beta2.ProcessClass(prefix), number, nil
+}
+
+// GetProcessGroupIDNumber extracts the ID number from a process group ID.
+func GetProcessGroupIDNumber(id string) (int, error) {
 	split := strings.Split(id, "-")
 
 	idNum, err := strconv.Atoi(split[len(split)-1])
@@ -279,7 +298,7 @@ func GetPublicIPSource(pod *corev1.Pod) (fdbv1beta2.PublicIPSource, error) {
 
 // PodHasCorrectSpec returns if the pod spec of a pod matches the desired spec
 func PodHasCorrectSpec(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.ProcessClass, id string, pod corev1.Pod) (bool, error) {
-	idNum, err := ParseProcessGroupID(id)
+	_, idNum, err := ParseProcessGroupID(id)
 	if err != nil {
 		return false, err
 	}
