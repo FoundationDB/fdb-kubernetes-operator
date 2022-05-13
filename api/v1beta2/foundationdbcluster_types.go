@@ -565,11 +565,11 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 // groups with that condition will be returned. If a condition is mapped to
 // false in the conditionRules map, only process groups without that condition
 // will be returned.
-func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
+func FilterByConditions(processGroups []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
 	result := make([]string, 0)
 
-	for _, groupStatus := range processGroupStatus {
-		if ignoreRemoved && groupStatus.IsMarkedForRemoval() {
+	for _, processGroup := range processGroups {
+		if ignoreRemoved && processGroup.IsMarkedForRemoval() {
 			continue
 		}
 
@@ -577,13 +577,13 @@ func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules
 		for conditionRule := range conditionRules {
 			matchingConditions[conditionRule] = false
 		}
-		for _, condition := range groupStatus.ProcessGroupConditions {
+		for _, condition := range processGroup.ProcessGroupConditions {
 			if _, hasRule := conditionRules[condition.ProcessGroupConditionType]; hasRule {
 				matchingConditions[condition.ProcessGroupConditionType] = true
 			}
 		}
 		if reflect.DeepEqual(matchingConditions, conditionRules) {
-			result = append(result, groupStatus.ProcessGroupID)
+			result = append(result, processGroup.ProcessGroupID)
 		}
 	}
 

@@ -48,7 +48,7 @@ In our operator, we add an additional abstraction to help structure the reconcil
 ## Locking Operations
 
 This document will note which operations require a lock in order to complete.
-This means that the operation needs to ensure that it is the only instance of the operator acting on the cluster, to prevent conflicts in multi-DC clusters.
+This means that the operator needs to ensure that it is the only instance of the operator acting on the cluster, to prevent conflicts in multi-DC clusters.
 For more using and configuring on the locking system, see the section on [Coordinating Global Operations](fault_domains.md#coordinating-global-operations).
 
 The locking system works by setting a key in the database to indicate which instance of the operator can perform global operations. This key is `\xff\x02/org.foundationdb.kubernetes-operator/global`. This key will be set to a value of `tuple.Tuple{lockID,start,end}`. `lockID` is the `processGroupIDPrefix` from the cluster spec. `start` is a 64-bit integer representing a Unix timestamp with precision to the second, giving the time when this instance of the operator took the lock. `end` is a similar timestamp representing the time when the lock will automatically expire. The default lock duration is 10 minutes. If the operator tries to acquire a lock and sees that it already has the lock, it will extend it for another 10 minutes past the current time. If it sees that another instance of the operator has a lock, and the current time is past the end of the lock, it will clear the old lock and take a new lock for itself. If it sees that another instance of the operator has a lock, and the current time is before the end of the lock, it will requeue reconciliation until it can acquire the lock.
@@ -93,7 +93,7 @@ The cluster reconciler runs the following subreconcilers:
 1. UpdateConfigMap
 1. CheckClientCompatibility
 1. ReplaceMisconfiguredProcessGroups
-1. ReplaceFailedPods
+1. ReplaceFailedProcessGroups
 1. DeletePodsForBuggification
 1. AddProcessGroups
 1. AddServices
@@ -115,9 +115,9 @@ The cluster reconciler runs the following subreconcilers:
 
 ### Tracking Reconciliation Stages
 
-We track the progress of reconciliation through a `GenerationStatus` object, in the `status.generationStatus` field in the cluster object. The generation status has fields within it that indicate how far reconciliation has gotten, with an integer for each field indicating the generation that was seen for that reconciliation. The most important field to track here is the `reconciled` field, which is set when we consider reconciliation _mostly_ complete. If you want to track a rollout, you can check for whether the generation number in `status.generationStatus.reconciled` is equal to the generation number in `metadata.generation`.
+We track the progress of reconciliation through a `Generations` object, in the `status.generations` field in the cluster object. The generation status has fields within it that indicate how far reconciliation has gotten, with an integer for each field indicating the generation that was seen for that reconciliation. The most important field to track here is the `reconciled` field, which is set when we consider reconciliation _mostly_ complete. If you want to track a rollout, you can check for whether the generation number in `status.generations.reconciled` is equal to the generation number in `metadata.generation`.
 
-There are some cases where we set the `reconciled` field to the current generation even though we are requeuing reconciliation and continuing to due more work. These cases are listed below:
+There are some cases where we set the `reconciled` field to the current generation even though we are requeuing reconciliation and continuing to do more work. These cases are listed below:
 
 1. Pods are in terminating. If we have fully excluded processes and have started the termination of the pods, we set both `reconciled` and `hasPendingRemoval` to the current generation. Termination cannot complete until the kubelet confirms the processes has been shut down, which can take an arbitrary long period of time if the kubelet is in a broken state. The processes will remain excluded until the termination completes, at which point the operator will include the processes again and the `hasPendingRemoval` field will be cleared. In general it should be fine for the cluster to stay in this state indefinitely, and you can continue to make other changes to the cluster. However, you may encounter issues with the stuck pods taking up resource quota until they are fully terminated.
 
@@ -141,13 +141,13 @@ You can skip this check by setting the `ignoreUpgradabilityChecks` flag in the c
 
 ### ReplaceMisconfiguredProcessGroups
 
-The `ReplaceMisconfiguredProcessGroups` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
+The `ReplaceMisconfiguredProcessGroups` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
 
 See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
 
-### ReplaceFailedPods
+### ReplaceFailedProcessGroups
 
-The `ReplaceFailedPods` subreconciler checks for process groups that need to be replaced because they are in an unhealthy state. This only takes action when automatic replacements are enabled. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
+The `ReplaceFailedProcessGroups` subreconciler checks for process groups that need to be replaced because they are in an unhealthy state. This only takes action when automatic replacements are enabled. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
 
 See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
 
@@ -198,7 +198,7 @@ If these things are not true, then the operator will requeue reconciliation. Thi
 
 ### UpdateLabels
 
-The `UpdateLabels` subreconciler updates the labels and annotations for the resources created by the operator based on the process settings, as well as setting core labels and annotations that the operator uses for its own purposes. Any labels or annotations that do not have values specified in the spec will be left unmodified. This means that if you set define a label in the cluster spec, and then remove that label from the spec, you will have to manually remove it from any existing resources in order for the label to completely go away.
+The `UpdateLabels` subreconciler updates the labels and annotations for the resources created by the operator based on the process settings, as well as setting core labels and annotations that the operator uses for its own purposes. Any labels or annotations that do not have values specified in the spec will be left unmodified. This means that if you define a label in the cluster spec, and then remove that label from the spec, you will have to manually remove it from any existing resources in order for the label to completely go away.
 
 ### UpdateDatabaseConfiguration
 
@@ -212,7 +212,7 @@ This action requires a lock.
 
 ### ChooseRemovals
 
-The `ChooseRemovals` subreconciler flags processes for removal when the current process count is more than the desired process count. The processes that are removed will be chosen so that the remaining process are spread across as many fault domains as possible. The core action this subreconciler takes is setting the `remove` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the removal.
+The `ChooseRemovals` subreconciler flags processes for removal when the current process count is more than the desired process count. The processes that are removed will be chosen so that the remaining process are spread across as many fault domains as possible. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the removal.
 
 ### ExcludeProcesses
 
@@ -226,7 +226,7 @@ This action requires a lock.
 
 The `ChangeCoordinators` subreconciler ensures that the cluster has a healthy set of coordinators that fulfill the fault tolerance requirements for the cluster. If any coordinators have failed, or if the database configuration requires more coordinators or better-distributed coordinators, the operator will choose new coordinators and run a `coordinators` command to tell the database to use the new set. It will then read the new connection string and update it in the cluster status.
 
-This will recruit coordinators based on the process list in the database status to ensure that the coordinators it recruits are properly connecting to the database. This will prefer to recruit coordinators only from `storage` processes. If it cannot fulfill the fault tolerance requirements using storage requirements, it will expand the candidate list to include `log` processes, and then to include `transaction` processes if necessary. It will ensure that the coordinators are distributed across failure domains as evenly as possible. It will also require that ever coordinator has a different `zoneid` locality. For multi-DC clusters, it will require that we do not have a majority of coordinators using the same value for the `dcid` locality.
+This will recruit coordinators based on the process list in the database status to ensure that the coordinators it recruits are properly connecting to the database. This will prefer to recruit coordinators only from `storage` processes. If it cannot fulfill the fault tolerance requirements using storage requirements, it will expand the candidate list to include `log` processes, and then to include `transaction` processes if necessary. It will ensure that the coordinators are distributed across failure domains as evenly as possible. It will also require that every coordinator has a different `zoneid` locality. For multi-DC clusters, it will require that we do not have a majority of coordinators using the same value for the `dcid` locality.
 
 For single-DC clusters, the number of coordinators will be `2R-1`, where `R` is the replication factor. For multi-DC clusters, we will always use 9 coordinators.
 
@@ -306,21 +306,21 @@ The `UpdateBackupAgents` subreconciler is responsible for creating and updating 
 
 ### StartBackup
 
-The `StartBackup` subreconciler is responsible for starting a backup. If a backup is supposed to be running, but the database status reports no ongoing backup, this will run an `start` command in `fdbbackup`.
+The `StartBackup` subreconciler is responsible for starting a backup. If a backup is supposed to be running, but the database status reports no ongoing backup, this will run the `start` command in `fdbbackup`.
 
 ### StopBackup
 
-The `StopBackup` subreconciler is responsible for stopping a backup. If a backup is not supposed to be running, but the database status reports an ongoing backup, this will run a `stop` command in `fdbbackup`.
+The `StopBackup` subreconciler is responsible for stopping a backup. If a backup is not supposed to be running, but the database status reports an ongoing backup, this will run the `stop` command in `fdbbackup`.
 
 ### ToggleBackupPaused
 
-The `ToggleBackupPaused` subreconciler is responsible for pausing and unpausing a backup. Pausing a backup means that the backup will be be configured in the cluster, but the backup agents will not do any work. If the desired state of the backup is `Paused`, and the backup is not paused, this will run a `pause` command in `fdbbackup`.  If the desired state of the backup is `Running`, and the backup is paused, this will run a `resume` command in `fdbbackup`.
+The `ToggleBackupPaused` subreconciler is responsible for pausing and unpausing a backup. Pausing a backup means that the backup will be configured in the cluster, but the backup agents will not do any work. If the desired state of the backup is `Paused`, and the backup is not paused, this will run the `pause` command in `fdbbackup`.  If the desired state of the backup is `Running`, and the backup is paused, this will run the `resume` command in `fdbbackup`.
 
 ### ModifyBackup
 
-The `ModifyBackup` command ensures that any properties that can be configured on a live backup are configured to the values in the backup spec. This will run a `modify` command in `fdbbackup` to set the properties from the spec.
+The `ModifyBackup` command ensures that any properties that can be configured on a live backup are configured to the values in the backup spec. This will run the `modify` command in `fdbbackup` to set the properties from the spec.
 
-Currently this only supports the `snapshotPeriodSeconds` property.
+Currently, this only supports the `snapshotPeriodSeconds` property.
 
 ### UpdateBackupStatus (again)
 
@@ -334,15 +334,15 @@ The restore reconciler runs the following subreconcilers:
 
 ### StartRestore
 
-The `StartRestore` subreconciler starts a restore. If there is no active restore, this will run a `start` command in `fdbrestore`.
+The `StartRestore` subreconciler starts a restore. If there is no active restore, this will run the `start` command in `fdbrestore`.
 
 ## Interaction Between the Operator and the Pods
 
-The operator communicates with processes running inside of the FoundationDB pods at multiple stages in the reconciliation flow. The exact flow will depend on whether you are using split images (which is the current default) or unified images.
+The operator communicates with processes running inside the FoundationDB pods at multiple stages in the reconciliation flow. The exact flow will depend on whether you are using split images (which is the current default) or unified images.
 
 ### Split Image
 
-When using split images, the `foundationdb` container runs an `fdbmonitor` process, which is responsible for starting `fdbserver` processes. `fdbmonitor` receives its configuration in the form of a monitor conf file, which contains the start command and arguments for the fdbserver process. This configuration can vary based on dynamic information like the node where the pod is running, so the operator provides a templated configuration file, which contains placeholders that are filled in based on the environment variables. That templating process is handled by the sidecar process in the `foundationdb-kubernetes-sidecar` container. The sidecar also provides an HTTP API for getting information about the state of the configuration in the pod. The sidecar mounts the config map containing dynamic conf as its input directory, and shares an `emptyDir` volume with the `foundationdb` container where it can put its output.
+When using split images, the `foundationdb` container runs a `fdbmonitor` process, which is responsible for starting the `fdbserver` processes. `fdbmonitor` receives its configuration in the form of a monitor conf file, which contains the start command and arguments for the fdbserver process. This configuration can vary based on dynamic information like the node where the pod is running, so the operator provides a templated configuration file, which contains placeholders that are filled in based on the environment variables. That templating process is handled by the sidecar process in the `foundationdb-kubernetes-sidecar` container. The sidecar also provides an HTTP API for getting information about the state of the configuration in the pod. The sidecar mounts the config map containing dynamic conf as its input directory, and shares an `emptyDir` volume with the `foundationdb` container where it can put its output.
 
 The flow for updating the fdbserver processes has the following steps:
 
@@ -351,9 +351,9 @@ The flow for updating the fdbserver processes has the following steps:
 3. The operator sees that the config is out of date, and sets an annotation on the pod to indicate that it needs an update.
 4. Kubernetes fetches the contents of the config map from the API server and updates the template in the sidecar container.
 5. The operator tells the sidecar to regenerate the monitor conf based on the new template. The sidecar places the generated monitor conf in its output directory.
-6. The operator checks the latest output monitor conf to see if it is now correct.
+6. The operator checks the latest output monitor conf to see if it is correct.
 7. Once the monitor conf is correct, the operator uses the CLI to shut down the fdbserver processes.
-8. fdbmonitor sees that that processes have exited and starts new processes with the latest configuration.
+8. fdbmonitor sees that the processes have exited and starts new processes with the latest configuration.
 
 The operator follows a similar process when the `fdb.cluster` file needs to be updated. However, because this file is not templated, the sidecar simply copies the file from the input directory to the output directory. Cluster file updates do not require restarting processes.
 
