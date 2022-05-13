@@ -210,7 +210,7 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				CommandLine:   command,
 				Excluded:      excluded,
 				Locality:      locality,
-				Version:       client.Cluster.Status.RunningVersion,
+				Version:       client.Cluster.GetRunningVersion(),
 				UptimeSeconds: 60000,
 				Roles:         fdbRoles,
 			}
@@ -231,7 +231,7 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				Address:       fullAddress,
 				ProcessClass:  processGroup.ProcessClass,
 				Locality:      locality,
-				Version:       client.Cluster.Status.RunningVersion,
+				Version:       client.Cluster.GetRunningVersion(),
 				UptimeSeconds: 60000,
 			}
 

@@ -227,7 +227,7 @@ var _ = Describe("Change coordinators", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// generate status for 2 dcs and 1 sate
-				status.Cluster.Processes = generateProcessInfo(dcCnt, satCnt, excludes)
+				status.Cluster.Processes = generateProcessInfo(cluster, dcCnt, satCnt, excludes)
 
 				candidates, err = selectCoordinators(cluster, status)
 				if shouldFail {
@@ -775,27 +775,29 @@ var _ = Describe("Change coordinators", func() {
 	})
 })
 
-func generateProcessInfo(dcCount int, satCount int, excludes []string) map[string]fdbv1beta2.FoundationDBStatusProcessInfo {
+func generateProcessInfo(cluster *fdbv1beta2.FoundationDBCluster, dcCount int, satCount int, excludes []string) map[string]fdbv1beta2.FoundationDBStatusProcessInfo {
 	res := map[string]fdbv1beta2.FoundationDBStatusProcessInfo{}
 	logCnt := 4
+
+	runningVersion := cluster.GetRunningVersion()
 
 	for i := 0; i < dcCount; i++ {
 		dcid := fmt.Sprintf("dc%d", i)
 
-		generateProcessInfoDetails(res, dcid, 8, excludes, fdbv1beta2.ProcessClassStorage)
-		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbv1beta2.ProcessClassLog)
+		generateProcessInfoDetails(res, dcid, 8, excludes, fdbv1beta2.ProcessClassStorage, runningVersion)
+		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbv1beta2.ProcessClassLog, runningVersion)
 	}
 
 	for i := 0; i < satCount; i++ {
 		dcid := fmt.Sprintf("sat%d", i)
 
-		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbv1beta2.ProcessClassLog)
+		generateProcessInfoDetails(res, dcid, logCnt, excludes, fdbv1beta2.ProcessClassLog, runningVersion)
 	}
 
 	return res
 }
 
-func generateProcessInfoDetails(res map[string]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass) {
+func generateProcessInfoDetails(res map[string]fdbv1beta2.FoundationDBStatusProcessInfo, dcID string, cnt int, excludes []string, pClass fdbv1beta2.ProcessClass, runningVersion string) {
 	for idx := 0; idx < cnt; idx++ {
 		excluded := false
 		zoneID := fmt.Sprintf("%s-%s-%d", dcID, pClass, idx)
@@ -823,6 +825,7 @@ func generateProcessInfoDetails(res map[string]fdbv1beta2.FoundationDBStatusProc
 				Port:      4501,
 			},
 			CommandLine: fmt.Sprintf("/fdbserver --public_address=%s", addr),
+			Version:     runningVersion,
 		}
 	}
 }

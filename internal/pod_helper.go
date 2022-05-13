@@ -303,18 +303,18 @@ func PodHasCorrectSpec(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta
 		return false, err
 	}
 
-	if cluster.IsBeingUpgraded() {
-		// When a cluster is upgraded we only want to validate that the sidecar is matching to ensure the new binary is
-		// available.
-		desiredSpec, err := GetPodSpec(cluster, pClass, idNum)
-		if err != nil {
-			return false, err
-		}
+	// When a cluster is upgraded we only want to validate that the sidecar is matching to ensure the new binary is
+	// available.
+	desiredSpec, err := GetPodSpec(cluster, pClass, idNum)
+	if err != nil {
+		return false, err
+	}
 
+	if cluster.IsBeingUpgraded() {
 		return GetSidecarImageFromPodSpec(desiredSpec) == GetSidecarImageFromPodSpec(&pod.Spec), nil
 	}
 
-	specHash, err := GetPodSpecHash(cluster, pClass, idNum, nil)
+	specHash, err := GetPodSpecHash(cluster, pClass, idNum, desiredSpec)
 	if err != nil {
 		return false, err
 	}

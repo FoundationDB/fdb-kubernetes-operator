@@ -604,8 +604,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 	curLog := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 
 	allAddressesValid := true
-	allEligible := true
-	allUsingCorrectAddress := true
+	allValid := true
 
 	coordinatorZones := make(map[string]int, len(coordinatorStatus))
 	coordinatorDCs := make(map[string]int, len(coordinatorStatus))
@@ -614,6 +613,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 		processGroups[processGroup.ProcessGroupID] = processGroup
 	}
 
+	runningVersion := cluster.GetRunningVersion()
 	for _, process := range status.Cluster.Processes {
 		pLogger := curLog.WithValues("process", process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
 		if process.Address.IsEmpty() {
@@ -683,19 +683,26 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 			coordinatorStatus[coordinatorAddress] = true
 		}
 
+		// Ensure that the coordinator is running in the required version otherwise we have a coordinator that
+		// might not be able to talk to other coordinators.
+		if process.Version != runningVersion {
+			pLogger.Info("Coordinator has wrong version to be eligible", "version", process.Version, "expectedVersion", runningVersion, "address", coordinatorAddress)
+			allValid = false
+		}
+
 		if coordinatorAddress != "" {
 			coordinatorZones[process.Locality[fdbv1beta2.FDBLocalityZoneIDKey]]++
 			coordinatorDCs[process.Locality[fdbv1beta2.FDBLocalityDCIDKey]]++
 
 			if !cluster.IsEligibleAsCandidate(process.ProcessClass) {
 				pLogger.Info("Process class of process is not eligible as coordinator", "class", process.ProcessClass, "address", coordinatorAddress)
-				allEligible = false
+				allValid = false
 			}
 
 			useDNS := cluster.UseDNSInClusterFile() && dnsName != ""
 			if (isCoordinatorWithIP && useDNS) || (isCoordinatorWithDNS && !useDNS) {
 				pLogger.Info("Coordinator is not using the correct address type", "coordinatorList", coordinatorStatus, "address", coordinatorAddress, "expectingDNS", useDNS, "usingDNS", isCoordinatorWithDNS)
-				allUsingCorrectAddress = false
+				allValid = false
 			}
 		}
 
@@ -724,16 +731,15 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 		}
 	}
 
-	allHealthy := true
 	for address, healthy := range coordinatorStatus {
-		allHealthy = allHealthy && healthy
+		allValid = allValid && healthy
 
 		if !healthy {
 			curLog.Info("Cluster has an unhealthy coordinator", "address", address)
 		}
 	}
 
-	return hasEnoughDCs && hasEnoughZones && allHealthy && allUsingCorrectAddress && allEligible, allAddressesValid, nil
+	return hasEnoughDCs && hasEnoughZones && allValid, allAddressesValid, nil
 }
 
 // newFdbPodClient builds a client for working with an FDB Pod

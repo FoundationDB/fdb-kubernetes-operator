@@ -98,7 +98,12 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 
 	coordinators, err := selectCoordinators(cluster, status)
 	if err != nil {
-		return &requeue{curError: err}
+		// If the cluster is in an upgrade state we want to delay the requeue to allow the operator to move forward with
+		// upgrading the rest of the processes even if we are might not being able to select all required coordinators.
+		// One case could be where we are not able to select enough coordinators based on the locality constraints e.g.
+		// we are running in 5 localities, and we need to have 5 coordinators and one locality is already upgraded.
+		// Another example would be an HA cluster where on dc is upgraded before the other dcs are upgraded.
+		return &requeue{curError: err, delayedRequeue: cluster.IsBeingUpgraded()}
 	}
 
 	coordinatorAddresses := make([]fdbv1beta2.ProcessAddress, len(coordinators))
@@ -120,9 +125,10 @@ func (c changeCoordinators) reconcile(ctx context.Context, r *FoundationDBCluste
 	return nil
 }
 
-// selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching process groups.
+// selectCandidates is a helper for Reconcile that picks non-excluded, not-being-removed class-matching and version-matching process groups.
 func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus) ([]localityInfo, error) {
 	candidates := make([]localityInfo, 0, len(status.Cluster.Processes))
+	desiredVersion := cluster.GetRunningVersion()
 	for _, process := range status.Cluster.Processes {
 		if process.Excluded {
 			continue
@@ -133,6 +139,14 @@ func selectCandidates(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta
 		}
 
 		if cluster.ProcessGroupIsBeingRemoved(process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]) {
+			continue
+		}
+
+		// We expect that the version matches to only select candidates that run the same version as the cluster is running.
+		// This is important when we are doing a version upgrade and some processes are upgraded before others. We want to
+		// make sure that we select processes that are able to communicate with the rest of the processes e.g. during major and minor
+		// version upgrades.
+		if process.Version != desiredVersion {
 			continue
 		}
 

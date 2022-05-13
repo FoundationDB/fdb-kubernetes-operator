@@ -503,6 +503,12 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 		return nil
 	}
 
+	// During an upgrade we only validate if the sidecar image of the Pod was updated to the new sidecar.
+	// We will ignore any further changes made to the Pod Spec that the same time.
+	// The reason behind this is that once we change the version in the cluster spec the GetPodSpec method will return the spec with the new image.
+	// This would lead to a case were the operator can't update the Pods, since we are waiting for the version upgrade, and the restart of cluster
+	// would be blocked by all process groups not having the "correct" Pod spec.
+	// This implies that we can't run Pod spec updates until the upgrade is done.
 	correctPodSpec, err := internal.PodHasCorrectSpec(cluster, processGroupStatus.ProcessClass, processGroupStatus.ProcessGroupID, *pod)
 	if err != nil {
 		return err
