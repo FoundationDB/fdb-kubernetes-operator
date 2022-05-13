@@ -75,7 +75,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 	// query the cluster gets into a degraded state.
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
+	hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(logger, adminClient, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}

@@ -69,7 +69,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		if len(processGroupStatus.Addresses) == 0 {
 			// Only replace process groups without an address if the cluster has the desired fault tolerance
 			// and is available.
-			hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
+			hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(log, adminClient, cluster)
 			if err != nil {
 				log.Error(err, "Could not fetch if cluster has desired fault tolerance")
 				continue
