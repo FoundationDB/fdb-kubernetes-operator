@@ -53,9 +53,29 @@ spec:
   version: 6.3.12
 ```
 
-This will first update the sidecar image in the pod to match the new version, which will restart that container. On restart, it will copy the new FDB binaries into the config volume for the foundationdb container, which will make it available to run. We will then update the fdbmonitor conf to point to the new binaries and bounce all of the fdbserver processes.
+This will first update the sidecar image in the Pod to match the new version, which will restart that container.
+On restart, it will copy the new FDB binaries into the config volume for the `foundationdb` container, which will make it available to run.
+We will then update the `fdbmonitor.conf` to point to the new binaries and restart all the `fdbserver` processes.
 
-Once all of the processes are running at the new version, we will recreate all of the pods so that the `foundationdb` container uses the new version for its own image. This will use the strategies described in [Pod Update Strategy](customization.md#pod-update-strategy).
+Once all the processes are running at the new version, we will recreate all the Pods so that the `foundationdb` container uses the new version for its own image.
+This will use the strategies described in [Pod Update Strategy](customization.md#pod-update-strategy).
+
+### Limitations during upgrades
+
+If a Pod gets deleted during the upgrade step a new Pod directly with the new version will be created.
+This can lead to a case where some Pods are already running the new version and some are using the old version.
+If those versions are not compatible that means that some processes are not able to join the cluster again.
+Depending on the timelines and how Pods are upgraded the operator might come into a state where the cluster is unavailable because to many processes are running the new version.
+
+If that is the case a human operator can perform the following steps:
+
+1. `exec` into one of the Pods of the cluster and run `fdbcli --exec 'kill; kill all; status'` this command will restart all `fdbserver` processes of this cluster and should bring up all in the desired new version.
+2. If the previous step didn't work you can delete all Pods that are not running the new version.
+3. If the coordinators have new IPs (because the Pods were recreated) you can use the [kubectl fdb plugin](debugging.md#coordinators-getting-new-ips).
+
+One limitation during an upgrade is that the operator won't apply new Pod spec changes.
+This limitation is only for the duration where the `running version` is different from the `desired version`.
+You should always ensure that you run a version upgrade and a Pod spec change independently, otherwise the Pod spec changes will only be rolled out once the cluster is running the desired version.
 
 ## Renaming a Cluster
 
