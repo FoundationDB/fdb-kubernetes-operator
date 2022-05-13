@@ -127,7 +127,7 @@ func (client *realLockClient) takeLockInTransaction(transaction fdb.Transaction)
 		return true, nil
 	}
 
-	if ownerID == client.cluster.GetLockID() {
+	if ownerID == cluster.GetLockID() {
 		client.log.Info("Extending previous lock", "namespace", cluster.Namespace, "cluster", cluster.Name, "owner", ownerID, "startTime", time.Unix(startTime, 0), "endTime", time.Unix(endTime, 0))
 		client.updateLock(transaction, startTime)
 		return true, nil
