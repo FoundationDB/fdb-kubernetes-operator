@@ -79,7 +79,7 @@ var _ = Describe("metrics", func() {
 	})
 
 	When("collecting the prometheus metrics", func() {
-		It("", func() {
+		It("should return all expected metrics", func() {
 			result := make(chan prometheus.Metric)
 
 			visitedMetricsCnt := 0
