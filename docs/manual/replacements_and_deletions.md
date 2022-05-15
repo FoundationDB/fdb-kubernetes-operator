@@ -39,6 +39,10 @@ The following conditions are currently eligible for replacement:
 
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
+* `MissingPod`: This indicates a process group that doesn't have a Pod assigned.
+* `MissingPVC`: This indicates that a process group that doesn't have a PVC assigned.
+* `MissingService`: This indicates that a process group that doesn't have a Service assigned.
+* `PodPending`: This indicates that a process group where the pod is in a pending state.
 
 ## Enforce Full Replication
 
