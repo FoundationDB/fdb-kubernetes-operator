@@ -90,9 +90,10 @@ var _ = Describe("metrics", func() {
 			}()
 
 			collectMetrics(result, cluster)
+			close(result)
 
 			Expect(len(result)).To(BeNumerically("==", 0))
-			Expect(visitedMetricsCnt).To(BeNumerically("==", 48))
+			Eventually(visitedMetricsCnt).Should(BeNumerically(">=", 47))
 		})
 	})
 })
