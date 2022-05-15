@@ -49,8 +49,14 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
 func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
-	// Automatic replacements are disabled so we don't have to check anything further
+	// Automatic replacements are disabled, so we don't have to check anything further
 	if !cluster.GetEnableAutomaticReplacements() {
+		return false
+	}
+
+	crashLoopProcessGroups, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	// If all process groups are in crash loop don't replace any process group.
+	if crashLoopAll {
 		return false
 	}
 
@@ -59,6 +65,12 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 	for _, processGroupStatus := range cluster.Status.ProcessGroups {
 		if maxReplacements <= 0 {
 			return hasReplacement
+		}
+
+		// Don't replace processes that are in the crash loop setting. Otherwise, we might replace process groups that
+		// are in that state for debugging or stability.
+		if _, ok := crashLoopProcessGroups[processGroupStatus.ProcessGroupID]; ok {
+			continue
 		}
 
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds())
