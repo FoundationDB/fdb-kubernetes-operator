@@ -23,6 +23,8 @@ package controllers
 import (
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,6 +75,24 @@ var _ = Describe("metrics", func() {
 			Expect(exclusions[fdbv1beta2.ProcessClassStorage]).To(BeNumerically("==", 0))
 			Expect(removals[fdbv1beta2.ProcessClassStateless]).To(BeNumerically("==", 1))
 			Expect(exclusions[fdbv1beta2.ProcessClassStateless]).To(BeNumerically("==", 1))
+		})
+	})
+
+	When("collecting the prometheus metrics", func() {
+		It("", func() {
+			result := make(chan prometheus.Metric)
+
+			visitedMetricsCnt := 0
+			go func() {
+				for range result {
+					visitedMetricsCnt++
+				}
+			}()
+
+			collectMetrics(result, cluster)
+
+			Expect(len(result)).To(BeNumerically("==", 0))
+			Expect(visitedMetricsCnt).To(BeNumerically("==", 48))
 		})
 	})
 })
