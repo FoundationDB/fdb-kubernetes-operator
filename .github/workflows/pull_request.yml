@@ -8,6 +8,7 @@ on:
 env:
   FDB_VER: "7.1.5"
 
+
 jobs:
   lint-go:
     name: Lint go code
