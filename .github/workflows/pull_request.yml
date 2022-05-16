@@ -6,8 +6,7 @@ on:
   pull_request:
 
 env:
-  FDB_VER: "6.3.23"
-
+  FDB_VER: "7.1.5"
 jobs:
   lint-go:
     name: Lint go code
