@@ -18,7 +18,7 @@ initContainers:
   7.1:
     image:
       repository: foundationdb/foundationdb-kubernetes-sidecar
-      tag: 7.1.2-1
+      tag: 7.1.5-1
       pullPolicy: IfNotPresent
 
 globalMode:
