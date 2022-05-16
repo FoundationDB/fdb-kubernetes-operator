@@ -49,6 +49,9 @@ type DatabaseConfiguration struct {
 	// Regions defines the regions that the database can replicate in.
 	Regions []Region `json:"regions,omitempty"`
 
+	// ExcludedServers defines the list  of excluded servers form the database.
+	ExcludedServers []ExcludedServers `json:"excluded_servers,omitempty"`
+
 	// RoleCounts defines how many processes the database should recruit for
 	// each role.
 	RoleCounts `json:""`
@@ -68,6 +71,15 @@ type Region struct {
 
 	// The replication strategy for satellite logs.
 	SatelliteRedundancyMode RedundancyMode `json:"satellite_redundancy_mode,omitempty"`
+}
+
+// ExcludedServers represents the excluded servers in the database configuration
+type ExcludedServers struct {
+	// The Address of the excluded server.
+	Address string `json:"address,omitempty"`
+
+	// The Locality of the excluded server.
+	Locality string `json:"locality,omitempty"`
 }
 
 // DataCenter represents a data center in the region configuration
