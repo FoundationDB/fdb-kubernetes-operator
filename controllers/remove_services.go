@@ -48,6 +48,7 @@ func (u removeServices) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		return &requeue{curError: err}
 	}
 
+	log.Info("Deleting service", "name", existingService.Name)
 	err = r.Delete(ctx, existingService)
 	if err != nil {
 		return &requeue{curError: err}

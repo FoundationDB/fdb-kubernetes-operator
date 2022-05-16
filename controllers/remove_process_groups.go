@@ -150,6 +150,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(pvcs.Items) == 1 && pvcs.Items[0].DeletionTimestamp.IsZero() {
+		log.Info("Deleting pvc", "name", pvcs.Items[0].Name)
 		err = r.Delete(ctx, &pvcs.Items[0])
 		if err != nil {
 			return err
@@ -164,6 +165,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(services.Items) == 1 && services.Items[0].DeletionTimestamp.IsZero() {
+		log.Info("Deleting service", "name", services.Items[0].Name)
 		err = r.Delete(ctx, &services.Items[0])
 		if err != nil {
 			return err

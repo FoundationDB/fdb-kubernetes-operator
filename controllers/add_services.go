@@ -56,6 +56,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			}
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			service.ObjectMeta.OwnerReferences = owner
+			log.Info("Creating service", "name", service.Name)
 			err = r.Create(ctx, service)
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
@@ -89,7 +90,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 					return &requeue{curError: err}
 				}
 			} else if k8serrors.IsNotFound(err) {
-				// Create a new service
+				log.Info("Creating service", "name", service.Name)
 				err = r.Create(ctx, service)
 				if err != nil {
 					if internal.IsQuotaExceeded(err) {
