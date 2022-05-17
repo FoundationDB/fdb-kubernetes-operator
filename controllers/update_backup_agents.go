@@ -42,6 +42,7 @@ type updateBackupAgents struct{}
 
 // reconcile runs the reconciler's work.
 func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue {
+	logger := log.WithValues("namespace", backup.Namespace, "cluster", backup.Name, "reconciler", "updateBackupAgents")
 	deploymentName := fmt.Sprintf("%s-backup-agents", backup.ObjectMeta.Name)
 	existingDeployment := &appsv1.Deployment{}
 	needCreation := false
@@ -66,7 +67,7 @@ func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackup
 	}
 
 	if needCreation && deployment != nil {
-		log.Info("Creating deployment", "name", deployment.Name)
+		logger.V(1).Info("Creating deployment", "name", deployment.Name)
 		err = r.Create(ctx, deployment)
 		if err != nil {
 			return &requeue{curError: err}
@@ -85,7 +86,7 @@ func (u updateBackupAgents) reconcile(ctx context.Context, r *FoundationDBBackup
 	}
 
 	if !needCreation && deployment == nil {
-		log.Info("Deleting deployment", "name", existingDeployment.Name)
+		logger.V(1).Info("Deleting deployment", "name", existingDeployment.Name)
 		err = r.Delete(ctx, existingDeployment)
 		if err != nil {
 			return &requeue{curError: err}

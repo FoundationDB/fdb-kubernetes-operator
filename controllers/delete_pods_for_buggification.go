@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
@@ -86,7 +87,7 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 		logger.Info("Deleting pods", "count", len(updates))
 		r.Recorder.Event(cluster, "Normal", "UpdatingPods", "Recreating pods for buggification")
 
-		err = r.PodLifecycleManager.UpdatePods(ctx, r, cluster, updates, true)
+		err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, updates, true)
 		if err != nil {
 			return &requeue{curError: err}
 		}
