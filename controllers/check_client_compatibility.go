@@ -42,12 +42,6 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return nil
 	}
 
-	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-	if err != nil {
-		return &requeue{curError: err}
-	}
-	defer adminClient.Close()
-
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.Status.RunningVersion)
 	if err != nil {
 		return &requeue{curError: err}
@@ -70,6 +64,11 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return nil
 	}
 
+	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	defer adminClient.Close()
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return &requeue{curError: err}
@@ -85,9 +84,8 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		if versionInfo.ProtocolVersion == "Unknown" {
 			continue
 		}
-		match := versionInfo.ProtocolVersion == protocolVersion
 
-		if !match {
+		if versionInfo.ProtocolVersion != protocolVersion {
 			for _, client := range versionInfo.MaxProtocolClients {
 				unsupportedClients = append(unsupportedClients, client.Description())
 			}
