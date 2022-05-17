@@ -568,7 +568,7 @@ func FilterByCondition(processGroupStatus []*ProcessGroupStatus, conditionType P
 func FilterByConditions(processGroupStatus []*ProcessGroupStatus, conditionRules map[ProcessGroupConditionType]bool, ignoreRemoved bool) []string {
 	result := make([]string, 0)
 
-	for _, groupStatus := range processGroupStatus{
+	for _, groupStatus := range processGroupStatus {
 		if ignoreRemoved && groupStatus.IsMarkedForRemoval() {
 			continue
 		}
