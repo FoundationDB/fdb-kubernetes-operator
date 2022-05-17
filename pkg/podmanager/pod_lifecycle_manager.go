@@ -44,7 +44,7 @@ type PodLifecycleManager interface {
 	DeletePod(context.Context, client.Client, *corev1.Pod) error
 
 	// CanDeletePods checks whether it is safe to delete pods.
-	CanDeletePods(context.Context, logr.Logger, fdbadminclient.AdminClient, *fdbv1beta2.FoundationDBCluster) (bool, error)
+	CanDeletePods(context.Context, fdbadminclient.AdminClient, *fdbv1beta2.FoundationDBCluster) (bool, error)
 
 	// UpdatePods updates a list of pods to match the latest specs.
 	UpdatePods(context.Context, client.Client, *fdbv1beta2.FoundationDBCluster, []*corev1.Pod, bool) error
@@ -110,8 +110,8 @@ func (manager StandardPodLifecycleManager) DeletePod(ctx context.Context, r clie
 }
 
 // CanDeletePods checks whether it is safe to delete Pods.
-func (manager StandardPodLifecycleManager) CanDeletePods(_ context.Context, logger logr.Logger, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
-	return internal.HasDesiredFaultTolerance(logger, adminClient, cluster)
+func (manager StandardPodLifecycleManager) CanDeletePods(ctx context.Context, adminClient fdbadminclient.AdminClient, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
+	return internal.HasDesiredFaultTolerance(logr.FromContextOrDiscard(ctx), adminClient, cluster)
 }
 
 // UpdatePods updates a list of Pods to match the latest specs.

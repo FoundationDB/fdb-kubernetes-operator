@@ -209,7 +209,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		return &requeue{curError: err}
 	}
 
-	ready, err := r.PodLifecycleManager.CanDeletePods(ctx, logger, adminClient, cluster)
+	ready, err := r.PodLifecycleManager.CanDeletePods(logr.NewContext(ctx, logger), adminClient, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
