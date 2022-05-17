@@ -35,6 +35,7 @@ foundationdb-kubernetes-sidecar/website
 
 config/default/manager_image_patch.yaml
 config/default/manager_image_patch.yaml-e
+config/development/kustomization.yaml
 
 # General temp directory
 tmp/
