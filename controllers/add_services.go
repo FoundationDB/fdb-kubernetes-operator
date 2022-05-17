@@ -91,7 +91,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 					return &requeue{curError: err}
 				}
 			} else if k8serrors.IsNotFound(err) {
-				log.Info("Creating service", "name", service.Name)
+				logger.V(1).Info("Creating service", "name", service.Name)
 				err = r.Create(ctx, service)
 				if err != nil {
 					if internal.IsQuotaExceeded(err) {
