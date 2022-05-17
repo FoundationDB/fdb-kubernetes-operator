@@ -661,7 +661,7 @@ func (client *MockClient) Status() ctrlClient.StatusWriter {
 }
 
 func (client *MockClient) createEvent(event *corev1.Event) {
-	log.Log.Info("Creating event", "name", event.Name)
+	log.Log.V(1).Info("namespace", event.Namespace, "cluster", event.ClusterName, "Creating event", "name", event.Name)
 	err := client.Create(context.TODO(), event)
 	if err != nil {
 		panic(err)

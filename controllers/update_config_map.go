@@ -48,7 +48,7 @@ func (u updateConfigMap) reconcile(ctx context.Context, r *FoundationDBClusterRe
 	existing := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existing)
 	if err != nil && k8serrors.IsNotFound(err) {
-		logger.Info("Creating config map", "name", configMap.Name)
+		logger.V(1).Info("Creating config map", "name", configMap.Name)
 		err = r.Create(ctx, configMap)
 		if err != nil {
 			return &requeue{curError: err}

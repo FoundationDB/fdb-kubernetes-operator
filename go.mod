@@ -6,6 +6,7 @@ require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c
 	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20211117195619-01c37a053a62
 	github.com/fatih/color v1.10.0
+	github.com/go-kit/kit v0.9.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/go-cmp v0.5.5
 	github.com/hashicorp/go-retryablehttp v0.6.8
@@ -44,6 +45,7 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
+	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.3 // indirect
 	github.com/go-openapi/jsonreference v0.19.3 // indirect

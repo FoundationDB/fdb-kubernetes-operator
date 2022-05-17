@@ -26,6 +26,7 @@ import (
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -117,7 +118,7 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			pod.Annotations[fdbv1beta2.PublicIPAnnotation] = ip
 		}
 
-		err = r.PodLifecycleManager.CreatePod(ctx, r, pod)
+		err = r.PodLifecycleManager.CreatePod(logr.NewContext(ctx, logger), r, pod)
 		if err != nil {
 			if internal.IsQuotaExceeded(err) {
 				return &requeue{curError: err, delayedRequeue: true}
