@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // MockClient provides a mock Kubernetes client.
@@ -661,7 +660,6 @@ func (client *MockClient) Status() ctrlClient.StatusWriter {
 }
 
 func (client *MockClient) createEvent(event *corev1.Event) {
-	log.Log.V(1).Info("namespace", event.Namespace, "cluster", event.ClusterName, "Creating event", "name", event.Name)
 	err := client.Create(context.TODO(), event)
 	if err != nil {
 		panic(err)
