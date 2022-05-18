@@ -40,6 +40,9 @@ The following conditions are currently eligible for replacement:
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
 
+Process groups that are set into the crash loop state with the `Buggify` setting won't be replaced by the operator.
+If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.
+
 ## Enforce Full Replication
 
 The operator only removes ProcessGroups when the cluster has the desired fault tolerance and is available. This is enforced by default in 1.0.0 without disabling.
