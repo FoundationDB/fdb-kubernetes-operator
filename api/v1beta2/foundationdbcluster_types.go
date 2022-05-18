@@ -61,7 +61,7 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing}
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC, MissingService, PodPending}
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})

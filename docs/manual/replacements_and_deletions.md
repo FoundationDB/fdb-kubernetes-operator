@@ -39,6 +39,10 @@ The following conditions are currently eligible for replacement:
 
 * `MissingProcesses`: This indicates that a process is not reporting to the database.
 * `PodFailing`: This indicates that one of the containers is not ready.
+* `MissingPod`: This indicates a process group that doesn't have a Pod assigned.
+* `MissingPVC`: This indicates that a process group that doesn't have a PVC assigned.
+* `MissingService`: This indicates that a process group that doesn't have a Service assigned.
+* `PodPending`: This indicates that a process group where the pod is in a pending state.
 
 Process groups that are set into the crash loop state with the `Buggify` setting won't be replaced by the operator.
 If the `cluster.Spec.Buggify.EmptyMonitorConf` setting is active the operator won't replace any process groups.
