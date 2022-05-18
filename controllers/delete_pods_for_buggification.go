@@ -45,15 +45,7 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	podMap := internal.CreatePodMap(cluster, pods)
 	updates := make([]*corev1.Pod, 0)
 
-	crashLoopPods := make(map[string]bool, len(cluster.Spec.Buggify.CrashLoop))
-	crashLoopAll := false
-	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
-		if processGroupID == "*" {
-			crashLoopAll = true
-		} else {
-			crashLoopPods[processGroupID] = true
-		}
-	}
+	crashLoopPods, crashLoopAll := cluster.GetCrashLoopProcessGroups()
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
@@ -76,7 +68,10 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 			}
 		}
 
-		shouldCrashLoop := crashLoopAll || crashLoopPods[processGroup.ProcessGroupID]
+		shouldCrashLoop := crashLoopAll
+		if !shouldCrashLoop {
+			_, shouldCrashLoop = crashLoopPods[processGroup.ProcessGroupID]
+		}
 
 		if shouldCrashLoop != inCrashLoop {
 			logger.Info("Deleting pod for buggification",

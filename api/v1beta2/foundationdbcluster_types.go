@@ -1868,6 +1868,17 @@ func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupS
 		return false
 	}
 
+	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1201 when a process group is set into crash loop
+	// we don't want to replace it (otherwise the newly created process group won't have that setting).
+	crashLoop, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	if crashLoopAll {
+		return false
+	}
+
+	if _, ok := crashLoop[processGroup.ProcessGroupID]; ok {
+		return false
+	}
+
 	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyReplacement {
 		return true
 	}
@@ -2007,4 +2018,18 @@ func (cluster *FoundationDBCluster) GetRunningVersion() string {
 	}
 
 	return versionString
+}
+
+// GetCrashLoopProcessGroups returns the process group IDs that are marked for crash looping. The second return value indicates
+// if all process group IDs in a cluster should be crash looping.
+func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None, bool) {
+	crashLoopPods := make(map[string]None, len(cluster.Spec.Buggify.CrashLoop))
+	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == "*" {
+			return nil, true
+		}
+		crashLoopPods[processGroupID] = None{}
+	}
+
+	return crashLoopPods, false
 }

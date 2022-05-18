@@ -111,6 +111,34 @@ var _ = Describe("replace_failed_process_groups", func() {
 					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
 				})
 			})
+
+			When("Crash loop is set for all process groups", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoop = []string{"*"}
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
+
+			When("Crash loop is set for the specific process group", func() {
+				BeforeEach(func() {
+					cluster.Spec.Buggify.CrashLoop = []string{"storage-2"}
+				})
+
+				It("should return nil", func() {
+					Expect(result).To(BeNil())
+				})
+
+				It("should not mark the process group for removal", func() {
+					Expect(getRemovedProcessGroupIDs(cluster)).To(Equal([]string{}))
+				})
+			})
 		})
 
 		Context("with multiple failed processes", func() {
@@ -158,8 +186,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			When("max concurrent replacements is set to two", func() {
 				BeforeEach(func() {
-					replacements := 2
-					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
+					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(2)
 				})
 
 				It("should requeue", func() {
@@ -174,8 +201,7 @@ var _ = Describe("replace_failed_process_groups", func() {
 
 			When("max concurrent replacements is set to zero", func() {
 				BeforeEach(func() {
-					replacements := 0
-					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = &replacements
+					cluster.Spec.AutomationOptions.Replacements.MaxConcurrentReplacements = pointer.Int(0)
 				})
 
 				It("should return nil", func() {
