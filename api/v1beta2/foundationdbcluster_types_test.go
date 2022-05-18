@@ -4094,6 +4094,54 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 
+		When("process group is in the missing Pod state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingPod, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the missing PVC state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingPVC, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the missing Service state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingService, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the Pod pending state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(PodPending, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
 		Context("with a process group that had the wrong command line", func() {
 			BeforeEach(func() {
 				processGroup.UpdateCondition(IncorrectCommandLine, true, nil, "")
