@@ -118,8 +118,9 @@ func (manager StandardPodLifecycleManager) CanDeletePods(_ context.Context, admi
 
 // UpdatePods updates a list of Pods to match the latest specs.
 func (manager StandardPodLifecycleManager) UpdatePods(ctx context.Context, r client.Client, _ *fdbv1beta2.FoundationDBCluster, pods []*corev1.Pod, _ bool) error {
+	logger := logr.FromContextOrDiscard(ctx)
 	for _, pod := range pods {
-		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting pod", "name", pod.Name)
+		logger.V(1).Info("Deleting pod", "name", pod.Name)
 		err := r.Delete(ctx, pod)
 		if err != nil {
 			return err
