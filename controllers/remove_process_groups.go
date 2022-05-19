@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/removals"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -150,6 +151,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(pvcs.Items) == 1 && pvcs.Items[0].DeletionTimestamp.IsZero() {
+		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting pvc", "name", pvcs.Items[0].Name)
 		err = r.Delete(ctx, &pvcs.Items[0])
 		if err != nil {
 			return err
@@ -164,6 +166,7 @@ func removeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, c
 		return err
 	}
 	if len(services.Items) == 1 && services.Items[0].DeletionTimestamp.IsZero() {
+		logr.FromContextOrDiscard(ctx).V(1).Info("Deleting service", "name", services.Items[0].Name)
 		err = r.Delete(ctx, &services.Items[0])
 		if err != nil {
 			return err
@@ -341,7 +344,7 @@ func (r *FoundationDBClusterReconciler) removeProcessGroups(ctx context.Context,
 	processGroups := append(processGroupsToRemove, terminatingProcessGroups...)
 
 	for _, id := range processGroups {
-		err := removeProcessGroup(ctx, r, cluster, id)
+		err := removeProcessGroup(logr.NewContext(ctx, logger), r, cluster, id)
 		if err != nil {
 			logger.Error(err, "Error during remove process group", "processGroupID", id)
 			continue

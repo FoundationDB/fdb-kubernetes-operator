@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -580,7 +581,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
+			err = r.PodLifecycleManager.DeletePod(logr.NewContext(ctx, logger), r, pod)
 			if err != nil {
 				return err
 			}
