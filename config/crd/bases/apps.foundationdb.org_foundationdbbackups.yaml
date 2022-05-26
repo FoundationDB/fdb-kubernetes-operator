@@ -3209,16 +3209,22 @@ spec:
                     items:
                       properties:
                         baseImage:
+                          maxLength: 20
                           type: string
                         tag:
+                          maxLength: 20
                           type: string
                         tagSuffix:
+                          maxLength: 50
                           type: string
                         version:
+                          maxLength: 20
                           type: string
                       type: object
+                    maxItems: 100
                     type: array
                   peerVerificationRules:
+                    maxLength: 3000
                     type: string
                 type: object
               podTemplateSpec:
@@ -6187,16 +6193,22 @@ spec:
                     items:
                       properties:
                         baseImage:
+                          maxLength: 20
                           type: string
                         tag:
+                          maxLength: 20
                           type: string
                         tagSuffix:
+                          maxLength: 50
                           type: string
                         version:
+                          maxLength: 20
                           type: string
                       type: object
+                    maxItems: 100
                     type: array
                   peerVerificationRules:
+                    maxLength: 3000
                     type: string
                 type: object
               snapshotPeriodSeconds:

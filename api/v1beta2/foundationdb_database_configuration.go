@@ -50,6 +50,7 @@ type DatabaseConfiguration struct {
 	Regions []Region `json:"regions,omitempty"`
 
 	// ExcludedServers defines the list  of excluded servers form the database.
+	// +kubebuilder:validation:MaxItems=1024
 	ExcludedServers []ExcludedServers `json:"excluded_servers,omitempty"`
 
 	// RoleCounts defines how many processes the database should recruit for
@@ -76,9 +77,11 @@ type Region struct {
 // ExcludedServers represents the excluded servers in the database configuration
 type ExcludedServers struct {
 	// The Address of the excluded server.
+	// +kubebuilder:validation:MaxLength=20
 	Address string `json:"address,omitempty"`
 
 	// The Locality of the excluded server.
+	// +kubebuilder:validation:MaxLength=100
 	Locality string `json:"locality,omitempty"`
 }
 
