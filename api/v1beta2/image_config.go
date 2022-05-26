@@ -29,16 +29,20 @@ import "fmt"
 type ImageConfig struct {
 	// Version is the version of FoundationDB this policy applies to. If this is
 	// blank, the policy applies to all FDB versions.
+	// +kubebuilder:validation:MaxLength=20
 	Version string `json:"version,omitempty"`
 
 	// BaseImage specifies the part of the image before the tag.
+	// +kubebuilder:validation:MaxLength=20
 	BaseImage string `json:"baseImage,omitempty"`
 
 	// Tag specifies a full image tag.
+	// +kubebuilder:validation:MaxLength=20
 	Tag string `json:"tag,omitempty"`
 
 	// TagSuffix specifies a suffix that will be added after the version to form
 	// the full tag.
+	// +kubebuilder:validation:MaxLength=50
 	TagSuffix string `json:"tagSuffix,omitempty"`
 }
 
