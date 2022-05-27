@@ -474,6 +474,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(bool)
 		**out = **in
 	}
+	if in.UseManagementAPI != nil {
+		in, out := &in.UseManagementAPI, &out.UseManagementAPI
+		*out = new(bool)
+		**out = **in
+	}
 	in.Replacements.DeepCopyInto(&out.Replacements)
 	if in.UseNonBlockingExcludes != nil {
 		in, out := &in.UseNonBlockingExcludes, &out.UseNonBlockingExcludes

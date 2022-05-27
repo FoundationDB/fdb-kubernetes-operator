@@ -802,6 +802,12 @@ type FoundationDBClusterAutomationOptions struct {
 	// processes.
 	KillProcesses *bool `json:"killProcesses,omitempty"`
 
+	// UseManagementAPI defines whether the operator should make use of the management API
+	// instead of calling fdbcli to interact with the cluster. This requires that the FDB version
+	// is at least 7.0.0.
+	// The default is false.
+	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
+
 	// Replacements contains options for automatically replacing failed
 	// processes.
 	Replacements AutomaticReplacementOptions `json:"replacements,omitempty"`
@@ -2032,4 +2038,20 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 	}
 
 	return crashLoopPods, false
+}
+
+// UseManagementAPI returns true if the management API should be used to interact with the cluster.
+func (cluster *FoundationDBCluster) UseManagementAPI() bool {
+	version, err := ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		// This case shouldn't happen but if we get an error we return false
+		// to ensure we can also work with pre 7.0.0 versions.
+		return false
+	}
+
+	if !version.SupportsManagementAPI() {
+		return false
+	}
+
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }

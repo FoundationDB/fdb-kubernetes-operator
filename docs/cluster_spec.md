@@ -153,6 +153,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | ----- | ----------- | ------ | -------- |
 | configureDatabase | ConfigureDatabase defines whether the operator is allowed to reconfigure the database. | *bool | false |
 | killProcesses | KillProcesses defines whether the operator is allowed to bounce fdbserver processes. | *bool | false |
+| useManagementAPI | UseManagementAPI defines whether the operator should make use of the management API instead of calling fdbcli to interact with the cluster. This requires that the FDB version is at least 7.0.0. The default is false. | *bool | false |
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |

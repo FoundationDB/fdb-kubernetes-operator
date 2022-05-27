@@ -23,12 +23,14 @@ package fdbclient
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/go-logr/logr"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -127,19 +129,31 @@ func rebootWorker(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addr
 		return err
 	}
 
-	var failedAddresses []string
+	// Start the reboot concurrently and don't wait for every response.
+	// This behaviour has been fixed in https://github.com/apple/foundationdb/pull/7188 and requires 7.1.8 or newer.
+	errChan := make(chan error, len(addresses))
+	wg := sync.WaitGroup{}
 	for _, addr := range addresses {
-		pAddr := addr.StringWithoutFlags()
-		err = database.RebootWorker(pAddr, false, 0)
-		if err != nil {
-			log.Error(err, "Reboot", "address", pAddr)
-			failedAddresses = append(failedAddresses, pAddr)
-		}
+		wg.Add(1)
+		go func(address fdbv1beta2.ProcessAddress) {
+			pAddr := address.StringWithoutFlags()
+			log.V(1).Info("rebooting worker", "address", pAddr)
+			err = database.RebootWorker(pAddr, false, 0)
+			if err != nil {
+				errChan <- fmt.Errorf("couldn't send reboot request for %s: %w", pAddr, err)
+			}
+			wg.Done()
+		}(addr)
 	}
 
-	if len(failedAddresses) > 0 {
-		return fmt.Errorf("the following addresses couldn't be rebooted: %v", failedAddresses)
-	}
+	go func() {
+		for err := range errChan {
+			log.Error(err, "RebootWorker")
+		}
+	}()
+
+	wg.Wait()
+	close(errChan)
 
 	return nil
 }
