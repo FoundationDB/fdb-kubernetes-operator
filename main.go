@@ -49,7 +49,7 @@ func init() {
 }
 
 func main() {
-	fdb.MustAPIVersion(610)
+	fdb.MustAPIVersion(620)
 	operatorOpts := setup.Options{}
 	operatorOpts.BindFlags(flag.CommandLine)
 
