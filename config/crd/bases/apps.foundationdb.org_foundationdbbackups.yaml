@@ -3209,10 +3209,10 @@ spec:
                     items:
                       properties:
                         baseImage:
-                          maxLength: 20
+                          maxLength: 200
                           type: string
                         tag:
-                          maxLength: 20
+                          maxLength: 100
                           type: string
                         tagSuffix:
                           maxLength: 50
@@ -6193,10 +6193,10 @@ spec:
                     items:
                       properties:
                         baseImage:
-                          maxLength: 20
+                          maxLength: 200
                           type: string
                         tag:
-                          maxLength: 20
+                          maxLength: 100
                           type: string
                         tagSuffix:
                           maxLength: 50
