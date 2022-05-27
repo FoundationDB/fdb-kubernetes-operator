@@ -77,11 +77,11 @@ type Region struct {
 // ExcludedServers represents the excluded servers in the database configuration
 type ExcludedServers struct {
 	// The Address of the excluded server.
-	// +kubebuilder:validation:MaxLength=20
+	// +kubebuilder:validation:MaxLength=48
 	Address string `json:"address,omitempty"`
 
 	// The Locality of the excluded server.
-	// +kubebuilder:validation:MaxLength=100
+	// +kubebuilder:validation:MaxLength=200
 	Locality string `json:"locality,omitempty"`
 }
 
