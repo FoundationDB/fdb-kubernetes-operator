@@ -33,11 +33,11 @@ type ImageConfig struct {
 	Version string `json:"version,omitempty"`
 
 	// BaseImage specifies the part of the image before the tag.
-	// +kubebuilder:validation:MaxLength=20
+	// +kubebuilder:validation:MaxLength=200
 	BaseImage string `json:"baseImage,omitempty"`
 
 	// Tag specifies a full image tag.
-	// +kubebuilder:validation:MaxLength=20
+	// +kubebuilder:validation:MaxLength=100
 	Tag string `json:"tag,omitempty"`
 
 	// TagSuffix specifies a suffix that will be added after the version to form
