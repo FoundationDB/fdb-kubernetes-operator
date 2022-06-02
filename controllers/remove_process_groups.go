@@ -101,7 +101,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 
 	// If the operator is allowed to delete all process groups at the same time we don't enforce any safety checks.
 	if cluster.GetRemovalMode() != fdbv1beta2.PodUpdateModeAll {
-		// To ensure we are not deletion zones faster than Kubernetes actually removes Pods we are adding a wait time
+		// To ensure we are not deleting zones faster than Kubernetes actually removes Pods we are adding a wait time
 		// if we have resources in the terminating state. We will only block if the terminating state was recently (in the
 		// last minute).
 		waitTime, allowed := removals.RemovalAllowed(lastDeletion, time.Now().Unix(), cluster.GetWaitBetweenRemovalsSeconds())

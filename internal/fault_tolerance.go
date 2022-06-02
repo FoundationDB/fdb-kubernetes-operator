@@ -38,7 +38,6 @@ func HasDesiredFaultTolerance(adminClient fdbadminclient.AdminClient, cluster *f
 		return false, err
 	}
 
-	//TODO: call the POD api to confirm PODs are in running state.
 	if !status.Client.DatabaseStatus.Available {
 		//log.V(0).Info("Cluster is not available",
 		//	"namespace", cluster.Namespace,
