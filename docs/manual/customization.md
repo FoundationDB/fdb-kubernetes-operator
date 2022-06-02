@@ -1,4 +1,4 @@
-# Customization
+# Customizing Your Deployments
 
 This document covers some of the options the operator provides for customizing your FoundationDB deployment.
 
@@ -440,4 +440,4 @@ For more information on how the interaction between the operator and these image
 
 ## Next
 
-You can continue on to the [next section](replacements_and_deletions.md) or go back to the [table of contents](index.md).
+You can continue on to the [next section](operator_customization.md) or go back to the [table of contents](index.md).
