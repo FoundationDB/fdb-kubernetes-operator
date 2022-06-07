@@ -6,7 +6,7 @@ on:
   pull_request:
 
 env:
-  FDB_VER: "7.1.5"
+  FDB_VER: "6.2.29"
 
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.17.8
+          go-version: 1.17.11
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -45,7 +45,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.17.8
+        go-version: 1.17.11
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       with:
@@ -100,7 +100,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.17.8
+        go-version: 1.17.11
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       with:
