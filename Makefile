@@ -2,6 +2,7 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
+SIDECAR_IMG ?= ""
 REMOTE_BUILD ?= 0
 CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 
@@ -127,8 +128,8 @@ uninstall: manifests
 config/development/kustomization.yaml: config/development/kustomization.yaml.sample
 	cp config/development/kustomization.yaml.sample config/development/kustomization.yaml
 	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
-ifneq "$(IMG_PREFIX)" ""
-	cd config/development && kustomize edit set image foundationdb/foundationdb-kubernetes-sidecar=${IMG_PREFIX}/foundationdb/foundationdb-kubernetes-sidecar
+ifneq "$(SIDECAR_IMG)" ""
+	cd config/development && kustomize edit set image foundationdb/foundationdb-kubernetes-sidecar=${SIDECAR_IMG}
 endif
 ifeq "$(REMOTE_BUILD)" "1"
 	cd config/development && kustomize edit add patch --path=remote_build.yaml
