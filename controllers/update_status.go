@@ -27,6 +27,9 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 
@@ -260,8 +263,29 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
 		err = r.Status().Update(ctx, cluster)
 		if err != nil {
-			logger.Error(err, "Error updating cluster status")
-			return &requeue{curError: err}
+			if k8serrors.IsConflict(err) {
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					// We have to fetch the cluster again to get the latest version of it.
+					currentCluster := &fdbv1beta2.FoundationDBCluster{}
+					err := r.Get(ctx, client.ObjectKeyFromObject(cluster), currentCluster)
+					if err != nil {
+						return err
+					}
+
+					currentCluster.Status = cluster.Status
+					err = r.Status().Update(ctx, cluster)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				})
+			}
+
+			if err != nil {
+				logger.Error(err, "Error updating cluster status")
+				return &requeue{curError: err}
+			}
 		}
 	}
 

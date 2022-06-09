@@ -25,6 +25,10 @@ import (
 	"fmt"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -140,7 +144,28 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	if hasUpdate {
 		err = r.Status().Update(ctx, cluster)
 		if err != nil {
-			return &requeue{curError: err}
+			if k8serrors.IsConflict(err) {
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					// We have to fetch the cluster again to get the latest version of it.
+					currentCluster := &fdbv1beta2.FoundationDBCluster{}
+					err := r.Get(ctx, client.ObjectKeyFromObject(cluster), currentCluster)
+					if err != nil {
+						return err
+					}
+
+					currentCluster.Status = cluster.Status
+					err = r.Status().Update(ctx, cluster)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				})
+			}
+
+			if err != nil {
+				return &requeue{curError: err}
+			}
 		}
 	}
 

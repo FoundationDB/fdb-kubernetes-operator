@@ -24,6 +24,10 @@ import (
 	"context"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -131,7 +135,28 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	err = r.Status().Update(ctx, cluster)
 	if err != nil {
-		return &requeue{curError: err}
+		if k8serrors.IsConflict(err) {
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				currentCluster := &fdbv1beta2.FoundationDBCluster{}
+				err := r.Get(ctx, client.ObjectKeyFromObject(cluster), currentCluster)
+				if err != nil {
+					return err
+				}
+
+				currentCluster.Status.ConnectionString = connectionString.String()
+				err = r.Status().Update(ctx, cluster)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+		}
+
+		if err != nil {
+			return &requeue{curError: err}
+		}
 	}
+
 	return nil
 }
