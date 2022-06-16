@@ -2,6 +2,8 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
+SIDECAR_IMG ?= ""
+REMOTE_BUILD ?= 0
 CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 
 ifneq "$(FDB_WEBSITE)" ""
@@ -67,7 +69,7 @@ endif
 
 all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
 
-.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push rebuild-operator bounce lint
+.PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
 
 deps: $(BUILD_DEPS)
 
@@ -78,6 +80,7 @@ clean:
 	rm -r bin
 	rm -f $(SAMPLES)
 	rm -f config/rbac/role.yaml
+	rm -f config/development/kustomization.yaml
 	rm -rf ./dist/*
 	find . -name "cover.out" -delete
 
@@ -120,9 +123,20 @@ install: manifests
 uninstall: manifests
 	kustomize build config/crd | kubectl $(KUBECTL_ARGS) delete -f -
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: install manifests
+# Apply config to the local development environment based on environment
+# variables.
+config/development/kustomization.yaml: config/development/kustomization.yaml.sample
+	cp config/development/kustomization.yaml.sample config/development/kustomization.yaml
 	cd config/development && kustomize edit set image foundationdb/fdb-kubernetes-operator=${IMG}
+ifneq "$(SIDECAR_IMG)" ""
+	cd config/development && kustomize edit set image foundationdb/foundationdb-kubernetes-sidecar=${SIDECAR_IMG}
+endif
+ifeq "$(REMOTE_BUILD)" "1"
+	cd config/development && kustomize edit add patch --path=remote_build.yaml
+endif
+
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: install manifests config/development/kustomization.yaml
 	kustomize build config/development | kubectl $(KUBECTL_ARGS) apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -164,8 +178,14 @@ container-build: test_if_changed
 container-push:
 	$(BUILDER) push ${IMG}
 
+# Push the container image
+container-push-if-remote:
+ifeq "$(REMOTE_BUILD)" "1"
+	$(BUILDER) push ${IMG}
+endif
+
 # Rebuilds, deploys, and bounces the operator
-rebuild-operator: container-build deploy bounce
+rebuild-operator: container-build container-push-if-remote deploy bounce
 
 bounce:
 	kubectl $(KUBECTL_ARGS) delete pod -l app=fdb-kubernetes-operator-controller-manager
