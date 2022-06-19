@@ -4433,44 +4433,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				false,
 			),
-			Entry("Default update strategy log process that is in crash loop",
-				&FoundationDBCluster{
-					Spec: FoundationDBClusterSpec{
-						AutomationOptions: FoundationDBClusterAutomationOptions{
-							PodUpdateStrategy: "",
-						},
-						Buggify: BuggifyConfig{
-							CrashLoop: []string{
-								"log-1",
-							},
-						},
-					},
-				},
-				&ProcessGroupStatus{
-					ProcessGroupID: "log-1",
-					ProcessClass:   ProcessClassTransaction,
-				},
-				false,
-			),
-			Entry("Default update strategy log process with crash loop all",
-				&FoundationDBCluster{
-					Spec: FoundationDBClusterSpec{
-						AutomationOptions: FoundationDBClusterAutomationOptions{
-							PodUpdateStrategy: "",
-						},
-						Buggify: BuggifyConfig{
-							CrashLoop: []string{
-								"*",
-							},
-						},
-					},
-				},
-				&ProcessGroupStatus{
-					ProcessGroupID: "log-1",
-					ProcessClass:   ProcessClassTransaction,
-				},
-				false,
-			),
 		)
 	})
 

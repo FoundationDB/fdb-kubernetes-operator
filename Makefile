@@ -2,7 +2,7 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= fdb-kubernetes-operator:latest
-SIDECAR_IMG ?= ""
+SIDECAR_IMG ?=
 REMOTE_BUILD ?= 0
 CRD_OPTIONS ?= "crd:maxDescLen=0,crdVersions=v1,generateEmbeddedObjectMeta=true"
 

@@ -44,10 +44,13 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
-	updates := make([]*corev1.Pod, 0)
-
 	crashLoopPods, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	noSchedulePods := make(map[string]fdbv1beta2.None, len(cluster.Spec.Buggify.NoSchedule))
+	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
+		noSchedulePods[processGroupID] = fdbv1beta2.None{}
+	}
 
+	var updates []*corev1.Pod
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			logger.V(1).Info("Ignore process group marked for removal",
@@ -80,6 +83,42 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 				"shouldCrashLoop", shouldCrashLoop,
 				"inCrashLoop", inCrashLoop)
 			updates = append(updates, pod)
+			continue
+		}
+
+		// Recreate Pods that should be in the no schedule state
+		var inNoSchedule, shouldBeNoSchedule bool
+		_, shouldBeNoSchedule = noSchedulePods[processGroup.ProcessGroupID]
+
+		// Ensure the Pod has an Affinity set it.
+		if pod.Spec.Affinity == nil ||
+			pod.Spec.Affinity.NodeAffinity == nil ||
+			pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			// If not and the Pod should be in noSchedule we have to update the Pod.
+			if shouldBeNoSchedule {
+				logger.Info("Deleting pod for buggification",
+					"processGroupID", processGroup.ProcessGroupID,
+					"shouldBeNoSchedule", shouldBeNoSchedule,
+					"inNoSchedule", inNoSchedule)
+				updates = append(updates, pod)
+			}
+			continue
+		}
+
+		for _, term := range pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+			for _, expression := range term.MatchExpressions {
+				if expression.Key == fdbv1beta2.NodeSelectorNoScheduleLabel {
+					inNoSchedule = true
+				}
+			}
+		}
+
+		if inNoSchedule != shouldBeNoSchedule {
+			logger.Info("Deleting pod for buggification",
+				"processGroupID", processGroup.ProcessGroupID,
+				"shouldBeNoSchedule", shouldBeNoSchedule,
+				"inNoSchedule", inNoSchedule)
+			updates = append(updates, pod)
 		}
 	}
 
@@ -94,5 +133,6 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 
 		return &requeue{message: "Pods need to be recreated"}
 	}
+
 	return nil
 }
