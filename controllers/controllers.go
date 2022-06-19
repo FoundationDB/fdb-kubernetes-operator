@@ -104,7 +104,7 @@ func processRequeue(requeue *requeue, subReconciler interface{}, object runtime.
 	if err != nil && k8serrors.IsConflict(err) {
 		err = nil
 		if requeue.delay == time.Duration(0) {
-			requeue.delay = time.Minute
+			requeue.delay = 5 * time.Second
 		}
 	}
 
