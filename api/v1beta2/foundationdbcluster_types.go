@@ -2035,3 +2035,32 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 
 	return crashLoopPods, false
 }
+
+// Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
+// found all of them will be returned in a single error.
+func (cluster *FoundationDBCluster) Validate() error {
+	var validations []string
+
+	// Check if the provided storage engine is valid for the defined FDB version.
+	version, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return err
+	}
+
+	if !version.IsStorageEngineSupported(cluster.Spec.DatabaseConfiguration.StorageEngine) {
+		validations = append(validations, fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
+	}
+
+	// Check if all coordinator processes are stateful
+	for _, selection := range cluster.Spec.CoordinatorSelection {
+		if !selection.ProcessClass.IsStateful() {
+			validations = append(validations, fmt.Sprintf("%s is not a valid process class for coordinators", selection.ProcessClass))
+		}
+	}
+
+	if len(validations) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(validations, ", "))
+}

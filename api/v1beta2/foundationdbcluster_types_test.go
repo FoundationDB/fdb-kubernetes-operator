@@ -4551,4 +4551,119 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			})
 		})
 	})
+
+	When("validating a cluster", func() {
+		DescribeTable("it should return if the cluster is valid",
+			func(cluster *FoundationDBCluster, expected error) {
+				if expected == nil {
+					Expect(cluster.Validate()).NotTo(HaveOccurred())
+				} else {
+					Expect(cluster.Validate()).To(Equal(expected))
+				}
+
+			},
+			Entry("valid cluster spec",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.3.2",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+					},
+				},
+				nil,
+			),
+			Entry("using invalid storage engine",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.3.2",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.3.2"),
+			),
+			Entry("using valid storage engine",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsRocksDBV1.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+					},
+				},
+				nil,
+			),
+			Entry("using valid coordinator selection",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsRocksDBV1.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+						CoordinatorSelection: []CoordinatorSelectionSetting{
+							{
+								ProcessClass: ProcessClassStorage,
+							},
+							{
+								ProcessClass: ProcessClassLog,
+							},
+							{
+								ProcessClass: ProcessClassCoordinator,
+							},
+							{
+								ProcessClass: ProcessClassTransaction,
+							},
+						},
+					},
+				},
+				nil,
+			),
+			Entry("using invalid coordinator selection",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsRocksDBV1.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+						CoordinatorSelection: []CoordinatorSelectionSetting{
+							{
+								ProcessClass: ProcessClassStorage,
+							},
+							{
+								ProcessClass: ProcessClassLog,
+							},
+							{
+								ProcessClass: ProcessClassCoordinator,
+							},
+							{
+								ProcessClass: ProcessClassTransaction,
+							},
+							{
+								ProcessClass: ProcessClassStateless,
+							},
+						},
+					},
+				},
+				fmt.Errorf("stateless is not a valid process class for coordinators"),
+			),
+			Entry("multiple validations",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.1.3",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+						CoordinatorSelection: []CoordinatorSelectionSetting{
+							{
+								ProcessClass: ProcessClassStateless,
+							},
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.1.3, stateless is not a valid process class for coordinators"),
+			),
+		)
+	})
 })
