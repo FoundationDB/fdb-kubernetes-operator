@@ -90,11 +90,11 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 		var inNoSchedule, shouldBeNoSchedule bool
 		_, shouldBeNoSchedule = noSchedulePods[processGroup.ProcessGroupID]
 
-		// Ensure the Pod has an Affinity set it.
+		// Ensure the Pod has an Affinity set before accessing it.
 		if pod.Spec.Affinity == nil ||
 			pod.Spec.Affinity.NodeAffinity == nil ||
 			pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-			// If not and the Pod should be in noSchedule we have to update the Pod.
+			// Uf the Pod should be in the noSchedule state we have to recreate the Pod.
 			if shouldBeNoSchedule {
 				logger.Info("Deleting pod for buggification",
 					"processGroupID", processGroup.ProcessGroupID,
