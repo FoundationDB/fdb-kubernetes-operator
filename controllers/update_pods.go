@@ -79,12 +79,6 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			return &requeue{message: "Cluster has pod that is pending deletion", delay: podSchedulingDelayDuration}
 		}
 
-		// This is not the final place for this call. We need to make sure the view of the pods
-		// is the same for fdbcli status and the K8s operator. Adding this call for dummy initial unit testing.
-		if shouldRequeueDueToClusterStatusDrift(pod, cluster, processGroup.ProcessGroupID) {
-			return &requeue{message: "fdbcli status is inconsistent with Pod status", delay: podSchedulingDelayDuration}
-		}
-
 		_, idNum, err := podmanager.ParseProcessGroupID(processGroup.ProcessGroupID)
 		if err != nil {
 			return &requeue{curError: err}
@@ -161,12 +155,12 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		return nil
 	}
 
-	statusdrift, err := shouldRequeueDueToClusterStatusDrift(cluster, adminClient, podMap)
+	statusDrift, err := shouldRequeueDueToClusterStatusDrift(cluster, adminClient, podMap)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	if statusdrift {
+	if statusDrift {
 		return &requeue{message: "Stale fdbcli status"}
 	}
 
