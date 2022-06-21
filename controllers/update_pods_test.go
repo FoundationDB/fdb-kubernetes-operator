@@ -192,43 +192,4 @@ var _ = Describe("update_pods", func() {
 		})
 	})
 
-	Context("Validating shouldRequeueDueToClusterStatusDrift", func() {
-		var processGroup = ""
-
-		When("pod with running status", func() {
-			var cluster *fdbv1beta2.FoundationDBCluster
-			var pod *corev1.Pod
-			BeforeEach(func() {
-				cluster = &fdbv1beta2.FoundationDBCluster{}
-				pod = &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Pod1",
-					},
-				}
-			})
-
-			It("should not requeue due pod and fdb status drift", func() {
-				Expect(shouldRequeueDueToClusterStatusDrift(pod, cluster, processGroup)).To(BeFalse())
-			})
-		})
-
-		When("pod with not running status", func() {
-			var cluster *fdbv1beta2.FoundationDBCluster
-			var pod *corev1.Pod
-			BeforeEach(func() {
-				cluster = &fdbv1beta2.FoundationDBCluster{}
-				pod = &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "Pod1",
-						DeletionTimestamp: &metav1.Time{Time: time.Now()},
-					},
-					Status: corev1.PodStatus{},
-				}
-			})
-
-			It("should requeue due to pod and fdb status drift", func() {
-				Expect(shouldRequeueDueToClusterStatusDrift(pod, cluster, processGroup)).To(BeTrue())
-			})
-		})
-	})
 })
