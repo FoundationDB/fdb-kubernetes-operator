@@ -191,5 +191,4 @@ var _ = Describe("update_pods", func() {
 			})
 		})
 	})
-
 })
