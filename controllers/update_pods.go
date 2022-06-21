@@ -161,6 +161,15 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		return nil
 	}
 
+	statusdrift, err := shouldRequeueDueToClusterStatusDrift(cluster, adminClient, podMap)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
+	if statusdrift {
+		return &requeue{message: "Stale fdbcli status"}
+	}
+
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
@@ -170,10 +179,20 @@ func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.Found
 		!cluster.ProcessGroupIsBeingRemoved(processGroupID)
 }
 
-func shouldRequeueDueToClusterStatusDrift(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) bool {
-	//TODO write an implementation.
-	// We should check that all Pods reported as active by fdbcli status are in running state.
-	return false
+// Because the internal.fault_tolerance relies in fdbcli status only we need to make sure it is
+// synced with the cluster status to prevent race conditions.
+func shouldRequeueDueToClusterStatusDrift(cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, podMap map[string]*corev1.Pod) (bool, error) {
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return false, err
+	}
+	//Check that all processes in fdbcli status have a matching pod.
+	for _, p := range status.Cluster.Processes {
+		if _, ok := podMap[p.Locality["processid"]]; !ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][]*corev1.Pod) (string, []*corev1.Pod, error) {
