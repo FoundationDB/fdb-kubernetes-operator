@@ -244,9 +244,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	}
 	defer adminClient.Close()
 
-	var fdbProcessesToInclude []fdbv1beta2.ProcessAddress
-	var processGroups []*fdbv1beta2.ProcessGroupStatus
-	fdbProcessesToInclude, processGroups = getProcessesToInclude(cluster, removedProcessGroups)
+	fdbProcessesToInclude := getProcessesToInclude(cluster, removedProcessGroups)
 	if len(fdbProcessesToInclude) > 0 {
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "IncludingProcesses", fmt.Sprintf("Including removed processes: %v", fdbProcessesToInclude))
 
@@ -255,7 +253,6 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 			return err
 		}
 
-		cluster.Status.ProcessGroups = processGroups
 		err := r.Status().Update(ctx, cluster)
 		if err != nil {
 			return err
@@ -265,11 +262,14 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 	return nil
 }
 
-func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) ([]fdbv1beta2.ProcessAddress, []*fdbv1beta2.ProcessGroupStatus) {
+func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProcessGroups map[string]bool) []fdbv1beta2.ProcessAddress {
 	fdbProcessesToInclude := make([]fdbv1beta2.ProcessAddress, 0)
-	// TODO (09harsh): don't allocate extra space for processGroups, #1196
-	processGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 
+	if len(removedProcessGroups) == 0 {
+		return fdbProcessesToInclude
+	}
+
+	idx := 0
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() && removedProcessGroups[processGroup.ProcessGroupID] {
 			if cluster.UseLocalitiesForExclusion() {
@@ -278,11 +278,16 @@ func getProcessesToInclude(cluster *fdbv1beta2.FoundationDBCluster, removedProce
 			for _, pAddr := range processGroup.Addresses {
 				fdbProcessesToInclude = append(fdbProcessesToInclude, fdbv1beta2.ProcessAddress{IPAddress: net.ParseIP(pAddr)})
 			}
-		} else {
-			processGroups = append(processGroups, processGroup)
+			continue
 		}
+		cluster.Status.ProcessGroups[idx] = processGroup
+		idx++
 	}
-	return fdbProcessesToInclude, processGroups
+
+	// Remove the trailing duplicates.
+	cluster.Status.ProcessGroups = cluster.Status.ProcessGroups[:idx]
+
+	return fdbProcessesToInclude
 }
 
 func (r *FoundationDBClusterReconciler) getProcessGroupsToRemove(cluster *fdbv1beta2.FoundationDBCluster, remainingMap map[string]bool) (bool, bool, []*fdbv1beta2.ProcessGroupStatus) {
