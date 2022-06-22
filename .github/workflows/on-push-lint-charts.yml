@@ -27,6 +27,8 @@ jobs:
         with:
           python-version: 3.7
 
+      # Those steps can be run manually with:
+      # docker run --rm -it -w /repo -v $(pwd):/repo quay.io/helmpack/chart-testing:v3.3.1 ct lint --all
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.2.1
 
