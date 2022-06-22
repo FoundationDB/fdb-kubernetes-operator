@@ -246,6 +246,13 @@ In this example the processes with the class `storage` will be preferred over pr
 That means that a `log` process will only be considered a valid coordinator if there are no other `storage` processes that can be selected without hurting the fault domain requirements.
 Changing the `coordinatorSelection` can result in new coordinators e.g. if the current preferred class will be removed.
 
+The operator supports the following classes as coordinators:
+
+- `storage`
+- `log`
+- `transaction`
+- `coordinator`
+
 ### Known limitations
 
 FoundationDB clusters that are spread across different DC's or Kubernetes clusters only support the same `coordinatorSelection`.

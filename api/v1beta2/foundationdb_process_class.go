@@ -38,11 +38,13 @@ const (
 	ProcessClassClusterController ProcessClass = "cluster_controller"
 	// ProcessClassTest model for FDB class test
 	ProcessClassTest ProcessClass = "test"
+	// ProcessClassCoordinator model for FDB class coordinator
+	ProcessClassCoordinator ProcessClass = "coordinator"
 )
 
 // IsStateful determines whether a process class should store data.
 func (pClass ProcessClass) IsStateful() bool {
-	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction
+	return pClass == ProcessClassStorage || pClass == ProcessClassLog || pClass == ProcessClassTransaction || pClass == ProcessClassCoordinator
 }
 
 // IsTransaction determines whether a process class is part of the transaction system.
