@@ -38,6 +38,16 @@ For more information on version compatibility, see our [compatibility guide](doc
 
 For more information on the fields you can define on the cluster resource, see the [API documentation](docs/cluster_spec.md).
 
+### Using helm
+
+You can also use helm to install and manage the operator:
+
+```bash
+helm repo add fdb-kubernetes-operator https://foundationdb.github.io/fdb-kubernetes-operator/
+helm repo update
+helm install fdb-kubernetes-operator fdb-kubernetes-operator/fdb-kubernetes-operator
+ ```
+
 ## Local Development
 
 ### Environment Set-up
