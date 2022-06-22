@@ -328,9 +328,7 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
-					Expect(len(fdbProcessesToInclude)).To(Equal(0))
-					Expect(len(processGroups)).To(Equal(16))
+					Expect(len(getProcessesToInclude(cluster, removedProcessGroups))).To(Equal(0))
 				})
 			})
 
@@ -345,10 +343,10 @@ var _ = Describe("remove_process_groups", func() {
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
+					fdbProcessesToInclude := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(1))
 					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal("1.1.1.1"))
-					Expect(len(processGroups)).To(Equal(15))
+					Expect(len(cluster.Status.ProcessGroups)).To(Equal(15))
 				})
 			})
 		})
@@ -360,27 +358,29 @@ var _ = Describe("remove_process_groups", func() {
 
 			When("including no process", func() {
 				It("should not include any process", func() {
-					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
+					fdbProcessesToInclude := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(0))
-					Expect(len(processGroups)).To(Equal(16))
+					Expect(len(cluster.Status.ProcessGroups)).To(Equal(16))
 				})
 			})
 
 			When("including one process", func() {
-				BeforeEach(func() {
-					processGroup := cluster.Status.ProcessGroups[0]
-					Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
-					processGroup.MarkForRemoval()
-					cluster.Status.ProcessGroups[0] = processGroup
+				var removedProcessGroup *fdbv1beta2.ProcessGroupStatus
 
-					removedProcessGroups[processGroup.ProcessGroupID] = true
+				BeforeEach(func() {
+					removedProcessGroup = cluster.Status.ProcessGroups[0]
+					Expect(removedProcessGroup.ProcessGroupID).To(Equal("storage-1"))
+					removedProcessGroup.MarkForRemoval()
+					cluster.Status.ProcessGroups[0] = removedProcessGroup
+
+					removedProcessGroups[removedProcessGroup.ProcessGroupID] = true
 				})
 
 				It("should include one process", func() {
-					fdbProcessesToInclude, processGroups := getProcessesToInclude(cluster, removedProcessGroups)
+					fdbProcessesToInclude := getProcessesToInclude(cluster, removedProcessGroups)
 					Expect(len(fdbProcessesToInclude)).To(Equal(2))
-					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", cluster.Status.ProcessGroups[0].GetExclusionString(), cluster.Status.ProcessGroups[0].Addresses[0])))
-					Expect(len(processGroups)).To(Equal(15))
+					Expect(fdbv1beta2.ProcessAddressesString(fdbProcessesToInclude, " ")).To(Equal(fmt.Sprintf("%s %s", removedProcessGroup.GetExclusionString(), removedProcessGroup.Addresses[0])))
+					Expect(len(cluster.Status.ProcessGroups)).To(Equal(15))
 				})
 			})
 		})
