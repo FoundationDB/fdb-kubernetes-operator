@@ -1870,17 +1870,6 @@ func (cluster *FoundationDBCluster) NeedsReplacement(processGroup *ProcessGroupS
 		return false
 	}
 
-	// See: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1201 when a process group is set into crash loop
-	// we don't want to replace it (otherwise the newly created process group won't have that setting).
-	crashLoop, crashLoopAll := cluster.GetCrashLoopProcessGroups()
-	if crashLoopAll {
-		return false
-	}
-
-	if _, ok := crashLoop[processGroup.ProcessGroupID]; ok {
-		return false
-	}
-
 	if cluster.Spec.AutomationOptions.PodUpdateStrategy == PodUpdateStrategyReplacement {
 		return true
 	}
