@@ -3224,7 +3224,7 @@ spec:
                     maxItems: 100
                     type: array
                   peerVerificationRules:
-                    maxLength: 3000
+                    maxLength: 10000
                     type: string
                 type: object
               podTemplateSpec:
@@ -6208,7 +6208,7 @@ spec:
                     maxItems: 100
                     type: array
                   peerVerificationRules:
-                    maxLength: 3000
+                    maxLength: 10000
                     type: string
                 type: object
               snapshotPeriodSeconds:
