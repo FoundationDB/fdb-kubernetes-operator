@@ -1414,7 +1414,7 @@ type ContainerOverrides struct {
 
 	// PeerVerificationRules provides the rules for what client certificates
 	// the process should accept.
-	// +kubebuilder:validation:MaxLength=3000
+	// +kubebuilder:validation:MaxLength=10000
 	PeerVerificationRules string `json:"peerVerificationRules,omitempty"`
 
 	// ImageConfigs allows customizing the image that we use for
