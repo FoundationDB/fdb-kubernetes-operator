@@ -73,6 +73,50 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	return database, nil
 }
 
+// getConnectionStringFromDB gets the database's connection directly from the system key
+func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+	fdbKey := "\xff\xff/connection_string"
+
+	database, err := getFDBDatabase(cluster)
+	if err != nil {
+		return "", err
+	}
+
+	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
+		err := transaction.Options().SetAccessSystemKeys()
+		if err != nil {
+			return nil, err
+		}
+		// Wait default timeout seconds to receive status for larger clusters.
+		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout * 1000))
+		if err != nil {
+			return nil, err
+		}
+
+		statusBytes := transaction.Get(fdb.Key(fdbKey)).MustGet()
+		if len(statusBytes) == 0 {
+			return nil, err
+		}
+
+		return statusBytes, err
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	statusBytes, ok := result.([]byte)
+	if !ok {
+		return "", fmt.Errorf("could not cast result into byte slice")
+	}
+
+	connectionString, err := fdbv1beta2.ParseConnectionString(string(statusBytes))
+	if err != nil {
+		return "", err
+	}
+	return connectionString.String(), nil
+}
+
 // getStatusFromDB gets the database's status directly from the system key
 func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (*fdbv1beta2.FoundationDBStatus, error) {
 	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)

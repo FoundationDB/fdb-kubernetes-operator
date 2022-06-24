@@ -529,6 +529,16 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
+	// connectionString key is supported in 6.x
+	if client.useClientLibrary && err == nil && version.IsSupported() {
+		// This will call directly the database and fetch the connection string
+		// from the system key space.
+		return getConnectionStringFromDB(client.Cluster)
+	}
 	output, err := client.runCommand(cliCommand{command: "status minimal"})
 	if err != nil {
 		return "", err
