@@ -299,7 +299,7 @@ var _ = Describe("pod_models", func() {
 					{Name: "dynamic-conf", MountPath: "/var/output-files"},
 				}))
 				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.IntOrString{IntVal: 8080},
 						},
@@ -1084,7 +1084,7 @@ var _ = Describe("pod_models", func() {
 					{Name: "dynamic-conf", MountPath: "/var/output-files"},
 				}))
 				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.IntOrString{IntVal: 8080},
 						},

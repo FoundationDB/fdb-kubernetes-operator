@@ -41,7 +41,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -106,7 +105,7 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
-	logr *log.DelegatingLogger,
+	logr logr.Logger,
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
 	var file *os.File

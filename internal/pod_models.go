@@ -516,7 +516,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			// We can't use a HTTP handler here since the server
 			// requires a client certificate
 			container.LivenessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					TCPSocket: &corev1.TCPSocketAction{
 						Port: intstr.IntOrString{IntVal: 8080},
 					},
@@ -529,7 +529,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 		if !initMode && cluster.GetSidecarContainerEnableReadinessProbe() && container.ReadinessProbe == nil {
 			container.ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					TCPSocket: &corev1.TCPSocketAction{
 						Port: intstr.IntOrString{IntVal: 8080},
 					},
