@@ -87,8 +87,8 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 		if err != nil {
 			return nil, err
 		}
-		// Wait default timeout seconds to receive status for larger clusters.
-		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout * 1000))
+		// Wait more seconds than default timeout for a larger clusters.
+		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout * 10))
 		if err != nil {
 			return nil, err
 		}
@@ -114,6 +114,7 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 	if err != nil {
 		return "", err
 	}
+
 	return connectionString.String(), nil
 }
 
