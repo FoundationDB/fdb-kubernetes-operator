@@ -104,14 +104,16 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		synced, err := r.updatePodDynamicConf(cluster, pod)
 		if !synced {
 			allSynced = false
-			hasUpdate = true
 			if err != nil {
 				curLogger.Error(err, "Update Pod ConfigMap annotation")
 			}
-			if internal.IsNetworkError(err) {
+
+			if internal.IsNetworkError(err) && processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) == nil {
 				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
-			} else {
+				hasUpdate = true
+			} else if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) == nil {
 				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
+				hasUpdate = true
 			}
 
 			pod.ObjectMeta.Annotations[fdbv1beta2.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
