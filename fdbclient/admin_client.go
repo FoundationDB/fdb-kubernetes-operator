@@ -79,6 +79,10 @@ type cliAdminClient struct {
 	// client library rather than the CLI.
 	useClientLibrary bool
 
+	// Whether the client library should be used to get connection string
+	// before using the CLI.
+	useClientLibraryForConnectionString bool
+
 	// log implementation for logging output
 	log logr.Logger
 }
@@ -101,7 +105,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true, log: log}, nil
+	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true, useClientLibraryForConnectionString: true, log: log}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -529,10 +533,8 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
-	adminClientMutex.Lock()
-	defer adminClientMutex.Unlock()
 
-	if client.useClientLibrary {
+	if client.useClientLibraryForConnectionString {
 		// This will call directly the database and fetch the connection string
 		// from the system key space.
 		return getConnectionStringFromDB(client.Cluster)

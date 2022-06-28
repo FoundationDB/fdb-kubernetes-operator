@@ -75,8 +75,6 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 
 // getConnectionStringFromDB gets the database's connection directly from the system key
 func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
-	fdbKey := "\xff\xff/connection_string"
-
 	database, err := getFDBDatabase(cluster)
 	if err != nil {
 		return "", err
@@ -93,12 +91,12 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 			return nil, err
 		}
 
-		statusBytes := transaction.Get(fdb.Key(fdbKey)).MustGet()
-		if len(statusBytes) == 0 {
+		result := transaction.Get(fdb.Key("\xff\xff/connection_string")).MustGet()
+		if len(result) == 0 {
 			return nil, err
 		}
 
-		return statusBytes, err
+		return result, err
 	})
 
 	if err != nil {
