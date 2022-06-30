@@ -102,12 +102,12 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 		return "", err
 	}
 
-	bareConnectionString, ok := result.([]string)
+	bareConnectionString, ok := result.(string)
 	if !ok {
 		return "", fmt.Errorf("could not cast result into byte slice")
 	}
 
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(bareConnectionString))
+	connectionString, err := fdbv1beta2.ParseConnectionString(bareConnectionString)
 	if err != nil {
 		return "", err
 	}
