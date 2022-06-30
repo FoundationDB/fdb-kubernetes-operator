@@ -85,8 +85,7 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 		if err != nil {
 			return nil, err
 		}
-		// Wait more seconds than default timeout for a larger clusters.
-		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout * 10))
+		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout))
 		if err != nil {
 			return nil, err
 		}
@@ -103,12 +102,12 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 		return "", err
 	}
 
-	statusBytes, ok := result.([]byte)
+	bareConnectionString, ok := result.([]string)
 	if !ok {
 		return "", fmt.Errorf("could not cast result into byte slice")
 	}
 
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(statusBytes))
+	connectionString, err := fdbv1beta2.ParseConnectionString(string(bareConnectionString))
 	if err != nil {
 		return "", err
 	}

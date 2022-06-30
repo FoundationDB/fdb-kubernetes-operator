@@ -867,8 +867,8 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:default:=ReplaceTransactionSystem
 	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
 
-	// UseManagementAPI for using the management APIs that FDB provides.
-	// ex: Using FDB key to get connection string.
+	// UseManagementAPI defines if the operator should make use of the management API instead of
+	// using fdbcli to interact with the FoundationDB cluster.
 	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
 }
 
@@ -1805,13 +1805,13 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
 }
 
-// GetUseManagementAPI returns the value of UseManagementAPI or false if unset.
-func (cluster *FoundationDBCluster) GetUseManagementAPI() bool {
+// UseManagementAPI returns the value of UseManagementAPI or false if unset.
+func (cluster *FoundationDBCluster) UseManagementAPI() bool {
 	if cluster.Spec.AutomationOptions.UseManagementAPI == nil {
 		return false
 	}
 
-	return *cluster.Spec.AutomationOptions.UseManagementAPI
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }
 
 // PodUpdateMode defines the deletion mode for the cluster

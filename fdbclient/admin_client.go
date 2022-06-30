@@ -529,10 +529,9 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
-	if client.Cluster.GetUseManagementAPI() {
+	if client.Cluster.UseManagementAPI() {
 		// This will call directly the database and fetch the connection string
 		// from the system key space.
-		client.log.Info("Getting connection string using FDB Key")
 		return getConnectionStringFromDB(client.Cluster)
 	}
 	output, err := client.runCommand(cliCommand{command: "status minimal"})
