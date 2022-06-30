@@ -146,7 +146,7 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	# Per default controller-gen will generate a ClusterRole for our example we want to use a Role and the namespace marker doesn't
 	# work since it requires a namespace and kustomize doesn't support to change the Kind.
-	@sed -i 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml
+	@sed -i -e 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml
 
 # Run go fmt against code
 fmt: bin/fmt_check
