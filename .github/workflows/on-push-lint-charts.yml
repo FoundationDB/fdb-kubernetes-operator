@@ -22,19 +22,13 @@ jobs:
         with:
           version: v${{ env.HELM_VERSION }}
 
-      - name: Set up kube-score
-        run: |
-          wget https://github.com/zegl/kube-score/releases/download/v${{ env.KUBE_SCORE_VERSION }}/kube-score_${{ env.KUBE_SCORE_VERSION }}_linux_amd64 -O kube-score
-          chmod 755 kube-score
-
-      - name: Kube-score generated manifests
-        run: charts/.ci/scripts/local-kube-score.sh
-
       # Python is a requirement for the chart-testing action below (supports yamllint among other tests)
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
 
+      # Those steps can be run manually with:
+      # docker run --rm -it -w /repo -v $(pwd):/repo quay.io/helmpack/chart-testing:v3.3.1 ct lint --all
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.2.1
 
