@@ -193,7 +193,8 @@ var _ = Describe("remove_process_groups", func() {
 					adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, secondRemovedProcessGroup.Addresses...)
 				})
 
-				It("should remove only one process group", func() {
+				// TODO(johscheuer): Fix this flaky test properly, for now retry failing test occurrences with a maximum of 3 retries.
+				It("should remove only one process group", FlakeAttempts(3), func() {
 					Expect(result).To(BeNil())
 					Expect(initialCnt - len(cluster.Status.ProcessGroups)).To(BeNumerically("==", 1))
 					// Ensure resources are deleted
