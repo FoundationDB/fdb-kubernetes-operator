@@ -8,7 +8,6 @@ on:
 env:
   FDB_VER: "6.2.29"
 
-
 jobs:
   lint-go:
     name: Lint go code
@@ -73,10 +72,15 @@ jobs:
         chmod +x kind
         sudo mv kind /usr/local/bin/kind
         ./scripts/setup_kind_local_registry.sh ${{ matrix.kubever }}
+    #  https://github.com/goreleaser/goreleaser/issues/1311
+    - name: Get current semver tag
+      run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
+      id: current-tag
     - name: Check for uncommitted changes
       env:
         # Don't run any tests we run them in the next step
         SKIP_TEST: "1"
+        GORELEASER_CURRENT_TAG: ${{ steps.current-tag.outputs.CURRENT_TAG }}
       run: |
         make clean all
         git diff --exit-code
