@@ -73,13 +73,11 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	return database, nil
 }
 
-// getConnectionStringFromDB gets the database's connection directly from the system key
-func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string, error) {
+func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, fdbKey string) ([]byte, error) {
 	database, err := getFDBDatabase(cluster)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
 	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {
@@ -90,29 +88,24 @@ func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) (string,
 			return nil, err
 		}
 
-		result := transaction.Get(fdb.Key("\xff\xff/connection_string")).MustGet()
-		if len(result) == 0 {
+		rawResult := transaction.Get(fdb.Key(fdbKey)).MustGet()
+		if len(rawResult) == 0 {
 			return nil, err
 		}
 
-		return result, err
+		return rawResult, err
 	})
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	bareConnectionString, ok := result.(string)
-	if !ok {
-		return "", fmt.Errorf("could not cast result into byte slice")
-	}
+	return result.([]byte), nil
+}
 
-	connectionString, err := fdbv1beta2.ParseConnectionString(bareConnectionString)
-	if err != nil {
-		return "", err
-	}
-
-	return connectionString.String(), nil
+// getConnectionStringFromDB gets the database's connection directly from the system key
+func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) ([]byte, error) {
+	return getValueFromDBUsingKey(cluster, "\xff\xff/connection_string")
 }
 
 // getStatusFromDB gets the database's status directly from the system key

@@ -529,29 +529,35 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
+	var connectionStringBytes []byte
+	var err error
+
 	if client.Cluster.UseManagementAPI() {
 		// This will call directly the database and fetch the connection string
 		// from the system key space.
-		return getConnectionStringFromDB(client.Cluster)
+		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster)
+	} else {
+		var output string
+		output, err = client.runCommand(cliCommand{command: "status minimal"})
+		if err != nil {
+			return "", err
+		}
+
+		if !strings.Contains(output, "The database is available") {
+			return "", fmt.Errorf("unable to fetch connection string: %s", output)
+		}
+
+		connectionStringBytes, err = os.ReadFile(client.clusterFilePath)
 	}
-	output, err := client.runCommand(cliCommand{command: "status minimal"})
+	if err != nil {
+		return "", err
+	}
+	var connectionString fdbv1beta2.ConnectionString
+	connectionString, err = fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
 	if err != nil {
 		return "", err
 	}
 
-	if !strings.Contains(output, "The database is available") {
-		return "", fmt.Errorf("unable to fetch connection string: %s", output)
-	}
-
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
 	return connectionString.String(), nil
 }
 

@@ -1807,10 +1807,6 @@ func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 
 // UseManagementAPI returns the value of UseManagementAPI or false if unset.
 func (cluster *FoundationDBCluster) UseManagementAPI() bool {
-	if cluster.Spec.AutomationOptions.UseManagementAPI == nil {
-		return false
-	}
-
 	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }
 
