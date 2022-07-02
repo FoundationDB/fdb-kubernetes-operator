@@ -230,26 +230,33 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
-
+	var contents []byte
+	var err error
 	if client.useClientLibrary {
 		// This will call directly the database and fetch the status information
 		// from the system key space.
-		return getStatusFromDB(client.Cluster, client.log)
-	}
-	contents, err := client.runCommand(cliCommand{command: "status json"})
-	if err != nil {
-		return nil, err
-	}
-	client.log.V(1).Info("Fetched status JSON", "contents", contents)
-	contents, err = internal.RemoveWarningsInJSON(contents)
-	if err != nil {
-		return nil, err
+		contents, err = getStatusFromDB(client.Cluster, client.log)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var rawResult, filteredJSON string
+		rawResult, err = client.runCommand(cliCommand{command: "status json"})
+		if err != nil {
+			return nil, err
+		}
+		filteredJSON, err = internal.RemoveWarningsInJSON(rawResult)
+		if err != nil {
+			return nil, err
+		}
+		contents = []byte(filteredJSON)
 	}
 	status := &fdbv1beta2.FoundationDBStatus{}
-	err = json.Unmarshal([]byte(contents), status)
+	err = json.Unmarshal(contents, status)
 	if err != nil {
 		return nil, err
 	}
+	client.log.V(1).Info("Fetched status JSON", "status", status)
 	return status, nil
 }
 
