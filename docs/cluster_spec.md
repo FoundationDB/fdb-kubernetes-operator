@@ -163,6 +163,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | removalMode | RemovalMode defines the removal mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | [PodUpdateMode](#podupdatemode) | false |
 | waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted processes. Defaults to 60. | *int | false |
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
+| useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
