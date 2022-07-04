@@ -230,26 +230,33 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
-
+	var contents []byte
+	var err error
 	if client.useClientLibrary {
 		// This will call directly the database and fetch the status information
 		// from the system key space.
-		return getStatusFromDB(client.Cluster, client.log)
-	}
-	contents, err := client.runCommand(cliCommand{command: "status json"})
-	if err != nil {
-		return nil, err
-	}
-	client.log.V(1).Info("Fetched status JSON", "contents", contents)
-	contents, err = internal.RemoveWarningsInJSON(contents)
-	if err != nil {
-		return nil, err
+		contents, err = getStatusFromDB(client.Cluster, client.log)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var rawResult, filteredJSON string
+		rawResult, err = client.runCommand(cliCommand{command: "status json"})
+		if err != nil {
+			return nil, err
+		}
+		filteredJSON, err = internal.RemoveWarningsInJSON(rawResult)
+		if err != nil {
+			return nil, err
+		}
+		contents = []byte(filteredJSON)
 	}
 	status := &fdbv1beta2.FoundationDBStatus{}
-	err = json.Unmarshal([]byte(contents), status)
+	err = json.Unmarshal(contents, status)
 	if err != nil {
 		return nil, err
 	}
+	client.log.V(1).Info("Fetched status JSON", "status", status)
 	return status, nil
 }
 
@@ -529,24 +536,35 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
-	output, err := client.runCommand(cliCommand{command: "status minimal"})
+	var connectionStringBytes []byte
+	var err error
+
+	if client.Cluster.UseManagementAPI() {
+		// This will call directly the database and fetch the connection string
+		// from the system key space.
+		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster)
+	} else {
+		var output string
+		output, err = client.runCommand(cliCommand{command: "status minimal"})
+		if err != nil {
+			return "", err
+		}
+
+		if !strings.Contains(output, "The database is available") {
+			return "", fmt.Errorf("unable to fetch connection string: %s", output)
+		}
+
+		connectionStringBytes, err = os.ReadFile(client.clusterFilePath)
+	}
+	if err != nil {
+		return "", err
+	}
+	var connectionString fdbv1beta2.ConnectionString
+	connectionString, err = fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
 	if err != nil {
 		return "", err
 	}
 
-	if !strings.Contains(output, "The database is available") {
-		return "", fmt.Errorf("unable to fetch connection string: %s", output)
-	}
-
-	connectionStringBytes, err := os.ReadFile(client.clusterFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	connectionString, err := fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
-	if err != nil {
-		return "", err
-	}
 	return connectionString.String(), nil
 }
 

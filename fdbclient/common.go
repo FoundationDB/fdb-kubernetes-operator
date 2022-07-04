@@ -21,7 +21,6 @@
 package fdbclient
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -73,52 +72,49 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	return database, nil
 }
 
-// getStatusFromDB gets the database's status directly from the system key
-func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) (*fdbv1beta2.FoundationDBStatus, error) {
-	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
-	statusKey := "\xff\xff/status/json"
-
+func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, fdbKey string, extraTimeout int64) ([]byte, error) {
 	database, err := getFDBDatabase(cluster)
 	if err != nil {
 		return nil, err
 	}
-
 	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {
 			return nil, err
 		}
-		// Wait default timeout seconds to receive status for larger clusters.
-		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout * 1000))
+		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout) * extraTimeout)
 		if err != nil {
 			return nil, err
 		}
 
-		statusBytes := transaction.Get(fdb.Key(statusKey)).MustGet()
-		if len(statusBytes) == 0 {
+		rawResult := transaction.Get(fdb.Key(fdbKey)).MustGet()
+		if len(rawResult) == 0 {
 			return nil, err
 		}
 
-		return statusBytes, err
+		return rawResult, err
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	statusBytes, ok := result.([]byte)
+	byteResult, ok := result.([]byte)
 	if !ok {
 		return nil, fmt.Errorf("could not cast result into byte slice")
 	}
+	return byteResult, nil
+}
 
-	status := &fdbv1beta2.FoundationDBStatus{}
-	err = json.Unmarshal(statusBytes, &status)
-	if err == nil {
-		log.V(1).Info("Retrieved JSON status", "raw", string(statusBytes), "parsed", status)
-		log.Info("Successfully fetched status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
-	}
+// getConnectionStringFromDB gets the database's connection string directly from the system key
+func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) ([]byte, error) {
+	return getValueFromDBUsingKey(cluster, "\xff\xff/connection_string", 1)
+}
 
-	return status, err
+// getStatusFromDB gets the database's status directly from the system key
+func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
+	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
+	return getValueFromDBUsingKey(cluster, "\xff\xff/status/json", 1000)
 }
 
 type realDatabaseClientProvider struct {

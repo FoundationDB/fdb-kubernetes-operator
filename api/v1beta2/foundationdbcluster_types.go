@@ -866,6 +866,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
 	// +kubebuilder:default:=ReplaceTransactionSystem
 	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
+
+	// UseManagementAPI defines if the operator should make use of the management API instead of
+	// using fdbcli to interact with the FoundationDB cluster.
+	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -1799,6 +1803,11 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 // GetMaxConcurrentReplacements returns the maxConcurrentReplacements or defaults to math.MaxInt64
 func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
+}
+
+// UseManagementAPI returns the value of UseManagementAPI or false if unset.
+func (cluster *FoundationDBCluster) UseManagementAPI() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }
 
 // PodUpdateMode defines the deletion mode for the cluster
