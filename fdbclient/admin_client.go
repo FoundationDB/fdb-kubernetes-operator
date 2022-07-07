@@ -41,7 +41,8 @@ import (
 )
 
 const (
-	fdbcliStr = "fdbcli"
+	fdbcliStr                        = "fdbcli"
+	maintenanceModeDurationInSeconds = 600
 )
 
 var adminClientMutex sync.Mutex
@@ -342,6 +343,35 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 	}
 
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
+	return err
+}
+
+// GetMaintenanceZone gets current maintenance zone, if any. Returns empty string if maintenance mode is off
+func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
+	status, err := client.GetStatus()
+	if err != nil {
+		return "", err
+	}
+	return status.Cluster.MaintenanceZone, nil
+}
+
+// SetMaintenanceZone places zone into maintenance mode
+func (client *cliAdminClient) SetMaintenanceZone(zone string) error {
+	_, err := client.runCommand(cliCommand{
+		command: fmt.Sprintf(
+			"maintenance on %s %s",
+			zone,
+			strconv.Itoa(maintenanceModeDurationInSeconds)),
+	})
+	return err
+}
+
+// ResetMaintenanceMode switches of maintenance mode
+func (client *cliAdminClient) ResetMaintenanceMode() error {
+	_, err := client.runCommand(cliCommand{
+		command: fmt.Sprintf(
+			"maintenance off"),
+	})
 	return err
 }
 

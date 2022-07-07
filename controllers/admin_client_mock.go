@@ -711,3 +711,18 @@ func (client *mockAdminClient) GetCoordinatorSet() (map[string]struct{}, error) 
 func (client *mockAdminClient) SetKnobs(knobs []string) {
 	client.knobs = knobs
 }
+
+// GetMaintenanceZone gets current maintenance zone, if any
+func (client *mockAdminClient) GetMaintenanceZone() (string, error) {
+	return "", nil
+}
+
+// SetMaintenanceZone places zone into maintenance mode
+func (client *mockAdminClient) SetMaintenanceZone(zone string) error {
+	return nil
+}
+
+// Reset maintenance mode
+func (client *mockAdminClient) ResetMaintenanceMode() error {
+	return nil
+}

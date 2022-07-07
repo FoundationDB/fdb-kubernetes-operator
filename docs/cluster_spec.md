@@ -22,6 +22,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
+* [MaintenanceModeInfo](#maintenancemodeinfo)
 * [ProcessGroupCondition](#processgroupcondition)
 * [ProcessGroupStatus](#processgroupstatus)
 * [ProcessSettings](#processsettings)
@@ -254,6 +255,7 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | imageTypes | ImageTypes defines the kinds of images that are in use in the cluster. If there is more than one value in the slice the reconcile phase is not finished. | [][ImageType](#imagetype) | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
+| maintenanceModeInfo | MaintenenanceModeInfo contains information regarding process groups in maintenance mode | [MaintenanceModeInfo](#maintenancemodeinfo) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -308,6 +310,18 @@ LockSystemStatus provides a summary of the status of the locking system.
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | lockDenyList | DenyList contains a list of operator instances that are prevented from taking locks. | []string | false |
+
+[Back to TOC](#table-of-contents)
+
+## MaintenanceModeInfo
+
+MaintenanceModeInfo contains information regarding the zone and process groups that are put into maintenence mode by the operator
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| startTimestamp | Timestamp when this zone is put into maintenance mode | *metav1.Time | false |
+| zoneID | ZoneId that is placed in maintenance mode | string | false |
+| processGroups | ProcessGroups that are placed in maintenance mode | []string | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -31,6 +31,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -47,6 +48,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 
 	updates := make(map[string][]*corev1.Pod)
+	zoneProcessGroupMap := make(map[string][]string)
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -123,8 +125,10 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 			if updates[zone] == nil {
 				updates[zone] = make([]*corev1.Pod, 0)
+				zoneProcessGroupMap[zone] = make([]string, 0)
 			}
 			updates[zone] = append(updates[zone], pod)
+			zoneProcessGroupMap[zone] = append(zoneProcessGroupMap[zone], processGroup.ProcessGroupID)
 		}
 	}
 
@@ -156,7 +160,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 	defer adminClient.Close()
 
-	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
+	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, zoneProcessGroupMap, logger)
 }
 
 func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) bool {
@@ -203,7 +207,7 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, zoneProcessGroupMap map[string][]string, logger logr.Logger) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
 	zone, deletions, err := getPodsToDelete(deletionMode, updates)
 	if err != nil {
@@ -218,6 +222,16 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		return &requeue{message: "Reconciliation requires deleting pods, but deletion is currently not safe", delay: podSchedulingDelayDuration}
 	}
 
+	// if deletionMode == fdbv1beta2.PodUpdateModeZone {
+	// 	maintenanceZone, err := adminClient.GetMaintenanceZone()
+	// 	if err != nil {
+	// 		return &requeue{curError: err}
+	// 	}
+	// 	if maintenanceZone != "" {
+	// 		return &requeue{message: "Waiting for cluster to come out of maintenance mode", delayedRequeue: true}
+	// 	}
+	// }
+
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
@@ -227,7 +241,29 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
+<<<<<<< HEAD
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
+=======
+	if deletionMode == fdbv1beta2.PodUpdateModeZone {
+		logger.Info("Setting maintenance mode", "zone", zone)
+		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
+		cluster.Status.MaintenanceModeInfo.StartTimestamp = &metav1.Time{Time: time.Now()}
+		cluster.Status.MaintenanceModeInfo.ZoneId = zone
+		cluster.Status.MaintenanceModeInfo.ProcessGroups = zoneProcessGroupMap[zone]
+		err = r.Status().Update(ctx, cluster)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		// TODO
+		logger.Info("Maintenance Mode Info", "zone", cluster.Status.MaintenanceModeInfo.ZoneId)
+		err = adminClient.SetMaintenanceZone(zone)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
+>>>>>>> 6f6741d0 (Add a new reconciler to put the cluster into maintenance mode during rolling upgrade)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)

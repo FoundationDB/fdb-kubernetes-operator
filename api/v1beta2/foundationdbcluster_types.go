@@ -279,6 +279,20 @@ type FoundationDBClusterStatus struct {
 
 	// Locks contains information about the locking system.
 	Locks LockSystemStatus `json:"locks,omitempty"`
+
+	// MaintenenanceModeInfo contains information regarding process groups in maintenance mode
+	MaintenanceModeInfo MaintenanceModeInfo `json:"maintenanceModeInfo,omitempty"`
+}
+
+// MaintenanceModeInfo contains information regarding the zone and process groups that are put
+// into maintenence mode by the operator
+type MaintenanceModeInfo struct {
+	// Timestamp when this zone is put into maintenance mode
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// ZoneId that is placed in maintenance mode
+	ZoneId string `json:"zoneID,omitempty"`
+	// ProcessGroups that are placed in maintenance mode
+	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
 // LockSystemStatus provides a summary of the status of the locking system.
