@@ -63,6 +63,8 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 				return &requeue{curError: err}
 			}
 		}
+		// TODO
+		logger.Info("HHHHHHHHH")
 		return nil
 	}
 	// FDB Cluster is in maintenance mode but not due to this operator actions
@@ -76,6 +78,8 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 				return &requeue{curError: err}
 			}
 		}
+		// TODO
+		logger.Info("DDDDDDDDDDD")
 		return nil
 	}
 	logger.Info("Cluster in maintenance mode", "zone", maintenanceZone)
@@ -111,5 +115,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if err != nil {
 		return &requeue{curError: err}
 	}
+	// TODO
+	logger.Info("NNNNNNNNNN")
 	return nil
 }
