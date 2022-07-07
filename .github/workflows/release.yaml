@@ -44,10 +44,15 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.17.11
+      #  https://github.com/goreleaser/goreleaser/issues/1311
+      - name: Get current semver tag
+        run: echo "::set-output name=CURRENT_TAG::$(git describe --tags --match "v*" --abbrev=0)"
+        id: current-tag
       - name: Release binaries
         run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.current-tag.outputs.CURRENT_TAG }}
   push_images:
     name: Push Docker images
     needs: create-release
