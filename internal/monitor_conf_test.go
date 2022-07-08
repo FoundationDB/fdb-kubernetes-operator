@@ -111,6 +111,44 @@ var _ = Describe("monitor_conf", func() {
 			})
 		})
 
+		When("using IPv6", func() {
+			BeforeEach(func() {
+				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
+			})
+
+			It("specifies the IP family for the public address", func() {
+				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
+				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+					{Value: "--public_address=["},
+					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP", IPFamily: 6},
+					{Value: "]:"},
+					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+				}}))
+			})
+
+			When("using explicit listen addresses", func() {
+				BeforeEach(func() {
+					cluster.Spec.UseExplicitListenAddress = pointer.Bool(true)
+					cluster.Status.HasListenIPsForAllPods = true
+				})
+
+				It("specifies the IP family for the listen address", func() {
+					config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeUnified, nil)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
+					Expect(config.Arguments[len(config.Arguments)-1]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
+						{Value: "--listen_address=["},
+						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_POD_IP", IPFamily: 6},
+						{Value: "]:"},
+						{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
+					}}))
+				})
+			})
+
+		})
+
 		When("using the split image type", func() {
 			It("generates the conf", func() {
 				config, err := GetMonitorProcessConfiguration(cluster, fdbv1beta2.ProcessClassStorage, 1, FDBImageTypeSplit, nil)
