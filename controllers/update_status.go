@@ -23,7 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -192,7 +191,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
-	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
