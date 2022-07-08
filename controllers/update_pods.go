@@ -73,6 +73,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			logger.V(1).Info("Could not find Pod for process group ID",
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
+			// TODO should not be continue but rather be a requeue?
 		}
 
 		if shouldRequeueDueToTerminatingPod(pod, cluster, processGroup.ProcessGroupID) {
