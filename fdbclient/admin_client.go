@@ -505,8 +505,9 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 	if len(addresses) == 0 {
 		return nil
 	}
+
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
-		"kill; kill %s; sleep 1",
+		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 1; kill %[1]s",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)})
 	return err
