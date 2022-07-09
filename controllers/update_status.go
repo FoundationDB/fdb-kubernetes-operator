@@ -336,6 +336,7 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 				"version", version, "connectionString", connectionString)
 		}
 	}
+
 	return originalVersion, originalConnectionString, nil
 }
 
