@@ -58,7 +58,7 @@ spec:
             - "--copy-binary"
             - "fdbrestore"
             - "--output-dir"
-            - "/var/output-files/6.3.10"
+            - "/var/output-files/6.3.24"
             - "--init-mode"
           volumeMounts:
             - name: fdb-binaries
@@ -75,7 +75,7 @@ spec:
             - "--copy-binary"
             - "fdbrestore"
             - "--output-dir"
-            - "/var/output-files/7.1.5"
+            - "/var/output-files/7.1.11"
             - "--init-mode"
           volumeMounts:
             - name: fdb-binaries
