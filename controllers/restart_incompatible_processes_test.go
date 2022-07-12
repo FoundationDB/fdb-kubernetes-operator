@@ -21,7 +21,11 @@
 package controllers
 
 import (
+	"context"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -59,4 +63,82 @@ var _ = Describe("restart_incompatible_pods", func() {
 			},
 			true),
 	)
+
+	When("running a reconcile for the restart incompatible process reconciler", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var requeue *requeue
+		var err error
+
+		BeforeEach(func() {
+			cluster = internal.CreateDefaultCluster()
+			err := k8sClient.Create(context.TODO(), cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			generation, err := reloadCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(generation).To(Equal(int64(1)))
+		})
+
+		JustBeforeEach(func() {
+			requeue = restartIncompatibleProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("no incompatible processes are reported", func() {
+			BeforeEach(func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						IncompatibleConnections: []string{},
+					},
+				}
+			})
+
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
+			})
+		})
+
+		When("no matching incompatible processes are reported", func() {
+			BeforeEach(func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						IncompatibleConnections: []string{
+							"192.192.192.192",
+						},
+					},
+				}
+			})
+
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
+			})
+		})
+
+		When("matching incompatible processes are reported", func() {
+			BeforeEach(func() {
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						IncompatibleConnections: []string{
+							cluster.Status.ProcessGroups[0].Addresses[0],
+						},
+					},
+				}
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.delay).To(BeNumerically("==", 15*time.Second))
+			})
+		})
+	})
 })

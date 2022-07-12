@@ -22,8 +22,13 @@ package controllers
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/rest/fake"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -186,5 +191,16 @@ func createTestClusterReconciler() *FoundationDBClusterReconciler {
 		PodLifecycleManager:    podmanager.StandardPodLifecycleManager{},
 		PodClientProvider:      internal.NewMockFdbPodClient,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
+		RestClient:             &fake.RESTClient{Resp: &http.Response{StatusCode: http.StatusOK}},
+		RestConfig: &rest.Config{
+			Host: "https://notused.co.uk:443",
+			ContentConfig: rest.ContentConfig{
+				GroupVersion: &schema.GroupVersion{
+					Group:   "",
+					Version: "v1",
+				},
+				NegotiatedSerializer: scheme.Codecs,
+			},
+		},
 	}
 }

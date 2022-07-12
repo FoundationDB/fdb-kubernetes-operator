@@ -65,7 +65,7 @@ func (client *MockClient) Clear() {
 
 // Scheme returns the runtime Scheme
 func (client *MockClient) Scheme() *runtime.Scheme {
-	return nil
+	return runtime.NewScheme()
 }
 
 // RESTMapper returns the RESTMapper
