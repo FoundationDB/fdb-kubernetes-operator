@@ -122,7 +122,7 @@ var _ = Describe("monitor_conf", func() {
 				Expect(config.Arguments).To(HaveLen(baseArgumentLength))
 				Expect(config.Arguments[2]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 					{Value: "--public_address=["},
-					{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_PUBLIC_IP", IPFamily: 6},
+					{ArgumentType: monitorapi.IPListArgumentType, Source: "FDB_PUBLIC_IP", IPFamily: 6},
 					{Value: "]:"},
 					{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 				}}))
@@ -140,7 +140,7 @@ var _ = Describe("monitor_conf", func() {
 					Expect(config.Arguments).To(HaveLen(baseArgumentLength + 1))
 					Expect(config.Arguments[len(config.Arguments)-1]).To(Equal(monitorapi.Argument{ArgumentType: monitorapi.ConcatenateArgumentType, Values: []monitorapi.Argument{
 						{Value: "--listen_address=["},
-						{ArgumentType: monitorapi.EnvironmentArgumentType, Source: "FDB_POD_IP", IPFamily: 6},
+						{ArgumentType: monitorapi.IPListArgumentType, Source: "FDB_POD_IP", IPFamily: 6},
 						{Value: "]:"},
 						{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: 4499, Multiplier: 2},
 					}}))

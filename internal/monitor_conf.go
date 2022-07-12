@@ -285,8 +285,14 @@ func buildIPArgument(parameter string, environmentVariable string, imageType FDB
 			arguments = append(arguments, monitorapi.Argument{Value: fmt.Sprintf(",%s", leftIPWrap)})
 		}
 
+		environmentArgument := monitorapi.Argument{ArgumentType: monitorapi.EnvironmentArgumentType, Source: environmentVariable}
+		if podIpFamily != nil && imageType == FDBImageTypeUnified {
+			environmentArgument.ArgumentType = monitorapi.IPListArgumentType
+			environmentArgument.IPFamily = *podIpFamily
+		}
+
 		arguments = append(arguments,
-			monitorapi.Argument{ArgumentType: monitorapi.EnvironmentArgumentType, Source: environmentVariable, IPFamily: pointer.IntDeref(podIpFamily, 0)},
+			environmentArgument,
 			monitorapi.Argument{Value: fmt.Sprintf("%s:", rightIPWrap)},
 			monitorapi.Argument{ArgumentType: monitorapi.ProcessNumberArgumentType, Offset: address.Port - 2, Multiplier: 2},
 		)
