@@ -206,10 +206,10 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 	}
 
 	if useUnifiedImages {
-		mainContainer.Args = []string{
+		mainContainer.Args = append(mainContainer.Args,
 			"--input-dir", "/var/dynamic-conf",
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
-		}
+		)
 
 		if cluster.Spec.StorageServersPerPod > 1 && processClass == fdbv1beta2.ProcessClassStorage {
 			storageServers := fmt.Sprintf("%d", cluster.Spec.StorageServersPerPod)
@@ -282,14 +282,14 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		}
 
 		sidecarContainer.Image = sidecarImage
-		sidecarContainer.Args = []string{
+		sidecarContainer.Args = append(sidecarContainer.Args,
 			"--mode", "sidecar",
 			"--output-dir", "/var/fdb/shared-binaries",
 			"--main-container-version", versionString,
 			"--copy-binary", "fdbserver",
 			"--copy-binary", "fdbcli",
 			"--log-path", "/var/log/fdb-trace-logs/monitor.log",
-		}
+		)
 
 		sidecarContainer.VolumeMounts = append(sidecarContainer.VolumeMounts,
 			corev1.VolumeMount{Name: "shared-binaries", MountPath: "/var/fdb/shared-binaries"},

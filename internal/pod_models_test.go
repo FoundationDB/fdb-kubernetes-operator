@@ -449,6 +449,7 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 			})
+
 			When("running one storage server per disk", func() {
 				BeforeEach(func() {
 					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
@@ -563,6 +564,27 @@ var _ = Describe("pod_models", func() {
 
 				It("should have no affinity rules", func() {
 					Expect(spec.Affinity).To(BeNil())
+				})
+			})
+
+			When("customizing the start args", func() {
+				BeforeEach(func() {
+					err := NormalizeClusterSpec(cluster, DeprecationOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					inputSpec := cluster.Spec.Processes[fdbv1beta2.ProcessClassGeneral].PodTemplate.Spec
+					inputSpec.Containers[0].Args = append(inputSpec.Containers[0].Args, "--additional-env-file", "/var/custom-env")
+
+					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassStorage, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("appends the standard args to the custom args", func() {
+					Expect(spec.Containers[0].Args).To(Equal([]string{
+						"--additional-env-file", "/var/custom-env",
+						"--input-dir", "/var/dynamic-conf",
+						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
+					}))
 				})
 			})
 
