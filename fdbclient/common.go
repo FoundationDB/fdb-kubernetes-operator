@@ -77,6 +77,7 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, fdbKey stri
 	if err != nil {
 		return nil, err
 	}
+
 	result, err := database.Transact(func(transaction fdb.Transaction) (interface{}, error) {
 		err := transaction.Options().SetAccessSystemKeys()
 		if err != nil {

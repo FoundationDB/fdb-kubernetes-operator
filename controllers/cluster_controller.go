@@ -26,9 +26,14 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"regexp"
 	"sort"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -62,6 +67,8 @@ type FoundationDBClusterReconciler struct {
 	DeprecationOptions     internal.DeprecationOptions
 	GetTimeout             time.Duration
 	PostTimeout            time.Duration
+	RestClient             rest.Interface
+	RestConfig             *rest.Config
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -78,6 +85,7 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=pods;configmaps;persistentvolumeclaims;events;secrets;services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -139,6 +147,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		addPVCs{},
 		addPods{},
 		generateInitialClusterFile{},
+		restartIncompatibleProcesses{},
 		updateSidecarVersions{},
 		updatePodConfig{},
 		updateLabels{},
@@ -746,4 +755,33 @@ func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.Fo
 	defer adminClient.Close()
 
 	return adminClient.GetCoordinatorSet()
+}
+
+// restartFdbserverProcess will restart the fdbserver process for the provided Pod.
+func (r *FoundationDBClusterReconciler) restartFdbserverProcess(name string, namespace string) error {
+	execReq := r.RestClient.
+		Post().
+		Namespace(namespace).
+		Resource("pods").
+		Name(name).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: "foundationdb",
+			Command:   []string{"sh", "-c", "pkill fdbserver"},
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+		}, runtime.NewParameterCodec(r.Scheme()))
+
+	exec, err := remotecommand.NewSPDYExecutor(r.RestConfig, "POST", execReq.URL())
+	if err != nil {
+		return err
+	}
+
+	return exec.Stream(remotecommand.StreamOptions{
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+		Tty:    false,
+	})
 }

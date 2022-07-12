@@ -29,6 +29,10 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+
 	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -180,6 +184,17 @@ func StartManager(
 		clusterReconciler.GetTimeout = operatorOpts.GetTimeout
 		clusterReconciler.PostTimeout = operatorOpts.PostTimeout
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
+		// This will create a rest client to be used for exec'ing into Pods to restart old fdbserver processes
+		restClient, err := apiutil.RESTClientForGVK(schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Pod",
+		}, false, mgr.GetConfig(), serializer.NewCodecFactory(mgr.GetScheme()))
+		if err != nil {
+			setupLog.Error(err, "unable to create REST client")
+		}
+		clusterReconciler.RestClient = restClient
+		clusterReconciler.RestConfig = mgr.GetConfig()
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")

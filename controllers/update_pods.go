@@ -95,7 +95,6 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 			return &requeue{curError: err}
 		}
 
-		// TODO (johscheuer): Get incompatible processes and recreate all of them if the version doesn't match?
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Update Pod",
 				"processGroupID", processGroup.ProcessGroupID,
