@@ -222,16 +222,6 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		return &requeue{message: "Reconciliation requires deleting pods, but deletion is currently not safe", delay: podSchedulingDelayDuration}
 	}
 
-	// if deletionMode == fdbv1beta2.PodUpdateModeZone {
-	// 	maintenanceZone, err := adminClient.GetMaintenanceZone()
-	// 	if err != nil {
-	// 		return &requeue{curError: err}
-	// 	}
-	// 	if maintenanceZone != "" {
-	// 		return &requeue{message: "Waiting for cluster to come out of maintenance mode", delayedRequeue: true}
-	// 	}
-	// }
-
 	// Only lock the cluster if we are not running in the delete "All" mode.
 	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
@@ -254,8 +244,6 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		// TODO
-		logger.Info("Maintenance Mode Info", "zone", cluster.Status.MaintenanceModeInfo.ZoneId)
 		err = adminClient.SetMaintenanceZone(zone)
 		if err != nil {
 			return &requeue{curError: err}

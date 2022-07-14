@@ -32,9 +32,7 @@ import (
 // specs.
 type maintenanceModeChecker struct{}
 
-const (
-	podUpCheckDelayInSeconds = 60
-)
+var podUpCheckDelayInSeconds = 60
 
 // reconcile runs the reconciler's work.
 func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
@@ -50,36 +48,26 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	// TODO
-	logger.Info("maintenance mode zone", "zone", maintenanceZone)
 	// Cluster is not in maintenance mode
 	if maintenanceZone == "" {
 		if cluster.Status.MaintenanceModeInfo.ZoneId != "" {
-			/// TODO
-			logger.Info("Clearing maintenance mode HEREREE")
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				return &requeue{curError: err}
 			}
 		}
-		// TODO
-		logger.Info("HHHHHHHHH")
 		return nil
 	}
 	// FDB Cluster is in maintenance mode but not due to this operator actions
 	if maintenanceZone != cluster.Status.MaintenanceModeInfo.ZoneId {
 		if cluster.Status.MaintenanceModeInfo.ZoneId != "" {
-			/// TODO
-			logger.Info("Clearing maintenance mode TTTTTTTHEREREE")
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 			err = r.Status().Update(ctx, cluster)
 			if err != nil {
 				return &requeue{curError: err}
 			}
 		}
-		// TODO
-		logger.Info("DDDDDDDDDDD")
 		return nil
 	}
 	logger.Info("Cluster in maintenance mode", "zone", maintenanceZone)
@@ -108,14 +96,10 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	/// TODO
-	logger.Info("Clearing maintenance mode VVVVVVVHEREREE")
 	cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 	err = r.Status().Update(ctx, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	// TODO
-	logger.Info("NNNNNNNNNN")
 	return nil
 }

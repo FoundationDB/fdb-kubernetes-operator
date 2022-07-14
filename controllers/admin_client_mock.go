@@ -54,6 +54,7 @@ type mockAdminClient struct {
 	maxZoneFailuresWithoutLosingData         *int
 	maxZoneFailuresWithoutLosingAvailability *int
 	knobs                                    []string
+	maintenanceZone                          string
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -302,15 +303,18 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 			status.Cluster.Layers.Backup.Paused = tagStatus.Paused
 		}
 	}
-
+	faultToleranceSubtractor := 0
+	if client.maintenanceZone != "" {
+		faultToleranceSubtractor = 1
+	}
 	if client.maxZoneFailuresWithoutLosingData == nil {
-		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData = client.Cluster.DesiredFaultTolerance()
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingData = client.Cluster.DesiredFaultTolerance() - faultToleranceSubtractor
 	}
 
 	if client.maxZoneFailuresWithoutLosingAvailability == nil {
-		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability = client.Cluster.DesiredFaultTolerance()
+		status.Cluster.FaultTolerance.MaxZoneFailuresWithoutLosingAvailability = client.Cluster.DesiredFaultTolerance() - faultToleranceSubtractor
 	}
-
+	status.Cluster.MaintenanceZone = client.maintenanceZone
 	return status, nil
 }
 
@@ -714,15 +718,17 @@ func (client *mockAdminClient) SetKnobs(knobs []string) {
 
 // GetMaintenanceZone gets current maintenance zone, if any
 func (client *mockAdminClient) GetMaintenanceZone() (string, error) {
-	return "", nil
+	return client.maintenanceZone, nil
 }
 
 // SetMaintenanceZone places zone into maintenance mode
 func (client *mockAdminClient) SetMaintenanceZone(zone string) error {
+	client.maintenanceZone = zone
 	return nil
 }
 
 // Reset maintenance mode
 func (client *mockAdminClient) ResetMaintenanceMode() error {
+	client.maintenanceZone = ""
 	return nil
 }
