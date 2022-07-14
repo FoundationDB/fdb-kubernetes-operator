@@ -50,7 +50,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	}
 	// Cluster is not in maintenance mode
 	if maintenanceZone == "" {
-		if cluster.Status.MaintenanceModeInfo.ZoneId != "" {
+		if cluster.Status.MaintenanceModeInfo.ZoneID != "" {
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 			err = r.Status().Update(ctx, cluster)
 			if err != nil {
@@ -60,8 +60,8 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 		return nil
 	}
 	// FDB Cluster is in maintenance mode but not due to this operator actions
-	if maintenanceZone != cluster.Status.MaintenanceModeInfo.ZoneId {
-		if cluster.Status.MaintenanceModeInfo.ZoneId != "" {
+	if maintenanceZone != cluster.Status.MaintenanceModeInfo.ZoneID {
+		if cluster.Status.MaintenanceModeInfo.ZoneID != "" {
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 			err = r.Status().Update(ctx, cluster)
 			if err != nil {

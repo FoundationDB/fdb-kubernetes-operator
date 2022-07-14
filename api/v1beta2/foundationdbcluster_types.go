@@ -285,12 +285,12 @@ type FoundationDBClusterStatus struct {
 }
 
 // MaintenanceModeInfo contains information regarding the zone and process groups that are put
-// into maintenence mode by the operator
+// into maintenance mode by the operator
 type MaintenanceModeInfo struct {
 	// Timestamp when this zone is put into maintenance mode
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
-	// ZoneId that is placed in maintenance mode
-	ZoneId string `json:"zoneID,omitempty"`
+	// ZoneID that is placed in maintenance mode
+	ZoneID string `json:"zoneID,omitempty"`
 	// ProcessGroups that are placed in maintenance mode
 	ProcessGroups []string `json:"processGroups,omitempty"`
 }

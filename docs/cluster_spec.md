@@ -315,12 +315,12 @@ LockSystemStatus provides a summary of the status of the locking system.
 
 ## MaintenanceModeInfo
 
-MaintenanceModeInfo contains information regarding the zone and process groups that are put into maintenence mode by the operator
+MaintenanceModeInfo contains information regarding the zone and process groups that are put into maintenance mode by the operator
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | startTimestamp | Timestamp when this zone is put into maintenance mode | *metav1.Time | false |
-| zoneID | ZoneId that is placed in maintenance mode | string | false |
+| zoneID | ZoneID that is placed in maintenance mode | string | false |
 | processGroups | ProcessGroups that are placed in maintenance mode | []string | false |
 
 [Back to TOC](#table-of-contents)

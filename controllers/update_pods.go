@@ -238,7 +238,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		logger.Info("Setting maintenance mode", "zone", zone)
 		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 		cluster.Status.MaintenanceModeInfo.StartTimestamp = &metav1.Time{Time: time.Now()}
-		cluster.Status.MaintenanceModeInfo.ZoneId = zone
+		cluster.Status.MaintenanceModeInfo.ZoneID = zone
 		cluster.Status.MaintenanceModeInfo.ProcessGroups = zoneProcessGroupMap[zone]
 		err = r.Status().Update(ctx, cluster)
 		if err != nil {

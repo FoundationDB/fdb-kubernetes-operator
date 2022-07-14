@@ -75,7 +75,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 		})
 		When("status maintenance is not empty", func() {
 			BeforeEach(func() {
-				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{ZoneId: "storage-4"}
+				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{ZoneID: "storage-4"}
 			})
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
@@ -87,12 +87,12 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 	Context("maintenance mode is on", func() {
 		BeforeEach(func() {
-			adminClient.SetMaintenanceZone("storage-1")
+			Expect(adminClient.SetMaintenanceZone("storage-1")).NotTo(HaveOccurred())
 		})
 
 		When("status maintenance zone does not match", func() {
 			BeforeEach(func() {
-				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{ZoneId: "storage-4"}
+				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{ZoneID: "storage-4"}
 			})
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
@@ -104,7 +104,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			BeforeEach(func() {
 				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
 					StartTimestamp: &metav1.Time{Time: time.Now()},
-					ZoneId:         "storage-1",
+					ZoneID:         "storage-1",
 					ProcessGroups:  []string{"storage-1"},
 				}
 			})
@@ -118,7 +118,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			BeforeEach(func() {
 				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
 					StartTimestamp: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
-					ZoneId:         "storage-1",
+					ZoneID:         "storage-1",
 					ProcessGroups:  []string{"storage-1"},
 				}
 				adminClient.MockMissingProcessGroup("storage-1", true)
@@ -133,7 +133,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 			BeforeEach(func() {
 				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
 					StartTimestamp: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
-					ZoneId:         "storage-1",
+					ZoneID:         "storage-1",
 					ProcessGroups:  []string{"storage-1"},
 				}
 			})

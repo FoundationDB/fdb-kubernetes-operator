@@ -369,8 +369,7 @@ func (client *cliAdminClient) SetMaintenanceZone(zone string) error {
 // ResetMaintenanceMode switches of maintenance mode
 func (client *cliAdminClient) ResetMaintenanceMode() error {
 	_, err := client.runCommand(cliCommand{
-		command: fmt.Sprintf(
-			"maintenance off"),
+		command: "maintenance off",
 	})
 	return err
 }
