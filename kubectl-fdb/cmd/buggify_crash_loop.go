@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "crash-loop",
 		Short: "Updates the crash-loop list of the given cluster",
-		Long:  "Updates crash-loop list field of the given cluster",
+		Long:  "Updates the crash-loop list of the given cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
@@ -66,8 +66,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			processGroups := args
-			processGroups, err = getProcessGroupIDsFromPod(kubeClient, cluster, processGroups, namespace)
+			processGroups, err := getProcessGroupIDsFromPod(kubeClient, cluster, args, namespace)
 			if err != nil {
 				return err
 			}
@@ -75,16 +74,16 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 			return updateCrashLoopList(kubeClient, cluster, processGroups, namespace, wait, clear, clean)
 		},
 		Example: `
-# Add process groups into CrashLoop state for a cluster in the current namespace
+# Add process groups into crash loop state for a cluster in the current namespace
 kubectl fdb buggify crash-loop -c cluster pod-1 pod-2
 
-# Remove process groups from CrashLoop state from a cluster in the current namespace
+# Remove process groups from crash loop state from a cluster in the current namespace
 kubectl fdb buggify crash-loop --clear -c cluster pod-1 pod-2
 
-# Clean CrashLoop list of a cluster in the current namespace
+# Clean crash loop list of a cluster in the current namespace
 kubectl fdb buggify crash-loop --clean -c cluster
 
-# Add process groups into CrashLoop state for a cluster in the namespace default
+# Add process groups into crash loop state for a cluster in the namespace default
 kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 `,
 	}
@@ -117,8 +116,7 @@ func updateCrashLoopList(kubeClient client.Client, clusterName string, processGr
 	patch := client.MergeFrom(cluster.DeepCopy())
 	if clean {
 		if wait {
-			confirmed := confirmAction(fmt.Sprintf("Clearing crash-loop list from cluster %s/%s", namespace, clusterName))
-			if !confirmed {
+			if !confirmAction(fmt.Sprintf("Clearing crash-loop list from cluster %s/%s", namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
@@ -132,13 +130,11 @@ func updateCrashLoopList(kubeClient client.Client, clusterName string, processGr
 
 	if wait {
 		if clear {
-			confirmed := confirmAction(fmt.Sprintf("Removing %v to crash-loop from cluster %s/%s", processGroups, namespace, clusterName))
-			if !confirmed {
+			if !confirmAction(fmt.Sprintf("Removing %v to crash-loop from cluster %s/%s", processGroups, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		} else {
-			confirmed := confirmAction(fmt.Sprintf("Adding %v to crash-loop from cluster %s/%s", processGroups, namespace, clusterName))
-			if !confirmed {
+			if !confirmAction(fmt.Sprintf("Adding %v to crash-loop from cluster %s/%s", processGroups, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}

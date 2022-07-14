@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ func newBuggifyEmptyMonitorConf(streams genericclioptions.IOStreams) *cobra.Comm
 				return err
 			}
 
-			return updateMonitorConf(kubeClient, cluster, namespace, wait, unset)
+			return updateMonitorConf(kubeClient, cluster, namespace, wait, !unset)
 		},
 		Example: `
 # Setting empty-monitor-conf to true
@@ -88,8 +88,8 @@ kubectl fdb buggify empty-monitor-conf --unset -c cluster
 	return cmd
 }
 
-// updateNoScheduleList updates the removal list of the cluster
-func updateMonitorConf(kubeClient client.Client, clusterName string, namespace string, wait bool, unset bool) error {
+// updateMonitorConf updates the monitor conf of the cluster
+func updateMonitorConf(kubeClient client.Client, clusterName string, namespace string, wait bool, set bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -98,15 +98,18 @@ func updateMonitorConf(kubeClient client.Client, clusterName string, namespace s
 		return err
 	}
 
+	if cluster.Spec.Buggify.EmptyMonitorConf == set {
+		return nil
+	}
+
 	patch := client.MergeFrom(cluster.DeepCopy())
 
 	if wait {
-		confirmed := confirmAction(fmt.Sprintf("Setting empty-monitor-conf to %v for cluster %s/%s", !unset, namespace, clusterName))
-		if !confirmed {
+		if !confirmAction(fmt.Sprintf("Setting empty-monitor-conf to %v for cluster %s/%s", set, namespace, clusterName)) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
 
-	cluster.Spec.Buggify.EmptyMonitorConf = !unset
+	cluster.Spec.Buggify.EmptyMonitorConf = set
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
 }

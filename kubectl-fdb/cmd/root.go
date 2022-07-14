@@ -26,8 +26,6 @@ import (
 	"log"
 	"os"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"strings"
 
 	"github.com/spf13/viper"
@@ -87,34 +85,6 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 	)
 
 	return cmd
-}
-
-func getProcessGroupIDsFromPod(kubeClient client.Client, clusterName string, podNames []string, namespace string) ([]string, error) {
-	processGroups := make([]string, 0, len(podNames))
-	// Build a map to filter faster
-	podNameMap := map[string]struct{}{}
-	for _, name := range podNames {
-		podNameMap[name] = struct{}{}
-	}
-
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
-	if err != nil {
-		return processGroups, err
-	}
-	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
-	if err != nil {
-		return processGroups, err
-	}
-
-	for _, pod := range pods.Items {
-		if _, ok := podNameMap[pod.Name]; !ok {
-			continue
-		}
-
-		processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
-	}
-
-	return processGroups, nil
 }
 
 // confirmAction requests a user to confirm it's action

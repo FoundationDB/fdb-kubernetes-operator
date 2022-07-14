@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package cmd
 
 import (
 	ctx "context"
-	"sort"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -58,8 +57,6 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 	When("running buggify no-schedule instances command", func() {
 		When("adding instances to no-schedule list from a cluster", func() {
-			var podList corev1.PodList
-
 			type testCase struct {
 				Instances                     []string
 				ExpectedInstancesInNoSchedule []string
@@ -70,7 +67,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 
 					err := updateNoScheduleList(kubeClient, clusterName, tc.Instances, namespace, false, false, false)
 					Expect(err).NotTo(HaveOccurred())
@@ -81,9 +78,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					noScheduleList := resCluster.Spec.Buggify.NoSchedule
-					sort.Strings(noScheduleList)
-					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(noScheduleList))
+					Expect(tc.ExpectedInstancesInNoSchedule).To(ContainElements(resCluster.Spec.Buggify.NoSchedule))
 					Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
 				},
 				Entry("Adding single instance.",
@@ -98,7 +93,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 					}),
 			)
 
-			When("a process group was already in no-schedule", func() {
+			When("a process group is already in no-schedule", func() {
 				var kubeClient client.Client
 
 				BeforeEach(func() {
@@ -106,7 +101,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 				})
 
 				type testCase struct {
@@ -125,9 +120,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 							Name:      clusterName,
 						}, &resCluster)
 						Expect(err).NotTo(HaveOccurred())
-						noScheduleList := resCluster.Spec.Buggify.NoSchedule
-						sort.Strings(noScheduleList)
-						Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(noScheduleList))
+						Expect(tc.ExpectedInstancesInNoSchedule).To(ContainElements(resCluster.Spec.Buggify.NoSchedule))
 						Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
 					},
 					Entry("Adding the same instance.",
@@ -149,8 +142,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 			})
 		})
 
-		When("removing instances from no-schedule list from a cluster", func() {
-			var podList corev1.PodList
+		When("removing process group from no-schedule list from a cluster", func() {
 			var kubeClient client.Client
 
 			BeforeEach(func() {
@@ -158,7 +150,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 			})
 
 			type testCase struct {
@@ -177,9 +169,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					noScheduleList := resCluster.Spec.Buggify.NoSchedule
-					sort.Strings(noScheduleList)
-					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(noScheduleList))
+					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(resCluster.Spec.Buggify.NoSchedule))
 					Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
 				},
 				Entry("Removing single instance.",
@@ -197,7 +187,6 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 		})
 
 		When("clearing no-schedule list", func() {
-			var podList corev1.PodList
 			var kubeClient client.Client
 
 			BeforeEach(func() {
@@ -205,7 +194,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 			})
 
 			It("should clear the no-schedule list", func() {

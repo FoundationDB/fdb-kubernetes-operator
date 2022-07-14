@@ -4628,4 +4628,196 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			),
 		)
 	})
+
+	When("adding processes to the no-schedule list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		When("the no-schedule list is empty", func() {
+			type testCase struct {
+				Instances                     []string
+				ExpectedInstancesInNoSchedule []string
+			}
+
+			DescribeTable("should add all targeted processes to the no-schedule list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToNoScheduleList(tc.Instances)
+					Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
+					Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                     []string{"instance-1"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                     []string{"instance-1", "instance-2"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+					}),
+			)
+		})
+
+		When("the no-schedule list is not empty", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.NoSchedule = append(cluster.Spec.Buggify.NoSchedule, "instance-1")
+			})
+
+			type testCase struct {
+				Instances                     []string
+				ExpectedInstancesInNoSchedule []string
+			}
+
+			DescribeTable("should add all targeted processes to no-schedule list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToNoScheduleList(tc.Instances)
+					Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
+					Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                     []string{"instance-2"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                     []string{"instance-2", "instance-3"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+					}),
+			)
+		})
+
+	})
+
+	When("removing processes from the no-schedule list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+			cluster.Spec.Buggify.NoSchedule = []string{"instance-1", "instance-2", "instance-3"}
+		})
+
+		type testCase struct {
+			Instances                         []string
+			ExpectedInstancesInNoScheduleList []string
+		}
+
+		DescribeTable("should remove all targeted processes from the no-schedule list",
+			func(tc testCase) {
+				cluster.RemoveProcessGroupsFromNoScheduleList(tc.Instances)
+				Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoScheduleList))
+				Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoScheduleList)))
+			},
+			Entry("Removing single instance",
+				testCase{
+					Instances:                         []string{"instance-1"},
+					ExpectedInstancesInNoScheduleList: []string{"instance-2", "instance-3"},
+				}),
+			Entry("Removing multiple instances",
+				testCase{
+					Instances:                         []string{"instance-2", "instance-3"},
+					ExpectedInstancesInNoScheduleList: []string{"instance-1"},
+				}),
+		)
+
+	})
+
+	When("adding processes to the crash-loop list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		When("the crash-loop list is empty", func() {
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should add all targeted processes to the crash-loop list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                    []string{"instance-1", "instance-2"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+					}),
+			)
+		})
+
+		When("the crash-loop list is not empty", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = append(cluster.Spec.Buggify.CrashLoop, "instance-1")
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should add all targeted processes to crash-loop list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                    []string{"instance-2"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+					}),
+			)
+		})
+
+	})
+
+	When("removing processes from the crash-loop list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+			cluster.Spec.Buggify.CrashLoop = []string{"instance-1", "instance-2", "instance-3"}
+		})
+
+		type testCase struct {
+			Instances                    []string
+			ExpectedInstancesInCrashLoop []string
+		}
+
+		DescribeTable("should remove all targeted processes from the crash-loop list",
+			func(tc testCase) {
+				cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
+				Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+				Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+			},
+			Entry("Removing single instance",
+				testCase{
+					Instances:                    []string{"instance-1"},
+					ExpectedInstancesInCrashLoop: []string{"instance-2", "instance-3"},
+				}),
+			Entry("Removing multiple instances",
+				testCase{
+					Instances:                    []string{"instance-2", "instance-3"},
+					ExpectedInstancesInCrashLoop: []string{"instance-1"},
+				}),
+		)
+
+	})
 })

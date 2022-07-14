@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package cmd
 
 import (
 	ctx "context"
-	"sort"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -57,74 +56,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 	})
 
 	When("running buggify crash-loop instances command", func() {
-		When("getting the instance IDs from Pods", func() {
-			var podList corev1.PodList
-
-			BeforeEach(func() {
-				podList = corev1.PodList{
-					Items: []corev1.Pod{
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "instance-1",
-								Namespace: namespace,
-								Labels: map[string]string{
-									fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-									fdbv1beta2.FDBClusterLabel:        clusterName,
-									fdbv1beta2.FDBProcessGroupIDLabel: "storage-1",
-								},
-							},
-						},
-						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "instance-2",
-								Namespace: namespace,
-								Labels: map[string]string{
-									fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-									fdbv1beta2.FDBClusterLabel:        clusterName,
-									fdbv1beta2.FDBProcessGroupIDLabel: "storage-2",
-								},
-							},
-						},
-					},
-				}
-			})
-
-			type testCase struct {
-				Instances         []string
-				ExpectedInstances []string
-			}
-
-			DescribeTable("should get all instance IDs",
-				func(input testCase) {
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
-
-					instances, err := getProcessGroupIDsFromPod(kubeClient, clusterName, input.Instances, namespace)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(input.ExpectedInstances).To(Equal(instances))
-				},
-				Entry("Filter one instance",
-					testCase{
-						Instances:         []string{"instance-1"},
-						ExpectedInstances: []string{"storage-1"},
-					}),
-				Entry("Filter two instances",
-					testCase{
-						Instances:         []string{"instance-1", "instance-2"},
-						ExpectedInstances: []string{"storage-1", "storage-2"},
-					}),
-				Entry("Filter no instance",
-					testCase{
-						Instances:         []string{""},
-						ExpectedInstances: []string{},
-					}),
-			)
-		})
-
 		When("adding instances to crash-loop list from a cluster", func() {
-			var podList corev1.PodList
 
 			type testCase struct {
 				Instances                    []string
@@ -136,7 +68,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 
 					err := updateCrashLoopList(kubeClient, clusterName, tc.Instances, namespace, false, false, false)
 					Expect(err).NotTo(HaveOccurred())
@@ -147,9 +79,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					crashLoopList := resCluster.Spec.Buggify.CrashLoop
-					sort.Strings(crashLoopList)
-					Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(crashLoopList))
+					Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(resCluster.Spec.Buggify.CrashLoop))
 					Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(resCluster.Spec.Buggify.CrashLoop)))
 				},
 				Entry("Adding single instance.",
@@ -172,7 +102,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 				})
 
 				type testCase struct {
@@ -191,9 +121,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 							Name:      clusterName,
 						}, &resCluster)
 						Expect(err).NotTo(HaveOccurred())
-						crashLoopList := resCluster.Spec.Buggify.CrashLoop
-						sort.Strings(crashLoopList)
-						Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(crashLoopList))
+						Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(resCluster.Spec.Buggify.CrashLoop))
 						Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(resCluster.Spec.Buggify.CrashLoop)))
 					},
 					Entry("Adding the same instance.",
@@ -243,9 +171,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					crashLoopList := resCluster.Spec.Buggify.CrashLoop
-					sort.Strings(crashLoopList)
-					Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(crashLoopList))
+					Expect(tc.ExpectedInstancesInCrashLoop).To(ContainElements(resCluster.Spec.Buggify.CrashLoop))
 					Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(resCluster.Spec.Buggify.CrashLoop)))
 				},
 				Entry("Removing single instance.",

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ func newBuggifyCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:   "buggify",
 		Short: "Subcommand to add process groups to buggify list for a given cluster",
 		Long: "Subcommand to add process groups to buggify list for a given cluster. " +
-			"Supported options: crash-loop, no-schedule, empty-monitor-conf. ",
+			"Supported options: crash-loop, no-schedule, empty-monitor-conf.",
 		RunE: func(c *cobra.Command, args []string) error {
 			return c.Help()
 		},

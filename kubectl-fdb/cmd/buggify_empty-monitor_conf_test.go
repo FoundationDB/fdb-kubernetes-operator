@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,10 +56,8 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 	})
 
 	When("running buggify empty-monitor-conf instances command", func() {
-		var podList corev1.PodList
-
 		type testCase struct {
-			unset                    bool
+			set                      bool
 			ExpectedEmptyMonitorConf bool
 		}
 
@@ -68,9 +66,9 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 
-				err := updateMonitorConf(kubeClient, clusterName, namespace, false, tc.unset)
+				err := updateMonitorConf(kubeClient, clusterName, namespace, false, tc.set)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
@@ -83,12 +81,12 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 			},
 			Entry("setting monitor config to true",
 				testCase{
-					unset:                    false,
+					set:                      true,
 					ExpectedEmptyMonitorConf: true,
 				}),
 			Entry("setting monitor config to false",
 				testCase{
-					unset:                    true,
+					set:                      false,
 					ExpectedEmptyMonitorConf: false,
 				}),
 		)

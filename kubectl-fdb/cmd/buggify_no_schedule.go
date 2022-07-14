@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "no-schedule",
 		Short: "Updates the no-schedule list of the given cluster",
-		Long:  "Updates the no-schedule list field of the given cluster",
+		Long:  "Updates the no-schedule list of the given cluster\"",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wait, err := cmd.Root().Flags().GetBool("wait")
 			if err != nil {
@@ -66,8 +66,7 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			processGroups := args
-			processGroups, err = getProcessGroupIDsFromPod(kubeClient, cluster, processGroups, namespace)
+			processGroups, err := getProcessGroupIDsFromPod(kubeClient, cluster, args, namespace)
 			if err != nil {
 				return err
 			}
@@ -118,8 +117,7 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, processG
 	patch := client.MergeFrom(cluster.DeepCopy())
 	if clean {
 		if wait {
-			confirmed := confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", namespace, clusterName))
-			if !confirmed {
+			if !confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
@@ -133,13 +131,11 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, processG
 
 	if wait {
 		if clear {
-			confirmed := confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName))
-			if !confirmed {
+			if !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		} else {
-			confirmed := confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName))
-			if !confirmed {
+			if !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
