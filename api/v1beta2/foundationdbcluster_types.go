@@ -1989,6 +1989,91 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupID
 	}
 }
 
+// AddProcessGroupsToNoScheduleList adds the provided process group IDs to the no-schedule list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGroupIDs []string) {
+	noScheduleProcesses := map[string]None{}
+
+	for _, id := range cluster.Spec.Buggify.NoSchedule {
+		noScheduleProcesses[id] = None{}
+	}
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := noScheduleProcesses[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.NoSchedule = append(cluster.Spec.Buggify.NoSchedule, processGroupID)
+	}
+}
+
+// RemoveProcessGroupsFromNoScheduleList removes the provided process group IDs from the no-schedule list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(processGroupIDs []string) {
+	processGroupIDsToRemove := make(map[string]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	processesInNoScheduleList := make(map[string]None)
+	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
+		processesInNoScheduleList[processGroupID] = None{}
+	}
+
+	cluster.Spec.Buggify.NoSchedule = nil
+	for processGroupID := range processesInNoScheduleList {
+		if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.NoSchedule = append(cluster.Spec.Buggify.NoSchedule, processGroupID)
+	}
+}
+
+// AddProcessGroupsToCrashLoopList adds the provided process group IDs to the crash-loop list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []string) {
+	crashLoop, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	if crashLoopAll {
+		return
+	}
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := crashLoop[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.CrashLoop = append(cluster.Spec.Buggify.CrashLoop, processGroupID)
+	}
+}
+
+// RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []string) {
+	processGroupIDsToRemove := make(map[string]None)
+	for _, processGroupID := range processGroupIDs {
+		if processGroupID == "*" {
+			cluster.Spec.Buggify.CrashLoop = nil
+			return
+		}
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	crashLoop, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	if crashLoopAll {
+		for _, processGroup := range cluster.Status.ProcessGroups {
+			crashLoop[processGroup.ProcessGroupID] = None{}
+		}
+	}
+
+	cluster.Spec.Buggify.CrashLoop = nil
+	for processGroupID := range crashLoop {
+		if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.CrashLoop = append(cluster.Spec.Buggify.CrashLoop, processGroupID)
+	}
+}
+
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
 // If a process group ID is already present on that list it won't be added a second time.
 func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []string) {
