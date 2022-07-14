@@ -115,9 +115,11 @@ func updateCrashLoopList(kubeClient client.Client, clusterName string, processGr
 
 	patch := client.MergeFrom(cluster.DeepCopy())
 	if clean {
-		confirmed := confirmAction(fmt.Sprintf("Clearing crash-loop list from cluster %s/%s", namespace, clusterName))
-		if !confirmed {
-			return fmt.Errorf("user aborted the removal")
+		if wait {
+			confirmed := confirmAction(fmt.Sprintf("Clearing crash-loop list from cluster %s/%s", namespace, clusterName))
+			if !confirmed {
+				return fmt.Errorf("user aborted the removal")
+			}
 		}
 		cluster.Spec.Buggify.CrashLoop = nil
 		return kubeClient.Patch(ctx.TODO(), cluster, patch)

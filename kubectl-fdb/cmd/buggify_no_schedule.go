@@ -117,9 +117,11 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, processG
 
 	patch := client.MergeFrom(cluster.DeepCopy())
 	if clean {
-		confirmed := confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", namespace, clusterName))
-		if !confirmed {
-			return fmt.Errorf("user aborted the removal")
+		if wait {
+			confirmed := confirmAction(fmt.Sprintf("Clearing no-schedule list from cluster %s/%s", namespace, clusterName))
+			if !confirmed {
+				return fmt.Errorf("user aborted the removal")
+			}
 		}
 		cluster.Spec.Buggify.NoSchedule = nil
 		return kubeClient.Patch(ctx.TODO(), cluster, patch)

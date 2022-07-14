@@ -22,6 +22,7 @@ package cmd
 
 import (
 	ctx "context"
+	"sort"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -146,7 +147,9 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(resCluster.Spec.Buggify.CrashLoop))
+					crashLoopList := resCluster.Spec.Buggify.CrashLoop
+					sort.Strings(crashLoopList)
+					Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(crashLoopList))
 					Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(resCluster.Spec.Buggify.CrashLoop)))
 				},
 				Entry("Adding single instance.",
@@ -188,7 +191,9 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 							Name:      clusterName,
 						}, &resCluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(resCluster.Spec.Buggify.CrashLoop))
+						crashLoopList := resCluster.Spec.Buggify.CrashLoop
+						sort.Strings(crashLoopList)
+						Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(crashLoopList))
 						Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(resCluster.Spec.Buggify.CrashLoop)))
 					},
 					Entry("Adding the same instance.",
@@ -238,7 +243,9 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(resCluster.Spec.Buggify.CrashLoop))
+					crashLoopList := resCluster.Spec.Buggify.CrashLoop
+					sort.Strings(crashLoopList)
+					Expect(tc.ExpectedInstancesInCrashLoop).To(Equal(crashLoopList))
 					Expect(len(tc.ExpectedInstancesInCrashLoop)).To(BeNumerically("==", len(resCluster.Spec.Buggify.CrashLoop)))
 				},
 				Entry("Removing single instance.",

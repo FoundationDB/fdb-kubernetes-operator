@@ -22,6 +22,7 @@ package cmd
 
 import (
 	ctx "context"
+	"sort"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -80,7 +81,9 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(resCluster.Spec.Buggify.NoSchedule))
+					noScheduleList := resCluster.Spec.Buggify.NoSchedule
+					sort.Strings(noScheduleList)
+					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(noScheduleList))
 					Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
 				},
 				Entry("Adding single instance.",
@@ -122,7 +125,9 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 							Name:      clusterName,
 						}, &resCluster)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(resCluster.Spec.Buggify.NoSchedule))
+						noScheduleList := resCluster.Spec.Buggify.NoSchedule
+						sort.Strings(noScheduleList)
+						Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(noScheduleList))
 						Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
 					},
 					Entry("Adding the same instance.",
@@ -172,7 +177,9 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 						Name:      clusterName,
 					}, &resCluster)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(resCluster.Spec.Buggify.NoSchedule))
+					noScheduleList := resCluster.Spec.Buggify.NoSchedule
+					sort.Strings(noScheduleList)
+					Expect(tc.ExpectedInstancesInNoSchedule).To(Equal(noScheduleList))
 					Expect(len(tc.ExpectedInstancesInNoSchedule)).To(BeNumerically("==", len(resCluster.Spec.Buggify.NoSchedule)))
 				},
 				Entry("Removing single instance.",
