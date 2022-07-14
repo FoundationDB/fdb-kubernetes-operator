@@ -74,16 +74,16 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 			return updateNoScheduleList(kubeClient, cluster, processGroups, namespace, wait, clear, clean)
 		},
 		Example: `
-# Add process groups into NoSchedule state for a cluster in the current namespace
+# Add process groups into no-schedule state for a cluster in the current namespace
 kubectl fdb buggify no-schedule -c cluster pod-1 pod-2
 
-# Remove process groups from NoSchedule state from a cluster in the current namespace
+# Remove process groups from no-schedule state from a cluster in the current namespace
 kubectl fdb buggify no-schedule --clear -c cluster pod-1 pod-2
 
-# Clean NoSchedule list of a cluster in the current namespace
+# Clean no-schedule list of a cluster in the current namespace
 kubectl fdb buggify no-schedule  --clean -c cluster
 
-# Add process groups into NoSchedule state for a cluster in the namespace default
+# Add process groups into no-schedule state for a cluster in the namespace default
 kubectl fdb -n default buggify no-schedule  -c cluster pod-1 pod-2
 `,
 	}

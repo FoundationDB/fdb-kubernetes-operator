@@ -144,7 +144,6 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 		})
 
 		When("removing instances from crash-loop list from a cluster", func() {
-			var podList corev1.PodList
 			var kubeClient client.Client
 
 			BeforeEach(func() {
@@ -152,7 +151,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 			})
 
 			type testCase struct {
@@ -189,7 +188,6 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 		})
 
 		When("clearing crash-loop list", func() {
-			var podList corev1.PodList
 			var kubeClient client.Client
 
 			BeforeEach(func() {
@@ -197,7 +195,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &podList).Build()
+				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
 			})
 
 			It("should clear the crash-loop list", func() {

@@ -40,22 +40,22 @@ func newBuggifyCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		Example: `
 kubectl fdb -n <namespace> buggify <option> -c <cluster> pod-1 pod-2
 
-# Add process groups into CrashLoop state for a cluster in the current namespace
+# Add process groups into crash loop state for a cluster in the current namespace
 kubectl fdb buggify crash-loop -c cluster pod-1 pod-2
 
-# Remove process groups from CrashLoop state from a cluster in the current namespace
+# Remove process groups from crash loop state from a cluster in the current namespace
 kubectl fdb buggify crash-loop --clear -c cluster pod-1 pod-2
 
-# Clean CrashLoop list of a cluster in the current namespace
+# Clean crash loop list of a cluster in the current namespace
 kubectl fdb buggify crash-loop --clean -c cluster
 
-# Add process groups into NoSchedule state for a cluster in the current namespace
+# Add process groups into no-schedule state for a cluster in the current namespace
 kubectl fdb buggify no-schedule -c cluster pod-1 pod-2
 
-# Remove process groups from NoSchedule state from a cluster in the current namespace
+# Remove process groups from no-schedule state from a cluster in the current namespace
 kubectl fdb buggify no-schedule --clear -c cluster pod-1 pod-2
 
-# Clean NoSchedule list of a cluster in the current namespace
+# Clean no-schedule list of a cluster in the current namespace
 kubectl fdb buggify no-schedule  --clean -c cluster
 
 # Setting empty-monitor-conf to true
