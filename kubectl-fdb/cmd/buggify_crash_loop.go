@@ -23,10 +23,11 @@ package cmd
 import (
 	ctx "context"
 	"fmt"
+	"log"
+
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -126,7 +127,7 @@ func updateCrashLoopList(kubeClient client.Client, clusterName string, processGr
 	}
 
 	if len(processGroups) == 0 {
-		fmt.Errorf("please provide atleast one pod")
+		return fmt.Errorf("please provide atleast one pod")
 	}
 
 	if wait {

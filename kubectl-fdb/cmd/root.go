@@ -25,7 +25,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"strings"
 
 	"github.com/spf13/viper"
