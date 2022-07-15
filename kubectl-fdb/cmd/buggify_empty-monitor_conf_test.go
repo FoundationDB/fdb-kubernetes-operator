@@ -23,16 +23,15 @@ package cmd
 import (
 	ctx "context"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func() {
@@ -56,19 +55,19 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 	})
 
 	When("running buggify empty-monitor-conf instances command", func() {
-		type testCase struct {
-			set                      bool
-			ExpectedEmptyMonitorConf bool
-		}
+		var kubeClient client.Client
 
-		DescribeTable("should update empty-monitor-conf",
-			func(tc testCase) {
+		When("should update empty-monitor-conf", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.EmptyMonitorConf = false
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster, &corev1.PodList{}).Build()
+				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+			})
 
-				err := updateMonitorConf(kubeClient, clusterName, namespace, false, tc.set)
+			It("setting monitor config to true", func() {
+				err := updateMonitorConf(kubeClient, clusterName, namespace, false, true)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
@@ -77,19 +76,31 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 					Name:      clusterName,
 				}, &resCluster)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(tc.ExpectedEmptyMonitorConf).To(Equal(resCluster.Spec.Buggify.EmptyMonitorConf))
-			},
-			Entry("setting monitor config to true",
-				testCase{
-					set:                      true,
-					ExpectedEmptyMonitorConf: true,
-				}),
-			Entry("setting monitor config to false",
-				testCase{
-					set:                      false,
-					ExpectedEmptyMonitorConf: false,
-				}),
-		)
-	})
+				Expect(resCluster.Spec.Buggify.EmptyMonitorConf).To(BeTrue())
+			})
+		})
 
+		When("should update empty-monitor-conf", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.EmptyMonitorConf = true
+				scheme := runtime.NewScheme()
+				_ = clientgoscheme.AddToScheme(scheme)
+				_ = fdbv1beta2.AddToScheme(scheme)
+				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+			})
+
+			It("setting monitor config to false", func() {
+				err := updateMonitorConf(kubeClient, clusterName, namespace, false, false)
+				Expect(err).NotTo(HaveOccurred())
+
+				var resCluster fdbv1beta2.FoundationDBCluster
+				err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+					Namespace: namespace,
+					Name:      clusterName,
+				}, &resCluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resCluster.Spec.Buggify.EmptyMonitorConf).To(BeFalse())
+			})
+		})
+	})
 })

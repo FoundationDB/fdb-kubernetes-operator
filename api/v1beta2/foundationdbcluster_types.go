@@ -2030,10 +2030,7 @@ func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(proces
 // If a process group ID is already present on that list or all the processes are set into crash-loop
 // it won't be added a second time.
 func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []string) {
-	crashLoop, crashLoopAll := cluster.GetCrashLoopProcessGroups()
-	if crashLoopAll {
-		return
-	}
+	crashLoop, _ := cluster.GetCrashLoopProcessGroups()
 
 	for _, processGroupID := range processGroupIDs {
 		if _, ok := crashLoop[processGroupID]; ok {
@@ -2097,14 +2094,15 @@ func (cluster *FoundationDBCluster) GetRunningVersion() string {
 // if all process group IDs in a cluster should be crash looping.
 func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None, bool) {
 	crashLoopPods := make(map[string]None, len(cluster.Spec.Buggify.CrashLoop))
+	crashLoopAll := false
 	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
 		if processGroupID == "*" {
-			return nil, true
+			crashLoopAll = true
 		}
 		crashLoopPods[processGroupID] = None{}
 	}
 
-	return crashLoopPods, false
+	return crashLoopPods, crashLoopAll
 }
 
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are

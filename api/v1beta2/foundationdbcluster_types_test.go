@@ -4663,7 +4663,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 		When("the no-schedule list is not empty", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = append(cluster.Spec.Buggify.NoSchedule, "instance-1")
+				cluster.Spec.Buggify.NoSchedule = []string{"instance-1"}
 			})
 
 			type testCase struct {
@@ -4696,8 +4696,13 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		var cluster *FoundationDBCluster
 
 		BeforeEach(func() {
-			cluster = &FoundationDBCluster{}
-			cluster.Spec.Buggify.NoSchedule = []string{"instance-1", "instance-2", "instance-3"}
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Buggify: BuggifyConfig{
+						NoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+					},
+				},
+			}
 		})
 
 		type testCase struct {
@@ -4754,12 +4759,17 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Instances:                    []string{"instance-1", "instance-2"},
 						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
 					}),
+				Entry("Adding all instances",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"*"},
+					}),
 			)
 		})
 
 		When("the crash-loop list is not empty", func() {
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = append(cluster.Spec.Buggify.CrashLoop, "instance-1")
+				cluster.Spec.Buggify.CrashLoop = []string{"instance-1"}
 			})
 
 			type testCase struct {
@@ -4783,6 +4793,45 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Instances:                    []string{"instance-2", "instance-3"},
 						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
 					}),
+				Entry("Adding all instances",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "*"},
+					}),
+			)
+		})
+
+		When("the crash-loop list contains *", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"*"}
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should add all targeted processes to crash-loop list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "*"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"*", "instance-2", "instance-3"},
+					}),
+				Entry("Adding all instances",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"*"},
+					}),
 			)
 		})
 
@@ -4791,33 +4840,79 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 	When("removing processes from the crash-loop list", func() {
 		var cluster *FoundationDBCluster
 
-		BeforeEach(func() {
-			cluster = &FoundationDBCluster{}
-			cluster.Spec.Buggify.CrashLoop = []string{"instance-1", "instance-2", "instance-3"}
+		When("the crash-loop list does not contain *", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Buggify: BuggifyConfig{
+							CrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+						},
+					},
+				}
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should remove all targeted processes from the crash-loop list",
+				func(tc testCase) {
+					cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Removing single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"instance-2", "instance-3"},
+					}),
+				Entry("Removing multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+					}),
+			)
 		})
 
-		type testCase struct {
-			Instances                    []string
-			ExpectedInstancesInCrashLoop []string
-		}
+		When("the crash-loop list contain *", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Buggify: BuggifyConfig{
+							CrashLoop: []string{"*", "instance-1", "instance-2", "instance-3"},
+						},
+					},
+				}
+			})
 
-		DescribeTable("should remove all targeted processes from the crash-loop list",
-			func(tc testCase) {
-				cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
-				Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
-				Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
-			},
-			Entry("Removing single instance",
-				testCase{
-					Instances:                    []string{"instance-1"},
-					ExpectedInstancesInCrashLoop: []string{"instance-2", "instance-3"},
-				}),
-			Entry("Removing multiple instances",
-				testCase{
-					Instances:                    []string{"instance-2", "instance-3"},
-					ExpectedInstancesInCrashLoop: []string{"instance-1"},
-				}),
-		)
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
 
+			DescribeTable("should remove all targeted processes from the crash-loop list",
+				func(tc testCase) {
+					cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Removing single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"*", "instance-2", "instance-3"},
+					}),
+				Entry("Removing multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"*", "instance-1"},
+					}),
+				Entry("Removing *",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+					}),
+			)
+		})
 	})
 })

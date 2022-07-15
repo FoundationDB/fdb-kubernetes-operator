@@ -43,7 +43,7 @@ func newBuggifyEmptyMonitorConf(streams genericclioptions.IOStreams) *cobra.Comm
 			if err != nil {
 				return err
 			}
-			unset, err := cmd.Flags().GetBool("unset")
+			set, err := cmd.Flags().GetBool("set-value")
 			if err != nil {
 				return err
 			}
@@ -62,19 +62,19 @@ func newBuggifyEmptyMonitorConf(streams genericclioptions.IOStreams) *cobra.Comm
 				return err
 			}
 
-			return updateMonitorConf(kubeClient, cluster, namespace, wait, !unset)
+			return updateMonitorConf(kubeClient, cluster, namespace, wait, set)
 		},
 		Example: `
 # Setting empty-monitor-conf to true
 kubectl fdb buggify empty-monitor-conf -c cluster
 
 # Setting empty-monitor-conf to false
-kubectl fdb buggify empty-monitor-conf --unset -c cluster
+kubectl fdb buggify empty-monitor-conf --set-value=false -c cluster
 `,
 	}
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "updates the empty-monitor-conf for the cluster.")
-	cmd.Flags().Bool("unset", false, "unset the empty-monitor-conf to false.")
+	cmd.Flags().Bool("set-value", true, "set the empty-monitor-conf to true.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
 		log.Fatal(err)
@@ -99,7 +99,7 @@ func updateMonitorConf(kubeClient client.Client, clusterName string, namespace s
 	}
 
 	if cluster.Spec.Buggify.EmptyMonitorConf == set {
-		return nil
+		return fmt.Errorf("empty-monitor-conf is already set to %v", set)
 	}
 
 	patch := client.MergeFrom(cluster.DeepCopy())
