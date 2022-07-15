@@ -19,7 +19,7 @@ spec:
     storageServersPerPod: 2
 ```
 
-A change to the `storageServersPerPod` will replace all of the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/multiple_storage_per_disk.md) design doc.
+A change to the `storageServersPerPod` will replace all of the storage pods. For more information about this feature read the [multiple storage servers per pod](/docs/design/implemented/multiple_storage_per_disk.md) design doc.
 
 ## Customizing the Volumes
 
