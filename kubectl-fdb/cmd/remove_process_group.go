@@ -121,34 +121,6 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 	return cmd
 }
 
-func getProcessGroupIDsFromPod(kubeClient client.Client, clusterName string, podNames []string, namespace string) ([]string, error) {
-	processGroups := make([]string, 0, len(podNames))
-	// Build a map to filter faster
-	podNameMap := map[string]struct{}{}
-	for _, name := range podNames {
-		podNameMap[name] = struct{}{}
-	}
-
-	cluster, err := loadCluster(kubeClient, namespace, clusterName)
-	if err != nil {
-		return processGroups, err
-	}
-	pods, err := getPodsForCluster(kubeClient, cluster, namespace)
-	if err != nil {
-		return processGroups, err
-	}
-
-	for _, pod := range pods.Items {
-		if _, ok := podNameMap[pod.Name]; !ok {
-			continue
-		}
-
-		processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
-	}
-
-	return processGroups, nil
-}
-
 // replaceProcessGroups adds process groups to the removal list of the cluster
 func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, wait bool, removeAllFailed bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
