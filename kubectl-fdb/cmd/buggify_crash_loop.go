@@ -66,12 +66,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			processGroups, err := getProcessGroupIDsFromPod(kubeClient, cluster, args, namespace)
-			if err != nil {
-				return err
-			}
-
-			return updateCrashLoopList(kubeClient, cluster, processGroups, namespace, wait, clear, clean)
+			return updateCrashLoopList(kubeClient, cluster, args, namespace, wait, clear, clean)
 		},
 		Example: `
 # Add process groups into crash loop state for a cluster in the current namespace
@@ -104,12 +99,17 @@ kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 }
 
 // updateCrashLoopList updates the crash-loop list of the cluster
-func updateCrashLoopList(kubeClient client.Client, clusterName string, processGroups []string, namespace string, wait bool, clear bool, clean bool) error {
+func updateCrashLoopList(kubeClient client.Client, clusterName string, pods []string, namespace string, wait bool, clear bool, clean bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
 		}
+		return err
+	}
+
+	processGroups, err := getProcessGroupIDsFromPodName(cluster, pods)
+	if err != nil {
 		return err
 	}
 

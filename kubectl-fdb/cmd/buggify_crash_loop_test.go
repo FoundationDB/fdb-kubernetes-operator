@@ -56,7 +56,6 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 
 	When("running buggify crash-loop instances command", func() {
 		When("adding instances to crash-loop list from a cluster", func() {
-
 			type testCase struct {
 				Instances                    []string
 				ExpectedInstancesInCrashLoop []string
@@ -83,13 +82,13 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				},
 				Entry("Adding single instance.",
 					testCase{
-						Instances:                    []string{"instance-1"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+						Instances:                    []string{"test-storage-1"},
+						ExpectedInstancesInCrashLoop: []string{"storage-1"},
 					}),
 				Entry("Adding multiple instances.",
 					testCase{
-						Instances:                    []string{"instance-1", "instance-2"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+						Instances:                    []string{"test-storage-1", "test-storage-2"},
+						ExpectedInstancesInCrashLoop: []string{"storage-1", "storage-2"},
 					}),
 			)
 
@@ -97,7 +96,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				var kubeClient client.Client
 
 				BeforeEach(func() {
-					cluster.Spec.Buggify.CrashLoop = []string{"instance-1"}
+					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbv1beta2.AddToScheme(scheme)
@@ -125,18 +124,18 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 					},
 					Entry("Adding the same instance.",
 						testCase{
-							Instances:                    []string{"instance-1"},
-							ExpectedInstancesInCrashLoop: []string{"instance-1"},
+							Instances:                    []string{"test-storage-1"},
+							ExpectedInstancesInCrashLoop: []string{"storage-1"},
 						}),
 					Entry("Adding different instance.",
 						testCase{
-							Instances:                    []string{"instance-2"},
-							ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+							Instances:                    []string{"test-storage-2"},
+							ExpectedInstancesInCrashLoop: []string{"storage-1", "storage-2"},
 						}),
 					Entry("Adding multiple instances.",
 						testCase{
-							Instances:                    []string{"instance-2", "instance-3"},
-							ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+							Instances:                    []string{"test-storage-2", "test-storage-3"},
+							ExpectedInstancesInCrashLoop: []string{"storage-1", "storage-2", "storage-3"},
 						}),
 				)
 			})
@@ -146,7 +145,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 			var kubeClient client.Client
 
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"instance-1", "instance-2", "instance-3"}
+				cluster.Spec.Buggify.CrashLoop = []string{"storage-1", "storage-2", "storage-3"}
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
@@ -174,13 +173,13 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 				},
 				Entry("Removing single instance.",
 					testCase{
-						Instances:                    []string{"instance-1"},
-						ExpectedInstancesInCrashLoop: []string{"instance-2", "instance-3"},
+						Instances:                    []string{"test-storage-1"},
+						ExpectedInstancesInCrashLoop: []string{"storage-2", "storage-3"},
 					}),
 				Entry("Removing multiple instances.",
 					testCase{
-						Instances:                    []string{"instance-2", "instance-3"},
-						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+						Instances:                    []string{"test-storage-2", "test-storage-3"},
+						ExpectedInstancesInCrashLoop: []string{"storage-1"},
 					}),
 			)
 
@@ -190,7 +189,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 			var kubeClient client.Client
 
 			BeforeEach(func() {
-				cluster.Spec.Buggify.CrashLoop = []string{"instance-1", "instance-2", "instance-3"}
+				cluster.Spec.Buggify.CrashLoop = []string{"storage-1", "storage-2", "storage-3"}
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)

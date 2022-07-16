@@ -82,13 +82,13 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				},
 				Entry("Adding single instance.",
 					testCase{
-						Instances:                     []string{"instance-1"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1"},
+						Instances:                     []string{"test-storage-1"},
+						ExpectedInstancesInNoSchedule: []string{"storage-1"},
 					}),
 				Entry("Adding multiple instances.",
 					testCase{
-						Instances:                     []string{"instance-1", "instance-2"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+						Instances:                     []string{"test-storage-1", "test-storage-2"},
+						ExpectedInstancesInNoSchedule: []string{"storage-1", "storage-2"},
 					}),
 			)
 
@@ -96,7 +96,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				var kubeClient client.Client
 
 				BeforeEach(func() {
-					cluster.Spec.Buggify.NoSchedule = []string{"instance-1"}
+					cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
 					scheme := runtime.NewScheme()
 					_ = clientgoscheme.AddToScheme(scheme)
 					_ = fdbv1beta2.AddToScheme(scheme)
@@ -124,18 +124,18 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 					},
 					Entry("Adding the same instance.",
 						testCase{
-							Instances:                     []string{"instance-1"},
-							ExpectedInstancesInNoSchedule: []string{"instance-1"},
+							Instances:                     []string{"test-storage-1"},
+							ExpectedInstancesInNoSchedule: []string{"storage-1"},
 						}),
 					Entry("Adding different instance.",
 						testCase{
-							Instances:                     []string{"instance-2"},
-							ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+							Instances:                     []string{"test-storage-2"},
+							ExpectedInstancesInNoSchedule: []string{"storage-1", "storage-2"},
 						}),
 					Entry("Adding multiple instances.",
 						testCase{
-							Instances:                     []string{"instance-2", "instance-3"},
-							ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+							Instances:                     []string{"test-storage-2", "test-storage-3"},
+							ExpectedInstancesInNoSchedule: []string{"storage-1", "storage-2", "storage-3"},
 						}),
 				)
 			})
@@ -145,7 +145,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 			var kubeClient client.Client
 
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []string{"instance-1", "instance-2", "instance-3"}
+				cluster.Spec.Buggify.NoSchedule = []string{"storage-1", "storage-2", "storage-3"}
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
@@ -173,13 +173,13 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 				},
 				Entry("Removing single instance.",
 					testCase{
-						Instances:                     []string{"instance-1"},
-						ExpectedInstancesInNoSchedule: []string{"instance-2", "instance-3"},
+						Instances:                     []string{"test-storage-1"},
+						ExpectedInstancesInNoSchedule: []string{"storage-2", "storage-3"},
 					}),
 				Entry("Removing multiple instances.",
 					testCase{
-						Instances:                     []string{"instance-2", "instance-3"},
-						ExpectedInstancesInNoSchedule: []string{"instance-1"},
+						Instances:                     []string{"test-storage-2", "test-storage-3"},
+						ExpectedInstancesInNoSchedule: []string{"storage-1"},
 					}),
 			)
 
@@ -189,7 +189,7 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 			var kubeClient client.Client
 
 			BeforeEach(func() {
-				cluster.Spec.Buggify.NoSchedule = []string{"instance-1", "instance-2", "instance-3"}
+				cluster.Spec.Buggify.NoSchedule = []string{"storage-1", "storage-2", "storage-3"}
 				scheme := runtime.NewScheme()
 				_ = clientgoscheme.AddToScheme(scheme)
 				_ = fdbv1beta2.AddToScheme(scheme)
