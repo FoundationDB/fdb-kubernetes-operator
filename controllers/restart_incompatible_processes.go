@@ -36,6 +36,10 @@ type restartIncompatibleProcesses struct{}
 // reconcile runs the reconciler's work.
 func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "restartIncompatibleProcesses")
+	if !r.EnableRestartIncompatibleProcesses {
+		logger.Info("skipping disabled subreconciler")
+		return nil
+	}
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
@@ -71,7 +75,6 @@ func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *Foundation
 		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
 	}
 
-	var hasRestart bool
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
@@ -88,17 +91,10 @@ func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *Foundation
 			}
 			continue
 		}
-
 	}
 
 	if err != nil {
 		return &requeue{curError: err, delay: 15 * time.Second}
-	}
-
-	// When we restarted the incompatible fdbserver processes we have to wait until they report to the cluster again to
-	// prevent to restart them in a loop.
-	if hasRestart {
-		return &requeue{message: "wait until processes are restarted", delay: 15 * time.Second}
 	}
 
 	return nil

@@ -58,17 +58,18 @@ import (
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
-	Recorder               record.EventRecorder
-	Log                    logr.Logger
-	InSimulation           bool
-	PodLifecycleManager    podmanager.PodLifecycleManager
-	PodClientProvider      func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
-	DatabaseClientProvider DatabaseClientProvider
-	DeprecationOptions     internal.DeprecationOptions
-	GetTimeout             time.Duration
-	PostTimeout            time.Duration
-	RestClient             rest.Interface
-	RestConfig             *rest.Config
+	Recorder                           record.EventRecorder
+	Log                                logr.Logger
+	InSimulation                       bool
+	EnableRestartIncompatibleProcesses bool
+	PodLifecycleManager                podmanager.PodLifecycleManager
+	PodClientProvider                  func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
+	DatabaseClientProvider             DatabaseClientProvider
+	DeprecationOptions                 internal.DeprecationOptions
+	GetTimeout                         time.Duration
+	PostTimeout                        time.Duration
+	RestClient                         rest.Interface
+	RestConfig                         *rest.Config
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -767,10 +768,12 @@ func (r *FoundationDBClusterReconciler) restartFdbserverProcess(name string, nam
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
 			Container: "foundationdb",
-			Command:   []string{"sh", "-c", "pkill fdbserver"},
-			Stdin:     true,
-			Stdout:    true,
-			Stderr:    true,
+			// During an upgrade the fdbserver binary will be located in /var/dynamic-conf/bin/ and we want to ensure
+			// we only restart the old fdbserver binary and not the new one to prevent restarting the process too often.
+			Command: []string{"sh", "-c", "pkill -f /usr/bin/fdbserverr"},
+			Stdin:   true,
+			Stdout:  true,
+			Stderr:  true,
 		}, runtime.NewParameterCodec(r.Scheme()))
 
 	exec, err := remotecommand.NewSPDYExecutor(r.RestConfig, "POST", execReq.URL())
