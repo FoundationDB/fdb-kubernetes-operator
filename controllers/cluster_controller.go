@@ -781,6 +781,11 @@ func (r *FoundationDBClusterReconciler) restartFdbserverProcess(name string, nam
 		return err
 	}
 
+	// It seems like the fake rest client is not propagated to the exec stream.
+	if r.InSimulation {
+		return nil
+	}
+
 	return exec.Stream(remotecommand.StreamOptions{
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,

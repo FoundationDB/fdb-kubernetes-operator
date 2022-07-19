@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
@@ -36,31 +38,41 @@ type restartIncompatibleProcesses struct{}
 // reconcile runs the reconciler's work.
 func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "restartIncompatibleProcesses")
+	_, err := processIncompatibleProcesses(ctx, r, logger, cluster)
+
+	if err != nil {
+		return &requeue{curError: err, delay: 15 * time.Second}
+	}
+
+	return nil
+}
+
+func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterReconciler, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
 	if !r.EnableRestartIncompatibleProcesses {
 		logger.Info("skipping disabled subreconciler")
-		return nil
+		return false, nil
 	}
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return &requeue{curError: err}
+		return false, err
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
 	if err != nil {
-		return &requeue{curError: err}
+		return false, err
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return &requeue{curError: err}
+		return false, err
 	}
 
 	if len(status.Cluster.IncompatibleConnections) == 0 {
-		return nil
+		return false, nil
 	}
 
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
@@ -75,6 +87,7 @@ func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *Foundation
 		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
 	}
 
+	var hasRestart bool
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
@@ -89,15 +102,12 @@ func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *Foundation
 			if curErr != nil {
 				err = fmt.Errorf("could not restart %s/%s with error: %w", pod.Name, pod.Namespace, curErr)
 			}
+			hasRestart = true
 			continue
 		}
 	}
 
-	if err != nil {
-		return &requeue{curError: err, delay: 15 * time.Second}
-	}
-
-	return nil
+	return hasRestart, err
 }
 
 // isIncompatible checks if the process group is in the list of incompatible connections

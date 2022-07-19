@@ -22,7 +22,8 @@ package controllers
 
 import (
 	"context"
-	"time"
+
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -66,8 +67,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 	When("running a reconcile for the restart incompatible process reconciler", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
-		var requeue *requeue
-		var err error
+		var restarts bool
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -84,12 +84,14 @@ var _ = Describe("restart_incompatible_pods", func() {
 		})
 
 		JustBeforeEach(func() {
-			requeue = restartIncompatibleProcesses{}.reconcile(context.TODO(), clusterReconciler, cluster)
+			var err error
+			restarts, err = processIncompatibleProcesses(context.TODO(), clusterReconciler, logr.Discard(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("no incompatible processes are reported", func() {
 			BeforeEach(func() {
+				clusterReconciler.EnableRestartIncompatibleProcesses = true
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
@@ -99,13 +101,14 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+			It("should have no restarts", func() {
+				Expect(restarts).To(BeFalse())
 			})
 		})
 
 		When("no matching incompatible processes are reported", func() {
 			BeforeEach(func() {
+				clusterReconciler.EnableRestartIncompatibleProcesses = true
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
@@ -117,13 +120,14 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should not requeue", func() {
-				Expect(requeue).To(BeNil())
+			It("should have no restarts", func() {
+				Expect(restarts).To(BeFalse())
 			})
 		})
 
-		When("matching incompatible processes are reported", func() {
+		When("matching incompatible processes are reported and the subreconciler is enabled", func() {
 			BeforeEach(func() {
+				clusterReconciler.EnableRestartIncompatibleProcesses = true
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
@@ -135,9 +139,27 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should requeue", func() {
-				Expect(requeue).NotTo(BeNil())
-				Expect(requeue.delay).To(BeNumerically("==", 15*time.Second))
+			It("should have restarts", func() {
+				Expect(restarts).To(BeTrue())
+			})
+		})
+
+		When("matching incompatible processes are reported and the subreconciler is disabled", func() {
+			BeforeEach(func() {
+				clusterReconciler.EnableRestartIncompatibleProcesses = false
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						IncompatibleConnections: []string{
+							cluster.Status.ProcessGroups[0].Addresses[0],
+						},
+					},
+				}
+			})
+
+			It("should have no restarts", func() {
+				Expect(restarts).To(BeFalse())
 			})
 		})
 	})
