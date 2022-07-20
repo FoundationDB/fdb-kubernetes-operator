@@ -770,7 +770,7 @@ func (r *FoundationDBClusterReconciler) restartFdbserverProcess(name string, nam
 			Container: "foundationdb",
 			// During an upgrade the fdbserver binary will be located in /var/dynamic-conf/bin/ and we want to ensure
 			// we only restart the old fdbserver binary and not the new one to prevent restarting the process too often.
-			Command: []string{"sh", "-c", "pkill -f /usr/bin/fdbserverr"},
+			Command: []string{"sh", "-c", "pkill -f /usr/bin/fdbserver"},
 			Stdin:   true,
 			Stdout:  true,
 			Stderr:  true,
