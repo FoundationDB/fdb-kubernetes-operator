@@ -115,4 +115,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
 
-replace github.com/apple/foundationdb/fdbkubernetesmonitor => github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220624014732-ae73fd299a9a
+replace github.com/apple/foundationdb/fdbkubernetesmonitor => github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220712041632-994de1d72693

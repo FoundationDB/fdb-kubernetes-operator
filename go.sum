@@ -89,8 +89,8 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
-github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220624014732-ae73fd299a9a h1:uukkCQx5xBzhZDB+zXcPCqU1yooSPZ4qcJQaaAjq2FU=
-github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220624014732-ae73fd299a9a/go.mod h1:FoQRw/NcoDdOgIve7z4+RXNhoiFSDDggUJ3Z835nMro=
+github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220712041632-994de1d72693 h1:MfXC3O/uZOD00Z/3lEGGxV2YoVaH+941cMcYzPqPjbM=
+github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220712041632-994de1d72693/go.mod h1:FoQRw/NcoDdOgIve7z4+RXNhoiFSDDggUJ3Z835nMro=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/certifi/gocertifi v0.0.0-20191021191039-0944d244cd40/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
 github.com/certifi/gocertifi v0.0.0-20200922220541-2c3bb06c6054/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
