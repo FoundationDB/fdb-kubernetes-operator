@@ -187,7 +187,7 @@ func (version Version) IsStorageEngineSupported(storageEngine StorageEngine) boo
 	} else if storageEngine == StorageEngineRocksDbExperimental {
 		return !version.IsAtLeast(Versions.SupportsRocksDBV1)
 	} else if storageEngine == StorageEngineShardedRocksDB {
-		return !version.IsAtLeast(Versions.SupportsShardedRocksDB)
+		return version.IsAtLeast(Versions.SupportsShardedRocksDB)
 	}
 	return true
 }
@@ -213,11 +213,11 @@ var Versions = struct {
 	SupportsShardedRocksDB,
 	Default Version
 }{
-	Default:           Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:  Version{Major: 6, Minor: 2, Patch: 21},
-	NextMajorVersion:  Version{Major: 7, Minor: 0, Patch: 0},
-	MinimumVersion:    Version{Major: 6, Minor: 2, Patch: 20},
-	SupportsRocksDBV1: Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
-	SupportsIsPresent: Version{Major: 7, Minor: 1, Patch: 4},
+	Default:                Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:       Version{Major: 6, Minor: 2, Patch: 21},
+	NextMajorVersion:       Version{Major: 7, Minor: 0, Patch: 0},
+	MinimumVersion:         Version{Major: 6, Minor: 2, Patch: 20},
+	SupportsRocksDBV1:      Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
+	SupportsIsPresent:      Version{Major: 7, Minor: 1, Patch: 4},
 	SupportsShardedRocksDB: Version{Major: 7, Minor: 2, Patch: 0},
 }

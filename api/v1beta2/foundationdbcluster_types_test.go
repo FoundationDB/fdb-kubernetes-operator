@@ -4633,11 +4633,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						DatabaseConfiguration: DatabaseConfiguration{
 							StorageEngine: StorageEngineShardedRocksDB,
 						},
-						CoordinatorSelection: []CoordinatorSelectionSetting{
-							{
-								ProcessClass: ProcessClassStateless,
-							},
-						},
 					},
 				},
 				fmt.Errorf("storage engine ssd-sharded-rocksdb is not supported on version 7.1.4"),
@@ -4648,11 +4643,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 						Version: "7.2.0",
 						DatabaseConfiguration: DatabaseConfiguration{
 							StorageEngine: StorageEngineShardedRocksDB,
-						},
-						CoordinatorSelection: []CoordinatorSelectionSetting{
-							{
-								ProcessClass: ProcessClassStateless,
-							},
 						},
 					},
 				},

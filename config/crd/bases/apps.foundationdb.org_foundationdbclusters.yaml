@@ -9501,7 +9501,6 @@ spec:
                     - ssd-redwood-1-experimental
                     - ssd-rocksdb-experimental
                     - ssd-rocksdb-v1
-                    - ssd-sharded-rocksdb
                     - memory-radixtree-beta
                     - custom
                     maxLength: 100
@@ -12920,7 +12919,6 @@ spec:
                     - ssd-redwood-1-experimental
                     - ssd-rocksdb-experimental
                     - ssd-rocksdb-v1
-                    - ssd-sharded-rocksdb
                     - memory-radixtree-beta
                     - custom
                     maxLength: 100

@@ -2656,9 +2656,8 @@ var _ = Describe("cluster_controller", func() {
 						cluster.Spec.Version = "7.2.0"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
 					})
-					It("generations are not matching", func() {
+					It("generations are matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
@@ -2684,8 +2683,9 @@ var _ = Describe("cluster_controller", func() {
 						cluster.Spec.Version = "6.3.24"
 						err := k8sClient.Update(context.TODO(), cluster)
 						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
 					})
-					It("generations are matching", func() {
+					It("generations are not matching", func() {
 						generations, err := reloadClusterGenerations(cluster)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
