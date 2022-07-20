@@ -227,7 +227,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
+	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)
