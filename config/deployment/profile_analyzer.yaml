@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fdb-profile-analyzer
+  labels:
+    app: fdb-profile-analyzer
+spec:
+  selector:
+    matchLabels:
+      app: fdb-profile-analyzer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fdb-profile-analyzer
+    spec:
+      securityContext:
+        runAsUser: 4059
+        runAsGroup: 4059
+        fsGroup: 4059
+      serviceAccountName: fdb-profile-analyzer
+      containers:
+        - command:
+            - ./transaction_profiling_analyzer.py
+          image: foundationdb/fdb-profile-analyzer
+          name: fdb-profile-analyzer
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: metrics
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /var/log/fdb
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fdb-profile-analyzer
