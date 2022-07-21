@@ -224,7 +224,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			corev1.VolumeMount{Name: "fdb-trace-logs", MountPath: "/var/log/fdb-trace-logs"},
 		)
 
-		mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+		mainContainer.Env = append(mainContainer.Env, getEnvForMonitorConfigSubstitution(cluster, podName, processGroupID)...)
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_IMAGE_TYPE", Value: string(FDBImageTypeUnified)})
 		mainContainer.Env = append(mainContainer.Env, corev1.EnvVar{Name: "FDB_POD_NAME", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
@@ -505,11 +505,10 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", substitution)
 		}
 
-		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, processGroupID)...)
+		sidecarEnv = append(sidecarEnv, getEnvForMonitorConfigSubstitution(cluster, podName, processGroupID)...)
 
 		if cluster.UseDNSInClusterFile() {
 			sidecarArgs = append(sidecarArgs, "--substitute-variable", "FDB_DNS_NAME")
-			sidecarEnv = append(sidecarEnv, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)})
 		}
 
 		if !initMode && cluster.GetSidecarContainerEnableLivenessProbe() && container.LivenessProbe == nil {
@@ -596,7 +595,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 // getEnvForMonitorConfigSubstitution provides the environment variables that
 // are used for substituting variables into the monitor config.
-func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, instanceID string) []corev1.EnvVar {
+func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster, podName string, processGroupID string) []corev1.EnvVar {
 	env := make([]corev1.EnvVar, 0)
 
 	publicIPSource := cluster.Spec.Routing.PublicIPSource
@@ -663,7 +662,11 @@ func getEnvForMonitorConfigSubstitution(cluster *fdbv1beta2.FoundationDBCluster,
 		}
 	}
 
-	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: instanceID})
+	env = append(env, corev1.EnvVar{Name: "FDB_INSTANCE_ID", Value: processGroupID})
+
+	if cluster.UseDNSInClusterFile() {
+		env = append(env, corev1.EnvVar{Name: "FDB_DNS_NAME", Value: GetPodDNSName(cluster, podName)})
+	}
 
 	return env
 }

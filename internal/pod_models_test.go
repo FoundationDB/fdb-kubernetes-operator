@@ -698,6 +698,29 @@ var _ = Describe("pod_models", func() {
 				})
 			})
 
+			When("using DNS names in the cluster file", func() {
+				BeforeEach(func() {
+					cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+					spec, err = GetPodSpec(cluster, fdbv1beta2.ProcessClassLog, 1)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should have the DNS name environment variable for the foundationdb container", func() {
+					mainContainer := spec.Containers[0]
+
+					dnsNameIndex := -1
+
+					for envIndex, env := range mainContainer.Env {
+						if env.Name == "FDB_DNS_NAME" {
+							dnsNameIndex = envIndex
+						}
+					}
+
+					Expect(dnsNameIndex).NotTo(Equal(-1))
+					Expect(mainContainer.Env[dnsNameIndex].Value).To(Equal("operator-test-1-log-1.operator-test-1.my-ns.svc.cluster.local"))
+				})
+			})
+
 			Context("with an instance that is crash looping", func() {
 				BeforeEach(func() {
 					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
