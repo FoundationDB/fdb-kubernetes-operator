@@ -1,5 +1,5 @@
 /*
- * restart_incompatible_processes.go
+ * remove_incompatible_processes.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,8 +22,9 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/go-logr/logr"
 
@@ -31,14 +32,14 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
 
-// restartIncompatibleProcesses is a reconciler that will restart incompatible fdbserver processes, this can happen
+// removeIncompatibleProcesses is a reconciler that will restart incompatible fdbserver processes, this can happen
 // during an upgrade when the kill command doesn't reach all processes, see: https://github.com/FoundationDB/fdb-kubernetes-operator/issues/1281
-type restartIncompatibleProcesses struct{}
+type removeIncompatibleProcesses struct{}
 
 // reconcile runs the reconciler's work.
-func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "restartIncompatibleProcesses")
-	_, err := processIncompatibleProcesses(ctx, r, logger, cluster)
+func (removeIncompatibleProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "removeIncompatibleProcesses")
+	err := processIncompatibleProcesses(ctx, r, logger, cluster)
 
 	if err != nil {
 		return &requeue{curError: err, delay: 15 * time.Second}
@@ -47,32 +48,32 @@ func (restartIncompatibleProcesses) reconcile(ctx context.Context, r *Foundation
 	return nil
 }
 
-func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterReconciler, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
+func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterReconciler, logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster) error {
 	if !r.EnableRestartIncompatibleProcesses {
 		logger.Info("skipping disabled subreconciler")
-		return false, nil
+		return nil
 	}
 
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer adminClient.Close()
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if len(status.Cluster.IncompatibleConnections) == 0 {
-		return false, nil
+		return nil
 	}
 
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
@@ -87,7 +88,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
 	}
 
-	var hasRestart bool
+	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		pod, ok := podMap[processGroup.ProcessGroupID]
 		if !ok || pod == nil {
@@ -97,20 +98,16 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		}
 
 		if isIncompatible(incompatibleConnections, processGroup) {
-			logger.Info("restart process group with incompatible version", "processGroupID", processGroup.ProcessGroupID)
-			curErr := r.restartFdbserverProcess(pod.Name, pod.Namespace)
-			if curErr != nil {
-				err = fmt.Errorf("could not restart %s/%s with error: %w", pod.Name, pod.Namespace, curErr)
-			}
-			hasRestart = true
-			continue
+			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID)
+			incompatiblePods = append(incompatiblePods, pod)
 		}
 	}
 
-	return hasRestart, err
+	// Do an unsafe update of the Pods since they are not reachable anyway
+	return r.PodLifecycleManager.UpdatePods(ctx, r, cluster, incompatiblePods, true)
 }
 
-// isIncompatible checks if the process group is in the list of incompatible connections
+// isIncompatible checks if the process group is in the list of incompatible connections.
 func isIncompatible(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus) bool {
 	for _, address := range processGroup.Addresses {
 		if _, ok := incompatibleConnections[address]; ok {

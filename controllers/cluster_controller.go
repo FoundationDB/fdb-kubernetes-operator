@@ -26,19 +26,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"regexp"
 	"sort"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/remotecommand"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -68,8 +62,6 @@ type FoundationDBClusterReconciler struct {
 	DeprecationOptions                 internal.DeprecationOptions
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
-	RestClient                         rest.Interface
-	RestConfig                         *rest.Config
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -86,7 +78,6 @@ func NewFoundationDBClusterReconciler(podLifecycleManager podmanager.PodLifecycl
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=pods;configmaps;persistentvolumeclaims;events;secrets;services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 
 // Reconcile runs the reconciliation logic.
 func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -148,7 +139,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		addPVCs{},
 		addPods{},
 		generateInitialClusterFile{},
-		restartIncompatibleProcesses{},
+		removeIncompatibleProcesses{},
 		updateSidecarVersions{},
 		updatePodConfig{},
 		updateLabels{},
@@ -756,40 +747,4 @@ func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.Fo
 	defer adminClient.Close()
 
 	return adminClient.GetCoordinatorSet()
-}
-
-// restartFdbserverProcess will restart the fdbserver process for the provided Pod.
-func (r *FoundationDBClusterReconciler) restartFdbserverProcess(name string, namespace string) error {
-	execReq := r.RestClient.
-		Post().
-		Namespace(namespace).
-		Resource("pods").
-		Name(name).
-		SubResource("exec").
-		VersionedParams(&corev1.PodExecOptions{
-			Container: "foundationdb",
-			// During an upgrade the fdbserver binary will be located in /var/dynamic-conf/bin/ and we want to ensure
-			// we only restart the old fdbserver binary and not the new one to prevent restarting the process too often.
-			Command: []string{"sh", "-c", "pkill -f /usr/bin/fdbserver"},
-			Stdin:   true,
-			Stdout:  true,
-			Stderr:  true,
-		}, runtime.NewParameterCodec(r.Scheme()))
-
-	exec, err := remotecommand.NewSPDYExecutor(r.RestConfig, "POST", execReq.URL())
-	if err != nil {
-		return err
-	}
-
-	// It seems like the fake rest client is not propagated to the exec stream.
-	if r.InSimulation {
-		return nil
-	}
-
-	return exec.Stream(remotecommand.StreamOptions{
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-		Tty:    false,
-	})
 }

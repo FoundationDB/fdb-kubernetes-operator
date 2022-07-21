@@ -100,7 +100,7 @@ The cluster reconciler runs the following subreconcilers:
 1. [AddPVCs](#addpvcs)
 1. [AddPods](#addpods)
 1. [GenerateInitialClusterFile](#generateinitialclusterFile)
-1. [RestartIncompatibleProcesses](#restartincompatibleprocesses)
+1. [RemoveIncompatibleProcesses](#removeincompatibleprocesses)
 1. [UpdateSidecarVersions](#updatesidecarversions)
 1. [UpdatePodConfig](#updatepodconfig)
 1. [UpdateLabels](#updatelabels)
@@ -178,14 +178,11 @@ The `AddPods` subreconciler creates any pods that are required for the cluster. 
 
 The `GenerateInitialClusterFile` creates the cluster file for the cluster. If the cluster already has a cluster file, this will take no action. The cluster file is the service discovery mechanism for the cluster. It includes addresses for coordinator processes, which are chosen statically. The coordinators are used to elect the cluster controller and inform servers and clients about which process is serving as cluster controller. The cluster file is stored in the `connectionString` field in the cluster status. You can manually specify the cluster file in the `seedConnectionString` field in the cluster spec. If both of these are blank, the operator will choose coordinators that satisfy the cluster's fault tolerance requirements. Coordinators cannot be chosen until the pods have been created and the processes have been assigned IP addresses, which by default comes from the pod's IP. Once the initial cluster file has been generated, we store it in the cluster status and requeue reconciliation so we can update the config map with the new cluster file.
 
-### RestartIncompatibleProcesses
+### RemoveIncompatibleProcesses
 
-The `RestartIncompatibleProcesses` subreconciler will check the FoundationDB cluster status for incompatible connections.
+The `RemoveIncompatibleProcesses` subreconciler will check the FoundationDB cluster status for incompatible connections.
 If the cluster has some incompatible connections the subreconciler will match those IP addresses with the process groups.
-For matching process groups the subrecociler will exec into the according Pod and run `pkill -f /usr/bin/fdbserverr` to ensure that
-the Pod is running the newer version of the FDB binary. This behaviour can happen during upgrades where the kill command has not
-reached all processes. Per default this subreconciler is activated and can be disabled by setting `--enable-restart-incompatible-processes=false`
-as flag for the operator process.
+For matching process groups the subrecociler will delete the associated Pod and let it recreate with the new image.
 
 ### UpdateSidecarVersions
 

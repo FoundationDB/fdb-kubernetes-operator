@@ -1,5 +1,5 @@
 /*
- * restart_incompatible_processes_tests.go
+ * remove_incompatible_processes_tests.go
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,6 +24,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -67,7 +68,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 	When("running a reconcile for the restart incompatible process reconciler", func() {
 		var cluster *fdbv1beta2.FoundationDBCluster
-		var restarts bool
+		var initialCount int
 
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -81,11 +82,15 @@ var _ = Describe("restart_incompatible_pods", func() {
 			generation, err := reloadCluster(cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(generation).To(Equal(int64(1)))
+
+			pods := &corev1.PodList{}
+			err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+			Expect(err).NotTo(HaveOccurred())
+			initialCount = len(pods.Items)
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			restarts, err = processIncompatibleProcesses(context.TODO(), clusterReconciler, logr.Discard(), cluster)
+			err := processIncompatibleProcesses(context.TODO(), clusterReconciler, logr.Discard(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -101,8 +106,11 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should have no restarts", func() {
-				Expect(restarts).To(BeFalse())
+			It("should have no deletions", func() {
+				pods := &corev1.PodList{}
+				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
 			})
 		})
 
@@ -120,8 +128,11 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should have no restarts", func() {
-				Expect(restarts).To(BeFalse())
+			It("should have no deletions", func() {
+				pods := &corev1.PodList{}
+				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
 			})
 		})
 
@@ -139,8 +150,11 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should have restarts", func() {
-				Expect(restarts).To(BeTrue())
+			It("should have one deletion", func() {
+				pods := &corev1.PodList{}
+				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(BeNumerically("==", initialCount-1))
 			})
 		})
 
@@ -158,8 +172,11 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should have no restarts", func() {
-				Expect(restarts).To(BeFalse())
+			It("should have no deletions", func() {
+				pods := &corev1.PodList{}
+				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
 			})
 		})
 	})
