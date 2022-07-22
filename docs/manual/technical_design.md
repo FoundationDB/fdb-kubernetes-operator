@@ -89,7 +89,7 @@ See the [LockOptions](../cluster_spec.md#LockOptions) documentation for more opt
 The cluster reconciler runs the following subreconcilers:
 
 1. [UpdateStatus](#updatestatus)
-1. [UpdateLockConfiguration](updatelockconfiguration)
+1. [UpdateLockConfiguration](#updatelockconfiguration)
 1. [UpdateConfigMap](#updateconfigmap)
 1. [CheckClientCompatibility](#checkclientcompatibility)
 1. [DeletePodsForBuggification](#deletepodsforbuggification)
@@ -104,7 +104,7 @@ The cluster reconciler runs the following subreconcilers:
 1. [UpdateSidecarVersions](#updatesidecarversions)
 1. [UpdatePodConfig](#updatepodconfig)
 1. [UpdateLabels](#updatelabels)
-1. [UpdateDatabaseConfiguration](#Uupdatedatabaseconfiguration)
+1. [UpdateDatabaseConfiguration](#updatedatabaseconfiguration)
 1. [ChooseRemovals](#chooseremovals)
 1. [ExcludeProcesses](#excludeprocesses)
 1. [ChangeCoordinators](#changecoordinators)
