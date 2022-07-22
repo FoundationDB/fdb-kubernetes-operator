@@ -66,12 +66,7 @@ func newBuggifyCrashLoop(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			processGroups, err := getProcessGroupIDsFromPod(kubeClient, cluster, args, namespace)
-			if err != nil {
-				return err
-			}
-
-			return updateCrashLoopList(kubeClient, cluster, processGroups, namespace, wait, clear, clean)
+			return updateCrashLoopList(kubeClient, cluster, args, namespace, wait, clear, clean)
 		},
 		Example: `
 # Add process groups into crash loop state for a cluster in the current namespace
@@ -104,12 +99,17 @@ kubectl fdb -n default buggify crash-loop -c cluster pod-1 pod-2
 }
 
 // updateCrashLoopList updates the crash-loop list of the cluster
-func updateCrashLoopList(kubeClient client.Client, clusterName string, processGroups []string, namespace string, wait bool, clear bool, clean bool) error {
+func updateCrashLoopList(kubeClient client.Client, clusterName string, pods []string, namespace string, wait bool, clear bool, clean bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
 		}
+		return err
+	}
+
+	processGroupIDs, err := getProcessGroupIDsFromPodName(cluster, pods)
+	if err != nil {
 		return err
 	}
 
@@ -124,26 +124,26 @@ func updateCrashLoopList(kubeClient client.Client, clusterName string, processGr
 		return kubeClient.Patch(ctx.TODO(), cluster, patch)
 	}
 
-	if len(processGroups) == 0 {
+	if len(processGroupIDs) == 0 {
 		return fmt.Errorf("please provide atleast one pod")
 	}
 
 	if wait {
 		if clear {
-			if !confirmAction(fmt.Sprintf("Removing %v to crash-loop from cluster %s/%s", processGroups, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Removing %v to crash-loop from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		} else {
-			if !confirmAction(fmt.Sprintf("Adding %v to crash-loop from cluster %s/%s", processGroups, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Adding %v to crash-loop from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
 	}
 
 	if clear {
-		cluster.RemoveProcessGroupsFromCrashLoopList(processGroups)
+		cluster.RemoveProcessGroupsFromCrashLoopList(processGroupIDs)
 	} else {
-		cluster.AddProcessGroupsToCrashLoopList(processGroups)
+		cluster.AddProcessGroupsToCrashLoopList(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)

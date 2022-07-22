@@ -399,7 +399,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		confirmed := false
 
 		if len(failedProcessGroups) > 0 {
-			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, wait, false)
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, wait, false, true)
 			if err != nil {
 				return err
 			}

@@ -26,9 +26,7 @@ import (
 	"log"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,10 +52,6 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			withShrink, err := cmd.Flags().GetBool("shrink")
-			if err != nil {
-				return err
-			}
 			useProcessGroupID, err := cmd.Flags().GetBool("use-process-group-id")
 			if err != nil {
 				return err
@@ -77,15 +71,7 @@ func newRemoveProcessGroupCmd(streams genericclioptions.IOStreams) *cobra.Comman
 				return err
 			}
 
-			processGroups := args
-			if !useProcessGroupID {
-				processGroups, err = getProcessGroupIDsFromPod(kubeClient, cluster, processGroups, namespace)
-				if err != nil {
-					return err
-				}
-			}
-
-			return replaceProcessGroups(kubeClient, cluster, processGroups, namespace, withExclusion, withShrink, wait, removeAllFailed)
+			return replaceProcessGroups(kubeClient, cluster, args, namespace, withExclusion, wait, removeAllFailed, useProcessGroupID)
 		},
 		Example: `
 # Remove process groups for a cluster in the current namespace
@@ -105,7 +91,6 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 
 	cmd.Flags().StringP("fdb-cluster", "c", "", "remove process groupss from the provided cluster.")
 	cmd.Flags().BoolP("exclusion", "e", true, "define if the process groups should be removed with exclusion.")
-	cmd.Flags().Bool("shrink", false, "define if the removed process groups should not be replaced.")
 	cmd.Flags().Bool("remove-all-failed", false, "define if all failed processes should be replaced.")
 	cmd.Flags().Bool("use-process-group-id", false, "define if the process-group should be used instead of the Pod name.")
 	err := cmd.MarkFlagRequired("fdb-cluster")
@@ -122,7 +107,11 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 }
 
 // replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, withShrink bool, wait bool, removeAllFailed bool) error {
+func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroupIDs []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
+	if len(processGroupIDs) == 0 && !removeAllFailed {
+		return nil
+	}
+
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
 	if err != nil {
@@ -132,32 +121,18 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 		return err
 	}
 
-	if len(processGroups) == 0 && !removeAllFailed {
-		return nil
-	}
-
-	shrinkMap := make(map[fdbv1beta2.ProcessClass]int)
-
-	if withShrink {
-		var pods corev1.PodList
-		err := kubeClient.List(ctx.Background(), &pods,
-			client.InNamespace(namespace),
-			client.MatchingLabels(cluster.GetMatchLabels()),
-		)
+	// In this case the user has Pod name specified
+	if !useProcessGroupID {
+		processGroupIDs, err = getProcessGroupIDsFromPodName(cluster, processGroupIDs)
 		if err != nil {
 			return err
-		}
-
-		for _, pod := range pods.Items {
-			class := internal.GetProcessClassFromMeta(cluster, pod.ObjectMeta)
-			shrinkMap[class]++
 		}
 	}
 
 	patch := client.MergeFrom(cluster.DeepCopy())
 
 	processGroupSet := map[string]fdbv1beta2.None{}
-	for _, processGroup := range processGroups {
+	for _, processGroup := range processGroupIDs {
 		processGroupSet[processGroup] = fdbv1beta2.None{}
 	}
 
@@ -170,26 +145,21 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 
 			needsReplacement, _ := processGroupStatus.NeedsReplacement(0)
 			if needsReplacement {
-				processGroups = append(processGroups, processGroupStatus.ProcessGroupID)
+				processGroupIDs = append(processGroupIDs, processGroupStatus.ProcessGroupID)
 			}
 		}
 	}
 
-	for class, amount := range shrinkMap {
-		cluster.Spec.ProcessCounts.DecreaseCount(class, amount)
-	}
-
 	if wait {
-		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t and shrink: %t", processGroups, namespace, clusterName, withExclusion, withShrink))
-		if !confirmed {
+		if !confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t", processGroupIDs, namespace, clusterName, withExclusion)) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
 
 	if withExclusion {
-		cluster.AddProcessGroupsToRemovalList(processGroups)
+		cluster.AddProcessGroupsToRemovalList(processGroupIDs)
 	} else {
-		cluster.AddProcessGroupsToRemovalWithoutExclusionList(processGroups)
+		cluster.AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
