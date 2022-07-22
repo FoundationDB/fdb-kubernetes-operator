@@ -109,7 +109,7 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, pods []s
 		return err
 	}
 
-	processGroups, err := getProcessGroupIDsFromPodName(cluster, pods)
+	processGroupIDs, err := getProcessGroupIDsFromPodName(cluster, pods)
 	if err != nil {
 		return err
 	}
@@ -125,26 +125,26 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, pods []s
 		return kubeClient.Patch(ctx.TODO(), cluster, patch)
 	}
 
-	if len(processGroups) == 0 {
+	if len(processGroupIDs) == 0 {
 		return fmt.Errorf("please provide atleast one pod")
 	}
 
 	if wait {
 		if clear {
-			if !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		} else {
-			if !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
 	}
 
 	if clear {
-		cluster.RemoveProcessGroupsFromNoScheduleList(processGroups)
+		cluster.RemoveProcessGroupsFromNoScheduleList(processGroupIDs)
 	} else {
-		cluster.AddProcessGroupsToNoScheduleList(processGroups)
+		cluster.AddProcessGroupsToNoScheduleList(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)

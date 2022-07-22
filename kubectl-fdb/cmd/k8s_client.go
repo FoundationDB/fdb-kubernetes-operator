@@ -203,7 +203,7 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 
 // getProcessGroupIDsFromPodName returns the process group IDs based on the cluster configuration.
 func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podNames []string) ([]string, error) {
-	processGroups := make([]string, 0, len(podNames))
+	processGroupIDs := make([]string, 0, len(podNames))
 
 	// TODO(johscheuer): We could validate if the provided process group is actually part of the cluster
 	for _, podName := range podNames {
@@ -215,8 +215,8 @@ func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podN
 			return nil, fmt.Errorf("cluster name %s is not set as prefix for Pod name %s, please ensure the specified Pod is part of the cluster", cluster.Name, podName)
 		}
 
-		processGroups = append(processGroups, internal.GetProcessGroupIDFromPodName(cluster, podName))
+		processGroupIDs = append(processGroupIDs, internal.GetProcessGroupIDFromPodName(cluster, podName))
 	}
 
-	return processGroups, nil
+	return processGroupIDs, nil
 }

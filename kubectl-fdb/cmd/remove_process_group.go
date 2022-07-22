@@ -107,8 +107,8 @@ kubectl fdb -n default remove process-group -c cluster --remove-all-failed
 }
 
 // replaceProcessGroups adds process groups to the removal list of the cluster
-func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroups []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
-	if len(processGroups) == 0 && !removeAllFailed {
+func replaceProcessGroups(kubeClient client.Client, clusterName string, processGroupIDs []string, namespace string, withExclusion bool, wait bool, removeAllFailed bool, useProcessGroupID bool) error {
+	if len(processGroupIDs) == 0 && !removeAllFailed {
 		return nil
 	}
 
@@ -123,7 +123,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 
 	// In this case the user has Pod name specified
 	if !useProcessGroupID {
-		processGroups, err = getProcessGroupIDsFromPodName(cluster, processGroups)
+		processGroupIDs, err = getProcessGroupIDsFromPodName(cluster, processGroupIDs)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 	patch := client.MergeFrom(cluster.DeepCopy())
 
 	processGroupSet := map[string]fdbv1beta2.None{}
-	for _, processGroup := range processGroups {
+	for _, processGroup := range processGroupIDs {
 		processGroupSet[processGroup] = fdbv1beta2.None{}
 	}
 
@@ -145,22 +145,21 @@ func replaceProcessGroups(kubeClient client.Client, clusterName string, processG
 
 			needsReplacement, _ := processGroupStatus.NeedsReplacement(0)
 			if needsReplacement {
-				processGroups = append(processGroups, processGroupStatus.ProcessGroupID)
+				processGroupIDs = append(processGroupIDs, processGroupStatus.ProcessGroupID)
 			}
 		}
 	}
 
 	if wait {
-		confirmed := confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t", processGroups, namespace, clusterName, withExclusion))
-		if !confirmed {
+		if !confirmAction(fmt.Sprintf("Remove %v from cluster %s/%s with exclude: %t", processGroupIDs, namespace, clusterName, withExclusion)) {
 			return fmt.Errorf("user aborted the removal")
 		}
 	}
 
 	if withExclusion {
-		cluster.AddProcessGroupsToRemovalList(processGroups)
+		cluster.AddProcessGroupsToRemovalList(processGroupIDs)
 	} else {
-		cluster.AddProcessGroupsToRemovalWithoutExclusionList(processGroups)
+		cluster.AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)
