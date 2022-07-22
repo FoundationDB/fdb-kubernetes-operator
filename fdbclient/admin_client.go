@@ -329,7 +329,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
 	// In this case we want to fall back to use fdbcli which is version specific and will work.
-	if len(status.Cluster.Processes) == 0 && client.useClientLibrary {
+	if len(status.Cluster.Processes) == 0 && client.useClientLibrary && client.Cluster.Status.Configured {
 		client.log.Info("retry fetching status with fdbcli instead of using the client library")
 		return client.getStatus(false)
 	}
