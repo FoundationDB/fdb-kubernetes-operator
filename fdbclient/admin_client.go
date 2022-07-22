@@ -127,7 +127,7 @@ type cliCommand struct {
 	args []string
 
 	// timeout provides a way to overwrite the default cli timeout.
-	timeout int
+	timeout time.Duration
 }
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
@@ -154,7 +154,7 @@ func (command cliCommand) getClusterFileFlag() string {
 // getTimeout returns the timeout for the command
 func (command cliCommand) getTimeout() int {
 	if command.timeout != 0 {
-		return command.timeout
+		return int(command.timeout.Seconds())
 	}
 
 	return DefaultCLITimeout
@@ -254,8 +254,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
 func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
-	maxTimeout := 40
-	currentTimeout := DefaultCLITimeout
+	maxTimeoutInSeconds := 40
+	currentTimeoutInSeconds := DefaultCLITimeout
 
 	var rawResult string
 	var err error
@@ -264,15 +264,15 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 	// it with the default timeout of 10 we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
 	// seen that during upgrades of version incompatible version, when not all coordinators are properly restarted that
 	// the response time will be increased.
-	for currentTimeout <= maxTimeout {
-		rawResult, err = client.runCommand(cliCommand{command: command, timeout: currentTimeout})
+	for currentTimeoutInSeconds <= maxTimeoutInSeconds {
+		rawResult, err = client.runCommand(cliCommand{command: command, timeout: time.Duration(currentTimeoutInSeconds) * time.Second})
 		if err == nil {
 			break
 		}
 
 		if _, ok := err.(timeoutError); ok {
 			client.log.Info("timeout issue will retry with higher timeout")
-			currentTimeout *= 2
+			currentTimeoutInSeconds *= 2
 			continue
 		}
 
