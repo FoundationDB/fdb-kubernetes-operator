@@ -9,7 +9,7 @@ spec:
     # cluster.
     key: foundationdb.org/none
   routing:
-    headlessService: true
+    defineDNSLocalityFields: true
   processCounts:
     # Disable stateless processes to save resources.
     stateless: -1

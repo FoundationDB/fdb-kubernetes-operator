@@ -446,6 +446,7 @@ RoutingConfig allows configuring routing to our pods, and services that sit in f
 | publicIPSource | PublicIPSource specifies what source a process should use to get its public IPs.  This supports the values `pod` and `service`. | *[PublicIPSource](#publicipsource) | false |
 | podIPFamily | PodIPFamily tells the pod which family of IP addresses to use. You can use 4 to represent IPv4, and 6 to represent IPv6. This feature is only supported in FDB 7.0 or later, and requires dual-stack support in your Kubernetes environment. | *int | false |
 | useDNSInClusterFile | UseDNSInClusterFile determines whether to use DNS names rather than IP addresses to identify coordinators in the cluster file. NOTE: This is an experimental feature, and is not supported in the latest stable version of FoundationDB. | *bool | false |
+| defineDNSLocalityFields | DefineDNSLocalityFields determines whether to define pod DNS names on pod specs and provide them in the locality arguments to fdbserver.  This is ignored if UseDNSInCluster is true. | *bool | false |
 | dnsDomain | DNSDomain defines the cluster domain used in a DNS name generated for a service. The default is `cluster.local`. | *string | false |
 
 [Back to TOC](#table-of-contents)
