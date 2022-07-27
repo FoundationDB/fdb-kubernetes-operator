@@ -13572,6 +13572,8 @@ spec:
                 type: boolean
               routing:
                 properties:
+                  defineDNSLocalityFields:
+                    type: boolean
                   dnsDomain:
                     maxLength: 253
                     minLength: 1

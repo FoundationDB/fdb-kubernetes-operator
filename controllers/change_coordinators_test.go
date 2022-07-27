@@ -642,7 +642,6 @@ var _ = Describe("Change coordinators", func() {
 			})
 
 			When("the Pods do not have DNS names", func() {
-
 				It("should not requeue", func() {
 					Expect(requeue).To(BeNil())
 				})

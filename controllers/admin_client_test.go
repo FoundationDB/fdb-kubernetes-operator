@@ -172,7 +172,7 @@ var _ = Describe("admin_client_test", func() {
 
 		Context("with the DNS names enabled", func() {
 			BeforeEach(func() {
-				cluster.Spec.Routing.UseDNSInClusterFile = pointer.Bool(true)
+				cluster.Spec.Routing.DefineDNSLocalityFields = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
