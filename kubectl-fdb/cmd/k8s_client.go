@@ -23,7 +23,6 @@ package cmd
 import (
 	"bytes"
 	ctx "context"
-
 	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
