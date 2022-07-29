@@ -29,12 +29,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-	"strconv"
-
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/utils/pointer"
 	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 )
 
 func newProfileAnalyzerCmd(streams genericclioptions.IOStreams) *cobra.Command {
@@ -126,6 +125,9 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 									"memory": resource.MustParse("1Gi"),
 								},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "config-map", MountPath: "/var/dynamic-conf"},
+							},
 						},
 					},
 					RestartPolicy: corev1.RestartPolicyNever,
@@ -137,7 +139,10 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 								{Key: internal.ClusterFileKey, Path: "fdb.cluster"},
 							},
 						}},
-					}},
+					},
+					{
+					Name: "dynamic-conf", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+					},
 				},
 			},
 			TTLSecondsAfterFinished: pointer.Int32(7200),
