@@ -89,6 +89,10 @@ type FoundationDBStatusClusterInfo struct {
 	// FaultTolerance provides information about the fault tolerance status
 	// of the cluster.
 	FaultTolerance FaultTolerance `json:"fault_tolerance,omitempty"`
+
+	// IncompatibleConnections provides information about processes that try to connect to the cluster with an
+	// incompatible version.
+	IncompatibleConnections []string `json:"incompatible_connections,omitempty"`
 }
 
 // FaultTolerance provides information about the fault tolerance status
