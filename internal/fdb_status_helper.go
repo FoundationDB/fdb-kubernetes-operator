@@ -27,11 +27,11 @@ import (
 
 // RemoveWarningsInJSON removes any warning messages that might appear in the status output from the fdbcli and returns
 // the JSON output without the warning message.
-func RemoveWarningsInJSON(jsonString string) (string, error) {
+func RemoveWarningsInJSON(jsonString string) ([]byte, error) {
 	idx := strings.Index(jsonString, "{")
 	if idx == -1 {
-		return "", fmt.Errorf("the JSON string doesn't contain a starting '{'")
+		return nil, fmt.Errorf("the JSON string doesn't contain a starting '{'")
 	}
 
-	return strings.TrimSpace(jsonString[idx:]), nil
+	return []byte(strings.TrimSpace(jsonString[idx:])), nil
 }

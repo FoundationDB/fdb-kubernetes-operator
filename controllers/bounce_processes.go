@@ -172,7 +172,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 		if useLocks && upgrading {
 			var req *requeue
-			addresses, req = getAddressesForUpgrade(r, adminClient, lockClient, cluster, version)
+			addresses, req = getAddressesForUpgrade(r, status, lockClient, cluster, version)
 			if req != nil {
 				return req
 			}
@@ -187,13 +187,13 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		if err != nil {
 			return &requeue{curError: err}
 		}
-	}
 
-	if upgrading {
-		cluster.Status.RunningVersion = cluster.Spec.Version
-		err = r.Status().Update(ctx, cluster)
-		if err != nil {
-			return &requeue{curError: err}
+		// If the cluster was upgraded we will requeue and let the update_status command set the correct version.
+		// Updating the version in this method has the drawback that we upgrade the version independent of the success
+		// of the kill command. The kill command is not reliable, which means that some kill request might not be
+		// delivered and the return value will still not contain any error.
+		if upgrading {
+			return &requeue{message: "fetch latest status after upgrade"}
 		}
 	}
 
@@ -202,20 +202,14 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getAddressesForUpgrade checks that all processes in a cluster are ready to be
 // upgraded and returns the full list of addresses.
-func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadminclient.AdminClient, lockClient fdbadminclient.LockClient, cluster *fdbv1beta2.FoundationDBCluster, version fdbv1beta2.Version) ([]fdbv1beta2.ProcessAddress, *requeue) {
+func getAddressesForUpgrade(r *FoundationDBClusterReconciler, databaseStatus *fdbv1beta2.FoundationDBStatus, lockClient fdbadminclient.LockClient, cluster *fdbv1beta2.FoundationDBCluster, version fdbv1beta2.Version) ([]fdbv1beta2.ProcessAddress, *requeue) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "bounceProcesses")
 	pendingUpgrades, err := lockClient.GetPendingUpgrades(version)
 	if err != nil {
 		return nil, &requeue{curError: err}
 	}
 
-	databaseStatus, err := adminClient.GetStatus()
-	if err != nil {
-		return nil, &requeue{curError: err}
-	}
-
 	if !databaseStatus.Client.DatabaseStatus.Available {
-		logger.Info("Deferring upgrade until database is available")
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpgradeRequeued", "Database is unavailable")
 		return nil, &requeue{message: "Deferring upgrade until database is available"}
 	}
@@ -223,7 +217,7 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, adminClient fdbadm
 	notReadyProcesses := make([]string, 0)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(databaseStatus.Cluster.Processes))
 	for _, process := range databaseStatus.Cluster.Processes {
-		processID := process.Locality["instance_id"]
+		processID := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
 		if process.Version == version.String() {
 			continue
 		}

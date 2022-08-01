@@ -463,6 +463,16 @@ func (client *mockAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddre
 	}
 	adminClientMutex.Unlock()
 
+	if client.Cluster.Status.RunningVersion != client.Cluster.Spec.Version {
+		// We have to do this in the mock client, in the real world the tryConnectionOptions in update_status,
+		// will update the version.
+		client.Cluster.Status.RunningVersion = client.Cluster.Spec.Version
+		err := client.KubeClient.Status().Update(context.TODO(), client.Cluster)
+		if err != nil {
+			return err
+		}
+	}
+
 	client.UnfreezeStatus()
 	return nil
 }
