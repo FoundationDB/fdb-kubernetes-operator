@@ -88,30 +88,31 @@ See the [LockOptions](../cluster_spec.md#LockOptions) documentation for more opt
 
 The cluster reconciler runs the following subreconcilers:
 
-1. UpdateStatus
-1. UpdateLockConfiguration
-1. UpdateConfigMap
-1. CheckClientCompatibility
-1. ReplaceMisconfiguredProcessGroups
-1. ReplaceFailedProcessGroups
-1. DeletePodsForBuggification
-1. AddProcessGroups
-1. AddServices
-1. AddPVCs
-1. AddPods
-1. GenerateInitialClusterFile
-1. UpdateSidecarVersions
-1. UpdatePodConfig
-1. UpdateLabels
-1. UpdateDatabaseConfiguration
-1. ChooseRemovals
-1. ExcludeProcesses
-1. ChangeCoordinators
-1. BounceProcesses
-1. UpdatePods
-1. RemoveServices
-1. RemoveProcessGroups
-1. UpdateStatus (again)
+1. [UpdateStatus](#updatestatus)
+1. [UpdateLockConfiguration](#updatelockconfiguration)
+1. [UpdateConfigMap](#updateconfigmap)
+1. [CheckClientCompatibility](#checkclientcompatibility)
+1. [DeletePodsForBuggification](#deletepodsforbuggification)
+1. [ReplaceMisconfiguredProcessGroups](#replacemisconfiguredprocessgroups)
+1. [ReplaceFailedProcessGroups](#replacefailedprocessGroups)
+1. [AddProcessGroups](#addprocessgroups)
+1. [AddServices](#addservices)
+1. [AddPVCs](#addpvcs)
+1. [AddPods](#addpods)
+1. [GenerateInitialClusterFile](#generateinitialclusterFile)
+1. [RemoveIncompatibleProcesses](#removeincompatibleprocesses)
+1. [UpdateSidecarVersions](#updatesidecarversions)
+1. [UpdatePodConfig](#updatepodconfig)
+1. [UpdateLabels](#updatelabels)
+1. [UpdateDatabaseConfiguration](#updatedatabaseconfiguration)
+1. [ChooseRemovals](#chooseremovals)
+1. [ExcludeProcesses](#excludeprocesses)
+1. [ChangeCoordinators](#changecoordinators)
+1. [BounceProcesses](#bounceprocesses)
+1. [UpdatePods](#updatepods)
+1. [RemoveProcessGroups](#removeprocessgroups)
+1. [RemoveServices](#removeservices)
+1. [UpdateStatus (again)](#updatestatus)
 
 ### Tracking Reconciliation Stages
 
@@ -139,6 +140,12 @@ The `CheckClientCompatibility` subreconciler is used during upgrades to ensure t
 
 You can skip this check by setting the `ignoreUpgradabilityChecks` flag in the cluster spec.
 
+### DeletePodsForBuggification
+
+The `DeletePodsForBuggification` subreconciler deletes pods that need to be recreated in order to set buggification options. These options are set through the `buggify` section in the cluster spec.
+
+When pods are deleted for buggification, we apply fewer safety checks, and buggification will often put the cluster in an unhealthy state.
+
 ### ReplaceMisconfiguredProcessGroups
 
 The `ReplaceMisconfiguredProcessGroups` subreconciler checks for process groups that need to be replaced in order to safely bring them up on a new configuration. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
@@ -150,12 +157,6 @@ See the [Replacements and Deletions](replacements_and_deletions.md) document for
 The `ReplaceFailedProcessGroups` subreconciler checks for process groups that need to be replaced because they are in an unhealthy state. This only takes action when automatic replacements are enabled. The core action this subreconciler takes is setting the `removalTimestamp` field on the `ProcessGroup` in the cluster status. Later subreconcilers will do the work for handling the replacement, whether processes are marked for replacement through this subreconciler or another mechanism.
 
 See the [Replacements and Deletions](replacements_and_deletions.md) document for more details on when we do these replacements.
-
-### DeletePodsForBuggification
-
-The `DeletePodsForBuggification` subreconciler deletes pods that need to be recreated in order to set buggification options. These options are set through the `buggify` section in the cluster spec.
-
-When pods are deleted for buggification, we apply fewer safety checks, and buggification will often put the cluster in an unhealthy state.
 
 ### AddProcessGroups
 
@@ -176,6 +177,12 @@ The `AddPods` subreconciler creates any pods that are required for the cluster. 
 ### GenerateInitialClusterFile
 
 The `GenerateInitialClusterFile` creates the cluster file for the cluster. If the cluster already has a cluster file, this will take no action. The cluster file is the service discovery mechanism for the cluster. It includes addresses for coordinator processes, which are chosen statically. The coordinators are used to elect the cluster controller and inform servers and clients about which process is serving as cluster controller. The cluster file is stored in the `connectionString` field in the cluster status. You can manually specify the cluster file in the `seedConnectionString` field in the cluster spec. If both of these are blank, the operator will choose coordinators that satisfy the cluster's fault tolerance requirements. Coordinators cannot be chosen until the pods have been created and the processes have been assigned IP addresses, which by default comes from the pod's IP. Once the initial cluster file has been generated, we store it in the cluster status and requeue reconciliation so we can update the config map with the new cluster file.
+
+### RemoveIncompatibleProcesses
+
+The `RemoveIncompatibleProcesses` subreconciler will check the FoundationDB cluster status for incompatible connections.
+If the cluster has some incompatible connections the subreconciler will match those IP addresses with the process groups.
+For matching process groups the subrecociler will delete the associated Pod and let it recreate with the new image.
 
 ### UpdateSidecarVersions
 

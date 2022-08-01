@@ -737,6 +737,8 @@ const (
 	StorageEngineRocksDbExperimental StorageEngine = "ssd-rocksdb-experimental"
 	// StorageEngineRocksDbV1 defines the storage engine ssd-rocksdb-v1.
 	StorageEngineRocksDbV1 StorageEngine = "ssd-rocksdb-v1"
+	// StorageEngineShardedRocksDB defines the storage engine ssd-sharded-rocksdb.
+	StorageEngineShardedRocksDB StorageEngine = "ssd-sharded-rocksdb"
 )
 
 // RoleCounts represents the roles whose counts can be customized.

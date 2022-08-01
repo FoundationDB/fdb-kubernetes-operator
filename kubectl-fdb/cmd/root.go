@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"strings"
 
 	"github.com/spf13/viper"
@@ -80,6 +81,7 @@ func NewRootCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		newDeprecationCmd(streams),
 		newFixCoordinatorIPsCmd(streams),
 		newGetCmd(streams),
+		newBuggifyCmd(streams),
 	)
 
 	return cmd

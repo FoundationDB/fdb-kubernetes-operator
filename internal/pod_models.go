@@ -37,6 +37,17 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
+// GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
+func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podName string) string {
+	tmpName := strings.ReplaceAll(podName, cluster.Name, "")[1:]
+
+	if cluster.Spec.ProcessGroupIDPrefix != "" {
+		return fmt.Sprintf("%s-%s", cluster.Spec.ProcessGroupIDPrefix, tmpName)
+	}
+
+	return tmpName
+}
+
 // GetProcessGroupID generates an ID for a process group.
 //
 // This will return the pod name and the processGroupID ID.

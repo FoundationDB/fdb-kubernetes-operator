@@ -155,7 +155,7 @@ func getExclusionStatus(cmd *cobra.Command, restConfig *rest.Config, kubeClient 
 		}
 
 		status := &fdbv1beta2.FoundationDBStatus{}
-		err = json.Unmarshal([]byte(res), status)
+		err = json.Unmarshal(res, status)
 		if err != nil {
 			// If an error occurs retry
 			cmd.PrintErrln(err)
