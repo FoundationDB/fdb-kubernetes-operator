@@ -49,6 +49,10 @@ type DatabaseConfiguration struct {
 	// Regions defines the regions that the database can replicate in.
 	Regions []Region `json:"regions,omitempty"`
 
+	// ExcludedServers defines the list  of excluded servers form the database.
+	// +kubebuilder:validation:MaxItems=1024
+	ExcludedServers []ExcludedServers `json:"excluded_servers,omitempty"`
+
 	// RoleCounts defines how many processes the database should recruit for
 	// each role.
 	RoleCounts `json:""`
@@ -68,6 +72,17 @@ type Region struct {
 
 	// The replication strategy for satellite logs.
 	SatelliteRedundancyMode RedundancyMode `json:"satellite_redundancy_mode,omitempty"`
+}
+
+// ExcludedServers represents the excluded servers in the database configuration
+type ExcludedServers struct {
+	// The Address of the excluded server.
+	// +kubebuilder:validation:MaxLength=48
+	Address string `json:"address,omitempty"`
+
+	// The Locality of the excluded server.
+	// +kubebuilder:validation:MaxLength=200
+	Locality string `json:"locality,omitempty"`
 }
 
 // DataCenter represents a data center in the region configuration
@@ -307,6 +322,7 @@ func (configuration *DatabaseConfiguration) GetRoleCountsWithDefaults(version Ve
 			counts.LogRouters = -1
 		}
 	}
+
 	return *counts
 }
 
@@ -552,7 +568,7 @@ func (configuration DatabaseConfiguration) getRegionPriorities() map[string]int 
 // to 0
 func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool {
 	counts := configuration.RoleCounts
-	return counts.Proxies == 0 && (counts.GrvProxies > 0 || counts.CommitProxies > 0)
+	return counts.GrvProxies > 0 || counts.CommitProxies > 0
 }
 
 // GetProxiesString returns a string that contains the correct fdbcli
@@ -721,6 +737,8 @@ const (
 	StorageEngineRocksDbExperimental StorageEngine = "ssd-rocksdb-experimental"
 	// StorageEngineRocksDbV1 defines the storage engine ssd-rocksdb-v1.
 	StorageEngineRocksDbV1 StorageEngine = "ssd-rocksdb-v1"
+	// StorageEngineShardedRocksDB defines the storage engine ssd-sharded-rocksdb.
+	StorageEngineShardedRocksDB StorageEngine = "ssd-sharded-rocksdb"
 )
 
 // RoleCounts represents the roles whose counts can be customized.

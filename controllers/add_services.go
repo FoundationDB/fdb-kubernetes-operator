@@ -40,6 +40,7 @@ type addServices struct{}
 
 // reconcile runs the reconciler's work.
 func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "addServices")
 	service := internal.GetHeadlessService(cluster)
 	if service != nil {
 		existingService := &corev1.Service{}
@@ -56,6 +57,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 			}
 			owner := internal.BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
 			service.ObjectMeta.OwnerReferences = owner
+			logger.V(1).Info("Creating service", "name", service.Name)
 			err = r.Create(ctx, service)
 			if err != nil {
 				return &requeue{curError: err, delayedRequeue: true}
@@ -89,7 +91,7 @@ func (a addServices) reconcile(ctx context.Context, r *FoundationDBClusterReconc
 					return &requeue{curError: err}
 				}
 			} else if k8serrors.IsNotFound(err) {
-				// Create a new service
+				logger.V(1).Info("Creating service", "name", service.Name)
 				err = r.Create(ctx, service)
 				if err != nil {
 					if internal.IsQuotaExceeded(err) {

@@ -23,11 +23,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	"github.com/go-logr/logr"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
@@ -94,6 +94,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		}
 	}
 
+	versionMap := map[string]int{}
 	for _, process := range databaseStatus.Cluster.Processes {
 		processID, ok := process.Locality["process_id"]
 		// if the processID is not set we fall back to the instanceID
@@ -101,10 +102,20 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			processID = process.Locality["instance_id"]
 		}
 		processMap[processID] = append(processMap[processID], process)
+		versionMap[process.Version]++
 	}
+
+	// Update the running version based on the reported version of the FDB processes
+	version, err := getRunningVersion(versionMap, cluster.Status.RunningVersion)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	cluster.Status.RunningVersion = version
 
 	status.HasListenIPsForAllPods = cluster.NeedsExplicitListenAddress()
 	status.DatabaseConfiguration = databaseStatus.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	// Removing excluded servers as we don't want them during comparison.
+	status.DatabaseConfiguration.ExcludedServers = nil
 	cluster.ClearMissingVersionFlags(&status.DatabaseConfiguration)
 	status.Configured = cluster.Status.Configured || (databaseStatus.Client.DatabaseStatus.Available && databaseStatus.Cluster.Layers.Error != "configurationMissing")
 
@@ -189,7 +200,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		status.ConnectionString = cluster.Spec.SeedConnectionString
 	}
 
-	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !reflect.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
+	status.HasIncorrectConfigMap = status.HasIncorrectConfigMap || !equality.Semantic.DeepEqual(existingConfigMap.Data, configMap.Data) || !metadataMatches(existingConfigMap.ObjectMeta, configMap.ObjectMeta)
 
 	service := internal.GetHeadlessService(cluster)
 	existingService := &corev1.Service{}
@@ -334,6 +345,7 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 				"version", version, "connectionString", connectionString)
 		}
 	}
+
 	return originalVersion, originalConnectionString, nil
 }
 
@@ -578,7 +590,7 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 			logger.Info("Delete Pod that is stuck in NodeAffinity",
 				"processGroupID", processGroupStatus.ProcessGroupID)
 
-			err = r.PodLifecycleManager.DeletePod(ctx, r, pod)
+			err = r.PodLifecycleManager.DeletePod(logr.NewContext(ctx, logger), r, pod)
 			if err != nil {
 				return err
 			}
@@ -682,4 +694,36 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	}
 
 	return nil
+}
+
+func getRunningVersion(versionMap map[string]int, fallback string) (string, error) {
+	if len(versionMap) == 0 {
+		return fallback, nil
+	}
+
+	var currentCandidate fdbv1beta2.Version
+	var currentMaxCount int
+
+	for version, count := range versionMap {
+		if count < currentMaxCount {
+			continue
+		}
+
+		parsedVersion, err := fdbv1beta2.ParseFdbVersion(version)
+		if err != nil {
+			return fallback, err
+		}
+		// In this case we want to ensure we always pick the newer version to have a stable return value. Otherwise,
+		// it could happen that the version will be flapping between two versions.
+		if count == currentMaxCount {
+			if currentCandidate.IsAtLeast(parsedVersion) {
+				continue
+			}
+		}
+
+		currentCandidate = parsedVersion
+		currentMaxCount = count
+	}
+
+	return currentCandidate.String(), nil
 }

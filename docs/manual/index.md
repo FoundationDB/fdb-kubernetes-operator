@@ -12,7 +12,8 @@ For more information on that area, see the [Kubernetes documentation](https://ku
 1. [Resources Managed by the Operator](resources.md)
 1. [Lifecycle Operations](operations.md)
 1. [Scaling](scaling.md)
-1. [Customization](customization.md)
+1. [Customizing Your Deployments](customization.md)
+1. [Customizing the Operator](operator_customization.md).
 1. [Replacements and Deletions](replacements_and_deletions.md)
 1. [Controlling Fault Domains](fault_domains.md)
 1. [Running with TLS](tls.md)

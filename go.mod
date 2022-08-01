@@ -3,8 +3,8 @@ module github.com/FoundationDB/fdb-kubernetes-operator
 go 1.17
 
 require (
-	github.com/apple/foundationdb/bindings/go v0.0.0-20190724023245-90ba203c166c
-	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20211117195619-01c37a053a62
+	github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb
+	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2
 	github.com/fatih/color v1.10.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/go-cmp v0.5.5

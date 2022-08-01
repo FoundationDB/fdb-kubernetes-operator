@@ -23,6 +23,8 @@ package cmd
 import (
 	"bytes"
 	ctx "context"
+	"fmt"
+	"strings"
 
 	fdbv1beta1 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta1"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -197,4 +199,24 @@ func getAllPodsFromClusterWithCondition(kubeClient client.Client, clusterName st
 	}
 
 	return processes, nil
+}
+
+// getProcessGroupIDsFromPodName returns the process group IDs based on the cluster configuration.
+func getProcessGroupIDsFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podNames []string) ([]string, error) {
+	processGroupIDs := make([]string, 0, len(podNames))
+
+	// TODO(johscheuer): We could validate if the provided process group is actually part of the cluster
+	for _, podName := range podNames {
+		if podName == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(podName, cluster.Name) {
+			return nil, fmt.Errorf("cluster name %s is not set as prefix for Pod name %s, please ensure the specified Pod is part of the cluster", cluster.Name, podName)
+		}
+
+		processGroupIDs = append(processGroupIDs, internal.GetProcessGroupIDFromPodName(cluster, podName))
+	}
+
+	return processGroupIDs, nil
 }

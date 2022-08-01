@@ -18,7 +18,6 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBClusterList](#foundationdbclusterlist)
 * [FoundationDBClusterSpec](#foundationdbclusterspec)
 * [FoundationDBClusterStatus](#foundationdbclusterstatus)
-* [ImageConfig](#imageconfig)
 * [LabelConfig](#labelconfig)
 * [LockDenyListEntry](#lockdenylistentry)
 * [LockOptions](#lockoptions)
@@ -30,10 +29,12 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [RoutingConfig](#routingconfig)
 * [DataCenter](#datacenter)
 * [DatabaseConfiguration](#databaseconfiguration)
+* [ExcludedServers](#excludedservers)
 * [ProcessCounts](#processcounts)
 * [Region](#region)
 * [RoleCounts](#rolecounts)
 * [VersionFlags](#versionflags)
+* [ImageConfig](#imageconfig)
 
 ## AutomaticReplacementOptions
 
@@ -155,12 +156,14 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | replacements | Replacements contains options for automatically replacing failed processes. | [AutomaticReplacementOptions](#automaticreplacementoptions) | false |
 | ignorePendingPodsDuration | IgnorePendingPodsDuration defines how long a Pod has to be in the Pending Phase before ignore it during reconciliation. This prevents Pod that are stuck in Pending to block further reconciliation. | time.Duration | false |
 | useNonBlockingExcludes | UseNonBlockingExcludes defines whether the operator is allowed to use non blocking exclude commands. The default is false. | *bool | false |
+| useLocalitiesForExclusion | UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses. The default is false. | *bool | false |
 | ignoreTerminatingPodsSeconds | IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block further reconciliation. | *int | false |
 | maxConcurrentReplacements | MaxConcurrentReplacements defines how many process groups can be concurrently replaced if they are misconfigured. If the value will be set to 0 this will block replacements and these misconfigured Pods must be replaced manually or by another process. For each reconcile loop the operator calculates the maximum number of possible replacements by taken this value as the upper limit and removes all ongoing replacements that have not finished. Which means if the value is set to 5 and we have 4 ongoing replacements (process groups marked with remove but not excluded) the operator is allowed to replace on further process group. | *int | false |
 | deletionMode | DeletionMode defines the deletion mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The DeletionMode defines how Pods are deleted in order to update them or when they are removed. | [PodUpdateMode](#podupdatemode) | false |
 | removalMode | RemovalMode defines the removal mode for this cluster. This can be PodUpdateModeNone, PodUpdateModeAll, PodUpdateModeZone or PodUpdateModeProcessGroup. The RemovalMode defines how process groups are deleted in order when they are marked for removal. | [PodUpdateMode](#podupdatemode) | false |
 | waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted processes. Defaults to 60. | *int | false |
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
+| useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -250,19 +253,6 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | imageTypes | ImageTypes defines the kinds of images that are in use in the cluster. If there is more than one value in the slice the reconcile phase is not finished. | [][ImageType](#imagetype) | false |
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
-
-[Back to TOC](#table-of-contents)
-
-## ImageConfig
-
-ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
-
-| Field | Description | Scheme | Required |
-| ----- | ----------- | ------ | -------- |
-| version | Version is the version of FoundationDB this policy applies to. If this is blank, the policy applies to all FDB versions. | string | false |
-| baseImage | BaseImage specifies the part of the image before the tag. | string | false |
-| tag | Tag specifies a full image tag. | string | false |
-| tagSuffix | TagSuffix specifies a suffix that will be added after the version to form the full tag. | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -436,8 +426,20 @@ DatabaseConfiguration represents the configuration of the database
 | storage_engine | StorageEngine defines the storage engine the database uses. | [StorageEngine](#storageengine) | false |
 | usable_regions | UsableRegions defines how many regions the database should store data in. | int | false |
 | regions | Regions defines the regions that the database can replicate in. | [][Region](#region) | false |
+| excluded_servers | ExcludedServers defines the list  of excluded servers form the database. | [][ExcludedServers](#excludedservers) | false |
 | RoleCounts | RoleCounts defines how many processes the database should recruit for each role. | [RoleCounts](#rolecounts) | true |
 | VersionFlags | VersionFlags defines internal flags for testing new features in the database. | [VersionFlags](#versionflags) | true |
+
+[Back to TOC](#table-of-contents)
+
+## ExcludedServers
+
+ExcludedServers represents the excluded servers in the database configuration
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| address | The Address of the excluded server. | string | false |
+| locality | The Locality of the excluded server. | string | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -524,5 +526,18 @@ VersionFlags defines internal flags for new features in the database.
 ## ProcessClass
 
 ProcessClass models the class of a pod
+
+[Back to TOC](#table-of-contents)
+
+## ImageConfig
+
+ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| version | Version is the version of FoundationDB this policy applies to. If this is blank, the policy applies to all FDB versions. | string | false |
+| baseImage | BaseImage specifies the part of the image before the tag. | string | false |
+| tag | Tag specifies a full image tag. | string | false |
+| tagSuffix | TagSuffix specifies a suffix that will be added after the version to form the full tag. | string | false |
 
 [Back to TOC](#table-of-contents)

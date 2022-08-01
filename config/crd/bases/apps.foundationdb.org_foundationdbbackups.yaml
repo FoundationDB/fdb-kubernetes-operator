@@ -3197,6 +3197,36 @@ spec:
                   type: string
                 maxItems: 100
                 type: array
+              mainContainer:
+                properties:
+                  enableLivenessProbe:
+                    type: boolean
+                  enableReadinessProbe:
+                    type: boolean
+                  enableTls:
+                    type: boolean
+                  imageConfigs:
+                    items:
+                      properties:
+                        baseImage:
+                          maxLength: 200
+                          type: string
+                        tag:
+                          maxLength: 100
+                          type: string
+                        tagSuffix:
+                          maxLength: 50
+                          type: string
+                        version:
+                          maxLength: 20
+                          type: string
+                      type: object
+                    maxItems: 100
+                    type: array
+                  peerVerificationRules:
+                    maxLength: 10000
+                    type: string
+                type: object
               podTemplateSpec:
                 properties:
                   metadata:
@@ -6150,6 +6180,36 @@ spec:
                     required:
                     - containers
                     type: object
+                type: object
+              sidecarContainer:
+                properties:
+                  enableLivenessProbe:
+                    type: boolean
+                  enableReadinessProbe:
+                    type: boolean
+                  enableTls:
+                    type: boolean
+                  imageConfigs:
+                    items:
+                      properties:
+                        baseImage:
+                          maxLength: 200
+                          type: string
+                        tag:
+                          maxLength: 100
+                          type: string
+                        tagSuffix:
+                          maxLength: 50
+                          type: string
+                        version:
+                          maxLength: 20
+                          type: string
+                      type: object
+                    maxItems: 100
+                    type: array
+                  peerVerificationRules:
+                    maxLength: 10000
+                    type: string
                 type: object
               snapshotPeriodSeconds:
                 type: integer

@@ -49,8 +49,14 @@ func getMaxReplacements(cluster *fdbv1beta2.FoundationDBCluster, maxReplacements
 // ReplaceFailedProcessGroups flags failed processes groups for removal and returns an indicator
 // of whether any processes were thus flagged.
 func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient) bool {
-	// Automatic replacements are disabled so we don't have to check anything further
+	// Automatic replacements are disabled, so we don't have to check anything further
 	if !cluster.GetEnableAutomaticReplacements() {
+		return false
+	}
+
+	crashLoopProcessGroups, crashLoopAll := cluster.GetCrashLoopProcessGroups()
+	// If all process groups are in crash loop don't replace any process group.
+	if crashLoopAll {
 		return false
 	}
 
@@ -61,6 +67,12 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 			return hasReplacement
 		}
 
+		// Don't replace processes that are in the crash loop setting. Otherwise, we might replace process groups that
+		// are in that state for debugging or stability.
+		if _, ok := crashLoopProcessGroups[processGroupStatus.ProcessGroupID]; ok {
+			continue
+		}
+
 		needsReplacement, missingTime := processGroupStatus.NeedsReplacement(cluster.GetFailureDetectionTimeSeconds())
 		if !needsReplacement {
 			continue
@@ -69,7 +81,7 @@ func ReplaceFailedProcessGroups(log logr.Logger, cluster *fdbv1beta2.FoundationD
 		if len(processGroupStatus.Addresses) == 0 {
 			// Only replace process groups without an address if the cluster has the desired fault tolerance
 			// and is available.
-			hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(adminClient, cluster)
+			hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(log, adminClient, cluster)
 			if err != nil {
 				log.Error(err, "Could not fetch if cluster has desired fault tolerance")
 				continue

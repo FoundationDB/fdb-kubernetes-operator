@@ -61,7 +61,7 @@ type FoundationDBClusterList struct {
 	Items           []FoundationDBCluster `json:"items"`
 }
 
-var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing}
+var conditionsThatNeedReplacement = []ProcessGroupConditionType{MissingProcesses, PodFailing, MissingPod, MissingPVC, MissingService, PodPending}
 
 func init() {
 	SchemeBuilder.Register(&FoundationDBCluster{}, &FoundationDBClusterList{})
@@ -305,6 +305,11 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
+}
+
+// GetExclusionString returns the exclusion string
+func (processGroupStatus *ProcessGroupStatus) GetExclusionString() string {
+	return fmt.Sprintf("locality_instance_id:%s", processGroupStatus.ProcessGroupID)
 }
 
 // IsExcluded returns if a process group is excluded
@@ -810,6 +815,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// The default is false.
 	UseNonBlockingExcludes *bool `json:"useNonBlockingExcludes,omitempty"`
 
+	// UseLocalitiesForExclusion defines whether the exclusions are done using localities instead of IP addresses.
+	// The default is false.
+	UseLocalitiesForExclusion *bool `json:"useLocalitiesForExclusion,omitempty"`
+
 	// IgnoreTerminatingPodsSeconds defines how long a Pod has to be in the Terminating Phase before
 	// we ignore it during reconciliation. This prevents Pod that are stuck in Terminating to block
 	// further reconciliation.
@@ -857,6 +866,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// +kubebuilder:validation:Enum=Replace;ReplaceTransactionSystem;Delete
 	// +kubebuilder:default:=ReplaceTransactionSystem
 	PodUpdateStrategy PodUpdateStrategy `json:"podUpdateStrategy,omitempty"`
+
+	// UseManagementAPI defines if the operator should make use of the management API instead of
+	// using fdbcli to interact with the FoundationDB cluster.
+	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -944,7 +957,7 @@ func (cluster *FoundationDBCluster) GetProcessSettings(processClass ProcessClass
 // UsableRegions is less than or equal to 1.
 func (cluster *FoundationDBCluster) GetRoleCountsWithDefaults() RoleCounts {
 	// We can ignore the error here since the version will be validated in an earlier step.
-	version, _ := ParseFdbVersion(cluster.Spec.Version)
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
 	return cluster.Spec.DatabaseConfiguration.GetRoleCountsWithDefaults(version, cluster.DesiredFaultTolerance())
 }
 
@@ -1055,7 +1068,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 		primaryStatelessCount += cluster.calculateProcessCountFromRole(1, processCounts.Ratekeeper) +
 			cluster.calculateProcessCountFromRole(1, processCounts.DataDistributor)
 
-		fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+		fdbVersion, err := ParseFdbVersion(cluster.GetRunningVersion())
 		if err != nil {
 			return *processCounts, err
 		}
@@ -1072,6 +1085,7 @@ func (cluster *FoundationDBCluster) GetProcessCountsWithDefaults() (ProcessCount
 			cluster.calculateProcessCountFromRole(roleCounts.LogRouters),
 		)
 	}
+
 	return *processCounts, nil
 }
 
@@ -1404,74 +1418,24 @@ type ContainerOverrides struct {
 
 	// PeerVerificationRules provides the rules for what client certificates
 	// the process should accept.
+	// +kubebuilder:validation:MaxLength=10000
 	PeerVerificationRules string `json:"peerVerificationRules,omitempty"`
 
 	// ImageConfigs allows customizing the image that we use for
 	// a container.
+	// +kubebuilder:validation:MaxItems=100
 	ImageConfigs []ImageConfig `json:"imageConfigs,omitempty"`
-}
-
-// ImageConfig provides a policy for customizing an image.
-//
-// When multiple image configs are provided, they will be merged into a single
-// config that will be used to define the final image. For each field, we select
-// the value from the first entry in the config list that defines a value for
-// that field, and matches the version of FoundationDB the image is for. Any
-// config that specifies a different version than the one under consideration
-// will be ignored for the purposes of defining that image.
-type ImageConfig struct {
-	// Version is the version of FoundationDB this policy applies to. If this is
-	// blank, the policy applies to all FDB versions.
-	Version string `json:"version,omitempty"`
-
-	// BaseImage specifies the part of the image before the tag.
-	BaseImage string `json:"baseImage,omitempty"`
-
-	// Tag specifies a full image tag.
-	Tag string `json:"tag,omitempty"`
-
-	// TagSuffix specifies a suffix that will be added after the version to form
-	// the full tag.
-	TagSuffix string `json:"tagSuffix,omitempty"`
-}
-
-// SelectImageConfig selects image configs that apply to a version of FDB and
-// merges them into a single config.
-func SelectImageConfig(allConfigs []ImageConfig, versionString string) ImageConfig {
-	config := ImageConfig{Version: versionString}
-	for _, nextConfig := range allConfigs {
-		if nextConfig.Version != "" && nextConfig.Version != versionString {
-			continue
-		}
-		if config.BaseImage == "" {
-			config.BaseImage = nextConfig.BaseImage
-		}
-		if config.Tag == "" {
-			config.Tag = nextConfig.Tag
-		}
-		if config.TagSuffix == "" {
-			config.TagSuffix = nextConfig.TagSuffix
-		}
-	}
-	return config
-}
-
-// Image generates an image using a config.
-func (config ImageConfig) Image() string {
-	if config.Tag == "" {
-		return fmt.Sprintf("%s:%s%s", config.BaseImage, config.Version, config.TagSuffix)
-	}
-	return fmt.Sprintf("%s:%s", config.BaseImage, config.Tag)
 }
 
 // DesiredDatabaseConfiguration builds the database configuration for the
 // cluster based on its spec.
 func (cluster *FoundationDBCluster) DesiredDatabaseConfiguration() DatabaseConfiguration {
-	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	configuration := cluster.Spec.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.GetRunningVersion(), cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
 	configuration.RoleCounts = cluster.GetRoleCountsWithDefaults()
 	configuration.RoleCounts.Storage = 0
 
-	if cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
+	version, _ := ParseFdbVersion(cluster.GetRunningVersion())
+	if version.HasSeparatedProxies() && cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured() {
 		configuration.RoleCounts.Proxies = 0
 	} else {
 		configuration.RoleCounts.GrvProxies = 0
@@ -1805,6 +1769,17 @@ func (cluster *FoundationDBCluster) GetUseNonBlockingExcludes() bool {
 	return *cluster.Spec.AutomationOptions.UseNonBlockingExcludes
 }
 
+// UseLocalitiesForExclusion returns the value of UseLocalitiesForExclusion or false if unset.
+func (cluster *FoundationDBCluster) UseLocalitiesForExclusion() bool {
+	fdbVersion, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		// Fall back to use exclusions with IP if we can't parse the version.
+		// This should never happen since the version is validated in earlier steps.
+		return false
+	}
+	return fdbVersion.IsAtLeast(Versions.NextMajorVersion) && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseLocalitiesForExclusion, false)
+}
+
 // GetProcessClassLabel provides the label that this cluster is using for the
 // process class when identifying resources.
 func (cluster *FoundationDBCluster) GetProcessClassLabel() string {
@@ -1828,6 +1803,11 @@ func (cluster *FoundationDBCluster) GetProcessGroupIDLabel() string {
 // GetMaxConcurrentReplacements returns the maxConcurrentReplacements or defaults to math.MaxInt64
 func (cluster *FoundationDBCluster) GetMaxConcurrentReplacements() int {
 	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaxConcurrentReplacements, math.MaxInt64)
+}
+
+// UseManagementAPI returns the value of UseManagementAPI or false if unset.
+func (cluster *FoundationDBCluster) UseManagementAPI() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.UseManagementAPI, false)
 }
 
 // PodUpdateMode defines the deletion mode for the cluster
@@ -2009,6 +1989,76 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalList(processGroupID
 	}
 }
 
+// AddProcessGroupsToNoScheduleList adds the provided process group IDs to the no-schedule list.
+// If a process group ID is already present on that list it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToNoScheduleList(processGroupIDs []string) {
+	noScheduleProcesses := map[string]None{}
+
+	for _, id := range cluster.Spec.Buggify.NoSchedule {
+		noScheduleProcesses[id] = None{}
+	}
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := noScheduleProcesses[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.NoSchedule = append(cluster.Spec.Buggify.NoSchedule, processGroupID)
+	}
+}
+
+// RemoveProcessGroupsFromNoScheduleList removes the provided process group IDs from the no-schedule list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromNoScheduleList(processGroupIDs []string) {
+	processGroupIDsToRemove := make(map[string]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	idx := 0
+	for _, processGroupID := range cluster.Spec.Buggify.NoSchedule {
+		if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+			continue
+		}
+		cluster.Spec.Buggify.NoSchedule[idx] = processGroupID
+		idx++
+	}
+
+	cluster.Spec.Buggify.NoSchedule = cluster.Spec.Buggify.NoSchedule[:idx]
+}
+
+// AddProcessGroupsToCrashLoopList adds the provided process group IDs to the crash-loop list.
+// If a process group ID is already present on that list or all the processes are set into crash-loop
+// it won't be added a second time.
+func (cluster *FoundationDBCluster) AddProcessGroupsToCrashLoopList(processGroupIDs []string) {
+	crashLoop, _ := cluster.GetCrashLoopProcessGroups()
+
+	for _, processGroupID := range processGroupIDs {
+		if _, ok := crashLoop[processGroupID]; ok {
+			continue
+		}
+
+		cluster.Spec.Buggify.CrashLoop = append(cluster.Spec.Buggify.CrashLoop, processGroupID)
+	}
+}
+
+// RemoveProcessGroupsFromCrashLoopList removes the provided process group IDs from the crash-loop list.
+func (cluster *FoundationDBCluster) RemoveProcessGroupsFromCrashLoopList(processGroupIDs []string) {
+	processGroupIDsToRemove := make(map[string]None)
+	for _, processGroupID := range processGroupIDs {
+		processGroupIDsToRemove[processGroupID] = None{}
+	}
+
+	idx := 0
+	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
+		if _, ok := processGroupIDsToRemove[processGroupID]; ok {
+			continue
+		}
+		cluster.Spec.Buggify.CrashLoop[idx] = processGroupID
+		idx++
+	}
+	cluster.Spec.Buggify.CrashLoop = cluster.Spec.Buggify.CrashLoop[:idx]
+}
+
 // AddProcessGroupsToRemovalWithoutExclusionList adds the provided process group IDs to the remove without exclusion list.
 // If a process group ID is already present on that list it won't be added a second time.
 func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionList(processGroupIDs []string) {
@@ -2025,4 +2075,61 @@ func (cluster *FoundationDBCluster) AddProcessGroupsToRemovalWithoutExclusionLis
 
 		cluster.Spec.ProcessGroupsToRemoveWithoutExclusion = append(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion, processGroupID)
 	}
+}
+
+// GetRunningVersion returns the running version of the cluster defined in the cluster status or if not defined the version
+// defined in the cluster spec.
+func (cluster *FoundationDBCluster) GetRunningVersion() string {
+	// We have to use the running version here otherwise if the operator gets killed during an upgrade it will try to apply
+	// the grv and commit proxies.
+	versionString := cluster.Status.RunningVersion
+	if versionString == "" {
+		return cluster.Spec.Version
+	}
+
+	return versionString
+}
+
+// GetCrashLoopProcessGroups returns the process group IDs that are marked for crash looping. The second return value indicates
+// if all process group IDs in a cluster should be crash looping.
+func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None, bool) {
+	crashLoopPods := make(map[string]None, len(cluster.Spec.Buggify.CrashLoop))
+	crashLoopAll := false
+	for _, processGroupID := range cluster.Spec.Buggify.CrashLoop {
+		if processGroupID == "*" {
+			crashLoopAll = true
+		}
+		crashLoopPods[processGroupID] = None{}
+	}
+
+	return crashLoopPods, crashLoopAll
+}
+
+// Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
+// found all of them will be returned in a single error.
+func (cluster *FoundationDBCluster) Validate() error {
+	var validations []string
+
+	// Check if the provided storage engine is valid for the defined FDB version.
+	version, err := ParseFdbVersion(cluster.Spec.Version)
+	if err != nil {
+		return err
+	}
+
+	if !version.IsStorageEngineSupported(cluster.Spec.DatabaseConfiguration.StorageEngine) {
+		validations = append(validations, fmt.Sprintf("storage engine %s is not supported on version %s", cluster.Spec.DatabaseConfiguration.StorageEngine, cluster.Spec.Version))
+	}
+
+	// Check if all coordinator processes are stateful
+	for _, selection := range cluster.Spec.CoordinatorSelection {
+		if !selection.ProcessClass.IsStateful() {
+			validations = append(validations, fmt.Sprintf("%s is not a valid process class for coordinators", selection.ProcessClass))
+		}
+	}
+
+	if len(validations) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(validations, ", "))
 }

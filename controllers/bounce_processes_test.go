@@ -166,8 +166,8 @@ var _ = Describe("bounceProcesses", func() {
 			}
 		})
 
-		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
+		It("should requeue", func() {
+			Expect(requeue).NotTo(BeNil())
 		})
 
 		It("should kill all the processes", func() {
@@ -233,8 +233,8 @@ var _ = Describe("bounceProcesses", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("should not requeue", func() {
-					Expect(requeue).To(BeNil())
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
 				})
 
 				It("should kill all the processes", func() {
@@ -272,8 +272,8 @@ var _ = Describe("bounceProcesses", func() {
 					cluster.Spec.LockOptions.DisableLocks = &disabled
 				})
 
-				It("should not requeue", func() {
-					Expect(requeue).To(BeNil())
+				It("should requeue", func() {
+					Expect(requeue).NotTo(BeNil())
 				})
 
 				It("should kill all the processes", func() {

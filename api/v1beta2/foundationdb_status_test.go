@@ -70,17 +70,19 @@ var _ = Describe("FoundationDBStatus", func() {
 					DatabaseStatus: FoundationDBStatusClientDBStatus{Available: true, Healthy: true},
 				},
 				Cluster: FoundationDBStatusClusterInfo{
+					IncompatibleConnections: []string{},
 					FaultTolerance: FaultTolerance{
 						MaxZoneFailuresWithoutLosingAvailability: 1,
 						MaxZoneFailuresWithoutLosingData:         1,
 					},
 					DatabaseConfiguration: DatabaseConfiguration{
-						RedundancyMode: RedundancyModeDouble,
-						StorageEngine:  StorageEngineSSD2,
-						UsableRegions:  1,
-						Regions:        nil,
-						RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
-						VersionFlags:   VersionFlags{LogSpill: 2},
+						RedundancyMode:  RedundancyModeDouble,
+						StorageEngine:   StorageEngineSSD2,
+						UsableRegions:   1,
+						Regions:         nil,
+						ExcludedServers: make([]ExcludedServers, 0),
+						RoleCounts:      RoleCounts{Storage: 0, Logs: 3, Proxies: 3, Resolvers: 1, LogRouters: 0, RemoteLogs: 0},
+						VersionFlags:    VersionFlags{LogSpill: 2},
 					},
 					Processes: map[string]FoundationDBStatusProcessInfo{
 						"b9c25278c0fa207bc2a73bda2300d0a9": {
@@ -458,13 +460,15 @@ var _ = Describe("FoundationDBStatus", func() {
 
 	When("parsing the status json with a 7.1.0-rc1 cluster", func() {
 		status := FoundationDBStatusClusterInfo{
+			IncompatibleConnections: []string{},
 			DatabaseConfiguration: DatabaseConfiguration{
-				RedundancyMode: "double",
-				StorageEngine:  StorageEngineSSD2,
-				UsableRegions:  1,
-				Regions:        nil,
-				RoleCounts:     RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
-				VersionFlags:   VersionFlags{LogSpill: 2, LogVersion: 0},
+				RedundancyMode:  "double",
+				StorageEngine:   StorageEngineSSD2,
+				UsableRegions:   1,
+				Regions:         nil,
+				ExcludedServers: make([]ExcludedServers, 0),
+				RoleCounts:      RoleCounts{Storage: 0, Logs: 3, Proxies: 3, CommitProxies: 2, GrvProxies: 1, Resolvers: 1, LogRouters: -1, RemoteLogs: -1},
+				VersionFlags:    VersionFlags{LogSpill: 2, LogVersion: 0},
 			},
 			Processes: map[string]FoundationDBStatusProcessInfo{
 				"eb48ada3a682e86363f06aa89e1041fa": {

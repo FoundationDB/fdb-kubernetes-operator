@@ -14,6 +14,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [FoundationDBBackupStatusBackupDetails](#foundationdbbackupstatusbackupdetails)
 * [FoundationDBLiveBackupStatus](#foundationdblivebackupstatus)
 * [FoundationDBLiveBackupStatusState](#foundationdblivebackupstatusstate)
+* [ImageConfig](#imageconfig)
 
 ## BackupGenerationStatus
 
@@ -86,8 +87,10 @@ FoundationDBBackupSpec describes the desired state of the backup for a cluster.
 | backupDeploymentMetadata | BackupDeploymentMetadata allows customizing labels and annotations on the deployment for the backup agents. | *[metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta) | false |
 | podTemplateSpec | PodTemplateSpec allows customizing the pod template for the backup agents. | *[corev1.PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#podtemplatespec-v1-core) | false |
 | customParameters | CustomParameters defines additional parameters to pass to the backup agents. | FoundationDBCustomParameters | false |
-| allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. | *bool | false |
+| allowTagOverride | This setting defines if a user provided image can have it's own tag rather than getting the provided version appended. You have to ensure that the specified version in the Spec is compatible with the given version in your custom image. **Deprecated: use ImageConfigs instead.** | *bool | false |
 | blobStoreConfiguration | This is the configuration of the target blobstore for this backup. | *[BlobStoreConfiguration](#blobstoreconfiguration) | false |
+| mainContainer | MainContainer defines customization for the foundationdb container. | ContainerOverrides | false |
+| sidecarContainer | SidecarContainer defines customization for the foundationdb-kubernetes-sidecar container. | ContainerOverrides | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -149,5 +152,18 @@ URLParameter defines a single URL parameter to pass to the blobstore.
 ## FoundationDBCustomParameter
 
 FoundationDBCustomParameter defines a single custom knob
+
+[Back to TOC](#table-of-contents)
+
+## ImageConfig
+
+ImageConfig provides a policy for customizing an image.  When multiple image configs are provided, they will be merged into a single config that will be used to define the final image. For each field, we select the value from the first entry in the config list that defines a value for that field, and matches the version of FoundationDB the image is for. Any config that specifies a different version than the one under consideration will be ignored for the purposes of defining that image.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| version | Version is the version of FoundationDB this policy applies to. If this is blank, the policy applies to all FDB versions. | string | false |
+| baseImage | BaseImage specifies the part of the image before the tag. | string | false |
+| tag | Tag specifies a full image tag. | string | false |
+| tagSuffix | TagSuffix specifies a suffix that will be added after the version to form the full tag. | string | false |
 
 [Back to TOC](#table-of-contents)

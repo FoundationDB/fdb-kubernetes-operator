@@ -424,15 +424,19 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Log:       5,
 				Stateless: 9,
 			}))
+		})
 
-			cluster.Spec.Version = "7.1.0-rc2"
-			counts, err = cluster.GetProcessCountsWithDefaults()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(counts).To(Equal(ProcessCounts{
-				Storage:   5,
-				Log:       5,
-				Stateless: 9,
-			}))
+		When("using a version that supports grv and commit proxies", func() {
+			It("should return the default process counts", func() {
+				cluster.Spec.Version = "7.1.0"
+				counts, err := cluster.GetProcessCountsWithDefaults()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(counts).To(Equal(ProcessCounts{
+					Storage:   5,
+					Log:       4,
+					Stateless: 22,
+				}))
+			})
 		})
 
 		It("should return the default process counts when proxies are unset", func() {
@@ -914,6 +918,26 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}))
 			})
+
+			It("should be parsed correctly when both grv_proxies/commit_proxies and proxies are set", func() {
+				cluster.Spec.DatabaseConfiguration.RoleCounts.Proxies = 12
+				cluster.Spec.DatabaseConfiguration.RoleCounts.CommitProxies = 4
+				cluster.Spec.DatabaseConfiguration.RoleCounts.GrvProxies = 4
+				Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+					RedundancyMode: RedundancyModeDouble,
+					StorageEngine:  StorageEngineSSD2,
+					UsableRegions:  1,
+					RoleCounts: RoleCounts{
+						Logs:          4,
+						Proxies:       0,
+						CommitProxies: 4,
+						GrvProxies:    4,
+						Resolvers:     1,
+						LogRouters:    -1,
+						RemoteLogs:    -1,
+					},
+				}))
+			})
 		})
 
 		When("the version does not support grv and commit proxies", func() {
@@ -971,6 +995,48 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					},
 				}))
 			})
+
+			When("grv and commit proxies are passed in addition to proxies", func() {
+				BeforeEach(func() {
+					cluster = &FoundationDBCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Spec: FoundationDBClusterSpec{
+							DatabaseConfiguration: DatabaseConfiguration{
+								RedundancyMode: RedundancyModeDouble,
+								StorageEngine:  StorageEngineSSD,
+								RoleCounts: RoleCounts{
+									Storage:       5,
+									Logs:          4,
+									Proxies:       5,
+									GrvProxies:    1,
+									CommitProxies: 1,
+								},
+							},
+							Version: "6.3.23",
+						},
+					}
+				})
+
+				It("should be only contain the configured proxies", func() {
+					Expect(cluster.DesiredDatabaseConfiguration()).To(Equal(DatabaseConfiguration{
+						RedundancyMode: RedundancyModeDouble,
+						StorageEngine:  StorageEngineSSD2,
+						UsableRegions:  1,
+						RoleCounts: RoleCounts{
+							Logs:          4,
+							Proxies:       5,
+							CommitProxies: 0,
+							GrvProxies:    0,
+							Resolvers:     1,
+							LogRouters:    -1,
+							RemoteLogs:    -1,
+						},
+					}))
+				})
+			})
 		})
 	})
 
@@ -983,12 +1049,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				RoleCounts: RoleCounts{
 					Logs:          5,
 					Proxies:       1,
-					CommitProxies: 2,
+					CommitProxies: 4,
 					GrvProxies:    2,
 				},
 			}
-			Expect(configuration.AreSeparatedProxiesConfigured()).To(BeFalse())
+			// This check is not version dependent
+			Expect(configuration.AreSeparatedProxiesConfigured()).To(BeTrue())
 			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.1.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 regions=[]"))
 
 			configuration.Regions = []Region{{
 				DataCenters: []DataCenter{{
@@ -1004,8 +1072,8 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			configuration.VersionFlags.LogSpill = 3
 			Expect(configuration.GetConfigurationString("6.3.24")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
 
-			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
-			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 proxies=1 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.0.0")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
+			Expect(configuration.GetConfigurationString("7.1.0-rc1")).To(Equal("double ssd usable_regions=1 logs=5 resolvers=0 log_routers=0 remote_logs=0 commit_proxies=4 grv_proxies=2 log_spill:=3 regions=[]"))
 		})
 
 		When("CommitProxies and GrvProxies are not configured", func() {
@@ -3953,77 +4021,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
-	When("merging image configs", func() {
-		It("applies chooses the first value for each field", func() {
-			configs := []ImageConfig{
-				{
-					BaseImage: "foundationdb/foundationdb",
-					Version:   Versions.Default.String(),
-				},
-				{
-					BaseImage: "foundationdb/foundationdb-slim",
-					Version:   Versions.Default.String(),
-					Tag:       "abcdef",
-					TagSuffix: "-1",
-				},
-			}
-
-			finalConfig := SelectImageConfig(configs, Versions.Default.String())
-			Expect(finalConfig).To(Equal(ImageConfig{
-				BaseImage: "foundationdb/foundationdb",
-				Version:   Versions.Default.String(),
-				Tag:       "abcdef",
-				TagSuffix: "-1",
-			}))
-		})
-
-		It("ignores configs that are for different versions", func() {
-			configs := []ImageConfig{
-				{
-					BaseImage: "foundationdb/foundationdb",
-					Version:   Versions.Default.String(),
-				},
-				{
-					Version: Versions.NextMajorVersion.String(),
-					Tag:     "abcdef",
-				},
-				{
-					TagSuffix: "-1",
-				},
-			}
-
-			finalConfig := SelectImageConfig(configs, Versions.Default.String())
-			Expect(finalConfig).To(Equal(ImageConfig{
-				BaseImage: "foundationdb/foundationdb",
-				Version:   Versions.Default.String(),
-				TagSuffix: "-1",
-			}))
-		})
-	})
-
-	When("building image names", func() {
-		It("applies the fields", func() {
-			config := ImageConfig{
-				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
-				Version:   Versions.Default.String(),
-				TagSuffix: "-2",
-			}
-			image := config.Image()
-			Expect(image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes-sidecar:%s-2", Versions.Default)))
-		})
-
-		It("uses the tag to override the version and tag suffix", func() {
-			config := ImageConfig{
-				BaseImage: "foundationdb/foundationdb-kubernetes-sidecar",
-				Version:   Versions.Default.String(),
-				Tag:       "abcdef",
-				TagSuffix: "-2",
-			}
-			image := config.Image()
-			Expect(image).To(Equal("foundationdb/foundationdb-kubernetes-sidecar:abcdef"))
-		})
-	})
-
 	When("checking if the process group needs a replacement", func() {
 		var processGroup *ProcessGroupStatus
 		var needsReplacement bool
@@ -4088,6 +4085,54 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		Context("with a process group that failed", func() {
 			BeforeEach(func() {
 				processGroup.UpdateCondition(PodFailing, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the missing Pod state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingPod, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the missing PVC state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingPVC, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the missing Service state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(MissingService, true, nil, "")
+				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
+			})
+
+			It("should need replacement", func() {
+				Expect(needsReplacement).To(BeTrue())
+				Expect(timestamp).To(Equal(oldTimestamp))
+			})
+		})
+
+		When("process group is in the Pod pending state", func() {
+			BeforeEach(func() {
+				processGroup.UpdateCondition(PodPending, true, nil, "")
 				processGroup.ProcessGroupConditions[0].Timestamp = oldTimestamp
 			})
 
@@ -4466,6 +4511,430 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Expect(len(cluster.Spec.ProcessGroupsToRemove)).To(Equal(1))
 				})
 			})
+		})
+	})
+
+	When("validating a cluster", func() {
+		DescribeTable("it should return if the cluster is valid",
+			func(cluster *FoundationDBCluster, expected error) {
+				if expected == nil {
+					Expect(cluster.Validate()).NotTo(HaveOccurred())
+				} else {
+					Expect(cluster.Validate()).To(Equal(expected))
+				}
+
+			},
+			Entry("valid cluster spec",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.3.2",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineSSD2,
+						},
+					},
+				},
+				nil,
+			),
+			Entry("using invalid storage engine",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.3.2",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.3.2"),
+			),
+			Entry("using valid storage engine",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsRocksDBV1.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+					},
+				},
+				nil,
+			),
+			Entry("using valid coordinator selection",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsRocksDBV1.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+						CoordinatorSelection: []CoordinatorSelectionSetting{
+							{
+								ProcessClass: ProcessClassStorage,
+							},
+							{
+								ProcessClass: ProcessClassLog,
+							},
+							{
+								ProcessClass: ProcessClassCoordinator,
+							},
+							{
+								ProcessClass: ProcessClassTransaction,
+							},
+						},
+					},
+				},
+				nil,
+			),
+			Entry("using invalid coordinator selection",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: Versions.SupportsRocksDBV1.String(),
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+						CoordinatorSelection: []CoordinatorSelectionSetting{
+							{
+								ProcessClass: ProcessClassStorage,
+							},
+							{
+								ProcessClass: ProcessClassLog,
+							},
+							{
+								ProcessClass: ProcessClassCoordinator,
+							},
+							{
+								ProcessClass: ProcessClassTransaction,
+							},
+							{
+								ProcessClass: ProcessClassStateless,
+							},
+						},
+					},
+				},
+				fmt.Errorf("stateless is not a valid process class for coordinators"),
+			),
+			Entry("multiple validations",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "6.1.3",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineRocksDbV1,
+						},
+						CoordinatorSelection: []CoordinatorSelectionSetting{
+							{
+								ProcessClass: ProcessClassStateless,
+							},
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.1.3, stateless is not a valid process class for coordinators"),
+			),
+			Entry("using invalid version for sharded rocksdb",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "7.1.4",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineShardedRocksDB,
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-sharded-rocksdb is not supported on version 7.1.4"),
+			),
+			Entry("using valid version for sharded rocksdb",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "7.2.0",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineShardedRocksDB,
+						},
+					},
+				},
+				nil,
+			),
+		)
+	})
+
+	When("adding processes to the no-schedule list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		When("the no-schedule list is empty", func() {
+			type testCase struct {
+				Instances                     []string
+				ExpectedInstancesInNoSchedule []string
+			}
+
+			DescribeTable("should add all targeted processes to the no-schedule list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToNoScheduleList(tc.Instances)
+					Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
+					Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                     []string{"instance-1"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                     []string{"instance-1", "instance-2"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+					}),
+			)
+		})
+
+		When("the no-schedule list is not empty", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.NoSchedule = []string{"instance-1"}
+			})
+
+			type testCase struct {
+				Instances                     []string
+				ExpectedInstancesInNoSchedule []string
+			}
+
+			DescribeTable("should add all targeted processes to no-schedule list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToNoScheduleList(tc.Instances)
+					Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoSchedule))
+					Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoSchedule)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                     []string{"instance-2"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                     []string{"instance-2", "instance-3"},
+						ExpectedInstancesInNoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+					}),
+			)
+		})
+
+	})
+
+	When("removing processes from the no-schedule list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{
+				Spec: FoundationDBClusterSpec{
+					Buggify: BuggifyConfig{
+						NoSchedule: []string{"instance-1", "instance-2", "instance-3"},
+					},
+				},
+			}
+		})
+
+		type testCase struct {
+			Instances                         []string
+			ExpectedInstancesInNoScheduleList []string
+		}
+
+		DescribeTable("should remove all targeted processes from the no-schedule list",
+			func(tc testCase) {
+				cluster.RemoveProcessGroupsFromNoScheduleList(tc.Instances)
+				Expect(cluster.Spec.Buggify.NoSchedule).To(ContainElements(tc.ExpectedInstancesInNoScheduleList))
+				Expect(len(cluster.Spec.Buggify.NoSchedule)).To(Equal(len(tc.ExpectedInstancesInNoScheduleList)))
+			},
+			Entry("Removing single instance",
+				testCase{
+					Instances:                         []string{"instance-1"},
+					ExpectedInstancesInNoScheduleList: []string{"instance-2", "instance-3"},
+				}),
+			Entry("Removing multiple instances",
+				testCase{
+					Instances:                         []string{"instance-2", "instance-3"},
+					ExpectedInstancesInNoScheduleList: []string{"instance-1"},
+				}),
+		)
+
+	})
+
+	When("adding processes to the crash-loop list", func() {
+		var cluster *FoundationDBCluster
+
+		BeforeEach(func() {
+			cluster = &FoundationDBCluster{}
+		})
+
+		When("the crash-loop list is empty", func() {
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should add all targeted processes to the crash-loop list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                    []string{"instance-1", "instance-2"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+					}),
+				Entry("Adding all instances",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"*"},
+					}),
+			)
+		})
+
+		When("the crash-loop list is not empty", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"instance-1"}
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should add all targeted processes to crash-loop list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                    []string{"instance-2"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+					}),
+				Entry("Adding all instances",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "*"},
+					}),
+			)
+		})
+
+		When("the crash-loop list contains *", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"*"}
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should add all targeted processes to crash-loop list",
+				func(tc testCase) {
+					cluster.AddProcessGroupsToCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Adding single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "*"},
+					}),
+				Entry("Adding multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"*", "instance-2", "instance-3"},
+					}),
+				Entry("Adding all instances",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"*"},
+					}),
+			)
+		})
+
+	})
+
+	When("removing processes from the crash-loop list", func() {
+		var cluster *FoundationDBCluster
+
+		When("the crash-loop list does not contain *", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Buggify: BuggifyConfig{
+							CrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+						},
+					},
+				}
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should remove all targeted processes from the crash-loop list",
+				func(tc testCase) {
+					cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Removing single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"instance-2", "instance-3"},
+					}),
+				Entry("Removing multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1"},
+					}),
+			)
+		})
+
+		When("the crash-loop list contain *", func() {
+			BeforeEach(func() {
+				cluster = &FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Buggify: BuggifyConfig{
+							CrashLoop: []string{"*", "instance-1", "instance-2", "instance-3"},
+						},
+					},
+				}
+			})
+
+			type testCase struct {
+				Instances                    []string
+				ExpectedInstancesInCrashLoop []string
+			}
+
+			DescribeTable("should remove all targeted processes from the crash-loop list",
+				func(tc testCase) {
+					cluster.RemoveProcessGroupsFromCrashLoopList(tc.Instances)
+					Expect(cluster.Spec.Buggify.CrashLoop).To(ContainElements(tc.ExpectedInstancesInCrashLoop))
+					Expect(len(cluster.Spec.Buggify.CrashLoop)).To(Equal(len(tc.ExpectedInstancesInCrashLoop)))
+				},
+				Entry("Removing single instance",
+					testCase{
+						Instances:                    []string{"instance-1"},
+						ExpectedInstancesInCrashLoop: []string{"*", "instance-2", "instance-3"},
+					}),
+				Entry("Removing multiple instances",
+					testCase{
+						Instances:                    []string{"instance-2", "instance-3"},
+						ExpectedInstancesInCrashLoop: []string{"*", "instance-1"},
+					}),
+				Entry("Removing *",
+					testCase{
+						Instances:                    []string{"*"},
+						ExpectedInstancesInCrashLoop: []string{"instance-1", "instance-2", "instance-3"},
+					}),
+			)
 		})
 	})
 })

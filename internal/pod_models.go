@@ -37,6 +37,17 @@ import (
 
 var processClassSanitizationPattern = regexp.MustCompile("[^a-z0-9-]")
 
+// GetProcessGroupIDFromPodName returns the process group ID for a given Pod name.
+func GetProcessGroupIDFromPodName(cluster *fdbv1beta2.FoundationDBCluster, podName string) string {
+	tmpName := strings.ReplaceAll(podName, cluster.Name, "")[1:]
+
+	if cluster.Spec.ProcessGroupIDPrefix != "" {
+		return fmt.Sprintf("%s-%s", cluster.Spec.ProcessGroupIDPrefix, tmpName)
+	}
+
+	return tmpName
+}
+
 // GetProcessGroupID generates an ID for a process group.
 //
 // This will return the pod name and the processGroupID ID.
@@ -127,10 +138,13 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 }
 
 // GetImage returns the image for container
-func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString string) (string, error) {
+func GetImage(image string, configs []fdbv1beta2.ImageConfig, versionString string, allowTagOverride bool) (string, error) {
 	if image != "" {
 		imageComponents := strings.Split(image, ":")
 		if len(imageComponents) > 1 {
+			if allowTagOverride {
+				return image, nil
+			}
 			// If the specified image contains a tag and allowOverride is false return an error
 			return "", fmt.Errorf("image should not contain a tag but contains the tag \"%s\", please remove the tag", imageComponents[1])
 		}
@@ -182,12 +196,9 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	podName, processGroupID := GetProcessGroupID(cluster, processClass, idNum)
 
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
-	}
+	versionString := cluster.GetRunningVersion()
 
-	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString)
+	image, err := GetImage(mainContainer.Image, cluster.Spec.MainContainer.ImageConfigs, versionString, false)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +287,7 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 			sidecarVersionString = cluster.Spec.Version
 		}
 
-		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString)
+		sidecarImage, err := GetImage(sidecarContainer.Image, cluster.Spec.MainContainer.ImageConfigs, sidecarVersionString, false)
 		if err != nil {
 			return nil, err
 		}
@@ -452,28 +463,17 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 // configureSidecarContainerForCluster sets up a sidecar container for a sidecar
 // in the FDB cluster.
 func configureSidecarContainerForCluster(cluster *fdbv1beta2.FoundationDBCluster, podName string, container *corev1.Container, initMode bool, processGroupID string) error {
-	versionString := cluster.Status.RunningVersion
-	if versionString == "" {
-		versionString = cluster.Spec.Version
-	}
-
-	return configureSidecarContainer(container, initMode, processGroupID, podName, versionString, cluster)
+	return configureSidecarContainer(container, initMode, processGroupID, podName, cluster.GetRunningVersion(), cluster, cluster.Spec.SidecarContainer.ImageConfigs, false)
 }
 
 // configureSidecarContainerForBackup sets up a sidecar container for the init
 // container for a backup process.
 func configureSidecarContainerForBackup(backup *fdbv1beta2.FoundationDBBackup, container *corev1.Container) error {
-	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil)
+	return configureSidecarContainer(container, true, "", "", backup.Spec.Version, nil, backup.Spec.SidecarContainer.ImageConfigs, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
 }
 
-// configureSidecarContainer sets up a foundationdb-kubernetes-sidecar
-// container.
-func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster) error {
-	version, err := fdbv1beta2.ParseFdbVersion(versionString)
-	if err != nil {
-		return err
-	}
-
+// configureSidecarContainer sets up a foundationdb-kubernetes-sidecar container.
+func configureSidecarContainer(container *corev1.Container, initMode bool, processGroupID string, podName string, versionString string, optionalCluster *fdbv1beta2.FoundationDBCluster, imageConfigs []fdbv1beta2.ImageConfig, allowTagOverride bool) error {
 	sidecarEnv := make([]corev1.EnvVar, 0, 4)
 
 	hasTrustedCAs := optionalCluster != nil && len(optionalCluster.Spec.TrustedCAs) > 0
@@ -491,7 +491,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 			"--input-monitor-conf", "fdbmonitor.conf",
 			"--copy-binary", "fdbserver",
 			"--copy-binary", "fdbcli",
-			"--main-container-version", version.String(),
+			"--main-container-version", versionString,
 		)
 	}
 
@@ -559,6 +559,10 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 
 	if optionalCluster != nil {
 		overrides = optionalCluster.Spec.SidecarContainer
+	}
+
+	if len(imageConfigs) > 0 {
+		overrides.ImageConfigs = imageConfigs
 	} else {
 		overrides.ImageConfigs = []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"}}
 	}
@@ -576,7 +580,7 @@ func configureSidecarContainer(container *corev1.Container, initMode bool, proce
 		corev1.VolumeMount{Name: "dynamic-conf", MountPath: "/var/output-files"},
 	)
 
-	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString)
+	image, err := GetImage(container.Image, overrides.ImageConfigs, versionString, allowTagOverride)
 	if err != nil {
 		return err
 	}
@@ -825,7 +829,13 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		podTemplate.Spec.Containers = containers
 	}
 
-	image, err := GetImage(mainContainer.Image, []fdbv1beta2.ImageConfig{{BaseImage: "foundationdb/foundationdb"}}, backup.Spec.Version)
+	if len(backup.Spec.MainContainer.ImageConfigs) == 0 {
+		backup.Spec.MainContainer.ImageConfigs = []fdbv1beta2.ImageConfig{
+			{BaseImage: "foundationdb/foundationdb"},
+		}
+	}
+
+	image, err := GetImage(mainContainer.Image, backup.Spec.MainContainer.ImageConfigs, backup.Spec.Version, pointer.BoolDeref(backup.Spec.AllowTagOverride, false))
 	if err != nil {
 		return nil, err
 	}

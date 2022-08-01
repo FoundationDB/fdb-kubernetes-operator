@@ -47,7 +47,7 @@ spec:
             - name: fdb-binaries
               mountPath: /var/output-files
         - name: foundationdb-kubernetes-init-6-3
-          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.10-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:6.3.24-1
           args:
             - "--copy-library"
             - "6.3"
@@ -58,7 +58,24 @@ spec:
             - "--copy-binary"
             - "fdbrestore"
             - "--output-dir"
-            - "/var/output-files/6.3.10"
+            - "/var/output-files/6.3.24"
+            - "--init-mode"
+          volumeMounts:
+            - name: fdb-binaries
+              mountPath: /var/output-files
+        - name: foundationdb-kubernetes-init-7-1
+          image: foundationdb/foundationdb-kubernetes-sidecar:7.1.15-1
+          args:
+            - "--copy-library"
+            - "7.1"
+            - "--copy-binary"
+            - "fdbcli"
+            - "--copy-binary"
+            - "fdbbackup"
+            - "--copy-binary"
+            - "fdbrestore"
+            - "--output-dir"
+            - "/var/output-files/7.1.15"
             - "--init-mode"
           volumeMounts:
             - name: fdb-binaries
@@ -66,7 +83,7 @@ spec:
       containers:
       - command:
         - /manager
-        image: foundationdb/fdb-kubernetes-operator:v1.3.1
+        image: foundationdb/fdb-kubernetes-operator:v1.8.0
         name: manager
         env:
           - name: WATCH_NAMESPACE

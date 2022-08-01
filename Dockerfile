@@ -1,8 +1,8 @@
 # Build the manager binary
-FROM docker.io/library/golang:1.17.8 as builder
+FROM docker.io/library/golang:1.17.11 as builder
 
 # Install FDB this version is only required to compile the fdb operator
-ARG FDB_VERSION=6.3.23
+ARG FDB_VERSION=6.2.29
 ARG FDB_WEBSITE=https://github.com/apple/foundationdb/releases/download
 ARG TAG="latest"
 
@@ -17,8 +17,6 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
-# https://github.com/golang/go/issues/44129#issuecomment-865249631 time to move to 1.17
-RUN go env -w GOFLAGS=-mod=mod
 RUN go mod download -x
 
 # Copy the go source

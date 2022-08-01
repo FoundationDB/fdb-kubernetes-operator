@@ -223,7 +223,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 		imageConfigs = cluster.Spec.SidecarContainer.ImageConfigs
 	}
 
-	return GetImage(image, imageConfigs, cluster.Spec.Version)
+	return GetImage(image, imageConfigs, cluster.Spec.Version, false)
 }
 
 // CreatePodMap creates a map with the process group ID as a key and the according Pod as a value

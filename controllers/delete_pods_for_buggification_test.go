@@ -87,25 +87,50 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	})
 
 	Context("with a buggification that needs to be enabled", func() {
-		BeforeEach(func() {
-			cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+		When("using crashLoop", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("Pods need to be recreated"))
+			})
+
+			It("should delete the pod", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
 		})
 
-		It("should requeue", func() {
-			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.message).To(Equal("Pods need to be recreated"))
-		})
+		When("using noSchedule", func() {
+			BeforeEach(func() {
+				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
+			})
 
-		It("should delete the pod", func() {
-			pods := &corev1.PodList{}
-			err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("Pods need to be recreated"))
+			})
 
-			pod := &corev1.Pod{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
-			Expect(err).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			It("should delete the pod", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
 		})
 	})
 
@@ -133,65 +158,162 @@ var _ = Describe("delete_pods_for_buggification", func() {
 	})
 
 	Context("with a buggification that needs to be disabled", func() {
-		BeforeEach(func() {
-			pod := &corev1.Pod{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
-			Expect(err).NotTo(HaveOccurred())
+		When("using crashLoop", func() {
+			BeforeEach(func() {
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.Delete(context.TODO(), pod)
-			Expect(err).NotTo(HaveOccurred())
+				err = k8sClient.Delete(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
 
-			pod.Spec.Containers[0].Args = []string{"crash-loop"}
-			err = k8sClient.Create(context.TODO(), pod)
-			Expect(err).NotTo(HaveOccurred())
+				pod.Spec.Containers[0].Args = []string{"crash-loop"}
+				err = k8sClient.Create(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("Pods need to be recreated"))
+			})
+
+			It("should delete the pod", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
 		})
 
-		It("should requeue", func() {
-			Expect(requeue).NotTo(BeNil())
-			Expect(requeue.message).To(Equal("Pods need to be recreated"))
-		})
+		When("using noSchedule", func() {
+			BeforeEach(func() {
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
 
-		It("should delete the pod", func() {
-			pods := &corev1.PodList{}
-			err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+				err = k8sClient.Delete(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
 
-			pod := &corev1.Pod{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
-			Expect(err).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				pod.Spec.Affinity = &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key: fdbv1beta2.NodeSelectorNoScheduleLabel,
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				err = k8sClient.Create(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should requeue", func() {
+				Expect(requeue).NotTo(BeNil())
+				Expect(requeue.message).To(Equal("Pods need to be recreated"))
+			})
+
+			It("should delete the pod", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items) - 1))
+
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
 		})
 	})
 
 	Context("with a buggification that is already on", func() {
-		BeforeEach(func() {
-			pod := &corev1.Pod{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
-			Expect(err).NotTo(HaveOccurred())
+		When("using crashLoop", func() {
+			BeforeEach(func() {
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.Delete(context.TODO(), pod)
-			Expect(err).NotTo(HaveOccurred())
+				err = k8sClient.Delete(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
 
-			pod.Spec.Containers[0].Args = []string{"crash-loop"}
-			err = k8sClient.Create(context.TODO(), pod)
-			Expect(err).NotTo(HaveOccurred())
-			cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+				pod.Spec.Containers[0].Args = []string{"crash-loop"}
+				err = k8sClient.Create(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
+			})
+
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not delete any pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 
-		It("should not requeue", func() {
-			Expect(requeue).To(BeNil())
-		})
+		When("using noSchedule", func() {
+			BeforeEach(func() {
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
 
-		It("should not delete any pods", func() {
-			pods := &corev1.PodList{}
-			err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+				err = k8sClient.Delete(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
 
-			pod := &corev1.Pod{}
-			err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
-			Expect(err).NotTo(HaveOccurred())
+				pod.Spec.Affinity = &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key: fdbv1beta2.NodeSelectorNoScheduleLabel,
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				err = k8sClient.Create(context.TODO(), pod)
+				Expect(err).NotTo(HaveOccurred())
+				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
+			})
+
+			It("should not requeue", func() {
+				Expect(requeue).To(BeNil())
+			})
+
+			It("should not delete any pods", func() {
+				pods := &corev1.PodList{}
+				err = k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
+
+				pod := &corev1.Pod{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: cluster.Namespace, Name: "operator-test-1-storage-1"}, pod)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 

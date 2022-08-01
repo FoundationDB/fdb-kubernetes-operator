@@ -143,11 +143,11 @@ kubectl fdb -n test-namespace analyze sample-cluster-1
 kubectl fdb analyze --auto-fix sample-cluster-1
 
 # Analyze the cluster "sample-cluster-1" in the current namespace and ignore the IncorrectCommandLine and IncorrectPodSpec condition
-kubectl fdb analyze cluster --ignore-condition=IncorrectCommandLine --ignore-condition=IncorrectPodSpec sample-cluster-1
+kubectl fdb analyze --ignore-condition=IncorrectCommandLine --ignore-condition=IncorrectPodSpec sample-cluster-1
 
 # Per default the plugin will print out how many process groups are marked for removal instead of printing out each process group.
 # This can be disabled by using the ignore-removals flag to print out the details about process groups that are marked for removal.
-kubectl fdb analyze cluster --ignore-removals=false sample-cluster-1
+kubectl fdb analyze --ignore-removals=false sample-cluster-1
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -399,7 +399,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		confirmed := false
 
 		if len(failedProcessGroups) > 0 {
-			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, false, wait, false)
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, wait, false, true)
 			if err != nil {
 				return err
 			}

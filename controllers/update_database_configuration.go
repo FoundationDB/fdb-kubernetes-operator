@@ -23,9 +23,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/utils/pointer"
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
@@ -46,7 +47,6 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 
 	desiredConfiguration := cluster.DesiredDatabaseConfiguration()
 	desiredConfiguration.RoleCounts.Storage = 0
-	needsChange := false
 	var currentConfiguration fdbtypes.DatabaseConfiguration
 
 	status, err := adminClient.GetStatus()
@@ -55,21 +55,20 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 	}
 
 	initialConfig := !cluster.Status.Configured
-
-	available := initialConfig || status.Client.DatabaseStatus.Available
 	dataState := status.Cluster.Data.State
-	dataHealthy := initialConfig || dataState.Healthy
 
-	if !available {
+	if !(initialConfig || status.Client.DatabaseStatus.Available) {
 		logger.Info("Skipping database configuration change because database is unavailable")
 		return nil
 	}
 
 	currentConfiguration = status.Cluster.DatabaseConfiguration.NormalizeConfigurationWithSeparatedProxies(cluster.Spec.Version, cluster.Spec.DatabaseConfiguration.AreSeparatedProxiesConfigured())
+	// We have to reset the excluded servers here otherwise we will trigger a reconfiguration if one or more servers
+	// are excluded.
+	currentConfiguration.ExcludedServers = nil
 	cluster.ClearMissingVersionFlags(&currentConfiguration)
-	needsChange = initialConfig || !reflect.DeepEqual(desiredConfiguration, currentConfiguration)
 
-	if needsChange {
+	if initialConfig || !equality.Semantic.DeepEqual(desiredConfiguration, currentConfiguration) {
 		var nextConfiguration fdbtypes.DatabaseConfiguration
 		if initialConfig {
 			nextConfiguration = desiredConfiguration
@@ -77,16 +76,15 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 			nextConfiguration = currentConfiguration.GetNextConfigurationChange(desiredConfiguration)
 		}
 		configurationString, _ := nextConfiguration.GetConfigurationString(cluster.Spec.Version)
-		var enabled = cluster.Spec.AutomationOptions.ConfigureDatabase
 
-		if !dataHealthy {
+		if !(initialConfig || dataState.Healthy) {
 			logger.Info("Waiting for data distribution to be healthy", "stateName", dataState.Name, "stateDescription", dataState.Description)
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but data distribution is not fully healthy: %s (%s)", configurationString, dataState.Name, dataState.Description))
 			return nil
 		}
 
-		if enabled != nil && !*enabled {
+		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.ConfigureDatabase, true) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
@@ -105,7 +103,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 			}
 		}
 
-		logger.Info("Configuring database")
+		logger.Info("Configuring database", "current configuration", currentConfiguration, "desired configuration", desiredConfiguration)
 		r.Recorder.Event(cluster, corev1.EventTypeNormal, "ConfiguringDatabase",
 			fmt.Sprintf("Setting database configuration to `%s`", configurationString),
 		)
@@ -123,8 +121,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		}
 		logger.Info("Configured database")
 
-		if !reflect.DeepEqual(nextConfiguration, desiredConfiguration) {
-			logger.Info("Requeuing for next stage of database configuration change")
+		if !equality.Semantic.DeepEqual(nextConfiguration, desiredConfiguration) {
 			return &requeue{message: "Requeuing for next stage of database configuration change"}
 		}
 	}
