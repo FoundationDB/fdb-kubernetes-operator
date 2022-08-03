@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.17.11
+          go-version: 1.18.5
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -44,7 +44,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.17.11
+        go-version: 1.18.5
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       with:
@@ -104,7 +104,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.17.11
+        go-version: 1.18.5
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       with:

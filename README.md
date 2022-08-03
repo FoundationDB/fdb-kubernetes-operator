@@ -101,7 +101,22 @@ The makefile supports environment variables that allow you to customize your bui
 * `REMOTE_BUILD`: This can be set to 1 to indicate that you are running the operator in a remote environment, rather than on your local development machine. This will activate a [remote build](config/development/remote_build.yaml) patch, which changes the image pull policy in the operator's pod spec. Setting this also tells the Makefile to push images as part of the `rebuild-operator` command.
 * `FDB_WEBSITE`: This specifies the base path for the website used to download FDB client packages in the docker builds. You can use this to download custom binaries from your own host, provided that your path structure matches the paths expected in the [Dockerfile](Dockerfile).
 
-### Known Limitations
+### Local Development with arm64
+
+Currently FDB doesn't provide any client libraries for arm64, this means we have to run everything inside a VM or with Rosetta.
+
+#### Docker based approach
+
+If you already have Docker installed you can use the following steps to build and test the operator locally inside a Docker container:
+
+```bash
+# Create a container with amd64 which contains go
+docker run --rm --entrypoint=/bin/bash -ti --platform="linux/amd64" -v $(pwd):/work -w /work docker.io/library/golang:1.18.5 ./scripts/setup_container.sh
+# Now we can run the lint and test steps
+make fmt lint test
+```
+
+## Known Limitations
 
 1. Support for backups in the operator is still in development, and there are significant missing features.
 2. The unified image is still experimental, and is not recommended outside of development environments.
