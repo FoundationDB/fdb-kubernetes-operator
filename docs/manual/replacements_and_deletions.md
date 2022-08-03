@@ -58,7 +58,7 @@ The default deletion mode is `Zone`.
 
 * `All` will delete all pods at once.
 * `Zone` deletes all Pods in fault domain at once.
-* `ProcessGroup` delete one Pod ar a time.
+* `ProcessGroup` delete one Pod at a time.
 
 Depending on your requirements and the underlying Kubernetes cluster you might choose a different deletion mode than the default.
 
