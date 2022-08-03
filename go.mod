@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb
-	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220513200452-e6fa4d7422d2
+	github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220803202634-4f4d32de8e94
 	github.com/fatih/color v1.10.0
 	github.com/go-logr/logr v1.2.0
 	github.com/google/go-cmp v0.5.5
@@ -114,5 +114,3 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
-
-replace github.com/apple/foundationdb/fdbkubernetesmonitor => github.com/brownleej/foundationdb/fdbkubernetesmonitor v0.0.0-20220720233127-8b7d0ebbb6c3

@@ -72,6 +72,8 @@ github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kd
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210826220005-b48c857c3a0e/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
 github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb h1:Hgm6BKE5OE/coggPjBSZNQFk+9ku+J+XV/LQ7Mh2Utw=
 github.com/apple/foundationdb/bindings/go v0.0.0-20201222225940-f3aef311ccfb/go.mod h1:OMVSB21p9+xQUIqlGizHPZfjK+SHws1ht+ZytVDoz9U=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220803202634-4f4d32de8e94 h1:ixmRLqlvurQs8IvwapyuMyx1J5a47xwvnSpHL+KSpKg=
+github.com/apple/foundationdb/fdbkubernetesmonitor v0.0.0-20220803202634-4f4d32de8e94/go.mod h1:FoQRw/NcoDdOgIve7z4+RXNhoiFSDDggUJ3Z835nMro=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
