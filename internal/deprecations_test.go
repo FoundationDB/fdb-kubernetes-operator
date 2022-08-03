@@ -216,7 +216,7 @@ var _ = Describe("[internal] deprecations", func() {
 
 				It("should have automatic replacements enabled", func() {
 					Expect(cluster.GetEnableAutomaticReplacements()).To(BeTrue())
-					Expect(cluster.GetFailureDetectionTimeSeconds()).To(Equal(1800))
+					Expect(cluster.GetFailureDetectionTimeSeconds()).To(Equal(7200))
 				})
 
 				It("should have the probe settings for the sidecar", func() {
