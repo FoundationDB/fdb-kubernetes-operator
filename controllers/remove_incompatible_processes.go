@@ -54,6 +54,11 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
+	if !cluster.Status.Configured {
+		logger.Info("waiting for cluster to be configured")
+		return nil
+	}
+
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return err
@@ -69,6 +74,10 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 	status, err := adminClient.GetStatus()
 	if err != nil {
+		// If we hit a timeout issue we don't want to block any further steps.
+		if internal.IsTimeoutError(err) {
+			return nil
+		}
 		return err
 	}
 
