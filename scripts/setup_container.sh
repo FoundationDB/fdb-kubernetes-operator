@@ -16,3 +16,4 @@ curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.14.0/kind-linux-amd64
 chmod +x /tmp/kind
 mv /tmp/kind /usr/local/bin/kind
 
+exec bash
