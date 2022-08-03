@@ -49,7 +49,7 @@ type timeoutError struct {
 }
 
 func (timeoutErr timeoutError) Error() string {
-	return fmt.Sprintf("timeout: %s", timeoutErr.err.Error())
+	return fmt.Sprintf("fdbcli timeout: %s", timeoutErr.err.Error())
 }
 
 var adminClientMutex sync.Mutex

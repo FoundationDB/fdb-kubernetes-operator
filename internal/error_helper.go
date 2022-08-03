@@ -44,7 +44,7 @@ func IsNetworkError(err error) bool {
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
 	for err != nil {
-		if strings.Contains(err.Error(), "Specified timeout reached") {
+		if strings.Contains(err.Error(), "fdbcli timeout") {
 			return true
 		}
 
