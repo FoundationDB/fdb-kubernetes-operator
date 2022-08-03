@@ -32,7 +32,7 @@ Depending on the cluster size this can require a quota that is has double the ca
 The operator has an option to automatically replace pods that are in a bad state. This behavior is disabled by default, but you can enable it by setting the field `automationOptions.replacements.enabled` in the cluster spec.
 This will replace any pods that meet the following criteria:
 
-* The process group has a condition that is eligible for replacement, and has been in that condition for 1800 seconds. This time window is configurable through `automationOptions.replacements.failureDetectionTimeSeconds`.
+* The process group has a condition that is eligible for replacement, and has been in that condition for 7200 seconds. This time window is configurable through `automationOptions.replacements.failureDetectionTimeSeconds`.
 * The number of process groups that are marked for removal and not fully excluded, counting the process group that is being evaluated for replacement, is less than or equal to 1. This limit is configurable through `automationOptions.replacements.maxConcurrentReplacements`.
 
 The following conditions are currently eligible for replacement:
