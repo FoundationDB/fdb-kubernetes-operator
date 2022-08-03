@@ -881,7 +881,7 @@ type AutomaticReplacementOptions struct {
 
 	// FailureDetectionTimeSeconds controls how long a process must be
 	// failed or missing before it is automatically replaced.
-	// The default is 1800 seconds, or 30 minutes.
+	// The default is 7200 seconds, or 2 hours.
 	FailureDetectionTimeSeconds *int `json:"failureDetectionTimeSeconds,omitempty"`
 
 	// MaxConcurrentReplacements controls how many automatic replacements are allowed to take part.
@@ -1946,9 +1946,9 @@ func (cluster *FoundationDBCluster) GetEnableAutomaticReplacements() bool {
 	return pointer.BoolDeref(cluster.Spec.AutomationOptions.Replacements.Enabled, true)
 }
 
-// GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 1800
+// GetFailureDetectionTimeSeconds returns cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds or if unset the default 7200
 func (cluster *FoundationDBCluster) GetFailureDetectionTimeSeconds() int {
-	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 1800)
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.Replacements.FailureDetectionTimeSeconds, 7200)
 }
 
 // GetSidecarContainerEnableLivenessProbe returns cluster.Spec.SidecarContainer.EnableLivenessProbe or if unset the default true
