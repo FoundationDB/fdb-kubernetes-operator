@@ -323,7 +323,7 @@ func (client *realFdbPodSidecarClient) updateDynamicFiles(filename string, conte
 func (client *realFdbPodAnnotationClient) GetVariableSubstitutions() (map[string]string, error) {
 	environmentData, present := client.Pod.Annotations[EnvironmentAnnotation]
 	if !present {
-		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", EnvironmentAnnotation, "jpb-annotations", client.Pod.Annotations)
+		client.logger.Info("Waiting for Kubernetes monitor to update annotations", "annotation", EnvironmentAnnotation)
 		return nil, nil
 	}
 	environment := make(map[string]string)
