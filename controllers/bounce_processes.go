@@ -58,7 +58,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	minimumUptime := math.Inf(1)
 	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
 	for _, process := range status.Cluster.Processes {
-		addressMap[process.Locality["instance_id"]] = append(addressMap[process.Locality["instance_id"]], process.Address)
+		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
 
 		if process.UptimeSeconds < minimumUptime {
 			minimumUptime = process.UptimeSeconds
@@ -68,6 +68,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
 		fdbv1beta2.IncorrectCommandLine: true,
 		fdbv1beta2.IncorrectPodSpec:     false,
+		fdbv1beta2.SidecarUnreachable:   false, // ignore all Process groups that are not reachable and therefor not get any config map updates.
 	}, true)
 
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
