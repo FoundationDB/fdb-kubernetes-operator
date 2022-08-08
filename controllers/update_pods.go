@@ -32,7 +32,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -232,9 +231,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
-
-	if deletionMode == fdbv1beta2.PodUpdateModeZone && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseMaintenanceModeChecker, true) {
+	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
 		logger.Info("Setting maintenance mode", "zone", zone)
 		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 		cluster.Status.MaintenanceModeInfo.StartTimestamp = &metav1.Time{Time: time.Now()}
@@ -244,7 +241,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		err = adminClient.SetMaintenanceZone(zone)
+		err = adminClient.SetMaintenanceZone(zone, cluster.GetMaintenaceModeTimeoutSeconds())
 		if err != nil {
 			return &requeue{curError: err}
 		}

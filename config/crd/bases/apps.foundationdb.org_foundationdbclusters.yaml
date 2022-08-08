@@ -9849,8 +9849,6 @@ spec:
             properties:
               automationOptions:
                 properties:
-                  UseMaintenanceModeChecker:
-                    type: boolean
                   configureDatabase:
                     type: boolean
                   deletionMode:
@@ -9870,6 +9868,13 @@ spec:
                     type: integer
                   killProcesses:
                     type: boolean
+                  maintenanceModeOptions:
+                    properties:
+                      UseMaintenanceModeChecker:
+                        type: boolean
+                      maintenanceModeTimeSeconds:
+                        type: integer
+                    type: object
                   maxConcurrentReplacements:
                     minimum: 0
                     type: integer

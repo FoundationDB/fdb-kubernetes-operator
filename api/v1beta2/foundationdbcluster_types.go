@@ -888,6 +888,7 @@ type FoundationDBClusterAutomationOptions struct {
 	// UseManagementAPI defines if the operator should make use of the management API instead of
 	// using fdbcli to interact with the FoundationDB cluster.
 	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
+
 	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
 	// Default is true
 	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`

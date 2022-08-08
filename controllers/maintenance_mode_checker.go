@@ -26,7 +26,6 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"k8s.io/utils/pointer"
 )
 
 // maintenanceModeChecker provides a reconciliation step for clearing the maintenance mode if all the pods in the current maintenance zone are up.
@@ -36,7 +35,7 @@ type maintenanceModeChecker struct{}
 func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "maintenanceModeChecker")
 
-	if !pointer.BoolDeref(cluster.Spec.AutomationOptions.UseMaintenanceModeChecker, true) {
+	if !cluster.UseMaintenaceMode() {
 		return nil
 	}
 

@@ -23,6 +23,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 * [LockOptions](#lockoptions)
 * [LockSystemStatus](#locksystemstatus)
 * [MaintenanceModeInfo](#maintenancemodeinfo)
+* [MaintenanceModeOptions](#maintenancemodeoptions)
 * [ProcessGroupCondition](#processgroupcondition)
 * [ProcessGroupStatus](#processgroupstatus)
 * [ProcessSettings](#processsettings)
@@ -166,7 +167,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted processes. Defaults to 60. | *int | false |
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
-| UseMaintenanceModeChecker | UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods. Default is true | *bool | false |
+| maintenanceModeOptions | MaintenanceModeOptions containes options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -323,6 +324,17 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 | startTimestamp | Timestamp when this zone is put into maintenance mode | *metav1.Time | false |
 | zoneID | ZoneID that is placed in maintenance mode | string | false |
 | processGroups | ProcessGroups that are placed in maintenance mode | []string | false |
+
+[Back to TOC](#table-of-contents)
+
+## MaintenanceModeOptions
+
+
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| UseMaintenanceModeChecker | UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods. Default is true. | *bool | false |
+| maintenanceModeTimeSeconds | Time for which a zone will be put into maintenance. It will automatically be switched off after the time elapses. Default is 600. | *int | false |
 
 [Back to TOC](#table-of-contents)
 

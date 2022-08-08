@@ -41,8 +41,7 @@ import (
 )
 
 const (
-	fdbcliStr                        = "fdbcli"
-	maintenanceModeDurationInSeconds = 600
+	fdbcliStr = "fdbcli"
 )
 
 var adminClientMutex sync.Mutex
@@ -356,12 +355,12 @@ func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
 }
 
 // SetMaintenanceZone places zone into maintenance mode
-func (client *cliAdminClient) SetMaintenanceZone(zone string) error {
+func (client *cliAdminClient) SetMaintenanceZone(zone string, timeoutSeconds int) error {
 	_, err := client.runCommand(cliCommand{
 		command: fmt.Sprintf(
 			"maintenance on %s %s",
 			zone,
-			strconv.Itoa(maintenanceModeDurationInSeconds)),
+			strconv.Itoa(timeoutSeconds)),
 	})
 	return err
 }

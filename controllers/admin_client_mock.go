@@ -743,7 +743,7 @@ func (client *mockAdminClient) GetMaintenanceZone() (string, error) {
 }
 
 // SetMaintenanceZone places zone into maintenance mode
-func (client *mockAdminClient) SetMaintenanceZone(zone string) error {
+func (client *mockAdminClient) SetMaintenanceZone(zone string, _ int) error {
 	client.maintenanceZone = zone
 	client.maintenanceZoneStartTimestamp = time.Now()
 	return nil

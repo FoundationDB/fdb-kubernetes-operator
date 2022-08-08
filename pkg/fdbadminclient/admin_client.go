@@ -107,7 +107,7 @@ type AdminClient interface {
 	GetMaintenanceZone() (string, error)
 
 	// SetMaintenanceZone places zone into maintenance mode
-	SetMaintenanceZone(zone string) error
+	SetMaintenanceZone(zone string, timeoutSeconds int) error
 
 	// Reset maintenance mode
 	ResetMaintenanceMode() error

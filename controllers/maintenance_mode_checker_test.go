@@ -85,7 +85,7 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 	Context("maintenance mode is on", func() {
 		BeforeEach(func() {
-			Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-1")).NotTo(HaveOccurred())
+			Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-1", 0)).NotTo(HaveOccurred())
 		})
 
 		When("status maintenance zone does not match", func() {
