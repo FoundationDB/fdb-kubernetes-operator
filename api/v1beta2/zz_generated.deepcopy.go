@@ -507,6 +507,8 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 	}
 	if in.UseManagementAPI != nil {
 		in, out := &in.UseManagementAPI, &out.UseManagementAPI
+	if in.UseMaintenanceModeChecker != nil {
+		in, out := &in.UseMaintenanceModeChecker, &out.UseMaintenanceModeChecker
 		*out = new(bool)
 		**out = **in
 	}

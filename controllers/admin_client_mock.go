@@ -26,6 +26,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
@@ -55,6 +56,8 @@ type mockAdminClient struct {
 	maxZoneFailuresWithoutLosingAvailability *int
 	knobs                                    []string
 	maintenanceZone                          string
+	maintenanceZoneStartTimestamp            time.Time
+	uptimeSecondsForMaintenanceZone          float64
 }
 
 // adminClientCache provides a cache of mock admin clients.
@@ -205,6 +208,15 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				locality["process_id"] = fmt.Sprintf("%s-%d", processGroupID, processIndex)
 			}
 
+			var uptimeSeconds float64 = 60000
+			if client.maintenanceZone == pod.Name || client.maintenanceZone == "simulation" {
+				if client.uptimeSecondsForMaintenanceZone != 0.0 {
+					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
+				} else {
+					uptimeSeconds = time.Now().Sub(client.maintenanceZoneStartTimestamp).Seconds()
+				}
+			}
+
 			status.Cluster.Processes[fmt.Sprintf("%s-%d", pod.Name, processIndex)] = fdbv1beta2.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
 				ProcessClass:  internal.GetProcessClassFromMeta(client.Cluster, pod.ObjectMeta),
@@ -212,7 +224,7 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				Excluded:      excluded,
 				Locality:      locality,
 				Version:       client.Cluster.Status.RunningVersion,
-				UptimeSeconds: 60000,
+				UptimeSeconds: uptimeSeconds,
 				Roles:         fdbRoles,
 			}
 		}
@@ -227,13 +239,22 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				locality[key] = value
 			}
 
+			var uptimeSeconds float64 = 60000
+			if client.maintenanceZone == processGroup.ProcessGroupID || client.maintenanceZone == "simulation" {
+				if client.uptimeSecondsForMaintenanceZone != 0.0 {
+					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
+				} else {
+					uptimeSeconds = time.Now().Sub(client.maintenanceZoneStartTimestamp).Seconds()
+				}
+			}
+
 			fullAddress := client.Cluster.GetFullAddress(processGroup.Addresses[0], 1)
 			status.Cluster.Processes[processGroup.ProcessGroupID] = fdbv1beta2.FoundationDBStatusProcessInfo{
 				Address:       fullAddress,
 				ProcessClass:  processGroup.ProcessClass,
 				Locality:      locality,
 				Version:       client.Cluster.Status.RunningVersion,
-				UptimeSeconds: 60000,
+				UptimeSeconds: uptimeSeconds,
 			}
 
 		}
@@ -724,6 +745,7 @@ func (client *mockAdminClient) GetMaintenanceZone() (string, error) {
 // SetMaintenanceZone places zone into maintenance mode
 func (client *mockAdminClient) SetMaintenanceZone(zone string) error {
 	client.maintenanceZone = zone
+	client.maintenanceZoneStartTimestamp = time.Now()
 	return nil
 }
 
@@ -731,4 +753,9 @@ func (client *mockAdminClient) SetMaintenanceZone(zone string) error {
 func (client *mockAdminClient) ResetMaintenanceMode() error {
 	client.maintenanceZone = ""
 	return nil
+}
+
+// Reset maintenance mode
+func (client *mockAdminClient) MockUptimeSecondsForMaintenanceZone(seconds float64) {
+	client.uptimeSecondsForMaintenanceZone = seconds
 }

@@ -89,9 +89,6 @@ var _ = BeforeSuite(func() {
 		Recorder:               k8sClient,
 		DatabaseClientProvider: mockDatabaseClientProvider{},
 	}
-
-	// Set the pod up check delay to 0 in unit tests so that it doesn't run for a long time
-	podUpCheckDelayInSeconds = 0
 })
 
 var _ = AfterSuite(func() {

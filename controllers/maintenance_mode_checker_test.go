@@ -55,8 +55,6 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 		adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 		Expect(err).NotTo(HaveOccurred())
-
-		podUpCheckDelayInSeconds = 60
 	})
 
 	JustBeforeEach(func() {
@@ -87,12 +85,12 @@ var _ = Describe("maintenance_mode_checker", func() {
 
 	Context("maintenance mode is on", func() {
 		BeforeEach(func() {
-			Expect(adminClient.SetMaintenanceZone("storage-1")).NotTo(HaveOccurred())
+			Expect(adminClient.SetMaintenanceZone("operator-test-1-storage-1")).NotTo(HaveOccurred())
 		})
 
 		When("status maintenance zone does not match", func() {
 			BeforeEach(func() {
-				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{ZoneID: "storage-4"}
+				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{ZoneID: "operator-test-1-storage-4"}
 			})
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
@@ -100,42 +98,44 @@ var _ = Describe("maintenance_mode_checker", func() {
 			})
 		})
 
-		When("delay has not expired", func() {
+		When("pod hasn't been updated yet", func() {
 			BeforeEach(func() {
 				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
 					StartTimestamp: &metav1.Time{Time: time.Now()},
-					ZoneID:         "storage-1",
+					ZoneID:         "operator-test-1-storage-1",
 					ProcessGroups:  []string{"storage-1"},
 				}
+				adminClient.MockUptimeSecondsForMaintenanceZone(3600)
 			})
 			It("should be requeued", func() {
 				Expect(requeue).ToNot(BeNil())
-				Expect(requeue.message).To(Equal("Waiting for delay to expire for checking if pods under maintenance mode have been bounced"))
+				Expect(requeue.message).To(Equal("Waiting for pod storage-1 to be updated"))
 			})
 		})
 
 		When("pod is still down", func() {
 			BeforeEach(func() {
 				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
-					StartTimestamp: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
-					ZoneID:         "storage-1",
+					StartTimestamp: &metav1.Time{Time: time.Now()},
+					ZoneID:         "operator-test-1-storage-1",
 					ProcessGroups:  []string{"storage-1"},
 				}
 				adminClient.MockMissingProcessGroup("storage-1", true)
 			})
 			It("should be requeued", func() {
 				Expect(requeue).ToNot(BeNil())
-				Expect(requeue.message).To(Equal("Waiting for all proceeses in zone storage-1 to be up"))
+				Expect(requeue.message).To(Equal("Waiting for all proceeses in zone operator-test-1-storage-1 to be up"))
 			})
 		})
 
 		When("reconciliation should be successful", func() {
 			BeforeEach(func() {
 				cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
-					StartTimestamp: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
-					ZoneID:         "storage-1",
+					StartTimestamp: &metav1.Time{Time: time.Now().Add(-60 * time.Second)},
+					ZoneID:         "operator-test-1-storage-1",
 					ProcessGroups:  []string{"storage-1"},
 				}
+
 			})
 			It("should not be requeued", func() {
 				Expect(requeue).To(BeNil())
@@ -147,6 +147,5 @@ var _ = Describe("maintenance_mode_checker", func() {
 	AfterEach(func() {
 		clearMockAdminClients()
 		k8sClient.Clear()
-		podUpCheckDelayInSeconds = 0
 	})
 })

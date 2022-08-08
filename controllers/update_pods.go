@@ -32,6 +32,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -231,10 +232,17 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-<<<<<<< HEAD
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
-=======
-	if deletionMode == fdbv1beta2.PodUpdateModeZone {
+
+	if deletionMode == fdbv1beta2.PodUpdateModeZone && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseMaintenanceModeChecker, true) {
+		// Check if maintenance mode is off
+		maintenanceZone, err := adminClient.GetMaintenanceZone()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		if maintenanceZone != "" {
+			return &requeue{message: fmt.Sprintf("Zone %s already in maintenance mode. Skipping updates", maintenanceZone), delayedRequeue: true}
+		}
 		logger.Info("Setting maintenance mode", "zone", zone)
 		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 		cluster.Status.MaintenanceModeInfo.StartTimestamp = &metav1.Time{Time: time.Now()}
@@ -251,7 +259,6 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
->>>>>>> 6f6741d0 (Add a new reconciler to put the cluster into maintenance mode during rolling upgrade)
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)
