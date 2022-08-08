@@ -101,17 +101,10 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if !hasLock {
 		return &requeue{curError: err}
 	}
-	// Sanity check to prevent a race where a different zone can be put into maintenance from the last read of the maintenance status before the lock is taken
-	maintenanceZone, err = adminClient.GetMaintenanceZone()
+	logger.Info("Switching off maintenance mode", "zone", maintenanceZone)
+	err = adminClient.ResetMaintenanceMode()
 	if err != nil {
 		return &requeue{curError: err}
-	}
-	if maintenanceZone == cluster.Status.MaintenanceModeInfo.ZoneID {
-		logger.Info("Switching off maintenance mode", "zone", maintenanceZone)
-		err = adminClient.ResetMaintenanceMode()
-		if err != nil {
-			return &requeue{curError: err}
-		}
 	}
 	cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 	err = r.Status().Update(ctx, cluster)

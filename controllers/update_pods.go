@@ -235,14 +235,6 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
 
 	if deletionMode == fdbv1beta2.PodUpdateModeZone && pointer.BoolDeref(cluster.Spec.AutomationOptions.UseMaintenanceModeChecker, true) {
-		// Check if maintenance mode is off
-		maintenanceZone, err := adminClient.GetMaintenanceZone()
-		if err != nil {
-			return &requeue{curError: err}
-		}
-		if maintenanceZone != "" {
-			return &requeue{message: fmt.Sprintf("Zone %s already in maintenance mode. Skipping updates", maintenanceZone), delayedRequeue: true}
-		}
 		logger.Info("Setting maintenance mode", "zone", zone)
 		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
 		cluster.Status.MaintenanceModeInfo.StartTimestamp = &metav1.Time{Time: time.Now()}
