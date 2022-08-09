@@ -100,6 +100,18 @@ kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --e
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = cmd.MarkFlagRequired("start-time")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = cmd.MarkFlagRequired("end-time")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = cmd.MarkFlagRequired("template-name")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
