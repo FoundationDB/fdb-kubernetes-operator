@@ -66,12 +66,7 @@ func newBuggifyNoSchedule(streams genericclioptions.IOStreams) *cobra.Command {
 				return err
 			}
 
-			processGroups, err := getProcessGroupIDsFromPod(kubeClient, cluster, args, namespace)
-			if err != nil {
-				return err
-			}
-
-			return updateNoScheduleList(kubeClient, cluster, processGroups, namespace, wait, clear, clean)
+			return updateNoScheduleList(kubeClient, cluster, args, namespace, wait, clear, clean)
 		},
 		Example: `
 # Add process groups into no-schedule state for a cluster in the current namespace
@@ -105,12 +100,17 @@ kubectl fdb -n default buggify no-schedule  -c cluster pod-1 pod-2
 }
 
 // updateNoScheduleList updates the removal list of the cluster
-func updateNoScheduleList(kubeClient client.Client, clusterName string, processGroups []string, namespace string, wait bool, clear bool, clean bool) error {
+func updateNoScheduleList(kubeClient client.Client, clusterName string, pods []string, namespace string, wait bool, clear bool, clean bool) error {
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("could not get cluster: %s/%s", namespace, clusterName)
 		}
+		return err
+	}
+
+	processGroupIDs, err := getProcessGroupIDsFromPodName(cluster, pods)
+	if err != nil {
 		return err
 	}
 
@@ -125,26 +125,26 @@ func updateNoScheduleList(kubeClient client.Client, clusterName string, processG
 		return kubeClient.Patch(ctx.TODO(), cluster, patch)
 	}
 
-	if len(processGroups) == 0 {
+	if len(processGroupIDs) == 0 {
 		return fmt.Errorf("please provide atleast one pod")
 	}
 
 	if wait {
 		if clear {
-			if !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Removing %v from no-schedule from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		} else {
-			if !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroups, namespace, clusterName)) {
+			if !confirmAction(fmt.Sprintf("Adding %v from no-schedule from cluster %s/%s", processGroupIDs, namespace, clusterName)) {
 				return fmt.Errorf("user aborted the removal")
 			}
 		}
 	}
 
 	if clear {
-		cluster.RemoveProcessGroupsFromNoScheduleList(processGroups)
+		cluster.RemoveProcessGroupsFromNoScheduleList(processGroupIDs)
 	} else {
-		cluster.AddProcessGroupsToNoScheduleList(processGroups)
+		cluster.AddProcessGroupsToNoScheduleList(processGroupIDs)
 	}
 
 	return kubeClient.Patch(ctx.TODO(), cluster, patch)

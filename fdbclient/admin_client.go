@@ -44,6 +44,14 @@ const (
 	fdbcliStr = "fdbcli"
 )
 
+type timeoutError struct {
+	err error
+}
+
+func (timeoutErr timeoutError) Error() string {
+	return fmt.Sprintf("timeout: %s", timeoutErr.err.Error())
+}
+
 var adminClientMutex sync.Mutex
 
 var maxCommandOutput = parseMaxCommandOutput()
@@ -117,6 +125,9 @@ type cliCommand struct {
 
 	// args provides alternative arguments in place of the exec command.
 	args []string
+
+	// timeout provides a way to overwrite the default cli timeout.
+	timeout time.Duration
 }
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
@@ -138,6 +149,15 @@ func (command cliCommand) getClusterFileFlag() string {
 	}
 
 	return "-C"
+}
+
+// getTimeout returns the timeout for the command
+func (command cliCommand) getTimeout() int {
+	if command.timeout != 0 {
+		return int(command.timeout.Seconds())
+	}
+
+	return DefaultCLITimeout
 }
 
 // getBinaryPath generates the path to an FDB binary.
@@ -162,7 +182,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	binary := getBinaryPath(binaryName, version)
-	hardTimeout := DefaultCLITimeout
+	hardTimeout := command.getTimeout()
 	args := make([]string, 0, 9)
 	args = append(args, command.args...)
 	if len(args) == 0 {
@@ -195,8 +215,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	if command.hasTimeoutArg() {
-		args = append(args, "--timeout", strconv.Itoa(DefaultCLITimeout))
-		hardTimeout += DefaultCLITimeout
+		args = append(args, "--timeout", strconv.Itoa(command.getTimeout()))
+		hardTimeout += command.getTimeout()
 	}
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Second*time.Duration(hardTimeout))
 	defer cancelFunction()
@@ -210,6 +230,12 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		if canCast {
 			client.log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
+
+		// If we hit a timeout report it as a timeout error
+		if strings.Contains(string(output), "Specified timeout reached") {
+			return "", timeoutError{err: err}
+		}
+
 		return "", err
 	}
 
@@ -226,37 +252,88 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	return outputString, nil
 }
 
-// GetStatus gets the database's status
-func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
-	adminClientMutex.Lock()
-	defer adminClientMutex.Unlock()
+// runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
+func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
+	maxTimeoutInSeconds := 40
+	currentTimeoutInSeconds := DefaultCLITimeout
+
+	var rawResult string
+	var err error
+
+	// This method will be retrying to get the status if a timeout is seen. The timeout will be doubled everytime we try
+	// it with the default timeout of 10 we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
+	// seen that during upgrades of version incompatible version, when not all coordinators are properly restarted that
+	// the response time will be increased.
+	for currentTimeoutInSeconds <= maxTimeoutInSeconds {
+		rawResult, err = client.runCommand(cliCommand{command: command, timeout: time.Duration(currentTimeoutInSeconds) * time.Second})
+		if err == nil {
+			break
+		}
+
+		if _, ok := err.(timeoutError); ok {
+			client.log.Info("timeout issue will retry with higher timeout")
+			currentTimeoutInSeconds *= 2
+			continue
+		}
+
+		// If any error other than a timeout happens return this error and don't retry.
+		return "", err
+	}
+
+	return rawResult, err
+}
+
+func (client *cliAdminClient) getStatus(useClientLibrary bool) (*fdbv1beta2.FoundationDBStatus, error) {
 	var contents []byte
 	var err error
-	if client.useClientLibrary {
+
+	if useClientLibrary {
 		// This will call directly the database and fetch the status information
 		// from the system key space.
 		contents, err = getStatusFromDB(client.Cluster, client.log)
-		if err != nil {
-			return nil, err
-		}
 	} else {
-		var rawResult, filteredJSON string
-		rawResult, err = client.runCommand(cliCommand{command: "status json"})
+		var rawResult string
+		rawResult, err = client.runCommandWithBackoff("status json")
 		if err != nil {
 			return nil, err
 		}
-		filteredJSON, err = internal.RemoveWarningsInJSON(rawResult)
-		if err != nil {
-			return nil, err
-		}
-		contents = []byte(filteredJSON)
+
+		contents, err = internal.RemoveWarningsInJSON(rawResult)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	status := &fdbv1beta2.FoundationDBStatus{}
 	err = json.Unmarshal(contents, status)
 	if err != nil {
 		return nil, err
 	}
 	client.log.V(1).Info("Fetched status JSON", "status", status)
+
+	return status, nil
+}
+
+// GetStatus gets the database's status
+func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
+	adminClientMutex.Lock()
+	defer adminClientMutex.Unlock()
+
+	status, err := client.getStatus(client.useClientLibrary)
+	if err != nil {
+		return nil, err
+	}
+
+	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
+	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
+	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
+	// In this case we want to fall back to use fdbcli which is version specific and will work.
+	if len(status.Cluster.Processes) == 0 && client.useClientLibrary && client.Cluster.Status.Configured {
+		client.log.Info("retry fetching status with fdbcli instead of using the client library")
+		return client.getStatus(false)
+	}
+
 	return status, nil
 }
 
@@ -505,8 +582,9 @@ func (client *cliAdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddres
 	if len(addresses) == 0 {
 		return nil
 	}
+
 	_, err := client.runCommand(cliCommand{command: fmt.Sprintf(
-		"kill; kill %s; status",
+		"kill; kill %[1]s; sleep 1; kill %[1]s; sleep 1; kill %[1]s",
 		fdbv1beta2.ProcessAddressesStringWithoutFlags(addresses, " "),
 	)})
 	return err
@@ -545,7 +623,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster)
 	} else {
 		var output string
-		output, err = client.runCommand(cliCommand{command: "status minimal"})
+		output, err = client.runCommandWithBackoff("status minimal")
 		if err != nil {
 			return "", err
 		}
@@ -685,12 +763,12 @@ func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBac
 	}
 
 	status := &fdbv1beta2.FoundationDBLiveBackupStatus{}
-	statusString, err = internal.RemoveWarningsInJSON(statusString)
+	statusBytes, err := internal.RemoveWarningsInJSON(statusString)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal([]byte(statusString), &status)
+	err = json.Unmarshal(statusBytes, &status)
 	if err != nil {
 		return nil, err
 	}

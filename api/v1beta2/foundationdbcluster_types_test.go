@@ -4626,6 +4626,28 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				},
 				fmt.Errorf("storage engine ssd-rocksdb-v1 is not supported on version 6.1.3, stateless is not a valid process class for coordinators"),
 			),
+			Entry("using invalid version for sharded rocksdb",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "7.1.4",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineShardedRocksDB,
+						},
+					},
+				},
+				fmt.Errorf("storage engine ssd-sharded-rocksdb is not supported on version 7.1.4"),
+			),
+			Entry("using valid version for sharded rocksdb",
+				&FoundationDBCluster{
+					Spec: FoundationDBClusterSpec{
+						Version: "7.2.0",
+						DatabaseConfiguration: DatabaseConfiguration{
+							StorageEngine: StorageEngineShardedRocksDB,
+						},
+					},
+				},
+				nil,
+			),
 		)
 	})
 

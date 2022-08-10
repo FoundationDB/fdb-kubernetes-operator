@@ -145,7 +145,7 @@ func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluste
 		}
 
 		for _, pod := range pods.Items {
-			// With the field selector above this shouldn't be required but it's good to
+			// With the field selector above this shouldn't be required, but it's good to
 			// have a second check.
 			if pod.Spec.NodeName != node {
 				fmt.Printf("Pod: %s is not running on node %s will be ignored\n", pod.Name, node)
@@ -161,5 +161,5 @@ func cordonNode(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBCluste
 		}
 	}
 
-	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, false, wait, false)
+	return replaceProcessGroups(kubeClient, cluster.Name, processGroups, namespace, withExclusion, wait, false, true)
 }

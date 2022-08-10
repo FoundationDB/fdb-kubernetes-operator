@@ -465,4 +465,20 @@ var _ = Describe("update_status", func() {
 			})
 		})
 	})
+
+	DescribeTable("when getting the running version from the running processes", func(versionMap map[string]int, fallback string, expected string) {
+		Expect(getRunningVersion(versionMap, fallback)).To(Equal(expected))
+	},
+		Entry("when nearly all processes running on the new version", map[string]int{
+			"7.1.11": 1,
+			"7.1.15": 99,
+		}, "0", "7.1.15"),
+		Entry("when all processes running on the same version", map[string]int{
+			"7.1.15": 100,
+		}, "0", "7.1.15"),
+		Entry("when half of the processes running the old/new version", map[string]int{
+			"7.1.11": 50,
+			"7.1.15": 50,
+		}, "0", "7.1.15"),
+		Entry("when the versionMap is empty", map[string]int{}, "7.1.15", "7.1.15"))
 })

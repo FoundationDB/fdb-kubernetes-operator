@@ -30,10 +30,9 @@ import (
 	"sort"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -53,15 +52,16 @@ import (
 // FoundationDBClusterReconciler reconciles a FoundationDBCluster object
 type FoundationDBClusterReconciler struct {
 	client.Client
-	Recorder               record.EventRecorder
-	Log                    logr.Logger
-	InSimulation           bool
-	PodLifecycleManager    podmanager.PodLifecycleManager
-	PodClientProvider      func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
-	DatabaseClientProvider DatabaseClientProvider
-	DeprecationOptions     internal.DeprecationOptions
-	GetTimeout             time.Duration
-	PostTimeout            time.Duration
+	Recorder                           record.EventRecorder
+	Log                                logr.Logger
+	InSimulation                       bool
+	EnableRestartIncompatibleProcesses bool
+	PodLifecycleManager                podmanager.PodLifecycleManager
+	PodClientProvider                  func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
+	DatabaseClientProvider             DatabaseClientProvider
+	DeprecationOptions                 internal.DeprecationOptions
+	GetTimeout                         time.Duration
+	PostTimeout                        time.Duration
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -139,6 +139,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		addPVCs{},
 		addPods{},
 		generateInitialClusterFile{},
+		removeIncompatibleProcesses{},
 		updateSidecarVersions{},
 		updatePodConfig{},
 		updateLabels{},

@@ -2649,6 +2649,50 @@ var _ = Describe("cluster_controller", func() {
 					})
 				})
 			})
+			When("using ssd-sharded-rocksdb", func() {
+				When("using 7.2.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "7.2.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("generations are matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 7.1.0", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "7.1.0"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+				When("using 6.3.24", func() {
+					BeforeEach(func() {
+						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
+						cluster.Spec.Version = "6.3.24"
+						err := k8sClient.Update(context.TODO(), cluster)
+						Expect(err).NotTo(HaveOccurred())
+						shouldCompleteReconciliation = false
+					})
+					It("generations are not matching", func() {
+						generations, err := reloadClusterGenerations(cluster)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+					})
+				})
+			})
+
 		})
 
 		When("When a process have an incorrect commandline", func() {

@@ -3181,4 +3181,21 @@ var _ = Describe("pod_models", func() {
 			Expect(GetPodDNSName(cluster, "operator-test-storage-1")).To(Equal("operator-test-storage-1.operator-test-1.my-ns.svc.cluster.example"))
 		})
 	})
+
+	DescribeTable("getting the process group ID from the Pod name", func(cluster *fdbv1beta2.FoundationDBCluster, podName string, expected string) {
+		Expect(GetProcessGroupIDFromPodName(cluster, podName)).To(Equal(expected))
+	},
+		Entry("cluster without prefix", &fdbv1beta2.FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		}, "test-storage-1", "storage-1"),
+		Entry("cluster with prefix", &fdbv1beta2.FoundationDBCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+			Spec: fdbv1beta2.FoundationDBClusterSpec{
+				ProcessGroupIDPrefix: "prefix",
+			},
+		}, "test-storage-1", "prefix-storage-1"))
 })

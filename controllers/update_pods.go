@@ -146,15 +146,15 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 		}
 	}
 
+	if len(updates) == 0 {
+		return nil
+	}
+
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r.Client)
 	if err != nil {
 		return &requeue{curError: err}
 	}
 	defer adminClient.Close()
-
-	if len(updates) == 0 {
-		return nil
-	}
 
 	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
@@ -219,7 +219,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	// Only lock the cluster if we are not running in the delete "All" mode.
-	// Otherwise we want to delete all Pods and don't require a lock to sync with other clusters.
+	// Otherwise, we want to delete all Pods and don't require a lock to sync with other clusters.
 	if deletionMode != fdbv1beta2.PodUpdateModeAll {
 		hasLock, err := r.takeLock(cluster, "updating pods")
 		if !hasLock {
@@ -227,7 +227,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
+	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)

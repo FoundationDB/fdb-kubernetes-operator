@@ -182,4 +182,85 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				}),
 		)
 	})
+
+	When("getting the process groups IDs from Pods", func() {
+		clusterName := "test"
+		namespace := "test"
+		var cluster fdbv1beta2.FoundationDBCluster
+
+		When("the cluster doesn't have a prefix", func() {
+			BeforeEach(func() {
+				cluster = fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      clusterName,
+						Namespace: namespace,
+					},
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						ProcessCounts: fdbv1beta2.ProcessCounts{
+							Storage: 1,
+						},
+					},
+				}
+			})
+
+			DescribeTable("should get all process groups IDs",
+				func(podNames []string, expected []string) {
+					instances, err := getProcessGroupIDsFromPodName(&cluster, podNames)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(instances).To(ContainElements(expected))
+					Expect(len(instances)).To(BeNumerically("==", len(expected)))
+				},
+				Entry("Filter one instance",
+					[]string{"test-storage-1"},
+					[]string{"storage-1"},
+				),
+				Entry("Filter two instances",
+					[]string{"test-storage-1", "test-storage-2"},
+					[]string{"storage-1", "storage-2"},
+				),
+				Entry("Filter no instance",
+					[]string{""},
+					[]string{},
+				),
+			)
+		})
+
+		When("the cluster has a prefix", func() {
+			BeforeEach(func() {
+				cluster = fdbv1beta2.FoundationDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      clusterName,
+						Namespace: namespace,
+					},
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						ProcessGroupIDPrefix: "banana",
+						ProcessCounts: fdbv1beta2.ProcessCounts{
+							Storage: 1,
+						},
+					},
+				}
+			})
+
+			DescribeTable("should get all process groups IDs",
+				func(podNames []string, expected []string) {
+					instances, err := getProcessGroupIDsFromPodName(&cluster, podNames)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(instances).To(ContainElements(expected))
+					Expect(len(instances)).To(BeNumerically("==", len(expected)))
+				},
+				Entry("Filter one instance",
+					[]string{"test-storage-1"},
+					[]string{"banana-storage-1"},
+				),
+				Entry("Filter two instances",
+					[]string{"test-storage-1", "test-storage-2"},
+					[]string{"banana-storage-1", "banana-storage-2"},
+				),
+				Entry("Filter no instance",
+					[]string{""},
+					[]string{},
+				),
+			)
+		})
+	})
 })
