@@ -23,15 +23,16 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"log"
+	"strconv"
+	"text/template"
+
 	"github.com/spf13/cobra"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"text/template"
 
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
-	"log"
 )
 
 type profileConfig struct {
@@ -117,7 +118,7 @@ kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --e
 	return cmd
 }
 
-func runProfileAnalyzer(kubeClient client.Client,  namespace string, clusterName string, startTime string, endTime string, topRequests int, templateName string) error {
+func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName string, startTime string, endTime string, topRequests int, templateName string) error {
 	pc := profileConfig{
 		Namespace:   namespace,
 		ClusterName: clusterName,
