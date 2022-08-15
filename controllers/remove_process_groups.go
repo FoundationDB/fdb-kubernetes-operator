@@ -65,7 +65,7 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 
 	// Update the cluster to reflect the new exclusions in our status
 	if newExclusions {
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
@@ -253,7 +253,7 @@ func includeProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler, 
 			return err
 		}
 
-		err := r.Status().Update(ctx, cluster)
+		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return err
 		}

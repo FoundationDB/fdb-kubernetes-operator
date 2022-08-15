@@ -557,8 +557,9 @@ func (client *MockClient) Update(_ context.Context, object ctrlClient.Object, _ 
 
 // Patch patches an object.
 // This is not yet implemented.
-func (client *MockClient) Patch(_ context.Context, _ ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
-	return fmt.Errorf("not implemented")
+func (client *MockClient) Patch(_ context.Context, object ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
+	// TODO (johscheuer): Find a proper way to implement the SSA support for testing in unit tests.
+	return client.Update(context.TODO(), object)
 }
 
 // DeleteAllOf deletes all objects of the given type matching the given options.

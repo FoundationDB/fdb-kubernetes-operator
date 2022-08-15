@@ -88,7 +88,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsConfigurationChange",
 				fmt.Sprintf("Spec require configuration change to `%s`, but configuration changes are disabled", configurationString))
 			cluster.Status.Generations.NeedsConfigurationChange = cluster.ObjectMeta.Generation
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -113,7 +113,7 @@ func (u updateDatabaseConfiguration) reconcile(ctx context.Context, r *Foundatio
 		}
 		if initialConfig {
 			cluster.Status.Configured = true
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				return &requeue{curError: err}
 			}

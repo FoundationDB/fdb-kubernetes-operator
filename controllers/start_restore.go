@@ -51,7 +51,7 @@ func (s startRestore) reconcile(ctx context.Context, r *FoundationDBRestoreRecon
 		}
 
 		restore.Status.Running = true
-		err = r.Status().Update(ctx, restore)
+		err = r.updateOrApply(ctx, restore)
 		if err != nil {
 			return &requeue{curError: err}
 		}

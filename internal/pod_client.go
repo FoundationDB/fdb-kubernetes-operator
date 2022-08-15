@@ -385,7 +385,7 @@ type mockFdbPodClient struct {
 
 // NewMockFdbPodClient builds a mock client for working with an FDB pod
 func NewMockFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod) (podclient.FdbPodClient, error) {
-	return &mockFdbPodClient{Cluster: cluster, Pod: pod, logger: logf.NullLogger{}}, nil
+	return &mockFdbPodClient{Cluster: cluster, Pod: pod, logger: logr.New(logf.NewDelegatingLogSink(logf.NullLogSink{}))}, nil
 }
 
 // UpdateFile checks if a file is up-to-date and tries to update it.

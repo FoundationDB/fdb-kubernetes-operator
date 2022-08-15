@@ -266,7 +266,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	// If we use the default reflect.DeepEqual method it will be recreating the
 	// status multiple times because the pointers are different.
 	if !equality.Semantic.DeepEqual(cluster.Status, *originalStatus) {
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			logger.Error(err, "Error updating cluster status")
 			return &requeue{curError: err}

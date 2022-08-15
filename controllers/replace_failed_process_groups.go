@@ -48,7 +48,7 @@ func (c replaceFailedProcessGroups) reconcile(ctx context.Context, r *Foundation
 	defer adminClient.Close()
 
 	if replacements.ReplaceFailedProcessGroups(logger, cluster, adminClient) {
-		err := r.Status().Update(ctx, cluster)
+		err := r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
