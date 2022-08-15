@@ -52,6 +52,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	allSynced := true
+	delayedRequeue := true
 	hasUpdate := false
 	var errs []error
 	// We try to update all process groups and if we observe an error we add it to the error list.
@@ -109,11 +110,15 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			}
 
 			if internal.IsNetworkError(err) && processGroup.GetConditionTime(fdbv1beta2.SidecarUnreachable) == nil {
+				curLogger.Info("process group sidecar is not reachable")
 				processGroup.UpdateCondition(fdbv1beta2.SidecarUnreachable, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 				hasUpdate = true
 			} else if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) == nil {
 				processGroup.UpdateCondition(fdbv1beta2.IncorrectConfigMap, true, cluster.Status.ProcessGroups, processGroup.ProcessGroupID)
 				hasUpdate = true
+				// If we are still waiting for a ConfigMap update we should not delay the requeue to ensure all processes are bounced
+				// at the same time. If the process is unreachable e.g. has the SidecarUnreachable status we can delay the requeue.
+				delayedRequeue = false
 			}
 
 			pod.ObjectMeta.Annotations[fdbv1beta2.OutdatedConfigMapKey] = fmt.Sprintf("%d", time.Now().Unix())
@@ -155,7 +160,7 @@ func (updatePodConfig) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	// If we return an error we don't requeue
 	// So we just return that we can't continue but don't have an error
 	if !allSynced {
-		return &requeue{message: "Waiting for Pod to receive ConfigMap update", delay: podSchedulingDelayDuration}
+		return &requeue{message: "Waiting for Pod to receive ConfigMap update", delay: podSchedulingDelayDuration, delayedRequeue: delayedRequeue}
 	}
 
 	return nil
