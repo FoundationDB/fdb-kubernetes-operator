@@ -1159,7 +1159,12 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.IsMarkedForRemoval() {
-			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess")
+			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
+			for _, condition := range processGroup.ProcessGroupConditions {
+				conditions = append(conditions, condition.ProcessGroupConditionType)
+			}
+
+			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess", "conditions", conditions)
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
 		}
