@@ -557,9 +557,10 @@ func (client *MockClient) Update(_ context.Context, object ctrlClient.Object, _ 
 
 // Patch patches an object.
 // This is not yet implemented.
-func (client *MockClient) Patch(_ context.Context, object ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
+func (client *MockClient) Patch(_ context.Context, _ ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
+	// Currently the SSA patch type is not supported in the fake client: https://github.com/kubernetes/client-go/issues/992
 	// TODO (johscheuer): Find a proper way to implement the SSA support for testing in unit tests.
-	return client.Update(context.TODO(), object)
+	return fmt.Errorf("not implemented")
 }
 
 // DeleteAllOf deletes all objects of the given type matching the given options.
@@ -652,6 +653,8 @@ func (client MockStatusClient) Update(_ context.Context, object ctrlClient.Objec
 // Patch patches an object's status.
 // This is not yet implemented.
 func (client MockStatusClient) Patch(_ context.Context, _ ctrlClient.Object, _ ctrlClient.Patch, _ ...ctrlClient.PatchOption) error {
+	// Currently the SSA patch type is not supported in the fake client: https://github.com/kubernetes/client-go/issues/992
+	// TODO (johscheuer): Find a proper way to implement the SSA support for testing in unit tests.
 	return fmt.Errorf("not implemented")
 }
 
