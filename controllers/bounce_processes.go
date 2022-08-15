@@ -68,7 +68,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
 		fdbv1beta2.IncorrectCommandLine: true,
 		fdbv1beta2.IncorrectPodSpec:     false,
-		fdbv1beta2.SidecarUnreachable:   false, // ignore all Process groups that are not reachable and therefor not get any config map updates.
+		fdbv1beta2.SidecarUnreachable:   false, // ignore all Process groups that are not reachable and therefore will not get any config map updates.
 	}, true)
 
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
