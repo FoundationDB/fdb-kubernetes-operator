@@ -97,13 +97,6 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, fdbKey stri
 	})
 
 	if err != nil {
-		if fdbError, ok := err.(fdb.Error); ok {
-			// See: https://apple.github.io/foundationdb/api-error-codes.html
-			// 1031: Operation aborted because the transaction timed out
-			if fdbError.Code == 1031 {
-				return nil, fdbv1beta2.TimeoutError{Err: err}
-			}
-		}
 		return nil, err
 	}
 

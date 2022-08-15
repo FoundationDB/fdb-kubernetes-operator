@@ -22,9 +22,10 @@ package internal
 
 import (
 	"errors"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"net"
 	"strings"
+
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -45,7 +46,9 @@ func IsNetworkError(err error) bool {
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
 	for err != nil {
-		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
+		// See: https://apple.github.io/foundationdb/api-error-codes.html
+		// 1031: Operation aborted because the transaction timed out
+		if fdbError, ok := err.(fdb.Error); ok && fdbError.Code == 1031 {
 			return true
 		}
 	}

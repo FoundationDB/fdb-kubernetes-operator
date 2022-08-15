@@ -22,8 +22,9 @@ package internal
 
 import (
 	"fmt"
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"net"
+
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,12 +112,12 @@ var _ = Describe("Internal error helper", func() {
 				}),
 			Entry("simple timeout error",
 				testCase{
-					err:      &fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
+					err:      &fdb.Error{Code: 1031},
 					expected: true,
 				}),
 			Entry("wrapped timeout error",
 				testCase{
-					err:      fmt.Errorf("test : %w", &fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")}),
+					err:      fmt.Errorf("test : %w", &fdb.Error{Code: 1031}),
 					expected: false,
 				}),
 		)

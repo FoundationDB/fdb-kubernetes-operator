@@ -32,6 +32,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apple/foundationdb/bindings/go/src/fdb"
+
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -225,7 +227,9 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 		// If we hit a timeout report it as a timeout error
 		if strings.Contains(string(output), "Specified timeout reached") {
-			return "", fdbv1beta2.TimeoutError{Err: err}
+			// See: https://apple.github.io/foundationdb/api-error-codes.html
+			// 1031: Operation aborted because the transaction timed out
+			return "", fdb.Error{Code: 1031}
 		}
 
 		return "", err
@@ -262,7 +266,7 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 			break
 		}
 
-		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
+		if fdbError, ok := err.(fdb.Error); ok && fdbError.Code == 1031 {
 			client.log.Info("timeout issue will retry with higher timeout")
 			currentTimeoutInSeconds *= 2
 			continue
