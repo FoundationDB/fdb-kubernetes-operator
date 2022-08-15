@@ -44,14 +44,6 @@ const (
 	fdbcliStr = "fdbcli"
 )
 
-type timeoutError struct {
-	err error
-}
-
-func (timeoutErr timeoutError) Error() string {
-	return fmt.Sprintf("fdbcli timeout: %s", timeoutErr.err.Error())
-}
-
 var adminClientMutex sync.Mutex
 
 var maxCommandOutput = parseMaxCommandOutput()
@@ -233,7 +225,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 		// If we hit a timeout report it as a timeout error
 		if strings.Contains(string(output), "Specified timeout reached") {
-			return "", timeoutError{err: err}
+			return "", fdbv1beta2.TimeoutError{Err: err}
 		}
 
 		return "", err
@@ -270,7 +262,7 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 			break
 		}
 
-		if _, ok := err.(timeoutError); ok {
+		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
 			client.log.Info("timeout issue will retry with higher timeout")
 			currentTimeoutInSeconds *= 2
 			continue

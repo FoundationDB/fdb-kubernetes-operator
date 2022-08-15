@@ -22,6 +22,7 @@ package internal
 
 import (
 	"errors"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"net"
 	"strings"
 
@@ -44,11 +45,9 @@ func IsNetworkError(err error) bool {
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
 	for err != nil {
-		if strings.Contains(err.Error(), "fdbcli timeout") {
+		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
 			return true
 		}
-
-		err = errors.Unwrap(err)
 	}
 
 	return false

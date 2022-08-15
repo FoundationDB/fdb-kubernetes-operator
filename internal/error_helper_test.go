@@ -22,6 +22,7 @@ package internal
 
 import (
 	"fmt"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"net"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,6 +89,34 @@ var _ = Describe("Internal error helper", func() {
 			Entry("simple errorr",
 				testCase{
 					err:      fmt.Errorf("error"),
+					expected: false,
+				}),
+		)
+	})
+
+	When("checking if an error is a timeout error", func() {
+		type testCase struct {
+			err      error
+			expected bool
+		}
+
+		DescribeTable("it should detect the timeout error",
+			func(tc testCase) {
+				Expect(IsTimeoutError(tc.err)).To(Equal(tc.expected))
+			},
+			Entry("simple error",
+				testCase{
+					err:      fmt.Errorf("test"),
+					expected: false,
+				}),
+			Entry("simple timeout error",
+				testCase{
+					err:      &fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
+					expected: true,
+				}),
+			Entry("wrapped timeout error",
+				testCase{
+					err:      fmt.Errorf("test : %w", &fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")}),
 					expected: false,
 				}),
 		)
