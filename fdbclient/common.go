@@ -72,7 +72,11 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	return database, nil
 }
 
-func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, fdbKey string, extraTimeout int64) ([]byte, error) {
+func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger, fdbKey string, extraTimeout int64) ([]byte, error) {
+	log.Info("Fetch values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
+	defer func() {
+		log.Info("Done fetching values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
+	}()
 	database, err := getFDBDatabase(cluster)
 	if err != nil {
 		return nil, err
@@ -116,14 +120,13 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, fdbKey stri
 }
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
-func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster) ([]byte, error) {
-	return getValueFromDBUsingKey(cluster, "\xff\xff/connection_string", 1)
+func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
+	return getValueFromDBUsingKey(cluster, log, "\xff\xff/connection_string", 1)
 }
 
 // getStatusFromDB gets the database's status directly from the system key
 func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
-	log.Info("Fetch status from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name)
-	return getValueFromDBUsingKey(cluster, "\xff\xff/status/json", 1000)
+	return getValueFromDBUsingKey(cluster, log, "\xff\xff/status/json", 1000)
 }
 
 type realDatabaseClientProvider struct {

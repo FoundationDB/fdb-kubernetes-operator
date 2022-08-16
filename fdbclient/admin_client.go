@@ -89,7 +89,6 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 	if err != nil {
 		return nil, err
 	}
-	clusterFilePath := clusterFile.Name()
 
 	defer clusterFile.Close()
 	_, err = clusterFile.WriteString(cluster.Status.ConnectionString)
@@ -101,7 +100,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFilePath, useClientLibrary: true, log: log}, nil
+	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFile.Name(), useClientLibrary: true, log: log}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -614,7 +613,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 	if client.Cluster.UseManagementAPI() {
 		// This will call directly the database and fetch the connection string
 		// from the system key space.
-		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster)
+		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster, client.log)
 	} else {
 		var output string
 		output, err = client.runCommandWithBackoff("status minimal")
