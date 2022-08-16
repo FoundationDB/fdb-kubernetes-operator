@@ -112,13 +112,13 @@ var _ = Describe("Internal error helper", func() {
 				}),
 			Entry("simple timeout error",
 				testCase{
-					err:      &fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
+					err:      fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")},
 					expected: true,
 				}),
 			Entry("wrapped timeout error",
 				testCase{
-					err:      fmt.Errorf("test : %w", &fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")}),
-					expected: false,
+					err:      fmt.Errorf("test : %w", fdbv1beta2.TimeoutError{Err: fmt.Errorf("not reachable")}),
+					expected: true,
 				}),
 		)
 	})
