@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/apple/foundationdb/bindings/go/src/fdb"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -46,11 +46,11 @@ func IsNetworkError(err error) bool {
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
 	for err != nil {
-		// See: https://apple.github.io/foundationdb/api-error-codes.html
-		// 1031: Operation aborted because the transaction timed out
-		if fdbError, ok := err.(fdb.Error); ok && fdbError.Code == 1031 {
+		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
 			return true
 		}
+
+		err = errors.Unwrap(err)
 	}
 
 	return false
