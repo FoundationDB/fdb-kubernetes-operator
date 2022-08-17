@@ -35,9 +35,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -65,10 +62,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 				errBuffer := bytes.Buffer{}
 				inBuffer := bytes.Buffer{}
 
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&tc.cluster).Build()
+				kubeClient := getFakeKubeClientWithRuntime(&tc.cluster)
 
 				cmd := newDeprecationCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
 				err := checkDeprecation(cmd, kubeClient, tc.inputClusters, namespace, tc.deprecationOptions, tc.showClusterSpec)

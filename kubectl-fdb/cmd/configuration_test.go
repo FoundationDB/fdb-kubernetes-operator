@@ -27,10 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("[plugin] configuration command", func() {
@@ -63,22 +60,14 @@ var _ = Describe("[plugin] configuration command", func() {
 			})
 
 			It("should return the configuration string", func() {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
+				kubeClient := getFakeKubeClientWithRuntime(cluster)
 				configuration, err := getConfigurationString(kubeClient, "test", "test", false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"test\\\",\\\"priority\\\":1}]}]"))
 			})
 
 			It("should return the same configuration string with fail-over", func() {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
+				kubeClient := getFakeKubeClientWithRuntime(cluster)
 				configuration, err := getConfigurationString(kubeClient, "test", "test", true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"test\\\",\\\"priority\\\":1}]}]"))
@@ -146,22 +135,14 @@ var _ = Describe("[plugin] configuration command", func() {
 			})
 
 			It("should return the configuration string", func() {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
+				kubeClient := getFakeKubeClientWithRuntime(cluster)
 				configuration, err := getConfigurationString(kubeClient, "test", "test", false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\"},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
 			})
 
 			It("should return the configuration string with the modified priority", func() {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
+				kubeClient := getFakeKubeClientWithRuntime(cluster)
 				configuration, err := getConfigurationString(kubeClient, "test", "test", true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(configuration).To(Equal("  usable_regions=0 logs=0 resolvers=0 log_routers=0 remote_logs=0 proxies=3 regions=[{\\\"datacenters\\\":[{\\\"id\\\":\\\"primary\\\"},{\\\"id\\\":\\\"primary-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_single\\\"},{\\\"datacenters\\\":[{\\\"id\\\":\\\"remote\\\",\\\"priority\\\":1},{\\\"id\\\":\\\"remote-sat\\\",\\\"priority\\\":1,\\\"satellite\\\":1},{\\\"id\\\":\\\"primary-sat\\\",\\\"satellite\\\":1}],\\\"satellite_logs\\\":3,\\\"satellite_redundancy_mode\\\":\\\"one_satellite_double\\\"}]"))
@@ -169,11 +150,7 @@ var _ = Describe("[plugin] configuration command", func() {
 
 			When("Updating the config for the cluster", func() {
 				It("should update the config with the modified priority", func() {
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
+					kubeClient := getFakeKubeClientWithRuntime(cluster)
 					err := updateConfig(kubeClient, "test", "test", true, false)
 					Expect(err).NotTo(HaveOccurred())
 

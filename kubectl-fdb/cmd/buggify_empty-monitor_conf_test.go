@@ -23,10 +23,6 @@ package cmd
 import (
 	ctx "context"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,10 +56,7 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 		When("should update empty-monitor-conf", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.EmptyMonitorConf = false
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+				kubeClient = getFakeKubeClientWithRuntime(cluster)
 			})
 
 			It("setting monitor config to true", func() {
@@ -83,10 +76,7 @@ var _ = Describe("[plugin] buggify empty-monitor-conf instances command", func()
 		When("should update empty-monitor-conf", func() {
 			BeforeEach(func() {
 				cluster.Spec.Buggify.EmptyMonitorConf = true
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+				kubeClient = getFakeKubeClientWithRuntime(cluster)
 			})
 
 			It("setting monitor config to false", func() {

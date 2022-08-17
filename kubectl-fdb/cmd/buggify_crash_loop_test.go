@@ -25,11 +25,7 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -63,10 +59,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 
 			DescribeTable("should add all targeted processes to crash-loop list",
 				func(tc testCase) {
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+					kubeClient := getFakeKubeClientWithRuntime(cluster)
 
 					err := updateCrashLoopList(kubeClient, clusterName, tc.Instances, namespace, false, false, false)
 					Expect(err).NotTo(HaveOccurred())
@@ -97,10 +90,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 
 				BeforeEach(func() {
 					cluster.Spec.Buggify.CrashLoop = []string{"storage-1"}
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+					kubeClient = getFakeKubeClientWithRuntime(cluster)
 				})
 
 				type testCase struct {
@@ -146,10 +136,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1", "storage-2", "storage-3"}
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+				kubeClient = getFakeKubeClientWithRuntime(cluster)
 			})
 
 			type testCase struct {
@@ -190,10 +177,7 @@ var _ = Describe("[plugin] buggify crash-loop instances command", func() {
 
 			BeforeEach(func() {
 				cluster.Spec.Buggify.CrashLoop = []string{"storage-1", "storage-2", "storage-3"}
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+				kubeClient = getFakeKubeClientWithRuntime(cluster)
 			})
 
 			It("should clear the crash-loop list", func() {
