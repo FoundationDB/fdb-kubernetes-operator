@@ -48,6 +48,10 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			sleep, err := cmd.Root().Flags().GetUint16("sleep")
+			if err != nil {
+				return err
+			}
 			autoFix, err := cmd.Flags().GetBool("auto-fix")
 			if err != nil {
 				return err
@@ -113,7 +117,7 @@ func newAnalyzeCmd(streams genericclioptions.IOStreams) *cobra.Command {
 
 			var errs []error
 			for _, cluster := range clusters {
-				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, wait, ignoreConditions, ignoreRemovals)
+				err := analyzeCluster(cmd, kubeClient, cluster, namespace, autoFix, wait, ignoreConditions, ignoreRemovals, sleep)
 				if err != nil {
 					errs = append(errs, err)
 				}
@@ -218,7 +222,7 @@ func printStatement(cmd *cobra.Command, line string, mesType messageType) {
 	color.Unset()
 }
 
-func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool) error {
+func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName string, namespace string, autoFix bool, wait bool, ignoreConditions []string, ignoreRemovals bool, sleep uint16) error {
 	foundIssues := false
 	cluster, err := loadCluster(kubeClient, namespace, clusterName)
 
@@ -399,7 +403,7 @@ func analyzeCluster(cmd *cobra.Command, kubeClient client.Client, clusterName st
 		confirmed := false
 
 		if len(failedProcessGroups) > 0 {
-			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, wait, false, true)
+			err := replaceProcessGroups(kubeClient, cluster.Name, failedProcessGroups, namespace, true, wait, false, true, sleep)
 			if err != nil {
 				return err
 			}

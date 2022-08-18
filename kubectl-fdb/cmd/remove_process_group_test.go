@@ -89,7 +89,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 					_ = fdbv1beta2.AddToScheme(scheme)
 					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 
-					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, false, tc.RemoveAllFailed, false)
+					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, false, tc.RemoveAllFailed, false, 0)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
@@ -152,7 +152,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list without exclusion", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, false, false, false, false)
+						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, false, false, false, false, 0)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
@@ -172,7 +172,7 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, true, false, false, false)
+						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, true, false, false, false, 0)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
