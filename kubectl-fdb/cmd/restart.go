@@ -44,7 +44,7 @@ func newRestartCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sleep, err := cmd.Root().Flags().GetDuration("sleep")
+			sleep, err := cmd.Root().Flags().GetUint16("sleep")
 			if err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func convertConditions(inputConditions []string) ([]fdbv1beta2.ProcessGroupCondi
 }
 
 //nolint:interfacer // golint has a false-positive here -> `cmd` can be `github.com/hashicorp/go-retryablehttp.Logger`
-func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, wait bool, sleep time.Duration) error {
+func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *kubernetes.Clientset, processes []string, namespace string, clusterName string, wait bool, sleep uint16) error {
 	if wait {
 		confirmed := confirmAction(fmt.Sprintf("Restart %v in cluster %s/%s", processes, namespace, clusterName))
 		if !confirmed {
@@ -176,7 +176,7 @@ func restartProcesses(cmd *cobra.Command, restConfig *rest.Config, kubeClient *k
 		if err != nil {
 			return err
 		}
-		time.Sleep(sleep * time.Second)
+		time.Sleep(time.Duration(sleep) * time.Second)
 	}
 
 	return nil
