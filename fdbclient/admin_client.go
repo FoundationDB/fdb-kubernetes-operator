@@ -622,7 +622,7 @@ func (client *cliAdminClient) GetConnectionString() (string, error) {
 		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster, client.log)
 	} else {
 		var output string
-		output, err = client.runCommandWithBackoff("status minimal")
+		output, err = client.runCommandWithBackoff("option on ACCESS_SYSTEM_KEYS; get \xff/coordinators")
 		if err != nil {
 			return "", err
 		}
