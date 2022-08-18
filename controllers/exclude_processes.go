@@ -42,6 +42,7 @@ type excludeProcesses struct{}
 
 // reconcile runs the reconciler's work.
 func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) *requeue {
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
 	adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 	if err != nil {
 		return &requeue{curError: err}
@@ -62,7 +63,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		log.Info("current exclusions", "ex", exclusions)
+		logger.Info("current exclusions", "ex", exclusions)
 		fdbProcessesToExclude, processClassesToExclude = getProcessesToExclude(exclusions, cluster, removalCount)
 	}
 

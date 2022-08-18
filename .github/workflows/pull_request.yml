@@ -164,10 +164,13 @@ jobs:
         uses: actions/checkout@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+      - name: Get the sha
+        id: get_sha
+        run: echo ::set-output name=TAG::${GITHUB_SHA}
       - name: Build image
         uses: docker/build-push-action@v2
         with:
-          build-args: TAG=${GITHUB_SHA}
+          build-args: TAG=${{ steps.get_sha.outputs.TAG }}
           push: false
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
@@ -209,10 +212,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Get the sha
+        id: get_sha
+        run: echo ::set-output name=TAG::${GITHUB_SHA}
       - name: Build and push to registry
         uses: docker/build-push-action@v2
         with:
-          build-args: TAG=${GITHUB_SHA}
+          build-args: TAG=${{ steps.get_sha.outputs.TAG }}
           push: true
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
