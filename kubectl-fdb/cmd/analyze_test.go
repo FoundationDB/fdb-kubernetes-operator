@@ -115,7 +115,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 				inBuffer := bytes.Buffer{}
 
 				cmd := newAnalyzeCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals)
+				err := analyzeCluster(cmd, kubeClient, clusterName, namespace, tc.AutoFix, tc.NoWait, tc.IgnoredConditions, tc.IgnoreRemovals, 0)
 
 				if err != nil && !tc.HasErrors {
 					Expect(err).To(HaveOccurred())
