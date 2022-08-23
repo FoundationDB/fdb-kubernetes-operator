@@ -31,7 +31,7 @@ endif
 # Dependencies to fetch through `go`
 CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
 CONTROLLER_GEN=$(GOBIN)/controller-gen
-KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v3@v3.9.4
+KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
 GOLANGCI_LINT_PKG=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
 GOLANGCI_LINT=$(GOBIN)/golangci-lint
@@ -190,7 +190,7 @@ rebuild-operator: container-build container-push-if-remote deploy bounce
 bounce:
 	kubectl $(KUBECTL_ARGS) delete pod -l app=fdb-kubernetes-operator-controller-manager
 
-samples: ${SAMPLES}
+samples: kustomize ${SAMPLES}
 
 config/samples/deployment.yaml: config/deployment/*.yaml
 	kustomize build ./config/deployment > $@
