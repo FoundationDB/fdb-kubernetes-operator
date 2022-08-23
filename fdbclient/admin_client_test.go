@@ -178,4 +178,23 @@ var _ = Describe("admin_client_test", func() {
 			),
 		)
 	})
+
+	When("parsing the connection string", func() {
+		DescribeTable("it should return the correct connection string",
+			func(input string, expected string) {
+				connectingString, err := fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(input))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(connectingString.String()).To(Equal(expected))
+			},
+			Entry("with a correct response from FDB",
+				">>> option on ACCESS_SYSTEM_KEYS\\nOption enabled for all transactions\\n>>> get \\\\xff/coordinators\\n`\\\\xff/coordinators' is `fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls'\\n",
+				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
+			),
+
+			Entry("without the byte string response",
+				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
+				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
+			),
+		)
+	})
 })
