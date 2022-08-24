@@ -312,7 +312,6 @@ func (r *FoundationDBClusterReconciler) getPodClient(cluster *fdbv1beta2.Foundat
 		return nil, fmt.Sprintf("Process group in cluster %s/%s does not have pod defined", cluster.Namespace, cluster.Name)
 	}
 
-	// TODO how to pass this down?
 	podClient, err := r.PodClientProvider(cluster, pod)
 	if err != nil {
 		return nil, err.Error()

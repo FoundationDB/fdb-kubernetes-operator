@@ -2025,18 +2025,31 @@ var _ = Describe("cluster_controller", func() {
 		})
 
 		Context("downgrade cluster", func() {
-			BeforeEach(func() {
-				shouldCompleteReconciliation = false
-				IncompatibleVersion := fdbv1beta2.Versions.Default
-				IncompatibleVersion.Patch--
-				cluster.Spec.Version = IncompatibleVersion.String()
-				err := k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+			When("downgrading a cluster to another patch version", func() {
+				BeforeEach(func() {
+					cluster.Spec.Version = fdbv1beta2.Versions.PreviousPatchVersion.String()
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should downgrade the cluster", func() {
+					Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion + 1))
+					Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.PreviousPatchVersion.String()))
+				})
 			})
 
-			It("should not downgrade cluster", func() {
-				Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
-				Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.Default.String()))
+			When("downgrading a cluster to another major version", func() {
+				BeforeEach(func() {
+					shouldCompleteReconciliation = false
+					cluster.Spec.Version = fdbv1beta2.Versions.IncompatibleVersion.String()
+					err := k8sClient.Update(context.TODO(), cluster)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should not downgrade the cluster", func() {
+					Expect(cluster.Status.Generations.Reconciled).To(Equal(originalVersion))
+					Expect(cluster.Status.RunningVersion).To(Equal(fdbv1beta2.Versions.Default.String()))
+				})
 			})
 		})
 
@@ -2045,7 +2058,6 @@ var _ = Describe("cluster_controller", func() {
 
 			BeforeEach(func() {
 				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
-
 				adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 			})

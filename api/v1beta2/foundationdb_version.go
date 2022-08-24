@@ -211,10 +211,14 @@ var Versions = struct {
 	SupportsRocksDBV1,
 	SupportsIsPresent,
 	SupportsShardedRocksDB,
+	IncompatibleVersion,
+	PreviousPatchVersion,
 	Default Version
 }{
-	Default:                Version{Major: 6, Minor: 2, Patch: 20},
-	NextPatchVersion:       Version{Major: 6, Minor: 2, Patch: 21},
+	Default:                Version{Major: 6, Minor: 2, Patch: 21},
+	IncompatibleVersion:    Version{Major: 6, Minor: 1, Patch: 0},
+	PreviousPatchVersion:   Version{Major: 6, Minor: 2, Patch: 20},
+	NextPatchVersion:       Version{Major: 6, Minor: 2, Patch: 22},
 	NextMajorVersion:       Version{Major: 7, Minor: 0, Patch: 0},
 	MinimumVersion:         Version{Major: 6, Minor: 2, Patch: 20},
 	SupportsRocksDBV1:      Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
