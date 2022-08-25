@@ -605,33 +605,37 @@ func (client *cliAdminClient) ChangeCoordinators(addresses []fdbv1beta2.ProcessA
 	return connectionString.String(), nil
 }
 
+// cleanConnectionStringOutput is a helper method to remove unrelated output from the get command in the connection string
+// output.
+func cleanConnectionStringOutput(input string) string {
+	startIdx := strings.LastIndex(input, "`")
+	endIdx := strings.LastIndex(input, "'")
+	if startIdx == -1 && endIdx == -1 {
+		return input
+	}
+
+	return input[startIdx+1 : endIdx]
+}
+
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
-	var connectionStringBytes []byte
+	var output string
 	var err error
 
 	if client.Cluster.UseManagementAPI() {
 		// This will call directly the database and fetch the connection string
 		// from the system key space.
-		connectionStringBytes, err = getConnectionStringFromDB(client.Cluster, client.log)
+		var outputBytes []byte
+		outputBytes, err = getConnectionStringFromDB(client.Cluster, client.log)
+		output = string(outputBytes)
 	} else {
-		var output string
-		output, err = client.runCommandWithBackoff("status minimal")
-		if err != nil {
-			return "", err
-		}
-
-		if !strings.Contains(output, "The database is available") {
-			return "", fmt.Errorf("unable to fetch connection string: %s", output)
-		}
-
-		connectionStringBytes, err = os.ReadFile(client.clusterFilePath)
+		output, err = client.runCommandWithBackoff("option on ACCESS_SYSTEM_KEYS; get \xff/coordinators")
 	}
 	if err != nil {
 		return "", err
 	}
 	var connectionString fdbv1beta2.ConnectionString
-	connectionString, err = fdbv1beta2.ParseConnectionString(string(connectionStringBytes))
+	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(output))
 	if err != nil {
 		return "", err
 	}

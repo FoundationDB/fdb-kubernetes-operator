@@ -121,7 +121,7 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Lo
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
 func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
-	return getValueFromDBUsingKey(cluster, log, "\xff\xff/connection_string", 1)
+	return getValueFromDBUsingKey(cluster, log, "\xff/coordinators", 1)
 }
 
 // getStatusFromDB gets the database's status directly from the system key
