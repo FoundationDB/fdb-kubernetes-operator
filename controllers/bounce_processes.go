@@ -57,10 +57,14 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 	minimumUptime := math.Inf(1)
 	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
+
 	for _, process := range status.Cluster.Processes {
+		if process.Excluded {
+			continue
+		}
 		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
 
-		if process.UptimeSeconds < minimumUptime {
+		if process.UptimeSeconds < minimumUptime && !process.Excluded {
 			minimumUptime = process.UptimeSeconds
 		}
 	}

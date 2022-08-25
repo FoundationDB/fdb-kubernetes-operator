@@ -98,6 +98,36 @@ var _ = Describe("bounceProcesses", func() {
 		})
 	})
 
+	Context("with excluded and incorrect processes", func() {
+		BeforeEach(func() {
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+
+			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.MarkForRemoval()
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should kill the targeted processes", func() {
+			addresses := make([]string, 0, 1)
+			for _, processGroupID := range []string{"storage-1"} {
+				processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, processGroupID).Addresses
+				for _, address := range processGroupAddresses {
+					addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+				}
+			}
+
+			Expect(len(adminClient.KilledAddresses)).To(Equal(len(addresses)))
+			Expect(adminClient.KilledAddresses).To(ContainElements(addresses))
+		})
+	})
+
 	Context("with Pod in pending state", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
