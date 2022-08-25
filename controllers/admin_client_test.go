@@ -159,7 +159,7 @@ var _ = Describe("admin_client_test", func() {
 							"zoneid":      "operator-test-1-storage-1",
 							"dcid":        "",
 						},
-						Version:       "6.2.20",
+						Version:       cluster.Spec.Version,
 						UptimeSeconds: 60000,
 						Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 							{
@@ -220,7 +220,7 @@ var _ = Describe("admin_client_test", func() {
 						"instance_id": "dc2-storage-1",
 						"zoneid":      "dc2-storage-1",
 					},
-					Version:       "6.2.20",
+					Version:       cluster.Spec.Version,
 					UptimeSeconds: 60000,
 				}))
 			})
