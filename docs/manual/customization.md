@@ -230,7 +230,7 @@ Using pod IPs can present several challenges:
 
 ### Service IPs
 
-You can choose this option by setting `spec.routing.publicIPSource=service`. This feature is new, and still experimental, but we plan to make it the default in the future.
+You can choose this option by setting `spec.routing.publicIPSource=service`. This feature is still experimental, and is not fully supported. 
 
 In this mode, we create one service for each pod, and use that service's IP as the public IP for the pod. The pod IP will still be used as the listen address. This ensures that IPs stay fixed even when pods get rescheduled, which reduces the need for changing coordinators and protects against some unrecoverable failure modes.
 
