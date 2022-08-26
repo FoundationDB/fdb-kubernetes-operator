@@ -134,7 +134,8 @@ var _ = Describe("bounceProcesses", func() {
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
 			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
 			for _, address := range processGroup.Addresses {
-				adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
+				err := adminClient.ExcludeProcesses([]fdbv1beta2.ProcessAddress{{StringAddress: address, Port: 4501}})
+				Expect(err).To(BeNil())
 			}
 
 		})
