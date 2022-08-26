@@ -23,6 +23,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"text/template"
@@ -85,7 +86,7 @@ func newProfileAnalyzerCmd(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 		Example: `
 # Run the profiler for cluster-1. We require --cluster option explicitly because analyze commands take lot many arguments.
-kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --end-time "01:30 20/07/2022 BST" --top-requests 100
+kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --end-time "01:30 20/07/2022 BST" --top-requests 100 --template-name job.yaml
 `,
 	}
 	cmd.SetOut(o.Out)
@@ -119,18 +120,18 @@ kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --e
 }
 
 func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName string, startTime string, endTime string, topRequests int, templateName string) error {
-	pc := profileConfig{
+	config := profileConfig{
 		Namespace:   namespace,
 		ClusterName: clusterName,
 		JobName:     clusterName + "-hot-shard-tool",
-		CommandArgs: " -C " + " /var/dynamic-conf/fdb.cluster" + " -s \"" + startTime + "\"" + " -e \"" + endTime + "\"" + " --filter-get-range " + " --top-requests " + strconv.Itoa(topRequests),
+		CommandArgs: fmt.Sprintf(" -C /var/dynamic-conf/fdb.cluster -s %s -e %s --filter-get-range --top-requests  %s", startTime, endTime, strconv.Itoa(topRequests)),
 	}
 	t, err := template.ParseFiles(templateName)
 	if err != nil {
 		return err
 	}
 	buf := bytes.Buffer{}
-	err = t.Execute(&buf, pc)
+	err = t.Execute(&buf, config)
 	if err != nil {
 		return err
 	}
@@ -141,10 +142,6 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 	if err != nil {
 		return err
 	}
-	err = kubeClient.Create(context.TODO(), job)
-	if err != nil {
-		return err
-	}
-	log.Printf("%s Job created.", pc.JobName)
-	return nil
+	log.Printf("creating job %s", config.JobName)
+	return kubeClient.Create(context.TODO(), job)
 }

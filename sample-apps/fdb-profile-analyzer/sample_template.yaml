@@ -1,9 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  generation: 1
   labels:
-    job-name: {{ .JobName }}
     app: fdb-profile-analyzer
   name: {{ .JobName }}
   namespace: {{ .Namespace }}
@@ -15,9 +13,7 @@ spec:
   suspend: false
   template:
     metadata:
-      creationTimestamp: null
       labels:
-        job-name: {{ .JobName }}
         app: fdb-profile-analyzer
     spec:
       containers:
@@ -38,11 +34,11 @@ spec:
           name: profile-analyzer
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 1000m
+              memory: 1Gi
             limits:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 1000m
+              memory: 1Gi
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -51,9 +47,7 @@ spec:
               readOnly: true
             - mountPath: /var/log/fdb-profile-analyzer
               name: fdb-profile-analyzer-logs
-      dnsPolicy: ClusterFirst
       restartPolicy: Never
-      schedulerName: default-scheduler
       securityContext:
         fsGroup: 4059
         runAsGroup: 4059
@@ -67,8 +61,6 @@ spec:
                 path: fdb.cluster
             name: {{ .ClusterName }}-config
           name: config-map
-        - emptyDir: {}
-          name: dynamic-conf
         - emptyDir: {}
           name: fdb-profile-analyzer-logs
   ttlSecondsAfterFinished: 7200
