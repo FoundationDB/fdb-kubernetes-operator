@@ -64,6 +64,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		}
 		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
 
+		// comment to trigger PR builder
 		if process.UptimeSeconds < minimumUptime && !process.Excluded {
 			minimumUptime = process.UptimeSeconds
 		}
