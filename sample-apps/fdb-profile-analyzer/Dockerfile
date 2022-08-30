@@ -4,11 +4,7 @@ USER root
 RUN microdnf --enablerepo=ubi* --disablerepo=rhel* install -y wget \
                          bind-utils \
                          lsof  \
-                         nmap-ncat \
-                         less \
-                         vim-minimal \
                          net-tools \
-                         jq \
                          openssl \
                          pkg-config \
                          procps-ng\

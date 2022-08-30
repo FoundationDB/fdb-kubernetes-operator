@@ -20,33 +20,40 @@
 package cmd
 
 import (
-	"bytes"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-var _ = Describe("[plugin] root command", func() {
-	When("running the root command with profile analyzer", func() {
-		var outBuffer bytes.Buffer
-		var errBuffer bytes.Buffer
-		var inBuffer bytes.Buffer
+var _ = Describe("profile analyser", func() {
+	When("running profile analyzer", func() {
+		clusterName := "test"
+		namespace := "test"
+		scheme := runtime.NewScheme()
+		var kubeClient client.Client
 
 		BeforeEach(func() {
-			// We use these buffers to check the input/output
-			outBuffer = bytes.Buffer{}
-			errBuffer = bytes.Buffer{}
-			inBuffer = bytes.Buffer{}
+			var cluster *fdbv1beta2.FoundationDBCluster
+			_ = clientgoscheme.AddToScheme(scheme)
+			_ = fdbv1beta2.AddToScheme(scheme)
+			cluster = &fdbv1beta2.FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: namespace,
+				},
+			}
+			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
-
 		It("should not throw an error", func() {
-			cmd := NewRootCmd(genericclioptions.IOStreams{In: &inBuffer, Out: &outBuffer, ErrOut: &errBuffer})
-
-			args := []string{"analyze-profile", "-c", "sample", "--end-time", "21:30 08/24/2022 BST", "--start-time", "21:45 08/24/2022 BST", "--template-name", "/Users/shambugouda_annigeri/git/fdb-automation/fdb-hot-shard-tool/fdb-hot-shard-job.yaml"}
-			cmd.SetArgs(args)
-
-			Expect(cmd.Execute()).NotTo(HaveOccurred())
+			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

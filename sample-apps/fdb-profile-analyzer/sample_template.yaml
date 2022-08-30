@@ -21,7 +21,7 @@ spec:
             - /bin/bash
           args:
             - -c
-            - python3.9 ./transaction_profiling_analyzer.py {{ .CommandArgs }}
+            - python3 ./transaction_profiling_analyzer.py {{ .CommandArgs }}
           env:
             - name: FDB_CLUSTER_FILE
               value: /var/dynamic-conf/fdb.cluster
@@ -39,8 +39,6 @@ spec:
             limits:
               cpu: 1000m
               memory: 1Gi
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/dynamic-conf
               name: config-map
