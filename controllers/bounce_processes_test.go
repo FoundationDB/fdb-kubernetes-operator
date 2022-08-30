@@ -98,7 +98,7 @@ var _ = Describe("bounceProcesses", func() {
 		})
 	})
 
-	Context("with pod in pending state", func() {
+	Context("with Pod in pending state", func() {
 		BeforeEach(func() {
 			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
 			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
@@ -111,13 +111,43 @@ var _ = Describe("bounceProcesses", func() {
 			Expect(requeue).To(BeNil())
 		})
 
-		It("should not kill the pending processes", func() {
+		It("should not kill the pending process", func() {
 			addresses := make([]string, 0, 1)
 			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
 			for _, address := range processGroupAddresses {
 				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
 			}
 			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
+		})
+	})
+
+	When("a process group has the MissingProcess condition", func() {
+		BeforeEach(func() {
+			processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-4]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-1"))
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+			processGroup.ProcessGroupConditions = append(processGroup.ProcessGroupConditions, &fdbv1beta2.ProcessGroupCondition{
+				ProcessGroupConditionType: fdbv1beta2.MissingProcesses,
+				Timestamp:                 time.Now().Add(-2 * time.Minute).Unix(),
+			})
+
+			processGroup = cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
+			Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
+			processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, true, nil, "")
+		})
+
+		It("should not requeue", func() {
+			Expect(requeue).To(BeNil())
+		})
+
+		It("should not kill the missing process but all other processes", func() {
+			addresses := make([]string, 0, 1)
+			processGroupAddresses := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, "storage-1").Addresses
+			for _, address := range processGroupAddresses {
+				addresses = append(addresses, fmt.Sprintf("%s:4501", address))
+			}
+			Expect(adminClient.KilledAddresses).NotTo(ContainElements(addresses))
+			Expect(len(adminClient.KilledAddresses)).To(BeNumerically("==", 1))
 		})
 	})
 

@@ -76,8 +76,18 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	var missingAddress []string
 
 	for _, process := range processesToBounce {
-		if cluster.SkipProcessGroup(fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, process)) {
+		processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, process)
+		if cluster.SkipProcessGroup(processGroup) {
 			continue
+		}
+
+		// Ignore processes that are missing for more than 30 seconds e.g. if the process is network partitioned.
+		// This is required since the update status will not update the SidecarUnreachable setting if a process is
+		// missing in the status.
+		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
+			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
+				continue
+			}
 		}
 
 		if addressMap[process] == nil {
