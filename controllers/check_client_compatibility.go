@@ -52,8 +52,8 @@ func (c checkClientCompatibility) reconcile(_ context.Context, r *FoundationDBCl
 		return &requeue{curError: err}
 	}
 
-	if !version.IsAtLeast(runningVersion) {
-		return &requeue{message: "cluster downgrade operation is not supported"}
+	if !version.IsAtLeast(runningVersion) && !version.IsProtocolCompatible(runningVersion) {
+		return &requeue{message: fmt.Sprintf("cluster downgrade operation is only supported for protocol compatible versions, running version %s and desired version %s are not compatible", runningVersion, version)}
 	}
 
 	if version.IsProtocolCompatible(runningVersion) {
