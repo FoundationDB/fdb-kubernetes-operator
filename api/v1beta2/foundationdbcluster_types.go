@@ -824,6 +824,10 @@ type FoundationDBClusterAutomationOptions struct {
 	// further reconciliation.
 	IgnoreTerminatingPodsSeconds *int `json:"ignoreTerminatingPodsSeconds,omitempty"`
 
+	// IgnoreMissingProcessesSeconds defines how long a process group has to be in the MissingProcess condition until
+	// it will be ignored during reconciliation. This prevents that a process will block reconciliation.
+	IgnoreMissingProcessesSeconds *int `json:"ignoreMissingProcessesSeconds,omitempty"`
+
 	// MaxConcurrentReplacements defines how many process groups can be concurrently
 	// replaced if they are misconfigured. If the value will be set to 0 this will block replacements
 	// and these misconfigured Pods must be replaced manually or by another process. For each reconcile
@@ -1742,7 +1746,7 @@ func (cluster *FoundationDBCluster) ShouldFilterOnOwnerReferences() bool {
 	return pointer.BoolDeref(cluster.Spec.LabelConfig.FilterOnOwnerReferences, false)
 }
 
-// SkipProcessGroup checks if a ProcessGroupStatus should be skip during reconciliation.
+// SkipProcessGroup checks if a ProcessGroupStatus should be skipped during reconciliation.
 func (cluster *FoundationDBCluster) SkipProcessGroup(processGroup *ProcessGroupStatus) bool {
 	if processGroup == nil {
 		return true
@@ -1763,6 +1767,11 @@ func (cluster *FoundationDBCluster) GetIgnorePendingPodsDuration() time.Duration
 	}
 
 	return cluster.Spec.AutomationOptions.IgnorePendingPodsDuration
+}
+
+// GetIgnoreMissingProcessesSeconds returns the value of IgnoreMissingProcessesSecond or 30 seconds if unset.
+func (cluster *FoundationDBCluster) GetIgnoreMissingProcessesSeconds() time.Duration {
+	return time.Duration(pointer.IntDeref(cluster.Spec.AutomationOptions.IgnoreMissingProcessesSeconds, 30)) * time.Second
 }
 
 // GetUseNonBlockingExcludes returns the value of useNonBlockingExcludes or false if unset.

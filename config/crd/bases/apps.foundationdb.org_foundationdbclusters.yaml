@@ -9317,6 +9317,8 @@ spec:
                     - ProcessGroup
                     - None
                     type: string
+                  ignoreMissingProcessesSeconds:
+                    type: integer
                   ignorePendingPodsDuration:
                     format: int64
                     type: integer
