@@ -97,7 +97,7 @@ var _ = Describe("choose_removals", func() {
 				processGroup := cluster.Status.ProcessGroups[len(cluster.Status.ProcessGroups)-3]
 				Expect(processGroup.ProcessGroupID).To(Equal("storage-2"))
 				processGroup.MarkForRemoval()
-				err = clusterReconciler.Status().Update(context.TODO(), cluster)
+				err = clusterReconciler.updateOrApply(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

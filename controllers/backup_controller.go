@@ -47,6 +47,7 @@ type FoundationDBBackupReconciler struct {
 	Log                    logr.Logger
 	InSimulation           bool
 	DatabaseClientProvider DatabaseClientProvider
+	ServerSideApply        bool
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbbackups,verbs=get;list;watch;create;update;patch;delete
@@ -176,4 +177,28 @@ type backupSubReconciler interface {
 	`Message` field.
 	*/
 	reconcile(ctx context.Context, r *FoundationDBBackupReconciler, backup *fdbv1beta2.FoundationDBBackup) *requeue
+}
+
+// updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
+func (r *FoundationDBBackupReconciler) updateOrApply(ctx context.Context, backup *fdbv1beta2.FoundationDBBackup) error {
+	if r.ServerSideApply {
+		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// support for server side apply which should be enough for the status use case. The controller runtime will
+		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		patch := &fdbv1beta2.FoundationDBBackup{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       backup.Kind,
+				APIVersion: backup.APIVersion,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      backup.Name,
+				Namespace: backup.Namespace,
+			},
+			Status: backup.Status,
+		}
+
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+	}
+
+	return r.Status().Update(ctx, backup)
 }

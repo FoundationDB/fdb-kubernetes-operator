@@ -42,10 +42,10 @@ import (
 // FoundationDBRestoreReconciler reconciles a FoundationDBRestore object
 type FoundationDBRestoreReconciler struct {
 	client.Client
-	Recorder record.EventRecorder
-	Log      logr.Logger
-
+	Recorder               record.EventRecorder
+	Log                    logr.Logger
 	DatabaseClientProvider DatabaseClientProvider
+	ServerSideApply        bool
 }
 
 // +kubebuilder:rbac:groups=apps.foundationdb.org,resources=foundationdbrestores,verbs=get;list;watch;create;update;patch;delete
@@ -153,4 +153,28 @@ type restoreSubReconciler interface {
 	a `Message` field.
 	*/
 	reconcile(ctx context.Context, r *FoundationDBRestoreReconciler, restore *fdbv1beta2.FoundationDBRestore) *requeue
+}
+
+// updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
+func (r *FoundationDBRestoreReconciler) updateOrApply(ctx context.Context, restore *fdbv1beta2.FoundationDBRestore) error {
+	if r.ServerSideApply {
+		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// support for server side apply which should be enough for the status use case. The controller runtime will
+		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		patch := &fdbv1beta2.FoundationDBRestore{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       restore.Kind,
+				APIVersion: restore.APIVersion,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      restore.Name,
+				Namespace: restore.Namespace,
+			},
+			Status: restore.Status,
+		}
+
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+	}
+
+	return r.Status().Update(ctx, restore)
 }

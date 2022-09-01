@@ -62,6 +62,7 @@ type FoundationDBClusterReconciler struct {
 	DeprecationOptions                 internal.DeprecationOptions
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
+	ServerSideApply                    bool
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -746,4 +747,28 @@ func (r *FoundationDBClusterReconciler) getCoordinatorSet(cluster *fdbv1beta2.Fo
 	defer adminClient.Close()
 
 	return adminClient.GetCoordinatorSet()
+}
+
+// updateOrApply updates the status either with server-side apply or if disabled with the normal update call.
+func (r *FoundationDBClusterReconciler) updateOrApply(ctx context.Context, cluster *fdbv1beta2.FoundationDBCluster) error {
+	if r.ServerSideApply {
+		// TODO(johscheuer): We have to set the TypeMeta otherwise the Patch command will fail. This is the rudimentary
+		// support for server side apply which should be enough for the status use case. The controller runtime will
+		// add some additional support in the future: https://github.com/kubernetes-sigs/controller-runtime/issues/347.
+		patch := &fdbv1beta2.FoundationDBCluster{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       cluster.Kind,
+				APIVersion: cluster.APIVersion,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cluster.Name,
+				Namespace: cluster.Namespace,
+			},
+			Status: cluster.Status,
+		}
+
+		return r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("fdb-operator"), client.ForceOwnership)
+	}
+
+	return r.Status().Update(ctx, cluster)
 }

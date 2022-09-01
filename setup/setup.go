@@ -41,7 +41,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -55,6 +54,7 @@ type Options struct {
 	CompressOldFiles                   bool
 	PrintVersion                       bool
 	EnableRestartIncompatibleProcesses bool
+	ServerSideApply                    bool
 	MetricsAddr                        string
 	LeaderElectionID                   string
 	LogFile                            string
@@ -96,6 +96,7 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.GetTimeout, "get-timeout", 5*time.Second, "http timeout for get requests to the FDB sidecar")
 	fs.DurationVar(&o.PostTimeout, "post-timeout", 10*time.Second, "http timeout for post requests to the FDB sidecar")
 	fs.BoolVar(&o.EnableRestartIncompatibleProcesses, "enable-restart-incompatible-processes", true, "This flag enables/disables in the operator to restart incompatible fdbserver processes.")
+	fs.BoolVar(&o.ServerSideApply, "server-side-apply", false, "This flag enables server side apply")
 }
 
 // StartManager will start the FoundationDB operator manager.
@@ -108,7 +109,7 @@ func StartManager(
 	clusterReconciler *controllers.FoundationDBClusterReconciler,
 	backupReconciler *controllers.FoundationDBBackupReconciler,
 	restoreReconciler *controllers.FoundationDBRestoreReconciler,
-	logr *log.DelegatingLogger,
+	logr logr.Logger,
 	watchedObjects ...client.Object) (manager.Manager, *os.File) {
 	var logWriter io.Writer
 	var file *os.File
@@ -183,6 +184,7 @@ func StartManager(
 		clusterReconciler.PostTimeout = operatorOpts.PostTimeout
 		clusterReconciler.Log = logr.WithName("controllers").WithName("FoundationDBCluster")
 		clusterReconciler.EnableRestartIncompatibleProcesses = operatorOpts.EnableRestartIncompatibleProcesses
+		clusterReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
 		if err := clusterReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector, watchedObjects...); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBCluster")
@@ -199,6 +201,7 @@ func StartManager(
 		backupReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbbackup-controller")
 		backupReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		backupReconciler.Log = logr.WithName("controllers").WithName("FoundationDBBackup")
+		backupReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
 		if err := backupReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBBackup")
@@ -211,6 +214,7 @@ func StartManager(
 		restoreReconciler.Recorder = mgr.GetEventRecorderFor("foundationdbrestore-controller")
 		restoreReconciler.DatabaseClientProvider = fdbclient.NewDatabaseClientProvider(logger)
 		restoreReconciler.Log = logr.WithName("controllers").WithName("FoundationDBRestore")
+		restoreReconciler.ServerSideApply = operatorOpts.ServerSideApply
 
 		if err := restoreReconciler.SetupWithManager(mgr, operatorOpts.MaxConcurrentReconciles, *labelSelector); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FoundationDBRestore")
