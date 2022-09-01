@@ -25,7 +25,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
 	"text/template"
 
 	"github.com/spf13/cobra"
@@ -124,7 +123,7 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 		Namespace:   namespace,
 		ClusterName: clusterName,
 		JobName:     clusterName + "-hot-shard-tool",
-		CommandArgs: fmt.Sprintf(" -C /var/dynamic-conf/fdb.cluster -s \"%s\" -e \"%s\" --filter-get-range --top-requests  %s", startTime, endTime, strconv.Itoa(topRequests)),
+		CommandArgs: fmt.Sprintf(" -C /var/dynamic-conf/fdb.cluster -s \"%s\" -e \"%s\" --filter-get-range --top-requests  %d", startTime, endTime, topRequests),
 	}
 	t, err := template.ParseFiles(templateName)
 	if err != nil {

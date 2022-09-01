@@ -11,17 +11,13 @@ RUN apt-get update \
                          openssl \
                          pkg-config
 
-COPY prepare_fdb_lib.sh /tmp/
 RUN groupadd -g 4059 foundationdb
 RUN useradd -m -d / -s /bin/bash -u 4059 -o foundationdb -g 4059
 RUN mkdir /app/
 RUN chown foundationdb:foundationdb -R /app/
 RUN pip install foundationdb
 RUN pip install dateparser
-RUN chmod 755 /tmp/prepare_fdb_lib.sh
-RUN /tmp/prepare_fdb_lib.sh 6.3.23 && \
-    /tmp/prepare_fdb_lib.sh 7.1.11 && \
-    wget https://github.com/apple/foundationdb/releases/download/7.1.19/foundationdb-clients_7.1.19-1_amd64.deb
+RUN wget https://github.com/apple/foundationdb/releases/download/7.1.19/foundationdb-clients_7.1.19-1_amd64.deb
 RUN dpkg -i foundationdb-clients_7.1.19-1_amd64.deb
 WORKDIR /app/
 USER foundationdb

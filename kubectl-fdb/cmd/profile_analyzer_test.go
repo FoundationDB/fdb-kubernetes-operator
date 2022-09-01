@@ -20,7 +20,9 @@
 package cmd
 
 import (
+	ctx "context"
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -51,9 +53,17 @@ var _ = Describe("profile analyser", func() {
 			}
 			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
-		It("should not throw an error", func() {
+		It("should match the command args", func() {
 			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
 			Expect(err).NotTo(HaveOccurred())
+			job := &batchv1.Job{}
+			err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+				Namespace: namespace,
+				Name:      "test-hot-shard-tool",
+			}, job)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"-c",
+				"python3 ./transaction_profiling_analyzer.py  -C /var/dynamic-conf/fdb.cluster -s \"21:30 08/24/2022 BST\" -e \"22:30 08/24/2022 BST\" --filter-get-range --top-requests  100"}))
 		})
 	})
 })
