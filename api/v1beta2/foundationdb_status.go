@@ -93,6 +93,9 @@ type FoundationDBStatusClusterInfo struct {
 	// IncompatibleConnections provides information about processes that try to connect to the cluster with an
 	// incompatible version.
 	IncompatibleConnections []string `json:"incompatible_connections,omitempty"`
+
+	// RecoveryState represents the recovery state.
+	RecoveryState RecoveryState `json:"recovery_state,omitempty"`
 }
 
 // FaultTolerance provides information about the fault tolerance status
@@ -271,11 +274,21 @@ type FoundationDBStatusBackupTag struct {
 	Restorable       bool   `json:"running_backup_is_restorable,omitempty"`
 }
 
-// ProcessRole models the role of a pod
+// ProcessRole models the role of a pod.
 type ProcessRole string
 
 // TODO (johscheuer): add more roles to this list
 const (
-	// ProcessRoleCoordinator model for FDB coordinator role
+	// ProcessRoleCoordinator model for FDB coordinator role.
 	ProcessRoleCoordinator ProcessRole = "coordinator"
 )
+
+// RecoveryState represents the recovery state from the FDB cluster json.
+type RecoveryState struct {
+	// ActiveGenerations represent the current active generations.
+	ActiveGenerations int `json:"active_generations,omitempty"`
+	// Name represent the name of the current recovery state.
+	Name string `json:"name,omitempty"`
+	// SecondsSinceLastRecovered represents the seconds since the last recovery.
+	SecondsSinceLastRecovered float64 `json:"seconds_since_last_recovered,omitempty"`
+}

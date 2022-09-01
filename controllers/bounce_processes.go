@@ -55,15 +55,9 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	minimumUptime := math.Inf(1)
-	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
-
-	for _, process := range status.Cluster.Processes {
-		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
-
-		if process.UptimeSeconds < minimumUptime && !process.Excluded {
-			minimumUptime = process.UptimeSeconds
-		}
+	minimumUptime, addressMap, err := getMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	if err != nil {
+		return &requeue{curError: err}
 	}
 
 	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
@@ -122,8 +116,6 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{message: "Waiting for config map to sync to all pods"}
 	}
 
-	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
-
 	if len(addresses) > 0 {
 		if !pointer.BoolDeref(cluster.Spec.AutomationOptions.KillProcesses, true) {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
@@ -165,6 +157,8 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		if err != nil {
 			return &requeue{curError: err}
 		}
+
+		upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
 
 		if useLocks && upgrading {
 			processGroupIDs := make([]string, 0, len(cluster.Status.ProcessGroups))
@@ -252,4 +246,35 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, databaseStatus *fd
 	}
 
 	return addresses, nil
+}
+
+// getMinimumUptimeAndAddressMap returns the minimum uptime and the address map of the processes.
+func getMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[string][]fdbv1beta2.ProcessAddress, error) {
+	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		return 0, nil, err
+	}
+
+	useRecoveryState := runningVersion.SupportsRecoveryState() && recoveryStateEnabled
+
+	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
+
+	minimumUptime := math.Inf(1)
+	if useRecoveryState {
+		minimumUptime = status.Cluster.RecoveryState.SecondsSinceLastRecovered
+	}
+
+	for _, process := range status.Cluster.Processes {
+		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
+
+		if useRecoveryState || process.Excluded {
+			continue
+		}
+
+		if process.UptimeSeconds < minimumUptime {
+			minimumUptime = process.UptimeSeconds
+		}
+	}
+
+	return minimumUptime, addressMap, nil
 }
