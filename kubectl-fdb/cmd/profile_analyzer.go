@@ -153,7 +153,7 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 		return err
 	}
 	for _, container := range job.Spec.Template.Spec.InitContainers {
-		imageVersion := strings.Split(container.Image, "sidecar:")
+		imageVersion := strings.Split(container.Image, ":")
 		fdbVersion := strings.Split(imageVersion[1], "-1")
 		if strings.Contains(container.Image, version.Compact()) {
 			envValue := v1.EnvVar{
