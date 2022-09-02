@@ -51,6 +51,9 @@ var _ = Describe("profile analyser", func() {
 					Name:      clusterName,
 					Namespace: namespace,
 				},
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "6.3.23",
+				},
 			}
 			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
