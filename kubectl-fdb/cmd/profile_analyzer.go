@@ -25,14 +25,16 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"text/template"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/spf13/cobra"
 	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type profileConfig struct {
@@ -141,6 +143,28 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 	if err != nil {
 		return err
 	}
+	cluster, err := loadCluster(kubeClient, namespace, clusterName)
+	if err != nil {
+		return err
+	}
+
+	version, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
+	if err != nil {
+		return err
+	}
+	for _, container := range job.Spec.Template.Spec.InitContainers {
+		imageVersion := strings.Split(container.Image, "sidecar:")
+		fdbVersion := strings.Split(imageVersion[1], "-1")
+		if strings.Contains(container.Image, version.Compact()) {
+			envValue := v1.EnvVar{
+				Name:  "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
+				Value: fmt.Sprintf("/usr/bin/fdb/%s/lib/", fdbVersion[0]),
+			}
+			job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, envValue)
+			break
+		}
+	}
+
 	log.Printf("creating job %s", config.JobName)
 	return kubeClient.Create(context.TODO(), job)
 }
