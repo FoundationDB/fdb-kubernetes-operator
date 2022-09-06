@@ -33,7 +33,7 @@ import (
 )
 
 var _ = Describe("restart_incompatible_pods", func() {
-	DescribeTable("when running checking if process groups contain incompatible connections", func(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus, expected bool) {
+	DescribeTable("when running check if process groups contain incompatible connections", func(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus, expected bool) {
 		Expect(isIncompatible(incompatibleConnections, processGroup)).To(Equal(expected))
 	},
 		Entry("empty incompatible map",
