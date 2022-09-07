@@ -60,8 +60,8 @@ var _ = Describe("profile analyser", func() {
 		})
 		It("should match the command args", func() {
 			expectedEnv := v1.EnvVar{
-				Name: "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
-				Value: "/usr/bin/fdb/6.3.24/lib/",
+				Name:      "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
+				Value:     "/usr/bin/fdb/6.3.24/lib/",
 				ValueFrom: nil,
 			}
 			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
@@ -100,8 +100,8 @@ var _ = Describe("profile analyser", func() {
 		})
 		It("should match the command args", func() {
 			expectedEnv := v1.EnvVar{
-				Name: "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
-				Value: "/usr/bin/fdb/7.1.19/lib/",
+				Name:      "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
+				Value:     "/usr/bin/fdb/7.1.19/lib/",
 				ValueFrom: nil,
 			}
 			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
