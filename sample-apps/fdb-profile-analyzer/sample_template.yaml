@@ -17,10 +17,6 @@ spec:
             - "6.2"
             - --copy-binary
             - fdbcli
-            - --copy-binary
-            - fdbbackup
-            - --copy-binary
-            - fdbrestore
             - --output-dir
             - /var/output-files/6.2.30
             - --init-mode
@@ -47,10 +43,6 @@ spec:
             - "7.1"
             - --copy-binary
             - fdbcli
-            - --copy-binary
-            - fdbbackup
-            - --copy-binary
-            - fdbrestore
             - --output-dir
             - /var/output-files/7.1.19
             - --init-mode
@@ -95,7 +87,6 @@ spec:
         fsGroup: 4059
         runAsGroup: 4059
         runAsUser: 4059
-      terminationGracePeriodSeconds: 30
       volumes:
         - configMap:
             defaultMode: 420

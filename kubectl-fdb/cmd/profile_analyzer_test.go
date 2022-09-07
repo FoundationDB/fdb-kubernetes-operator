@@ -22,6 +22,7 @@ package cmd
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -52,12 +53,17 @@ var _ = Describe("profile analyser", func() {
 					Namespace: namespace,
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					Version: "6.3.23",
+					Version: "6.3.24",
 				},
 			}
 			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
 		It("should match the command args", func() {
+			expectedEnv := v1.EnvVar{
+				Name: "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
+				Value: "/usr/bin/fdb/6.3.24/lib/",
+				ValueFrom: nil,
+			}
 			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			job := &batchv1.Job{}
@@ -68,6 +74,7 @@ var _ = Describe("profile analyser", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(job.Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"-c",
 				"python3 ./transaction_profiling_analyzer.py  -C /var/dynamic-conf/fdb.cluster -s \"21:30 08/24/2022 BST\" -e \"22:30 08/24/2022 BST\" --filter-get-range --top-requests  100"}))
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElements(expectedEnv))
 		})
 	})
 	When("running profile analyzer with 7.1", func() {
@@ -92,6 +99,11 @@ var _ = Describe("profile analyser", func() {
 			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
 		It("should match the command args", func() {
+			expectedEnv := v1.EnvVar{
+				Name: "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
+				Value: "/usr/bin/fdb/7.1.19/lib/",
+				ValueFrom: nil,
+			}
 			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			job := &batchv1.Job{}
@@ -102,6 +114,7 @@ var _ = Describe("profile analyser", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(job.Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"-c",
 				"python3 ./transaction_profiling_analyzer.py  -C /var/dynamic-conf/fdb.cluster -s \"21:30 08/24/2022 BST\" -e \"22:30 08/24/2022 BST\" --filter-get-range --top-requests  100"}))
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElements(expectedEnv))
 		})
 	})
 })
