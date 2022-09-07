@@ -6,11 +6,6 @@ metadata:
   name: {{ .JobName }}
   namespace: {{ .Namespace }}
 spec:
-  backoffLimit: 6
-  completionMode: NonIndexed
-  completions: 1
-  parallelism: 1
-  suspend: false
   template:
     metadata:
       labels:
@@ -39,10 +34,6 @@ spec:
             - "6.3"
             - --copy-binary
             - fdbcli
-            - --copy-binary
-            - fdbbackup
-            - --copy-binary
-            - fdbrestore
             - --output-dir
             - /var/output-files/6.3.24
             - --init-mode
@@ -81,7 +72,7 @@ spec:
               value: /var/log/fdb-profile-analyzer
             - name: FDB_NETWORK_OPTION_TRACE_FORMAT
               value: json
-          image: fdb-profile-analyzer:latest
+          image: 112664522426.dkr.ecr.us-west-2.amazonaws.com/foundationdb/hot-shard-tool:shambu-test
           imagePullPolicy: Always
           name: profile-analyzer
           resources:

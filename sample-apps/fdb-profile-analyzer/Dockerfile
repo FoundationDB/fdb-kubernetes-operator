@@ -17,8 +17,8 @@ RUN mkdir /app/
 RUN chown foundationdb:foundationdb -R /app/
 RUN pip install foundationdb
 RUN pip install dateparser
-RUN wget https://github.com/apple/foundationdb/releases/download/7.1.19/foundationdb-clients_7.1.19-1_amd64.deb
-RUN dpkg -i foundationdb-clients_7.1.19-1_amd64.deb
+RUN wget https://github.com/apple/foundationdb/releases/download/7.1.19/foundationdb-clients_7.1.19-1_amd64.deb && \
+    dpkg -i foundationdb-clients_7.1.19-1_amd64.deb
 WORKDIR /app/
 USER foundationdb
 RUN wget https://raw.githubusercontent.com/apple/foundationdb/main/contrib/transaction_profiling_analyzer/transaction_profiling_analyzer.py

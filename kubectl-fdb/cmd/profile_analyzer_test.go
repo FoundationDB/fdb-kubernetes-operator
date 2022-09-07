@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("profile analyser", func() {
-	When("running profile analyzer", func() {
+	FWhen("running profile analyzer with 6.3", func() {
 		clusterName := "test"
 		namespace := "test"
 		scheme := runtime.NewScheme()
@@ -53,6 +53,40 @@ var _ = Describe("profile analyser", func() {
 				},
 				Spec: fdbv1beta2.FoundationDBClusterSpec{
 					Version: "6.3.23",
+				},
+			}
+			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
+		})
+		It("should match the command args", func() {
+			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
+			Expect(err).NotTo(HaveOccurred())
+			job := &batchv1.Job{}
+			err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+				Namespace: namespace,
+				Name:      "test-hot-shard-tool",
+			}, job)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"-c",
+				"python3 ./transaction_profiling_analyzer.py  -C /var/dynamic-conf/fdb.cluster -s \"21:30 08/24/2022 BST\" -e \"22:30 08/24/2022 BST\" --filter-get-range --top-requests  100"}))
+		})
+	})
+	FWhen("running profile analyzer with 7.1", func() {
+		clusterName := "test"
+		namespace := "test"
+		scheme := runtime.NewScheme()
+		var kubeClient client.Client
+
+		BeforeEach(func() {
+			var cluster *fdbv1beta2.FoundationDBCluster
+			_ = clientgoscheme.AddToScheme(scheme)
+			_ = fdbv1beta2.AddToScheme(scheme)
+			cluster = &fdbv1beta2.FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: namespace,
+				},
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: "7.1.19",
 				},
 			}
 			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()

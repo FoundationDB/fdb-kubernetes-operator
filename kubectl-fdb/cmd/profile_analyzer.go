@@ -86,7 +86,7 @@ func newProfileAnalyzerCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			return runProfileAnalyzer(kubeClient, namespace, clusterName, startTime, endTime, topRequests, templateName)
 		},
 		Example: `
-# Run the profiler for cluster-1. We require --cluster option explicitly because analyze commands take lot many arguments.
+# Run the profiler for cluster-1 in the default namespace for the provided state and end time.
 kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --end-time "01:30 20/07/2022 BST" --top-requests 100 --template-name job.yaml
 `,
 	}
@@ -94,10 +94,10 @@ kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --e
 	cmd.SetErr(o.ErrOut)
 	cmd.SetIn(o.In)
 
-	cmd.Flags().StringP("fdb-cluster", "c", "", "cluster name for running hot shard tool.")
-	cmd.Flags().String("start-time", "", "start time for the analyzing transaction '01:30 30/07/2022 BST'")
-	cmd.Flags().String("end-time", "", "end time for analyzing the transaction '02:30 30/07/2022 BST'")
-	cmd.Flags().String("template-name", "", "Name of the Job template")
+	cmd.Flags().StringP("fdb-cluster", "c", "", "cluster name for running the analyze profile against.")
+	cmd.Flags().String("start-time", "", "start time for the analyzing transaction '01:30 30/07/2022 BST'.")
+	cmd.Flags().String("end-time", "", "end time for analyzing the transaction '02:30 30/07/2022 BST'.")
+	cmd.Flags().String("template-name", "", "name of the Job template.")
 	cmd.Flags().Int("top-requests", 100, "")
 	err := cmd.MarkFlagRequired("fdb-cluster")
 	if err != nil {
@@ -153,18 +153,18 @@ func runProfileAnalyzer(kubeClient client.Client, namespace string, clusterName 
 		return err
 	}
 	for _, container := range job.Spec.Template.Spec.InitContainers {
+		if !strings.Contains(container.Image, version.Compact()) {
+			continue
+		}
 		imageVersion := strings.Split(container.Image, ":")
 		fdbVersion := strings.Split(imageVersion[1], "-1")
-		if strings.Contains(container.Image, version.Compact()) {
-			envValue := v1.EnvVar{
-				Name:  "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
-				Value: fmt.Sprintf("/usr/bin/fdb/%s/lib/", fdbVersion[0]),
-			}
-			job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, envValue)
-			break
+		envValue := v1.EnvVar{
+			Name:  "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
+			Value: fmt.Sprintf("/usr/bin/fdb/%s/lib/", fdbVersion[0]),
 		}
+		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, envValue)
+		break
 	}
-
 	log.Printf("creating job %s", config.JobName)
 	return kubeClient.Create(context.TODO(), job)
 }
