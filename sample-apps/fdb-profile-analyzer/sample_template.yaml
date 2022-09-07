@@ -72,7 +72,7 @@ spec:
               value: /var/log/fdb-profile-analyzer
             - name: FDB_NETWORK_OPTION_TRACE_FORMAT
               value: json
-          image: 112664522426.dkr.ecr.us-west-2.amazonaws.com/foundationdb/hot-shard-tool:shambu-test
+          image: fdb-profile-analyzer:latest
           imagePullPolicy: Always
           name: profile-analyzer
           resources:
