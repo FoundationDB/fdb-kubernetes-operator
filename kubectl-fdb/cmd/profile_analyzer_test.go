@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("profile analyser", func() {
-	FWhen("running profile analyzer with 6.3", func() {
+	When("running profile analyzer with 6.3", func() {
 		clusterName := "test"
 		namespace := "test"
 		scheme := runtime.NewScheme()
@@ -70,7 +70,7 @@ var _ = Describe("profile analyser", func() {
 				"python3 ./transaction_profiling_analyzer.py  -C /var/dynamic-conf/fdb.cluster -s \"21:30 08/24/2022 BST\" -e \"22:30 08/24/2022 BST\" --filter-get-range --top-requests  100"}))
 		})
 	})
-	FWhen("running profile analyzer with 7.1", func() {
+	When("running profile analyzer with 7.1", func() {
 		clusterName := "test"
 		namespace := "test"
 		scheme := runtime.NewScheme()
