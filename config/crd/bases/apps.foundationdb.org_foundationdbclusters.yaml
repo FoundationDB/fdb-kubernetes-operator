@@ -1410,6 +1410,19 @@ spec:
                       type: string
                     type: object
                 type: object
+              localities:
+                items:
+                  properties:
+                    envValue:
+                      type: string
+                    key:
+                      type: string
+                    topologyKey:
+                      type: string
+                    value:
+                      type: string
+                  type: object
+                type: array
               lockOptions:
                 properties:
                   denyList:
