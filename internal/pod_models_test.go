@@ -197,7 +197,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -274,7 +274,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -299,7 +299,7 @@ var _ = Describe("pod_models", func() {
 					{Name: "dynamic-conf", MountPath: "/var/output-files"},
 				}))
 				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.IntOrString{IntVal: 8080},
 						},
@@ -519,7 +519,7 @@ var _ = Describe("pod_models", func() {
 					Expect(sidecarContainer.Args).To(Equal([]string{
 						"--mode", "sidecar",
 						"--output-dir", "/var/fdb/shared-binaries",
-						"--main-container-version", "6.2.20",
+						"--main-container-version", cluster.Spec.Version,
 						"--copy-binary", "fdbserver",
 						"--copy-binary", "fdbcli",
 						"--log-path", "/var/log/fdb-trace-logs/monitor.log",
@@ -713,7 +713,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--public-ip-family",
 					"6",
 					"--substitute-variable",
@@ -750,7 +750,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--public-ip-family",
 					"6",
 					"--substitute-variable",
@@ -795,7 +795,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--substitute-variable",
@@ -833,7 +833,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--substitute-variable",
@@ -981,7 +981,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1058,7 +1058,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1084,7 +1084,7 @@ var _ = Describe("pod_models", func() {
 					{Name: "dynamic-conf", MountPath: "/var/output-files"},
 				}))
 				Expect(sidecarContainer.LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.IntOrString{IntVal: 8080},
 						},
@@ -1153,7 +1153,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1174,7 +1174,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1221,7 +1221,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1242,7 +1242,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1311,7 +1311,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -1332,7 +1332,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -1793,7 +1793,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -2127,7 +2127,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 					"--init-mode",
@@ -2149,7 +2149,7 @@ var _ = Describe("pod_models", func() {
 					"--copy-binary",
 					"fdbcli",
 					"--main-container-version",
-					"6.2.20",
+					cluster.Spec.Version,
 					"--substitute-variable",
 					"FDB_POD_IP",
 				}))
@@ -2671,7 +2671,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "53bf93c896578af51723c0db12e884751be4ee702c7487a1a57108fa111a23d6",
+					"foundationdb.org/last-applied-spec": "a1d6ee086624f097243eb14aefbedf84a9016ba0f85640f11020bf50ec9e6d9b",
 				}))
 			})
 
@@ -2941,7 +2941,7 @@ var _ = Describe("pod_models", func() {
 					"foundationdb.org/backup-for": string(cluster.ObjectMeta.UID),
 				}))
 				Expect(deployment.ObjectMeta.Annotations).To(Equal(map[string]string{
-					"foundationdb.org/last-applied-spec": "f0029ec076e325804d278982021203dc10c5a6e2e67abf8a609b87d4e7cf4129",
+					"foundationdb.org/last-applied-spec": "ab69c51bd609ab9bb94605b25fbfe49e25090040d66bb5af2b3c52e6a6ed4330",
 				}))
 
 				Expect(deployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--customParameter=1337"))
@@ -3071,7 +3071,7 @@ var _ = Describe("pod_models", func() {
 						initMode:       false,
 						processGroupID: "123",
 						hasError:       false,
-					}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.20-1"),
+					}, "foundationdb/foundationdb-kubernetes-sidecar:6.2.21-1"),
 				Entry("set a tag in the image without override",
 					testCase{
 						container: &corev1.Container{

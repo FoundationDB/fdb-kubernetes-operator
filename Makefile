@@ -29,7 +29,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Dependencies to fetch through `go`
-CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
+CONTROLLER_GEN_PKG?=sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 KUSTOMIZE_PKG?=sigs.k8s.io/kustomize/kustomize/v4@v4.5.2
 KUSTOMIZE=$(GOBIN)/kustomize
@@ -146,7 +146,9 @@ ${MANIFESTS}: ${CONTROLLER_GEN} ${GO_SRC}
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	# Per default controller-gen will generate a ClusterRole for our example we want to use a Role and the namespace marker doesn't
 	# work since it requires a namespace and kustomize doesn't support to change the Kind.
-	@sed -i -e 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml
+	@mv ./config/rbac/role.yaml ./config/rbac/role.yaml.tmp
+	@sed 's/kind: ClusterRole/kind: Role/g' ./config/rbac/role.yaml.tmp > ./config/rbac/role.yaml
+	@rm ./config/rbac/role.yaml.tmp
 
 # Run go fmt against code
 fmt: bin/fmt_check

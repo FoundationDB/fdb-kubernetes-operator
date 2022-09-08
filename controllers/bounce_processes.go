@@ -57,10 +57,11 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 	minimumUptime := math.Inf(1)
 	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
+
 	for _, process := range status.Cluster.Processes {
 		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
 
-		if process.UptimeSeconds < minimumUptime {
+		if process.UptimeSeconds < minimumUptime && !process.Excluded {
 			minimumUptime = process.UptimeSeconds
 		}
 	}
@@ -76,8 +77,18 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	var missingAddress []string
 
 	for _, process := range processesToBounce {
-		if cluster.SkipProcessGroup(fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, process)) {
+		processGroup := fdbv1beta2.FindProcessGroupByID(cluster.Status.ProcessGroups, process)
+		if cluster.SkipProcessGroup(processGroup) {
 			continue
+		}
+
+		// Ignore processes that are missing for more than 30 seconds e.g. if the process is network partitioned.
+		// This is required since the update status will not update the SidecarUnreachable setting if a process is
+		// missing in the status.
+		if missingTime := processGroup.GetConditionTime(fdbv1beta2.MissingProcesses); missingTime != nil {
+			if time.Unix(*missingTime, 0).Add(cluster.GetIgnoreMissingProcessesSeconds()).Before(time.Now()) {
+				continue
+			}
 		}
 
 		if addressMap[process] == nil {
@@ -118,7 +129,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				"Spec require a bounce of some processes, but killing processes is disabled")
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}
@@ -130,7 +141,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "NeedsBounce",
 				fmt.Sprintf("Spec require a bounce of some processes, but the cluster has only been up for %f seconds", minimumUptime))
 			cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				logger.Error(err, "Error updating cluster status")
 			}

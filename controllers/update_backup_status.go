@@ -104,7 +104,7 @@ func (s updateBackupStatus) reconcile(ctx context.Context, r *FoundationDBBackup
 	}
 
 	if !equality.Semantic.DeepEqual(backup.Status, *originalStatus) {
-		err = r.Status().Update(ctx, backup)
+		err = r.updateOrApply(ctx, backup)
 		if err != nil {
 			log.Error(err, "Error updating backup status", "namespace", backup.Namespace, "backup", backup.Name)
 			return &requeue{curError: err}

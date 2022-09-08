@@ -59,6 +59,11 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
+	if cluster.IsBeingUpgraded() {
+		logger.Info("waiting for cluster to be upgraded before checking for incompatible connections")
+		return nil
+	}
+
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
 		return err

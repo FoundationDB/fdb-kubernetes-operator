@@ -129,7 +129,7 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 
 	cluster.Status.ConnectionString = connectionString.String()
 
-	err = r.Status().Update(ctx, cluster)
+	err = r.updateOrApply(ctx, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}

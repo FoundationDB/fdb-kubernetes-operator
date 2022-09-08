@@ -33,7 +33,7 @@ import (
 )
 
 var _ = Describe("restart_incompatible_pods", func() {
-	DescribeTable("", func(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus, expected bool) {
+	DescribeTable("when running check if process groups contain incompatible connections", func(incompatibleConnections map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus, expected bool) {
 		Expect(isIncompatible(incompatibleConnections, processGroup)).To(Equal(expected))
 	},
 		Entry("empty incompatible map",
@@ -160,6 +160,31 @@ var _ = Describe("restart_incompatible_pods", func() {
 
 		When("matching incompatible processes are reported and the subreconciler is disabled", func() {
 			BeforeEach(func() {
+				clusterReconciler.EnableRestartIncompatibleProcesses = false
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
+				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						IncompatibleConnections: []string{
+							cluster.Status.ProcessGroups[0].Addresses[0],
+						},
+					},
+				}
+			})
+
+			It("should have no deletions", func() {
+				pods := &corev1.PodList{}
+				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods.Items)).To(BeNumerically("==", initialCount))
+			})
+		})
+
+		When("matching incompatible processes are reported and the cluster is currently upgraded", func() {
+			BeforeEach(func() {
+				cluster.Spec.Version = fdbv1beta2.Versions.NextMajorVersion.String()
+				err := k8sClient.Update(context.Background(), cluster)
+				Expect(err).NotTo(HaveOccurred())
 				clusterReconciler.EnableRestartIncompatibleProcesses = false
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())

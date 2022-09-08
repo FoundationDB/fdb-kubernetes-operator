@@ -490,6 +490,11 @@ func (in *FoundationDBClusterAutomationOptions) DeepCopyInto(out *FoundationDBCl
 		*out = new(int)
 		**out = **in
 	}
+	if in.IgnoreMissingProcessesSeconds != nil {
+		in, out := &in.IgnoreMissingProcessesSeconds, &out.IgnoreMissingProcessesSeconds
+		*out = new(int)
+		**out = **in
+	}
 	if in.MaxConcurrentReplacements != nil {
 		in, out := &in.MaxConcurrentReplacements, &out.MaxConcurrentReplacements
 		*out = new(int)
