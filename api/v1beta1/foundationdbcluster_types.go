@@ -356,6 +356,10 @@ type FoundationDBClusterSpec struct {
 	// UseUnifiedImage determines if we should use the unified image rather than
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+
+	// Localities is used to configure the cluster localities for three_data_hall
+	// and three_data_center deployments
+	Localities []Locality `json:"localities,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
@@ -2277,4 +2281,21 @@ func (cluster *FoundationDBCluster) GetProcessClassLabels() []string {
 	}
 
 	return []string{FDBProcessClassLabel}
+}
+
+// Locality represents the locality for the cluster.
+type Locality struct {
+	Key         string `json:"key,omitempty"`
+	Value       string `json:"value,omitempty"`
+	EnvValue    string `json:"envValue,omitempty"`
+	TopologyKey string `json:"topologyKey,omitempty"`
+}
+
+// GetLocalities returns the cluster localities
+func (cluster *FoundationDBCluster) GetLocalities() []Locality {
+	result := make([]Locality, 0)
+
+	result = append(result, cluster.Spec.Localities...)
+
+	return result
 }
