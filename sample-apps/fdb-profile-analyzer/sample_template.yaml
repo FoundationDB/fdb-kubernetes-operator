@@ -15,8 +15,6 @@ spec:
         - args:
             - --copy-library
             - "6.2"
-            - --copy-binary
-            - fdbcli
             - --output-dir
             - /var/output-files/6.2.30
             - --init-mode
@@ -28,8 +26,6 @@ spec:
         - args:
             - --copy-library
             - "6.3"
-            - --copy-binary
-            - fdbcli
             - --output-dir
             - /var/output-files/6.3.24
             - --init-mode
@@ -41,8 +37,6 @@ spec:
         - args:
             - --copy-library
             - "7.1"
-            - --copy-binary
-            - fdbcli
             - --output-dir
             - /var/output-files/7.1.19
             - --init-mode

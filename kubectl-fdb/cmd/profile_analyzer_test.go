@@ -44,10 +44,9 @@ var _ = Describe("profile analyser", func() {
 		var kubeClient client.Client
 
 		BeforeEach(func() {
-			var cluster *fdbv1beta2.FoundationDBCluster
 			_ = clientgoscheme.AddToScheme(scheme)
 			_ = fdbv1beta2.AddToScheme(scheme)
-			cluster = &fdbv1beta2.FoundationDBCluster{
+			cluster := &fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
@@ -84,10 +83,9 @@ var _ = Describe("profile analyser", func() {
 		var kubeClient client.Client
 
 		BeforeEach(func() {
-			var cluster *fdbv1beta2.FoundationDBCluster
 			_ = clientgoscheme.AddToScheme(scheme)
 			_ = fdbv1beta2.AddToScheme(scheme)
-			cluster = &fdbv1beta2.FoundationDBCluster{
+			cluster := &fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
