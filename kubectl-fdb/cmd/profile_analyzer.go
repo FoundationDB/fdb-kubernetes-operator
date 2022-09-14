@@ -86,7 +86,8 @@ func newProfileAnalyzerCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			return runProfileAnalyzer(kubeClient, namespace, clusterName, startTime, endTime, topRequests, templateName)
 		},
 		Example: `
-# This sub-command is still experimental. It still has multiple things to do before making it a stable command. Run the profiler for cluster-1 in the default namespace for the provided state and end time.
+# * experimental* 
+# Run the profiler for cluster-1 in the default namespace for the provided state and end time.
 kubectl fdb analyze-profile -c cluster-1 --start-time "01:01 20/07/2022 BST" --end-time "01:30 20/07/2022 BST" --top-requests 100 --template-name job.yaml
 `,
 	}
