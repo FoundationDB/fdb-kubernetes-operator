@@ -357,8 +357,8 @@ type FoundationDBClusterSpec struct {
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
 
-	// Localities is used to configure the cluster localities for three_data_hall
-	// and three_data_center deployments
+	// Localities are used to specify the location of processes which in turn is used to
+	// determine fault and toleration domains.
 	Localities []Locality `json:"localities,omitempty"`
 }
 
@@ -2293,9 +2293,5 @@ type Locality struct {
 
 // GetLocalities returns the cluster localities
 func (cluster *FoundationDBCluster) GetLocalities() []Locality {
-	result := make([]Locality, 0)
-
-	result = append(result, cluster.Spec.Localities...)
-
-	return result
+	return cluster.Spec.Localities
 }
