@@ -149,16 +149,19 @@ jobs:
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
+            baseImage: "docker.io/debian:bullseye"
           - image: fdb-kubernetes-operator-distroless
             context: ./
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: -distrolesss
-            file: ./distrolesss.dockerfile
+            file: ./Dockerfile
+            baseImage: "gcr.io/distroless/base"
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
+            baseImage: ""
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -170,7 +173,7 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v2
         with:
-          build-args: TAG=${{ steps.get_sha.outputs.TAG }}
+          build-args: TAG=${{ steps.get_sha.outputs.TAG }} BASE_IMAGE=${{ matrix.baseImage }}
           push: false
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
