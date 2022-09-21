@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.18.5
+          go-version: 1.18.6
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -44,7 +44,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.18.5
+        go-version: 1.18.6
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       with:
@@ -104,7 +104,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v1
       with:
-        go-version: 1.18.5
+        go-version: 1.18.6
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
       with:
@@ -134,7 +134,6 @@ jobs:
       run: |
         make test
   build_images:
-    if: github.ref != 'refs/heads/main'
     name: Build Docker images
     runs-on: ubuntu-latest
     strategy:
@@ -149,16 +148,19 @@ jobs:
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: ""
             file: ./Dockerfile
+            baseImage: "docker.io/debian:bullseye"
           - image: fdb-kubernetes-operator-distroless
             context: ./
             name: foundationdb/fdb-kubernetes-operator
             tagSuffix: -distrolesss
-            file: ./distrolesss.dockerfile
+            file: ./Dockerfile
+            baseImage: "gcr.io/distroless/base"
           - image: fdb-data-loader
             context: ./sample-apps/data-loader
             name: foundationdb/fdb-data-loader
             tagSuffix: ""
             file: ./sample-apps/data-loader/Dockerfile
+            baseImage: ""
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -170,56 +172,10 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v2
         with:
-          build-args: TAG=${{ steps.get_sha.outputs.TAG }}
-          push: false
-          context: ${{ matrix.context }}
-          tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
-          file: ${{ matrix.file }}
-  push_images:
-    if: github.ref == 'refs/heads/main'
-    needs: build
-    name: Push Docker images
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image:
-          - fdb-kubernetes-operator
-          - fdb-data-loader
-          - fdb-kubernetes-operator-distroless
-        include:
-          - image: fdb-kubernetes-operator
-            context: ./
-            name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: ""
-            file: ./Dockerfile
-          - image: fdb-kubernetes-operator-distroless
-            context: ./
-            name: foundationdb/fdb-kubernetes-operator
-            tagSuffix: -distrolesss
-            file: ./distrolesss.dockerfile
-          - image: fdb-data-loader
-            context: ./sample-apps/data-loader
-            name: foundationdb/fdb-data-loader
-            tagSuffix: ""
-            file: ./sample-apps/data-loader/Dockerfile
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Get the sha
-        id: get_sha
-        run: echo ::set-output name=TAG::${GITHUB_SHA}
-      - name: Build and push to registry
-        uses: docker/build-push-action@v2
-        with:
-          build-args: TAG=${{ steps.get_sha.outputs.TAG }}
-          push: true
+          build-args: |
+            TAG=${{ steps.get_sha.outputs.TAG }}
+            BASE_IMAGE=${{ matrix.baseImage }}
+          push: ${{ github.ref == 'refs/heads/main' }}
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
           file: ${{ matrix.file }}
