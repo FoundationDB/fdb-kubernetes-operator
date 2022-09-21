@@ -173,7 +173,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           build-args: TAG=${{ steps.get_sha.outputs.TAG }} BASE_IMAGE=${{ matrix.baseImage }}
-          push: ${{ github.ref != 'refs/heads/main' }}
+          push: ${{ github.ref == 'refs/heads/main' }}
           context: ${{ matrix.context }}
           tags: ${{ matrix.name }}:latest${{ matrix.tagSuffix }}
           file: ${{ matrix.file }}
