@@ -1,3 +1,5 @@
+ARG BASE_IMAGE=docker.io/debian:bullseye
+
 # Build the manager binary
 FROM docker.io/library/golang:1.18.5 as builder
 
@@ -40,7 +42,7 @@ RUN groupadd --gid 4059 fdb && \
 	mkdir -p /var/log/fdb && \
 	touch /var/log/fdb/.keep
 
-FROM docker.io/debian:bullseye
+FROM $BASE_IMAGE
 
 VOLUME /usr/lib/fdb
 
