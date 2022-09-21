@@ -248,7 +248,9 @@ func getAddressesForUpgrade(r *FoundationDBClusterReconciler, databaseStatus *fd
 	return addresses, nil
 }
 
-// getMinimumUptimeAndAddressMap returns the minimum uptime and the address map of the processes.
+// getMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
+// uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
+// take the minimum uptime of all processes.
 func getMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[string][]fdbv1beta2.ProcessAddress, error) {
 	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
 	if err != nil {
