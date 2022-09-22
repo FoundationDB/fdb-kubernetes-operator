@@ -167,7 +167,7 @@ FoundationDBClusterAutomationOptions provides flags for enabling or disabling op
 | waitBetweenRemovalsSeconds | WaitBetweenRemovalsSeconds defines how long to wait between the last removal and the next removal. This is only an upper limit if the process group and the according resources are deleted faster than the provided duration the operator will move on with the next removal. The idea is to prevent a race condition were the operator deletes a resource but the Kubernetes API is slower to trigger the actual deletion, and we are running into a situation where the fault tolerance check still includes the already deleted processes. Defaults to 60. | *int | false |
 | podUpdateStrategy | PodUpdateStrategy defines how Pod spec changes are rolled out either by replacing Pods or by deleting Pods. The default for this is ReplaceTransactionSystem. | [PodUpdateStrategy](#podupdatestrategy) | false |
 | useManagementAPI | UseManagementAPI defines if the operator should make use of the management API instead of using fdbcli to interact with the FoundationDB cluster. | *bool | false |
-| maintenanceModeOptions | MaintenanceModeOptions containes options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
+| maintenanceModeOptions | MaintenanceModeOptions contains options for maintenance mode related settings. | [MaintenanceModeOptions](#maintenancemodeoptions) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -329,7 +329,7 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 
 ## MaintenanceModeOptions
 
-
+MaintenanceModeOptions controls options for placing zones in maintenance mode.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
