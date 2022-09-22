@@ -48,7 +48,6 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 
 	updates := make(map[string][]*corev1.Pod)
-	zoneProcessGroupMap := make(map[string][]string)
 	podMap := internal.CreatePodMap(cluster, pods)
 
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -125,10 +124,8 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 
 			if updates[zone] == nil {
 				updates[zone] = make([]*corev1.Pod, 0)
-				zoneProcessGroupMap[zone] = make([]string, 0)
 			}
 			updates[zone] = append(updates[zone], pod)
-			zoneProcessGroupMap[zone] = append(zoneProcessGroupMap[zone], processGroup.ProcessGroupID)
 		}
 	}
 
@@ -160,7 +157,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 	defer adminClient.Close()
 
-	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, zoneProcessGroupMap, logger)
+	return deletePodsForUpdates(ctx, r, cluster, adminClient, updates, logger)
 }
 
 func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.FoundationDBCluster, processGroupID string) bool {
@@ -207,7 +204,7 @@ func getPodsToDelete(deletionMode fdbv1beta2.PodUpdateMode, updates map[string][
 }
 
 // deletePodsForUpdates will delete Pods with the specified deletion mode
-func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, zoneProcessGroupMap map[string][]string, logger logr.Logger) *requeue {
+func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, updates map[string][]*corev1.Pod, logger logr.Logger) *requeue {
 	deletionMode := r.PodLifecycleManager.GetDeletionMode(cluster)
 	zone, deletions, err := getPodsToDelete(deletionMode, updates)
 	if err != nil {
@@ -232,11 +229,17 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 	}
 
 	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
+		var processGroups []string
+		for _, pod := range deletions {
+			processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
+		}
+
 		logger.Info("Setting maintenance mode", "zone", zone)
-		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-		cluster.Status.MaintenanceModeInfo.StartTimestamp = &metav1.Time{Time: time.Now()}
-		cluster.Status.MaintenanceModeInfo.ZoneID = zone
-		cluster.Status.MaintenanceModeInfo.ProcessGroups = zoneProcessGroupMap[zone]
+		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
+			StartTimestamp: &metav1.Time{Time: time.Now()},
+			ZoneID:         zone,
+			ProcessGroups:  processGroups,
+		}
 		err = r.Status().Update(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}

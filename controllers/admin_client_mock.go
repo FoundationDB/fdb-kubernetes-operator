@@ -213,7 +213,7 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
-					uptimeSeconds = time.Now().Sub(client.maintenanceZoneStartTimestamp).Seconds()
+					uptimeSeconds = time.Since(client.maintenanceZoneStartTimestamp).Seconds()
 				}
 			}
 
@@ -244,7 +244,7 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				if client.uptimeSecondsForMaintenanceZone != 0.0 {
 					uptimeSeconds = client.uptimeSecondsForMaintenanceZone
 				} else {
-					uptimeSeconds = time.Now().Sub(client.maintenanceZoneStartTimestamp).Seconds()
+					uptimeSeconds = time.Since(client.maintenanceZoneStartTimestamp).Seconds()
 				}
 			}
 

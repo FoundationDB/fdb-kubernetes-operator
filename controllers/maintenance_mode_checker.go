@@ -1,9 +1,9 @@
 /*
- * maintenance_mode_.go
+ * maintenance_mode_checker.go
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2019-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,16 +79,16 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	}
 	processGroupsToCheck := make(map[string]struct{})
 	for _, id := range cluster.Status.MaintenanceModeInfo.ProcessGroups {
-		processGroupsToCheck[id] = struct{}{}
+		processGroupsToCheck[id] = fdbv1beta2.None{}
 	}
 	for _, process := range status.Cluster.Processes {
-		if _, ok := processGroupsToCheck[process.Locality["instance_id"]]; !ok {
+		if _, ok := processGroupsToCheck[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]; !ok {
 			continue
 		}
-		if process.UptimeSeconds < time.Now().Sub(cluster.Status.MaintenanceModeInfo.StartTimestamp.Time).Seconds() {
-			delete(processGroupsToCheck, process.Locality["instance_id"])
+		if process.UptimeSeconds < time.Since(cluster.Status.MaintenanceModeInfo.StartTimestamp.Time).Seconds() {
+			delete(processGroupsToCheck, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
 		} else {
-			return &requeue{message: fmt.Sprintf("Waiting for pod %s to be updated", process.Locality["instance_id"]), delayedRequeue: true}
+			return &requeue{message: fmt.Sprintf("Waiting for pod %s to be updated", process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]), delayedRequeue: true}
 		}
 	}
 	// Some of the pods are not yet up

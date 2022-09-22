@@ -287,7 +287,7 @@ type FoundationDBClusterStatus struct {
 // MaintenanceModeInfo contains information regarding the zone and process groups that are put
 // into maintenance mode by the operator
 type MaintenanceModeInfo struct {
-	// Timestamp when this zone is put into maintenance mode
+	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// ZoneID that is placed in maintenance mode
 	ZoneID string `json:"zoneID,omitempty"`
@@ -889,9 +889,19 @@ type FoundationDBClusterAutomationOptions struct {
 	// using fdbcli to interact with the FoundationDB cluster.
 	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
 
+	// MaintenanceModeOptions contains options for maintenance mode related settings.
+	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
+}
+
+// MaintenanceModeOptions controls options for placing zones in maintenance mode.
+type MaintenanceModeOptions struct {
 	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
-	// Default is true
+	// Default is true.
 	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
+
+	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
+	// Default is 600.
+	MaintenanceModeTimeSeconds *int `json:"maintenanceModeTimeSeconds,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -1891,6 +1901,16 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 	}
 
 	return duration
+}
+
+// UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
+func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, true)
+}
+
+// GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.
+func (cluster *FoundationDBCluster) GetMaintenaceModeTimeoutSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.MaintenanceModeTimeSeconds, 600)
 }
 
 // PodUpdateStrategy defines how Pod spec changes should be applied.

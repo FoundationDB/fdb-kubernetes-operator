@@ -321,7 +321,7 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| startTimestamp | Timestamp when this zone is put into maintenance mode | *metav1.Time | false |
+| startTimestamp | StartTimestamp provides the timestamp when this zone is put into maintenance mode | *metav1.Time | false |
 | zoneID | ZoneID that is placed in maintenance mode | string | false |
 | processGroups | ProcessGroups that are placed in maintenance mode | []string | false |
 
@@ -334,7 +334,7 @@ MaintenanceModeInfo contains information regarding the zone and process groups t
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
 | UseMaintenanceModeChecker | UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods. Default is true. | *bool | false |
-| maintenanceModeTimeSeconds | Time for which a zone will be put into maintenance. It will automatically be switched off after the time elapses. Default is 600. | *int | false |
+| maintenanceModeTimeSeconds | MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses. Default is 600. | *int | false |
 
 [Back to TOC](#table-of-contents)
 
