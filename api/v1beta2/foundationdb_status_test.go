@@ -453,6 +453,9 @@ var _ = Describe("FoundationDBStatus", func() {
 							},
 						},
 					},
+					RecoveryState: RecoveryState{
+						Name: "fully_recovered",
+					},
 				},
 			}))
 		})
@@ -771,6 +774,11 @@ var _ = Describe("FoundationDBStatus", func() {
 			FaultTolerance: FaultTolerance{
 				MaxZoneFailuresWithoutLosingData:         1,
 				MaxZoneFailuresWithoutLosingAvailability: 1,
+			},
+			RecoveryState: RecoveryState{
+				ActiveGenerations:         1,
+				Name:                      "fully_recovered",
+				SecondsSinceLastRecovered: 76.8155,
 			},
 		}
 
