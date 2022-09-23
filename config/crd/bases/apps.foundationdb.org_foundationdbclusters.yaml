@@ -4925,6 +4925,8 @@ spec:
                     type: integer
                   storage_cache:
                     type: integer
+                  test:
+                    type: integer
                   tester:
                     type: integer
                   transaction:
@@ -9750,6 +9752,8 @@ spec:
                     type: integer
                   storage_cache:
                     type: integer
+                  test:
+                    type: integer
                   tester:
                     type: integer
                   transaction:
@@ -10189,6 +10193,8 @@ spec:
                   storage:
                     type: integer
                   storage_cache:
+                    type: integer
+                  test:
                     type: integer
                   tester:
                     type: integer
