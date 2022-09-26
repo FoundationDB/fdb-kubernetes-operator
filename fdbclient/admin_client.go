@@ -347,6 +347,7 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 
 // GetMaintenanceZone gets current maintenance zone, if any. Returns empty string if maintenance mode is off
 func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
+	// TODO: Use special keyspace to just read the maintenance zone info instead of reading the whole status
 	status, err := client.GetStatus()
 	if err != nil {
 		return "", err

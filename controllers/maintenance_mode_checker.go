@@ -53,7 +53,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if maintenanceZone == "" {
 		if cluster.Status.MaintenanceModeInfo.ZoneID != "" {
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -64,7 +64,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 	if maintenanceZone != cluster.Status.MaintenanceModeInfo.ZoneID {
 		if cluster.Status.MaintenanceModeInfo.ZoneID != "" {
 			cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-			err = r.Status().Update(ctx, cluster)
+			err = r.updateOrApply(ctx, cluster)
 			if err != nil {
 				return &requeue{curError: err}
 			}
@@ -85,6 +85,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 		if _, ok := processGroupsToCheck[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]; !ok {
 			continue
 		}
+		// TODO: Also include deletion timestamp to make this logic more robust to account for the corner case of the process crash/restarts.
 		if process.UptimeSeconds < time.Since(cluster.Status.MaintenanceModeInfo.StartTimestamp.Time).Seconds() {
 			delete(processGroupsToCheck, process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey])
 		} else {
@@ -106,7 +107,7 @@ func (maintenanceModeChecker) reconcile(ctx context.Context, r *FoundationDBClus
 		return &requeue{curError: err}
 	}
 	cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{}
-	err = r.Status().Update(ctx, cluster)
+	err = r.updateOrApply(ctx, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}

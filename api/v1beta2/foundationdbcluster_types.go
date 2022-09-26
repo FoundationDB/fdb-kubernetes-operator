@@ -896,7 +896,7 @@ type FoundationDBClusterAutomationOptions struct {
 // MaintenanceModeOptions controls options for placing zones in maintenance mode.
 type MaintenanceModeOptions struct {
 	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
-	// Default is true.
+	// Default is false.
 	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
 
 	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
@@ -1905,7 +1905,7 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 
 // UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
 func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
-	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, true)
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false)
 }
 
 // GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.

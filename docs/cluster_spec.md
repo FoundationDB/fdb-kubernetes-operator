@@ -333,7 +333,7 @@ MaintenanceModeOptions controls options for placing zones in maintenance mode.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| UseMaintenanceModeChecker | UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods. Default is true. | *bool | false |
+| UseMaintenanceModeChecker | UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods. Default is false. | *bool | false |
 | maintenanceModeTimeSeconds | MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses. Default is 600. | *int | false |
 
 [Back to TOC](#table-of-contents)

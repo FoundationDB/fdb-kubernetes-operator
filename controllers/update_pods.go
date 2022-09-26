@@ -240,7 +240,7 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 			ZoneID:         zone,
 			ProcessGroups:  processGroups,
 		}
-		err = r.Status().Update(ctx, cluster)
+		err = r.updateOrApply(ctx, cluster)
 		if err != nil {
 			return &requeue{curError: err}
 		}
