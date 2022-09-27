@@ -345,6 +345,35 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 	return err
 }
 
+// GetMaintenanceZone gets current maintenance zone, if any. Returns empty string if maintenance mode is off
+func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
+	// TODO: Use special keyspace to just read the maintenance zone info instead of reading the whole status
+	status, err := client.GetStatus()
+	if err != nil {
+		return "", err
+	}
+	return status.Cluster.MaintenanceZone, nil
+}
+
+// SetMaintenanceZone places zone into maintenance mode
+func (client *cliAdminClient) SetMaintenanceZone(zone string, timeoutSeconds int) error {
+	_, err := client.runCommand(cliCommand{
+		command: fmt.Sprintf(
+			"maintenance on %s %s",
+			zone,
+			strconv.Itoa(timeoutSeconds)),
+	})
+	return err
+}
+
+// ResetMaintenanceMode switches of maintenance mode
+func (client *cliAdminClient) ResetMaintenanceMode() error {
+	_, err := client.runCommand(cliCommand{
+		command: "maintenance off",
+	})
+	return err
+}
+
 // ExcludeProcesses starts evacuating processes so that they can be removed from the database.
 func (client *cliAdminClient) ExcludeProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	if len(addresses) == 0 {

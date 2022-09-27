@@ -48,6 +48,8 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	originalStatus := cluster.Status.DeepCopy()
 	status := fdbv1beta2.FoundationDBClusterStatus{}
+	// Pass through Maintenance Mode Info as the maintenance_mode_checker reconciler takes care of updating it
+	originalStatus.MaintenanceModeInfo.DeepCopyInto(&status.MaintenanceModeInfo)
 	status.Generations.Reconciled = cluster.Status.Generations.Reconciled
 
 	// Initialize with the current desired storage servers per Pod

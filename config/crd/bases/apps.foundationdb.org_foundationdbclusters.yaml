@@ -9868,6 +9868,13 @@ spec:
                     type: integer
                   killProcesses:
                     type: boolean
+                  maintenanceModeOptions:
+                    properties:
+                      UseMaintenanceModeChecker:
+                        type: boolean
+                      maintenanceModeTimeSeconds:
+                        type: integer
+                    type: object
                   maxConcurrentReplacements:
                     minimum: 0
                     type: integer
@@ -13745,6 +13752,18 @@ spec:
                     items:
                       type: string
                     type: array
+                type: object
+              maintenanceModeInfo:
+                properties:
+                  processGroups:
+                    items:
+                      type: string
+                    type: array
+                  startTimestamp:
+                    format: date-time
+                    type: string
+                  zoneID:
+                    type: string
                 type: object
               needsNewCoordinators:
                 type: boolean

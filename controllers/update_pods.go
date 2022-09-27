@@ -31,6 +31,7 @@ import (
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // updatePods provides a reconciliation step for recreating pods with new pod
@@ -227,7 +228,29 @@ func deletePodsForUpdates(ctx context.Context, r *FoundationDBClusterReconciler,
 		}
 	}
 
-	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(deletionMode))
+	if deletionMode == fdbv1beta2.PodUpdateModeZone && cluster.UseMaintenaceMode() {
+		var processGroups []string
+		for _, pod := range deletions {
+			processGroups = append(processGroups, pod.Labels[cluster.GetProcessGroupIDLabel()])
+		}
+
+		logger.Info("Setting maintenance mode", "zone", zone)
+		cluster.Status.MaintenanceModeInfo = fdbv1beta2.MaintenanceModeInfo{
+			StartTimestamp: &metav1.Time{Time: time.Now()},
+			ZoneID:         zone,
+			ProcessGroups:  processGroups,
+		}
+		err = r.updateOrApply(ctx, cluster)
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		err = adminClient.SetMaintenanceZone(zone, cluster.GetMaintenaceModeTimeoutSeconds())
+		if err != nil {
+			return &requeue{curError: err}
+		}
+	}
+
+	logger.Info("Deleting pods", "zone", zone, "count", len(deletions), "deletionMode", string(cluster.Spec.AutomationOptions.DeletionMode))
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "UpdatingPods", fmt.Sprintf("Recreating pods in zone %s", zone))
 
 	err = r.PodLifecycleManager.UpdatePods(logr.NewContext(ctx, logger), r, cluster, deletions, false)
