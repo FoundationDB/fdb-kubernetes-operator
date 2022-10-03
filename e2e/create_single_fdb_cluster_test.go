@@ -23,75 +23,18 @@
 package e2e
 
 import (
-	"context"
-	"strings"
 	"testing"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/helper"
-	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
 func TestCreateSingleFDBCluster(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	testVersions := helper.GetTestFDBVersions()
 	createSingleClusterFeatures := make([]features.Feature, 0, len(testVersions))
 
 	for _, version := range testVersions {
-		clusterName := "test" + strings.ReplaceAll(version.Compact(), ".", "-")
-		te := features.
-			New("create single cluster for "+version.Compact()).
-			WithLabel("", ""). // TODO (johscheuer): add actual labels
-			Setup(func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
-				testCluster := &fdbv1beta2.FoundationDBCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      clusterName,
-						Namespace: config.Namespace(),
-					},
-					Spec: fdbv1beta2.FoundationDBClusterSpec{
-						Version: version.String(),
-					},
-				}
-
-				g.Expect(config.Client().Resources().Create(ctx, testCluster)).NotTo(HaveOccurred())
-
-				// TODO (johscheuer): Add here a wait function until cluster is reconciled.
-				return ctx
-			}).
-			Assess("it should create an FDB cluster in "+version.Compact(), func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
-				testCluster := &fdbv1beta2.FoundationDBCluster{}
-
-				g.Expect(config.Client().Resources().Get(ctx, clusterName, config.Namespace(), testCluster)).NotTo(HaveOccurred())
-				g.Expect(testCluster.Spec.Version).To(Equal(version.String()))
-
-				// TODO (johscheuer): Check here if Pods are created.
-
-				// TODO (johscheuer): Check here if the FDB cluster is available.
-
-				return ctx
-			}).
-			Assess("", func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
-
-				return ctx
-			}).
-			Teardown(func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
-				testCluster := &fdbv1beta2.FoundationDBCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      clusterName,
-						Namespace: config.Namespace(),
-					},
-				}
-
-				g.Expect(config.Client().Resources().Delete(ctx, testCluster)).NotTo(HaveOccurred())
-
-				return ctx
-			}).Feature()
-
-		createSingleClusterFeatures = append(createSingleClusterFeatures, te)
+		createSingleClusterFeatures = append(createSingleClusterFeatures, helper.CreateSingleClusterTest(version, t))
 	}
 
 	testenv.Test(t, createSingleClusterFeatures...)

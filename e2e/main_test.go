@@ -24,9 +24,9 @@ package e2e
 
 import (
 	"context"
-	"time"
+	"fmt"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/e2e/helper"
 
 	// If testing with a cloud vendor managed cluster uncomment one of the below dependencies to properly get authorised.
 	//_ "k8s.io/client-go/plugin/pkg/client/auth/azure" // auth for AKS clusters
@@ -35,8 +35,6 @@ import (
 	"os"
 	"testing"
 
-	"sigs.k8s.io/e2e-framework/klient/conf"
-	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
@@ -46,55 +44,30 @@ var testenv env.Environment
 
 func TestMain(m *testing.M) {
 	testenv = env.New()
-	// TODO (johscheuer): make this a flag
-	namespace := envconf.RandomName("sample-ns", 16)
 
-	// TODO (johscheuer): make this a flag
-	if os.Getenv("REAL_CLUSTER") == "true" {
-		path := conf.ResolveKubeConfigFile()
-		cfg := envconf.NewWithKubeConfig(path)
-		testenv = env.NewWithConfig(cfg)
-
-		testenv.Setup(
-			envfuncs.CreateNamespace(namespace),
-			envfuncs.SetupCRDs("../config/crd/bases", "*"),
-		)
-		testenv.Finish(
-			envfuncs.TeardownCRDs("../config/crd/bases", "*"),
-			envfuncs.DeleteNamespace(namespace),
-		)
-	} else {
-		kindClusterName := envconf.RandomName("kind-with-config", 16)
-
-		// TODO (johscheuer): install fdb operator with latest version
-		testenv.Setup(
-			envfuncs.CreateKindCluster(kindClusterName),
-			envfuncs.SetupCRDs("../config/crd/bases", "*"),
-			// Register the fdbv1beta2 scheme to the rest config
-			func(ctx context.Context, config *envconf.Config) (context.Context, error) {
-				r, err := resources.New(config.Client().RESTConfig())
-				if err != nil {
-					return ctx, err
-				}
-
-				err = fdbv1beta2.AddToScheme(r.GetScheme())
-
-				return ctx, err
-			},
-			func(ctx context.Context, config *envconf.Config) (context.Context, error) {
-				// TODO (johscheuer): Add a proper test to ensure the CRD is available.
-				time.Sleep(1 * time.Second)
-				return ctx, nil
-			},
-			envfuncs.CreateNamespace(namespace),
-		)
-
-		testenv.Finish(
-			envfuncs.DeleteNamespace(namespace),
-			envfuncs.TeardownCRDs("../config/crd/bases", "*"),
-			envfuncs.DestroyKindCluster(kindClusterName),
-		)
+	cfg, err := envconf.NewFromFlags()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "envconf failed: %s\n", err)
+		os.Exit(1)
 	}
+
+	testenv = env.NewWithConfig(cfg)
+
+	testenv.Setup(
+		envfuncs.SetupCRDs("../config/crd/bases", "*"),
+		helper.RegisterFDBScheme,
+		helper.WaitUntilCRDAvailable,
+	)
+
+	testenv.BeforeEachTest(func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
+		return helper.CreateNamespace(ctx, cfg, t, envconf.RandomName("ns", 4))
+	}, helper.InstallOperator)
+
+	testenv.AfterEachTest(helper.DeleteNamespace)
+
+	testenv.Finish(
+		envfuncs.TeardownCRDs("../config/crd/bases", "*"),
+	)
 
 	os.Exit(testenv.Run(m))
 }
