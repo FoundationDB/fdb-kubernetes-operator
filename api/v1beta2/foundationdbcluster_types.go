@@ -39,6 +39,8 @@ import (
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Available",type="boolean",JSONPath=".status.health.available",description="Database available",priority=0
 // +kubebuilder:printcolumn:name="FullReplication",type="boolean",JSONPath=".status.health.fullReplication",description="Database fully replicated",priority=0
+// +kubebuilder:printcolumn:name="ReconciledProcessGroups",type="integer",JSONPath=".status.reconciledProcessGroups",description="Number of reconciled process groups",priority=1
+// +kubebuilder:printcolumn:name="DesiredProcessGroups",type="integer",JSONPath=".status.desiredProcessGroups",description="Desired number of process groups",priority=1
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.runningVersion",description="Running version",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
@@ -282,6 +284,12 @@ type FoundationDBClusterStatus struct {
 
 	// MaintenenanceModeInfo contains information regarding process groups in maintenance mode
 	MaintenanceModeInfo MaintenanceModeInfo `json:"maintenanceModeInfo,omitempty"`
+
+	// DesiredProcessGroups reflects the number of expected running process groups.
+	DesiredProcessGroups int `json:"desiredProcessGroups,omitempty"`
+
+	// ReconciledProcessGroups reflects the number of process groups that have no condition and are not marked for removal.
+	ReconciledProcessGroups int `json:"reconciledProcessGroups,omitempty"`
 }
 
 // MaintenanceModeInfo contains information regarding the zone and process groups that are put
@@ -1154,7 +1162,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	}
 
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
-
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.IsMarkedForRemoval() {
 			continue
@@ -1189,8 +1196,15 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		}
 	}
 
+	cluster.Status.DesiredProcessGroups = desiredCounts.Total()
+	cluster.Status.ReconciledProcessGroups = 0
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.IsMarkedForRemoval() {
+		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		if len(processGroup.ProcessGroupConditions) > 0 {
 			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
 			for _, condition := range processGroup.ProcessGroupConditions {
 				conditions = append(conditions, condition.ProcessGroupConditionType)
@@ -1199,7 +1213,14 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess", "conditions", conditions)
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
+			continue
 		}
+
+		cluster.Status.ReconciledProcessGroups++
+	}
+
+	if cluster.Status.DesiredProcessGroups != cluster.Status.ReconciledProcessGroups {
+		logger.Info("Not all process groups are reconciled", "desiredProcessGroups", cluster.Status.DesiredProcessGroups, "reconciledProcessGroups", cluster.Status.ReconciledProcessGroups)
 	}
 
 	if !cluster.Status.Health.Available {

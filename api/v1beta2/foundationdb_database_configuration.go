@@ -911,5 +911,20 @@ func (counts ProcessCounts) Diff(currentCounts ProcessCounts) map[ProcessClass]i
 			diff[label] = desired - current
 		}
 	}
+
 	return diff
+}
+
+// Total gets the total number of processes for the cluster configuration.
+func (counts ProcessCounts) Total() int {
+	var total int64
+	desiredValue := reflect.ValueOf(counts)
+	for _, index := range processClassIndices {
+		desired := desiredValue.Field(index).Int()
+		if desired > 0 {
+			total += desired
+		}
+	}
+
+	return int(total)
 }

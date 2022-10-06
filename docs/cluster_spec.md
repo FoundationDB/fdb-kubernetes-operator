@@ -258,6 +258,8 @@ FoundationDBClusterStatus defines the observed state of FoundationDBCluster
 | processGroups | ProcessGroups contain information about a process group. This information is used in multiple places to trigger the according action. | []*[ProcessGroupStatus](#processgroupstatus) | false |
 | locks | Locks contains information about the locking system. | [LockSystemStatus](#locksystemstatus) | false |
 | maintenanceModeInfo | MaintenenanceModeInfo contains information regarding process groups in maintenance mode | [MaintenanceModeInfo](#maintenancemodeinfo) | false |
+| desiredProcessGroups | DesiredProcessGroups reflects the number of expected running process groups. | int | false |
+| reconciledProcessGroups | ReconciledProcessGroups reflects the number of process groups that have no condition and are not marked for removal. | int | false |
 
 [Back to TOC](#table-of-contents)
 

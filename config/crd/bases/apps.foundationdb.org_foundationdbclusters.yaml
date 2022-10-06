@@ -9828,6 +9828,16 @@ spec:
       jsonPath: .status.health.fullReplication
       name: FullReplication
       type: boolean
+    - description: Number of reconciled process groups
+      jsonPath: .status.reconciledProcessGroups
+      name: ReconciledProcessGroups
+      priority: 1
+      type: integer
+    - description: Desired number of process groups
+      jsonPath: .status.desiredProcessGroups
+      name: DesiredProcessGroups
+      priority: 1
+      type: integer
     - description: Running version
       jsonPath: .status.runningVersion
       name: Version
@@ -13678,6 +13688,8 @@ spec:
                   usable_regions:
                     type: integer
                 type: object
+              desiredProcessGroups:
+                type: integer
               generations:
                 properties:
                   hasExtraListeners:
@@ -13798,6 +13810,8 @@ spec:
                       type: string
                   type: object
                 type: array
+              reconciledProcessGroups:
+                type: integer
               requiredAddresses:
                 properties:
                   nonTLS:
