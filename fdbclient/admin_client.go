@@ -143,12 +143,12 @@ func (command cliCommand) getClusterFileFlag() string {
 }
 
 // getTimeout returns the timeout for the command
-func (command cliCommand) getTimeout() int {
+func (command cliCommand) getTimeout() time.Duration {
 	if command.timeout != 0 {
-		return int(command.timeout.Seconds())
+		return command.timeout
 	}
 
-	return int(DefaultCLITimeout.Seconds())
+	return DefaultCLITimeout
 }
 
 // getBinaryPath generates the path to an FDB binary.
@@ -206,10 +206,10 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	if command.hasTimeoutArg() {
-		args = append(args, "--timeout", strconv.Itoa(command.getTimeout()))
+		args = append(args, "--timeout", strconv.Itoa(int(command.getTimeout().Seconds())))
 		hardTimeout += command.getTimeout()
 	}
-	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Second*time.Duration(hardTimeout))
+	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
 	execCommand := exec.CommandContext(timeoutContext, binary, args...)
 
@@ -247,8 +247,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
 func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
-	maxTimeoutInSeconds := 40
-	currentTimeoutInSeconds := int(DefaultCLITimeout.Seconds())
+	maxTimeout := time.Second * 40
+	currentTimeout := DefaultCLITimeout
 
 	var rawResult string
 	var err error
@@ -257,15 +257,15 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 	// it with the default timeout of 10s we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
 	// seen that during upgrades of version incompatible version, when not all coordinators are properly restarted that
 	// the response time will be increased.
-	for currentTimeoutInSeconds <= maxTimeoutInSeconds {
-		rawResult, err = client.runCommand(cliCommand{command: command, timeout: time.Duration(currentTimeoutInSeconds) * time.Second})
+	for currentTimeout <= maxTimeout {
+		rawResult, err = client.runCommand(cliCommand{command: command, timeout: currentTimeout})
 		if err == nil {
 			break
 		}
 
 		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
 			client.log.Info("timeout issue will retry with higher timeout")
-			currentTimeoutInSeconds *= 2
+			currentTimeout *= 2
 			continue
 		}
 
