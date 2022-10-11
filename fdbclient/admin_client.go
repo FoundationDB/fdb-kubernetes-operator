@@ -247,7 +247,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
 func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
-	maxTimeout := time.Second * 40
+	maxTimeout := 40 * time.Second
 	currentTimeout := DefaultCLITimeout
 
 	var rawResult string
