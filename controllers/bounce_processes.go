@@ -179,28 +179,18 @@ func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *Fou
 
 		addresses = append(addresses, addressMap[process]...)
 
-		processGroupID := podmanager.GetProcessGroupIDFromProcessID(process)
-		pod, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetSinglePodListOptions(cluster, processGroupID)...)
-		if err != nil {
-			return nil, &requeue{curError: err}
-		}
-		if len(pod) == 0 {
-			return nil, &requeue{message: fmt.Sprintf("No pod defined for process group ID: \"%s\"", processGroupID), delay: podSchedulingDelayDuration}
-		}
-
-		synced, err := r.updatePodDynamicConf(cluster, pod[0])
-		if !synced {
+		if processGroup.GetConditionTime(fdbv1beta2.IncorrectConfigMap) != nil {
 			allSynced = false
-			logger.Info("Update dynamic Pod config", "processGroupID", processGroupID, "synced", synced, "error", err)
+			logger.Info("Waiting for dynamic Pod config update", "processGroupID", processGroup.ProcessGroupID)
 		}
 	}
 
 	if len(missingAddress) > 0 {
-		return nil, &requeue{curError: fmt.Errorf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
+		return &requeue{curError: fmt.Errorf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
 	}
 
 	if !allSynced {
-		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
+		return &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
 	}
 
 	counts, err := cluster.GetProcessCountsWithDefaults()
