@@ -23,6 +23,7 @@ package fdbclient
 import (
 	"fmt"
 	"os"
+	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/controllers"
@@ -33,11 +34,11 @@ import (
 )
 
 const (
-	defaultTransactionTimeout int64 = 5000
+	defaultTransactionTimeout = 5 * time.Second
 )
 
 // DefaultCLITimeout is the default timeout for CLI commands.
-var DefaultCLITimeout = 10
+var DefaultCLITimeout = 10 * time.Second
 
 // getFDBDatabase opens an FDB database. The result will be cached for
 // subsequent calls, based on the cluster namespace and name.
@@ -64,7 +65,7 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 		return fdb.Database{}, err
 	}
 
-	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout)
+	err = database.Options().SetTransactionTimeout(defaultTransactionTimeout.Milliseconds())
 	if err != nil {
 		return fdb.Database{}, err
 	}
@@ -72,7 +73,7 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 	return database, nil
 }
 
-func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger, fdbKey string, extraTimeout int64) ([]byte, error) {
+func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger, fdbKey string, timeout time.Duration) ([]byte, error) {
 	log.Info("Fetch values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
 	defer func() {
 		log.Info("Done fetching values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
@@ -87,7 +88,7 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Lo
 		if err != nil {
 			return nil, err
 		}
-		err = transaction.Options().SetTimeout(int64(DefaultCLITimeout) * extraTimeout)
+		err = transaction.Options().SetTimeout(timeout.Milliseconds())
 		if err != nil {
 			return nil, err
 		}
@@ -121,12 +122,12 @@ func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Lo
 
 // getConnectionStringFromDB gets the database's connection string directly from the system key
 func getConnectionStringFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
-	return getValueFromDBUsingKey(cluster, log, "\xff/coordinators", 1)
+	return getValueFromDBUsingKey(cluster, log, "\xff/coordinators", DefaultCLITimeout)
 }
 
 // getStatusFromDB gets the database's status directly from the system key
 func getStatusFromDB(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger) ([]byte, error) {
-	return getValueFromDBUsingKey(cluster, log, "\xff\xff/status/json", 1000)
+	return getValueFromDBUsingKey(cluster, log, "\xff\xff/status/json", DefaultCLITimeout)
 }
 
 type realDatabaseClientProvider struct {
