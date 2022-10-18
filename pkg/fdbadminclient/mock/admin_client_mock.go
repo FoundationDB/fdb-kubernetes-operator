@@ -183,7 +183,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				return nil, err
 			}
 
-			command, ok := client.currentCommandLines[processGroupID]
+			command, ok := client.currentCommandLines[fullAddress.StringWithoutFlags()]
 			if !ok {
 				// We only set the command if we don't have the commandline "cached"
 				command, err = internal.GetStartCommand(client.Cluster, pClass, podClient, processIndex, processCount)
@@ -191,10 +191,10 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 					return nil, err
 				}
 
-				client.currentCommandLines[processGroupID] = command
+				client.currentCommandLines[fullAddress.StringWithoutFlags()] = command
 			}
 
-			if client.incorrectCommandLines != nil && client.incorrectCommandLines[processGroupID] {
+			if client.incorrectCommandLines != nil && client.incorrectCommandLines[fullAddress.StringWithoutFlags()] {
 				command += " --locality_incorrect=1"
 			}
 
@@ -489,20 +489,6 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 	return pAddrs, nil
 }
 
-func (client *mockAdminClient) getProcessAddressMap() (map[string]string, error) {
-	status, err := client.GetStatus()
-	if err != nil {
-		return nil, err
-	}
-
-	resultMap := map[string]string{}
-	for _, process := range status.Cluster.Processes {
-		resultMap[process.Address.StringWithoutFlags()] = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-	}
-
-	return resultMap, nil
-}
-
 // KillProcesses restarts processes
 func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
 	processAddress, err := client.getProcessAddressMap()
@@ -515,7 +501,7 @@ func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) 
 		client.KilledAddresses = append(client.KilledAddresses, addr.String())
 		// Remove the commandline from the cached status and let it be recomputed in the next GetStatus request.
 		// This reflects that the commandline will only be updated if the processes are actually be restarted.
-		delete(client.currentCommandLines, processAddress[addr.StringWithoutFlags()])
+		delete(client.currentCommandLines, addr.StringWithoutFlags())
 	}
 	adminClientMutex.Unlock()
 
