@@ -44,13 +44,14 @@ type AdminClient struct {
 	KubeClient                               client.Client
 	DatabaseConfiguration                    *fdbv1beta2.DatabaseConfiguration
 	ExcludedAddresses                        []string
-	ReincludedAddresses                      map[string]bool
 	KilledAddresses                          []string
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
-	restoreURL                               string
 	clientVersions                           map[string][]string
 	missingProcessGroups                     map[string]bool
+	ReincludedAddresses                      map[string]bool
+	incorrectCommandLines                    map[string]bool
+	currentCommandLines                      map[string]string
 	additionalProcesses                      []fdbv1beta2.ProcessGroupStatus
 	localityInfo                             map[string]map[string]string
 	incorrectCommandLines                    map[string]bool
@@ -87,6 +88,7 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 			ReincludedAddresses:  make(map[string]bool),
 			missingProcessGroups: make(map[string]bool),
 			localityInfo:         make(map[string]map[string]string),
+			currentCommandLines:  make(map[string]string),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -181,10 +183,17 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				return nil, err
 			}
 
-			command, err := internal.GetStartCommand(client.Cluster, pClass, podClient, processIndex, processCount)
-			if err != nil {
-				return nil, err
+			command, ok := client.currentCommandLines[processGroupID]
+			if !ok {
+				// We only set the command if we don't have the commandline "cached"
+				command, err = internal.GetStartCommand(client.Cluster, pClass, podClient, processIndex, processCount)
+				if err != nil {
+					return nil, err
+				}
+
+				client.currentCommandLines[processGroupID] = command
 			}
+
 			if client.incorrectCommandLines != nil && client.incorrectCommandLines[processGroupID] {
 				command += " --locality_incorrect=1"
 			}
@@ -480,11 +489,33 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 	return pAddrs, nil
 }
 
+func (client *mockAdminClient) getProcessAddressMap() (map[string]string, error) {
+	status, err := client.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+
+	resultMap := map[string]string{}
+	for _, process := range status.Cluster.Processes {
+		resultMap[process.Address.StringWithoutFlags()] = process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+	}
+
+	return resultMap, nil
+}
+
 // KillProcesses restarts processes
 func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
+	processAddress, err := client.getProcessAddressMap()
+	if err != nil {
+		return err
+	}
+	
 	adminClientMutex.Lock()
 	for _, addr := range addresses {
 		client.KilledAddresses = append(client.KilledAddresses, addr.String())
+		// Remove the commandline from the cached status and let it be recomputed in the next GetStatus request.
+		// This reflects that the commandline will only be updated if the processes are actually be restarted.
+		delete(client.currentCommandLines, processAddress[addr.StringWithoutFlags()])
 	}
 	adminClientMutex.Unlock()
 
