@@ -21,8 +21,12 @@
 package mock
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -31,6 +35,19 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
+
+func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, processGroupID string) string {
+	for _, process := range status.Cluster.Processes {
+		locality := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+		if locality != processGroupID {
+			continue
+		}
+
+		return process.CommandLine
+	}
+
+	return ""
+}
 
 var _ = Describe("mock_client", func() {
 	When("checking if it's safe to delete a process group", func() {
@@ -178,5 +195,79 @@ var _ = Describe("mock_client", func() {
 					},
 				}),
 		)
+	})
+
+	When("changing the commandline arguments", func() {
+		var cluster *fdbv1beta2.FoundationDBCluster
+		var adminClient *mockAdminClient
+		var initialCommandline string
+		var processAddress fdbv1beta2.ProcessAddress
+		targetProcess := "storage-1"
+		newKnob := "--knob_dummy=1"
+
+		BeforeEach(func() {
+			var err error
+			cluster = internal.CreateDefaultCluster()
+			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			result, err := reconcileCluster(cluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+
+			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			status, err := adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, process := range status.Cluster.Processes {
+				locality := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
+				if locality != targetProcess {
+					continue
+				}
+
+				processAddress = process.Address
+				break
+			}
+
+			initialCommandline = getCommandlineForProcessFromStatus(status, targetProcess)
+			Expect(initialCommandline).NotTo(BeEmpty())
+			// Update the knobs for storage
+			processes := cluster.Spec.Processes
+			if processes == nil {
+				processes = map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{}
+			}
+			config := processes[fdbv1beta2.ProcessClassGeneral]
+			config.CustomParameters = append(config.CustomParameters, fdbv1beta2.FoundationDBCustomParameter(newKnob))
+			processes[fdbv1beta2.ProcessClassGeneral] = config
+			cluster.Spec.Processes = processes
+			fmt.Println(cluster.Spec.Processes)
+
+			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the process is not restarted", func() {
+			It("should not update the command line arguments", func() {
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				newCommandline := getCommandlineForProcessFromStatus(status, targetProcess)
+				Expect(newCommandline).To(Equal(initialCommandline))
+				Expect(newCommandline).NotTo(ContainSubstring(newKnob))
+			})
+		})
+
+		When("the process is restarted", func() {
+			It("should update the command line arguments", func() {
+				Expect(adminClient.KillProcesses([]fdbv1beta2.ProcessAddress{processAddress})).NotTo(HaveOccurred())
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				newCommandline := getCommandlineForProcessFromStatus(status, targetProcess)
+				Expect(newCommandline).NotTo(Equal(initialCommandline))
+				Expect(newCommandline).To(ContainSubstring(newKnob))
+			})
+		})
 	})
 })
