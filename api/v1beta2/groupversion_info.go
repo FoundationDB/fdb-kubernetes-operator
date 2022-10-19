@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1beta2 contains API Schema definitions for the apps v1beta2 API group
-//+kubebuilder:object:generate=true
-//+groupName=apps.foundationdb.org
+// +kubebuilder:object:generate=true
+// +groupName=apps.foundationdb.org
 package v1beta2
 
 import (
