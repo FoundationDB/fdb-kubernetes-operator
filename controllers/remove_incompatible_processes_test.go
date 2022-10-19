@@ -142,7 +142,16 @@ var _ = Describe("restart_incompatible_pods", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingAvailability: 2,
+							MaxZoneFailuresWithoutLosingData:         2,
+						},
 						IncompatibleConnections: []string{
 							cluster.Status.ProcessGroups[0].Addresses[0],
 						},
@@ -150,7 +159,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			FIt("should have one deletion", func() {
+			It("should have one deletion", func() {
 				pods := &corev1.PodList{}
 				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())
@@ -164,7 +173,16 @@ var _ = Describe("restart_incompatible_pods", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingAvailability: 2,
+							MaxZoneFailuresWithoutLosingData:         2,
+						},
 						IncompatibleConnections: []string{
 							cluster.Status.ProcessGroups[0].Addresses[0],
 						},
@@ -189,7 +207,16 @@ var _ = Describe("restart_incompatible_pods", func() {
 				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 				adminClient.frozenStatus = &fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
 					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingAvailability: 2,
+							MaxZoneFailuresWithoutLosingData:         2,
+						},
 						IncompatibleConnections: []string{
 							cluster.Status.ProcessGroups[0].Addresses[0],
 						},
