@@ -21,8 +21,11 @@
 package internal
 
 import (
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("fault_tolerance", func() {
@@ -64,4 +67,104 @@ var _ = Describe("fault_tolerance", func() {
 				}),
 		)
 	})
+
+	When("checking if the cluster has the desired fault tolerance from the status", func() {
+		log := logr.New(logf.NewDelegatingLogSink(logf.NullLogSink{}))
+
+		DescribeTable("should return if the cluster has the desired fault tolerance",
+			func(status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster, expected bool) {
+				Expect(HasDesiredFaultToleranceFromStatus(log, status, cluster)).To(Equal(expected))
+			},
+			Entry("cluster is fully replicated",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingData:         2,
+							MaxZoneFailuresWithoutLosingAvailability: 2,
+						},
+					},
+				},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+					},
+				},
+				true),
+			Entry("database is unavailable",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: false,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingData:         2,
+							MaxZoneFailuresWithoutLosingAvailability: 2,
+						},
+					},
+				},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+					},
+				},
+				false),
+			Entry("data is degraded",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingData:         1,
+							MaxZoneFailuresWithoutLosingAvailability: 2,
+						},
+					},
+				},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+					},
+				},
+				false),
+			Entry("availability is degraded",
+				&fdbv1beta2.FoundationDBStatus{
+					Client: fdbv1beta2.FoundationDBStatusLocalClientInfo{
+						DatabaseStatus: fdbv1beta2.FoundationDBStatusClientDBStatus{
+							Available: true,
+						},
+					},
+					Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+						FaultTolerance: fdbv1beta2.FaultTolerance{
+							MaxZoneFailuresWithoutLosingData:         2,
+							MaxZoneFailuresWithoutLosingAvailability: 1,
+						},
+					},
+				},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						DatabaseConfiguration: fdbv1beta2.DatabaseConfiguration{
+							RedundancyMode: fdbv1beta2.RedundancyModeTriple,
+						},
+					},
+				},
+				false),
+		)
+	})
+
+	// HasDesiredFaultToleranceFromStatus
 })

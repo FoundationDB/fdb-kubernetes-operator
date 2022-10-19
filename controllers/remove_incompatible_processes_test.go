@@ -150,7 +150,7 @@ var _ = Describe("restart_incompatible_pods", func() {
 				}
 			})
 
-			It("should have one deletion", func() {
+			FIt("should have one deletion", func() {
 				pods := &corev1.PodList{}
 				err := k8sClient.List(context.TODO(), pods, getListOptions(cluster)...)
 				Expect(err).NotTo(HaveOccurred())

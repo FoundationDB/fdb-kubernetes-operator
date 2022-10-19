@@ -21,7 +21,9 @@
 package internal
 
 import (
-	"github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"net"
+
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,7 +31,7 @@ import (
 var _ = Describe("Internal FoundationDBStatus", func() {
 	When("parsing the status for coordinators", func() {
 		type testCase struct {
-			status   *v1beta2.FoundationDBStatus
+			status   *fdbv1beta2.FoundationDBStatus
 			expected map[string]struct{}
 		}
 
@@ -40,19 +42,19 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 			},
 			Entry("no coordinators",
 				testCase{
-					status:   &v1beta2.FoundationDBStatus{},
+					status:   &fdbv1beta2.FoundationDBStatus{},
 					expected: map[string]struct{}{},
 				}),
 			Entry("single coordinators",
 				testCase{
-					status: &v1beta2.FoundationDBStatus{
-						Cluster: v1beta2.FoundationDBStatusClusterInfo{
-							Processes: map[string]v1beta2.FoundationDBStatusProcessInfo{
+					status: &fdbv1beta2.FoundationDBStatus{
+						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+							Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"foo": {
 									Locality: map[string]string{
-										v1beta2.FDBLocalityInstanceIDKey: "foo",
+										fdbv1beta2.FDBLocalityInstanceIDKey: "foo",
 									},
-									Roles: []v1beta2.FoundationDBStatusProcessRoleInfo{
+									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
 										},
@@ -60,7 +62,7 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 								},
 								"bar": {
 									Locality: map[string]string{
-										v1beta2.FDBLocalityInstanceIDKey: "bar",
+										fdbv1beta2.FDBLocalityInstanceIDKey: "bar",
 									},
 								},
 							},
@@ -72,14 +74,14 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				}),
 			Entry("multiple coordinators",
 				testCase{
-					status: &v1beta2.FoundationDBStatus{
-						Cluster: v1beta2.FoundationDBStatusClusterInfo{
-							Processes: map[string]v1beta2.FoundationDBStatusProcessInfo{
+					status: &fdbv1beta2.FoundationDBStatus{
+						Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+							Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
 								"foo": {
 									Locality: map[string]string{
-										v1beta2.FDBLocalityInstanceIDKey: "foo",
+										fdbv1beta2.FDBLocalityInstanceIDKey: "foo",
 									},
-									Roles: []v1beta2.FoundationDBStatusProcessRoleInfo{
+									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
 										},
@@ -87,9 +89,9 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 								},
 								"bar": {
 									Locality: map[string]string{
-										v1beta2.FDBLocalityInstanceIDKey: "bar",
+										fdbv1beta2.FDBLocalityInstanceIDKey: "bar",
 									},
-									Roles: []v1beta2.FoundationDBStatusProcessRoleInfo{
+									Roles: []fdbv1beta2.FoundationDBStatusProcessRoleInfo{
 										{
 											Role: "coordinator",
 										},
@@ -105,4 +107,111 @@ var _ = Describe("Internal FoundationDBStatus", func() {
 				}),
 		)
 	})
+
+	DescribeTable("when getting the minimum uptime and the address map", func(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, useRecoveryState bool, expectedMinimumUptime float64, expectedAddressMap map[string][]fdbv1beta2.ProcessAddress) {
+		minimumUptime, addressMap, err := GetMinimumUptimeAndAddressMap(cluster, status, useRecoveryState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(minimumUptime).To(BeNumerically("==", expectedMinimumUptime))
+		Expect(len(addressMap)).To(BeNumerically("==", len(expectedAddressMap)))
+		for key, value := range expectedAddressMap {
+			Expect(addressMap).To(HaveKeyWithValue(key, value))
+		}
+	},
+		Entry("when recovered since is not available",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: fdbv1beta2.Versions.Default.String(),
+				},
+			}, &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"test": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("127.0.0.1"),
+							},
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "test",
+							},
+							UptimeSeconds: 30.0,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 90.0,
+					},
+				},
+			},
+			true,
+			30.0,
+			map[string][]fdbv1beta2.ProcessAddress{
+				"test": {
+					{
+						IPAddress: net.ParseIP("127.0.0.1"),
+					},
+				},
+			}),
+		Entry("when recovered since is enabled and version supports it",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: fdbv1beta2.Versions.SupportsRecoveryState.String(),
+				},
+			}, &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"test": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("127.0.0.1"),
+							},
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "test",
+							},
+							UptimeSeconds: 30.0,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 90.0,
+					},
+				},
+			},
+			true,
+			90.0,
+			map[string][]fdbv1beta2.ProcessAddress{
+				"test": {
+					{
+						IPAddress: net.ParseIP("127.0.0.1"),
+					},
+				},
+			}),
+		Entry("when recovered since is disabled and version supports it",
+			&fdbv1beta2.FoundationDBCluster{
+				Spec: fdbv1beta2.FoundationDBClusterSpec{
+					Version: fdbv1beta2.Versions.SupportsRecoveryState.String(),
+				},
+			}, &fdbv1beta2.FoundationDBStatus{
+				Cluster: fdbv1beta2.FoundationDBStatusClusterInfo{
+					Processes: map[string]fdbv1beta2.FoundationDBStatusProcessInfo{
+						"test": {
+							Address: fdbv1beta2.ProcessAddress{
+								IPAddress: net.ParseIP("127.0.0.1"),
+							},
+							Locality: map[string]string{
+								fdbv1beta2.FDBLocalityInstanceIDKey: "test",
+							},
+							UptimeSeconds: 30.0,
+						},
+					},
+					RecoveryState: fdbv1beta2.RecoveryState{
+						SecondsSinceLastRecovered: 90.0,
+					},
+				},
+			},
+			false,
+			30.0,
+			map[string][]fdbv1beta2.ProcessAddress{
+				"test": {
+					{
+						IPAddress: net.ParseIP("127.0.0.1"),
+					},
+				},
+			}),
+	)
 })

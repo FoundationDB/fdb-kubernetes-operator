@@ -90,6 +90,29 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
+	// Wait until the cluster is running for the minimum uptime before looking for incompatible processes.
+	minimumUptime, _, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	if err != nil {
+		return err
+	}
+
+	if minimumUptime < float64(cluster.GetMinimumUptimeSecondsForBounce()) {
+		logger.V(1).Info("Skipping reconciler and waiting until cluster is for up minimum uptime")
+		return nil
+	}
+
+	// Ensure the cluster is running at fault tolerance before recreating Pods.
+	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
+	if err != nil {
+		logger.V(1).Info("Cluster doesn't have required fault tolerance won't delete Pods")
+		return err
+	}
+
+	if !hasDesiredFaultTolerance {
+		logger.V(1).Info("Skipping reconciler and waiting until cluster has desired fault tolerance")
+		return nil
+	}
+
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
 	incompatibleConnections := map[string]fdbv1beta2.None{}
 	for _, incompatibleAddress := range status.Cluster.IncompatibleConnections {
@@ -110,6 +133,14 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 				"processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
+
+		if pod.DeletionTimestamp != nil {
+			logger.V(1).Info("Skipping Pod that is already marked for deletion",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
+		// TODO: do not delete Pods that might be coordinators
 
 		if isIncompatible(incompatibleConnections, processGroup) {
 			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID)

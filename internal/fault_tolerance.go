@@ -39,10 +39,15 @@ func HasDesiredFaultTolerance(log logr.Logger, adminClient fdbadminclient.AdminC
 		return false, err
 	}
 
+	return HasDesiredFaultToleranceFromStatus(log, status, cluster)
+}
+
+// HasDesiredFaultToleranceFromStatus checks if the cluster has the desired fault tolerance based on the provided status.
+func HasDesiredFaultToleranceFromStatus(log logr.Logger, status *fdbv1beta2.FoundationDBStatus, cluster *fdbv1beta2.FoundationDBCluster) (bool, error) {
 	if !status.Client.DatabaseStatus.Available {
-		//log.V(0).Info("Cluster is not available",
-		//	"namespace", cluster.Namespace,
-		//	"cluster", cluster.Name)
+		log.Info("Cluster is not available",
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name)
 
 		return false, nil
 	}
