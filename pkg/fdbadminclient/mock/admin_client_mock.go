@@ -194,7 +194,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 				client.currentCommandLines[fullAddress.StringWithoutFlags()] = command
 			}
 
-			if client.incorrectCommandLines != nil && client.incorrectCommandLines[fullAddress.StringWithoutFlags()] {
+			if client.incorrectCommandLines != nil && client.incorrectCommandLines[processGroupID] {
 				command += " --locality_incorrect=1"
 			}
 
