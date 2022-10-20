@@ -3387,7 +3387,6 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			Context("when only distributing across data centers", func() {
-
 				BeforeEach(func() {
 					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{
 						Fields: []string{"dcid"},
