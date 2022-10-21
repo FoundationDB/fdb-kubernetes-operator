@@ -292,9 +292,11 @@ var _ = Describe("cluster_controller", func() {
 
 		When("converting a cluster to use unified images", func() {
 			BeforeEach(func() {
+				// There is a bug in the fake client that when updating the status the spec is updated.
+				cluster.Spec.MainContainer.ImageConfigs = nil
+				cluster.Spec.SidecarContainer.ImageConfigs = nil
 				cluster.Spec.UseUnifiedImage = pointer.Bool(true)
-				err = k8sClient.Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 			})
 
 			It("should update the pods", func() {
@@ -1740,8 +1742,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling explicit listen addresses", func() {
 			BeforeEach(func() {
-				enabled := false
-				cluster.Spec.UseExplicitListenAddress = &enabled
+				cluster.Spec.UseExplicitListenAddress = pointer.Bool(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1749,8 +1750,10 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Requeue).To(BeFalse())
 
-				enabled = true
-				cluster.Spec.UseExplicitListenAddress = &enabled
+				err = k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(cluster), cluster)
+				Expect(err).NotTo(HaveOccurred())
+
+				cluster.Spec.UseExplicitListenAddress = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2242,7 +2245,6 @@ var _ = Describe("cluster_controller", func() {
 					adminClient.MockClientVersion(fdbv1beta2.Versions.NextMajorVersion.String(), []string{"127.0.0.2:3687"})
 					err = k8sClient.Update(context.TODO(), cluster)
 					Expect(err).NotTo(HaveOccurred())
-
 				})
 
 				It("should not set a message about the client upgradability", func() {
@@ -2381,7 +2383,6 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a change to the process group ID prefix", func() {
 			BeforeEach(func() {
 				cluster.Spec.ProcessGroupIDPrefix = "dev"
-
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2417,8 +2418,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when enabling a headless service", func() {
 			BeforeEach(func() {
-				var flag = true
-				cluster.Spec.Routing.HeadlessService = &flag
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -2435,8 +2435,7 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("when disabling a headless service", func() {
 			BeforeEach(func() {
-				var flag = true
-				cluster.Spec.Routing.HeadlessService = &flag
+				cluster.Spec.Routing.HeadlessService = pointer.Bool(true)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2464,8 +2463,7 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a lock deny list", func() {
 			BeforeEach(func() {
 				cluster.Spec.LockOptions.DenyList = append(cluster.Spec.LockOptions.DenyList, fdbv1beta2.LockDenyListEntry{ID: "dc2"})
-				var locksDisabled = false
-				cluster.Spec.LockOptions.DisableLocks = &locksDisabled
+				cluster.Spec.LockOptions.DisableLocks = pointer.Bool(false)
 				err = k8sClient.Update(context.TODO(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 			})

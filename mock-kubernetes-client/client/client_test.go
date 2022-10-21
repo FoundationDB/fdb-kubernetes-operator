@@ -361,7 +361,8 @@ var _ = Describe("[mock client]", func() {
 		})
 	})
 
-	// TODO (johscheuer): Once https://github.com/kubernetes-sigs/controller-runtime/pull/2025 is merged and we update the
+	// TODO (johscheuer): Once https://github.com/kubernetes-sigs/controller-runtime/pull/2025 is merged we can enable
+	// this test again.
 	//
 	//When("listing objects by field", func() {
 	//	It("should list the objects with the field set", func() {
