@@ -98,7 +98,10 @@ func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, 
 		v4Address := client.generatePodIPv4()
 		pod.Status.PodIP = v4Address
 		pod.Status.PodIPs = []corev1.PodIP{{IP: v4Address}, {IP: client.generatePodIPv6()}}
-		pod.Status.Phase = corev1.PodRunning
+
+		if pod.Status.Phase == "" {
+			pod.Status.Phase = corev1.PodRunning
+		}
 		object = pod.DeepCopyObject().(ctrlClient.Object)
 	}
 

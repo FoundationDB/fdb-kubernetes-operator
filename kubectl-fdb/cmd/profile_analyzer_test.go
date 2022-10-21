@@ -24,29 +24,18 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ctx "context"
+	"context"
 )
 
 var _ = Describe("profile analyser", func() {
 	When("running profile analyzer with 6.3", func() {
-		clusterName := "test"
-		namespace := "test"
-		scheme := runtime.NewScheme()
-		var kubeClient client.Client
-
 		BeforeEach(func() {
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbv1beta2.AddToScheme(scheme)
-			cluster := &fdbv1beta2.FoundationDBCluster{
+			cluster = &fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
@@ -55,18 +44,18 @@ var _ = Describe("profile analyser", func() {
 					Version: "6.3.24",
 				},
 			}
-			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
+
 		It("should match the command args", func() {
 			expectedEnv := v1.EnvVar{
 				Name:      "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
 				Value:     "/usr/bin/fdb/6.3.24/lib/",
 				ValueFrom: nil,
 			}
-			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
+			err := runProfileAnalyzer(k8sClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			job := &batchv1.Job{}
-			err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+			err = k8sClient.Get(context.Background(), client.ObjectKey{
 				Namespace: namespace,
 				Name:      "test-hot-shard-tool",
 			}, job)
@@ -76,16 +65,10 @@ var _ = Describe("profile analyser", func() {
 			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElements(expectedEnv))
 		})
 	})
-	When("running profile analyzer with 7.1", func() {
-		clusterName := "test"
-		namespace := "test"
-		scheme := runtime.NewScheme()
-		var kubeClient client.Client
 
+	When("running profile analyzer with 7.1", func() {
 		BeforeEach(func() {
-			_ = clientgoscheme.AddToScheme(scheme)
-			_ = fdbv1beta2.AddToScheme(scheme)
-			cluster := &fdbv1beta2.FoundationDBCluster{
+			cluster = &fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
@@ -94,18 +77,18 @@ var _ = Describe("profile analyser", func() {
 					Version: "7.1.19",
 				},
 			}
-			kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 		})
+
 		It("should match the command args", func() {
 			expectedEnv := v1.EnvVar{
 				Name:      "FDB_NETWORK_OPTION_EXTERNAL_CLIENT_DIRECTORY",
 				Value:     "/usr/bin/fdb/7.1.19/lib/",
 				ValueFrom: nil,
 			}
-			err := runProfileAnalyzer(kubeClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
+			err := runProfileAnalyzer(k8sClient, namespace, clusterName, "21:30 08/24/2022 BST", "22:30 08/24/2022 BST", 100, "../../sample-apps/fdb-profile-analyzer/sample_template.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			job := &batchv1.Job{}
-			err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+			err = k8sClient.Get(context.Background(), client.ObjectKey{
 				Namespace: namespace,
 				Name:      "test-hot-shard-tool",
 			}, job)

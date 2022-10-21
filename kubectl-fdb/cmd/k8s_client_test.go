@@ -21,14 +21,12 @@
 package cmd
 
 import (
+	"context"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,13 +34,8 @@ import (
 
 var _ = Describe("[plugin] using the Kubernetes client", func() {
 	When("fetching processes with conditions", func() {
-		clusterName := "test"
-		namespace := "test"
-		var cluster fdbv1beta2.FoundationDBCluster
-		var podList corev1.PodList
-
 		BeforeEach(func() {
-			cluster = fdbv1beta2.FoundationDBCluster{
+			cluster = &fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
@@ -87,65 +80,67 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 				},
 			}
 
-			podList = corev1.PodList{
-				Items: []corev1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-1",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:        clusterName,
-								fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
-							},
-						},
-						Status: corev1.PodStatus{
-							Phase: corev1.PodRunning,
+			pods := []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "instance-1",
+						Namespace: namespace,
+						Labels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+							fdbv1beta2.FDBClusterLabel:        clusterName,
+							fdbv1beta2.FDBProcessGroupIDLabel: "instance-1",
 						},
 					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-2",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:        clusterName,
-								fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
-							},
-						},
-						Status: corev1.PodStatus{
-							Phase: corev1.PodRunning,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-3",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:        clusterName,
-								fdbv1beta2.FDBProcessGroupIDLabel: "instance-3",
-							},
-						},
-						Status: corev1.PodStatus{
-							Phase: corev1.PodFailed,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-4",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:        clusterName,
-								fdbv1beta2.FDBProcessGroupIDLabel: "instance-4",
-							},
-						},
-						Status: corev1.PodStatus{
-							Phase: corev1.PodRunning,
-						},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
 					},
 				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "instance-2",
+						Namespace: namespace,
+						Labels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+							fdbv1beta2.FDBClusterLabel:        clusterName,
+							fdbv1beta2.FDBProcessGroupIDLabel: "instance-2",
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "instance-3",
+						Namespace: namespace,
+						Labels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+							fdbv1beta2.FDBClusterLabel:        clusterName,
+							fdbv1beta2.FDBProcessGroupIDLabel: "instance-3",
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodFailed,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "instance-4",
+						Namespace: namespace,
+						Labels: map[string]string{
+							fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+							fdbv1beta2.FDBClusterLabel:        clusterName,
+							fdbv1beta2.FDBProcessGroupIDLabel: "instance-4",
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					},
+				},
+			}
+
+			for _, pod := range pods {
+				Expect(k8sClient.Create(context.TODO(), &pod)).NotTo(HaveOccurred())
 			}
 		})
 
@@ -156,12 +151,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 
 		DescribeTable("should show all deprecations",
 			func(tc testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
-
-				pods, err := getAllPodsFromClusterWithCondition(kubeClient, clusterName, namespace, tc.conditions)
+				pods, err := getAllPodsFromClusterWithCondition(k8sClient, clusterName, namespace, tc.conditions)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pods).To(Equal(tc.expected))
 			},
@@ -184,28 +174,10 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 	})
 
 	When("getting the process groups IDs from Pods", func() {
-		clusterName := "test"
-		namespace := "test"
-		var cluster fdbv1beta2.FoundationDBCluster
-
 		When("the cluster doesn't have a prefix", func() {
-			BeforeEach(func() {
-				cluster = fdbv1beta2.FoundationDBCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      clusterName,
-						Namespace: namespace,
-					},
-					Spec: fdbv1beta2.FoundationDBClusterSpec{
-						ProcessCounts: fdbv1beta2.ProcessCounts{
-							Storage: 1,
-						},
-					},
-				}
-			})
-
 			DescribeTable("should get all process groups IDs",
 				func(podNames []string, expected []string) {
-					instances, err := getProcessGroupIDsFromPodName(&cluster, podNames)
+					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(instances).To(ContainElements(expected))
 					Expect(len(instances)).To(BeNumerically("==", len(expected)))
@@ -227,7 +199,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 
 		When("the cluster has a prefix", func() {
 			BeforeEach(func() {
-				cluster = fdbv1beta2.FoundationDBCluster{
+				cluster = &fdbv1beta2.FoundationDBCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      clusterName,
 						Namespace: namespace,
@@ -243,7 +215,7 @@ var _ = Describe("[plugin] using the Kubernetes client", func() {
 
 			DescribeTable("should get all process groups IDs",
 				func(podNames []string, expected []string) {
-					instances, err := getProcessGroupIDsFromPodName(&cluster, podNames)
+					instances, err := getProcessGroupIDsFromPodName(cluster, podNames)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(instances).To(ContainElements(expected))
 					Expect(len(instances)).To(BeNumerically("==", len(expected)))

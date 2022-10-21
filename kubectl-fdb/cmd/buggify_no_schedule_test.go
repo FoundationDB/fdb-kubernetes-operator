@@ -21,39 +21,15 @@
 package cmd
 
 import (
-	ctx "context"
+	"context"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("[plugin] buggify no-schedule instances command", func() {
-	clusterName := "test"
-	namespace := "test"
-
-	var cluster *fdbv1beta2.FoundationDBCluster
-
-	BeforeEach(func() {
-		cluster = &fdbv1beta2.FoundationDBCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterName,
-				Namespace: namespace,
-			},
-			Spec: fdbv1beta2.FoundationDBClusterSpec{
-				ProcessCounts: fdbv1beta2.ProcessCounts{
-					Storage: 1,
-				},
-			},
-		}
-	})
-
 	When("running buggify no-schedule instances command", func() {
 		When("adding instances to no-schedule list from a cluster", func() {
 			type testCase struct {
@@ -63,16 +39,11 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 			DescribeTable("should add all targeted processes to no-schedule list",
 				func(tc testCase) {
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
-					err := updateNoScheduleList(kubeClient, clusterName, tc.Instances, namespace, false, false, false)
+					err := updateNoScheduleList(k8sClient, clusterName, tc.Instances, namespace, false, false, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
-					err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+					err = k8sClient.Get(context.Background(), client.ObjectKey{
 						Namespace: namespace,
 						Name:      clusterName,
 					}, &resCluster)
@@ -93,14 +64,8 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 			)
 
 			When("a process group is already in no-schedule", func() {
-				var kubeClient client.Client
-
 				BeforeEach(func() {
 					cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 				})
 
 				type testCase struct {
@@ -110,11 +75,11 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 				DescribeTable("should add all targeted processes to no-schedule list",
 					func(tc testCase) {
-						err := updateNoScheduleList(kubeClient, clusterName, tc.Instances, namespace, false, false, false)
+						err := updateNoScheduleList(k8sClient, clusterName, tc.Instances, namespace, false, false, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
-						err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+						err = k8sClient.Get(context.Background(), client.ObjectKey{
 							Namespace: namespace,
 							Name:      clusterName,
 						}, &resCluster)
@@ -142,14 +107,8 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 		})
 
 		When("removing process group from no-schedule list from a cluster", func() {
-			var kubeClient client.Client
-
 			BeforeEach(func() {
 				cluster.Spec.Buggify.NoSchedule = []string{"storage-1", "storage-2", "storage-3"}
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 			})
 
 			type testCase struct {
@@ -159,11 +118,11 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 
 			DescribeTable("should remove all targeted processes from the no-schedule list",
 				func(tc testCase) {
-					err := updateNoScheduleList(kubeClient, clusterName, tc.Instances, namespace, false, true, false)
+					err := updateNoScheduleList(k8sClient, clusterName, tc.Instances, namespace, false, true, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
-					err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+					err = k8sClient.Get(context.Background(), client.ObjectKey{
 						Namespace: namespace,
 						Name:      clusterName,
 					}, &resCluster)
@@ -186,22 +145,16 @@ var _ = Describe("[plugin] buggify no-schedule instances command", func() {
 		})
 
 		When("clearing no-schedule list", func() {
-			var kubeClient client.Client
-
 			BeforeEach(func() {
 				cluster.Spec.Buggify.NoSchedule = []string{"storage-1", "storage-2", "storage-3"}
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 			})
 
 			It("should clear the no-schedule list", func() {
-				err := updateNoScheduleList(kubeClient, clusterName, nil, namespace, false, false, true)
+				err := updateNoScheduleList(k8sClient, clusterName, nil, namespace, false, false, true)
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
-				err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+				err = k8sClient.Get(context.Background(), client.ObjectKey{
 					Namespace: namespace,
 					Name:      clusterName,
 				}, &resCluster)
