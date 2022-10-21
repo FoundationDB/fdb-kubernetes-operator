@@ -215,6 +215,10 @@ type FoundationDBClusterSpec struct {
 	// UseUnifiedImage determines if we should use the unified image rather than
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
+
+	// Localities are used to specify the location of processes which in turn is used to
+	// determine fault and toleration domains.
+	Localities []Locality `json:"localities,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
@@ -2117,6 +2121,19 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 	}
 
 	return crashLoopPods, crashLoopAll
+}
+
+// Locality represents the locality for the cluster.
+type Locality struct {
+	Key         string `json:"key,omitempty"`
+	Value       string `json:"value,omitempty"`
+	EnvValue    string `json:"envValue,omitempty"`
+	TopologyKey string `json:"topologyKey,omitempty"`
+}
+
+// GetLocalities returns the cluster localities
+func (cluster *FoundationDBCluster) GetLocalities() []Locality {
+	return cluster.Spec.Localities
 }
 
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are

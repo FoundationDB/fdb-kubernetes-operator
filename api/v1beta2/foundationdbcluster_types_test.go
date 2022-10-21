@@ -4937,4 +4937,47 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 			)
 		})
 	})
+
+	When("getting cluster localities", func() {
+		It("should return the localities", func() {
+			cluster := &FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: FoundationDBClusterSpec{
+					Version: Versions.Default.String(),
+					Localities: []Locality{
+						{
+							Key:         "data_hall",
+							Value:       "",
+							EnvValue:    "",
+							TopologyKey: "topology.kubernetes.io/zone",
+						},
+						{
+							Key:         "zone",
+							Value:       "",
+							EnvValue:    "MyFancyZone",
+							TopologyKey: "kubernetes.io/hostname",
+						},
+					},
+				},
+			}
+
+			Expect(cluster.GetLocalities()).To(Equal([]Locality{
+				{
+					Key:         "data_hall",
+					Value:       "",
+					EnvValue:    "",
+					TopologyKey: "topology.kubernetes.io/zone",
+				},
+				{
+					Key:         "zone",
+					Value:       "",
+					EnvValue:    "MyFancyZone",
+					TopologyKey: "kubernetes.io/hostname",
+				},
+			}))
+		})
+	})
 })
