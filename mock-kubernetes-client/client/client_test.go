@@ -134,7 +134,7 @@ var _ = Describe("[mock client]", func() {
 
 			err = client.Create(context.TODO(), createDummyPod())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Conflict"))
+			Expect(err.Error()).To(Equal("pods \"pod1\" already exists"))
 		})
 	})
 

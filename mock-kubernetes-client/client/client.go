@@ -24,17 +24,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/equality"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -87,18 +83,6 @@ func (client *MockClient) Create(ctx context.Context, object ctrlClient.Object, 
 	object.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 	object.SetGeneration(object.GetGeneration() + 1)
 	object.SetUID(uuid.NewUUID())
-
-	err := client.fakeClient.Get(ctx, ctrlClient.ObjectKeyFromObject(object), object.DeepCopyObject().(ctrlClient.Object))
-	if err == nil {
-		// TODO (johscheuer): Move this into the upstream fake client
-		return &k8serrors.StatusError{ErrStatus: metav1.Status{
-			Status:  metav1.StatusFailure,
-			Message: string(metav1.StatusReasonConflict),
-			Code:    409,
-			Reason:  metav1.StatusReasonAlreadyExists,
-		}}
-
-	}
 
 	svc, isSvc := object.(*corev1.Service)
 	if isSvc {
