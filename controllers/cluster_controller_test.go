@@ -864,8 +864,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(processGroup.ProcessGroupConditions[0].ProcessGroupConditionType).To(Equal(fdbv1beta2.MissingProcesses))
 				Expect(processGroup.ProcessGroupConditions[0].Timestamp).NotTo(Equal(0))
 				processGroup.ProcessGroupConditions[0].Timestamp -= 3600
-				err = k8sClient.Status().Update(context.TODO(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(k8sClient.Status().Update(context.TODO(), cluster)).NotTo(HaveOccurred())
 
 				generationGap = 0
 			})
