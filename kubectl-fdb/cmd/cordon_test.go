@@ -21,16 +21,13 @@
 package cmd
 
 import (
-	ctx "context"
-
-	"golang.org/x/net/context"
-
-	"k8s.io/apimachinery/pkg/api/equality"
+	"context"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -87,7 +84,7 @@ var _ = Describe("[plugin] cordon command", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				var resCluster fdbv1beta2.FoundationDBCluster
-				err = k8sClient.Get(ctx.Background(), client.ObjectKey{
+				err = k8sClient.Get(context.Background(), client.ObjectKey{
 					Namespace: namespace,
 					Name:      clusterName,
 				}, &resCluster)
