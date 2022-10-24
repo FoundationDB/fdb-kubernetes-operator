@@ -64,10 +64,10 @@ MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config
 SAMPLES=config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
-	go_test_flags := $(go_test_flags) -race -timeout=60m
+	go_test_flags := $(go_test_flags) -race -timeout=90m
 endif
 
-all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
+all: deps generate fmt vet manager snapshot manifesgts samples documentation test_if_changed
 
 .PHONY: clean all manager samples documentation run install uninstall deploy manifests fmt vet generate container-build container-push container-push-if-remote rebuild-operator bounce lint
 

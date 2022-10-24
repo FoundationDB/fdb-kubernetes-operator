@@ -189,13 +189,7 @@ func (client *MockClient) DeleteAllOf(ctx context.Context, object ctrlClient.Obj
 func (client *MockClient) MockStuckTermination(object ctrlClient.Object, terminating bool) error {
 	if terminating {
 		object.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
-		currentFinalizers := object.GetFinalizers()
-		if currentFinalizers == nil {
-			currentFinalizers = []string{"foundationdb.org/testing"}
-		} else {
-			currentFinalizers = append(currentFinalizers, "foundationdb.org/testing")
-		}
-		object.SetFinalizers(currentFinalizers)
+		object.SetFinalizers(append(object.GetFinalizers(), "foundationdb.org/testing"))
 	} else {
 		object.SetDeletionTimestamp(nil)
 		object.SetFinalizers(nil)
