@@ -125,6 +125,11 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
 	}
 
+	coordinatorSet := make(map[string]fdbv1beta2.None)
+	for _, coordinator := range status.Client.Coordinators.Coordinators {
+		coordinatorSet[coordinator.Address.IPAddress.String()] = fdbv1beta2.None{}
+	}
+
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		pod, ok := podMap[processGroup.ProcessGroupID]
@@ -140,9 +145,12 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 			continue
 		}
 
-		// TODO: do not delete Pods that might be coordinators
-
 		if isIncompatible(incompatibleConnections, processGroup) {
+			if isCoordinator(coordinatorSet, processGroup) {
+				logger.Info("Skip deleting Pod, might be a coordinator", "processGroupID", processGroup.ProcessGroupID)
+				continue
+			}
+
 			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID)
 			incompatiblePods = append(incompatiblePods, pod)
 		}
@@ -150,6 +158,17 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 
 	// Do an unsafe update of the Pods since they are not reachable anyway
 	return r.PodLifecycleManager.UpdatePods(ctx, r, cluster, incompatiblePods, true)
+}
+
+// isCoordinator checks if the process group might be a coordinator.
+func isCoordinator(coordinatorSet map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus) bool {
+	for _, address := range processGroup.Addresses {
+		if _, ok := coordinatorSet[address]; ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isIncompatible checks if the process group is in the list of incompatible connections.
