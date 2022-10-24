@@ -21,25 +21,17 @@
 package cmd
 
 import (
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"context"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 	When("building cluster file update commands", func() {
-		clusterName := "test"
-		namespace := "test"
-
-		var cluster fdbv1beta2.FoundationDBCluster
-		var podList corev1.PodList
-
 		type testCase struct {
 			Context          string
 			ExpectedCommands [][]string
@@ -47,43 +39,22 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbv1beta2.FoundationDBCluster{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterName,
+					Name:      "instance-1",
 					Namespace: namespace,
-				},
-				Spec: fdbv1beta2.FoundationDBClusterSpec{
-					ProcessCounts: fdbv1beta2.ProcessCounts{
-						Storage: 1,
+					Labels: map[string]string{
+						fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
+						fdbv1beta2.FDBClusterLabel:      clusterName,
 					},
 				},
-			}
-
-			podList = corev1.PodList{
-				Items: []corev1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instance-1",
-							Namespace: namespace,
-							Labels: map[string]string{
-								fdbv1beta2.FDBProcessClassLabel: string(fdbv1beta2.ProcessClassStorage),
-								fdbv1beta2.FDBClusterLabel:      clusterName,
-							},
-						},
-					},
-				},
-			}
+			})).NotTo(HaveOccurred())
 		})
 
 		DescribeTable("should execute the provided command",
 			func(input testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(&cluster, &podList).Build()
 				cluster.Status.ConnectionString = "test:test@127.0.0.1:4501"
-
-				commands, err := buildClusterFileUpdateCommands(&cluster, kubeClient, input.Context, namespace, "/usr/local/bin/kubectl")
+				commands, err := buildClusterFileUpdateCommands(cluster, k8sClient, input.Context, namespace, "/usr/local/bin/kubectl")
 
 				if input.ExpectedError != "" {
 					Expect(err).To(HaveOccurred())
@@ -141,11 +112,6 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		)
 	})
 	When("updating the connection string", func() {
-		clusterName := "test"
-		namespace := "test"
-
-		var cluster fdbv1beta2.FoundationDBCluster
-
 		type testCase struct {
 			Context                  string
 			ExpectedConnectionString string
@@ -154,7 +120,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 		}
 
 		BeforeEach(func() {
-			cluster = fdbv1beta2.FoundationDBCluster{
+			cluster = &fdbv1beta2.FoundationDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterName,
 					Namespace: namespace,
@@ -179,10 +145,6 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 
 		DescribeTable("should execute the provided command",
 			func(input testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-
 				for processGroupID, address := range input.AddressUpdates {
 					for _, processGroup := range cluster.Status.ProcessGroups {
 						if processGroup.ProcessGroupID == processGroupID {
@@ -194,7 +156,7 @@ var _ = Describe("[plugin] fix-coordinator-ips command", func() {
 						}
 					}
 				}
-				err := updateIPsInConnectionString(&cluster)
+				err := updateIPsInConnectionString(cluster)
 
 				if input.ExpectedError != "" {
 					Expect(err).To(HaveOccurred())

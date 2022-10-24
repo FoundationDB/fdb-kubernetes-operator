@@ -21,39 +21,15 @@
 package cmd
 
 import (
-	ctx "context"
+	"context"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("[plugin] remove process groups command", func() {
-	clusterName := "test"
-	namespace := "test"
-
-	var cluster *fdbv1beta2.FoundationDBCluster
-
-	BeforeEach(func() {
-		cluster = &fdbv1beta2.FoundationDBCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterName,
-				Namespace: namespace,
-			},
-			Spec: fdbv1beta2.FoundationDBClusterSpec{
-				ProcessCounts: fdbv1beta2.ProcessCounts{
-					Storage: 1,
-				},
-			},
-		}
-	})
-
 	When("running remove process groups command", func() {
 		When("removing process groups from a cluster", func() {
 			BeforeEach(func() {
@@ -84,16 +60,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 
 			DescribeTable("should cordon all targeted processes",
 				func(tc testCase) {
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
-
-					err := replaceProcessGroups(kubeClient, clusterName, tc.Instances, namespace, tc.WithExclusion, false, tc.RemoveAllFailed, false, 0)
+					err := replaceProcessGroups(k8sClient, clusterName, tc.Instances, namespace, tc.WithExclusion, false, tc.RemoveAllFailed, false, 0)
 					Expect(err).NotTo(HaveOccurred())
 
 					var resCluster fdbv1beta2.FoundationDBCluster
-					err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+					err = k8sClient.Get(context.Background(), client.ObjectKey{
 						Namespace: namespace,
 						Name:      clusterName,
 					}, &resCluster)
@@ -139,24 +110,18 @@ var _ = Describe("[plugin] remove process groups command", func() {
 			)
 
 			When("a process group was already marked for removal", func() {
-				var kubeClient client.Client
-
 				BeforeEach(func() {
 					cluster.Spec.ProcessGroupsToRemove = []string{"storage-1"}
-					scheme := runtime.NewScheme()
-					_ = clientgoscheme.AddToScheme(scheme)
-					_ = fdbv1beta2.AddToScheme(scheme)
-					kubeClient = fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(cluster).Build()
 				})
 
 				When("adding the same process group to the removal list without exclusion", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, false, false, false, false, 0)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, false, false, false, false, 0)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
-						err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+						err = k8sClient.Get(context.Background(), client.ObjectKey{
 							Namespace: namespace,
 							Name:      clusterName,
 						}, &resCluster)
@@ -172,11 +137,11 @@ var _ = Describe("[plugin] remove process groups command", func() {
 				When("adding the same process group to the removal list", func() {
 					It("should add the process group to the removal without exclusion list", func() {
 						removals := []string{"test-storage-1"}
-						err := replaceProcessGroups(kubeClient, clusterName, removals, namespace, true, false, false, false, 0)
+						err := replaceProcessGroups(k8sClient, clusterName, removals, namespace, true, false, false, false, 0)
 						Expect(err).NotTo(HaveOccurred())
 
 						var resCluster fdbv1beta2.FoundationDBCluster
-						err = kubeClient.Get(ctx.Background(), client.ObjectKey{
+						err = k8sClient.Get(context.Background(), client.ObjectKey{
 							Namespace: namespace,
 							Name:      clusterName,
 						}, &resCluster)
