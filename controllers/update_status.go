@@ -79,9 +79,9 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		defer adminClient.Close()
 
 		databaseStatus, err = adminClient.GetStatus()
+		_ = adminClient.Close()
 		if err != nil {
 			if cluster.Status.Configured {
 				return &requeue{curError: err, delayedRequeue: true}
