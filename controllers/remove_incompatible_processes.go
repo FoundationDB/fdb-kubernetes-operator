@@ -122,6 +122,11 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 			continue
 		}
 
+		if address.Port == 0 {
+			logger.V(1).Info("Ignore incompatible connection with port 0", "address", address)
+			continue
+		}
+
 		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
 	}
 
@@ -151,7 +156,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 				continue
 			}
 
-			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID)
+			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID, "address", processGroup.Addresses)
 			incompatiblePods = append(incompatiblePods, pod)
 		}
 	}
