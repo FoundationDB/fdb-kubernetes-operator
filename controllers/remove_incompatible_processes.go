@@ -114,26 +114,7 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 	}
 
 	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
-	incompatibleConnections := map[string]fdbv1beta2.None{}
-	for _, incompatibleAddress := range status.Cluster.IncompatibleConnections {
-		address, err := fdbv1beta2.ParseProcessAddress(incompatibleAddress)
-		if err != nil {
-			logger.Error(err, "could not parse address in incompatible connections", "address", incompatibleAddress)
-			continue
-		}
-
-		if address.Port == 0 {
-			logger.V(1).Info("Ignore incompatible connection with port 0", "address", address)
-			continue
-		}
-
-		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
-	}
-
-	coordinatorSet := make(map[string]fdbv1beta2.None)
-	for _, coordinator := range status.Client.Coordinators.Coordinators {
-		coordinatorSet[coordinator.Address.IPAddress.String()] = fdbv1beta2.None{}
-	}
+	incompatibleConnections := parseIncompatibleConnections(logger, status.Cluster.IncompatibleConnections)
 
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -151,11 +132,6 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		}
 
 		if isIncompatible(incompatibleConnections, processGroup) {
-			if isCoordinator(coordinatorSet, processGroup) {
-				logger.Info("Skip deleting Pod, might be a coordinator", "processGroupID", processGroup.ProcessGroupID)
-				continue
-			}
-
 			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID, "address", processGroup.Addresses)
 			incompatiblePods = append(incompatiblePods, pod)
 		}
@@ -165,15 +141,25 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 	return r.PodLifecycleManager.UpdatePods(ctx, r, cluster, incompatiblePods, true)
 }
 
-// isCoordinator checks if the process group might be a coordinator.
-func isCoordinator(coordinatorSet map[string]fdbv1beta2.None, processGroup *fdbv1beta2.ProcessGroupStatus) bool {
-	for _, address := range processGroup.Addresses {
-		if _, ok := coordinatorSet[address]; ok {
-			return true
+// parseIncompatibleConnections parses the incompatible connections string slice to a map
+func parseIncompatibleConnections(logger logr.Logger, incompatibleConnections []string) map[string]fdbv1beta2.None {
+	result := make(map[string]fdbv1beta2.None)
+	for _, incompatibleAddress := range incompatibleConnections {
+		address, err := fdbv1beta2.ParseProcessAddress(incompatibleAddress)
+		if err != nil {
+			logger.Error(err, "could not parse address in incompatible connections", "address", incompatibleAddress)
+			continue
 		}
+
+		if address.Port == 0 {
+			logger.V(1).Info("Ignore incompatible connection with port 0", "address", address)
+			continue
+		}
+
+		result[address.IPAddress.String()] = fdbv1beta2.None{}
 	}
 
-	return false
+	return result
 }
 
 // isIncompatible checks if the process group is in the list of incompatible connections.
