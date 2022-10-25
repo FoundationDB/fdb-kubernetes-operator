@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+
 	corev1 "k8s.io/api/core/v1"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -60,10 +62,10 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	localityMap := make(map[string]localityInfo)
+	localityMap := make(map[string]locality.Info)
 	for _, process := range status.Cluster.Processes {
 		id := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-		localityMap[id] = localityInfo{ID: id, Address: process.Address, LocalityData: process.Locality}
+		localityMap[id] = locality.Info{ID: id, Address: process.Address, LocalityData: process.Locality}
 	}
 
 	remainingProcessMap := make(map[string]bool, len(cluster.Status.ProcessGroups))
@@ -71,7 +73,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 	for _, processClass := range fdbv1beta2.ProcessClasses {
 		desiredCount := desiredCounts[processClass]
 		removedCount := currentCounts[processClass] - desiredCount
-		processClassLocality := make([]localityInfo, 0, currentCounts[processClass])
+		processClassLocality := make([]locality.Info, 0, currentCounts[processClass])
 
 		for _, processGroup := range cluster.Status.ProcessGroupsByProcessClass(processClass) {
 			if processGroup.IsMarkedForRemoval() {
@@ -87,7 +89,7 @@ func (c chooseRemovals) reconcile(ctx context.Context, r *FoundationDBClusterRec
 		if removedCount > 0 {
 			r.Recorder.Event(cluster, corev1.EventTypeNormal, "ShrinkingProcesses", fmt.Sprintf("Removing %d %s processes", removedCount, processClass))
 
-			remainingProcesses, err := chooseDistributedProcesses(cluster, processClassLocality, desiredCount, processSelectionConstraint{})
+			remainingProcesses, err := locality.ChooseDistributedProcesses(cluster, processClassLocality, desiredCount, locality.ProcessSelectionConstraint{})
 			if err != nil {
 				return &requeue{curError: err}
 			}

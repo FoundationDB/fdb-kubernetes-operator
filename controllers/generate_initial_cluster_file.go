@@ -24,6 +24,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 
 	corev1 "k8s.io/api/core/v1"
@@ -100,31 +102,31 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 		}
 	}
 
-	processLocality := make([]localityInfo, 0, len(pods))
+	processLocality := make([]locality.Info, 0, len(pods))
 	for _, pod := range pods {
 		client, message := r.getPodClient(cluster, pod)
 		if client == nil {
 			return &requeue{message: message, delay: podSchedulingDelayDuration}
 		}
-		locality, err := localityInfoFromSidecar(cluster, client)
+		currentLocality, err := locality.InfoFromSidecar(cluster, client)
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		if locality.ID == "" {
+		if currentLocality.ID == "" {
 			processGroupID := internal.GetProcessGroupIDFromMeta(cluster, pod.ObjectMeta)
 			logger.Info("Pod is ineligible to be a coordinator due to missing locality information", "processGroupID", processGroupID)
 			continue
 		}
-		processLocality = append(processLocality, locality)
+		processLocality = append(processLocality, currentLocality)
 	}
 
-	coordinators, err := chooseDistributedProcesses(cluster, processLocality, count, processSelectionConstraint{})
+	coordinators, err := locality.ChooseDistributedProcesses(cluster, processLocality, count, locality.ProcessSelectionConstraint{})
 	if err != nil {
 		return &requeue{curError: err}
 	}
 
-	for _, locality := range coordinators {
-		connectionString.Coordinators = append(connectionString.Coordinators, getCoordinatorAddress(cluster, locality).String())
+	for _, currentLocality := range coordinators {
+		connectionString.Coordinators = append(connectionString.Coordinators, getCoordinatorAddress(cluster, currentLocality).String())
 	}
 
 	cluster.Status.ConnectionString = connectionString.String()

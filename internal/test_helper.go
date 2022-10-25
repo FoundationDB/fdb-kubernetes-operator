@@ -29,9 +29,6 @@ import (
 
 // CreateDefaultCluster creates a default FoundationDBCluster for testing
 func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
-	trueValue := true
-	failureDetectionWindow := 1
-
 	return &fdbv1beta2.FoundationDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "operator-test-1",
@@ -48,8 +45,8 @@ func CreateDefaultCluster() *fdbv1beta2.FoundationDBCluster {
 			},
 			AutomationOptions: fdbv1beta2.FoundationDBClusterAutomationOptions{
 				Replacements: fdbv1beta2.AutomaticReplacementOptions{
-					Enabled:                     &trueValue,
-					FailureDetectionTimeSeconds: &failureDetectionWindow,
+					Enabled:                     pointer.Bool(true),
+					FailureDetectionTimeSeconds: pointer.Int(1),
 				},
 				WaitBetweenRemovalsSeconds: pointer.Int(0),
 			},

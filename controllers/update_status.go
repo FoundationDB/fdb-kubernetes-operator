@@ -26,6 +26,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 
@@ -220,7 +222,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			coordinatorStatus[coordinator.Address.String()] = false
 		}
 
-		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus, coordinatorStatus)
+		coordinatorsValid, _, err := locality.CheckCoordinatorValidity(logger, cluster, databaseStatus, coordinatorStatus)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}

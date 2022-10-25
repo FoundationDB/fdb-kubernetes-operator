@@ -99,6 +99,9 @@ type FoundationDBStatusClusterInfo struct {
 
 	// RecoveryState represents the recovery state.
 	RecoveryState RecoveryState `json:"recovery_state,omitempty"`
+
+	// ConnectionString represents the connection string in the cluster status json output.
+	ConnectionString string `json:"connection_string,omitempty"`
 }
 
 // FaultTolerance provides information about the fault tolerance status

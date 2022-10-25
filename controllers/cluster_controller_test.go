@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 
@@ -3311,125 +3314,7 @@ var _ = Describe("cluster_controller", func() {
 		})
 	})
 
-	Describe("chooseDistributedProcesses", func() {
-		var candidates []localityInfo
-		var result []localityInfo
-		var err error
-
-		Context("with a flat set of processes", func() {
-			BeforeEach(func() {
-				candidates = []localityInfo{
-					{ID: "p1", LocalityData: map[string]string{"zoneid": "z1"}},
-					{ID: "p2", LocalityData: map[string]string{"zoneid": "z1"}},
-					{ID: "p3", LocalityData: map[string]string{"zoneid": "z2"}},
-					{ID: "p4", LocalityData: map[string]string{"zoneid": "z3"}},
-					{ID: "p5", LocalityData: map[string]string{"zoneid": "z2"}},
-					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4"}},
-					{ID: "p7", LocalityData: map[string]string{"zoneid": "z5"}},
-				}
-				result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{})
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("should recruit the processes across multiple zones", func() {
-				Expect(len(result)).To(Equal(5))
-				Expect(result[0].ID).To(Equal("p1"))
-				Expect(result[1].ID).To(Equal("p3"))
-				Expect(result[2].ID).To(Equal("p4"))
-				Expect(result[3].ID).To(Equal("p6"))
-				Expect(result[4].ID).To(Equal("p7"))
-			})
-		})
-
-		Context("with fewer zones than desired processes", func() {
-			BeforeEach(func() {
-				candidates = []localityInfo{
-					{ID: "p1", LocalityData: map[string]string{"zoneid": "z1"}},
-					{ID: "p2", LocalityData: map[string]string{"zoneid": "z1"}},
-					{ID: "p3", LocalityData: map[string]string{"zoneid": "z2"}},
-					{ID: "p4", LocalityData: map[string]string{"zoneid": "z3"}},
-					{ID: "p5", LocalityData: map[string]string{"zoneid": "z2"}},
-					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4"}},
-				}
-			})
-
-			Context("with no hard limit", func() {
-				It("should only re-use zones as necessary", func() {
-					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{})
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(len(result)).To(Equal(5))
-					Expect(result[0].ID).To(Equal("p1"))
-					Expect(result[1].ID).To(Equal("p3"))
-					Expect(result[2].ID).To(Equal("p4"))
-					Expect(result[3].ID).To(Equal("p6"))
-					Expect(result[4].ID).To(Equal("p2"))
-				})
-			})
-
-			Context("with a hard limit", func() {
-				It("should give an error", func() {
-					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{
-						HardLimits: map[string]int{"zoneid": 1},
-					})
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Equal("Could only select 4 processes, but 5 are required"))
-				})
-			})
-		})
-
-		Context("with multiple data centers", func() {
-			BeforeEach(func() {
-				candidates = []localityInfo{
-					{ID: "p1", LocalityData: map[string]string{"zoneid": "z1", "dcid": "dc1"}},
-					{ID: "p2", LocalityData: map[string]string{"zoneid": "z1", "dcid": "dc1"}},
-					{ID: "p3", LocalityData: map[string]string{"zoneid": "z2", "dcid": "dc1"}},
-					{ID: "p4", LocalityData: map[string]string{"zoneid": "z3", "dcid": "dc1"}},
-					{ID: "p5", LocalityData: map[string]string{"zoneid": "z2", "dcid": "dc1"}},
-					{ID: "p6", LocalityData: map[string]string{"zoneid": "z4", "dcid": "dc1"}},
-					{ID: "p7", LocalityData: map[string]string{"zoneid": "z5", "dcid": "dc1"}},
-					{ID: "p8", LocalityData: map[string]string{"zoneid": "z6", "dcid": "dc2"}},
-					{ID: "p9", LocalityData: map[string]string{"zoneid": "z7", "dcid": "dc2"}},
-					{ID: "p10", LocalityData: map[string]string{"zoneid": "z8", "dcid": "dc2"}},
-				}
-			})
-
-			Context("with the default constraints", func() {
-				BeforeEach(func() {
-					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{})
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should recruit the processes across multiple zones and data centers", func() {
-					Expect(len(result)).To(Equal(5))
-					Expect(result[0].ID).To(Equal("p1"))
-					Expect(result[1].ID).To(Equal("p10"))
-					Expect(result[2].ID).To(Equal("p3"))
-					Expect(result[3].ID).To(Equal("p8"))
-					Expect(result[4].ID).To(Equal("p4"))
-				})
-			})
-
-			Context("when only distributing across data centers", func() {
-				BeforeEach(func() {
-					result, err = chooseDistributedProcesses(cluster, candidates, 5, processSelectionConstraint{
-						Fields: []string{"dcid"},
-					})
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should recruit the processes across data centers", func() {
-					Expect(len(result)).To(Equal(5))
-					Expect(result[0].ID).To(Equal("p1"))
-					Expect(result[1].ID).To(Equal("p10"))
-					Expect(result[2].ID).To(Equal("p2"))
-					Expect(result[3].ID).To(Equal("p8"))
-					Expect(result[4].ID).To(Equal("p3"))
-				})
-			})
-		})
-	})
-
+	// TODO (johscheuer): move those tests
 	Describe("checkCoordinatorValidity", func() {
 		var status *fdbv1beta2.FoundationDBStatus
 		var adminClient fdbadminclient.AdminClient
@@ -3461,7 +3346,7 @@ var _ = Describe("cluster_controller", func() {
 					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3484,7 +3369,7 @@ var _ = Describe("cluster_controller", func() {
 					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeTrue())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3502,7 +3387,7 @@ var _ = Describe("cluster_controller", func() {
 					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3530,7 +3415,7 @@ var _ = Describe("cluster_controller", func() {
 					coordinatorStatus[coordinator.Address.String()] = false
 				}
 
-				coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+				coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 				Expect(coordinatorsValid).To(BeFalse())
 				Expect(addressesValid).To(BeTrue())
 				Expect(err).To(BeNil())
@@ -3581,7 +3466,7 @@ var _ = Describe("cluster_controller", func() {
 						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(coordinatorsValid).To(BeTrue())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
@@ -3602,7 +3487,7 @@ var _ = Describe("cluster_controller", func() {
 						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
@@ -3640,7 +3525,7 @@ var _ = Describe("cluster_controller", func() {
 						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
-					_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					_, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -3667,7 +3552,7 @@ var _ = Describe("cluster_controller", func() {
 							coordinatorStatus[coordinator.Address.String()] = false
 						}
 
-						_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+						_, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 						Expect(addressesValid).To(BeTrue())
 						Expect(err).To(BeNil())
 					})
@@ -3696,7 +3581,7 @@ var _ = Describe("cluster_controller", func() {
 						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
-					_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					_, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(addressesValid).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -3724,7 +3609,7 @@ var _ = Describe("cluster_controller", func() {
 							coordinatorStatus[coordinator.Address.String()] = false
 						}
 
-						_, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+						_, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 						Expect(addressesValid).To(BeTrue())
 						Expect(err).To(BeNil())
 					})
@@ -3762,7 +3647,7 @@ var _ = Describe("cluster_controller", func() {
 						break
 					}
 
-					info, err := localityInfoForProcess(proc, false)
+					info, err := locality.InfoForProcess(proc, false)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(info.Address).NotTo(HaveSuffix("tls"))
 				})
@@ -3777,7 +3662,7 @@ var _ = Describe("cluster_controller", func() {
 						break
 					}
 
-					info, err := localityInfoForProcess(proc, true)
+					info, err := locality.InfoForProcess(proc, true)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(info.Address).To(HaveSuffix("tls"))
 				})
@@ -3796,7 +3681,7 @@ var _ = Describe("cluster_controller", func() {
 						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(coordinatorsValid).To(BeTrue())
 					Expect(addressesValid).To(BeTrue())
@@ -3827,7 +3712,7 @@ var _ = Describe("cluster_controller", func() {
 						coordinatorStatus[coordinator.Address.String()] = false
 					}
 
-					coordinatorsValid, addressesValid, err := checkCoordinatorValidity(cluster, status, coordinatorStatus)
+					coordinatorsValid, addressesValid, err := locality.CheckCoordinatorValidity(logr.Discard(), cluster, status, coordinatorStatus)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(coordinatorsValid).To(BeFalse())
 					Expect(addressesValid).To(BeTrue())
