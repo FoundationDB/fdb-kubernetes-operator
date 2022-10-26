@@ -135,5 +135,6 @@ func (g generateInitialClusterFile) reconcile(ctx context.Context, r *Foundation
 	if err != nil {
 		return &requeue{curError: err}
 	}
+
 	return nil
 }
