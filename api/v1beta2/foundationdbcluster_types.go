@@ -1199,7 +1199,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	cluster.Status.DesiredProcessGroups = desiredCounts.Total()
 	cluster.Status.ReconciledProcessGroups = 0
 
-	var needsRestart bool
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup.IsMarkedForRemoval() {
 			continue
@@ -1208,8 +1207,10 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		if len(processGroup.ProcessGroupConditions) > 0 {
 			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
 			for _, condition := range processGroup.ProcessGroupConditions {
-				if condition.ProcessGroupConditionType == IncorrectCommandLine {
-					needsRestart = true
+				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
+					logger.Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
+					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
+					reconciled = false
 				}
 				conditions = append(conditions, condition.ProcessGroupConditionType)
 			}
@@ -1255,12 +1256,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	if cluster.Status.NeedsNewCoordinators {
 		logger.Info("Pending coordinator change", "state", "NeedsNewCoordinators")
 		cluster.Status.Generations.NeedsCoordinatorChange = cluster.ObjectMeta.Generation
-		reconciled = false
-	}
-
-	if needsRestart {
-		logger.Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
-		cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
 		reconciled = false
 	}
 
