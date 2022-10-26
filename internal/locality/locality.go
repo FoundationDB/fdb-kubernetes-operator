@@ -85,7 +85,7 @@ func InfoForProcess(process fdbv1beta2.FoundationDBStatusProcessInfo, mainContai
 	}
 
 	return Info{
-		ID:           process.Locality["instance_id"],
+		ID:           process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
 		Address:      addr,
 		LocalityData: process.Locality,
 		Class:        process.ProcessClass,
@@ -233,7 +233,7 @@ func ChooseDistributedProcesses(cluster *fdbv1beta2.FoundationDBCluster, process
 	return chosen, nil
 }
 
-// GetHardLimits ... TODO
+// GetHardLimits returns the distribution of localities.
 func GetHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	if cluster.Spec.DatabaseConfiguration.UsableRegions <= 1 {
 		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1}
@@ -281,13 +281,13 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 			continue
 		}
 
-		processGroupStatus := processGroups[process.Locality["instance_id"]]
+		processGroupStatus := processGroups[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]]
 		pendingRemoval := processGroupStatus != nil && processGroupStatus.IsMarkedForRemoval()
 		if processGroupStatus != nil && cluster.SkipProcessGroup(processGroupStatus) {
 			pLogger.Info("Skipping process group with pending Pod",
 				"namespace", cluster.Namespace,
 				"cluster", cluster.Name,
-				"processGroupID", process.Locality["instance_id"],
+				"processGroupID", process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey],
 				"class", process.ProcessClass)
 			continue
 		}
@@ -381,9 +381,8 @@ func CheckCoordinatorValidity(logger logr.Logger, cluster *fdbv1beta2.Foundation
 
 	allHealthy := true
 	for address, healthy := range coordinatorStatus {
-		allHealthy = allHealthy && healthy
-
 		if !healthy {
+			allHealthy = false
 			logger.Info("Cluster has an unhealthy coordinator", "address", address)
 		}
 	}
