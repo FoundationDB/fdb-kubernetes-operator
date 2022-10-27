@@ -50,7 +50,7 @@ func GetPublicIPsForPod(pod *corev1.Pod, log logr.Logger) []string {
 	}
 
 	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb-kubernetes-sidecar" {
+		if container.Name != fdbv1beta2.SidecarContainerName {
 			continue
 		}
 		for indexOfArgument, argument := range container.Args {
@@ -210,7 +210,7 @@ func GetSidecarImage(cluster *fdbv1beta2.FoundationDBCluster, pClass fdbv1beta2.
 	image := ""
 	if settings.PodTemplate != nil {
 		for _, container := range settings.PodTemplate.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != "" {
+			if container.Name == fdbv1beta2.SidecarContainerName && container.Image != "" {
 				image = container.Image
 			}
 		}

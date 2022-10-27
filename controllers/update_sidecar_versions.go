@@ -83,7 +83,7 @@ func (updateSidecarVersions) reconcile(ctx context.Context, r *FoundationDBClust
 		}
 
 		for containerIndex, container := range pod.Spec.Containers {
-			if container.Name == "foundationdb-kubernetes-sidecar" && container.Image != image {
+			if container.Name == fdbv1beta2.SidecarContainerName && container.Image != image {
 				logger.Info("Upgrading sidecar", "processGroupID", podmanager.GetProcessGroupID(cluster, pod), "oldImage", container.Image, "newImage", image)
 				err = r.PodLifecycleManager.UpdateImageVersion(ctx, r, cluster, pod, containerIndex, image)
 				if err != nil {

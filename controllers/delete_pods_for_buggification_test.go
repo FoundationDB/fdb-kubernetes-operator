@@ -327,7 +327,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name: "foundationdb",
+							Name: fdbv1beta2.MainContainerName,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "TEST_CHANGE",

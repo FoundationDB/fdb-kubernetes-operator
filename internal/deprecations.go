@@ -23,7 +23,7 @@ package internal
 import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
-	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -43,7 +43,7 @@ type DeprecationOptions struct {
 // NormalizeClusterSpec converts a cluster spec into an unambiguous,
 // future-proof form, by applying any implicit defaults and moving configuration
 // from deprecated fields into fully-supported fields.
-func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options DeprecationOptions) error {
+func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options DeprecationOptions) error {
 	// Validate customParameters
 	for processClass := range cluster.Spec.Processes {
 		if setting, ok := cluster.Spec.Processes[processClass]; ok {
@@ -60,10 +60,10 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 
 	if !options.OnlyShowChanges {
 		// Set up resource requirements for the main container.
-		updatePodTemplates(&cluster.Spec, func(template *corev1.PodTemplateSpec) {
-			template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, "foundationdb", 0)
+		updatePodTemplates(&cluster.Spec, func(template *v1.PodTemplateSpec) {
+			template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, fdbv1beta2.MainContainerName, 0)
 
-			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb", func(container *corev1.Container) {
+			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.MainContainerName, func(container *v1.Container) {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
 						"cpu":    resource.MustParse("1"),
@@ -90,9 +90,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 			}
 
 			if !cluster.GetUseUnifiedImage() {
-				template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, "foundationdb-kubernetes-init", sidecarUpdater)
+				template.Spec.InitContainers = customizeContainerFromList(template.Spec.InitContainers, fdbv1beta2.InitContainerName, sidecarUpdater)
 			}
-			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb-kubernetes-sidecar", sidecarUpdater)
+			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.SidecarContainerName, sidecarUpdater)
 		})
 
 		updateImageConfigs(&cluster.Spec, cluster.GetUseUnifiedImage())
@@ -101,16 +101,16 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 	return nil
 }
 
-func updateImageConfigs(spec *fdbtypes.FoundationDBClusterSpec, useUnifiedImage bool) {
+func updateImageConfigs(spec *fdbv1beta2.FoundationDBClusterSpec, useUnifiedImage bool) {
 	if useUnifiedImage {
-		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes"})
+		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes"})
 	} else {
-		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb"})
-		ensureImageConfigPresent(&spec.SidecarContainer.ImageConfigs, fdbtypes.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
+		ensureImageConfigPresent(&spec.MainContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb"})
+		ensureImageConfigPresent(&spec.SidecarContainer.ImageConfigs, fdbv1beta2.ImageConfig{BaseImage: "foundationdb/foundationdb-kubernetes-sidecar", TagSuffix: "-1"})
 	}
 }
 
-func ensureImageConfigPresent(imageConfigs *[]fdbtypes.ImageConfig, expected fdbtypes.ImageConfig) {
+func ensureImageConfigPresent(imageConfigs *[]fdbv1beta2.ImageConfig, expected fdbv1beta2.ImageConfig) {
 	for _, config := range *imageConfigs {
 		if equality.Semantic.DeepEqual(config, expected) {
 			return
@@ -122,23 +122,23 @@ func ensureImageConfigPresent(imageConfigs *[]fdbtypes.ImageConfig, expected fdb
 
 // ensurePodTemplatePresent defines a pod template in the general process
 // settings.
-func ensurePodTemplatePresent(spec *fdbtypes.FoundationDBClusterSpec) {
+func ensurePodTemplatePresent(spec *fdbv1beta2.FoundationDBClusterSpec) {
 	if spec.Processes == nil {
-		spec.Processes = make(map[fdbtypes.ProcessClass]fdbtypes.ProcessSettings)
+		spec.Processes = make(map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings)
 	}
-	generalSettings := spec.Processes[fdbtypes.ProcessClassGeneral]
+	generalSettings := spec.Processes[fdbv1beta2.ProcessClassGeneral]
 	if generalSettings.PodTemplate == nil {
 		generalSettings.PodTemplate = &corev1.PodTemplateSpec{}
 	}
-	spec.Processes[fdbtypes.ProcessClassGeneral] = generalSettings
+	spec.Processes[fdbv1beta2.ProcessClassGeneral] = generalSettings
 }
 
 // updatePodTemplates updates all of the pod templates in the cluster spec.
 // This will also ensure that the general settings contain a pod template, so
 // the customization function is guaranteed to be called at least once.
-func updatePodTemplates(spec *fdbtypes.FoundationDBClusterSpec, customizer func(*corev1.PodTemplateSpec)) {
+func updatePodTemplates(spec *fdbv1beta2.FoundationDBClusterSpec, customizer func(*corev1.PodTemplateSpec)) {
 	ensurePodTemplatePresent(spec)
-	updateProcessSettings(spec, func(settings *fdbtypes.ProcessSettings) {
+	updateProcessSettings(spec, func(settings *fdbv1beta2.ProcessSettings) {
 		if settings.PodTemplate == nil {
 			return
 		}
@@ -148,7 +148,7 @@ func updatePodTemplates(spec *fdbtypes.FoundationDBClusterSpec, customizer func(
 
 // updateProcessSettings runs a customization function on all of the process
 // settings in the cluster spec.
-func updateProcessSettings(spec *fdbtypes.FoundationDBClusterSpec, customizer func(*fdbtypes.ProcessSettings)) {
+func updateProcessSettings(spec *fdbv1beta2.FoundationDBClusterSpec, customizer func(*fdbv1beta2.ProcessSettings)) {
 	for processClass, settings := range spec.Processes {
 		customizer(&settings)
 		spec.Processes[processClass] = settings

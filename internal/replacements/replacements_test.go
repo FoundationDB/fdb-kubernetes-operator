@@ -714,7 +714,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 					spec := pod.Spec.DeepCopy()
 					var cIdx int
 					for idx, con := range spec.Containers {
-						if con.Name != "foundationdb" {
+						if con.Name != fdbv1beta2.MainContainerName {
 							continue
 						}
 

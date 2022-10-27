@@ -285,7 +285,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
 							{
-								Name:  "foundationdb",
+								Name:  fdbv1beta2.MainContainerName,
 								Ready: false,
 								State: corev1.ContainerState{
 									Terminated: &corev1.ContainerStateTerminated{
@@ -315,7 +315,7 @@ var _ = Describe("[plugin] analyze cluster", func() {
 						Phase: corev1.PodRunning,
 						ContainerStatuses: []corev1.ContainerStatus{
 							{
-								Name:  "foundationdb",
+								Name:  fdbv1beta2.MainContainerName,
 								Ready: true,
 							},
 						},

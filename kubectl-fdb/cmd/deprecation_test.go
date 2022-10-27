@@ -114,12 +114,12 @@ var _ = Describe("[plugin] deprecation command", func() {
 							},
 							UseExplicitListenAddress: pointer.Bool(true),
 							Processes: map[fdbv1beta2.ProcessClass]fdbv1beta2.ProcessSettings{
-								"general": {
+								fdbv1beta2.ProcessClassGeneral: {
 									PodTemplate: &corev1.PodTemplateSpec{
 										Spec: corev1.PodSpec{
 											Containers: []corev1.Container{
 												{
-													Name: "foundationdb-kubernetes-sidecar",
+													Name: fdbv1beta2.SidecarContainerName,
 													Resources: corev1.ResourceRequirements{
 														Limits: corev1.ResourceList{
 															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
@@ -130,7 +130,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 													},
 												},
 												{
-													Name: "foundationdb",
+													Name: fdbv1beta2.MainContainerName,
 													Resources: corev1.ResourceRequirements{
 														Limits: corev1.ResourceList{
 															"org.foundationdb/empty": *resource.NewQuantity(0, ""),
@@ -143,7 +143,7 @@ var _ = Describe("[plugin] deprecation command", func() {
 											},
 											InitContainers: []corev1.Container{
 												{
-													Name: "foundationdb-kubernetes-init",
+													Name: fdbv1beta2.InitContainerName,
 													Resources: corev1.ResourceRequirements{
 														Limits: corev1.ResourceList{
 															"org.foundationdb/empty": *resource.NewQuantity(0, ""),

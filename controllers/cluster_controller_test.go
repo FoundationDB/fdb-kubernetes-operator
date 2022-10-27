@@ -305,9 +305,9 @@ var _ = Describe("cluster_controller", func() {
 				Expect(len(pods.Items)).To(Equal(len(originalPods.Items)))
 
 				for _, pod := range pods.Items {
-					Expect(pod.Spec.Containers[0].Name).To(Equal("foundationdb"))
+					Expect(pod.Spec.Containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(pod.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbv1beta2.Versions.Default)))
-					Expect(pod.Spec.Containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(pod.Spec.Containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(pod.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("foundationdb/foundationdb-kubernetes:%s", fdbv1beta2.Versions.Default)))
 				}
 			})
@@ -354,7 +354,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(pod.ObjectMeta.Labels[fdbv1beta2.FDBProcessGroupIDLabel]).To(Equal("storage-1"))
 
 				mainContainer := pod.Spec.Containers[0]
-				Expect(mainContainer.Name).To(Equal("foundationdb"))
+				Expect(mainContainer.Name).To(Equal(fdbv1beta2.MainContainerName))
 				Expect(mainContainer.Args).To(Equal([]string{"crash-loop"}))
 			})
 		})
@@ -1578,7 +1578,7 @@ var _ = Describe("cluster_controller", func() {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
-								Name: "foundationdb",
+								Name: fdbv1beta2.MainContainerName,
 								Env: []corev1.EnvVar{
 									{
 										Name:  "TEST_CHANGE",
@@ -1765,7 +1765,7 @@ var _ = Describe("cluster_controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				for _, pod := range pods.Items {
 					container := pod.Spec.Containers[1]
-					Expect(container.Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(container.Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					var podIPEnv corev1.EnvVar
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {

@@ -134,7 +134,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNa
 
 	option := &corev1.PodExecOptions{
 		Command:   cmd,
-		Container: "foundationdb",
+		Container: fdbv1beta2.MainContainerName,
 		Stdin:     false,
 		Stdout:    true,
 		Stderr:    true,
