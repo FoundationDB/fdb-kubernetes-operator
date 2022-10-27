@@ -1207,6 +1207,10 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		if len(processGroup.ProcessGroupConditions) > 0 {
 			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
 			for _, condition := range processGroup.ProcessGroupConditions {
+				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
+					logger.Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
+					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
+				}
 				conditions = append(conditions, condition.ProcessGroupConditionType)
 			}
 
