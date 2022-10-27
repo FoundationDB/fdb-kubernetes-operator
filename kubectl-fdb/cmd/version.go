@@ -47,11 +47,11 @@ func newVersionCmd(streams genericclioptions.IOStreams) *cobra.Command {
 			}
 			clientOnly, err := cmd.Flags().GetBool("client-only")
 			if err != nil {
-				return nil
+				return err
 			}
 			containerName, err := cmd.Flags().GetString("container-name")
 			if err != nil {
-				return nil
+				return err
 			}
 
 			if !clientOnly {

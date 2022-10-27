@@ -335,7 +335,6 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 								} else if dataCenter.Priority > 0 {
 									hasAlternativePrimary = true
 								}
-
 							}
 						}
 					}

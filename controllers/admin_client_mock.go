@@ -256,7 +256,6 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 				Version:       client.Cluster.Status.RunningVersion,
 				UptimeSeconds: uptimeSeconds,
 			}
-
 		}
 	}
 

@@ -37,7 +37,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
@@ -143,7 +142,7 @@ func executeCmd(restConfig *rest.Config, kubeClient *kubernetes.Clientset, podNa
 	}
 	req.VersionedParams(
 		option,
-		scheme.ParameterCodec,
+		clientgoscheme.ParameterCodec,
 	)
 	exec, err := remotecommand.NewSPDYExecutor(restConfig, "POST", req.URL())
 	if err != nil {

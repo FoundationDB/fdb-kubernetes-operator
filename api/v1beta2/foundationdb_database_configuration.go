@@ -444,7 +444,6 @@ func (configuration DatabaseConfiguration) GetNextConfigurationChange(finalConfi
 								} else if dataCenter.Priority > 0 {
 									hasAlternativePrimary = true
 								}
-
 							}
 						}
 					}
@@ -579,7 +578,6 @@ func (configuration DatabaseConfiguration) AreSeparatedProxiesConfigured() bool 
 // AreSeparatedProxiesConfigured(), then this function will return the
 // string "commit_proxies=%d grv_proxies=%d", otherwise just
 // "proxies=%d" using the correct counts of the configuration object.
-//
 func (configuration DatabaseConfiguration) GetProxiesString(version Version) string {
 	counts := configuration.GetRoleCountsWithDefaults(version, DesiredFaultTolerance(configuration.RedundancyMode))
 	if version.HasSeparatedProxies() && configuration.AreSeparatedProxiesConfigured() {

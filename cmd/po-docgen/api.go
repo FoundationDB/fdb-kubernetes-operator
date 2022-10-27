@@ -124,7 +124,6 @@ func ParseDocumentationFrom(srcs []string) []KubeTypes {
 		pkg := astFrom(src)
 
 		for _, kubType := range pkg.Types {
-
 			if structType, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType); ok {
 				var ks KubeTypes
 				ks = append(ks, Pair{kubType.Name, fmtRawDoc(kubType.Doc), "", false})

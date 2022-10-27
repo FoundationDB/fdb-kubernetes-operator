@@ -25,7 +25,6 @@ import (
 
 	fdbtypes "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -61,12 +60,12 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 
 	if !options.OnlyShowChanges {
 		// Set up resource requirements for the main container.
-		updatePodTemplates(&cluster.Spec, func(template *v1.PodTemplateSpec) {
+		updatePodTemplates(&cluster.Spec, func(template *corev1.PodTemplateSpec) {
 			template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, "foundationdb", 0)
 
-			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb", func(container *v1.Container) {
+			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, "foundationdb", func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
-					container.Resources.Requests = v1.ResourceList{
+					container.Resources.Requests = corev1.ResourceList{
 						"cpu":    resource.MustParse("1"),
 						"memory": resource.MustParse("1Gi"),
 					}
@@ -77,9 +76,9 @@ func NormalizeClusterSpec(cluster *fdbtypes.FoundationDBCluster, options Depreca
 				}
 			})
 
-			sidecarUpdater := func(container *v1.Container) {
+			sidecarUpdater := func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
-					container.Resources.Requests = v1.ResourceList{
+					container.Resources.Requests = corev1.ResourceList{
 						"cpu":    resource.MustParse("100m"),
 						"memory": resource.MustParse("256Mi"),
 					}

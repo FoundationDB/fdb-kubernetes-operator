@@ -89,7 +89,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
-
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err

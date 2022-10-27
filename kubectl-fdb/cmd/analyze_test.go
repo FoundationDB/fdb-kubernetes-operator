@@ -79,7 +79,6 @@ func getPodList(clusterName string, namespace string, status corev1.PodStatus, d
 			},
 		},
 	}
-
 }
 
 var _ = Describe("[plugin] analyze cluster", func() {

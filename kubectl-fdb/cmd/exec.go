@@ -111,14 +111,14 @@ func buildCommand(kubeClient client.Client, cluster *fdbv1beta2.FoundationDBClus
 	for key, value := range cluster.GetMatchLabels() {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
-			return exec.Cmd{}, nil
+			return exec.Cmd{}, err
 		}
 		selector = selector.Add(*requirement)
 	}
 
 	processClassRequirement, err := labels.NewRequirement(cluster.GetProcessClassLabel(), selection.Exists, nil)
 	if err != nil {
-		return exec.Cmd{}, nil
+		return exec.Cmd{}, err
 	}
 	selector = selector.Add(*processClassRequirement)
 

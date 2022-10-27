@@ -173,7 +173,6 @@ func (client *realFdbPodSidecarClient) getListenIP() string {
 
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
-	var resp *http.Response
 	var err error
 
 	protocol := "http"
@@ -190,13 +189,16 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 	}
 
 	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
+	var resp *http.Response
 	switch method {
 	case http.MethodGet:
 		retryClient.HTTPClient.Timeout = client.getTimeout
 		resp, err = retryClient.Get(url)
+		defer resp.Body.Close()
 	case http.MethodPost:
 		retryClient.HTTPClient.Timeout = client.postTimeout
 		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
+		defer resp.Body.Close()
 	default:
 		return "", 0, fmt.Errorf("unknown HTTP method %s", method)
 	}
@@ -204,8 +206,6 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 	if err != nil {
 		return "", 0, err
 	}
-
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	bodyText := string(body)
@@ -221,7 +221,7 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) {
 	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	path := "check_hash"
