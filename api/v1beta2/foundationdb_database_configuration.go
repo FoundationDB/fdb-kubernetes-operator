@@ -836,11 +836,14 @@ func fieldIndices(value interface{}, result interface{}, keyType reflect.Type) {
 // GetProcessCountsWithDefaults for more information on the rules for inferring
 // process counts.
 type ProcessCounts struct {
-	Unset             int `json:"unset,omitempty"`
-	Storage           int `json:"storage,omitempty"`
-	Transaction       int `json:"transaction,omitempty"`
-	Resolution        int `json:"resolution,omitempty"`
+	Unset       int `json:"unset,omitempty"`
+	Storage     int `json:"storage,omitempty"`
+	Transaction int `json:"transaction,omitempty"`
+	Resolution  int `json:"resolution,omitempty"`
+	// Deprecated: This setting will be removed in the next major release.
+	// use Test
 	Tester            int `json:"tester,omitempty"`
+	Test              int `json:"test,omitempty"`
 	Proxy             int `json:"proxy,omitempty"`
 	CommitProxy       int `json:"commit_proxy,omitempty"`
 	GrvProxy          int `json:"grv_proxy,omitempty"`
