@@ -532,6 +532,10 @@ func (client *mockAdminClient) GetConnectionString() (string, error) {
 	return client.Cluster.Status.ConnectionString, nil
 }
 
+func (client *mockAdminClient) GetConnectionStringFromCLI() (string, error) {
+	return client.GetConnectionString()
+}
+
 // VersionSupported reports whether we can support a cluster with a given
 // version.
 func (client *mockAdminClient) VersionSupported(versionString string) (bool, error) {

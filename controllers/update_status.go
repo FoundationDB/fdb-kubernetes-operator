@@ -154,23 +154,17 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 		return &requeue{curError: err}
 	}
 
-	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
-	for _, processGroup := range cluster.Status.ProcessGroups {
-		if processGroup != nil && processGroup.ProcessGroupID != "" {
-			status.ProcessGroups = append(status.ProcessGroups, processGroup)
-		}
-	}
-
-	pods, pvcs, err := refreshProcessGroupStatus(ctx, r, cluster, &status)
+	pods, pvcs, processGroups, err := refreshProcessGroupStatus(ctx, r, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
+	status.ProcessGroups = processGroups
 
-	status.ProcessGroups, err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap, pods, pvcs)
+	err = validateProcessGroups(ctx, r, cluster, &status, processMap, configMap, pods, pvcs)
 	if err != nil {
 		return &requeue{curError: err}
 	}
-	removeDuplicateConditions(status)
+	removeRedundantConditions(status)
 
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
@@ -278,18 +272,6 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 	return nil
 }
 
-// containsAll determines if one map contains all the keys and matching values
-// from another map.
-func containsAll(current map[string]string, desired map[string]string) bool {
-	for key, value := range desired {
-		if current[key] != value {
-			return false
-		}
-	}
-
-	return true
-}
-
 // optionList creates an order-preserved unique list
 func optionList(options ...string) []string {
 	valueMap := make(map[string]bool, len(options))
@@ -333,15 +315,21 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 			adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
 			if clientErr != nil {
+				// If this fails, it means we couldn't instantaite a local object.  GetAdminClient does
+				// not attempt to connect to the FDB server.
 				return originalVersion, originalConnectionString, clientErr
 			}
 			defer adminClient.Close()
 
-			activeConnectionString, err := adminClient.GetConnectionString()
+			// GetConnectionStringFromCLI queries the FDB server and asks it for an updated list of
+			// coordinators.  If this works, then we have a valid connection to the DB and know what
+			// version the server is running.  We force it to bypass the management API.  Otherwise,
+			// it might use the multi-version client and ignore the current value of version.
+			activeConnectionString, err := adminClient.GetConnectionStringFromCLI()
 			if err == nil {
 				logger.Info("Chose connection option",
 					"version", version, "connectionString", activeConnectionString)
-				return version, activeConnectionString, err
+				return version, activeConnectionString, nil
 			}
 			logger.Error(err, "Error getting connection string from cluster",
 				"version", version, "connectionString", connectionString)
@@ -402,9 +390,8 @@ func checkAndSetProcessStatus(r *FoundationDBClusterReconciler, cluster *fdbv1be
 	return nil
 }
 
-func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) ([]*fdbv1beta2.ProcessGroupStatus, error) {
+func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus, processMap map[string][]fdbv1beta2.FoundationDBStatusProcessInfo, configMap *corev1.ConfigMap, pods []*corev1.Pod, pvcs *corev1.PersistentVolumeClaimList) error {
 	var err error
-	processGroups := status.ProcessGroups
 	processGroupsWithoutExclusion := make(map[string]fdbv1beta2.None, len(cluster.Spec.ProcessGroupsToRemoveWithoutExclusion))
 
 	for _, processGroupID := range cluster.Spec.ProcessGroupsToRemoveWithoutExclusion {
@@ -413,14 +400,14 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 
 	// Clear the IncorrectCommandLine condition to prevent it being held over
 	// when pods get deleted.
-	for _, processGroup := range processGroups {
+	for _, processGroup := range status.ProcessGroups {
 		processGroup.UpdateCondition(fdbv1beta2.IncorrectCommandLine, false, nil, "")
 	}
 
 	podMap := internal.CreatePodMap(cluster, pods)
 	pvcMap := internal.CreatePVCMap(cluster, pvcs)
 
-	for _, processGroup := range processGroups {
+	for _, processGroup := range status.ProcessGroups {
 		pod, podExists := podMap[processGroup.ProcessGroupID]
 		// If the process group is not being removed and the Pod is not set we need to put it into
 		// the failing list.
@@ -429,9 +416,9 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 			// Mark process groups as terminating if the pod has been deleted but other
 			// resources are stuck in terminating.
 			if isBeingRemoved {
-				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, status.ProcessGroups, processGroup.ProcessGroupID)
 			} else {
-				processGroup.UpdateCondition(fdbv1beta2.MissingPod, true, processGroups, processGroup.ProcessGroupID)
+				processGroup.UpdateCondition(fdbv1beta2.MissingPod, true, status.ProcessGroups, processGroup.ProcessGroupID)
 			}
 			continue
 		}
@@ -440,7 +427,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processCount := 1
 
 		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {
-			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
+			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, status.ProcessGroups, processGroup.ProcessGroupID)
 			continue
 		}
 
@@ -449,7 +436,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		if processGroup.ProcessClass == fdbv1beta2.ProcessClassStorage {
 			processCount, err = internal.GetStorageServersPerPodForPod(pod)
 			if err != nil {
-				return processGroups, err
+				return err
 			}
 
 			status.AddStorageServerPerDisk(processCount)
@@ -496,13 +483,13 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		for i := 1; i <= processCount; i++ {
 			err := checkAndSetProcessStatus(r, cluster, pod, processMap, i, processCount, processGroup)
 			if err != nil {
-				return processGroups, err
+				return err
 			}
 		}
 
 		configMapHash, err := internal.GetDynamicConfHash(configMap, processGroup.ProcessClass, imageType, processCount)
 		if err != nil {
-			return processGroups, err
+			return err
 		}
 
 		var pvc *corev1.PersistentVolumeClaim
@@ -514,11 +501,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		err = validateProcessGroup(ctx, r, cluster, pod, pvc, configMapHash, processGroup)
 
 		if err != nil {
-			return processGroups, err
+			return err
 		}
 	}
 
-	return processGroups, nil
+	return nil
 }
 
 // validateProcessGroup runs specific checks for the status of an process group.
@@ -604,13 +591,16 @@ func validateProcessGroup(ctx context.Context, r *FoundationDBClusterReconciler,
 	return nil
 }
 
-// removeDuplicateConditions will remove all duplicated conditions from the status and if a process group has the ResourcesTerminating
-// condition it will remove all other conditions on that process group.
-func removeDuplicateConditions(status fdbv1beta2.FoundationDBClusterStatus) {
+// removeRedundantConditions will remove all but the earliest instance of any duplicated conditions from the status.
+// If a process group has the ResourcesTerminating condition it will remove all other conditions on that process group.
+func removeRedundantConditions(status fdbv1beta2.FoundationDBClusterStatus) {
 	for _, processGroupStatus := range status.ProcessGroups {
-		conditionTimes := make(map[fdbv1beta2.ProcessGroupConditionType]int64, len(processGroupStatus.ProcessGroupConditions))
-		copiedConditions := make(map[fdbv1beta2.ProcessGroupConditionType]bool, len(processGroupStatus.ProcessGroupConditions))
+		// We're copying processGropuStatus.ProcessGroupConditions into this array.
 		conditions := make([]*fdbv1beta2.ProcessGroupCondition, 0, len(processGroupStatus.ProcessGroupConditions))
+
+		// Map from ProcessGroupConditionType -> earliest timestamp entry for that type
+		conditionTimes := make(map[fdbv1beta2.ProcessGroupConditionType]int64, len(processGroupStatus.ProcessGroupConditions))
+
 		isTerminating := false
 
 		for _, condition := range processGroupStatus.ProcessGroupConditions {
@@ -624,12 +614,17 @@ func removeDuplicateConditions(status fdbv1beta2.FoundationDBClusterStatus) {
 			}
 		}
 
-		for _, condition := range processGroupStatus.ProcessGroupConditions {
-			if condition.Timestamp == conditionTimes[condition.ProcessGroupConditionType] && !copiedConditions[condition.ProcessGroupConditionType] {
-				if isTerminating && condition.ProcessGroupConditionType != fdbv1beta2.ResourcesTerminating {
-					continue
-				}
+		// Have we copied the entry for this condition type yet?
+		copiedConditions := make(map[fdbv1beta2.ProcessGroupConditionType]bool, len(processGroupStatus.ProcessGroupConditions))
 
+		for _, condition := range processGroupStatus.ProcessGroupConditions {
+			// If we're terminating, don't copy any entries other than "ResourcesTerminating"
+			if isTerminating && condition.ProcessGroupConditionType != fdbv1beta2.ResourcesTerminating {
+				continue
+			}
+
+			// Only copy the earliest entry for each condition type (and only copy one such entry)
+			if condition.Timestamp == conditionTimes[condition.ProcessGroupConditionType] && !copiedConditions[condition.ProcessGroupConditionType] {
 				conditions = append(conditions, condition)
 				copiedConditions[condition.ProcessGroupConditionType] = true
 			}
@@ -639,11 +634,11 @@ func removeDuplicateConditions(status fdbv1beta2.FoundationDBClusterStatus) {
 	}
 }
 
-func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBClusterStatus) ([]*corev1.Pod, *corev1.PersistentVolumeClaimList, error) {
-	status.ProcessGroups = make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
+func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster) ([]*corev1.Pod, *corev1.PersistentVolumeClaimList, []*fdbv1beta2.ProcessGroupStatus, error) {
+	processGroups := make([]*fdbv1beta2.ProcessGroupStatus, 0, len(cluster.Status.ProcessGroups))
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if processGroup != nil && processGroup.ProcessGroupID != "" {
-			status.ProcessGroups = append(status.ProcessGroups, processGroup)
+			processGroups = append(processGroups, processGroup)
 		}
 	}
 
@@ -651,49 +646,34 @@ func refreshProcessGroupStatus(ctx context.Context, r *FoundationDBClusterReconc
 	// even if the process group is currently missing for some reasons.
 	pods, err := r.PodLifecycleManager.GetPods(ctx, r, cluster, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	for _, pod := range pods {
-		processGroupID := pod.Labels[cluster.GetProcessGroupIDLabel()]
-		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
-			continue
-		}
-
-		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pod.Labels), nil))
+		processGroups = internal.TryAppendProcessGroupID(processGroups, cluster, pod.Labels)
 	}
 
 	pvcs := &corev1.PersistentVolumeClaimList{}
 	err = r.List(ctx, pvcs, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	for _, pvc := range pvcs.Items {
-		processGroupID := pvc.Labels[cluster.GetProcessGroupIDLabel()]
-		if fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
-			continue
-		}
-
-		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, pvc.Labels), nil))
+		processGroups = internal.TryAppendProcessGroupID(processGroups, cluster, pvc.Labels)
 	}
 
 	services := &corev1.ServiceList{}
 	err = r.List(ctx, services, internal.GetPodListOptions(cluster, "", "")...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	for _, service := range services.Items {
-		processGroupID := service.Labels[cluster.GetProcessGroupIDLabel()]
-		if processGroupID == "" || fdbv1beta2.ContainsProcessGroupID(status.ProcessGroups, processGroupID) {
-			continue
-		}
-
-		status.ProcessGroups = append(status.ProcessGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, internal.ProcessClassFromLabels(cluster, service.Labels), nil))
+		processGroups = internal.TryAppendProcessGroupID(processGroups, cluster, service.Labels)
 	}
 
-	return pods, pvcs, nil
+	return pods, pvcs, processGroups, nil
 }
 
 func getRunningVersion(versionMap map[string]int, fallback string) (string, error) {

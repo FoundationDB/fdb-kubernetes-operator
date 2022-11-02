@@ -42,6 +42,17 @@ const (
 	podSchedulingDelayDuration = 15 * time.Second
 )
 
+// containsAll determines if one map contains all the keys and matching values
+// from another map.
+func containsAll(current map[string]string, desired map[string]string) bool {
+	for key, value := range desired {
+		if current[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
 // metadataMatches determines if the current metadata on an object matches the
 // metadata specified by the cluster spec.
 func metadataMatches(currentMetadata metav1.ObjectMeta, desiredMetadata metav1.ObjectMeta) bool {

@@ -153,10 +153,6 @@ func getBinaryPath(binaryName string, version string) string {
 	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-func (client *cliAdminClient) runFdbCLICommand(command: string) (string, error) {
-	return client.runCommand(cliCommand { command });
-}
-
 // runCommand executes a command in the CLI.
 func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	version := command.version
@@ -638,10 +634,17 @@ func cleanConnectionStringOutput(input string) string {
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
+	return client.getConnectionString(client.Cluster.UseManagementAPI())
+}
+func (client *cliAdminClient) GetConnectionStringFromCLI() (string, error) {
+	return client.getConnectionString(false)
+}
+
+func (client *cliAdminClient) getConnectionString(useManagementAPI bool) (string, error) {
 	var output string
 	var err error
 
-	if client.Cluster.UseManagementAPI() {
+	if useManagementAPI {
 		// This will call directly the database and fetch the connection string
 		// from the system key space.
 		var outputBytes []byte

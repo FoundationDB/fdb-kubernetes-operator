@@ -22,6 +22,7 @@ package internal
 
 import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,4 +34,14 @@ func ProcessClassFromLabels(cluster *fdbv1beta2.FoundationDBCluster, labels map[
 // GetProcessClassFromMeta fetches the process class from an object's metadata.
 func GetProcessClassFromMeta(cluster *fdbv1beta2.FoundationDBCluster, metadata v1.ObjectMeta) fdbv1beta2.ProcessClass {
 	return ProcessClassFromLabels(cluster, metadata.Labels)
+}
+
+// TryAppendProcessGroupID extracts a process group from a labels map, and appends it to processGroups if it is not already present.
+func TryAppendProcessGroupID(processGroups []*fdbv1beta2.ProcessGroupStatus, cluster *fdbv1beta2.FoundationDBCluster, labels map[string]string) []*fdbv1beta2.ProcessGroupStatus {
+	processGroupID := labels[cluster.GetProcessGroupIDLabel()]
+	if processGroupID == "" || fdbv1beta2.ContainsProcessGroupID(processGroups, processGroupID) {
+		return processGroups
+	} else {
+		return append(processGroups, fdbv1beta2.NewProcessGroupStatus(processGroupID, ProcessClassFromLabels(cluster, labels), nil))
+	}
 }

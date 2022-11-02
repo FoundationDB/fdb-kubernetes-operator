@@ -61,6 +61,11 @@ type AdminClient interface {
 	// GetConnectionString fetches the latest connection string.
 	GetConnectionString() (string, error)
 
+	// GetConnectionStringFromCLI uses fdbcli to fetch the latest connection string.
+	// Use GetConnectionString (which supports the multi-version client) unless you
+	// are using this call to infer the currently-running version of FDB.
+	GetConnectionStringFromCLI() (string, error)
+
 	// VersionSupported reports whether we can support a cluster with a given
 	// version.
 	VersionSupported(version string) (bool, error)
