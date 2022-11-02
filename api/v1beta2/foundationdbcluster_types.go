@@ -620,7 +620,6 @@ func (clusterStatus FoundationDBClusterStatus) ProcessGroupsByProcessClass(proce
 		if groupStatus.ProcessClass == processClass {
 			result = append(result, groupStatus)
 		}
-
 	}
 
 	return result

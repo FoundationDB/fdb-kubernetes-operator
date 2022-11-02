@@ -852,7 +852,6 @@ func GetBackupDeployment(backup *fdbv1beta2.FoundationDBBackup) (*appsv1.Deploym
 		for _, customParameter := range backup.Spec.CustomParameters {
 			args = append(args, fmt.Sprintf("--%s", customParameter))
 		}
-
 	}
 
 	mainContainer.Args = args

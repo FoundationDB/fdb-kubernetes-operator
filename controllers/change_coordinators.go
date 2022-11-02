@@ -154,7 +154,7 @@ func selectCoordinators(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1be
 
 	candidates, err := selectCandidates(cluster, status)
 	if err != nil {
-		return []localityInfo{}, nil
+		return []localityInfo{}, err
 	}
 
 	coordinators, err := chooseDistributedProcesses(cluster, candidates, coordinatorCount, processSelectionConstraint{
