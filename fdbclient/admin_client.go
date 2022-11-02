@@ -75,10 +75,6 @@ type cliAdminClient struct {
 	// custom parameters that should be set.
 	knobs []string
 
-	// Whether the admin client should be able to run operations through the
-	// client library rather than the CLI.
-	useClientLibrary bool
-
 	// log implementation for logging output
 	log logr.Logger
 }
@@ -100,7 +96,7 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFile.Name(), useClientLibrary: true, log: log}, nil
+	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFile.Name(), log: log}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -155,6 +151,10 @@ func (command cliCommand) getTimeout() time.Duration {
 func getBinaryPath(binaryName string, version string) string {
 	parsed, _ := fdbv1beta2.ParseFdbVersion(version)
 	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
+}
+
+func (client *cliAdminClient) runFdbCLICommand(command: string) (string, error) {
+	return client.runCommand(cliCommand { command });
 }
 
 // runCommand executes a command in the CLI.
@@ -276,23 +276,10 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 	return rawResult, err
 }
 
-func (client *cliAdminClient) getStatus(useClientLibrary bool) (*fdbv1beta2.FoundationDBStatus, error) {
-	var contents []byte
-	var err error
-
-	if useClientLibrary {
-		// This will call directly the database and fetch the status information
-		// from the system key space.
-		contents, err = getStatusFromDB(client.Cluster, client.log)
-	} else {
-		var rawResult string
-		rawResult, err = client.runCommandWithBackoff("status json")
-		if err != nil {
-			return nil, err
-		}
-
-		contents, err = internal.RemoveWarningsInJSON(rawResult)
-	}
+func (client *cliAdminClient) getStatus() (*fdbv1beta2.FoundationDBStatus, error) {
+	// This will call directly the database and fetch the status information
+	// from the system key space.
+	contents, err := getStatusFromDB(client.Cluster, client.log)
 
 	if err != nil {
 		return nil, err
@@ -313,21 +300,24 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	status, err := client.getStatus(client.useClientLibrary)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		status, err := client.getStatus()
+		if err != nil {
+			return nil, err
+		}
 
-	// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
-	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
-	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
-	// In this case we want to fall back to use fdbcli which is version specific and will work.
-	if len(status.Cluster.Processes) == 0 && client.useClientLibrary && client.Cluster.Status.Configured {
-		client.log.Info("retry fetching status with fdbcli instead of using the client library")
-		return client.getStatus(false)
+		// There is a limitation in the multi version client if the cluster is only partially upgraded e.g. because not
+		// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
+		// to connect to the cluster.  This will result in an empty status only reporting the unreachable coordinators.
+		// In this case we try again.
+		if len(status.Cluster.Processes) == 0 && client.Cluster.Status.Configured {
+			client.log.Info("probably connected to wrong version of cluster; retry fetching status")
+			// TODO: Drop adminClientMutex here, then re-acquire in a second?
+			time.Sleep(1 * time.Second) // TODO: just return error, and let loop run around again?
+		} else {
+			return status, nil
+		}
 	}
-
-	return status, nil
 }
 
 // ConfigureDatabase sets the database configuration
