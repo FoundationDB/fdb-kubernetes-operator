@@ -90,17 +90,31 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 		return nil
 	}
 
-	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
-	incompatibleConnections := map[string]fdbv1beta2.None{}
-	for _, incompatibleAddress := range status.Cluster.IncompatibleConnections {
-		address, err := fdbv1beta2.ParseProcessAddress(incompatibleAddress)
-		if err != nil {
-			logger.Error(err, "could not parse address in incompatible connections", "address", incompatibleAddress)
-			continue
-		}
-
-		incompatibleConnections[address.IPAddress.String()] = fdbv1beta2.None{}
+	// Wait until the cluster is running for the minimum uptime before looking for incompatible processes.
+	minimumUptime, _, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	if err != nil {
+		return err
 	}
+
+	if minimumUptime < float64(cluster.GetMinimumUptimeSecondsForBounce()) {
+		logger.V(1).Info("Skipping reconciler and waiting until cluster is for up minimum uptime")
+		return nil
+	}
+
+	// Ensure the cluster is running at fault tolerance before recreating Pods.
+	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
+	if err != nil {
+		logger.V(1).Info("Cluster doesn't have required fault tolerance won't delete Pods")
+		return err
+	}
+
+	if !hasDesiredFaultTolerance {
+		logger.V(1).Info("Skipping reconciler and waiting until cluster has desired fault tolerance")
+		return nil
+	}
+
+	logger.Info("incompatible connections", "incompatibleConnections", status.Cluster.IncompatibleConnections)
+	incompatibleConnections := parseIncompatibleConnections(logger, status.Cluster.IncompatibleConnections)
 
 	incompatiblePods := make([]*corev1.Pod, 0, len(incompatibleConnections))
 	for _, processGroup := range cluster.Status.ProcessGroups {
@@ -111,14 +125,41 @@ func processIncompatibleProcesses(ctx context.Context, r *FoundationDBClusterRec
 			continue
 		}
 
+		if pod.DeletionTimestamp != nil {
+			logger.V(1).Info("Skipping Pod that is already marked for deletion",
+				"processGroupID", processGroup.ProcessGroupID)
+			continue
+		}
+
 		if isIncompatible(incompatibleConnections, processGroup) {
-			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID)
+			logger.Info("recreate Pod for process group with incompatible version", "processGroupID", processGroup.ProcessGroupID, "address", processGroup.Addresses)
 			incompatiblePods = append(incompatiblePods, pod)
 		}
 	}
 
 	// Do an unsafe update of the Pods since they are not reachable anyway
 	return r.PodLifecycleManager.UpdatePods(ctx, r, cluster, incompatiblePods, true)
+}
+
+// parseIncompatibleConnections parses the incompatible connections string slice to a map
+func parseIncompatibleConnections(logger logr.Logger, incompatibleConnections []string) map[string]fdbv1beta2.None {
+	result := make(map[string]fdbv1beta2.None)
+	for _, incompatibleAddress := range incompatibleConnections {
+		address, err := fdbv1beta2.ParseProcessAddress(incompatibleAddress)
+		if err != nil {
+			logger.Error(err, "could not parse address in incompatible connections", "address", incompatibleAddress)
+			continue
+		}
+
+		if address.Port == 0 {
+			logger.V(1).Info("Ignore incompatible connection with port 0", "address", address)
+			continue
+		}
+
+		result[address.IPAddress.String()] = fdbv1beta2.None{}
+	}
+
+	return result
 }
 
 // isIncompatible checks if the process group is in the list of incompatible connections.

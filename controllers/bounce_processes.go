@@ -23,7 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -57,7 +56,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	minimumUptime, addressMap, err := getMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
+	minimumUptime, addressMap, err := internal.GetMinimumUptimeAndAddressMap(cluster, status, r.EnableRecoveryState)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -248,37 +247,4 @@ func getAddressesForUpgrade(logger logr.Logger, r *FoundationDBClusterReconciler
 	}
 
 	return addresses, nil
-}
-
-// getMinimumUptimeAndAddressMap returns address map of the processes included the the foundationdb status. The minimum
-// uptime will be either secondsSinceLastRecovered if the recovery state is supported and enabled otherwise we will
-// take the minimum uptime of all processes.
-func getMinimumUptimeAndAddressMap(cluster *fdbv1beta2.FoundationDBCluster, status *fdbv1beta2.FoundationDBStatus, recoveryStateEnabled bool) (float64, map[string][]fdbv1beta2.ProcessAddress, error) {
-	runningVersion, err := fdbv1beta2.ParseFdbVersion(cluster.GetRunningVersion())
-	if err != nil {
-		return 0, nil, err
-	}
-
-	useRecoveryState := runningVersion.SupportsRecoveryState() && recoveryStateEnabled
-
-	addressMap := make(map[string][]fdbv1beta2.ProcessAddress, len(status.Cluster.Processes))
-
-	minimumUptime := math.Inf(1)
-	if useRecoveryState {
-		minimumUptime = status.Cluster.RecoveryState.SecondsSinceLastRecovered
-	}
-
-	for _, process := range status.Cluster.Processes {
-		addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]] = append(addressMap[process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]], process.Address)
-
-		if useRecoveryState || process.Excluded {
-			continue
-		}
-
-		if process.UptimeSeconds < minimumUptime {
-			minimumUptime = process.UptimeSeconds
-		}
-	}
-
-	return minimumUptime, addressMap, nil
 }
