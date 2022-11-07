@@ -168,7 +168,6 @@ func getInitContainer(useUnifiedImages bool, podSpec *corev1.PodSpec) (*corev1.C
 	}
 
 	return nil, fmt.Errorf("could not create init container")
-
 }
 
 // getContainers returns the main and the sidecar container or an error if one of these is empty.

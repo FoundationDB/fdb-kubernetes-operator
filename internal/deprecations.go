@@ -21,10 +21,9 @@
 package internal
 
 import (
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -60,10 +59,10 @@ func NormalizeClusterSpec(cluster *fdbv1beta2.FoundationDBCluster, options Depre
 
 	if !options.OnlyShowChanges {
 		// Set up resource requirements for the main container.
-		updatePodTemplates(&cluster.Spec, func(template *v1.PodTemplateSpec) {
+		updatePodTemplates(&cluster.Spec, func(template *corev1.PodTemplateSpec) {
 			template.Spec.Containers, _ = ensureContainerPresent(template.Spec.Containers, fdbv1beta2.MainContainerName, 0)
 
-			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.MainContainerName, func(container *v1.Container) {
+			template.Spec.Containers = customizeContainerFromList(template.Spec.Containers, fdbv1beta2.MainContainerName, func(container *corev1.Container) {
 				if container.Resources.Requests == nil {
 					container.Resources.Requests = corev1.ResourceList{
 						"cpu":    resource.MustParse("1"),
