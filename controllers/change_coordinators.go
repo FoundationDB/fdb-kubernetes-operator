@@ -23,7 +23,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
 	"github.com/go-logr/logr"
 
@@ -152,7 +151,7 @@ func selectCoordinators(logger logr.Logger, cluster *fdbv1beta2.FoundationDBClus
 
 	candidates, err := selectCandidates(cluster, status)
 	if err != nil {
-		return []localityInfo{}, err
+		return []locality.Info{}, err
 	}
 
 	coordinators, err := locality.ChooseDistributedProcesses(cluster, candidates, coordinatorCount, locality.ProcessSelectionConstraint{
