@@ -331,16 +331,15 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
 		cluster.Status.ConnectionString = connectionString
 		adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-
 		if clientErr != nil {
 			return originalConnectionString, clientErr
 		}
 
 		activeConnectionString, err := adminClient.GetConnectionString()
 
-		clientErr = adminClient.Close()
-		if clientErr != nil {
-			logger.V(1).Info("Could not close admin client")
+		closeErr := adminClient.Close()
+		if closeErr != nil {
+			logger.V(1).Info("Could not close admin client", "error", closeErr)
 		}
 
 		if err == nil {
