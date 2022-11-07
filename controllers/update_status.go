@@ -337,7 +337,7 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 
 		if err == nil {
 			logger.Info("Chose connection option", "connectionString", activeConnectionString)
-			return activeConnectionString, err
+			return activeConnectionString, nil
 		}
 		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
 	}
