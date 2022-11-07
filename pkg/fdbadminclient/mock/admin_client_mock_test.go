@@ -22,11 +22,11 @@ package mock
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -35,19 +35,6 @@ import (
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 )
-
-func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, processGroupID string) string {
-	for _, process := range status.Cluster.Processes {
-		locality := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-		if locality != processGroupID {
-			continue
-		}
-
-		return process.CommandLine
-	}
-
-	return ""
-}
 
 var _ = Describe("mock_client", func() {
 	When("checking if it's safe to delete a process group", func() {
@@ -198,32 +185,40 @@ var _ = Describe("mock_client", func() {
 	})
 
 	When("changing the commandline arguments", func() {
-		var cluster *fdbv1beta2.FoundationDBCluster
-		var adminClient *mockAdminClient
+		var adminClient *AdminClient
 		var initialCommandline string
 		var processAddress fdbv1beta2.ProcessAddress
 		targetProcess := "storage-1"
 		newKnob := "--knob_dummy=1"
 
 		BeforeEach(func() {
-			var err error
-			cluster = internal.CreateDefaultCluster()
+			cluster := internal.CreateDefaultCluster()
 			Expect(k8sClient.Create(context.TODO(), cluster)).NotTo(HaveOccurred())
 
-			result, err := reconcileCluster(cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
-			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+			storagePod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      targetProcess,
+					Namespace: cluster.GetNamespace(),
+					Labels: map[string]string{
+						fdbv1beta2.FDBClusterLabel:        cluster.Name,
+						fdbv1beta2.FDBProcessGroupIDLabel: targetProcess,
+						fdbv1beta2.FDBProcessClassLabel:   string(fdbv1beta2.ProcessClassStorage),
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), storagePod)).NotTo(HaveOccurred())
 
-			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
+			var err error
+			adminClient, err = NewMockAdminClientUncast(cluster, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
-
 			status, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
 
+			initialCommandline = getCommandlineForProcessFromStatus(status, targetProcess)
+			Expect(initialCommandline).NotTo(BeEmpty())
+
 			for _, process := range status.Cluster.Processes {
-				locality := process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey]
-				if locality != targetProcess {
+				if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != targetProcess {
 					continue
 				}
 
@@ -231,8 +226,6 @@ var _ = Describe("mock_client", func() {
 				break
 			}
 
-			initialCommandline = getCommandlineForProcessFromStatus(status, targetProcess)
-			Expect(initialCommandline).NotTo(BeEmpty())
 			// Update the knobs for storage
 			processes := cluster.Spec.Processes
 			if processes == nil {
@@ -242,11 +235,7 @@ var _ = Describe("mock_client", func() {
 			config.CustomParameters = append(config.CustomParameters, fdbv1beta2.FoundationDBCustomParameter(newKnob))
 			processes[fdbv1beta2.ProcessClassGeneral] = config
 			cluster.Spec.Processes = processes
-			fmt.Println(cluster.Spec.Processes)
-
-			Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
-			adminClient, err = newMockAdminClientUncast(cluster, k8sClient)
-			Expect(err).NotTo(HaveOccurred())
+			adminClient.Cluster = cluster
 		})
 
 		When("the process is not restarted", func() {
@@ -262,6 +251,7 @@ var _ = Describe("mock_client", func() {
 		When("the process is restarted", func() {
 			It("should update the command line arguments", func() {
 				Expect(adminClient.KillProcesses([]fdbv1beta2.ProcessAddress{processAddress})).NotTo(HaveOccurred())
+				Expect(adminClient.KilledAddresses).To(HaveLen(1))
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 				newCommandline := getCommandlineForProcessFromStatus(status, targetProcess)
@@ -271,3 +261,15 @@ var _ = Describe("mock_client", func() {
 		})
 	})
 })
+
+func getCommandlineForProcessFromStatus(status *fdbv1beta2.FoundationDBStatus, targetProcess string) string {
+	for _, process := range status.Cluster.Processes {
+		if process.Locality[fdbv1beta2.FDBLocalityInstanceIDKey] != targetProcess {
+			continue
+		}
+
+		return process.CommandLine
+	}
+
+	return ""
+}

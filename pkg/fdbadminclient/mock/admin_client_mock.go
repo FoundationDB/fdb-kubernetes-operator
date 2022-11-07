@@ -23,11 +23,12 @@ package mock
 import (
 	"context"
 	"fmt"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podclient/mock"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 
@@ -45,20 +46,20 @@ type AdminClient struct {
 	DatabaseConfiguration                    *fdbv1beta2.DatabaseConfiguration
 	ExcludedAddresses                        []string
 	KilledAddresses                          []string
+	Knobs                                    []string
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
 	missingProcessGroups                     map[string]bool
 	ReincludedAddresses                      map[string]bool
-	incorrectCommandLines                    map[string]bool
 	currentCommandLines                      map[string]string
 	additionalProcesses                      []fdbv1beta2.ProcessGroupStatus
 	localityInfo                             map[string]map[string]string
 	incorrectCommandLines                    map[string]bool
 	MaxZoneFailuresWithoutLosingData         *int
 	MaxZoneFailuresWithoutLosingAvailability *int
-	Knobs                                    []string
 	MaintenanceZone                          string
+	restoreURL                               string
 	maintenanceZoneStartTimestamp            time.Time
 	uptimeSecondsForMaintenanceZone          float64
 }
@@ -113,7 +114,7 @@ func (client *AdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error) {
 		return client.FrozenStatus, nil
 	}
 	pods := &corev1.PodList{}
-	err := client.KubeClient.List(context.TODO(), pods)
+	err := client.KubeClient.List(context.TODO(), pods, internal.GetPodListOptions(client.Cluster, "", "")...)
 	if err != nil {
 		return nil, err
 	}
@@ -491,11 +492,6 @@ func (client *AdminClient) GetExclusions() ([]fdbv1beta2.ProcessAddress, error) 
 
 // KillProcesses restarts processes
 func (client *AdminClient) KillProcesses(addresses []fdbv1beta2.ProcessAddress) error {
-	processAddress, err := client.getProcessAddressMap()
-	if err != nil {
-		return err
-	}
-	
 	adminClientMutex.Lock()
 	for _, addr := range addresses {
 		client.KilledAddresses = append(client.KilledAddresses, addr.String())

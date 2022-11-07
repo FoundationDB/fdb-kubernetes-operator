@@ -30,7 +30,6 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -63,7 +62,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 		return &requeue{curError: err}
 	}
 
-	addresses, req := getProcessesReadyForRestart(ctx, logger, r, cluster, addressMap)
+	addresses, req := getProcessesReadyForRestart(logger, cluster, addressMap)
 	if req != nil {
 		return req
 	}
@@ -150,7 +149,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 // getProcessesReadyForRestart returns a slice of process addresses that can be restarted. If addresses are missing or not all processes
 // have the latest configuration this method will return a requeue struct with more details.
-func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *FoundationDBClusterReconciler, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
+func getProcessesReadyForRestart(logger logr.Logger, cluster *fdbv1beta2.FoundationDBCluster, addressMap map[string][]fdbv1beta2.ProcessAddress) ([]fdbv1beta2.ProcessAddress, *requeue) {
 	processesToBounce := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, restarts.GetFilterConditions(cluster), true)
 	addresses := make([]fdbv1beta2.ProcessAddress, 0, len(processesToBounce))
 	allSynced := true
@@ -186,11 +185,11 @@ func getProcessesReadyForRestart(ctx context.Context, logger logr.Logger, r *Fou
 	}
 
 	if len(missingAddress) > 0 {
-		return &requeue{curError: fmt.Errorf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
+		return nil, &requeue{curError: fmt.Errorf("could not find address for processes: %s", missingAddress), delayedRequeue: true}
 	}
 
 	if !allSynced {
-		return &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
+		return nil, &requeue{message: "Waiting for config map to sync to all pods", delayedRequeue: true}
 	}
 
 	counts, err := cluster.GetProcessCountsWithDefaults()
