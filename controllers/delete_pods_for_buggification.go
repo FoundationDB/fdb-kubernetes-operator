@@ -67,7 +67,7 @@ func (d deletePodsForBuggification) reconcile(ctx context.Context, r *Foundation
 
 		inCrashLoop := false
 		for _, container := range pod.Spec.Containers {
-			if container.Name == "foundationdb" && len(container.Args) > 0 {
+			if container.Name == fdbv1beta2.MainContainerName && len(container.Args) > 0 {
 				inCrashLoop = container.Args[0] == "crash-loop"
 			}
 		}

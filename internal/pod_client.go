@@ -122,7 +122,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	}
 	for _, container := range pod.Status.ContainerStatuses {
-		if container.Name == "foundationdb-kubernetes-sidecar" && !container.Ready {
+		if container.Name == fdbv1beta2.SidecarContainerName && !container.Ready {
 			return nil, fmt.Errorf("waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
 		}
 	}
@@ -443,7 +443,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	}
 	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
 
-	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
+	if client.Cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name
 	} else if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
@@ -491,7 +491,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 // sidecar process.
 func podHasSidecarTLS(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "foundationdb-kubernetes-sidecar" {
+		if container.Name == fdbv1beta2.SidecarContainerName {
 			for _, arg := range container.Args {
 				if arg == "--tls" {
 					return true
@@ -507,7 +507,7 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 // image.
 func GetImageType(pod *corev1.Pod) FDBImageType {
 	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb" {
+		if container.Name != fdbv1beta2.MainContainerName {
 			continue
 		}
 		for _, envVar := range container.Env {
@@ -516,6 +516,7 @@ func GetImageType(pod *corev1.Pod) FDBImageType {
 			}
 		}
 	}
+
 	return FDBImageTypeSplit
 }
 

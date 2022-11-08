@@ -479,7 +479,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		if pod.ObjectMeta.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "foundationdb-kubernetes-sidecar" || container.Name == "foundationdb" {
+				if container.Name == fdbv1beta2.SidecarContainerName || container.Name == fdbv1beta2.MainContainerName {
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {
 							hasPodIP = true

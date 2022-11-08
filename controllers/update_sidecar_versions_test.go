@@ -86,7 +86,7 @@ var _ = Describe("update_sidecar_versions", func() {
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{
 											{
-												Name:  "foundationdb-kubernetes-sidecar",
+												Name:  fdbv1beta2.SidecarContainerName,
 												Image: "settings-override",
 											},
 										},
@@ -107,7 +107,7 @@ var _ = Describe("update_sidecar_versions", func() {
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{
 											{
-												Name:  "foundationdb-kubernetes-sidecar",
+												Name:  fdbv1beta2.SidecarContainerName,
 												Image: "settings-override:1.2.3",
 											},
 										},

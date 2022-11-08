@@ -185,7 +185,7 @@ func createFoundationDBCluster(clusterName string, namespace string, version str
 		},
 		Spec: fdbv1beta2.FoundationDBClusterSpec{
 			FaultDomain: fdbv1beta2.FoundationDBClusterFaultDomain{
-				Key: "foundationdb.org/none",
+				Key: fdbv1beta2.NoneFaultDomainKey,
 			},
 			MinimumUptimeSecondsForBounce: 60,
 			Version:                       version,
@@ -198,7 +198,7 @@ func createFoundationDBCluster(clusterName string, namespace string, version str
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "foundationdb",
+									Name: fdbv1beta2.MainContainerName,
 									Resources: corev1.ResourceRequirements{
 										Requests: corev1.ResourceList{
 											"foundationdb.org/empty": resource.MustParse("0"),
@@ -206,7 +206,7 @@ func createFoundationDBCluster(clusterName string, namespace string, version str
 									},
 								},
 								{
-									Name: "foundationdb-kubernetes-sidecar",
+									Name: fdbv1beta2.SidecarContainerName,
 									Resources: corev1.ResourceRequirements{
 										Requests: corev1.ResourceList{
 											"foundationdb.org/empty": resource.MustParse("0"),
@@ -216,7 +216,7 @@ func createFoundationDBCluster(clusterName string, namespace string, version str
 							},
 							InitContainers: []corev1.Container{
 								{
-									Name: "foundationdb-kubernetes-init",
+									Name: fdbv1beta2.InitContainerName,
 									Resources: corev1.ResourceRequirements{
 										Requests: corev1.ResourceList{
 											"foundationdb.org/empty": resource.MustParse("0"),

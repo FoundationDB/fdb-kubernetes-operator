@@ -102,7 +102,7 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
-					Expect(containers[0].Name).To(Equal("foundationdb"))
+					Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 					Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
 						"cpu":    resource.MustParse("1"),
 						"memory": resource.MustParse("1Gi"),
@@ -118,7 +118,7 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.Containers
 					Expect(len(containers)).To(Equal(2))
-					Expect(containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
+					Expect(containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 					Expect(containers[1].Resources.Requests).NotTo(BeNil())
 					Expect(containers[1].Resources.Limits).NotTo(BeNil())
 				})
@@ -128,7 +128,7 @@ var _ = Describe("[internal] deprecations", func() {
 					Expect(present).To(BeTrue())
 					containers := generalProcessConfig.PodTemplate.Spec.InitContainers
 					Expect(len(containers)).To(Equal(1))
-					Expect(containers[0].Name).To(Equal("foundationdb-kubernetes-init"))
+					Expect(containers[0].Name).To(Equal(fdbv1beta2.InitContainerName))
 					Expect(containers[0].Resources.Requests).NotTo(BeNil())
 					Expect(containers[0].Resources.Limits).NotTo(BeNil())
 				})
@@ -140,7 +140,7 @@ var _ = Describe("[internal] deprecations", func() {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
-											Name: "foundationdb",
+											Name: fdbv1beta2.MainContainerName,
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
 													"cpu": resource.MustParse("1"),
@@ -161,7 +161,7 @@ var _ = Describe("[internal] deprecations", func() {
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
-						Expect(containers[0].Name).To(Equal("foundationdb"))
+						Expect(containers[0].Name).To(Equal(fdbv1beta2.MainContainerName))
 						Expect(containers[0].Resources.Requests).To(Equal(corev1.ResourceList{
 							"cpu": resource.MustParse("1"),
 						}))
@@ -178,7 +178,7 @@ var _ = Describe("[internal] deprecations", func() {
 								PodTemplate: &corev1.PodTemplateSpec{
 									Spec: corev1.PodSpec{
 										Containers: []corev1.Container{{
-											Name: "foundationdb-kubernetes-sidecar",
+											Name: fdbv1beta2.SidecarContainerName,
 											Resources: corev1.ResourceRequirements{
 												Requests: corev1.ResourceList{
 													"cpu": resource.MustParse("1"),
@@ -199,7 +199,7 @@ var _ = Describe("[internal] deprecations", func() {
 						Expect(present).To(BeTrue())
 						containers := generalProcessConfig.PodTemplate.Spec.Containers
 						Expect(len(containers)).To(Equal(2))
-						Expect(containers[1].Name).To(Equal("foundationdb-kubernetes-sidecar"))
+						Expect(containers[1].Name).To(Equal(fdbv1beta2.SidecarContainerName))
 						Expect(containers[1].Resources.Requests).To(Equal(corev1.ResourceList{
 							"cpu": resource.MustParse("1"),
 						}))
