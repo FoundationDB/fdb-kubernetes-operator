@@ -31,6 +31,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -171,11 +172,35 @@ func (client *realFdbPodSidecarClient) getListenIP() string {
 	return ""
 }
 
+// generateRequest will generate a retryablehttp.Request for the provided parameters or an error if a request cannot be
+// generated.
+func generateRequest(retryClient *retryablehttp.Client, url string, method string, getTimeout time.Duration, postTimeout time.Duration) (*retryablehttp.Request, error) {
+	switch method {
+	case http.MethodGet:
+		retryClient.HTTPClient.Timeout = getTimeout
+		return retryablehttp.NewRequest(http.MethodGet, url, nil)
+	case http.MethodPost:
+		retryClient.HTTPClient.Timeout = postTimeout
+		req, err := retryablehttp.NewRequest(http.MethodPost, url, strings.NewReader(""))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	}
+
+	return nil, fmt.Errorf("unknown HTTP method %s", method)
+}
+
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
 	var err error
 
-	protocol := "http"
+	target := url.URL{
+		Scheme: "http",
+		Host:   client.getListenIP() + ":8080",
+		Path:   path,
+	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 1 * time.Second
@@ -185,22 +210,17 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
-		protocol = "https"
+		target.Scheme = "https"
 	}
 
-	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
-	var resp *http.Response
-	switch method {
-	case http.MethodGet:
-		retryClient.HTTPClient.Timeout = client.getTimeout
-		resp, err = retryClient.Get(url)
+	req, err := generateRequest(retryClient, target.String(), method, client.getTimeout, client.postTimeout)
+	if err != nil {
+		return "", 0, err
+	}
+
+	resp, err := retryClient.Do(req)
+	if resp != nil {
 		defer resp.Body.Close()
-	case http.MethodPost:
-		retryClient.HTTPClient.Timeout = client.postTimeout
-		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
-		defer resp.Body.Close()
-	default:
-		return "", 0, fmt.Errorf("unknown HTTP method %s", method)
 	}
 
 	if err != nil {
