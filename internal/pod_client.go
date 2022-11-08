@@ -194,17 +194,19 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 	case http.MethodGet:
 		retryClient.HTTPClient.Timeout = client.getTimeout
 		resp, err = retryClient.Get(url)
-		defer resp.Body.Close()
 	case http.MethodPost:
 		retryClient.HTTPClient.Timeout = client.postTimeout
 		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
-		defer resp.Body.Close()
 	default:
 		return "", 0, fmt.Errorf("unknown HTTP method %s", method)
 	}
 
 	if err != nil {
 		return "", 0, err
+	}
+
+	if resp != nil {
+		defer resp.Body.Close()
 	}
 
 	body, err := io.ReadAll(resp.Body)
