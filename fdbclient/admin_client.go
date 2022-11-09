@@ -23,6 +23,7 @@ package fdbclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -217,8 +218,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	output, err := execCommand.CombinedOutput()
 	if err != nil {
-		exitError, canCast := err.(*exec.ExitError)
-		if canCast {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
 			client.log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 
@@ -263,7 +264,8 @@ func (client *cliAdminClient) runCommandWithBackoff(command string) (string, err
 			break
 		}
 
-		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
+		var timoutError *fdbv1beta2.TimeoutError
+		if errors.As(err, &timoutError) {
 			client.log.Info("timeout issue will retry with higher timeout")
 			currentTimeout *= 2
 			continue

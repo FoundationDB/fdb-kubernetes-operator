@@ -32,28 +32,14 @@ import (
 
 // IsNetworkError returns true if the network is a network error net.Error
 func IsNetworkError(err error) bool {
-	for err != nil {
-		if _, ok := err.(net.Error); ok {
-			return true
-		}
-
-		err = errors.Unwrap(err)
-	}
-
-	return false
+	var netError net.Error
+	return errors.As(err, &netError)
 }
 
 // IsTimeoutError returns true if the observed error was a timeout error
 func IsTimeoutError(err error) bool {
-	for err != nil {
-		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
-			return true
-		}
-
-		err = errors.Unwrap(err)
-	}
-
-	return false
+	var timeoutError fdbv1beta2.TimeoutError
+	return errors.As(err, &timeoutError)
 }
 
 // IsQuotaExceeded returns true if the error returned by the Kubernetes API is a forbidden error with the error message

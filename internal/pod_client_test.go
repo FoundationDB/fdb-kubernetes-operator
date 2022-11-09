@@ -21,13 +21,14 @@
 package internal
 
 import (
+	"net/http"
+	"net/url"
+	"time"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/hashicorp/go-retryablehttp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"net/url"
-	"time"
 )
 
 var _ = Describe("pod_client", func() {
