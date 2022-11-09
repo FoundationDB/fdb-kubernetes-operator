@@ -302,21 +302,19 @@ func optionList(options ...string) []string {
 	return values
 }
 
-// tryConnectionOptions attempts to connect with all the combinations of
-// versions and connection strings for this cluster and returns the set that
-// allow connecting to the cluster.
+// tryConnectionOptions attempts to connect with all the connection strings for this cluster and
+// returns the connection string that allows connecting to the cluster.
 func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
-	originalConnectionString := cluster.Status.ConnectionString
-
 	if len(connectionStrings) == 1 {
-		return originalConnectionString, nil
+		return cluster.Status.ConnectionString, nil
 	}
 
 	logger.Info("Trying connection options", "connectionString", connectionStrings)
 
+	originalConnectionString := cluster.Status.ConnectionString
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
 	for _, connectionString := range connectionStrings {
@@ -332,7 +330,7 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 
 		clientErr = adminClient.Close()
 		if clientErr != nil {
-			logger.V(1).Info("Cloud not close admin client")
+			logger.V(1).Info("Could not close admin client")
 		}
 
 		if err == nil {
