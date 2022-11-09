@@ -23,6 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/safeguards"
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -81,8 +82,9 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 
 		// Retry after we waited the minimum uptime
 		return &requeue{
-			message: "Cluster needs to stabilize before bouncing",
-			delay:   time.Second * time.Duration(cluster.GetMinimumUptimeSecondsForBounce()-int(minimumUptime)),
+			message:        "Cluster needs to stabilize before bouncing",
+			delay:          time.Second * time.Duration(cluster.GetMinimumUptimeSecondsForBounce()-int(minimumUptime)),
+			delayedRequeue: true,
 		}
 	}
 
@@ -91,30 +93,43 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	if useLocks {
 		lockClient, err = r.getLockClient(cluster)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 	version, err := fdbv1beta2.ParseFdbVersion(cluster.Spec.Version)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	upgrading := cluster.Status.RunningVersion != cluster.Spec.Version
 
 	if useLocks && upgrading {
-		processGroupIDs := make([]string, 0, len(cluster.Status.ProcessGroups))
-		for _, processGroup := range cluster.Status.ProcessGroups {
-			processGroupIDs = append(processGroupIDs, processGroup.ProcessGroupID)
+		// Ignore all Process groups that are not reachable and therefore will not get any ConfigMap updates. Otherwise
+		// a single Pod might block the whole upgrade. The assumption here is that the Pod will be recreated with the
+		// new version in the removeIncompatibleProcesses reconciler.
+		processGroupIDs := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
+			fdbv1beta2.SidecarUnreachable: false,
+		}, false)
+
+		desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
 		}
+
+		err = safeguards.HasEnoughProcessesToUpgrade(processGroupIDs, cluster.Status.ProcessGroups, desiredProcesses)
+		if err != nil {
+			return &requeue{curError: err, delayedRequeue: true}
+		}
+
 		err = lockClient.AddPendingUpgrades(version, processGroupIDs)
 		if err != nil {
-			return &requeue{curError: err}
+			return &requeue{curError: err, delayedRequeue: true}
 		}
 	}
 
 	hasLock, err := r.takeLock(cluster, fmt.Sprintf("bouncing processes: %v", addresses))
 	if !hasLock {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	if useLocks && upgrading {
@@ -124,7 +139,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 			return req
 		}
 		if addresses == nil {
-			return &requeue{curError: fmt.Errorf("unknown error when getting addresses that are ready for upgrade")}
+			return &requeue{curError: fmt.Errorf("unknown error when getting addresses that are ready for upgrade"), delayedRequeue: true}
 		}
 	}
 
@@ -132,7 +147,7 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	r.Recorder.Event(cluster, corev1.EventTypeNormal, "BouncingProcesses", fmt.Sprintf("Bouncing processes: %v", addresses))
 	err = adminClient.KillProcesses(addresses)
 	if err != nil {
-		return &requeue{curError: err}
+		return &requeue{curError: err, delayedRequeue: true}
 	}
 
 	// If the cluster was upgraded we will requeue and let the update_status command set the correct version.

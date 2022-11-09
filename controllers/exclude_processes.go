@@ -23,7 +23,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"math"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/safeguards"
 	"net"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,10 +31,6 @@ import (
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 )
-
-// The fraction of processes that must be present in order to start a new
-// exclusion.
-var missingProcessThreshold = 0.8
 
 // excludeProcesses provides a reconciliation step for excluding processes from
 // the database.
@@ -69,7 +65,7 @@ func (e excludeProcesses) reconcile(_ context.Context, r *FoundationDBClusterRec
 
 	if len(fdbProcessesToExclude) > 0 {
 		for processClass := range processClassesToExclude {
-			canExclude, missingProcesses := canExcludeNewProcesses(cluster, processClass)
+			canExclude, missingProcesses := safeguards.CanExcludeNewProcesses(logger, cluster, processClass)
 			if !canExclude {
 				// We want to delay the requeue so that the operator can do some other tasks
 				// before retrying.
@@ -143,40 +139,4 @@ func getProcessesToExclude(exclusions []fdbv1beta2.ProcessAddress, cluster *fdbv
 		}
 	}
 	return fdbProcessesToExclude, processClassesToExclude
-}
-
-func canExcludeNewProcesses(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass) (bool, []string) {
-	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "excludeProcesses")
-
-	// Block excludes on missing processes not marked for removal
-	missingProcesses := make([]string, 0)
-	validProcesses := make([]string, 0)
-
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.IsMarkedForRemoval() || processGroupStatus.ProcessClass != processClass {
-			continue
-		}
-
-		if processGroupStatus.GetConditionTime(fdbv1beta2.MissingProcesses) != nil ||
-			processGroupStatus.GetConditionTime(fdbv1beta2.MissingPod) != nil {
-			missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
-			logger.Info("Missing processes", "processGroupID", processGroupStatus.ProcessGroupID)
-			continue
-		}
-
-		validProcesses = append(validProcesses, processGroupStatus.ProcessGroupID)
-	}
-
-	desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
-	if err != nil {
-		logger.Error(err, "Error calculating process counts")
-		return false, missingProcesses
-	}
-	desiredCount := desiredProcesses.Map()[processClass]
-
-	if len(validProcesses) < desiredCount-1 && len(validProcesses) < int(math.Ceil(float64(desiredCount)*missingProcessThreshold)) {
-		return false, missingProcesses
-	}
-
-	return true, nil
 }

@@ -23,6 +23,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/safeguards"
+	"github.com/go-logr/logr"
 	"net"
 
 	"k8s.io/utils/pointer"
@@ -38,6 +40,7 @@ var _ = Describe("exclude_processes", func() {
 	var cluster *fdbv1beta2.FoundationDBCluster
 	var err error
 
+	// TODO(johschuer): Move those tests into safeguards package.
 	Describe("canExcludeNewProcesses", func() {
 		BeforeEach(func() {
 			cluster = internal.CreateDefaultCluster()
@@ -56,7 +59,7 @@ var _ = Describe("exclude_processes", func() {
 		Context("with a small cluster", func() {
 			When("all processes are healthy", func() {
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := safeguards.CanExcludeNewProcesses(logr.Discard(), cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -68,7 +71,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := safeguards.CanExcludeNewProcesses(logr.Discard(), cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -80,7 +83,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := safeguards.CanExcludeNewProcesses(logr.Discard(), cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-2"}))
 				})
@@ -92,7 +95,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := safeguards.CanExcludeNewProcesses(logr.Discard(), cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -119,7 +122,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := safeguards.CanExcludeNewProcesses(logr.Discard(), cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeTrue())
 					Expect(missing).To(BeNil())
 				})
@@ -131,7 +134,7 @@ var _ = Describe("exclude_processes", func() {
 				})
 
 				It("should not allow the exclusion", func() {
-					canExclude, missing := canExcludeNewProcesses(cluster, fdbv1beta2.ProcessClassStorage)
+					canExclude, missing := safeguards.CanExcludeNewProcesses(logr.Discard(), cluster, fdbv1beta2.ProcessClassStorage)
 					Expect(canExclude).To(BeFalse())
 					Expect(missing).To(Equal([]string{"storage-1", "storage-10", "storage-11", "storage-12", "storage-13"}))
 				})
