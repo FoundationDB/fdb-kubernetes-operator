@@ -64,6 +64,43 @@ func reloadCluster(cluster *fdbv1beta2.FoundationDBCluster) (int64, error) {
 	return generations.Reconciled, err
 }
 
+func generationsNotMatching(cluster *fdbv1beta2.FoundationDBCluster) func() {
+	return func() {
+		generations := reloadClusterGenerationsSafe(cluster)
+		Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
+	}
+}
+
+func generationsMatching(cluster *fdbv1beta2.FoundationDBCluster) func() {
+	return func() {
+		generations := reloadClusterGenerationsSafe(cluster)
+		Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
+	}
+}
+
+func reloadClusterGenerationsSafe(cluster *fdbv1beta2.FoundationDBCluster) fdbv1beta2.ClusterGenerationStatus {
+	status, err := reloadClusterGenerations(cluster)
+	Expect(err).NotTo(HaveOccurred())
+	return status
+}
+
+func updateStorageEngineVersion(cluster *fdbv1beta2.FoundationDBCluster, storageEngine fdbv1beta2.StorageEngine, version string) func() {
+	return func() {
+		cluster.Spec.DatabaseConfiguration.StorageEngine = storageEngine
+		cluster.Spec.Version = version
+		Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+	}
+}
+
+func updateStorageEngineVersionIncompleteReconcilliation(cluster *fdbv1beta2.FoundationDBCluster, storageEngine fdbv1beta2.StorageEngine, version string, shouldCompleteReconciliation *bool) func() {
+	return func() {
+		cluster.Spec.DatabaseConfiguration.StorageEngine = storageEngine
+		cluster.Spec.Version = version
+		Expect(k8sClient.Update(context.TODO(), cluster)).NotTo(HaveOccurred())
+		*shouldCompleteReconciliation = false
+	}
+}
+
 func reloadClusterGenerations(cluster *fdbv1beta2.FoundationDBCluster) (fdbv1beta2.ClusterGenerationStatus, error) {
 	objectKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
 	*cluster = fdbv1beta2.FoundationDBCluster{}
@@ -911,8 +948,7 @@ var _ = Describe("cluster_controller", func() {
 			})
 
 			JustBeforeEach(func() {
-				generations, err := reloadClusterGenerations(cluster)
-				Expect(err).NotTo(HaveOccurred())
+				generations := reloadClusterGenerationsSafe(cluster)
 				// Since we delay the requeue we are able to choose new
 				// coordinators.
 				Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
@@ -1063,8 +1099,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					generations, err := reloadClusterGenerations(cluster)
-					Expect(err).NotTo(HaveOccurred())
+					generations := reloadClusterGenerationsSafe(cluster)
 					Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
 						Reconciled:          originalVersion,
 						NeedsBounce:         originalVersion + 1,
@@ -1207,8 +1242,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					generations, err := reloadClusterGenerations(cluster)
-					Expect(err).NotTo(HaveOccurred())
+					generations := reloadClusterGenerationsSafe(cluster)
 					Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
 						Reconciled:               originalVersion,
 						NeedsConfigurationChange: originalVersion + 1,
@@ -1621,8 +1655,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					generations, err := reloadClusterGenerations(cluster)
-					Expect(err).NotTo(HaveOccurred())
+					generations := reloadClusterGenerationsSafe(cluster)
 					Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
 						Reconciled:          originalVersion,
 						NeedsPodDeletion:    originalVersion + 1,
@@ -1653,8 +1686,7 @@ var _ = Describe("cluster_controller", func() {
 				})
 
 				JustBeforeEach(func() {
-					generations, err := reloadClusterGenerations(cluster)
-					Expect(err).NotTo(HaveOccurred())
+					generations := reloadClusterGenerationsSafe(cluster)
 					Expect(generations).To(Equal(fdbv1beta2.ClusterGenerationStatus{
 						Reconciled:          originalVersion,
 						NeedsPodDeletion:    originalVersion + 1,
@@ -2547,158 +2579,53 @@ var _ = Describe("cluster_controller", func() {
 		When("creating a cluster with RocksDB as storage engine", func() {
 			When("using rocksdb-v1 engine", func() {
 				When("using 6.3.26", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "6.3.26"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineRocksDbV1, "6.3.26", &shouldCompleteReconciliation))
+					It("generations are not matching", generationsNotMatching(cluster))
 				})
 				When("using 7.1.0-rc3", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "7.1.0-rc3"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineRocksDbV1, "7.1.0-rc3", &shouldCompleteReconciliation))
+					It("generations are not matching", generationsNotMatching(cluster))
 				})
 				When("using 7.1.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "7.1.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineRocksDbV1, "7.1.0", &shouldCompleteReconciliation))
+					It("generations are matching", generationsMatching(cluster))
 				})
 				When("using 7.1.0-rc4", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbV1
-						cluster.Spec.Version = "7.1.0-rc4"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersion(cluster, fdbv1beta2.StorageEngineRocksDbV1, "7.1.0-rc4"))
+					It("generations are matching", generationsMatching(cluster))
 				})
 			})
 
 			When("using ssd-rocksdb-experimental", func() {
 				When("using 7.1.0-rc4", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "7.1.0-rc4"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineRocksDbExperimental, "7.1.0-rc4", &shouldCompleteReconciliation))
+					It("generations are not matching", generationsNotMatching(cluster))
 				})
 				When("using 7.1.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "7.1.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineRocksDbExperimental, "7.1.0", &shouldCompleteReconciliation))
+					It("generations are not matching", generationsNotMatching(cluster))
 				})
 				When("using 7.1.0-rc3", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "7.1.0-rc3"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersion(cluster, fdbv1beta2.StorageEngineRocksDbExperimental, "7.1.0-rc3"))
+					It("generations are matching", generationsMatching(cluster))
 				})
 				When("using 6.3.24", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineRocksDbExperimental
-						cluster.Spec.Version = "6.3.24"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersion(cluster, fdbv1beta2.StorageEngineRocksDbExperimental, "6.3.24"))
+					It("generations are matching", generationsMatching(cluster))
 				})
 			})
 			When("using ssd-sharded-rocksdb", func() {
 				When("using 7.2.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
-						cluster.Spec.Version = "7.2.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-					})
-					It("generations are matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).To(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersion(cluster, fdbv1beta2.StorageEngineShardedRocksDB, "7.2.0"))
+					It("generations are matching", generationsMatching(cluster))
 				})
 				When("using 7.1.0", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
-						cluster.Spec.Version = "7.1.0"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineShardedRocksDB, "7.1.0", &shouldCompleteReconciliation))
+					It("generations are not matching", generationsNotMatching(cluster))
 				})
 				When("using 6.3.24", func() {
-					BeforeEach(func() {
-						cluster.Spec.DatabaseConfiguration.StorageEngine = fdbv1beta2.StorageEngineShardedRocksDB
-						cluster.Spec.Version = "6.3.24"
-						err := k8sClient.Update(context.TODO(), cluster)
-						Expect(err).NotTo(HaveOccurred())
-						shouldCompleteReconciliation = false
-					})
-					It("generations are not matching", func() {
-						generations, err := reloadClusterGenerations(cluster)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(generations.Reconciled).ToNot(Equal(cluster.ObjectMeta.Generation))
-					})
+					BeforeEach(updateStorageEngineVersionIncompleteReconcilliation(cluster, fdbv1beta2.StorageEngineShardedRocksDB, "6.3.24", &shouldCompleteReconciliation))
+					It("generations are not matching", generationsNotMatching(cluster))
 				})
 			})
 
@@ -2717,8 +2644,7 @@ var _ = Describe("cluster_controller", func() {
 
 			It("It should report the incorrect commandline in the process groups", func() {
 				// We have to reload the cluster because we don't reach the Reconcile state
-				_, err = reloadClusterGenerations(cluster)
-				Expect(err).NotTo(HaveOccurred())
+				_ = reloadClusterGenerationsSafe(cluster)
 				incorrectProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false)
 				Expect(incorrectProcesses).To(Equal([]string{"storage-1"}))
 			})
@@ -2732,8 +2658,7 @@ var _ = Describe("cluster_controller", func() {
 
 				It("It should report the incorrect commandline in the process groups", func() {
 					// We have to reload the cluster because we don't reach the Reconcile state
-					_, err = reloadClusterGenerations(cluster)
-					Expect(err).NotTo(HaveOccurred())
+					_ = reloadClusterGenerationsSafe(cluster)
 					incorrectProcesses := fdbv1beta2.FilterByCondition(cluster.Status.ProcessGroups, fdbv1beta2.IncorrectCommandLine, false)
 					Expect(incorrectProcesses).To(Equal([]string{"storage-1", "storage-2"}))
 				})
@@ -3443,8 +3368,7 @@ var _ = Describe("cluster_controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
-			generations, err := reloadClusterGenerations(cluster)
-			Expect(err).NotTo(HaveOccurred())
+			generations := reloadClusterGenerationsSafe(cluster)
 			Expect(generations.Reconciled).To(Equal(int64(1)))
 
 			adminClient, err = newMockAdminClient(cluster, k8sClient)
