@@ -37,19 +37,19 @@ func CanExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 	missingProcesses := make([]string, 0)
 	validProcesses := make([]string, 0)
 
-	for _, processGroupStatus := range cluster.Status.ProcessGroups {
-		if processGroupStatus.IsMarkedForRemoval() || processGroupStatus.ProcessClass != processClass {
+	for _, processGroup := range cluster.Status.ProcessGroups {
+		if processGroup.IsMarkedForRemoval() || processGroup.ProcessClass != processClass {
 			continue
 		}
 
-		if processGroupStatus.GetConditionTime(fdbv1beta2.MissingProcesses) != nil ||
-			processGroupStatus.GetConditionTime(fdbv1beta2.MissingPod) != nil {
-			missingProcesses = append(missingProcesses, processGroupStatus.ProcessGroupID)
-			logger.Info("Missing processes", "processGroupID", processGroupStatus.ProcessGroupID)
+		if processGroup.GetConditionTime(fdbv1beta2.MissingProcesses) != nil ||
+			processGroup.GetConditionTime(fdbv1beta2.MissingPod) != nil {
+			missingProcesses = append(missingProcesses, processGroup.ProcessGroupID)
+			logger.Info("Missing processes", "processGroupID", processGroup.ProcessGroupID)
 			continue
 		}
 
-		validProcesses = append(validProcesses, processGroupStatus.ProcessGroupID)
+		validProcesses = append(validProcesses, processGroup.ProcessGroupID)
 	}
 
 	desiredProcesses, err := cluster.GetProcessCountsWithDefaults()
@@ -68,7 +68,7 @@ func CanExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 
 // HasEnoughProcessesToUpgrade checks if enough processes are ready to be upgraded. The logic is currently a simple heuristic
 // which checks if at least 90% of the desired processes are pending the upgrade. Processes that are stuck in a terminating
-// state will be ignore for the calculation.
+// state will be ignored for the calculation.
 func HasEnoughProcessesToUpgrade(processGroupIDs []string, processGroups []*fdbv1beta2.ProcessGroupStatus, desiredProcesses fdbv1beta2.ProcessCounts) error {
 	// TODO (johscheuer): Expose this fraction and make it configurable.
 	desiredProcessCounts := int(math.Ceil(float64(desiredProcesses.Total()) * 0.9))
