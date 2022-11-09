@@ -70,6 +70,7 @@ func CanExcludeNewProcesses(logger logr.Logger, cluster *fdbv1beta2.FoundationDB
 // which checks if at least 90% of the desired processes are pending the upgrade. Processes that are stuck in a terminating
 // state will be ignore for the calculation.
 func HasEnoughProcessesToUpgrade(processGroupIDs []string, processGroups []*fdbv1beta2.ProcessGroupStatus, desiredProcesses fdbv1beta2.ProcessCounts) error {
+	// TODO (johscheuer): Expose this fraction and make it configurable.
 	desiredProcessCounts := int(math.Ceil(float64(desiredProcesses.Total()) * 0.9))
 
 	var terminatingProcesses int
@@ -83,7 +84,7 @@ func HasEnoughProcessesToUpgrade(processGroupIDs []string, processGroups []*fdbv
 
 	processesForUpgrade := len(processGroupIDs) - terminatingProcesses
 	if processesForUpgrade < desiredProcessCounts {
-		return fmt.Errorf("expected to have %d process groups for performing the upgrade, currently only %d process groups are available", desiredProcessCounts, len(processGroupIDs))
+		return fmt.Errorf("expected to have %d process groups for performing the upgrade, currently only %d process groups are available", desiredProcessCounts, processesForUpgrade)
 	}
 
 	return nil

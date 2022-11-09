@@ -106,7 +106,10 @@ func (bounceProcesses) reconcile(ctx context.Context, r *FoundationDBClusterReco
 	if useLocks && upgrading {
 		// Ignore all Process groups that are not reachable and therefore will not get any ConfigMap updates. Otherwise
 		// a single Pod might block the whole upgrade. The assumption here is that the Pod will be recreated with the
-		// new version in the removeIncompatibleProcesses reconciler.
+		// new version in the removeIncompatibleProcesses reconciler. This can still be an issue in the current
+		// implementation since the AddPendingUpgrades call will only add new pending process groups but never remove
+		// "old" ones (if the process is missing/not part of the FoundationDB status the process will be ignored). Once
+		// we move to a more centralized upgrade process this problem will be solved.
 		processGroupIDs := fdbv1beta2.FilterByConditions(cluster.Status.ProcessGroups, map[fdbv1beta2.ProcessGroupConditionType]bool{
 			fdbv1beta2.SidecarUnreachable: false,
 		}, false)
