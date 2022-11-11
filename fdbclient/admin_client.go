@@ -42,7 +42,9 @@ import (
 )
 
 const (
-	fdbcliStr = "fdbcli"
+	fdbcliStr     = "fdbcli"
+	fdbbackupStr  = "fdbbackup"
+	fdbrestoreStr = "fdbrestore"
 )
 
 var adminClientMutex sync.Mutex
@@ -136,7 +138,7 @@ func (command cliCommand) hasDashInLogDir() bool {
 // getClusterFileFlag gets the flag this command uses for its cluster file
 // argument.
 func (command cliCommand) getClusterFileFlag() string {
-	if command.binary == "fdbrestore" {
+	if command.binary == fdbrestoreStr {
 		return "--dest_cluster_file"
 	}
 
@@ -678,7 +680,7 @@ func (client *cliAdminClient) VersionSupported(versionString string) (bool, erro
 		return false, nil
 	}
 
-	_, err = os.Stat(getBinaryPath("fdbcli", versionString))
+	_, err = os.Stat(getBinaryPath(fdbcliStr, versionString))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, err
@@ -709,7 +711,7 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 // StartBackup starts a new backup.
 func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"start",
 			"-d",
@@ -725,7 +727,7 @@ func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int)
 // StopBackup stops a backup.
 func (client *cliAdminClient) StopBackup(_ string) error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"discontinue",
 		},
@@ -736,7 +738,7 @@ func (client *cliAdminClient) StopBackup(_ string) error {
 // PauseBackups pauses the backups.
 func (client *cliAdminClient) PauseBackups() error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"pause",
 		},
@@ -747,7 +749,7 @@ func (client *cliAdminClient) PauseBackups() error {
 // ResumeBackups resumes the backups.
 func (client *cliAdminClient) ResumeBackups() error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"resume",
 		},
@@ -758,7 +760,7 @@ func (client *cliAdminClient) ResumeBackups() error {
 // ModifyBackup updates the backup parameters.
 func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"modify",
 			"-s",
@@ -771,7 +773,7 @@ func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 // GetBackupStatus gets the status of the current backup.
 func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	statusString, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"status",
 			"--json",
@@ -815,7 +817,7 @@ func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.Fo
 		args = append(args, "-k", keyRangeString)
 	}
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbrestore",
+		binary: fdbrestoreStr,
 		args:   args,
 	})
 	return err
@@ -824,7 +826,7 @@ func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.Fo
 // GetRestoreStatus gets the status of the current restore.
 func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 	return client.runCommand(cliCommand{
-		binary: "fdbrestore",
+		binary: fdbrestoreStr,
 		args: []string{
 			"status",
 		},
