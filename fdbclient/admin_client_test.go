@@ -197,4 +197,36 @@ var _ = Describe("admin_client_test", func() {
 			),
 		)
 	})
+
+	When("getting the log dir parameter", func() {
+		DescribeTable("it should return the correct format of the log dir paramater",
+			func(cmd cliCommand, expected string) {
+				Expect(cmd.getLogDirParameter()).To(Equal(expected))
+			},
+			Entry("no binary set",
+				cliCommand{
+					binary: "",
+				},
+				"--log-dir",
+			),
+			Entry("fdbcli binary set",
+				cliCommand{
+					binary: fdbcliStr,
+				},
+				"--log-dir",
+			),
+			Entry("fdbbackup binary set",
+				cliCommand{
+					binary: fdbbackupStr,
+				},
+				"--logdir",
+			),
+			Entry("fdbrestore binary set",
+				cliCommand{
+					binary: fdbrestoreStr,
+				},
+				"--logdir",
+			),
+		)
+	})
 })

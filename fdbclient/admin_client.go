@@ -103,7 +103,12 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFile.Name(), useClientLibrary: true, log: log}, nil
+	return &cliAdminClient{
+		Cluster:          cluster,
+		clusterFilePath:  clusterFile.Name(),
+		useClientLibrary: true,
+		log:              log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name),
+	}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -129,10 +134,14 @@ func (command cliCommand) hasTimeoutArg() bool {
 	return command.binary == "" || command.binary == fdbcliStr
 }
 
-// hasDashInLogDir determines whether a command has a log-dir argument or a
-// logdir argument.
-func (command cliCommand) hasDashInLogDir() bool {
-	return command.binary == "" || command.binary == fdbcliStr
+// getLogDirParameter returns the log dir parameter for a command, depending on the binary the log dir parameter
+// has a dash or not.
+func (command cliCommand) getLogDirParameter() string {
+	if command.binary == "" || command.binary == fdbcliStr {
+		return "--log-dir"
+	}
+
+	return "--logdir"
 }
 
 // getClusterFileFlag gets the flag this command uses for its cluster file
@@ -164,10 +173,7 @@ func getBinaryPath(binaryName string, version string) string {
 func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	version := command.version
 	if version == "" {
-		version = client.Cluster.Status.RunningVersion
-	}
-	if version == "" {
-		version = client.Cluster.Spec.Version
+		version = client.Cluster.GetRunningVersion()
 	}
 
 	binaryName := command.binary
@@ -175,10 +181,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		binaryName = fdbcliStr
 	}
 
-	binary := getBinaryPath(binaryName, version)
-	hardTimeout := command.getTimeout()
-	args := make([]string, 0, 9)
-	args = append(args, command.args...)
+	args := make([]string, 0, len(command.args))
+	copy(args, command.args)
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
 	}
@@ -201,28 +205,26 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 			args = append(args, "--trace_format", format)
 		}
-		if command.hasDashInLogDir() {
-			args = append(args, "--log-dir", traceDir)
-		} else {
-			args = append(args, "--logdir", traceDir)
-		}
+
+		args = append(args, command.getLogDirParameter(), traceDir)
 	}
 
+	hardTimeout := command.getTimeout()
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(int(command.getTimeout().Seconds())))
 		hardTimeout += command.getTimeout()
 	}
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
-	execCommand := exec.CommandContext(timeoutContext, binary, args...)
+	execCommand := exec.CommandContext(timeoutContext, getBinaryPath(binaryName, version), args...)
 
-	client.log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
+	client.log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
 
 	output, err := execCommand.CombinedOutput()
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			client.log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
+			client.log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 
 		// If we hit a timeout report it as a timeout error
@@ -243,7 +245,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	} else {
 		debugOutput = outputString
 	}
-	client.log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
+	client.log.Info("Command completed", "output", debugOutput)
 
 	return outputString, nil
 }
@@ -525,7 +527,6 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 
 	exclusions := getRemainingAndExcludedFromStatus(status, addresses)
 	client.log.Info("Filtering excluded processes",
-		"namespace", client.Cluster.Namespace,
 		"cluster", client.Cluster.Name,
 		"inProgress", exclusions.inProgress,
 		"fullyExcluded", exclusions.fullyExcluded,
@@ -540,7 +541,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
-		client.log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", exclusions.inProgress, "results", exclusionResults)
+		client.log.Info("Checking exclusion results", "addresses", exclusions.inProgress, "results", exclusionResults)
 		for _, address := range exclusions.inProgress {
 			if exclusionResults[address.String()] != "Success" && exclusionResults[address.String()] != "Missing" {
 				exclusions.notExcluded = append(exclusions.notExcluded, address)
