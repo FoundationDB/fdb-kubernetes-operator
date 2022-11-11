@@ -131,13 +131,13 @@ type cliCommand struct {
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
 func (command cliCommand) hasTimeoutArg() bool {
-	return command.binary == "" || command.binary == fdbcliStr
+	return command.isFdbCli()
 }
 
 // getLogDirParameter returns the log dir parameter for a command, depending on the binary the log dir parameter
 // has a dash or not.
 func (command cliCommand) getLogDirParameter() string {
-	if command.binary == "" || command.binary == fdbcliStr {
+	if command.isFdbCli() {
 		return "--log-dir"
 	}
 
@@ -163,24 +163,39 @@ func (command cliCommand) getTimeout() time.Duration {
 	return DefaultCLITimeout
 }
 
+// getVersion returns the versions defined in the command or if not present returns the running version of the
+// cluster.
+func (command cliCommand) getVersion(cluster *fdbv1beta2.FoundationDBCluster) string {
+	if command.version != "" {
+		return command.version
+	}
+
+	return cluster.GetRunningVersion()
+}
+
+// getBinary returns the binary of the command, if unset this will default to fdbcli.
+func (command cliCommand) getBinary() string {
+	if command.binary != "" {
+		return command.binary
+	}
+
+	return fdbcliStr
+}
+
+// isFdbCli returns true if the used binary is fdbcli.
+func (command cliCommand) isFdbCli() bool {
+	return command.getBinary() == fdbcliStr
+}
+
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
 	parsed, _ := fdbv1beta2.ParseFdbVersion(version)
 	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-// runCommand executes a command in the CLI.
-func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
-	version := command.version
-	if version == "" {
-		version = client.Cluster.GetRunningVersion()
-	}
-
-	binaryName := command.binary
-	if binaryName == "" {
-		binaryName = fdbcliStr
-	}
-
+// getArgsAndTimeout will set all arguments for the binary and return the timeout which will be used for the
+// cancel context.
+func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, time.Duration) {
 	args := make([]string, 0, len(command.args))
 	copy(args, command.args)
 	if len(args) == 0 {
@@ -189,7 +204,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	// We only want to pass the knobs to fdbbackup and fdbrestore
-	if binaryName != fdbcliStr {
+	if command.isFdbCli() {
 		args = append(args, client.knobs...)
 	}
 
@@ -197,7 +212,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	if traceDir != "" {
 		args = append(args, "--log")
 
-		if binaryName == fdbcliStr {
+		if command.isFdbCli() {
 			format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
 			if format == "" {
 				format = "xml"
@@ -214,9 +229,16 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 		args = append(args, "--timeout", strconv.Itoa(int(command.getTimeout().Seconds())))
 		hardTimeout += command.getTimeout()
 	}
+
+	return args, hardTimeout
+}
+
+// runCommand executes a command in the CLI.
+func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
+	args, hardTimeout := client.getArgsAndTimeout(command)
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
-	execCommand := exec.CommandContext(timeoutContext, getBinaryPath(binaryName, version), args...)
+	execCommand := exec.CommandContext(timeoutContext, getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)), args...)
 
 	client.log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
 
