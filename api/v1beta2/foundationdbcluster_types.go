@@ -2160,11 +2160,15 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	// Check if localities have been defined when three data hall replication is configured.
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode == "three_data_hall" && len(cluster.Spec.Localities) == 0 {
-		validations = append(validations, fmt.Sprintf("%s replication requires localities to be difined in the cluster spec", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == "three_data_hall" {
+		if len(cluster.Spec.Localities) == 0 {
+			validations = append(validations, fmt.Sprintf("%s replication requires localities to be difined in the cluster spec", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
+		}
+		if len(cluster.Spec.Localities) < 3 {
+			validations = append(validations, fmt.Sprintf("%s replication requires localities at least three localities", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
+		}
+		// TODO range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
 	}
-
-	// TODO range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
 
 	if len(validations) == 0 {
 		return nil
