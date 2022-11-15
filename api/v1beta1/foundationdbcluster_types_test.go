@@ -3747,16 +3747,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Version: Versions.Default.String(),
 					Localities: []Locality{
 						{
-							Key:         "data_hall",
-							Value:       "",
-							EnvValue:    "",
-							TopologyKey: "topology.kubernetes.io/zone",
+							Key:          "data_hall",
+							Value:        "",
+							EnvValue:     "",
+							TopologyKey:  "topology.kubernetes.io/zone",
+							NodeSelector: "1",
 						},
 						{
-							Key:         "zone",
-							Value:       "",
-							EnvValue:    "MyFancyZone",
-							TopologyKey: "kubernetes.io/hostname",
+							Key:          "zone",
+							Value:        "",
+							EnvValue:     "MyFancyZone",
+							TopologyKey:  "kubernetes.io/hostname",
+							NodeSelector: "2",
 						},
 					},
 				},
@@ -3764,16 +3766,18 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 
 			Expect(cluster.GetLocalities()).To(Equal([]Locality{
 				{
-					Key:         "data_hall",
-					Value:       "",
-					EnvValue:    "",
-					TopologyKey: "topology.kubernetes.io/zone",
+					Key:          "data_hall",
+					Value:        "",
+					EnvValue:     "",
+					TopologyKey:  "topology.kubernetes.io/zone",
+					NodeSelector: "1",
 				},
 				{
-					Key:         "zone",
-					Value:       "",
-					EnvValue:    "MyFancyZone",
-					TopologyKey: "kubernetes.io/hostname",
+					Key:          "zone",
+					Value:        "",
+					EnvValue:     "MyFancyZone",
+					TopologyKey:  "kubernetes.io/hostname",
+					NodeSelector: "2",
 				},
 			}))
 		})

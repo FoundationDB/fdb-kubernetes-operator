@@ -681,6 +681,8 @@ func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
 		return 1
 	case RedundancyModeTriple:
 		return 2
+	case RedundancyModeThreeDataHall:
+		return 2
 	default:
 		return 0
 	}
@@ -694,6 +696,8 @@ func MinimumFaultDomains(redundancyMode RedundancyMode) int {
 	case RedundancyModeDouble, RedundancyModeUnset:
 		return 2
 	case RedundancyModeTriple:
+		return 3
+	case RedundancyModeThreeDataHall:
 		return 3
 	default:
 		return 1
@@ -711,6 +715,8 @@ const (
 	RedundancyModeDouble RedundancyMode = "double"
 	// RedundancyModeTriple defines the replication factor 3.
 	RedundancyModeTriple RedundancyMode = "triple"
+	// RedundancyModeThreeDataHall defines the replication factor three_data_hall.
+	RedundancyModeThreeDataHall RedundancyMode = "three_data_hall"
 	// RedundancyModeOneSatelliteSingle defines the replication factor one_satellite_single.
 	RedundancyModeOneSatelliteSingle RedundancyMode = "one_satellite_single"
 	// RedundancyModeOneSatelliteDouble  defines the replication factor one_satellite_double.

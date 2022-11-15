@@ -2285,10 +2285,11 @@ func (cluster *FoundationDBCluster) GetProcessClassLabels() []string {
 
 // Locality represents the locality for the cluster.
 type Locality struct {
-	Key         string `json:"key,omitempty"`
-	Value       string `json:"value,omitempty"`
-	EnvValue    string `json:"envValue,omitempty"`
-	TopologyKey string `json:"topologyKey,omitempty"`
+	Key          string `json:"key,omitempty"`
+	Value        string `json:"value,omitempty"`
+	EnvValue     string `json:"envValue,omitempty"`
+	TopologyKey  string `json:"topologyKey,omitempty"`
+	NodeSelector string `json:"nodeSelector,omitempty`
 }
 
 // GetLocalities returns the cluster localities
