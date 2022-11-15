@@ -21,7 +21,10 @@
 package fdbclient
 
 import (
+	"errors"
 	"net"
+	"os"
+	"path"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -309,14 +312,29 @@ var _ = Describe("admin_client_test", func() {
 				nil,
 				"7.1.15",
 			),
-			Entry("version is not set",
+			Entry("version is not set and running version is defined",
 				cliCommand{},
 				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.1.25",
+					},
 					Status: fdbv1beta2.FoundationDBClusterStatus{
 						RunningVersion: "7.1.15",
 					},
 				},
 				"7.1.15",
+			),
+			Entry("version is not set and running version is  not defined",
+				cliCommand{},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.1.25",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "",
+					},
+				},
+				"7.1.25",
 			),
 		)
 	})
@@ -333,6 +351,34 @@ var _ = Describe("admin_client_test", func() {
 			Expect(timeout).To(Equal(expectedTimeout))
 			Expect(args).To(ContainElements(expectedArgs))
 			Expect(len(args)).To(BeNumerically("==", len(expectedArgs)))
+		})
+
+		When("the used command defines args", func() {
+			BeforeEach(func() {
+				command = cliCommand{
+					args:    []string{"--version"},
+					version: "7.1.25",
+					timeout: 1 * time.Second,
+				}
+
+				client = &cliAdminClient{
+					Cluster:          nil,
+					clusterFilePath:  "test",
+					useClientLibrary: true,
+					log:              logr.Discard(),
+				}
+			})
+
+			When("trace options are disabled", func() {
+				BeforeEach(func() {
+					expectedTimeout = 2 * time.Second
+					expectedArgs = []string{
+						"--version",
+						"--timeout",
+						"1",
+					}
+				})
+			})
 		})
 
 		When("the used command is a fdbcli command", func() {
@@ -457,6 +503,132 @@ var _ = Describe("admin_client_test", func() {
 						}
 					})
 				})
+			})
+		})
+	})
+
+	When("getting the protocol version from fdbcli", func() {
+		var mockRunner *mockCommandRunner
+		var protocolVersion string
+		var err error
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster:          nil,
+				clusterFilePath:  "test",
+				useClientLibrary: true,
+				log:              logr.Discard(),
+				cmdRunner:        mockRunner,
+			}
+
+			protocolVersion, err = cliClient.GetProtocolVersion("7.1.21")
+		})
+
+		When("the fdbcli call returns the expected output", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: nil,
+					mockedOutput: `fdbcli --version
+FoundationDB CLI 7.1 (v7.1.21)
+source version e9f38c7169d21dde901b7b9408e1c5a8df182d64
+protocol fdb00b071010000`,
+				}
+			})
+
+			It("should report the protocol version", func() {
+				Expect(protocolVersion).To(Equal("fdb00b071010000"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+			})
+		})
+
+		When("an error is returned", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: errors.New("boom"),
+					mockedOutput: `fdbcli --version
+FoundationDB CLI 7.1 (v7.1.21)
+source version e9f38c7169d21dde901b7b9408e1c5a8df182d64
+protocol fdb00b071010000`,
+				}
+			})
+
+			It("should report the error", func() {
+				Expect(protocolVersion).To(Equal(""))
+				Expect(err).To(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+			})
+		})
+
+		When("the protocol version is missing", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError:  errors.New("boom"),
+					mockedOutput: "",
+				}
+			})
+
+			It("should report the error", func() {
+				Expect(protocolVersion).To(Equal(""))
+				Expect(err).To(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+			})
+		})
+	})
+
+	When("validating if the version is supported", func() {
+		var mockRunner *mockCommandRunner
+		var supported bool
+		var err error
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster:          nil,
+				clusterFilePath:  "test",
+				useClientLibrary: true,
+				log:              logr.Discard(),
+				cmdRunner:        mockRunner,
+			}
+
+			supported, err = cliClient.VersionSupported(fdbv1beta2.Versions.Default.String())
+		})
+
+		When("the binary does not exist", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError:  nil,
+					mockedOutput: ``,
+				}
+			})
+
+			It("should return an error", func() {
+				Expect(supported).To(BeFalse())
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("the binary exists", func() {
+			BeforeEach(func() {
+				tmpDir := GinkgoT().TempDir()
+				GinkgoT().Setenv("FDB_BINARY_DIR", tmpDir)
+
+				binaryDir := path.Join(tmpDir, fdbv1beta2.Versions.Default.GetBinaryVersion())
+				Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+				_, err := os.Create(path.Join(binaryDir, fdbcliStr))
+				Expect(err).NotTo(HaveOccurred())
+
+				mockRunner = &mockCommandRunner{
+					mockedError:  nil,
+					mockedOutput: ``,
+				}
+			})
+
+			It("should return that the version is supported", func() {
+				Expect(supported).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

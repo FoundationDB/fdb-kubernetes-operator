@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -84,6 +85,10 @@ type cliAdminClient struct {
 
 	// log implementation for logging output
 	log logr.Logger
+
+	// cmdRunner is an interface to run commands. In the real runner we use the exec package to execute binaries. In
+	// the mock runner we can define mocked output for better integration tests,.
+	cmdRunner commandRunner
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -103,11 +108,13 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		return nil, err
 	}
 
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 	return &cliAdminClient{
 		Cluster:          cluster,
 		clusterFilePath:  clusterFile.Name(),
 		useClientLibrary: true,
-		log:              log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name),
+		log:              logger,
+		cmdRunner:        &realCommandRunner{log: logger},
 	}, nil
 }
 
@@ -190,13 +197,11 @@ func (command cliCommand) isFdbCli() bool {
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
 	parsed, _ := fdbv1beta2.ParseFdbVersion(version)
-	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
+	return path.Join(os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-// getArgsAndTimeout will set all arguments for the binary and return the timeout which will be used for the
-// cancel context.
 func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, time.Duration) {
-	args := make([]string, 0, len(command.args))
+	args := make([]string, len(command.args))
 	copy(args, command.args)
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
@@ -238,11 +243,8 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	args, hardTimeout := client.getArgsAndTimeout(command)
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
-	execCommand := exec.CommandContext(timeoutContext, getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)), args...)
 
-	client.log.Info("Running command", "path", execCommand.Path, "args", execCommand.Args)
-
-	output, err := execCommand.CombinedOutput()
+	output, err := client.cmdRunner.runCommand(timeoutContext, getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)), args...)
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
@@ -705,9 +707,6 @@ func (client *cliAdminClient) VersionSupported(versionString string) (bool, erro
 
 	_, err = os.Stat(getBinaryPath(fdbcliStr, versionString))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return false, err
-		}
 		return false, err
 	}
 
@@ -731,7 +730,6 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 	return protocolVersionMatch[1], nil
 }
 
-// StartBackup starts a new backup.
 func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
 		binary: fdbbackupStr,
