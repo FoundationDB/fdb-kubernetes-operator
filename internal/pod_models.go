@@ -385,6 +385,8 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	)
 
+	//TODO(manuel.fontan): for three data hall ignore the faultDomainKey and use Locality.topologyKey instead
+	//Based on number of processes per AZ in the cluster status the operator will set the nodeSelector accordingly.
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 	if faultDomainKey == "" {
 		faultDomainKey = "kubernetes.io/hostname"

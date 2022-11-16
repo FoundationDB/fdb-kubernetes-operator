@@ -1372,6 +1372,7 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+	//TODO(manuel.fontan): for three data hall return number of localities x 3. cluster.Spec.Localities > 1
 	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 		return 9
 	}
