@@ -143,9 +143,9 @@ func (command cliCommand) getClusterFileFlag() string {
 }
 
 // getTimeout returns the timeout for the command
-func (command cliCommand) getTimeout() int {
+func (command cliCommand) getTimeout() time.Duration {
 	if command.timeout != 0 {
-		return int(command.timeout.Seconds())
+		return command.timeout
 	}
 
 	return DefaultCLITimeout
@@ -206,10 +206,10 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	}
 
 	if command.hasTimeoutArg() {
-		args = append(args, "--timeout", strconv.Itoa(command.getTimeout()))
+		args = append(args, "--timeout", strconv.Itoa(int(command.getTimeout().Seconds())))
 		hardTimeout += command.getTimeout()
 	}
-	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), time.Second*time.Duration(hardTimeout))
+	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
 	execCommand := exec.CommandContext(timeoutContext, binary, args...)
 
@@ -247,25 +247,25 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 // runCommandWithBackoff is a wrapper around runCommand which allows retrying commands if they hit a timeout.
 func (client *cliAdminClient) runCommandWithBackoff(command string) (string, error) {
-	maxTimeoutInSeconds := 40
-	currentTimeoutInSeconds := DefaultCLITimeout
+	maxTimeout := 40 * time.Second
+	currentTimeout := DefaultCLITimeout
 
 	var rawResult string
 	var err error
 
 	// This method will be retrying to get the status if a timeout is seen. The timeout will be doubled everytime we try
-	// it with the default timeout of 10 we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
+	// it with the default timeout of 10s we will try it 3 times with the following timeouts: 10s - 20s - 40s. We have
 	// seen that during upgrades of version incompatible version, when not all coordinators are properly restarted that
 	// the response time will be increased.
-	for currentTimeoutInSeconds <= maxTimeoutInSeconds {
-		rawResult, err = client.runCommand(cliCommand{command: command, timeout: time.Duration(currentTimeoutInSeconds) * time.Second})
+	for currentTimeout <= maxTimeout {
+		rawResult, err = client.runCommand(cliCommand{command: command, timeout: currentTimeout})
 		if err == nil {
 			break
 		}
 
 		if _, ok := err.(fdbv1beta2.TimeoutError); ok {
 			client.log.Info("timeout issue will retry with higher timeout")
-			currentTimeoutInSeconds *= 2
+			currentTimeout *= 2
 			continue
 		}
 
@@ -342,6 +342,35 @@ func (client *cliAdminClient) ConfigureDatabase(configuration fdbv1beta2.Databas
 	}
 
 	_, err = client.runCommand(cliCommand{command: fmt.Sprintf("configure %s", configurationString)})
+	return err
+}
+
+// GetMaintenanceZone gets current maintenance zone, if any. Returns empty string if maintenance mode is off
+func (client *cliAdminClient) GetMaintenanceZone() (string, error) {
+	// TODO: Use special keyspace to just read the maintenance zone info instead of reading the whole status
+	status, err := client.GetStatus()
+	if err != nil {
+		return "", err
+	}
+	return status.Cluster.MaintenanceZone, nil
+}
+
+// SetMaintenanceZone places zone into maintenance mode
+func (client *cliAdminClient) SetMaintenanceZone(zone string, timeoutSeconds int) error {
+	_, err := client.runCommand(cliCommand{
+		command: fmt.Sprintf(
+			"maintenance on %s %s",
+			zone,
+			strconv.Itoa(timeoutSeconds)),
+	})
+	return err
+}
+
+// ResetMaintenanceMode switches of maintenance mode
+func (client *cliAdminClient) ResetMaintenanceMode() error {
+	_, err := client.runCommand(cliCommand{
+		command: "maintenance off",
+	})
 	return err
 }
 

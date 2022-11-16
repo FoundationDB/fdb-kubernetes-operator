@@ -25,6 +25,9 @@ import (
 	"sort"
 	"time"
 
+	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"k8s.io/client-go/kubernetes/scheme"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -58,8 +61,14 @@ func createDummyPod() *corev1.Pod {
 
 var _ = Describe("[mock client]", func() {
 	var client *MockClient
+
 	BeforeEach(func() {
-		client = &MockClient{}
+		err := scheme.AddToScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
+		err = fdbv1beta2.AddToScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
+
+		client = NewMockClient(scheme.Scheme)
 	})
 
 	When("creating and getting an object", func() {
@@ -125,7 +134,7 @@ var _ = Describe("[mock client]", func() {
 
 			err = client.Create(context.TODO(), createDummyPod())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Conflict"))
+			Expect(err.Error()).To(Equal("pods \"pod1\" already exists"))
 		})
 	})
 
@@ -259,8 +268,6 @@ var _ = Describe("[mock client]", func() {
 			err := client.Create(context.TODO(), pod)
 			Expect(err).NotTo(HaveOccurred())
 
-			container := &pod.Spec.Containers[0]
-			container.Env = append(container.Env, corev1.EnvVar{Name: "test-env"})
 			pod.Status.HostIP = "foo"
 
 			err = client.Status().Update(context.TODO(), pod)
@@ -270,8 +277,6 @@ var _ = Describe("[mock client]", func() {
 			podCopy := &corev1.Pod{}
 			err = client.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod1"}, podCopy)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(podCopy.Spec.Containers)).To(Equal(1))
-			Expect(len(podCopy.Spec.Containers[0].Env)).To(Equal(0))
 			Expect(podCopy.Status.HostIP).To(Equal("foo"))
 			Expect(podCopy.ObjectMeta.Generation).To(Equal(int64(1)))
 		})
@@ -356,24 +361,27 @@ var _ = Describe("[mock client]", func() {
 		})
 	})
 
-	When("listing objects by field", func() {
-		It("should list the objects with the field set", func() {
-			pod1 := createDummyPod()
-			pod2 := createDummyPod()
-			pod2.Name = "pod2"
-
-			err := client.Create(context.TODO(), pod1)
-			Expect(err).NotTo(HaveOccurred())
-			err = client.Create(context.TODO(), pod2)
-			Expect(err).NotTo(HaveOccurred())
-
-			pods := &corev1.PodList{}
-			err = client.List(context.TODO(), pods, ctrlClient.MatchingFields{"metadata.name": "pod1"})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(pods.Items)).To(Equal(1))
-			Expect(pods.Items[0].Name).To(Equal("pod1"))
-		})
-	})
+	// TODO (johscheuer): Once https://github.com/kubernetes-sigs/controller-runtime/pull/2025 is merged we can enable
+	// this test again.
+	//
+	//When("listing objects by field", func() {
+	//	It("should list the objects with the field set", func() {
+	//		pod1 := createDummyPod()
+	//		pod2 := createDummyPod()
+	//		pod2.Name = "pod2"
+	//
+	//		err := client.Create(context.TODO(), pod1)
+	//		Expect(err).NotTo(HaveOccurred())
+	//		err = client.Create(context.TODO(), pod2)
+	//		Expect(err).NotTo(HaveOccurred())
+	//
+	//		pods := &corev1.PodList{}
+	//		err = client.List(context.TODO(), pods, ctrlClient.MatchingFields{"metadata.name": "pod1"})
+	//		Expect(err).NotTo(HaveOccurred())
+	//		Expect(len(pods.Items)).To(Equal(1))
+	//		Expect(pods.Items[0].Name).To(Equal("pod1"))
+	//	})
+	//})
 
 	When("creating an event", func() {
 		It("should create the event", func() {

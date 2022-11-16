@@ -56,13 +56,14 @@ type FoundationDBClusterReconciler struct {
 	Log                                logr.Logger
 	InSimulation                       bool
 	EnableRestartIncompatibleProcesses bool
+	ServerSideApply                    bool
+	EnableRecoveryState                bool
 	PodLifecycleManager                podmanager.PodLifecycleManager
 	PodClientProvider                  func(*fdbv1beta2.FoundationDBCluster, *corev1.Pod) (podclient.FdbPodClient, error)
 	DatabaseClientProvider             DatabaseClientProvider
 	DeprecationOptions                 internal.DeprecationOptions
 	GetTimeout                         time.Duration
 	PostTimeout                        time.Duration
-	ServerSideApply                    bool
 }
 
 // NewFoundationDBClusterReconciler creates a new FoundationDBClusterReconciler with defaults.
@@ -149,6 +150,7 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 		excludeProcesses{},
 		changeCoordinators{},
 		bounceProcesses{},
+		maintenanceModeChecker{},
 		updatePods{},
 		removeProcessGroups{},
 		removeServices{},

@@ -3141,6 +3141,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
 					Reconciled:          1,
 					HasUnhealthyProcess: 2,
+					NeedsBounce:         2,
 				}))
 
 				cluster = createCluster()
@@ -3392,6 +3393,7 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 				Expect(cluster.Status.Generations).To(Equal(ClusterGenerationStatus{
 					Reconciled:          1,
 					HasUnhealthyProcess: 2,
+					NeedsBounce:         2,
 				}))
 
 				cluster = createCluster()

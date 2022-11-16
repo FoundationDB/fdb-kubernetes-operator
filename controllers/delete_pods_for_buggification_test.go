@@ -167,6 +167,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				err = k8sClient.Delete(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 
+				pod.ResourceVersion = ""
 				pod.Spec.Containers[0].Args = []string{"crash-loop"}
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
@@ -215,6 +216,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 					},
 				}
 
+				pod.ResourceVersion = ""
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -248,6 +250,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 				err = k8sClient.Delete(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 
+				pod.ResourceVersion = ""
 				pod.Spec.Containers[0].Args = []string{"crash-loop"}
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
@@ -295,6 +298,7 @@ var _ = Describe("delete_pods_for_buggification", func() {
 					},
 				}
 
+				pod.ResourceVersion = ""
 				err = k8sClient.Create(context.TODO(), pod)
 				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Buggify.NoSchedule = []string{"storage-1"}

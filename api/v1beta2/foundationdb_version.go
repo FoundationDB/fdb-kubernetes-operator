@@ -202,6 +202,11 @@ func (version Version) SupportsIsPresent() bool {
 	return version.IsAtLeast(Versions.SupportsIsPresent)
 }
 
+// SupportsRecoveryState returns true if the version of FDB supports the recovered since field.
+func (version Version) SupportsRecoveryState() bool {
+	return version.IsAtLeast(Versions.SupportsRecoveryState)
+}
+
 // Versions provides a shorthand for known versions.
 // This is only to be used in testing.
 var Versions = struct {
@@ -213,6 +218,7 @@ var Versions = struct {
 	SupportsShardedRocksDB,
 	IncompatibleVersion,
 	PreviousPatchVersion,
+	SupportsRecoveryState,
 	Default Version
 }{
 	Default:                Version{Major: 6, Minor: 2, Patch: 21},
@@ -224,4 +230,5 @@ var Versions = struct {
 	SupportsRocksDBV1:      Version{Major: 7, Minor: 1, Patch: 0, ReleaseCandidate: 4},
 	SupportsIsPresent:      Version{Major: 7, Minor: 1, Patch: 4},
 	SupportsShardedRocksDB: Version{Major: 7, Minor: 2, Patch: 0},
+	SupportsRecoveryState:  Version{Major: 7, Minor: 1, Patch: 22},
 }

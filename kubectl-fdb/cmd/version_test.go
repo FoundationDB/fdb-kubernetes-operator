@@ -21,22 +21,17 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	appsv1 "k8s.io/api/apps/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 var _ = Describe("[plugin] version command", func() {
@@ -77,12 +72,9 @@ var _ = Describe("[plugin] version command", func() {
 
 		DescribeTable("should return the correct version",
 			func(input testCase) {
-				scheme := runtime.NewScheme()
-				_ = clientgoscheme.AddToScheme(scheme)
-				_ = fdbv1beta2.AddToScheme(scheme)
-				kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(input.deployment).Build()
+				Expect(k8sClient.Create(context.TODO(), input.deployment))
 
-				operatorVersion, err := version(kubeClient, operatorName, "default", "manager")
+				operatorVersion, err := version(k8sClient, operatorName, "default", "manager")
 				if input.hasError {
 					Expect(err).To(Equal(input.expectedError))
 				} else {

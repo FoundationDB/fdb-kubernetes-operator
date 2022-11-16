@@ -39,6 +39,8 @@ import (
 // +kubebuilder:printcolumn:name="Reconciled",type="integer",JSONPath=".status.generations.reconciled",description="Last reconciled generation of the spec",priority=0
 // +kubebuilder:printcolumn:name="Available",type="boolean",JSONPath=".status.health.available",description="Database available",priority=0
 // +kubebuilder:printcolumn:name="FullReplication",type="boolean",JSONPath=".status.health.fullReplication",description="Database fully replicated",priority=0
+// +kubebuilder:printcolumn:name="ReconciledProcessGroups",type="integer",JSONPath=".status.reconciledProcessGroups",description="Number of reconciled process groups",priority=1
+// +kubebuilder:printcolumn:name="DesiredProcessGroups",type="integer",JSONPath=".status.desiredProcessGroups",description="Desired number of process groups",priority=1
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.runningVersion",description="Running version",priority=0
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
@@ -283,6 +285,26 @@ type FoundationDBClusterStatus struct {
 
 	// Locks contains information about the locking system.
 	Locks LockSystemStatus `json:"locks,omitempty"`
+
+	// MaintenenanceModeInfo contains information regarding process groups in maintenance mode
+	MaintenanceModeInfo MaintenanceModeInfo `json:"maintenanceModeInfo,omitempty"`
+
+	// DesiredProcessGroups reflects the number of expected running process groups.
+	DesiredProcessGroups int `json:"desiredProcessGroups,omitempty"`
+
+	// ReconciledProcessGroups reflects the number of process groups that have no condition and are not marked for removal.
+	ReconciledProcessGroups int `json:"reconciledProcessGroups,omitempty"`
+}
+
+// MaintenanceModeInfo contains information regarding the zone and process groups that are put
+// into maintenance mode by the operator
+type MaintenanceModeInfo struct {
+	// StartTimestamp provides the timestamp when this zone is put into maintenance mode
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// ZoneID that is placed in maintenance mode
+	ZoneID string `json:"zoneID,omitempty"`
+	// ProcessGroups that are placed in maintenance mode
+	ProcessGroups []string `json:"processGroups,omitempty"`
 }
 
 // LockSystemStatus provides a summary of the status of the locking system.
@@ -878,6 +900,20 @@ type FoundationDBClusterAutomationOptions struct {
 	// UseManagementAPI defines if the operator should make use of the management API instead of
 	// using fdbcli to interact with the FoundationDB cluster.
 	UseManagementAPI *bool `json:"useManagementAPI,omitempty"`
+
+	// MaintenanceModeOptions contains options for maintenance mode related settings.
+	MaintenanceModeOptions MaintenanceModeOptions `json:"maintenanceModeOptions,omitempty"`
+}
+
+// MaintenanceModeOptions controls options for placing zones in maintenance mode.
+type MaintenanceModeOptions struct {
+	// UseMaintenanceModeChecker defines whether the operator is allowed to use maintenance mode before updating pods.
+	// Default is false.
+	UseMaintenanceModeChecker *bool `json:"UseMaintenanceModeChecker,omitempty"`
+
+	// MaintenanceModeTimeSeconds provides the duration for the zone to be in maintenance. It will automatically be switched off after the time elapses.
+	// Default is 600.
+	MaintenanceModeTimeSeconds *int `json:"maintenanceModeTimeSeconds,omitempty"`
 }
 
 // AutomaticReplacementOptions controls options for automatically replacing
@@ -1130,7 +1166,6 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 	}
 
 	cluster.Status.Generations = ClusterGenerationStatus{Reconciled: cluster.Status.Generations.Reconciled}
-
 	for _, processGroup := range cluster.Status.ProcessGroups {
 		if !processGroup.IsMarkedForRemoval() {
 			continue
@@ -1165,17 +1200,35 @@ func (cluster *FoundationDBCluster) CheckReconciliation(log logr.Logger) (bool, 
 		}
 	}
 
+	cluster.Status.DesiredProcessGroups = desiredCounts.Total()
+	cluster.Status.ReconciledProcessGroups = 0
+
 	for _, processGroup := range cluster.Status.ProcessGroups {
-		if len(processGroup.ProcessGroupConditions) > 0 && !processGroup.IsMarkedForRemoval() {
+		if processGroup.IsMarkedForRemoval() {
+			continue
+		}
+
+		if len(processGroup.ProcessGroupConditions) > 0 {
 			conditions := make([]ProcessGroupConditionType, 0, len(processGroup.ProcessGroupConditions))
 			for _, condition := range processGroup.ProcessGroupConditions {
+				if condition.ProcessGroupConditionType == IncorrectCommandLine && cluster.Status.Generations.NeedsBounce == 0 {
+					logger.Info("Pending restart of fdbserver processes", "state", "NeedsBounce")
+					cluster.Status.Generations.NeedsBounce = cluster.ObjectMeta.Generation
+				}
 				conditions = append(conditions, condition.ProcessGroupConditionType)
 			}
 
 			logger.Info("Has unhealthy process group", "processGroupID", processGroup.ProcessGroupID, "state", "HasUnhealthyProcess", "conditions", conditions)
 			cluster.Status.Generations.HasUnhealthyProcess = cluster.ObjectMeta.Generation
 			reconciled = false
+			continue
 		}
+
+		cluster.Status.ReconciledProcessGroups++
+	}
+
+	if cluster.Status.DesiredProcessGroups != cluster.Status.ReconciledProcessGroups {
+		logger.Info("Not all process groups are reconciled", "desiredProcessGroups", cluster.Status.DesiredProcessGroups, "reconciledProcessGroups", cluster.Status.ReconciledProcessGroups)
 	}
 
 	if !cluster.Status.Health.Available {
@@ -1877,6 +1930,16 @@ func (cluster *FoundationDBCluster) GetWaitBetweenRemovalsSeconds() int {
 	}
 
 	return duration
+}
+
+// UseMaintenaceMode returns true if UseMaintenanceModeChecker is set.
+func (cluster *FoundationDBCluster) UseMaintenaceMode() bool {
+	return pointer.BoolDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.UseMaintenanceModeChecker, false)
+}
+
+// GetMaintenaceModeTimeoutSeconds returns the timeout for maintenance zone after which it will be reset.
+func (cluster *FoundationDBCluster) GetMaintenaceModeTimeoutSeconds() int {
+	return pointer.IntDeref(cluster.Spec.AutomationOptions.MaintenanceModeOptions.MaintenanceModeTimeSeconds, 600)
 }
 
 // PodUpdateStrategy defines how Pod spec changes should be applied.

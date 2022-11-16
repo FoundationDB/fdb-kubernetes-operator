@@ -111,7 +111,7 @@ If you already have Docker installed you can use the following steps to build an
 
 ```bash
 # Create a container with amd64 which contains go
-docker run --rm --entrypoint=/bin/bash -ti --platform="linux/amd64" -v $(pwd):/work -w /work docker.io/library/golang:1.18.5 ./scripts/setup_container.sh
+docker run --rm --entrypoint=/bin/bash -ti --platform="linux/amd64" -v $(pwd):/work -w /work docker.io/library/golang:1.18 ./scripts/setup_container.sh
 # Now we can run the lint and test steps
 make fmt lint test
 ```

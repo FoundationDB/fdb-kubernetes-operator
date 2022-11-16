@@ -9841,6 +9841,16 @@ spec:
       jsonPath: .status.health.fullReplication
       name: FullReplication
       type: boolean
+    - description: Number of reconciled process groups
+      jsonPath: .status.reconciledProcessGroups
+      name: ReconciledProcessGroups
+      priority: 1
+      type: integer
+    - description: Desired number of process groups
+      jsonPath: .status.desiredProcessGroups
+      name: DesiredProcessGroups
+      priority: 1
+      type: integer
     - description: Running version
       jsonPath: .status.runningVersion
       name: Version
@@ -9881,6 +9891,13 @@ spec:
                     type: integer
                   killProcesses:
                     type: boolean
+                  maintenanceModeOptions:
+                    properties:
+                      UseMaintenanceModeChecker:
+                        type: boolean
+                      maintenanceModeTimeSeconds:
+                        type: integer
+                    type: object
                   maxConcurrentReplacements:
                     minimum: 0
                     type: integer
@@ -13684,6 +13701,8 @@ spec:
                   usable_regions:
                     type: integer
                 type: object
+              desiredProcessGroups:
+                type: integer
               generations:
                 properties:
                   hasExtraListeners:
@@ -13759,6 +13778,18 @@ spec:
                       type: string
                     type: array
                 type: object
+              maintenanceModeInfo:
+                properties:
+                  processGroups:
+                    items:
+                      type: string
+                    type: array
+                  startTimestamp:
+                    format: date-time
+                    type: string
+                  zoneID:
+                    type: string
+                type: object
               needsNewCoordinators:
                 type: boolean
               processGroups:
@@ -13792,6 +13823,8 @@ spec:
                       type: string
                   type: object
                 type: array
+              reconciledProcessGroups:
+                type: integer
               requiredAddresses:
                 properties:
                   nonTLS:

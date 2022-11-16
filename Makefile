@@ -64,7 +64,7 @@ MANIFESTS=config/crd/bases/apps.foundationdb.org_foundationdbbackups.yaml config
 SAMPLES=config/samples/deployment.yaml config/samples/cluster.yaml config/samples/backup.yaml config/samples/restore.yaml config/samples/client.yaml
 
 ifeq "$(TEST_RACE_CONDITIONS)" "1"
-	go_test_flags := $(go_test_flags) -race -timeout=30m
+	go_test_flags := $(go_test_flags) -race -timeout=90m
 endif
 
 all: deps generate fmt vet manager snapshot manifests samples documentation test_if_changed
@@ -94,7 +94,7 @@ cover.out: ${GO_ALL} ${MANIFESTS}
 
 test:
 ifneq "$(SKIP_TEST)" "1"
-	go test ${go_test_flags} ./... -coverprofile cover.out
+	go test ${go_test_flags} ./... -coverprofile cover.out -ginkgo.timeout=2h
 endif
 
 # Build manager binary

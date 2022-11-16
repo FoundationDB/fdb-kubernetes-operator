@@ -102,4 +102,13 @@ type AdminClient interface {
 
 	// SetKnobs sets the knobs that should be used for the commandline call.
 	SetKnobs([]string)
+
+	// GetMaintenanceZone gets current maintenance zone, if any
+	GetMaintenanceZone() (string, error)
+
+	// SetMaintenanceZone places zone into maintenance mode
+	SetMaintenanceZone(zone string, timeoutSeconds int) error
+
+	// Reset maintenance mode
+	ResetMaintenanceMode() error
 }
