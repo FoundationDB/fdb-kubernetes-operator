@@ -197,6 +197,11 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 
 		// TODO(manuel.fontan): for three data hall it is necessary to check the Localities since the nodeSelector
 		// is configured by the operator instead of set in the spec.
+		// if three data hall enabled:
+		//   1. get node selector list from localities
+		//   2. check pod node selector is in the list
+		//      a. false logg error and return true, nil
+		// else existing logic:
 
 		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
 			logger.Info("Replace process group",

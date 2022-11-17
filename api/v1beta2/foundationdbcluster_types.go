@@ -331,6 +331,10 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
+	// TODO(manuel.fontan): Add process group locality information to the status.
+	// this will be used to decide the locality for added/deleted pods when three_data_hall is enabled.
+	// ProcessLocality represents the locality the process group has.
+	//ProcessGroupLocality []*Locality `json:"processGroupLocality,omitempty"`
 }
 
 // GetExclusionString returns the exclusion string
@@ -403,6 +407,8 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 		return
 	}
 }
+
+// TODO(manuel.fontan)Add a method to set the process group locality.
 
 // This method removes duplicates and empty strings from a list of addresses.
 func cleanAddressList(addresses []string) []string {
@@ -1148,6 +1154,11 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
+	//TODO(manuel.fontan): for three data hall return number of localities x 3. cluster.Spec.Localities > 1
+	if len(cluster.Spec.Localities) > 0 {
+		return len(cluster.Spec.Localities) * 3
+	}
+
 	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 		return 9
 	}
@@ -2223,14 +2234,14 @@ func (cluster *FoundationDBCluster) Validate() error {
 	}
 
 	// Check if localities have been defined when three data hall replication is configured.
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode == "three_data_hall" {
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
 		if len(cluster.Spec.Localities) == 0 {
 			validations = append(validations, fmt.Sprintf("%s replication requires localities to be difined in the cluster spec", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
 		}
 		if len(cluster.Spec.Localities) < 3 {
 			validations = append(validations, fmt.Sprintf("%s replication requires localities at least three localities", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
 		}
-		// TODO range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
+		// TOD(manuel.fontan) range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
 	}
 
 	if len(validations) == 0 {

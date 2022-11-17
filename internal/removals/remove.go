@@ -51,6 +51,7 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 	}
 
 	if removalMode == fdbv1beta2.PodUpdateModeProcessGroup {
+		// TODO(manuel.fontan) for three data hall fetch the zone with more processes and then pick a process from it.
 		for _, zoneProcesses := range removals {
 			if len(zoneProcesses) < 1 {
 				continue
@@ -62,6 +63,7 @@ func GetProcessGroupsToRemove(removalMode fdbv1beta2.PodUpdateMode, removals map
 	}
 
 	if removalMode == fdbv1beta2.PodUpdateModeZone {
+		// TODO(manuel.fontan) for three data hall fetch the zone with more processes.
 		for zoneName, zoneProcesses := range removals {
 			if zoneName == TerminatingZone {
 				continue

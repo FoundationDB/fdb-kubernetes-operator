@@ -127,6 +127,12 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 		return nil, err
 	}
 
+	// TODO(manuel.fontan): range process groups to build a zoneMap [{locality, [processIds, ...]},...]:
+	// Locality information will be stored at  cluster.Status.ProcessGroups[i].ProcessGroupLocality
+	// [{'locality1',['process1', 'process3']},{'locality2',['process5','process4']},{'locality3',['process2']}]
+	// similar to GetZonedRemovals method in internal/remove.go
+	// To keep the cluster balanced we will pick the locality with less pods.
+
 	metadata := GetPodMetadata(cluster, processClass, id, specHash)
 	metadata.Name = name
 	metadata.OwnerReferences = owner
@@ -385,38 +391,45 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 		corev1.Volume{Name: "fdb-trace-logs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	)
 
-	//TODO(manuel.fontan): for three data hall ignore the faultDomainKey and use Locality.topologyKey instead
-	//Based on number of processes per AZ in the cluster status the operator will set the nodeSelector accordingly.
 	faultDomainKey := cluster.Spec.FaultDomain.Key
-	if faultDomainKey == "" {
-		faultDomainKey = "kubernetes.io/hostname"
-	}
 
-	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = &corev1.Affinity{}
+	//TODO(manuel.fontan): for three data hall ignore the faultDomainKey and use cluster.Spec.Localities[0].TopologyKey instead
+	//Based on number of processes per AZ in the cluster status the operator will set the nodeSelector accordingly.
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		faultDomainKey = cluster.Spec.Localities[0].TopologyKey
+
+		//TODO(manuel.fontan): Set node selector terms for all three localities
+	} else {
+		if faultDomainKey == "" {
+			faultDomainKey = "kubernetes.io/hostname"
 		}
 
-		if podSpec.Affinity.PodAntiAffinity == nil {
-			podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+		if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
+			if podSpec.Affinity == nil {
+				podSpec.Affinity = &corev1.Affinity{}
+			}
+
+			if podSpec.Affinity.PodAntiAffinity == nil {
+				podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+			}
+
+			labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
+			for key, value := range cluster.GetMatchLabels() {
+				labelSelectors[key] = value
+			}
+
+			processClassLabel := cluster.GetProcessClassLabel()
+			labelSelectors[processClassLabel] = string(processClass)
+
+			podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+				corev1.WeightedPodAffinityTerm{
+					Weight: 1,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						TopologyKey:   faultDomainKey,
+						LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
+					},
+				})
 		}
-
-		labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
-		for key, value := range cluster.GetMatchLabels() {
-			labelSelectors[key] = value
-		}
-
-		processClassLabel := cluster.GetProcessClassLabel()
-		labelSelectors[processClassLabel] = string(processClass)
-
-		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			corev1.WeightedPodAffinityTerm{
-				Weight: 1,
-				PodAffinityTerm: corev1.PodAffinityTerm{
-					TopologyKey:   faultDomainKey,
-					LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
-				},
-			})
 	}
 
 	for _, noSchedulePID := range cluster.Spec.Buggify.NoSchedule {
