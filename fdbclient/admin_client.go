@@ -79,10 +79,6 @@ type cliAdminClient struct {
 	// custom parameters that should be set.
 	knobs []string
 
-	// Whether the admin client should be able to run operations through the
-	// client library rather than the CLI.
-	useClientLibrary bool
-
 	// log implementation for logging output
 	log logr.Logger
 
@@ -100,11 +96,10 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
 	return &cliAdminClient{
-		Cluster:          cluster,
-		clusterFilePath:  clusterFile,
-		useClientLibrary: true,
-		log:              logger,
-		cmdRunner:        &realCommandRunner{log: logger},
+		Cluster:         cluster,
+		clusterFilePath: clusterFile,
+		log:             logger,
+		cmdRunner:       &realCommandRunner{log: logger},
 	}, nil
 }
 
@@ -333,7 +328,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	adminClientMutex.Lock()
 	defer adminClientMutex.Unlock()
 
-	status, err := client.getStatus(client.useClientLibrary)
+	status, err := client.getStatus(true)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +337,7 @@ func (client *cliAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, error
 	// all fdbserver processes are restarted, then the multi version client sometimes picks the wrong version
 	// to connect to the cluster. This will result in an empty status only reporting the unreachable coordinators.
 	// In this case we want to fall back to use fdbcli which is version specific and will work.
-	if len(status.Cluster.Processes) == 0 && client.useClientLibrary && client.Cluster.Status.Configured {
+	if len(status.Cluster.Processes) == 0 && client.Cluster.Status.Configured {
 		client.log.Info("retry fetching status with fdbcli instead of using the client library")
 		return client.getStatus(false)
 	}

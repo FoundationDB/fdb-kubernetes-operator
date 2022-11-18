@@ -108,8 +108,8 @@ var _ = Describe("restore_controller", func() {
 			})
 
 			It("should append the custom parameters to the command", func() {
-				Expect(adminClient.knobs).To(HaveLen(1))
-				Expect(adminClient.knobs).To(HaveKey("--knob_http_verbose_level=3"))
+				Expect(adminClient.Knobs).To(HaveLen(1))
+				Expect(adminClient.Knobs).To(HaveKey("--knob_http_verbose_level=3"))
 			})
 		})
 	})
