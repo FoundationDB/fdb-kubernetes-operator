@@ -47,7 +47,7 @@ type AdminClient struct {
 	ExcludedAddresses                        map[string]struct{}
 	ReincludedAddresses                      map[string]bool
 	KilledAddresses                          map[string]struct{}
-	Knobs                                    []string
+	Knobs                                    map[string]struct{}
 	FrozenStatus                             *fdbv1beta2.FoundationDBStatus
 	Backups                                  map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails
 	clientVersions                           map[string][]string
@@ -92,6 +92,7 @@ func NewMockAdminClientUncast(cluster *fdbv1beta2.FoundationDBCluster, kubeClien
 			missingProcessGroups: make(map[string]bool),
 			localityInfo:         make(map[string]map[string]string),
 			currentCommandLines:  make(map[string]string),
+			knobs:                make(map[string]struct{}),
 		}
 		adminClientCache[cluster.Name] = cachedClient
 		cachedClient.Backups = make(map[string]fdbv1beta2.FoundationDBBackupStatusBackupDetails)
@@ -712,9 +713,12 @@ func (client *AdminClient) GetCoordinatorSet() (map[string]struct{}, error) {
 	return internal.GetCoordinatorsFromStatus(status), nil
 }
 
-// SetKnobs sets the Knobs that should be used for the commandline call.
-func (client *AdminClient) SetKnobs(knobs []string) {
-	client.Knobs = knobs
+// SetKnobs sets the knobs that should be used for the commandline call.
+func (client *mockAdminClient) SetKnobs(knobs []string) {
+	client.knobs = make(map[string]struct{}, len(knobs))
+	for _, knob := range knobs {
+		client.knobs[knob] = struct{}{}
+	}
 }
 
 // GetMaintenanceZone gets current maintenance zone, if any

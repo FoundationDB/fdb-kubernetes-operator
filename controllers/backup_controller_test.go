@@ -308,8 +308,8 @@ var _ = Describe("backup_controller", func() {
 			})
 
 			It("should append the custom parameters to the command", func() {
-				Expect(len(adminClient.Knobs)).To(BeNumerically("==", 1))
-				Expect(adminClient.Knobs).To(ContainElements("--knob_http_verbose_level=3"))
+				Expect(adminClient.knobs).To(HaveLen(1))
+				Expect(adminClient.knobs).To(HaveKey("--knob_http_verbose_level=3"))
 			})
 		})
 	})
