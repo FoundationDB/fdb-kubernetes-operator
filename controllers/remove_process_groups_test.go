@@ -98,7 +98,9 @@ var _ = Describe("remove_process_groups", func() {
 				// Exclude the process group
 				adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
-				adminClient.ExcludedAddresses = removedProcessGroup.Addresses
+				for _, address := range removedProcessGroup.Addresses {
+					adminClient.ExcludedAddresses[address] = struct{}{}
+				}
 			})
 
 			When("using the default setting of EnforceFullReplicationForDeletion", func() {
@@ -192,7 +194,9 @@ var _ = Describe("remove_process_groups", func() {
 					// Exclude the process group
 					adminClient, err := mock.NewMockAdminClientUncast(cluster, k8sClient)
 					Expect(err).NotTo(HaveOccurred())
-					adminClient.ExcludedAddresses = append(adminClient.ExcludedAddresses, secondRemovedProcessGroup.Addresses...)
+					for _, address := range secondRemovedProcessGroup.Addresses {
+						adminClient.ExcludedAddresses[address] = struct{}{}
+					}
 				})
 
 				// TODO(johscheuer): Fix this flaky test properly, for now retry failing test occurrences with a maximum of 3 retries.
