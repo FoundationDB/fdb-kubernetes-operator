@@ -125,6 +125,12 @@ kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster2}"
 kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster3}"
 kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster4}"
 
+echo "Installing the test certificates"
+KUBECONFIG=${SCRIPT_DIR}/${kubeconfig1} ${SCRIPT_DIR}/../config/test-certs/generate_secrets.bash
+KUBECONFIG=${SCRIPT_DIR}/${kubeconfig2} ${SCRIPT_DIR}/../config/test-certs/generate_secrets.bash
+KUBECONFIG=${SCRIPT_DIR}/${kubeconfig3} ${SCRIPT_DIR}/../config/test-certs/generate_secrets.bash
+KUBECONFIG=${SCRIPT_DIR}/${kubeconfig4} ${SCRIPT_DIR}/../config/test-certs/generate_secrets.bash
+
 echo "Install the CRDs and the operator in every Kind cluster"
 KUBECTL_ARGS="--kubeconfig ${SCRIPT_DIR}/${kubeconfig1}" make -C "${SCRIPT_DIR}/.." deploy
 KUBECTL_ARGS="--kubeconfig ${SCRIPT_DIR}/${kubeconfig2}" make -C "${SCRIPT_DIR}/.." deploy

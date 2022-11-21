@@ -12,6 +12,6 @@ kubeconfig1=${KUBECONFIG1:-"${cluster1}.kubeconfig"}
 kubeconfig2=${KUBECONFIG2:-"${cluster2}.kubeconfig"}
 kubeconfig3=${KUBECONFIG3:-"${cluster3}.kubeconfig"}
 
-kubectl delete fdb -l cluster-group=test-cluster "${kubeconfig1}"
-kubectl delete fdb -l cluster-group=test-cluster "${kubeconfig2}"
-kubectl delete fdb -l cluster-group=test-cluster "${kubeconfig3}"
+kubectl --kubeconfig "${kubeconfig1}" delete fdb -l cluster-group=test-cluster
+kubectl --kubeconfig "${kubeconfig2}" delete fdb -l cluster-group=test-cluster
+kubectl --kubeconfig "${kubeconfig3}" delete fdb -l cluster-group=test-cluster

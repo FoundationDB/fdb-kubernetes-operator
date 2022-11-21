@@ -13,14 +13,12 @@ spec:
   version: 7.1.25
   faultDomain:
     key: foundationdb.org/none
-  instanceIDPrefix: $dc
+  processGroupIDPrefix: $dc
   dataCenter: $dc
   processCounts:
     stateless: -1
     log: $logCount
   seedConnectionString: $connectionString
-  customParameters:
-    - "knob_disable_posix_kernel_aio=1"
   databaseConfiguration:
     redundancy_mode: "double"
     usable_regions: 2
@@ -47,6 +45,8 @@ spec:
         satellite_logs: 3
   processes:
     general:
+      customParameters:
+      - "knob_disable_posix_kernel_aio=1"
       volumeClaimTemplate:
         spec:
           resources:

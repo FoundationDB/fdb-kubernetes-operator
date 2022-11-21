@@ -39,6 +39,7 @@ GORELEASER_PKG=github.com/goreleaser/goreleaser@v1.6.3
 GORELEASER=$(GOBIN)/goreleaser
 BUILD_DEPS?=
 BUILDER?="docker"
+BUILDER_ARGS?=
 KUBECTL_ARGS?=
 
 define godep
@@ -174,7 +175,7 @@ ${GENERATED_GO}: ${GO_SRC} hack/boilerplate.go.txt ${CONTROLLER_GEN}
 
 # Build the container image
 container-build: test_if_changed
-	$(BUILDER) build --build-arg=TAG=${TAG} ${img_build_args} -t ${IMG} .
+	$(BUILDER) build --build-arg=TAG=${TAG} ${img_build_args} $(BUILDER_ARGS) -t ${IMG} .
 
 # Push the container image
 container-push:
