@@ -1,20 +1,21 @@
 function applyFile() {
-	path=$1
-	dc=$2
-	connectionString=$3
+	dc=${2}
+	kubeconfig=${4}
+
 	if [[ "${dc}" == "dc3" ]]; then
 		logCount=0
 	else
 		logCount=-1
 	fi
-	
-  sed -e "s/\$dc/$dc/" "${path}" | sed -e "s/\$logCount/$logCount/" | sed -e "s/\$connectionString/$connectionString/" | kubectl apply -f -
+
+	dc="${dc}" connectionString="${3}" logCount="${logCount}" envsubst < "${1}"| kubectl --kubeconfig "${kubeconfig}" apply -f -
 }
 
 function checkReconciliation() {
 	clusterName=$1
+	kubeconfig=$2
 
-	generationsOutput=$(kubectl get fdb "${clusterName}" -o jsonpath='{.metadata.generation} {.status.generations.reconciled}')
+	generationsOutput=$(kubectl --kubeconfig "${kubeconfig}" get fdb "${clusterName}" -o jsonpath='{.metadata.generation} {.status.generations.reconciled}')
 	read -ra generations <<< "${generationsOutput}"
 	if [[ ("${generations[1]}" != "")  && ("${generations[0]}" == "${generations[1]}") ]]; then
 		return 1
@@ -26,15 +27,18 @@ function checkReconciliation() {
 
 function getConnectionString() {
 	clusterName=$1
+	kubeconfig=$2
 
-	kubectl get fdb "${clusterName}" -o jsonpath='{.status.connectionString}'
+	kubectl --kubeconfig "${kubeconfig}" get fdb "${clusterName}" -o jsonpath='{.status.connectionString}'
 }
 
 function checkReconciliationLoop() {
 	reconciled=0
 	name=$1
+	kubeconfig=$2
+
 	while [ $reconciled -ne 1 ] ; do
-		checkReconciliation "${name}"
+		checkReconciliation "${name}" "${kubeconfig}"
 		reconciled=$?
 		if [[ $reconciled -ne 1 ]]; then
 			echo "Waiting for reconciliation"

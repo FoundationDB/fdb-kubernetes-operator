@@ -10,7 +10,7 @@ metadata:
     cluster-group: test-cluster
   name: test-cluster-$dc
 spec:
-  version: 6.2.30
+  version: 7.1.25
   faultDomain:
     key: foundationdb.org/none
   instanceIDPrefix: $dc

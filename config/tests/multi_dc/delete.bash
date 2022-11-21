@@ -1,3 +1,17 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
-kubectl delete fdb -l cluster-group=test-cluster
+set -eu
+
+# To test a multi-region FDB cluster setup we need to have 4 Kubernetes clusters
+cluster1=${CLUSTER1:-cluster1}
+cluster2=${CLUSTER2:-cluster2}
+cluster3=${CLUSTER3:-cluster3}
+
+# For all the clusters we have to create tha according kubeconfig
+kubeconfig1=${KUBECONFIG1:-"${cluster1}.kubeconfig"}
+kubeconfig2=${KUBECONFIG2:-"${cluster2}.kubeconfig"}
+kubeconfig3=${KUBECONFIG3:-"${cluster3}.kubeconfig"}
+
+kubectl delete fdb -l cluster-group=test-cluster "${kubeconfig1}"
+kubectl delete fdb -l cluster-group=test-cluster "${kubeconfig2}"
+kubectl delete fdb -l cluster-group=test-cluster "${kubeconfig3}"

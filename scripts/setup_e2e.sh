@@ -74,7 +74,7 @@ export KUBE_VERSION
 export reg_name
 export reg_port
 
-# Create a cluster with the local registry enabled in containerd
+echo "Creating Kind clusters"
 envsubst < "${cluster1}.yml" | kind create cluster --name "${cluster1}" --config=-
 envsubst < "${cluster2}.yml" | kind create cluster --name "${cluster2}" --config=-
 envsubst < "${cluster3}.yml" | kind create cluster --name "${cluster3}" --config=-
@@ -119,13 +119,24 @@ add_routes "${cluster4}" "${cluster1}-control-plane" "${kubeconfig1}"
 add_routes "${cluster4}" "${cluster2}-control-plane" "${kubeconfig2}"
 add_routes "${cluster4}" "${cluster3}-control-plane" "${kubeconfig3}"
 
-echo "Install the CRDs in every Kind cluster"
-kubectl --kubeconfig "${kubeconfig1}" apply -f ../config/crd/bases
-kubectl --kubeconfig "${kubeconfig2}" apply -f ../config/crd/bases
-kubectl --kubeconfig "${kubeconfig3}" apply -f ../config/crd/bases
-kubectl --kubeconfig "${kubeconfig4}" apply -f ../config/crd/bases
+make -C "${SCRIPT_DIR}/.." container-build
+kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster1}"
+kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster2}"
+kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster3}"
+kind load docker-image "fdb-kubernetes-operator:latest" --name "${cluster4}"
 
-# TODO(johscheuer): Make RBAC setup and deploy locally build fdb operator.
-# TODO(johscheuer): Next setp is to add e2e tests for this setup.
+echo "Install the CRDs and the operator in every Kind cluster"
+KUBECTL_ARGS="--kubeconfig ${SCRIPT_DIR}/${kubeconfig1}" make -C "${SCRIPT_DIR}/.." deploy
+KUBECTL_ARGS="--kubeconfig ${SCRIPT_DIR}/${kubeconfig2}" make -C "${SCRIPT_DIR}/.." deploy
+KUBECTL_ARGS="--kubeconfig ${SCRIPT_DIR}/${kubeconfig3}" make -C "${SCRIPT_DIR}/.." deploy
+KUBECTL_ARGS="--kubeconfig ${SCRIPT_DIR}/${kubeconfig4}" make -C "${SCRIPT_DIR}/.." deploy
+
+# TODO(johscheuer): Next step is to add e2e tests for this setup.
 
 echo "For clean up run kind delete clusters ${cluster1} ${cluster2} ${cluster3} ${cluster4}"
+
+echo "For usage run the following export commands:
+export KUBECONFIG1=${SCRIPT_DIR}/${kubeconfig1}
+export KUBECONFIG2=${SCRIPT_DIR}/${kubeconfig2}
+export KUBECONFIG3=${SCRIPT_DIR}/${kubeconfig3}
+export KUBECONFIG4=${SCRIPT_DIR}/${kubeconfig4}"
