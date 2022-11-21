@@ -10,22 +10,22 @@ metadata:
     cluster-group: test-cluster
   name: test-cluster-$zone
 spec:
-  version: 6.2.30
+  version: 7.1.25
   faultDomain:
     key: foundationdb.org/kubernetes-cluster
     value: $zone
     zoneIndex: $zoneIndex
     zoneCount: 3
-  instanceIDPrefix: $zone
+  processGroupIDPrefix: $zone
   processCounts:
     stateless: -1
   seedConnectionString: $connectionString
-  customParameters:
-    - "knob_disable_posix_kernel_aio=1"
   databaseConfiguration:
     redundancy_mode: "double"
   processes:
     general:
+      customParameters:
+      - "knob_disable_posix_kernel_aio=1"
       volumeClaimTemplate:
         spec:
           resources:

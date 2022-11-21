@@ -17,7 +17,7 @@ DIR="${BASH_SOURCE%/*}"
 
 . $DIR/functions.bash
 
-# To test a multi-region FDB cluster setup we need to have 4 Kubernetes clusters
+# To test a multi-region FDB cluster setup we need to have 3 Kubernetes clusters
 cluster1=${CLUSTER1:-cluster1}
 cluster2=${CLUSTER2:-cluster2}
 cluster3=${CLUSTER3:-cluster3}
