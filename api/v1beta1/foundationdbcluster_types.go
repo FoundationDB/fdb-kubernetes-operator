@@ -356,10 +356,6 @@ type FoundationDBClusterSpec struct {
 	// UseUnifiedImage determines if we should use the unified image rather than
 	// separate images for the main container and the sidecar container.
 	UseUnifiedImage *bool `json:"useUnifiedImage,omitempty"`
-
-	// Localities are used to specify the location of processes which in turn is used to
-	// determine fault and toleration domains.
-	Localities []Locality `json:"localities,omitempty"`
 }
 
 // ImageType defines a single kind of images used in the cluster.
@@ -1371,11 +1367,6 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	//DONE(manuel.fontan): for three data hall return number of localities x 3. cluster.Spec.Localities > 1
-	if len(cluster.Spec.Localities) > 0 {
-		return len(cluster.Spec.Localities) * 3
-	}
-
 	if cluster.Spec.DatabaseConfiguration.UsableRegions > 1 {
 		return 9
 	}
@@ -2285,18 +2276,4 @@ func (cluster *FoundationDBCluster) GetProcessClassLabels() []string {
 	}
 
 	return []string{FDBProcessClassLabel}
-}
-
-// Locality represents the locality for the cluster.
-type Locality struct {
-	Key          string `json:"key,omitempty"`
-	Value        string `json:"value,omitempty"`
-	EnvValue     string `json:"envValue,omitempty"`
-	TopologyKey  string `json:"topologyKey,omitempty"`
-	NodeSelector string `json:"nodeSelector,omitempty`
-}
-
-// GetLocalities returns the cluster localities
-func (cluster *FoundationDBCluster) GetLocalities() []Locality {
-	return cluster.Spec.Localities
 }

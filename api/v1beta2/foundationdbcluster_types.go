@@ -331,8 +331,6 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
-	// DONE(manuel.fontan): Add process group locality information to the status.
-	// this will be used to decide the locality for added/deleted pods when three_data_hall is enabled.
 	// ProcessLocalityZoneId represents the locality zone id the process group has.
 	ProcessGroupLocalityZoneId string `json:"processGroupLocality,omitempty"`
 }
@@ -407,8 +405,6 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 		return
 	}
 }
-
-// DONE(manuel.fontan)Add a method to set the process group locality zone id.
 
 // SetLocalityZoneId sets the locality zone id for the ProcessGroupStatus.
 func (processGroupStatus *ProcessGroupStatus) SetLocalityZoneId(zoneID string) {
@@ -1158,7 +1154,6 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	//DONE(manuel.fontan): for three data hall return number of localities x 3. cluster.Spec.Localities > 1
 	if len(cluster.Spec.Localities) > 0 {
 		return len(cluster.Spec.Localities) * 3
 	}
@@ -2203,16 +2198,26 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 
 // Locality represents the locality for the cluster.
 type Locality struct {
-	Key          string `json:"key,omitempty"`
-	Value        string `json:"value,omitempty"`
-	EnvValue     string `json:"envValue,omitempty"`
-	TopologyKey  string `json:"topologyKey,omitempty"`
-	NodeSelector string `json:"nodeSelector,omitempty`
+	Key          string            `json:"key,omitempty"`
+	Value        string            `json:"value,omitempty"`
+	EnvValue     string            `json:"envValue,omitempty"`
+	TopologyKey  string            `json:"topologyKey,omitempty"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty`
 }
 
 // GetLocalities returns the cluster localities
 func (cluster *FoundationDBCluster) GetLocalities() []Locality {
 	return cluster.Spec.Localities
+}
+
+// GetLocality returns the locality with the given value or error if missing
+func (cluster *FoundationDBCluster) GetLocality(value string) (Locality, error) {
+	for _, l := range cluster.Spec.Localities {
+		if l.Value == value {
+			return l, nil
+		}
+	}
+	return Locality{}, fmt.Errorf("There are no localities with value {%s} in the cluster Spec", value)
 }
 
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
@@ -2245,12 +2250,11 @@ func (cluster *FoundationDBCluster) Validate() error {
 		if len(cluster.Spec.Localities) < 3 {
 			validations = append(validations, fmt.Sprintf("%s replication requires localities at least three localities", RedundancyModeThreeDataHall))
 		}
-		// DONE(manuel.fontan) range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
 		for _, l := range cluster.Spec.Localities {
 			if l.TopologyKey == "" {
 				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
 			}
-			if l.NodeSelector == "" {
+			if l.NodeSelector == nil {
 				validations = append(validations, fmt.Sprintf("%s replication requires a  node selector for all localities", RedundancyModeThreeDataHall))
 			}
 			if l.Key == "" || l.Value == "" {

@@ -381,7 +381,6 @@ ProcessGroupConditionType represents a concrete ProcessGroupCondition.
 [Back to TOC](#table-of-contents)
 
 ## ProcessGroupStatus
-<!-- DONE(manuel.fontan): add Locality info -->
 ProcessGroupStatus represents the status of a ProcessGroup.
 
 | Field | Description | Scheme | Required |

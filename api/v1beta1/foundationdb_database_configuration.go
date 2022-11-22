@@ -33,7 +33,7 @@ import (
 type DatabaseConfiguration struct {
 	// RedundancyMode defines the core replication factor for the database.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=single;double;triple;three_data_hall
+	// +kubebuilder:validation:Enum=single;double;triple
 	// +kubebuilder:default:double
 	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
 
@@ -536,8 +536,6 @@ func DesiredFaultTolerance(redundancyMode RedundancyMode) int {
 		return 1
 	case RedundancyModeTriple:
 		return 2
-	case RedundancyModeThreeDataHall:
-		return 2
 	default:
 		return 0
 	}
@@ -551,8 +549,6 @@ func MinimumFaultDomains(redundancyMode RedundancyMode) int {
 	case RedundancyModeDouble, RedundancyModeUnset:
 		return 2
 	case RedundancyModeTriple:
-		return 3
-	case RedundancyModeThreeDataHall:
 		return 3
 	default:
 		return 1
@@ -570,8 +566,6 @@ const (
 	RedundancyModeDouble RedundancyMode = "double"
 	// RedundancyModeTriple defines the replication factor 3.
 	RedundancyModeTriple RedundancyMode = "triple"
-	// RedundancyModeThreeDataHall defines the replication factor three_data_hall.
-	RedundancyModeThreeDataHall RedundancyMode = "three_data_hall"
 	// RedundancyModeUnset defines the replication factor unset.
 	RedundancyModeUnset RedundancyMode = ""
 )

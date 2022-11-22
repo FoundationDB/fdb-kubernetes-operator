@@ -3709,7 +3709,6 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
-	//DONE(manuel.fontan): test ProcessGroupStatus Locality Zone ID
 	When("setting locality zone id to a process group", func() {
 		type testCase struct {
 			initialProcessGroup  ProcessGroupStatus
@@ -4986,14 +4985,14 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 							Value:        "",
 							EnvValue:     "",
 							TopologyKey:  "topology.kubernetes.io/zone",
-							NodeSelector: "1",
+							NodeSelector: map[string]string{"foundationdb": "1"},
 						},
 						{
 							Key:          "zone",
 							Value:        "",
 							EnvValue:     "MyFancyZone",
 							TopologyKey:  "kubernetes.io/hostname",
-							NodeSelector: "2",
+							NodeSelector: map[string]string{"foundationdb": "2"},
 						},
 					},
 				},
@@ -5005,16 +5004,55 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 					Value:        "",
 					EnvValue:     "",
 					TopologyKey:  "topology.kubernetes.io/zone",
-					NodeSelector: "1",
+					NodeSelector: map[string]string{"foundationdb": "1"},
 				},
 				{
 					Key:          "zone",
 					Value:        "",
 					EnvValue:     "MyFancyZone",
 					TopologyKey:  "kubernetes.io/hostname",
-					NodeSelector: "2",
+					NodeSelector: map[string]string{"foundationdb": "2"},
 				},
 			}))
+		})
+	})
+
+	When("getting cluster locality by value", func() {
+		It("should return the locality with the given value", func() {
+			cluster := &FoundationDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: FoundationDBClusterSpec{
+					Version: Versions.Default.String(),
+					Localities: []Locality{
+						{
+							Key:          "data_hall",
+							Value:        "1",
+							EnvValue:     "",
+							TopologyKey:  "topology.kubernetes.io/zone",
+							NodeSelector: map[string]string{"foundationdb": "1"},
+						},
+						{
+							Key:          "zone",
+							Value:        "2",
+							EnvValue:     "MyFancyZone",
+							TopologyKey:  "kubernetes.io/hostname",
+							NodeSelector: map[string]string{"foundationdb": "2"},
+						},
+					},
+				},
+			}
+
+			Expect(cluster.GetLocality("1")).To(Equal(Locality{
+				Key:          "data_hall",
+				Value:        "1",
+				EnvValue:     "",
+				TopologyKey:  "topology.kubernetes.io/zone",
+				NodeSelector: map[string]string{"foundationdb": "1"},
+			},
+			))
 		})
 	})
 })

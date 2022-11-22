@@ -188,7 +188,7 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		}
 	}
 
-	// DONE(manuel.fontan): When three data hall redundancy is enabled. The node selecctor is not provided by the spec.
+	// When three data hall redundancy is enabled. The node selecctor is not provided by the spec.
 	// But configured by the operator. Thus we can skip this step
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode != fdbv1beta2.RedundancyModeThreeDataHall {
 		expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector

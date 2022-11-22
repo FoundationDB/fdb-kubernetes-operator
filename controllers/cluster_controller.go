@@ -585,7 +585,9 @@ func getHardLimits(cluster *fdbv1beta2.FoundationDBCluster) map[string]int {
 	// TODO (johscheuer): should we calculate that based on the number of DCs?
 	maxCoordinatorsPerDC := int(math.Floor(float64(cluster.DesiredCoordinatorCount()) / 2.0))
 
-	//TODO(manuel.fontan): update logic to handle three data hall multi AZ case.
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: maxCoordinatorsPerDC, fdbv1beta2.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
+	}
 	return map[string]int{fdbv1beta2.FDBLocalityZoneIDKey: 1, fdbv1beta2.FDBLocalityDCIDKey: maxCoordinatorsPerDC}
 }
 
@@ -708,9 +710,16 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 
 	desiredCount := cluster.DesiredCoordinatorCount()
 	hasEnoughZones := len(coordinatorZones) == desiredCount
-	// TODO(manuel.fontan): add logic for three_data_hall to check the number of coordinators per zone.
 	if !hasEnoughZones {
 		curLog.Info("Cluster does not have coordinators in the correct number of zones", "desiredCount", desiredCount, "coordinatorZones", coordinatorZones)
+	}
+
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		for _, count := range coordinatorZones {
+			if count < 3 {
+				curLog.Info("Cluster does not have enough coordinators in the correct number of zones", "desiredCount", 3, "coordinatorZones", coordinatorZones)
+			}
+		}
 	}
 
 	var maxCoordinatorsPerDC int

@@ -94,7 +94,6 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		//DONE(manuel.fontan): pass FoundationDB status to getPod in order to check the number of ProcessGroups per Locality
 		pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum, status)
 		if err != nil {
 			r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))

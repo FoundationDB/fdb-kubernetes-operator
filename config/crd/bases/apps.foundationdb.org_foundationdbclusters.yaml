@@ -1496,6 +1496,8 @@ spec:
                       type: string
                     value:
                       type: string
+                    nodeSelector:
+                      type: string
                   type: object
                 type: array
               lockOptions:

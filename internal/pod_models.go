@@ -122,27 +122,38 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 		return nil, err
 	}
 
-	// TODO(manuel.fontan): Update the spec.nodeSelector depending on the process distribution across fault domains.
-	// range process groups to build a zoneMap [{locality, [processIds, ...]},...]:
-	// only do this when Redundancy is set to three_data_hall for the moment.
-	// Locality information will be stored at  cluster.Status.ProcessGroups[i].ProcessGroupLocality
-	// [{'locality1',['process1', 'process3']},{'locality2',['process5','process4']},{'locality3',['process2']}]
-	// similar to GetZonedRemovals method in internal/remove.go
-	// To keep the cluster balanced we will pick the locality with less pods.
+	// TODO(manuel.fontan: cleanup the logic below and move it into a method.
+	// Set the spec.NodeSelector depending on the process distribution across fault domains.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
 		// Convert the process list into a map with the process zone ID as key.
 		processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
 		for _, p := range status.Cluster.Processes {
-			//TODO: skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
+			// skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
+			_, err := cluster.GetLocality(p.Locality[fdbv1beta2.FDBLocalityZoneIDKey])
+			if err != nil {
+				continue
+			}
+
 			if p.ProcessClass == processClass {
 				processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]], p)
 			}
 		}
+		// To keep the cluster balanced we will pick the locality with less processes.
+		min_zone := ""
+		for z := range processInfo {
+			if min_zone == "" {
+				min_zone = z
+			}
+			if len(processInfo[z]) < len(processInfo[min_zone]) {
+				min_zone = z
+			}
+		}
 
-		//TODO return the zone id with less processes.
-
-		//TODO set spec.NodeSelector. Write a Localities function to getLocality(zoneId)
-		//spec.NodeSelector = cluster.GetLocalityNodeSelector(zone)
+		l, err := cluster.GetLocality(min_zone)
+		if err != nil {
+			return nil, err
+		}
+		spec.NodeSelector = l.NodeSelector
 
 	}
 

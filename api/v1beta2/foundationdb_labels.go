@@ -65,7 +65,6 @@ const (
 	// the zone ID.
 	FDBLocalityZoneIDKey = "zoneid"
 
-	// DONE(manuel.fontan) add data hall label
 	// FDBLocalityZoneIDKey represents the key in the locality map that holds
 	// the zone ID.
 	FDBLocalityDataHallKey = "data_hall"
