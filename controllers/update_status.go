@@ -68,11 +68,10 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			},
 		}
 	} else {
-		version, connectionString, err := tryConnectionOptions(cluster, r)
+		connectionString, err := tryConnectionOptions(cluster, r)
 		if err != nil {
 			return &requeue{curError: err}
 		}
-		cluster.Status.RunningVersion = version
 		cluster.Status.ConnectionString = connectionString
 
 		adminClient, err := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
@@ -303,52 +302,45 @@ func optionList(options ...string) []string {
 	return values
 }
 
-// tryConnectionOptions attempts to connect with all the combinations of
-// versions and connection strings for this cluster and returns the set that
-// allow connecting to the cluster.
-func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, string, error) {
+// tryConnectionOptions attempts to connect with all the connection strings for this cluster and
+// returns the connection string that allows connecting to the cluster.
+func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *FoundationDBClusterReconciler) (string, error) {
 	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name, "reconciler", "updateStatus")
-	versions := optionList(cluster.Status.RunningVersion, cluster.Spec.Version)
 	connectionStrings := optionList(cluster.Status.ConnectionString, cluster.Spec.SeedConnectionString)
 
-	originalVersion := cluster.Status.RunningVersion
-	originalConnectionString := cluster.Status.ConnectionString
-
-	if len(versions) == 1 && len(connectionStrings) == 1 {
-		return originalVersion, originalConnectionString, nil
+	if len(connectionStrings) == 1 {
+		return cluster.Status.ConnectionString, nil
 	}
 
-	logger.Info("Trying connection options",
-		"version", versions, "connectionString", connectionStrings)
+	logger.Info("Trying connection options", "connectionString", connectionStrings)
 
-	defer func() { cluster.Status.RunningVersion = originalVersion }()
+	originalConnectionString := cluster.Status.ConnectionString
 	defer func() { cluster.Status.ConnectionString = originalConnectionString }()
 
-	for _, version := range versions {
-		for _, connectionString := range connectionStrings {
-			logger.Info("Attempting to get connection string from cluster",
-				"version", version, "connectionString", connectionString)
-			cluster.Status.RunningVersion = version
-			cluster.Status.ConnectionString = connectionString
-			adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
+	for _, connectionString := range connectionStrings {
+		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
+		cluster.Status.ConnectionString = connectionString
+		adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
 
-			if clientErr != nil {
-				return originalVersion, originalConnectionString, clientErr
-			}
-			defer adminClient.Close()
-
-			activeConnectionString, err := adminClient.GetConnectionString()
-			if err == nil {
-				logger.Info("Chose connection option",
-					"version", version, "connectionString", activeConnectionString)
-				return version, activeConnectionString, err
-			}
-			logger.Error(err, "Error getting connection string from cluster",
-				"version", version, "connectionString", connectionString)
+		if clientErr != nil {
+			return originalConnectionString, clientErr
 		}
+
+		activeConnectionString, err := adminClient.GetConnectionString()
+
+		clientErr = adminClient.Close()
+		if clientErr != nil {
+			logger.V(1).Info("Could not close admin client")
+		}
+
+		if err == nil {
+			logger.Info("Chose connection option", "connectionString", activeConnectionString)
+			return activeConnectionString, nil
+		}
+		logger.Error(err, "Error getting connection string from cluster", "connectionString", connectionString)
 	}
 
-	return originalVersion, originalConnectionString, nil
+	return originalConnectionString, nil
 }
 
 // checkAndSetProcessStatus checks the status of the Process and if missing or incorrect add it to the related status field
@@ -484,7 +476,7 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		if pod.ObjectMeta.DeletionTimestamp == nil && status.HasListenIPsForAllPods {
 			hasPodIP := false
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "foundationdb-kubernetes-sidecar" || container.Name == "foundationdb" {
+				if container.Name == fdbv1beta2.SidecarContainerName || container.Name == fdbv1beta2.MainContainerName {
 					for _, env := range container.Env {
 						if env.Name == "FDB_POD_IP" {
 							hasPodIP = true

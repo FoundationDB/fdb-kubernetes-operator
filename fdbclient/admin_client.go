@@ -648,23 +648,15 @@ func cleanConnectionStringOutput(input string) string {
 
 // GetConnectionString fetches the latest connection string.
 func (client *cliAdminClient) GetConnectionString() (string, error) {
-	var output string
-	var err error
+	// This will call directly the database and fetch the connection string
+	// from the system key space.
+	outputBytes, err := getConnectionStringFromDB(client.Cluster, client.log)
 
-	if client.Cluster.UseManagementAPI() {
-		// This will call directly the database and fetch the connection string
-		// from the system key space.
-		var outputBytes []byte
-		outputBytes, err = getConnectionStringFromDB(client.Cluster, client.log)
-		output = string(outputBytes)
-	} else {
-		output, err = client.runCommandWithBackoff("option on ACCESS_SYSTEM_KEYS; get \xff/coordinators")
-	}
 	if err != nil {
 		return "", err
 	}
 	var connectionString fdbv1beta2.ConnectionString
-	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(output))
+	connectionString, err = fdbv1beta2.ParseConnectionString(cleanConnectionStringOutput(string(outputBytes)))
 	if err != nil {
 		return "", err
 	}

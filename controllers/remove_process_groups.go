@@ -71,12 +71,17 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 		}
 	}
 
+	status, err := adminClient.GetStatus()
+	if err != nil {
+		return &requeue{curError: err}
+	}
+
 	// We don't use the "cached" of the cluster status from the CRD to minimize the window between data loss (e.g. a node
 	// or a set of Pods is not reachable anymore). We still end up with the risk to actually query the FDB cluster and after that
 	// query the cluster gets into a degraded state.
 	// We could be smarter here and only block removals that target stateful processes by e.g. filtering those out of the
 	// processGroupsToRemove slice.
-	hasDesiredFaultTolerance, err := internal.HasDesiredFaultTolerance(logger, adminClient, cluster)
+	hasDesiredFaultTolerance, err := internal.HasDesiredFaultToleranceFromStatus(logger, status, cluster)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -86,11 +91,6 @@ func (u removeProcessGroups) reconcile(ctx context.Context, r *FoundationDBClust
 			message: "Removals cannot proceed because cluster has degraded fault tolerance",
 			delay:   30 * time.Second,
 		}
-	}
-
-	status, err := adminClient.GetStatus()
-	if err != nil {
-		return &requeue{curError: err}
 	}
 
 	// In addition to that we should add the same logic as in the exclude step

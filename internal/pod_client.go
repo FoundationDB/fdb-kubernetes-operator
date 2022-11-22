@@ -31,6 +31,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -121,7 +122,7 @@ func NewFdbPodClient(cluster *fdbv1beta2.FoundationDBCluster, pod *corev1.Pod, l
 		return nil, fmt.Errorf("waiting for pod %s/%s/%s to be assigned an IP", cluster.Namespace, cluster.Name, pod.Name)
 	}
 	for _, container := range pod.Status.ContainerStatuses {
-		if container.Name == "foundationdb-kubernetes-sidecar" && !container.Ready {
+		if container.Name == fdbv1beta2.SidecarContainerName && !container.Ready {
 			return nil, fmt.Errorf("waiting for pod %s/%s/%s to be ready", cluster.Namespace, cluster.Name, pod.Name)
 		}
 	}
@@ -171,12 +172,35 @@ func (client *realFdbPodSidecarClient) getListenIP() string {
 	return ""
 }
 
+// generateRequest will generate a retryablehttp.Request for the provided parameters or an error if a request cannot be
+// generated.
+func generateRequest(retryClient *retryablehttp.Client, url string, method string, getTimeout time.Duration, postTimeout time.Duration) (*retryablehttp.Request, error) {
+	switch method {
+	case http.MethodGet:
+		retryClient.HTTPClient.Timeout = getTimeout
+		return retryablehttp.NewRequest(http.MethodGet, url, nil)
+	case http.MethodPost:
+		retryClient.HTTPClient.Timeout = postTimeout
+		req, err := retryablehttp.NewRequest(http.MethodPost, url, strings.NewReader(""))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	}
+
+	return nil, fmt.Errorf("unknown HTTP method %s", method)
+}
+
 // makeRequest submits a request to the sidecar.
 func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string, int, error) {
-	var resp *http.Response
 	var err error
 
-	protocol := "http"
+	target := url.URL{
+		Scheme: "http",
+		Host:   client.getListenIP() + ":8080",
+		Path:   path,
+	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 1 * time.Second
@@ -186,26 +210,22 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 
 	if client.useTLS {
 		retryClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: client.tlsConfig}
-		protocol = "https"
+		target.Scheme = "https"
 	}
 
-	url := fmt.Sprintf("%s://%s:8080/%s", protocol, client.getListenIP(), path)
-	switch method {
-	case http.MethodGet:
-		retryClient.HTTPClient.Timeout = client.getTimeout
-		resp, err = retryClient.Get(url)
-	case http.MethodPost:
-		retryClient.HTTPClient.Timeout = client.postTimeout
-		resp, err = retryClient.Post(url, "application/json", strings.NewReader(""))
-	default:
-		return "", 0, fmt.Errorf("unknown HTTP method %s", method)
+	req, err := generateRequest(retryClient, target.String(), method, client.getTimeout, client.postTimeout)
+	if err != nil {
+		return "", 0, err
+	}
+
+	resp, err := retryClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
 	}
 
 	if err != nil {
 		return "", 0, err
 	}
-
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	bodyText := string(body)
@@ -221,7 +241,7 @@ func (client *realFdbPodSidecarClient) makeRequest(method, path string) (string,
 func (client *realFdbPodSidecarClient) IsPresent(filename string) (bool, error) {
 	version, err := fdbv1beta2.ParseFdbVersion(client.Cluster.Spec.Version)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	path := "check_hash"
@@ -423,7 +443,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 	}
 	substitutions["FDB_POD_IP"] = substitutions["FDB_PUBLIC_IP"]
 
-	if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/none" {
+	if client.Cluster.Spec.FaultDomain.Key == fdbv1beta2.NoneFaultDomainKey {
 		substitutions["FDB_MACHINE_ID"] = client.Pod.Name
 		substitutions["FDB_ZONE_ID"] = client.Pod.Name
 	} else if client.Cluster.Spec.FaultDomain.Key == "foundationdb.org/kubernetes-cluster" {
@@ -471,7 +491,7 @@ func (client *mockFdbPodClient) GetVariableSubstitutions() (map[string]string, e
 // sidecar process.
 func podHasSidecarTLS(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "foundationdb-kubernetes-sidecar" {
+		if container.Name == fdbv1beta2.SidecarContainerName {
 			for _, arg := range container.Args {
 				if arg == "--tls" {
 					return true
@@ -487,7 +507,7 @@ func podHasSidecarTLS(pod *corev1.Pod) bool {
 // image.
 func GetImageType(pod *corev1.Pod) FDBImageType {
 	for _, container := range pod.Spec.Containers {
-		if container.Name != "foundationdb" {
+		if container.Name != fdbv1beta2.MainContainerName {
 			continue
 		}
 		for _, envVar := range container.Env {
@@ -496,6 +516,7 @@ func GetImageType(pod *corev1.Pod) FDBImageType {
 			}
 		}
 	}
+
 	return FDBImageTypeSplit
 }
 

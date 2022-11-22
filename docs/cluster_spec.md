@@ -495,7 +495,8 @@ ProcessCounts represents the number of processes we have for each valid process 
 | storage |  | int | false |
 | transaction |  | int | false |
 | resolution |  | int | false |
-| tester |  | int | false |
+| tester | **Deprecated: This setting will be removed in the next major release. use Test** | int | false |
+| test |  | int | false |
 | proxy |  | int | false |
 | commit_proxy |  | int | false |
 | grv_proxy |  | int | false |

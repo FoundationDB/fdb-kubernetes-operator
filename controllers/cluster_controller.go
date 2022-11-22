@@ -89,7 +89,6 @@ func (r *FoundationDBClusterReconciler) Reconcile(ctx context.Context, request c
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
-
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
@@ -624,7 +623,7 @@ func checkCoordinatorValidity(cluster *fdbv1beta2.FoundationDBCluster, status *f
 		}
 
 		if process.ProcessClass == fdbv1beta2.ProcessClassTest {
-			pLogger.Info("Ignoring tester process")
+			pLogger.Info("Ignoring test process")
 			continue
 		}
 
