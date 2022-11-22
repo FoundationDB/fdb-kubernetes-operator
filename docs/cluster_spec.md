@@ -245,7 +245,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 | useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
-| localities | Localities are used to specify the location of processes which in turn is used to determine fault and toleration domains. | [Locality](#locality) | false
+| localities | Localities are used to specify the location of processes which in turn is used to determine fault and toleration domains. | [][Locality](#locality) | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -302,10 +302,10 @@ Locality represents a locality for the cluster processes.
 
 | Field | Description | Scheme | Required |
 | ----- | ----------- | ------ | -------- |
-| key | The key identifying the locality | string | true |
-| value | The value of the locality | string | true |
-| topologyKey | The topology key (ex. topology.kubernetes.io/zone) | string | true |
-| nodeSelector | A node selector map | map | true |
+| key | The key identifying the locality | string | false |
+| value | The value of the locality | string | false |
+| topologyKey | The topology key (ex. topology.kubernetes.io/zone) | string | false |
+| nodeSelector | A node selector map | map[string]string | false |
 
 [Back to TOC](#table-of-contents)
 

@@ -1485,21 +1485,6 @@ spec:
                       type: string
                     type: object
                 type: object
-              localities:
-                items:
-                  properties:
-                    envValue:
-                      type: string
-                    key:
-                      type: string
-                    topologyKey:
-                      type: string
-                    value:
-                      type: string
-                    nodeSelector:
-                      type: map
-                  type: object
-                type: array
               lockOptions:
                 properties:
                   denyList:
@@ -10038,6 +10023,7 @@ spec:
                     - single
                     - double
                     - triple
+                    - three_data_hall
                     maxLength: 100
                     type: string
                   regions:
@@ -10127,6 +10113,21 @@ spec:
                       type: string
                     type: object
                 type: object
+              localities:
+                items:
+                  properties:
+                    key:
+                      type: string
+                    nodeSelector:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    topologyKey:
+                      type: string
+                    value:
+                      type: string
+                  type: object
+                type: array
               lockOptions:
                 properties:
                   denyList:
@@ -13658,6 +13659,7 @@ spec:
                     - single
                     - double
                     - triple
+                    - three_data_hall
                     maxLength: 100
                     type: string
                   regions:
@@ -13825,6 +13827,8 @@ spec:
                         type: object
                       type: array
                     processGroupID:
+                      type: string
+                    processGroupLocalityZoneID:
                       type: string
                     removalTimestamp:
                       format: date-time
