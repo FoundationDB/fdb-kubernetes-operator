@@ -2248,17 +2248,17 @@ func (cluster *FoundationDBCluster) Validate() error {
 	// Check if localities have been defined when three data hall replication is configured.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
 		if len(cluster.Spec.Localities) == 0 {
-			validations = append(validations, fmt.Sprintf("%s replication requires localities to be difined in the cluster spec", RedundancyModeThreeDataHall))
+			validations = append(validations, fmt.Sprintf("%s replication requires localities to be defined in the cluster spec", RedundancyModeThreeDataHall))
 		}
 		if len(cluster.Spec.Localities) < 3 {
-			validations = append(validations, fmt.Sprintf("%s replication requires localities at least three localities", RedundancyModeThreeDataHall))
+			validations = append(validations, fmt.Sprintf("%s replication requires at least three localities", RedundancyModeThreeDataHall))
 		}
 		for _, l := range cluster.Spec.Localities {
 			if l.TopologyKey == "" {
 				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
 			}
 			if l.NodeSelector == nil || len(l.NodeSelector) == 0 {
-				validations = append(validations, fmt.Sprintf("%s replication requires a  node selector for all localities", RedundancyModeThreeDataHall))
+				validations = append(validations, fmt.Sprintf("%s replication requires a node selector for all localities", RedundancyModeThreeDataHall))
 			}
 			if l.Key == "" || l.Value == "" {
 				validations = append(validations, fmt.Sprintf("%s replication requires a key and value for all localities", RedundancyModeThreeDataHall))
