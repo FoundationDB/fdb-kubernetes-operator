@@ -52,7 +52,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		cluster.Spec.LabelConfig.FilterOnOwnerReferences = pointer.Bool(false)
 	})
 
-	When("checking process groups fro replacements", func() {
+	When("checking process groups for replacements", func() {
 		var pod *corev1.Pod
 		var status *fdbv1beta2.ProcessGroupStatus
 		var pClass fdbv1beta2.ProcessClass
