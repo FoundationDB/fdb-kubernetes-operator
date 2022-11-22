@@ -2196,7 +2196,7 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 	return crashLoopPods, crashLoopAll
 }
 
-// Locality represents the locality for the cluster.
+// Locality represents a locality for the cluster processes.
 type Locality struct {
 	Key          string            `json:"key,omitempty"`
 	Value        string            `json:"value,omitempty"`

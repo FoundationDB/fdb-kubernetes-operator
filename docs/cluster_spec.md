@@ -305,7 +305,7 @@ Locality represents a locality for the cluster processes.
 | key | The key identifying the locality | string | true |
 | value | The value of the locality | string | true |
 | topologyKey | The topology key (ex. topology.kubernetes.io/zone) | string | true |
-| nodeSelectorMap | A node selector map | string | true |
+| nodeSelector | A node selector map | map | true |
 
 [Back to TOC](#table-of-contents)
 
