@@ -331,7 +331,7 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
-	// ProcessLocalityZoneId represents the locality zone id the process group has.
+	// ProcessGroupLocalityZoneId represents the locality zone id the process group has.
 	ProcessGroupLocalityZoneID string `json:"processGroupLocalityZoneID,omitempty"`
 }
 
@@ -2198,9 +2198,13 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 
 // Locality represents a locality for the cluster processes.
 type Locality struct {
-	Key          string            `json:"key,omitempty"`
-	Value        string            `json:"value,omitempty"`
-	TopologyKey  string            `json:"topologyKey,omitempty"`
+	//The key identifying the locality
+	Key string `json:"key,omitempty"`
+	//The value of the locality
+	Value string `json:"value,omitempty"`
+	//The topology key (ex. topology.kubernetes.io/zone)
+	TopologyKey string `json:"topologyKey,omitempty"`
+	//The node selector map
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
