@@ -1497,7 +1497,7 @@ spec:
                     value:
                       type: string
                     nodeSelectorMap:
-                      type: string
+                      type: map
                   type: object
                 type: array
               lockOptions:
