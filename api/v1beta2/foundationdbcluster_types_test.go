@@ -3709,6 +3709,37 @@ var _ = Describe("[api] FoundationDBCluster", func() {
 		)
 	})
 
+	//DONE(manuel.fontan): test ProcessGroupStatus Locality Zone ID
+	When("setting locality zone id to a process group", func() {
+		type testCase struct {
+			initialProcessGroup  ProcessGroupStatus
+			inputLocalityZoneID  string
+			expectedProcessGroup ProcessGroupStatus
+		}
+
+		DescribeTable("Should add the locality zoneID",
+			func(tc testCase) {
+				tc.initialProcessGroup.SetLocalityZoneId(tc.inputLocalityZoneID)
+				Expect(tc.expectedProcessGroup).To(Equal(tc.initialProcessGroup))
+			},
+
+			Entry("Empty zone",
+
+				testCase{
+					initialProcessGroup:  ProcessGroupStatus{},
+					inputLocalityZoneID:  "",
+					expectedProcessGroup: ProcessGroupStatus{},
+				}),
+			Entry("New locality zone id",
+
+				testCase{
+					initialProcessGroup:  ProcessGroupStatus{},
+					inputLocalityZoneID:  "zone1",
+					expectedProcessGroup: ProcessGroupStatus{ProcessGroupLocalityZoneId: "zone1"},
+				}),
+		)
+	})
+
 	When("parsing the addresses from the process commandline", func() {
 		type testCase struct {
 			cmdline  string

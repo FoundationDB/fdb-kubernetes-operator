@@ -113,7 +113,7 @@ func GetService(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 }
 
 // GetPod builds a pod for a new process group
-func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int) (*corev1.Pod, error) {
+func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.ProcessClass, idNum int, status *fdbv1beta2.FoundationDBStatus) (*corev1.Pod, error) {
 	name, id := GetProcessGroupID(cluster, processClass, idNum)
 
 	owner := BuildOwnerReference(cluster.TypeMeta, cluster.ObjectMeta)
@@ -122,16 +122,34 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 		return nil, err
 	}
 
-	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(manuel.fontan): range process groups to build a zoneMap [{locality, [processIds, ...]},...]:
+	// TODO(manuel.fontan): Update the spec.nodeSelector depending on the process distribution across fault domains.
+	// range process groups to build a zoneMap [{locality, [processIds, ...]},...]:
+	// only do this when Redundancy is set to three_data_hall for the moment.
 	// Locality information will be stored at  cluster.Status.ProcessGroups[i].ProcessGroupLocality
 	// [{'locality1',['process1', 'process3']},{'locality2',['process5','process4']},{'locality3',['process2']}]
 	// similar to GetZonedRemovals method in internal/remove.go
 	// To keep the cluster balanced we will pick the locality with less pods.
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
+		// Convert the process list into a map with the process zone ID as key.
+		processInfo := map[string][]fdbv1beta2.FoundationDBStatusProcessInfo{}
+		for _, p := range status.Cluster.Processes {
+			//TODO: skip process loclities not matching the cluster Localities. For example old Pods with locality set to instanceId.
+			if p.ProcessClass == processClass {
+				processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]] = append(processInfo[p.Locality[fdbv1beta2.FDBLocalityZoneIDKey]], p)
+			}
+		}
+
+		//TODO return the zone id with less processes.
+
+		//TODO set spec.NodeSelector. Write a Localities function to getLocality(zoneId)
+		//spec.NodeSelector = cluster.GetLocalityNodeSelector(zone)
+
+	}
+
+	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
+	if err != nil {
+		return nil, err
+	}
 
 	metadata := GetPodMetadata(cluster, processClass, id, specHash)
 	metadata.Name = name
@@ -393,43 +411,35 @@ func GetPodSpec(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2
 
 	faultDomainKey := cluster.Spec.FaultDomain.Key
 
-	//TODO(manuel.fontan): for three data hall ignore the faultDomainKey and use cluster.Spec.Localities[0].TopologyKey instead
-	//Based on number of processes per AZ in the cluster status the operator will set the nodeSelector accordingly.
-	if cluster.Spec.DatabaseConfiguration.RedundancyMode == fdbv1beta2.RedundancyModeThreeDataHall {
-		faultDomainKey = cluster.Spec.Localities[0].TopologyKey
+	if faultDomainKey == "" {
+		faultDomainKey = "kubernetes.io/hostname"
+	}
 
-		//TODO(manuel.fontan): Set node selector terms for all three localities
-	} else {
-		if faultDomainKey == "" {
-			faultDomainKey = "kubernetes.io/hostname"
+	if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &corev1.Affinity{}
 		}
 
-		if faultDomainKey != "foundationdb.org/none" && faultDomainKey != "foundationdb.org/kubernetes-cluster" {
-			if podSpec.Affinity == nil {
-				podSpec.Affinity = &corev1.Affinity{}
-			}
-
-			if podSpec.Affinity.PodAntiAffinity == nil {
-				podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			}
-
-			labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
-			for key, value := range cluster.GetMatchLabels() {
-				labelSelectors[key] = value
-			}
-
-			processClassLabel := cluster.GetProcessClassLabel()
-			labelSelectors[processClassLabel] = string(processClass)
-
-			podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-				corev1.WeightedPodAffinityTerm{
-					Weight: 1,
-					PodAffinityTerm: corev1.PodAffinityTerm{
-						TopologyKey:   faultDomainKey,
-						LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
-					},
-				})
+		if podSpec.Affinity.PodAntiAffinity == nil {
+			podSpec.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
 		}
+
+		labelSelectors := make(map[string]string, len(cluster.GetMatchLabels())+1)
+		for key, value := range cluster.GetMatchLabels() {
+			labelSelectors[key] = value
+		}
+
+		processClassLabel := cluster.GetProcessClassLabel()
+		labelSelectors[processClassLabel] = string(processClass)
+
+		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			corev1.WeightedPodAffinityTerm{
+				Weight: 1,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					TopologyKey:   faultDomainKey,
+					LabelSelector: &metav1.LabelSelector{MatchLabels: labelSelectors},
+				},
+			})
 	}
 
 	for _, noSchedulePID := range cluster.Spec.Buggify.NoSchedule {

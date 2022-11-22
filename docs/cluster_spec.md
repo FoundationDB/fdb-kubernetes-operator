@@ -5,38 +5,49 @@ This Document documents the types introduced by the FoundationDB Operator to be 
 
 ## Table of Contents
 
-* [AutomaticReplacementOptions](#automaticreplacementoptions)
-* [BuggifyConfig](#buggifyconfig)
-* [ClusterGenerationStatus](#clustergenerationstatus)
-* [ClusterHealth](#clusterhealth)
-* [ConnectionString](#connectionstring)
-* [ContainerOverrides](#containeroverrides)
-* [CoordinatorSelectionSetting](#coordinatorselectionsetting)
-* [FoundationDBCluster](#foundationdbcluster)
-* [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
-* [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
-* [FoundationDBClusterList](#foundationdbclusterlist)
-* [FoundationDBClusterSpec](#foundationdbclusterspec)
-* [FoundationDBClusterStatus](#foundationdbclusterstatus)
-* [LabelConfig](#labelconfig)
-* [LockDenyListEntry](#lockdenylistentry)
-* [LockOptions](#lockoptions)
-* [LockSystemStatus](#locksystemstatus)
-* [MaintenanceModeInfo](#maintenancemodeinfo)
-* [MaintenanceModeOptions](#maintenancemodeoptions)
-* [ProcessGroupCondition](#processgroupcondition)
-* [ProcessGroupStatus](#processgroupstatus)
-* [ProcessSettings](#processsettings)
-* [RequiredAddressSet](#requiredaddressset)
-* [RoutingConfig](#routingconfig)
-* [DataCenter](#datacenter)
-* [DatabaseConfiguration](#databaseconfiguration)
-* [ExcludedServers](#excludedservers)
-* [ProcessCounts](#processcounts)
-* [Region](#region)
-* [RoleCounts](#rolecounts)
-* [VersionFlags](#versionflags)
-* [ImageConfig](#imageconfig)
+- [API Docs](#api-docs)
+  - [Table of Contents](#table-of-contents)
+  - [AutomaticReplacementOptions](#automaticreplacementoptions)
+  - [BuggifyConfig](#buggifyconfig)
+  - [ClusterGenerationStatus](#clustergenerationstatus)
+  - [ClusterHealth](#clusterhealth)
+  - [ConnectionString](#connectionstring)
+  - [ContainerOverrides](#containeroverrides)
+  - [CoordinatorSelectionSetting](#coordinatorselectionsetting)
+  - [FoundationDBCluster](#foundationdbcluster)
+  - [FoundationDBClusterAutomationOptions](#foundationdbclusterautomationoptions)
+  - [FoundationDBClusterFaultDomain](#foundationdbclusterfaultdomain)
+  - [FoundationDBClusterList](#foundationdbclusterlist)
+  - [FoundationDBClusterSpec](#foundationdbclusterspec)
+  - [FoundationDBClusterStatus](#foundationdbclusterstatus)
+  - [ImageType](#imagetype)
+  - [LabelConfig](#labelconfig)
+  - [LockDenyListEntry](#lockdenylistentry)
+  - [LockOptions](#lockoptions)
+  - [LockSystemStatus](#locksystemstatus)
+  - [MaintenanceModeInfo](#maintenancemodeinfo)
+  - [MaintenanceModeOptions](#maintenancemodeoptions)
+  - [PodUpdateMode](#podupdatemode)
+  - [PodUpdateStrategy](#podupdatestrategy)
+  - [ProcessGroupCondition](#processgroupcondition)
+  - [ProcessGroupConditionType](#processgroupconditiontype)
+  - [ProcessGroupStatus](#processgroupstatus)
+  - [ProcessSettings](#processsettings)
+  - [PublicIPSource](#publicipsource)
+  - [RequiredAddressSet](#requiredaddressset)
+  - [RoutingConfig](#routingconfig)
+  - [FoundationDBCustomParameter](#foundationdbcustomparameter)
+  - [DataCenter](#datacenter)
+  - [DatabaseConfiguration](#databaseconfiguration)
+  - [ExcludedServers](#excludedservers)
+  - [ProcessCounts](#processcounts)
+  - [RedundancyMode](#redundancymode)
+  - [Region](#region)
+  - [RoleCounts](#rolecounts)
+  - [StorageEngine](#storageengine)
+  - [VersionFlags](#versionflags)
+  - [ProcessClass](#processclass)
+  - [ImageConfig](#imageconfig)
 
 ## AutomaticReplacementOptions
 
@@ -370,7 +381,7 @@ ProcessGroupConditionType represents a concrete ProcessGroupCondition.
 [Back to TOC](#table-of-contents)
 
 ## ProcessGroupStatus
-
+<!-- DONE(manuel.fontan): add Locality info -->
 ProcessGroupStatus represents the status of a ProcessGroup.
 
 | Field | Description | Scheme | Required |
@@ -382,6 +393,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExcludedTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
+| processGroupLocalityZoneId | ProcessGroupLocalityZoneId represents the locality zone id the process has. | string | false |
 
 [Back to TOC](#table-of-contents)
 

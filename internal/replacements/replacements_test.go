@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -408,7 +409,11 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			BeforeEach(func() {
 				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 				Expect(err).NotTo(HaveOccurred())
-				pod, err = internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, 0)
+				var fdbStatus *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				fdbStatus, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				pod, err = internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, 0, fdbStatus)
 				Expect(err).NotTo(HaveOccurred())
 				status = &fdbv1beta2.ProcessGroupStatus{
 					ProcessGroupID: fmt.Sprintf("%s-%d", fdbv1beta2.ProcessClassStorage, 1337),
@@ -606,13 +611,17 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		BeforeEach(func() {
 			pvcMap = map[string]corev1.PersistentVolumeClaim{}
 			podMap = map[string]*corev1.Pod{}
+			var status *fdbv1beta2.FoundationDBStatus
+			var adminClient fdbadminclient.AdminClient
 
 			for i := 0; i < 10; i++ {
 				_, id := internal.GetProcessGroupID(cluster, fdbv1beta2.ProcessClassStorage, i)
 				newPVC, err := internal.GetPvc(cluster, fdbv1beta2.ProcessClassStorage, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
-				newPod, err := internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, i)
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				newPod, err := internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, i, status)
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
 				// Populate process groups
@@ -624,7 +633,9 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				newPVC, err := internal.GetPvc(cluster, fdbv1beta2.ProcessClassTransaction, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
-				newPod, err := internal.GetPod(cluster, fdbv1beta2.ProcessClassTransaction, i)
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				newPod, err := internal.GetPod(cluster, fdbv1beta2.ProcessClassTransaction, i, status)
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
 				// Populate process groups

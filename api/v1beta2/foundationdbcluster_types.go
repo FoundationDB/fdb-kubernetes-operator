@@ -331,10 +331,10 @@ type ProcessGroupStatus struct {
 	ExclusionSkipped bool `json:"exclusionSkipped,omitempty"`
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
-	// TODO(manuel.fontan): Add process group locality information to the status.
+	// DONE(manuel.fontan): Add process group locality information to the status.
 	// this will be used to decide the locality for added/deleted pods when three_data_hall is enabled.
-	// ProcessLocality represents the locality the process group has.
-	//ProcessGroupLocality []*Locality `json:"processGroupLocality,omitempty"`
+	// ProcessLocalityZoneId represents the locality zone id the process group has.
+	ProcessGroupLocalityZoneId string `json:"processGroupLocality,omitempty"`
 }
 
 // GetExclusionString returns the exclusion string
@@ -408,7 +408,12 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 	}
 }
 
-// TODO(manuel.fontan)Add a method to set the process group locality.
+// DONE(manuel.fontan)Add a method to set the process group locality zone id.
+
+// SetLocalityZoneId sets the locality zone id for the ProcessGroupStatus.
+func (processGroupStatus *ProcessGroupStatus) SetLocalityZoneId(zoneID string) {
+	processGroupStatus.ProcessGroupLocalityZoneId = zoneID
+}
 
 // This method removes duplicates and empty strings from a list of addresses.
 func cleanAddressList(addresses []string) []string {
@@ -1154,7 +1159,7 @@ func (cluster *FoundationDBCluster) MinimumFaultDomains() int {
 // DesiredCoordinatorCount returns the number of coordinators to recruit for
 // a cluster.
 func (cluster *FoundationDBCluster) DesiredCoordinatorCount() int {
-	//TODO(manuel.fontan): for three data hall return number of localities x 3. cluster.Spec.Localities > 1
+	//DONE(manuel.fontan): for three data hall return number of localities x 3. cluster.Spec.Localities > 1
 	if len(cluster.Spec.Localities) > 0 {
 		return len(cluster.Spec.Localities) * 3
 	}
@@ -2236,12 +2241,23 @@ func (cluster *FoundationDBCluster) Validate() error {
 	// Check if localities have been defined when three data hall replication is configured.
 	if cluster.Spec.DatabaseConfiguration.RedundancyMode == RedundancyModeThreeDataHall {
 		if len(cluster.Spec.Localities) == 0 {
-			validations = append(validations, fmt.Sprintf("%s replication requires localities to be difined in the cluster spec", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
+			validations = append(validations, fmt.Sprintf("%s replication requires localities to be difined in the cluster spec", RedundancyModeThreeDataHall))
 		}
 		if len(cluster.Spec.Localities) < 3 {
-			validations = append(validations, fmt.Sprintf("%s replication requires localities at least three localities", &cluster.Spec.DatabaseConfiguration.RedundancyMode))
+			validations = append(validations, fmt.Sprintf("%s replication requires localities at least three localities", RedundancyModeThreeDataHall))
 		}
-		// TOD(manuel.fontan) range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
+		// DONE(manuel.fontan) range cluster.Spec.Localities to make sure they have the required fields (key,value,topologyKey,nodeSelector...).
+		for _, l := range cluster.Spec.Localities {
+			if l.TopologyKey == "" {
+				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
+			}
+			if l.NodeSelector == "" {
+				validations = append(validations, fmt.Sprintf("%s replication requires a  node selector for all localities", RedundancyModeThreeDataHall))
+			}
+			if l.Key == "" || l.Value == "" {
+				validations = append(validations, fmt.Sprintf("%s replication requires a key and value for all localities", RedundancyModeThreeDataHall))
+			}
+		}
 	}
 
 	if len(validations) == 0 {

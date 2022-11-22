@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
+
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	monitorapi "github.com/apple/foundationdb/fdbkubernetesmonitor/api"
 	. "github.com/onsi/ginkgo/v2"
@@ -432,7 +434,11 @@ var _ = Describe("monitor_conf", func() {
 		var processGroupID = "storage-1"
 
 		BeforeEach(func() {
-			pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+			var status *fdbv1beta2.FoundationDBStatus
+			var adminClient fdbadminclient.AdminClient
+			status, err = adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+			pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 			Expect(err).NotTo(HaveOccurred())
 			address = pod.Status.PodIP
 		})

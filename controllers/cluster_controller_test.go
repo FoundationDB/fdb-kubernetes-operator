@@ -3872,8 +3872,12 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a default pod", func() {
 			BeforeEach(func() {
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
 				var err error
-				pod, err = internal.GetPod(cluster, "storage", 1)
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				pod, err = internal.GetPod(cluster, "storage", 1, status)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
 				pod.Status.PodIPs = []corev1.PodIP{
@@ -3890,9 +3894,13 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
 				var err error
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
-				pod, err = internal.GetPod(cluster, "storage", 1)
+				pod, err = internal.GetPod(cluster, "storage", 1, status)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
 				pod.Status.PodIPs = []corev1.PodIP{
@@ -3908,8 +3916,12 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with no matching IPs in the Pod IP list", func() {
 				BeforeEach(func() {
+					var status *fdbv1beta2.FoundationDBStatus
+					var adminClient fdbadminclient.AdminClient
 					var err error
-					pod, err = internal.GetPod(cluster, "storage", 1)
+					status, err = adminClient.GetStatus()
+					Expect(err).NotTo(HaveOccurred())
+					pod, err = internal.GetPod(cluster, "storage", 1, status)
 					Expect(err).NotTo(HaveOccurred())
 					pod.Status.PodIPs = []corev1.PodIP{
 						{IP: "1.1.1.2"},
@@ -3926,8 +3938,12 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v4 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(4)
-				pod, err = internal.GetPod(cluster, "storage", 1)
+				pod, err = internal.GetPod(cluster, "storage", 1, status)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.2"
 				pod.Status.PodIPs = []corev1.PodIP{

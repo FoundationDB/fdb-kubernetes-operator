@@ -44,6 +44,12 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 	if err != nil {
 		return &requeue{curError: err}
 	}
+	adminClient, err := r.DatabaseClientProvider.GetAdminClient(cluster, r)
+	if err != nil {
+		return &requeue{curError: err}
+	}
+	defer adminClient.Close()
+
 	existingConfigMap := &corev1.ConfigMap{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, existingConfigMap)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -84,7 +90,12 @@ func (a addPods) reconcile(ctx context.Context, r *FoundationDBClusterReconciler
 			return &requeue{curError: err}
 		}
 
-		pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum)
+		status, err := adminClient.GetStatus()
+		if err != nil {
+			return &requeue{curError: err}
+		}
+		//DONE(manuel.fontan): pass FoundationDB status to getPod in order to check the number of ProcessGroups per Locality
+		pod, err := internal.GetPod(cluster, processGroup.ProcessClass, idNum, status)
 		if err != nil {
 			r.Recorder.Event(cluster, corev1.EventTypeWarning, "GetPod", fmt.Sprintf("failed to get the PodSpec for %s/%d with error: %s", processGroup.ProcessClass, idNum, err))
 			return &requeue{curError: err}

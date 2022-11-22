@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
+	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,7 +49,11 @@ var _ = Describe("pod_models", func() {
 		var pod *corev1.Pod
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				status, err := adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -83,7 +88,12 @@ var _ = Describe("pod_models", func() {
 				err = NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -102,7 +112,11 @@ var _ = Describe("pod_models", func() {
 
 		Context("with a cluster controller process group", func() {
 			BeforeEach(func() {
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassClusterController, 1)
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassClusterController, 1, status)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -130,7 +144,12 @@ var _ = Describe("pod_models", func() {
 					},
 				}
 
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -158,7 +177,12 @@ var _ = Describe("pod_models", func() {
 				err := NormalizeClusterSpec(cluster, DeprecationOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1)
+				var status *fdbv1beta2.FoundationDBStatus
+				var adminClient fdbadminclient.AdminClient
+				status, err = adminClient.GetStatus()
+				Expect(err).NotTo(HaveOccurred())
+
+				pod, err = GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

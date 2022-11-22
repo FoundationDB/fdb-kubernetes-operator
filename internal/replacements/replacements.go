@@ -188,27 +188,24 @@ func processGroupNeedsRemoval(cluster *fdbv1beta2.FoundationDBCluster, pod *core
 		}
 	}
 
-	expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
-	if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
-		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
-		if err != nil {
-			return false, err
-		}
+	// DONE(manuel.fontan): When three data hall redundancy is enabled. The node selecctor is not provided by the spec.
+	// But configured by the operator. Thus we can skip this step
+	if cluster.Spec.DatabaseConfiguration.RedundancyMode != fdbv1beta2.RedundancyModeThreeDataHall {
+		expectedNodeSelector := cluster.GetProcessSettings(processClass).PodTemplate.Spec.NodeSelector
+		if !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, expectedNodeSelector) {
+			specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)
+			if err != nil {
+				return false, err
+			}
 
-		// TODO(manuel.fontan): for three data hall it is necessary to check the Localities since the nodeSelector
-		// is configured by the operator instead of set in the spec.
-		// if three data hall enabled:
-		//   1. get node selector list from localities
-		//   2. check pod node selector is in the list
-		//      a. false logg error and return true, nil
-		// else existing logic:
-
-		if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
-			logger.Info("Replace process group",
-				"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
-			return true, nil
+			if pod.ObjectMeta.Annotations[fdbv1beta2.LastSpecKey] != specHash {
+				logger.Info("Replace process group",
+					"reason", fmt.Sprintf("nodeSelector has changed from %s to %s", pod.Spec.NodeSelector, expectedNodeSelector))
+				return true, nil
+			}
 		}
 	}
+	//TODO(manuel.fontan) for three data hall if Localities Node Selector changes we should replace the affected nodes.
 
 	if cluster.NeedsReplacement(processGroupStatus) {
 		specHash, err := internal.GetPodSpecHash(cluster, processClass, idNum, nil)

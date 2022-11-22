@@ -33,7 +33,7 @@ import (
 type DatabaseConfiguration struct {
 	// RedundancyMode defines the core replication factor for the database.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=single;double;triple
+	// +kubebuilder:validation:Enum=single;double;triple;three_data_hall
 	// +kubebuilder:default:double
 	RedundancyMode RedundancyMode `json:"redundancy_mode,omitempty"`
 

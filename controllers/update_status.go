@@ -439,6 +439,11 @@ func validateProcessGroups(ctx context.Context, r *FoundationDBClusterReconciler
 		processGroup.AddAddresses(podmanager.GetPublicIPs(pod, log), processGroup.IsMarkedForRemoval() || !status.Health.Available)
 		processCount := 1
 
+		//DONE(manuel.fontan) set ProcessGroupLocalityZoneId
+		processStatus := processMap[processGroup.ProcessGroupID]
+		zone := processStatus[0].Locality[fdbv1beta2.FDBLocalityZoneIDKey]
+		processGroup.SetLocalityZoneId(zone)
+
 		if processGroup.IsMarkedForRemoval() && pod.ObjectMeta.DeletionTimestamp != nil {
 			processGroup.UpdateCondition(fdbv1beta2.ResourcesTerminating, true, processGroups, processGroup.ProcessGroupID)
 			continue
