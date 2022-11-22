@@ -139,21 +139,21 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 			}
 		}
 		// To keep the cluster balanced we will pick the locality with less processes.
-		min_zone := ""
+		minZone := ""
 		for z := range processInfo {
-			if min_zone == "" {
-				min_zone = z
+			if minZone == "" {
+				minZone = z
 			}
-			if len(processInfo[z]) < len(processInfo[min_zone]) {
-				min_zone = z
+			if len(processInfo[z]) < len(processInfo[minZone]) {
+				minZone = z
 			}
 		}
 
-		l, err := cluster.GetLocality(min_zone)
+		l, err := cluster.GetLocality(minZone)
 		if err != nil {
 			return nil, err
 		}
-		spec.NodeSelector = l.NodeSelector
+		spec.NodeSelector = l.NodeSelectorMap
 
 	}
 

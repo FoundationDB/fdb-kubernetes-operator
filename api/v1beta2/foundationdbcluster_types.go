@@ -332,7 +332,7 @@ type ProcessGroupStatus struct {
 	// ProcessGroupConditions represents a list of degraded conditions that the process group is in.
 	ProcessGroupConditions []*ProcessGroupCondition `json:"processGroupConditions,omitempty"`
 	// ProcessLocalityZoneId represents the locality zone id the process group has.
-	ProcessGroupLocalityZoneId string `json:"processGroupLocality,omitempty"`
+	ProcessGroupLocalityZoneID string `json:"processGroupLocalityZoneID,omitempty"`
 }
 
 // GetExclusionString returns the exclusion string
@@ -407,8 +407,8 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 }
 
 // SetLocalityZoneId sets the locality zone id for the ProcessGroupStatus.
-func (processGroupStatus *ProcessGroupStatus) SetLocalityZoneId(zoneID string) {
-	processGroupStatus.ProcessGroupLocalityZoneId = zoneID
+func (processGroupStatus *ProcessGroupStatus) SetLocalityZoneID(zoneID string) {
+	processGroupStatus.ProcessGroupLocalityZoneID = zoneID
 }
 
 // This method removes duplicates and empty strings from a list of addresses.
@@ -2198,11 +2198,10 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 
 // Locality represents the locality for the cluster.
 type Locality struct {
-	Key          string            `json:"key,omitempty"`
-	Value        string            `json:"value,omitempty"`
-	EnvValue     string            `json:"envValue,omitempty"`
-	TopologyKey  string            `json:"topologyKey,omitempty"`
-	NodeSelector map[string]string `json:"nodeSelector,omitempty`
+	Key             string            `json:"key,omitempty"`
+	Value           string            `json:"value,omitempty"`
+	TopologyKey     string            `json:"topologyKey,omitempty"`
+	NodeSelectorMap map[string]string `json:"nodeSelectorLabel,omitempty`
 }
 
 // GetLocalities returns the cluster localities
@@ -2217,7 +2216,7 @@ func (cluster *FoundationDBCluster) GetLocality(value string) (Locality, error) 
 			return l, nil
 		}
 	}
-	return Locality{}, fmt.Errorf("There are no localities with value {%s} in the cluster Spec", value)
+	return Locality{}, fmt.Errorf("there are no localities with value {%s} in the cluster spec", value)
 }
 
 // Validate checks if all settings in the cluster are valid, if not and error will be returned. If multiple issues are
@@ -2254,7 +2253,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 			if l.TopologyKey == "" {
 				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
 			}
-			if l.NodeSelector == nil {
+			if l.NodeSelectorMap == nil || len(l.NodeSelectorMap) == 0 {
 				validations = append(validations, fmt.Sprintf("%s replication requires a  node selector for all localities", RedundancyModeThreeDataHall))
 			}
 			if l.Key == "" || l.Value == "" {

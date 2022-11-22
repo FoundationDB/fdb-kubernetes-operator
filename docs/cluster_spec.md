@@ -22,6 +22,7 @@ This Document documents the types introduced by the FoundationDB Operator to be 
   - [FoundationDBClusterStatus](#foundationdbclusterstatus)
   - [ImageType](#imagetype)
   - [LabelConfig](#labelconfig)
+  - [Locality](#locality)
   - [LockDenyListEntry](#lockdenylistentry)
   - [LockOptions](#lockoptions)
   - [LockSystemStatus](#locksystemstatus)
@@ -244,6 +245,7 @@ FoundationDBClusterSpec defines the desired state of a cluster.
 | labels | LabelConfig allows customizing labels used by the operator. | [LabelConfig](#labelconfig) | false |
 | useExplicitListenAddress | UseExplicitListenAddress determines if we should add a listen address that is separate from the public address. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
 | useUnifiedImage | UseUnifiedImage determines if we should use the unified image rather than separate images for the main container and the sidecar container. | *bool | false |
+| localities | Localities are used to specify the location of processes which in turn is used to determine fault and toleration domains. | [Locality](#locality) | false
 
 [Back to TOC](#table-of-contents)
 
@@ -291,6 +293,19 @@ LabelConfig allows customizing labels used by the operator.
 | processGroupIDLabels | ProcessGroupIDLabels provides the labels that we use for the process group ID field. The first label will be used by the operator when filtering resources. | []string | false |
 | processClassLabels | ProcessClassLabels provides the labels that we use for the process class field. The first label will be used by the operator when filtering resources. | []string | false |
 | filterOnOwnerReference | FilterOnOwnerReferences determines whether we should check that resources are owned by the cluster object, in addition to the constraints provided by the match labels. **Deprecated: This setting will be removed in the next major release.** | *bool | false |
+
+[Back to TOC](#table-of-contents)
+
+## Locality
+
+Locality represents a locality for the cluster processes.
+
+| Field | Description | Scheme | Required |
+| ----- | ----------- | ------ | -------- |
+| key | The key identifying the locality | string | true |
+| value | The value of the locality | string | true |
+| topologyKey | The topology key (ex. topology.kubernetes.io/zone) | string | true |
+| nodeSelectorMap | A node selector map | string | true |
 
 [Back to TOC](#table-of-contents)
 
@@ -381,6 +396,7 @@ ProcessGroupConditionType represents a concrete ProcessGroupCondition.
 [Back to TOC](#table-of-contents)
 
 ## ProcessGroupStatus
+
 ProcessGroupStatus represents the status of a ProcessGroup.
 
 | Field | Description | Scheme | Required |
@@ -392,7 +408,7 @@ ProcessGroupStatus represents the status of a ProcessGroup.
 | exclusionTimestamp | ExcludedTimestamp defines when the process group has been fully excluded. This is only used within the reconciliation process, and should not be considered authoritative. | *metav1.Time | false |
 | exclusionSkipped | ExclusionSkipped determines if exclusion has been skipped for a process, which will allow the process group to be removed without exclusion. | bool | false |
 | processGroupConditions | ProcessGroupConditions represents a list of degraded conditions that the process group is in. | []*[ProcessGroupCondition](#processgroupcondition) | false |
-| processGroupLocalityZoneId | ProcessGroupLocalityZoneId represents the locality zone id the process has. | string | false |
+| processGroupLocalityZoneID | ProcessGroupLocalityZoneID represents the locality zone id the process has. | string | false |
 
 [Back to TOC](#table-of-contents)
 

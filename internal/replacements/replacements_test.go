@@ -611,7 +611,6 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		BeforeEach(func() {
 			pvcMap = map[string]corev1.PersistentVolumeClaim{}
 			podMap = map[string]*corev1.Pod{}
-			var status *fdbv1beta2.FoundationDBStatus
 			var adminClient fdbadminclient.AdminClient
 
 			for i := 0; i < 10; i++ {

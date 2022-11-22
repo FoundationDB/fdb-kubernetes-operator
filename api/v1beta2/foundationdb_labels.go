@@ -65,8 +65,8 @@ const (
 	// the zone ID.
 	FDBLocalityZoneIDKey = "zoneid"
 
-	// FDBLocalityZoneIDKey represents the key in the locality map that holds
-	// the zone ID.
+	// FDBLocalityDataHallKey represents the key in the locality map that holds
+	// the data hall.
 	FDBLocalityDataHallKey = "data_hall"
 
 	// FDBLocalityDCIDKey represents the key in the locality map that holds
