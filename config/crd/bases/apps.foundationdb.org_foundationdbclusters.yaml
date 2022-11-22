@@ -1496,7 +1496,7 @@ spec:
                       type: string
                     value:
                       type: string
-                    nodeSelector:
+                    nodeSelectorMap:
                       type: string
                   type: object
                 type: array
