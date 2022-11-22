@@ -406,7 +406,7 @@ func (processGroupStatus *ProcessGroupStatus) AddAddresses(addresses []string, i
 	}
 }
 
-// SetLocalityZoneId sets the locality zone id for the ProcessGroupStatus.
+// SetLocalityZoneID sets the locality zone id for the ProcessGroupStatus.
 func (processGroupStatus *ProcessGroupStatus) SetLocalityZoneID(zoneID string) {
 	processGroupStatus.ProcessGroupLocalityZoneID = zoneID
 }
@@ -2198,10 +2198,10 @@ func (cluster *FoundationDBCluster) GetCrashLoopProcessGroups() (map[string]None
 
 // Locality represents the locality for the cluster.
 type Locality struct {
-	Key             string            `json:"key,omitempty"`
-	Value           string            `json:"value,omitempty"`
-	TopologyKey     string            `json:"topologyKey,omitempty"`
-	NodeSelectorMap map[string]string `json:"nodeSelectorLabel,omitempty`
+	Key          string            `json:"key,omitempty"`
+	Value        string            `json:"value,omitempty"`
+	TopologyKey  string            `json:"topologyKey,omitempty"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // GetLocalities returns the cluster localities
@@ -2253,7 +2253,7 @@ func (cluster *FoundationDBCluster) Validate() error {
 			if l.TopologyKey == "" {
 				validations = append(validations, fmt.Sprintf("%s replication requires a topology key for all localities", RedundancyModeThreeDataHall))
 			}
-			if l.NodeSelectorMap == nil || len(l.NodeSelectorMap) == 0 {
+			if l.NodeSelector == nil || len(l.NodeSelector) == 0 {
 				validations = append(validations, fmt.Sprintf("%s replication requires a  node selector for all localities", RedundancyModeThreeDataHall))
 			}
 			if l.Key == "" || l.Value == "" {

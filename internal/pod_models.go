@@ -153,8 +153,7 @@ func GetPod(cluster *fdbv1beta2.FoundationDBCluster, processClass fdbv1beta2.Pro
 		if err != nil {
 			return nil, err
 		}
-		spec.NodeSelector = l.NodeSelectorMap
-
+		spec.NodeSelector = l.NodeSelector
 	}
 
 	specHash, err := GetPodSpecHash(cluster, processClass, idNum, spec)
