@@ -3900,8 +3900,8 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a default pod", func() {
 			BeforeEach(func() {
 				var status *fdbv1beta2.FoundationDBStatus
-				var adminClient fdbadminclient.AdminClient
-				var err error
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 				pod, err = internal.GetPod(cluster, "storage", 1, status)
@@ -3922,8 +3922,8 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
 				var status *fdbv1beta2.FoundationDBStatus
-				var adminClient fdbadminclient.AdminClient
-				var err error
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
@@ -3944,8 +3944,8 @@ var _ = Describe("cluster_controller", func() {
 			Context("with no matching IPs in the Pod IP list", func() {
 				BeforeEach(func() {
 					var status *fdbv1beta2.FoundationDBStatus
-					var adminClient fdbadminclient.AdminClient
-					var err error
+					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+					Expect(err).NotTo(HaveOccurred())
 					status, err = adminClient.GetStatus()
 					Expect(err).NotTo(HaveOccurred())
 					pod, err = internal.GetPod(cluster, "storage", 1, status)
@@ -3965,8 +3965,9 @@ var _ = Describe("cluster_controller", func() {
 		Context("with a v4 pod IP family configured", func() {
 			BeforeEach(func() {
 				var err error
+				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
+				Expect(err).NotTo(HaveOccurred())
 				var status *fdbv1beta2.FoundationDBStatus
-				var adminClient fdbadminclient.AdminClient
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(4)

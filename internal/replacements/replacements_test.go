@@ -410,6 +410,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 				Expect(err).NotTo(HaveOccurred())
 				var fdbStatus *fdbv1beta2.FoundationDBStatus
+				//TODO(manuel.fontan): init the mock admin client
 				var adminClient fdbadminclient.AdminClient
 				fdbStatus, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -611,6 +612,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		BeforeEach(func() {
 			pvcMap = map[string]corev1.PersistentVolumeClaim{}
 			podMap = map[string]*corev1.Pod{}
+			//TODO(manuel.fontan): init the mock admin client
 			var adminClient fdbadminclient.AdminClient
 
 			for i := 0; i < 10; i++ {

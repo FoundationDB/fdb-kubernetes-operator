@@ -435,6 +435,7 @@ var _ = Describe("monitor_conf", func() {
 
 		BeforeEach(func() {
 			var status *fdbv1beta2.FoundationDBStatus
+			//TODO(manuel.fontan): init the mock admin client
 			var adminClient fdbadminclient.AdminClient
 			status, err = adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())

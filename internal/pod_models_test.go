@@ -50,6 +50,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a basic storage process group", func() {
 			BeforeEach(func() {
 				var status *fdbv1beta2.FoundationDBStatus
+				//TODO(manuel.fontan): init the mock admin client
 				var adminClient fdbadminclient.AdminClient
 				status, err := adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -89,6 +90,7 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				var status *fdbv1beta2.FoundationDBStatus
+				//TODO(manuel.fontan): init the mock admin client
 				var adminClient fdbadminclient.AdminClient
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -113,6 +115,7 @@ var _ = Describe("pod_models", func() {
 		Context("with a cluster controller process group", func() {
 			BeforeEach(func() {
 				var status *fdbv1beta2.FoundationDBStatus
+				//TODO(manuel.fontan): init the mock admin client
 				var adminClient fdbadminclient.AdminClient
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -145,6 +148,7 @@ var _ = Describe("pod_models", func() {
 				}
 
 				var status *fdbv1beta2.FoundationDBStatus
+				//TODO(manuel.fontan): init the mock admin client
 				var adminClient fdbadminclient.AdminClient
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
@@ -178,6 +182,7 @@ var _ = Describe("pod_models", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				var status *fdbv1beta2.FoundationDBStatus
+				//TODO(manuel.fontan): init the mock admin client
 				var adminClient fdbadminclient.AdminClient
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())

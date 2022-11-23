@@ -48,6 +48,7 @@ var _ = Describe("pod_client", func() {
 
 		It("should not have TLS sidecar TLS", func() {
 			var status *fdbv1beta2.FoundationDBStatus
+			//TODO(manuel.fontan): init the mock admin client
 			var adminClient fdbadminclient.AdminClient
 			status, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
@@ -64,6 +65,7 @@ var _ = Describe("pod_client", func() {
 
 		It("should have TLS sidecar TLS", func() {
 			var status *fdbv1beta2.FoundationDBStatus
+			//TODO(manuel.fontan): init the mock admin client
 			var adminClient fdbadminclient.AdminClient
 			status, err := adminClient.GetStatus()
 			Expect(err).NotTo(HaveOccurred())
