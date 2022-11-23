@@ -157,7 +157,7 @@ func (updatePods) reconcile(ctx context.Context, r *FoundationDBClusterReconcile
 	}
 	defer adminClient.Close()
 
-	statusDrift, err := shouldRequeueDueToClusterStatusDrift(cluster, adminClient, podMap)
+	statusDrift, err := shouldRequeueDueToClusterStatusDrift(adminClient, podMap)
 	if err != nil {
 		return &requeue{curError: err}
 	}
@@ -177,7 +177,7 @@ func shouldRequeueDueToTerminatingPod(pod *corev1.Pod, cluster *fdbv1beta2.Found
 
 // Because the internal.fault_tolerance relies in fdbcli status only we need to make sure it is
 // synced with the cluster status to prevent race conditions.
-func shouldRequeueDueToClusterStatusDrift(cluster *fdbv1beta2.FoundationDBCluster, adminClient fdbadminclient.AdminClient, podMap map[string]*corev1.Pod) (bool, error) {
+func shouldRequeueDueToClusterStatusDrift(adminClient fdbadminclient.AdminClient, podMap map[string]*corev1.Pod) (bool, error) {
 	status, err := adminClient.GetStatus()
 	if err != nil {
 		return false, err
