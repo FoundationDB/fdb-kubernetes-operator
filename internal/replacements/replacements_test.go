@@ -626,8 +626,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 				newPVC, err := internal.GetPvc(cluster, fdbv1beta2.ProcessClassTransaction, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
+				status := &fdbv1beta2.FoundationDBStatus{}
 				newPod, err := internal.GetPod(cluster, fdbv1beta2.ProcessClassTransaction, i, status)
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod
