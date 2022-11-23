@@ -3891,19 +3891,23 @@ var _ = Describe("cluster_controller", func() {
 
 	Describe("GetPublicIPs", func() {
 		var pod *corev1.Pod
+		var status *fdbv1beta2.FoundationDBStatus
+		var adminClient fdbadminclient.AdminClient
+		var err error
 
 		BeforeEach(func() {
 			err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{})
 			Expect(err).NotTo(HaveOccurred())
+			adminClient, err = newMockAdminClient(cluster, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			status, err = adminClient.GetStatus()
+			Expect(err).NotTo(HaveOccurred())
+
 		})
 
 		Context("with a default pod", func() {
 			BeforeEach(func() {
-				var status *fdbv1beta2.FoundationDBStatus
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-				status, err = adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
 				pod, err = internal.GetPod(cluster, "storage", 1, status)
 				Expect(err).NotTo(HaveOccurred())
 				pod.Status.PodIP = "1.1.1.1"
@@ -3921,11 +3925,6 @@ var _ = Describe("cluster_controller", func() {
 
 		Context("with a v6 pod IP family configured", func() {
 			BeforeEach(func() {
-				var status *fdbv1beta2.FoundationDBStatus
-				adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-				Expect(err).NotTo(HaveOccurred())
-				status, err = adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
 				cluster.Spec.Routing.PodIPFamily = pointer.Int(6)
 				pod, err = internal.GetPod(cluster, "storage", 1, status)
 				Expect(err).NotTo(HaveOccurred())
@@ -3943,10 +3942,6 @@ var _ = Describe("cluster_controller", func() {
 
 			Context("with no matching IPs in the Pod IP list", func() {
 				BeforeEach(func() {
-					var status *fdbv1beta2.FoundationDBStatus
-					adminClient, err := newMockAdminClientUncast(cluster, k8sClient)
-					Expect(err).NotTo(HaveOccurred())
-					status, err = adminClient.GetStatus()
 					Expect(err).NotTo(HaveOccurred())
 					pod, err = internal.GetPod(cluster, "storage", 1, status)
 					Expect(err).NotTo(HaveOccurred())

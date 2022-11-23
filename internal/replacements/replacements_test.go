@@ -28,7 +28,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
@@ -409,11 +408,7 @@ var _ = Describe("replace_misconfigured_pods", func() {
 			BeforeEach(func() {
 				err := internal.NormalizeClusterSpec(cluster, internal.DeprecationOptions{UseFutureDefaults: true})
 				Expect(err).NotTo(HaveOccurred())
-				var fdbStatus *fdbv1beta2.FoundationDBStatus
-				//TODO(manuel.fontan): init the mock admin client
-				var adminClient fdbadminclient.AdminClient
-				fdbStatus, err = adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
+				fdbStatus := &fdbv1beta2.FoundationDBStatus{}
 				pod, err = internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, 0, fdbStatus)
 				Expect(err).NotTo(HaveOccurred())
 				status = &fdbv1beta2.ProcessGroupStatus{
@@ -612,16 +607,13 @@ var _ = Describe("replace_misconfigured_pods", func() {
 		BeforeEach(func() {
 			pvcMap = map[string]corev1.PersistentVolumeClaim{}
 			podMap = map[string]*corev1.Pod{}
-			//TODO(manuel.fontan): init the mock admin client
-			var adminClient fdbadminclient.AdminClient
 
 			for i := 0; i < 10; i++ {
 				_, id := internal.GetProcessGroupID(cluster, fdbv1beta2.ProcessClassStorage, i)
 				newPVC, err := internal.GetPvc(cluster, fdbv1beta2.ProcessClassStorage, i)
 				Expect(err).NotTo(HaveOccurred())
 				pvcMap[id] = *newPVC
-				status, err := adminClient.GetStatus()
-				Expect(err).NotTo(HaveOccurred())
+				status := &fdbv1beta2.FoundationDBStatus{}
 				newPod, err := internal.GetPod(cluster, fdbv1beta2.ProcessClassStorage, i, status)
 				Expect(err).NotTo(HaveOccurred())
 				podMap[id] = newPod

@@ -26,7 +26,6 @@ import (
 	"time"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
-	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/fdbadminclient"
 	"github.com/hashicorp/go-retryablehttp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,11 +46,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should not have TLS sidecar TLS", func() {
-			var status *fdbv1beta2.FoundationDBStatus
-			//TODO(manuel.fontan): init the mock admin client
-			var adminClient fdbadminclient.AdminClient
-			status, err := adminClient.GetStatus()
-			Expect(err).NotTo(HaveOccurred())
+			status := &fdbv1beta2.FoundationDBStatus{}
 			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeFalse())
@@ -64,11 +59,7 @@ var _ = Describe("pod_client", func() {
 		})
 
 		It("should have TLS sidecar TLS", func() {
-			var status *fdbv1beta2.FoundationDBStatus
-			//TODO(manuel.fontan): init the mock admin client
-			var adminClient fdbadminclient.AdminClient
-			status, err := adminClient.GetStatus()
-			Expect(err).NotTo(HaveOccurred())
+			status := &fdbv1beta2.FoundationDBStatus{}
 			pod, err := GetPod(cluster, fdbv1beta2.ProcessClassStorage, 1, status)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podHasSidecarTLS(pod)).To(BeTrue())
