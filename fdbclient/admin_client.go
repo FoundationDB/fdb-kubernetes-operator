@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,7 +43,9 @@ import (
 )
 
 const (
-	fdbcliStr = "fdbcli"
+	fdbcliStr     = "fdbcli"
+	fdbbackupStr  = "fdbbackup"
+	fdbrestoreStr = "fdbrestore"
 )
 
 var adminClientMutex sync.Mutex
@@ -82,6 +85,10 @@ type cliAdminClient struct {
 
 	// log implementation for logging output
 	log logr.Logger
+
+	// cmdRunner is an interface to run commands. In the real runner we use the exec package to execute binaries. In
+	// the mock runner we can define mocked output for better integration tests,.
+	cmdRunner commandRunner
 }
 
 // NewCliAdminClient generates an Admin client for a cluster
@@ -101,7 +108,14 @@ func NewCliAdminClient(cluster *fdbv1beta2.FoundationDBCluster, _ client.Client,
 		return nil, err
 	}
 
-	return &cliAdminClient{Cluster: cluster, clusterFilePath: clusterFile.Name(), useClientLibrary: true, log: log}, nil
+	logger := log.WithValues("namespace", cluster.Namespace, "cluster", cluster.Name)
+	return &cliAdminClient{
+		Cluster:          cluster,
+		clusterFilePath:  clusterFile.Name(),
+		useClientLibrary: true,
+		log:              logger,
+		cmdRunner:        &realCommandRunner{log: logger},
+	}, nil
 }
 
 // cliCommand describes a command that we are running against FDB.
@@ -124,19 +138,23 @@ type cliCommand struct {
 
 // hasTimeoutArg determines whether a command accepts a timeout argument.
 func (command cliCommand) hasTimeoutArg() bool {
-	return command.binary == "" || command.binary == fdbcliStr
+	return command.isFdbCli()
 }
 
-// hasDashInLogDir determines whether a command has a log-dir argument or a
-// logdir argument.
-func (command cliCommand) hasDashInLogDir() bool {
-	return command.binary == "" || command.binary == fdbcliStr
+// getLogDirParameter returns the log dir parameter for a command, depending on the binary the log dir parameter
+// has a dash or not.
+func (command cliCommand) getLogDirParameter() string {
+	if command.isFdbCli() {
+		return "--log-dir"
+	}
+
+	return "--logdir"
 }
 
 // getClusterFileFlag gets the flag this command uses for its cluster file
 // argument.
 func (command cliCommand) getClusterFileFlag() string {
-	if command.binary == "fdbrestore" {
+	if command.binary == fdbrestoreStr {
 		return "--dest_cluster_file"
 	}
 
@@ -152,38 +170,46 @@ func (command cliCommand) getTimeout() time.Duration {
 	return DefaultCLITimeout
 }
 
+// getVersion returns the versions defined in the command or if not present returns the running version of the
+// cluster.
+func (command cliCommand) getVersion(cluster *fdbv1beta2.FoundationDBCluster) string {
+	if command.version != "" {
+		return command.version
+	}
+
+	return cluster.GetRunningVersion()
+}
+
+// getBinary returns the binary of the command, if unset this will default to fdbcli.
+func (command cliCommand) getBinary() string {
+	if command.binary != "" {
+		return command.binary
+	}
+
+	return fdbcliStr
+}
+
+// isFdbCli returns true if the used binary is fdbcli.
+func (command cliCommand) isFdbCli() bool {
+	return command.getBinary() == fdbcliStr
+}
+
 // getBinaryPath generates the path to an FDB binary.
 func getBinaryPath(binaryName string, version string) string {
 	parsed, _ := fdbv1beta2.ParseFdbVersion(version)
-	return fmt.Sprintf("%s/%s/%s", os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
+	return path.Join(os.Getenv("FDB_BINARY_DIR"), parsed.GetBinaryVersion(), binaryName)
 }
 
-// runCommand executes a command in the CLI.
-func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
-	version := command.version
-	if version == "" {
-		version = client.Cluster.Status.RunningVersion
-	}
-	if version == "" {
-		version = client.Cluster.Spec.Version
-	}
-
-	binaryName := command.binary
-	if binaryName == "" {
-		binaryName = fdbcliStr
-	}
-
-	binary := getBinaryPath(binaryName, version)
-	hardTimeout := command.getTimeout()
-	args := make([]string, 0, 9)
-	args = append(args, command.args...)
+func (client *cliAdminClient) getArgsAndTimeout(command cliCommand) ([]string, time.Duration) {
+	args := make([]string, len(command.args))
+	copy(args, command.args)
 	if len(args) == 0 {
 		args = append(args, "--exec", command.command)
 	}
 
 	args = append(args, command.getClusterFileFlag(), client.clusterFilePath, "--log")
 	// We only want to pass the knobs to fdbbackup and fdbrestore
-	if binaryName != fdbcliStr {
+	if command.isFdbCli() {
 		args = append(args, client.knobs...)
 	}
 
@@ -191,7 +217,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	if traceDir != "" {
 		args = append(args, "--log")
 
-		if binaryName == fdbcliStr {
+		if command.isFdbCli() {
 			format := os.Getenv("FDB_NETWORK_OPTION_TRACE_FORMAT")
 			if format == "" {
 				format = "xml"
@@ -199,28 +225,30 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 
 			args = append(args, "--trace_format", format)
 		}
-		if command.hasDashInLogDir() {
-			args = append(args, "--log-dir", traceDir)
-		} else {
-			args = append(args, "--logdir", traceDir)
-		}
+
+		args = append(args, command.getLogDirParameter(), traceDir)
 	}
 
+	hardTimeout := command.getTimeout()
 	if command.hasTimeoutArg() {
 		args = append(args, "--timeout", strconv.Itoa(int(command.getTimeout().Seconds())))
 		hardTimeout += command.getTimeout()
 	}
+
+	return args, hardTimeout
+}
+
+// runCommand executes a command in the CLI.
+func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
+	args, hardTimeout := client.getArgsAndTimeout(command)
 	timeoutContext, cancelFunction := context.WithTimeout(context.Background(), hardTimeout)
 	defer cancelFunction()
-	execCommand := exec.CommandContext(timeoutContext, binary, args...)
 
-	client.log.Info("Running command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "path", execCommand.Path, "args", execCommand.Args)
-
-	output, err := execCommand.CombinedOutput()
+	output, err := client.cmdRunner.runCommand(timeoutContext, getBinaryPath(command.getBinary(), command.getVersion(client.Cluster)), args...)
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			client.log.Error(exitError, "Error from FDB command", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
+			client.log.Error(exitError, "Error from FDB command", "code", exitError.ProcessState.ExitCode(), "stdout", string(output), "stderr", string(exitError.Stderr))
 		}
 
 		// If we hit a timeout report it as a timeout error
@@ -241,7 +269,7 @@ func (client *cliAdminClient) runCommand(command cliCommand) (string, error) {
 	} else {
 		debugOutput = outputString
 	}
-	client.log.Info("Command completed", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "output", debugOutput)
+	client.log.Info("Command completed", "output", debugOutput)
 
 	return outputString, nil
 }
@@ -523,7 +551,6 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 
 	exclusions := getRemainingAndExcludedFromStatus(status, addresses)
 	client.log.Info("Filtering excluded processes",
-		"namespace", client.Cluster.Namespace,
 		"cluster", client.Cluster.Name,
 		"inProgress", exclusions.inProgress,
 		"fullyExcluded", exclusions.fullyExcluded,
@@ -538,7 +565,7 @@ func (client *cliAdminClient) CanSafelyRemove(addresses []fdbv1beta2.ProcessAddr
 			return nil, err
 		}
 		exclusionResults := parseExclusionOutput(output)
-		client.log.Info("Checking exclusion results", "namespace", client.Cluster.Namespace, "cluster", client.Cluster.Name, "addresses", exclusions.inProgress, "results", exclusionResults)
+		client.log.Info("Checking exclusion results", "addresses", exclusions.inProgress, "results", exclusionResults)
 		for _, address := range exclusions.inProgress {
 			if exclusionResults[address.String()] != "Success" && exclusionResults[address.String()] != "Missing" {
 				exclusions.notExcluded = append(exclusions.notExcluded, address)
@@ -678,11 +705,8 @@ func (client *cliAdminClient) VersionSupported(versionString string) (bool, erro
 		return false, nil
 	}
 
-	_, err = os.Stat(getBinaryPath("fdbcli", versionString))
+	_, err = os.Stat(getBinaryPath(fdbcliStr, versionString))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return false, err
-		}
 		return false, err
 	}
 
@@ -706,10 +730,9 @@ func (client *cliAdminClient) GetProtocolVersion(version string) (string, error)
 	return protocolVersionMatch[1], nil
 }
 
-// StartBackup starts a new backup.
 func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"start",
 			"-d",
@@ -725,7 +748,7 @@ func (client *cliAdminClient) StartBackup(url string, snapshotPeriodSeconds int)
 // StopBackup stops a backup.
 func (client *cliAdminClient) StopBackup(_ string) error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"discontinue",
 		},
@@ -736,7 +759,7 @@ func (client *cliAdminClient) StopBackup(_ string) error {
 // PauseBackups pauses the backups.
 func (client *cliAdminClient) PauseBackups() error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"pause",
 		},
@@ -747,7 +770,7 @@ func (client *cliAdminClient) PauseBackups() error {
 // ResumeBackups resumes the backups.
 func (client *cliAdminClient) ResumeBackups() error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"resume",
 		},
@@ -758,7 +781,7 @@ func (client *cliAdminClient) ResumeBackups() error {
 // ModifyBackup updates the backup parameters.
 func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"modify",
 			"-s",
@@ -771,7 +794,7 @@ func (client *cliAdminClient) ModifyBackup(snapshotPeriodSeconds int) error {
 // GetBackupStatus gets the status of the current backup.
 func (client *cliAdminClient) GetBackupStatus() (*fdbv1beta2.FoundationDBLiveBackupStatus, error) {
 	statusString, err := client.runCommand(cliCommand{
-		binary: "fdbbackup",
+		binary: fdbbackupStr,
 		args: []string{
 			"status",
 			"--json",
@@ -815,7 +838,7 @@ func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.Fo
 		args = append(args, "-k", keyRangeString)
 	}
 	_, err := client.runCommand(cliCommand{
-		binary: "fdbrestore",
+		binary: fdbrestoreStr,
 		args:   args,
 	})
 	return err
@@ -824,7 +847,7 @@ func (client *cliAdminClient) StartRestore(url string, keyRanges []fdbv1beta2.Fo
 // GetRestoreStatus gets the status of the current restore.
 func (client *cliAdminClient) GetRestoreStatus() (string, error) {
 	return client.runCommand(cliCommand{
-		binary: "fdbrestore",
+		binary: fdbrestoreStr,
 		args: []string{
 			"status",
 		},

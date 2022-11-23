@@ -75,9 +75,9 @@ func getFDBDatabase(cluster *fdbv1beta2.FoundationDBCluster) (fdb.Database, erro
 }
 
 func getValueFromDBUsingKey(cluster *fdbv1beta2.FoundationDBCluster, log logr.Logger, fdbKey string, timeout time.Duration) ([]byte, error) {
-	log.Info("Fetch values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
+	log.Info("Fetch values from FDB", "key", fdbKey)
 	defer func() {
-		log.Info("Done fetching values from FDB", "namespace", cluster.Namespace, "cluster", cluster.Name, "key", fdbKey)
+		log.Info("Done fetching values from FDB", "key", fdbKey)
 	}()
 	database, err := getFDBDatabase(cluster)
 	if err != nil {

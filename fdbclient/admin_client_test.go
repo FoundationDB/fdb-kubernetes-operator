@@ -21,7 +21,13 @@
 package fdbclient
 
 import (
+	"errors"
 	"net"
+	"os"
+	"path"
+	"time"
+
+	"github.com/go-logr/logr"
 
 	fdbv1beta2 "github.com/FoundationDB/fdb-kubernetes-operator/api/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
@@ -196,5 +202,434 @@ var _ = Describe("admin_client_test", func() {
 				"fdb_cluster_52v1bpr8:rhUbBjrtyweZBQO1U3Td81zyP9d46yEh@100.82.81.253:4500:tls,100.82.71.5:4500:tls,100.82.119.151:4500:tls,100.82.122.125:4500:tls,100.82.76.240:4500:tls",
 			),
 		)
+	})
+
+	When("getting the log dir parameter", func() {
+		DescribeTable("it should return the correct format of the log dir paramater",
+			func(cmd cliCommand, expected string) {
+				Expect(cmd.getLogDirParameter()).To(Equal(expected))
+			},
+			Entry("no binary set",
+				cliCommand{
+					binary: "",
+				},
+				"--log-dir",
+			),
+			Entry("fdbcli binary set",
+				cliCommand{
+					binary: fdbcliStr,
+				},
+				"--log-dir",
+			),
+			Entry("fdbbackup binary set",
+				cliCommand{
+					binary: fdbbackupStr,
+				},
+				"--logdir",
+			),
+			Entry("fdbrestore binary set",
+				cliCommand{
+					binary: fdbrestoreStr,
+				},
+				"--logdir",
+			),
+		)
+	})
+
+	When("getting the binary name", func() {
+		DescribeTable("it should return the correct binary name",
+			func(cmd cliCommand, expected string) {
+				Expect(cmd.getBinary()).To(Equal(expected))
+			},
+			Entry("no binary set",
+				cliCommand{
+					binary: "",
+				},
+				fdbcliStr,
+			),
+			Entry("fdbcli binary set",
+				cliCommand{
+					binary: fdbcliStr,
+				},
+				fdbcliStr,
+			),
+			Entry("fdbbackup binary set",
+				cliCommand{
+					binary: fdbbackupStr,
+				},
+				fdbbackupStr,
+			),
+			Entry("fdbrestore binary set",
+				cliCommand{
+					binary: fdbrestoreStr,
+				},
+				fdbrestoreStr,
+			),
+		)
+	})
+
+	When("checking if the binary is fdbcli", func() {
+		DescribeTable("it should return the correct output",
+			func(cmd cliCommand, expected bool) {
+				Expect(cmd.isFdbCli()).To(Equal(expected))
+			},
+			Entry("no binary set",
+				cliCommand{
+					binary: "",
+				},
+				true,
+			),
+			Entry("fdbcli binary set",
+				cliCommand{
+					binary: fdbcliStr,
+				},
+				true,
+			),
+			Entry("fdbbackup binary set",
+				cliCommand{
+					binary: fdbbackupStr,
+				},
+				false,
+			),
+			Entry("fdbrestore binary set",
+				cliCommand{
+					binary: fdbrestoreStr,
+				},
+				false,
+			),
+		)
+	})
+
+	When("getting the version to run the command", func() {
+		DescribeTable("it should return the correct output",
+			func(cmd cliCommand, cluster *fdbv1beta2.FoundationDBCluster, expected string) {
+				Expect(cmd.getVersion(cluster)).To(Equal(expected))
+			},
+			Entry("version is set set",
+				cliCommand{
+					version: "7.1.15",
+				},
+				nil,
+				"7.1.15",
+			),
+			Entry("version is not set and running version is defined",
+				cliCommand{},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.1.25",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "7.1.15",
+					},
+				},
+				"7.1.15",
+			),
+			Entry("version is not set and running version is  not defined",
+				cliCommand{},
+				&fdbv1beta2.FoundationDBCluster{
+					Spec: fdbv1beta2.FoundationDBClusterSpec{
+						Version: "7.1.25",
+					},
+					Status: fdbv1beta2.FoundationDBClusterStatus{
+						RunningVersion: "",
+					},
+				},
+				"7.1.25",
+			),
+		)
+	})
+
+	When("getting the args for the command", func() {
+		var command cliCommand
+		var client *cliAdminClient
+		var args, expectedArgs []string
+		var timeout, expectedTimeout time.Duration
+
+		JustBeforeEach(func() {
+			Expect(client).NotTo(BeNil())
+			args, timeout = client.getArgsAndTimeout(command)
+			Expect(timeout).To(Equal(expectedTimeout))
+			Expect(args).To(ContainElements(expectedArgs))
+			Expect(len(args)).To(BeNumerically("==", len(expectedArgs)))
+		})
+
+		When("the used command defines args", func() {
+			BeforeEach(func() {
+				command = cliCommand{
+					args:    []string{"--version"},
+					version: "7.1.25",
+					timeout: 1 * time.Second,
+				}
+
+				client = &cliAdminClient{
+					Cluster:          nil,
+					clusterFilePath:  "test",
+					useClientLibrary: true,
+					log:              logr.Discard(),
+				}
+			})
+
+			When("trace options are disabled", func() {
+				BeforeEach(func() {
+					expectedTimeout = 2 * time.Second
+					expectedArgs = []string{
+						"--version",
+						"--timeout",
+						"1",
+					}
+				})
+			})
+		})
+
+		When("the used command is a fdbcli command", func() {
+			BeforeEach(func() {
+				command = cliCommand{
+					command: "maintenance off",
+					timeout: 1 * time.Second,
+				}
+
+				client = &cliAdminClient{
+					Cluster:          nil,
+					clusterFilePath:  "test",
+					useClientLibrary: true,
+					log:              logr.Discard(),
+				}
+			})
+
+			When("trace options are disabled", func() {
+				BeforeEach(func() {
+					expectedTimeout = 2 * time.Second
+					expectedArgs = []string{
+						"--exec",
+						"maintenance off",
+						"test",
+						"--timeout",
+						"1",
+					}
+				})
+			})
+
+			When("trace options are enabled", func() {
+				BeforeEach(func() {
+					GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_ENABLE", "/tmp")
+					expectedTimeout = 2 * time.Second
+					expectedArgs = []string{
+						"--exec",
+						"maintenance off",
+						"test",
+						"--log",
+						"--trace_format",
+						"xml",
+						"--log-dir",
+						"/tmp",
+						"--timeout",
+						"1",
+					}
+				})
+
+				When("a different trace format is defined", func() {
+					BeforeEach(func() {
+						GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", "json")
+						expectedTimeout = 2 * time.Second
+						expectedArgs = []string{
+							"--exec",
+							"maintenance off",
+							"test",
+							"--log",
+							"--trace_format",
+							"json",
+							"--log-dir",
+							"/tmp",
+							"--timeout",
+							"1",
+						}
+					})
+				})
+			})
+		})
+
+		When("the used command is a fdbrestore command", func() {
+			BeforeEach(func() {
+				command = cliCommand{
+					binary: fdbrestoreStr,
+					args: []string{
+						"status",
+					},
+					timeout: 1 * time.Second,
+				}
+
+				client = &cliAdminClient{
+					Cluster:          nil,
+					clusterFilePath:  "test",
+					useClientLibrary: true,
+					log:              logr.Discard(),
+				}
+			})
+
+			When("trace options are disabled", func() {
+				BeforeEach(func() {
+					expectedTimeout = 2 * time.Second
+					expectedArgs = []string{
+						"status",
+					}
+				})
+			})
+
+			When("trace options are enabled", func() {
+				BeforeEach(func() {
+					GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_ENABLE", "/tmp")
+					expectedTimeout = 2 * time.Second
+					expectedArgs = []string{
+						"status",
+						"--log",
+						"--trace_format",
+						"xml",
+						"--logdir",
+						"/tmp",
+					}
+				})
+
+				When("a different trace format is defined", func() {
+					BeforeEach(func() {
+						GinkgoT().Setenv("FDB_NETWORK_OPTION_TRACE_FORMAT", "json")
+						expectedTimeout = 2 * time.Second
+						expectedArgs = []string{
+							"status",
+							"--log",
+							"--trace_format",
+							"json",
+							"--logdir",
+							"/tmp",
+						}
+					})
+				})
+			})
+		})
+	})
+
+	When("getting the protocol version from fdbcli", func() {
+		var mockRunner *mockCommandRunner
+		var protocolVersion string
+		var err error
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster:          nil,
+				clusterFilePath:  "test",
+				useClientLibrary: true,
+				log:              logr.Discard(),
+				cmdRunner:        mockRunner,
+			}
+
+			protocolVersion, err = cliClient.GetProtocolVersion("7.1.21")
+		})
+
+		When("the fdbcli call returns the expected output", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: nil,
+					mockedOutput: `fdbcli --version
+FoundationDB CLI 7.1 (v7.1.21)
+source version e9f38c7169d21dde901b7b9408e1c5a8df182d64
+protocol fdb00b071010000`,
+				}
+			})
+
+			It("should report the protocol version", func() {
+				Expect(protocolVersion).To(Equal("fdb00b071010000"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+			})
+		})
+
+		When("an error is returned", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError: errors.New("boom"),
+					mockedOutput: `fdbcli --version
+FoundationDB CLI 7.1 (v7.1.21)
+source version e9f38c7169d21dde901b7b9408e1c5a8df182d64
+protocol fdb00b071010000`,
+				}
+			})
+
+			It("should report the error", func() {
+				Expect(protocolVersion).To(Equal(""))
+				Expect(err).To(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+			})
+		})
+
+		When("the protocol version is missing", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError:  errors.New("boom"),
+					mockedOutput: "",
+				}
+			})
+
+			It("should report the error", func() {
+				Expect(protocolVersion).To(Equal(""))
+				Expect(err).To(HaveOccurred())
+				Expect(mockRunner.receivedBinary).To(Equal("7.1/" + fdbcliStr))
+				Expect(mockRunner.receivedArgs).To(ContainElements("--version"))
+			})
+		})
+	})
+
+	When("validating if the version is supported", func() {
+		var mockRunner *mockCommandRunner
+		var supported bool
+		var err error
+
+		JustBeforeEach(func() {
+			cliClient := &cliAdminClient{
+				Cluster:          nil,
+				clusterFilePath:  "test",
+				useClientLibrary: true,
+				log:              logr.Discard(),
+				cmdRunner:        mockRunner,
+			}
+
+			supported, err = cliClient.VersionSupported(fdbv1beta2.Versions.Default.String())
+		})
+
+		When("the binary does not exist", func() {
+			BeforeEach(func() {
+				mockRunner = &mockCommandRunner{
+					mockedError:  nil,
+					mockedOutput: ``,
+				}
+			})
+
+			It("should return an error", func() {
+				Expect(supported).To(BeFalse())
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("the binary exists", func() {
+			BeforeEach(func() {
+				tmpDir := GinkgoT().TempDir()
+				GinkgoT().Setenv("FDB_BINARY_DIR", tmpDir)
+
+				binaryDir := path.Join(tmpDir, fdbv1beta2.Versions.Default.GetBinaryVersion())
+				Expect(os.MkdirAll(binaryDir, 0700)).NotTo(HaveOccurred())
+				_, err := os.Create(path.Join(binaryDir, fdbcliStr))
+				Expect(err).NotTo(HaveOccurred())
+
+				mockRunner = &mockCommandRunner{
+					mockedError:  nil,
+					mockedOutput: ``,
+				}
+			})
+
+			It("should return that the version is supported", func() {
+				Expect(supported).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
 	})
 })
