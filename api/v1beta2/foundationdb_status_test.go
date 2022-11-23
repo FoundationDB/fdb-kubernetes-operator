@@ -71,6 +71,7 @@ var _ = Describe("FoundationDBStatus", func() {
 				},
 				Cluster: FoundationDBStatusClusterInfo{
 					IncompatibleConnections: []string{},
+					ConnectionString:        "sample_cluster:JLjCjL6Vp3kWoIfHJeDZMhYqPBb1bIZr@10.1.38.94:4501,10.1.38.102:4501,10.1.38.104:4501",
 					FaultTolerance: FaultTolerance{
 						MaxZoneFailuresWithoutLosingAvailability: 1,
 						MaxZoneFailuresWithoutLosingData:         1,
@@ -464,6 +465,7 @@ var _ = Describe("FoundationDBStatus", func() {
 	When("parsing the status json with a 7.1.0-rc1 cluster", func() {
 		status := FoundationDBStatusClusterInfo{
 			IncompatibleConnections: []string{},
+			ConnectionString:        "test_cluster:aHeD9ocNXOUxi0dyzU3k7Bhg53SpyrBV@10.1.18.253:4501,10.1.18.254:4501,10.1.19.0:4501",
 			DatabaseConfiguration: DatabaseConfiguration{
 				RedundancyMode:  "double",
 				StorageEngine:   StorageEngineSSD2,

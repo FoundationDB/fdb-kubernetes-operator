@@ -27,6 +27,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+	"github.com/go-logr/logr"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/internal"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
@@ -64,14 +67,14 @@ var _ = Describe("Change coordinators", func() {
 	Describe("selectCoordinators", func() {
 		Context("with a single FDB cluster", func() {
 			var status *fdbv1beta2.FoundationDBStatus
-			var candidates []localityInfo
+			var candidates []locality.Info
 
 			JustBeforeEach(func() {
 				var err error
 				status, err = adminClient.GetStatus()
 				Expect(err).NotTo(HaveOccurred())
 
-				candidates, err = selectCoordinators(cluster, status)
+				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -171,7 +174,7 @@ var _ = Describe("Change coordinators", func() {
 					initialCandidates := candidates
 
 					for i := 0; i < 100; i++ {
-						newCandidates, err := selectCoordinators(cluster, status)
+						newCandidates, err := selectCoordinators(logr.Discard(), cluster, status)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(newCandidates).To(Equal(initialCandidates))
 					}
@@ -202,7 +205,7 @@ var _ = Describe("Change coordinators", func() {
 
 		When("Using a HA clusters", func() {
 			var status *fdbv1beta2.FoundationDBStatus
-			var candidates []localityInfo
+			var candidates []locality.Info
 			var excludes []string
 			var removals []string
 			var dcCnt int
@@ -211,7 +214,7 @@ var _ = Describe("Change coordinators", func() {
 
 			BeforeEach(func() {
 				// ensure a clean state
-				candidates = []localityInfo{}
+				candidates = []locality.Info{}
 				excludes = []string{}
 				removals = []string{}
 				shouldFail = false
@@ -229,7 +232,7 @@ var _ = Describe("Change coordinators", func() {
 				// generate status for 2 dcs and 1 sate
 				status.Cluster.Processes = generateProcessInfo(dcCnt, satCnt, excludes)
 
-				candidates, err = selectCoordinators(cluster, status)
+				candidates, err = selectCoordinators(logr.Discard(), cluster, status)
 				if shouldFail {
 					Expect(err).To(HaveOccurred())
 				} else {
@@ -401,7 +404,7 @@ var _ = Describe("Change coordinators", func() {
 						initialCandidates := candidates
 
 						for i := 0; i < 100; i++ {
-							newCandidates, err := selectCoordinators(cluster, status)
+							newCandidates, err := selectCoordinators(logr.Discard(), cluster, status)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(newCandidates).To(Equal(initialCandidates))
 						}
@@ -599,109 +602,11 @@ var _ = Describe("Change coordinators", func() {
 						initialCandidates := candidates
 
 						for i := 0; i < 100; i++ {
-							newCandidates, err := selectCoordinators(cluster, status)
+							newCandidates, err := selectCoordinators(logr.Discard(), cluster, status)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(newCandidates).To(Equal(initialCandidates))
 						}
 					})
-				})
-			})
-		})
-
-		// TODO add test case for multi KC
-
-		When("Sorting the localities", func() {
-			var localities []localityInfo
-
-			BeforeEach(func() {
-				localities = []localityInfo{
-					{
-						ID:    "storage-1",
-						Class: fdbv1beta2.ProcessClassStorage,
-					},
-					{
-						ID:    "tlog-1",
-						Class: fdbv1beta2.ProcessClassTransaction,
-					},
-					{
-						ID:    "log-1",
-						Class: fdbv1beta2.ProcessClassLog,
-					},
-					{
-						ID:    "storage-51",
-						Class: fdbv1beta2.ProcessClassStorage,
-					},
-				}
-			})
-
-			When("no other preferences are defined", func() {
-				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{}
-				})
-
-				It("should sort the localities based on the IDs", func() {
-					sortLocalities(cluster, localities)
-
-					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[0].ID).To(Equal("log-1"))
-					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[1].ID).To(Equal("storage-1"))
-					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[2].ID).To(Equal("storage-51"))
-					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
-					Expect(localities[3].ID).To(Equal("tlog-1"))
-				})
-			})
-
-			When("when the storage class is preferred", func() {
-				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
-						{
-							ProcessClass: fdbv1beta2.ProcessClassStorage,
-							Priority:     0,
-						},
-					}
-				})
-
-				It("should sort the localities based on the provided config", func() {
-					sortLocalities(cluster, localities)
-
-					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[0].ID).To(Equal("storage-1"))
-					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[1].ID).To(Equal("storage-51"))
-					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[2].ID).To(Equal("log-1"))
-					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
-					Expect(localities[3].ID).To(Equal("tlog-1"))
-				})
-			})
-
-			When("when the storage class is preferred over transaction class", func() {
-				BeforeEach(func() {
-					cluster.Spec.CoordinatorSelection = []fdbv1beta2.CoordinatorSelectionSetting{
-						{
-							ProcessClass: fdbv1beta2.ProcessClassStorage,
-							Priority:     1,
-						},
-						{
-							ProcessClass: fdbv1beta2.ProcessClassTransaction,
-							Priority:     0,
-						},
-					}
-				})
-
-				It("should sort the localities based on the provided config", func() {
-					sortLocalities(cluster, localities)
-
-					Expect(localities[0].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[0].ID).To(Equal("storage-1"))
-					Expect(localities[1].Class).To(Equal(fdbv1beta2.ProcessClassStorage))
-					Expect(localities[1].ID).To(Equal("storage-51"))
-					Expect(localities[2].Class).To(Equal(fdbv1beta2.ProcessClassTransaction))
-					Expect(localities[2].ID).To(Equal("tlog-1"))
-					Expect(localities[3].Class).To(Equal(fdbv1beta2.ProcessClassLog))
-					Expect(localities[3].ID).To(Equal("log-1"))
 				})
 			})
 		})

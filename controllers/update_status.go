@@ -26,6 +26,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/FoundationDB/fdb-kubernetes-operator/internal/locality"
+
 	"github.com/FoundationDB/fdb-kubernetes-operator/pkg/podmanager"
 	"github.com/go-logr/logr"
 
@@ -81,6 +83,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 
 		databaseStatus, err = adminClient.GetStatus()
 		_ = adminClient.Close()
+
 		if err != nil {
 			if cluster.Status.Configured {
 				return &requeue{curError: err, delayedRequeue: true}
@@ -220,7 +223,7 @@ func (updateStatus) reconcile(ctx context.Context, r *FoundationDBClusterReconci
 			coordinatorStatus[coordinator.Address.String()] = false
 		}
 
-		coordinatorsValid, _, err := checkCoordinatorValidity(cluster, databaseStatus, coordinatorStatus)
+		coordinatorsValid, _, err := locality.CheckCoordinatorValidity(logger, cluster, databaseStatus, coordinatorStatus)
 		if err != nil {
 			return &requeue{curError: err, delayedRequeue: true}
 		}
@@ -321,16 +324,15 @@ func tryConnectionOptions(cluster *fdbv1beta2.FoundationDBCluster, r *Foundation
 		logger.Info("Attempting to get connection string from cluster", "connectionString", connectionString)
 		cluster.Status.ConnectionString = connectionString
 		adminClient, clientErr := r.getDatabaseClientProvider().GetAdminClient(cluster, r)
-
 		if clientErr != nil {
 			return originalConnectionString, clientErr
 		}
 
 		activeConnectionString, err := adminClient.GetConnectionString()
 
-		clientErr = adminClient.Close()
-		if clientErr != nil {
-			logger.V(1).Info("Could not close admin client")
+		closeErr := adminClient.Close()
+		if closeErr != nil {
+			logger.V(1).Info("Could not close admin client", "error", closeErr)
 		}
 
 		if err == nil {

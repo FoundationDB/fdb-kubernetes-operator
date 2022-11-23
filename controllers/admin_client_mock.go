@@ -123,6 +123,7 @@ func (client *mockAdminClient) GetStatus() (*fdbv1beta2.FoundationDBStatus, erro
 	var coordinatorAddresses []string
 	if strings.Contains(client.Cluster.Status.ConnectionString, "@") {
 		coordinatorAddresses = strings.Split(strings.Split(client.Cluster.Status.ConnectionString, "@")[1], ",")
+		status.Cluster.ConnectionString = client.Cluster.Status.ConnectionString
 	} else {
 		coordinatorAddresses = []string{}
 	}
